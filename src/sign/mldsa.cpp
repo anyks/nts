@@ -64,6 +64,36 @@
 #if defined(__ANTS_KECCAK_X4__) && defined(__x86_64__)
 	#include <sys/machine.hpp>
 #endif
+/**
+ * Векторные команды под арифметику NTT: SSE2 на x86-64 (есть на всякой x86-64) и NEON
+ * на ARM64 (вечно доступно на этой архитектуре) - четыре 32-разрядных места в одном
+ * регистре, обе ветви идут через одну прослойку (vec_t и v-функции ниже); Эльбрусу
+ * и MSVC остаётся переносимый путь без векторных слоёв
+ */
+#if defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+	#include <emmintrin.h>
+	/**
+	 * Признаки векторного пути: команды SSE2
+	 */
+	#define __ANTS_MLDSA_SSE2__
+	/**
+	 * Признак общего векторного пути
+	 */
+	#define __ANTS_MLDSA_VECTOR__
+/**
+ * Ветвь NEON на ARM64
+ */
+#elif defined(__aarch64__) && defined(__ARM_NEON) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+	#include <arm_neon.h>
+	/**
+	 * Признаки векторного пути: команды NEON
+	 */
+	#define __ANTS_MLDSA_NEON__
+	/**
+	 * Признак общего векторного пути
+	 */
+	#define __ANTS_MLDSA_VECTOR__
+#endif
 
 /**
  * @brief Служебные объекты модуля
@@ -126,31 +156,37 @@ namespace {
 	static_assert((static_cast <uint64_t> (Q) * QINV) % (static_cast <uint64_t> (1) << 32) == 1, "QINV должен быть обратным к q по модулю 2^32");
 
 	/**
-	 * @brief Функция приведения Монтгомери
-	 *
-	 * @param value значение меньше q · 2^32
-	 * @return      приведённое value · 2⁻³² mod q в [−q, q]
-	 *
+	 * Скалярное умножение Монтгомери нужно лишь переносимому пути: векторный путь
+	 * несёт собственное ядро vmultiply над четырьмя местами
 	 */
-	static inline int32_t reduce(const int64_t value) noexcept {
-		// Младшие 32 разряда произведения на q⁻¹ mod 2^32 обращают значение в кратное q
-		const int64_t word = static_cast <int32_t> (static_cast <uint32_t> (static_cast <uint64_t> (value) * QINV));
-		// Выводим приведённое значение: вычитаем кратное q и снимаем масштаб 2^32
-		return static_cast <int32_t> ((value - (word * static_cast <int64_t> (Q))) >> 32);
-	}
+	#if !defined(__ANTS_MLDSA_VECTOR__)
+		/**
+		 * @brief Функция приведения Монтгомери
+		 *
+		 * @param value значение меньше q · 2^32
+		 * @return      приведённое value · 2⁻³² mod q в [−q, q]
+		 *
+		 */
+		static inline int32_t reduce(const int64_t value) noexcept {
+			// Младшие 32 разряда произведения на q⁻¹ mod 2^32 обращают значение в кратное q
+			const int64_t word = static_cast <int32_t> (static_cast <uint32_t> (static_cast <uint64_t> (value) * QINV));
+			// Выводим приведённое значение: вычитаем кратное q и снимаем масштаб 2^32
+			return static_cast <int32_t> ((value - (word * static_cast <int64_t> (Q))) >> 32);
+		}
 
-	/**
-	 * @brief Функция умножения коэффициентов по модулю с приведением Монтгомери
-	 *
-	 * @param first  первый сомножитель
-	 * @param second второй сомножитель
-	 * @return       произведение по модулю в форме Монтгомери при second в ней
-	 *
-	 */
-	static inline int32_t multiply(const int32_t first, const int32_t second) noexcept {
-		// Выводим произведение с приведением Монтгомери
-		return reduce(static_cast <int64_t> (first) * second);
-	}
+		/**
+		 * @brief Функция умножения коэффициентов по модулю с приведением Монтгомери
+		 *
+		 * @param first  первый сомножитель
+		 * @param second второй сомножитель
+		 * @return       произведение по модулю в форме Монтгомери при second в ней
+		 *
+		 */
+		static inline int32_t multiply(const int32_t first, const int32_t second) noexcept {
+			// Выводим произведение с приведением Монтгомери
+			return reduce(static_cast <int64_t> (first) * second);
+		}
+	#endif
 
 	/**
 	 * @brief Вычисление обратного по простому модулю q возведением в степень при сборке
@@ -196,6 +232,20 @@ namespace {
 		// Множитель 2^56 mod q: снимает масштаб 256 обратного NTT и перевод 2⁻³² произведений
 		uint32_t factor;
 		/**
+		 * Хвостовые таблицы нужны лишь векторному пути: слои длины 2 и 1 идут сплавленным
+		 * проходом по восьмёркам коэффициентов, и степени лежат в порядке мест этого прохода
+		 */
+		#if defined(__ANTS_MLDSA_VECTOR__)
+			// Степени слоя длины 2 прямого NTT: по четыре на восьмёрку коэффициентов
+			uint32_t onward2[N / 2] = {};
+			// Степени слоя длины 1 прямого NTT
+			uint32_t onward1[N / 2] = {};
+			// Степени слоя длины 2 обратного NTT: задом наперёд со знаком минус
+			uint32_t back2[N / 2] = {};
+			// Степени слоя длины 1 обратного NTT
+			uint32_t back1[N / 2] = {};
+		#endif
+		/**
 		 * @brief Метод вычисления таблиц из определения стандарта
 		 *
 		 * @details ζ = 1753 примитивен из единицы степени 512 (ζ^256 ≡ −1 по q);
@@ -237,6 +287,29 @@ namespace {
 				scale = ((scale << 1) % Q);
 			// Запоминаем множитель 2^56 mod q
 			factor = static_cast <uint32_t> (scale);
+			/**
+			 * Заполняем хвостовые таблицы векторного пути: по четыре степени на восьмёрку коэффициентов
+			 */
+			#if defined(__ANTS_MLDSA_VECTOR__)
+				/**
+				 * Выполняем перебор восьмёрок коэффициентов
+				 */
+				for(size_t k = 0; k < (N / 8); k++){
+					/**
+					 * Выполняем перебор мест восьмёрки
+					 */
+					for(size_t lane = 0; lane < 4; lane++){
+						// Слой длины 2 прямого NTT: пара соседних участков делит степень
+						this->onward2[(4 * k) + lane] = this->forward[64 + (2 * k) + (lane / 2)];
+						// Слой длины 1 прямого NTT: четыре последовательных участка
+						this->onward1[(4 * k) + lane] = this->forward[128 + (4 * k) + lane];
+						// Слой длины 2 обратного NTT: степени задом наперёд со знаком минус
+						this->back2[(4 * k) + lane] = (Q - this->forward[127 - (2 * k) - (lane / 2)]);
+					// Слой длины 1 обратного NTT
+					this->back1[(4 * k) + lane] = (Q - this->forward[255 - (4 * k) - lane]);
+					}
+				}
+			#endif
 		}
 	};
 
@@ -248,37 +321,519 @@ namespace {
 	static_assert((static_cast <uint64_t> (ZETAS.factor) * 256) % Q == ((static_cast <uint64_t> (MONT) * MONT) % Q), "итоговый масштаб обратного NTT должен быть 2^56 mod q");
 
 	/**
+	 * Векторная прослойка над четырьмя 32-разрядными местами одного регистра
+	 */
+	#if defined(__ANTS_MLDSA_VECTOR__)
+		/**
+		 * Ветвь SSE2: вектор в 128 разрядов
+		 */
+		#if defined(__ANTS_MLDSA_SSE2__)
+			// Вектор в 128 разрядов
+			typedef __m128i vec_t;
+			/**
+			 * @brief Функция загрузки вектора коэффициентов
+			 *
+			 * @param data место четырёх коэффициентов
+			 * @return    вектор четырёх коэффициентов
+			 *
+			 */
+			static inline vec_t vload(const void * data) noexcept {
+				// Выводим вектор четырёх коэффициентов
+				return _mm_loadu_si128(reinterpret_cast <const __m128i *> (data));
+			}
+			/**
+			 * @brief Функция записи вектора коэффициентов
+			 *
+			 * @param result место четырёх коэффициентов
+			 * @param value  записываемый вектор
+			 *
+			 */
+			static inline void vstore(void * result, const vec_t value) noexcept {
+				// Записываем вектор четырёх коэффициентов
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (result), value);
+			}
+			/**
+			 * @brief Функция заполнения всех мест одним значением
+			 *
+			 * @param value значение всех мест
+			 * @return    вектор с заполненными местами
+			 *
+			 */
+			static inline vec_t vset32(const int32_t value) noexcept {
+				// Выводим вектор с заполненными местами
+				return _mm_set1_epi32(value);
+			}
+			/**
+			 * @brief Функция суммирования векторов
+			 *
+			 * @param first  первое слагаемое
+			 * @param second второе слагаемое
+			 * @return      суммы мест
+			 *
+			 */
+			static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept {
+				// Выводим суммы мест
+				return _mm_add_epi32(first, second);
+			}
+			/**
+			 * @brief Функция вычитания векторов
+			 *
+			 * @param first  уменьшаемое
+			 * @param second вычитаемое
+			 * @return      разности мест
+			 *
+			 */
+			static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept {
+				// Выводим разности мест
+				return _mm_sub_epi32(first, second);
+			}
+			/**
+			 * @brief Функция умножения Монтгомери четырёх пар мест
+			 *
+			 * @details Произведение мест - 64 разряда, множитель q⁻¹ mod 2³² обращает младшее
+			 *          слово произведения в кратное q, старшее слово разности произведения
+			 *          с этим кратным и есть итог в [−q, q]
+			 *
+			 * @param first  первый сомножитель
+			 * @param second второй сомножитель
+			 * @return      произведения мест с приведением Монтгомери
+			 *
+			 */
+			/**
+			 * @brief Функция знакового произведения чётных мест двух векторов
+			 *
+			 * @details SSE2 умеет умножать беззнаковые чётные места в 64 разряда: знаковое
+			 *          произведение выходит вычитанием поправки 2³²·(sₐ·uᵦ + sᵦ·uₐ), где
+			 *          s - знаковый разряд, а u - беззнаковый вид места
+			 *
+			 * @param first  первый сомножитель
+			 * @param second второй сомножитель
+			 * @return      произведения чётных мест в 64-разрядных половинах
+			 *
+			 */
+			static inline vec_t vmuls(const vec_t first, const vec_t second) noexcept {
+				// Нулевой вектор для расширения слов
+				const vec_t zero = _mm_setzero_si128();
+				// Беззнаковые произведения чётных мест
+				const vec_t product = _mm_mul_epu32(first, second);
+				// Поправка знака мест: знаковые маски заведуют чужими сомножителями
+				const vec_t sign = _mm_add_epi32(_mm_and_si128(_mm_srai_epi32(first, 31), second), _mm_and_si128(_mm_srai_epi32(second, 31), first));
+				// Поправка чётных мест в старшие слова 64-разрядных половин
+				const vec_t even = _mm_shuffle_epi32(sign, 0x08);
+				// Выводим знаковые произведения
+				return _mm_sub_epi64(product, _mm_slli_epi64(_mm_unpacklo_epi32(even, zero), 32));
+			}
+			/**
+			 * @brief Функция знакового произведения нечётных мест двух векторов
+			 *
+			 * @param first  первый сомножитель
+			 * @param second второй сомножитель
+			 * @return      произведения нечётных мест в 64-разрядных половинах
+			 *
+			 */
+			static inline vec_t vmulh(const vec_t first, const vec_t second) noexcept {
+				// Нечётные места на чётных позициях
+				const vec_t low = _mm_shuffle_epi32(first, 0x31);
+				// То же для второго сомножителя
+				const vec_t high = _mm_shuffle_epi32(second, 0x31);
+				// Выводим произведения чётных позиций переставленных векторов
+				return vmuls(low, high);
+			}
+			/**
+			 * @brief Функция умножения Монтгомери четырёх пар мест
+			 *
+			 * @details Произведение мест - 64 разряда, множитель q⁻¹ mod 2³² обращает младшее
+			 *          слово произведения в кратное q, старшее слово разности произведения
+			 *          с этим кратным и есть итог в [−q, q]. Младшие слова и множители
+			 *          перелагаются на чётные позиции перестановками 0x08 и 0x10 - их и
+			 *          берут произведения vmuls
+			 *
+			 * @param first  первый сомножитель
+			 * @param second второй сомножитель
+			 * @return      произведения мест с приведением Монтгомери
+			 *
+			 */
+			static inline vec_t vmultiply(const vec_t first, const vec_t second) noexcept {
+				// Произведения чётных мест
+				const vec_t t0 = vmuls(first, second);
+				// Произведения нечётных мест
+				const vec_t t1 = vmulh(first, second);
+				// Множитель q⁻¹ mod 2³² по всем местам
+				const vec_t inverse = vset32(static_cast <int32_t> (QINV));
+				// Модуль q по всем местам
+				const vec_t modulus = vset32(static_cast <int32_t> (Q));
+				// Младшие слова чётных произведений на чётных позициях
+				const vec_t w0 = _mm_shuffle_epi32(_mm_shuffle_epi32(t0, 0x08), 0x10);
+				// Младшие слова нечётных произведений
+				const vec_t w1 = _mm_shuffle_epi32(_mm_shuffle_epi32(t1, 0x08), 0x10);
+				// Множители, обращающие младшие слова чётных произведений в кратные q
+				const vec_t m0 = vmuls(w0, inverse);
+				// Множители нечётных произведений
+				const vec_t m1 = vmuls(w1, inverse);
+				// Кратные q чётных мест: младшие слова множителей на чётных позициях
+				const vec_t k0 = vmuls(_mm_shuffle_epi32(_mm_shuffle_epi32(m0, 0x08), 0x10), modulus);
+				// Кратные q нечётных мест
+				const vec_t k1 = vmuls(_mm_shuffle_epi32(_mm_shuffle_epi32(m1, 0x08), 0x10), modulus);
+				// Разности чётных произведений с кратными q: старшие слова и есть итог
+				const vec_t r0 = _mm_sub_epi64(t0, k0);
+				// Разности нечётных произведений
+				const vec_t r1 = _mm_sub_epi64(t1, k1);
+				// Собираем чётные и нечётные итоги в порядок мест
+				return _mm_unpacklo_epi32(_mm_shuffle_epi32(r0, 0x0D), _mm_shuffle_epi32(r1, 0x0D));
+			}
+			/**
+			 * @brief Функция сборки младших половин двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a0 a1 b0 b1]
+			 *
+			 */
+			static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept {
+				// Выводим младшие половины рядом
+				return _mm_unpacklo_epi64(first, second);
+			}
+			/**
+			 * @brief Функция сборки старших половин двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a2 a3 b2 b3]
+			 *
+			 */
+			static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
+				// Выводим старшие половины рядом
+				return _mm_unpackhi_epi64(first, second);
+			}
+			/**
+			 * @brief Функция сборки чётных мест двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a0 a2 b0 b2]
+			 *
+			 */
+			static inline vec_t vunzip32(const vec_t first, const vec_t second) noexcept {
+				// Выводим чётные места вперёд
+				return vlow64(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
+			}
+			/**
+			 * @brief Функция сборки нечётных мест двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a1 a3 b1 b3]
+			 *
+			 */
+			static inline vec_t vunzipOdd32(const vec_t first, const vec_t second) noexcept {
+				// Выводим нечётные места вперёд
+				return vhigh64(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
+			}
+			/**
+			 * @brief Функция переплетения младших пар мест двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a0 b0 a1 b1]
+			 *
+			 */
+			static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept {
+				// Выводим переплетение младших пар
+				return _mm_unpacklo_epi32(first, second);
+			}
+			/**
+			 * @brief Функция переплетения старших пар мест двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a2 b2 a3 b3]
+			 *
+			 */
+			static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
+				// Выводим переплетение старших пар
+				return _mm_unpackhi_epi32(first, second);
+			}
+		/**
+		 * Ветвь NEON: те же операции над 128-разрядными векторами ARM64
+		 */
+		#elif defined(__ANTS_MLDSA_NEON__)
+			/**
+			 * @brief Вектор в 128 разрядов: четыре 32-разрядных места (NEON)
+			 *
+			 */
+			typedef int32x4_t vec_t;
+			/**
+			 * @brief Функция загрузки вектора коэффициентов
+			 *
+			 * @param data место четырёх коэффициентов
+			 * @return    вектор четырёх коэффициентов
+			 *
+			 */
+			static inline vec_t vload(const void * data) noexcept {
+				// Выводим вектор четырёх коэффициентов
+				return vld1q_s32(static_cast <const int32_t *> (data));
+			}
+			/**
+			 * @brief Функция записи вектора коэффициентов
+			 *
+			 * @param result место четырёх коэффициентов
+			 * @param value  записываемый вектор
+			 *
+			 */
+			static inline void vstore(void * result, const vec_t value) noexcept {
+				// Записываем вектор четырёх коэффициентов
+				vst1q_s32(static_cast <int32_t *> (result), value);
+			}
+			/**
+			 * @brief Функция заполнения всех мест одним значением
+			 *
+			 * @param value значение всех мест
+			 * @return    вектор с заполненными местами
+			 *
+			 */
+			static inline vec_t vset32(const int32_t value) noexcept {
+				// Выводим вектор с заполненными местами
+				return vdupq_n_s32(value);
+			}
+			/**
+			 * @brief Функция суммирования векторов
+			 *
+			 * @param first  первое слагаемое
+			 * @param second второе слагаемое
+			 * @return      суммы мест
+			 *
+			 */
+			static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept {
+				// Выводим суммы мест
+				return vaddq_s32(first, second);
+			}
+			/**
+			 * @brief Функция вычитания векторов
+			 *
+			 * @param first  уменьшаемое
+			 * @param second вычитаемое
+			 * @return      разности мест
+			 *
+			 */
+			static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept {
+				// Выводим разности мест
+				return vsubq_s32(first, second);
+			}
+			/**
+			 * @brief Функция умножения Монтгомери четырёх пар мест
+			 *
+			 * @details Произведение мест - 64 разряда, множитель q⁻¹ mod 2³² обращает младшее
+			 *          слово произведения в кратное q, старшее слово разности произведения
+			 *          с этим кратным и есть итог в [−q, q]
+			 *
+			 * @param first  первый сомножитель
+			 * @param second второй сомножитель
+			 * @return      произведения мест с приведением Монтгомери
+			 *
+			 */
+			static inline vec_t vmultiply(const vec_t first, const vec_t second) noexcept {
+				// Произведения чётных мест
+				const int64x2_t t0 = vmull_s32(vget_low_s32(first), vget_low_s32(second));
+				// Произведения нечётных мест
+				const int64x2_t t1 = vmull_high_s32(first, second);
+				// Младшие слова чётных произведений
+				const int32x2_t w0 = vmovn_s64(t0);
+				// Младшие слова нечётных произведений
+				const int32x2_t w1 = vmovn_s64(t1);
+				// Множители, обращающие младшие слова чётных произведений в кратные q: младшие 32 разряда произведения
+				const int32x2_t m0 = vmul_s32(w0, vdup_n_s32(static_cast <int32_t> (QINV)));
+				// Множители нечётных произведений
+				const int32x2_t m1 = vmul_s32(w1, vdup_n_s32(static_cast <int32_t> (QINV)));
+				// Разности чётных произведений с кратными q: старшие слова и есть итог
+				const int64x2_t r0 = vsubq_s64(t0, vmull_s32(m0, vdup_n_s32(static_cast <int32_t> (Q))));
+				// Разности нечётных произведений
+				const int64x2_t r1 = vsubq_s64(t1, vmull_s32(m1, vdup_n_s32(static_cast <int32_t> (Q))));
+				// Собираем чётные и нечётные итоги в порядок мест
+				return vcombine_s32(vshrn_n_s64(r0, 32), vshrn_n_s64(r1, 32));
+			}
+			/**
+			 * @brief Функция сборки младших половин двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a0 a1 b0 b1]
+			 *
+			 */
+			static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept {
+				// Выводим младшие половины рядом
+				return vcombine_s32(vget_low_s32(first), vget_low_s32(second));
+			}
+			/**
+			 * @brief Функция сборки старших половин двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a2 a3 b2 b3]
+			 *
+			 */
+			static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
+				// Выводим старшие половины рядом
+				return vcombine_s32(vget_high_s32(first), vget_high_s32(second));
+			}
+			/**
+			 * @brief Функция сборки чётных мест двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a0 a2 b0 b2]
+			 *
+			 */
+			static inline vec_t vunzip32(const vec_t first, const vec_t second) noexcept {
+				// Выводим чётные места вперёд
+				return vuzp1q_s32(first, second);
+			}
+			/**
+			 * @brief Функция сборки нечётных мест двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a1 a3 b1 b3]
+			 *
+			 */
+			static inline vec_t vunzipOdd32(const vec_t first, const vec_t second) noexcept {
+				// Выводим нечётные места вперёд
+				return vuzp2q_s32(first, second);
+			}
+			/**
+			 * @brief Функция переплетения младших пар мест двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a0 b0 a1 b1]
+			 *
+			 */
+			static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept {
+				// Выводим переплетение младших пар
+				return vzip1q_s32(first, second);
+			}
+			/**
+			 * @brief Функция переплетения старших пар мест двух векторов
+			 *
+			 * @param first  первый вектор
+			 * @param second второй вектор
+			 * @return      вектор [a2 b2 a3 b3]
+			 *
+			 */
+			static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
+				// Выводим переплетение старших пар
+				return vzip2q_s32(first, second);
+			}
+		#endif
+	#endif
+
+	/**
 	 * @brief Функция прямого NTT многочлена
 	 *
 	 * @param poly многочлен, переводится в область NTT на месте
 	 *
 	 */
 	static void forward(int32_t * poly) noexcept {
-		// Позиция степени в таблице
-		size_t index = 0;
 		/**
-		 * Слои уменьшающейся длины: бабочка Кули-Тьюки без переноса между слоями
+		 * Векторный путь: слои длины от 128 до 4 идут целыми векторами внутри участков,
+		 * слои длины 2 и 1 - одним сплавленным проходом по восьмёркам коэффициентов
+		 * с перестановками половин и чётных мест
 		 */
-		for(size_t length = (N / 2); length > 0; length >>= 1){
+		#if defined(__ANTS_MLDSA_VECTOR__)
+			// Таблица степеней в векторном чтении
+			const int32_t * table = reinterpret_cast <const int32_t *> (ZETAS.forward);
+			// Место в таблице степеней
+			size_t index = 0;
 			/**
-			 * Выполняем перебор
+			 * Выполняем перебор слоёв длины от 128 до 4
 			 */
-			for(size_t start = 0; start < N; start += (2 * length)){
-				// Степень слоя
-				const int32_t zeta = static_cast <int32_t> (ZETAS.forward[++index]);
+			for(size_t length = (N / 2); length >= 4; length >>= 1){
+				/**
+				 * Выполняем перебор начал участков
+				 */
+				for(size_t start = 0; start < N; start += (2 * length)){
+					// Степень слоя по всем местам
+					const vec_t zeta = vset32(table[++index]);
+					/**
+					 * Выполняем перебор четвёрок пар участка
+					 */
+					for(size_t j = start; j < (start + length); j += 4){
+						// Произведение степени и вторых коэффициентов пар
+						const vec_t t = vmultiply(vload(poly + j + length), zeta);
+						// Первые коэффициенты пар
+						const vec_t u = vload(poly + j);
+						// Разности и суммы пар
+						vstore(poly + j + length, vsub32(u, t));
+						vstore(poly + j, vadd32(u, t));
+					}
+				}
+			}
+			/**
+			 * Выполняем сплавленный проход по восьмёркам коэффициентов: слои длины 2 и 1
+			 */
+			for(size_t i = 0, m = 0; i < N; i += 8, m += 4){
+				// Первый вектор четырёх коэффициентов
+				const vec_t a = vload(poly + i);
+				// Второй вектор четырёх коэффициентов
+				const vec_t b = vload(poly + i + 4);
+				// Слой длины 2: первые пары четвёрок против вторых
+				vec_t low = vlow64(a, b);
+				// Старшие половины двух векторов
+				vec_t high = vhigh64(a, b);
+				// Произведения степеней и вторых пар
+				vec_t t = vmultiply(high, vload(ZETAS.onward2 + m));
+				// Разности пар
+				high = vsub32(low, t);
+				// Суммы пар
+				low = vadd32(low, t);
+				// Порядок памяти восьмёрки: младшие половины
+				const vec_t m0 = vlow64(low, high);
+				// Порядок памяти восьмёрки: старшие половины
+				const vec_t m1 = vhigh64(low, high);
+				// Чётные места восьмёрки
+				const vec_t even = vunzip32(m0, m1);
+				// Нечётные места восьмёрки
+				const vec_t odd = vunzipOdd32(m0, m1);
+				// Слой длины 1: произведения степеней и нечётных мест
+				t = vmultiply(odd, vload(ZETAS.onward1 + m));
+				// Суммы чётных мест
+				low = vadd32(even, t);
+				// Разности чётных мест
+				high = vsub32(even, t);
+				// Записываем младшую половину восьмёрки в порядок коэффициентов
+				vstore(poly + i, vlow32(low, high));
+				// Записываем старшую половину восьмёрки
+				vstore(poly + i + 4, vhigh32(low, high));
+			}
+		/**
+		 * Переносимый путь
+		 */
+		#else
+			// Позиция степени в таблице
+			size_t index = 0;
+			/**
+			 * Слои уменьшающейся длины: бабочка Кули-Тьюки без переноса между слоями
+			 */
+			for(size_t length = (N / 2); length > 0; length >>= 1){
 				/**
 				 * Выполняем перебор
 				 */
-				for(size_t i = start; i < (start + length); i++){
-					// Произведение пары на степень слоя
-					const int32_t term = multiply(zeta, poly[i + length]);
-					// Бабочка Кули-Тьюки: нижняя половина пары теряет произведение
-					poly[i + length] = (poly[i] - term);
-					// Верхняя половина пары наращивается произведением
-					poly[i] += term;
+				for(size_t start = 0; start < N; start += (2 * length)){
+					// Степень слоя
+					const int32_t zeta = static_cast <int32_t> (ZETAS.forward[++index]);
+					/**
+					 * Выполняем перебор
+					 */
+					for(size_t i = start; i < (start + length); i++){
+						// Произведение пары на степень слоя
+						const int32_t term = multiply(zeta, poly[i + length]);
+						// Бабочка Кули-Тьюки: нижняя половина пары теряет произведение
+						poly[i + length] = (poly[i] - term);
+						// Верхняя половина пары наращивается произведением
+						poly[i] += term;
+					}
 				}
 			}
-		}
+		#endif
 	}
 
 	/**
@@ -292,39 +847,121 @@ namespace {
 	 *
 	 */
 	static void backward(int32_t * poly) noexcept {
-		// Позиция степени в таблице
-		size_t index = N;
 		/**
-		 * Слои возрастающей длины: бабочка Джентльмена-Санда
+		 * Векторный путь: слои длины 1 и 2 идут одним сплавленным проходом по восьмёркам
+		 * коэффициентов, слои длины от 4 до 128 - целыми векторами внутри участков,
+		 * итоговый масштаб снимается векторным умножением
 		 */
-		for(size_t length = 1; length < N; length <<= 1){
+		#if defined(__ANTS_MLDSA_VECTOR__)
+			// Таблица степеней в векторном чтении
+			const int32_t * table = reinterpret_cast <const int32_t *> (ZETAS.forward);
+			// Место в таблице степеней после хвостовых слоёв
+			size_t index = 64;
 			/**
-			 * Выполняем перебор
+			 * Выполняем сплавленный проход по восьмёркам коэффициентов: слои длины 1 и 2
 			 */
-			for(size_t start = 0; start < N; start += (2 * length)){
-				// Степень слоя из прямой таблицы задом наперёд
-				const int32_t zeta = (static_cast <int32_t> (Q) - static_cast <int32_t> (ZETAS.forward[--index]));
+			for(size_t i = 0, m = 0; i < N; i += 8, m += 4){
+				// Первый вектор четырёх коэффициентов
+				const vec_t a = vload(poly + i);
+				// Второй вектор четырёх коэффициентов
+				const vec_t b = vload(poly + i + 4);
+				// Слой длины 1: чётные места восьмёрки
+				const vec_t even = vunzip32(a, b);
+				// Нечётные места восьмёрки
+				const vec_t odd = vunzipOdd32(a, b);
+				// Суммы пар
+				vec_t sum = vadd32(even, odd);
+				// Разности пар
+				const vec_t difference = vsub32(even, odd);
+				// Произведения разностей на степени слоя
+				vec_t product = vmultiply(difference, vload(ZETAS.back1 + m));
+				// Порядок памяти восьмёрки: младшая половина вперемежку
+				vec_t low = vlow32(sum, product);
+				// Старшая половина восьмёрки
+				vec_t high = vhigh32(sum, product);
+				// Слой длины 2: первые пары четвёрок
+				const vec_t first = vlow64(low, high);
+				// Вторые пары четвёрок
+				const vec_t second = vhigh64(low, high);
+				// Суммы пар слоя
+				sum = vadd32(first, second);
+				// Разности пар слоя
+				const vec_t spread = vsub32(first, second);
+				// Произведения разностей на степени слоя
+				product = vmultiply(spread, vload(ZETAS.back2 + m));
+				// Записываем младшую половину восьмёрки в порядок коэффициентов
+				vstore(poly + i, vlow64(sum, product));
+				// Записываем старшую половину восьмёрки
+				vstore(poly + i + 4, vhigh64(sum, product));
+			}
+			/**
+			 * Выполняем перебор слоёв длины от 4 до 128
+			 */
+			for(size_t length = 4; length < N; length <<= 1){
+				/**
+				 * Выполняем перебор начал участков
+				 */
+				for(size_t start = 0; start < N; start += (2 * length)){
+					// Степень слоя задом наперёд со знаком минус
+					const vec_t zeta = vset32(static_cast <int32_t> (Q) - table[--index]);
+					/**
+					 * Выполняем перебор четвёрок пар участка
+					 */
+					for(size_t j = start; j < (start + length); j += 4){
+						// Пара коэффициентов
+						const vec_t u = vload(poly + j), v = vload(poly + j + length);
+						// Бабочка Джентльмена-Санда: сумма вперёд, разность к степени
+						vstore(poly + j, vadd32(u, v));
+						vstore(poly + j + length, vmultiply(vsub32(u, v), zeta));
+					}
+				}
+			}
+			// Итоговый масштаб 2^56 по всем коэффициентам
+			const vec_t scale = vset32(static_cast <int32_t> (ZETAS.factor));
+			/**
+			 * Выполняем перебор четвёрок коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 4)
+				// Коэффициент снимает масштаб 256 и переводит произведение из формы Монтгомери
+				vstore(poly + i, vmultiply(vload(poly + i), scale));
+		/**
+		 * Переносимый путь
+		 */
+		#else
+			// Позиция степени в таблице
+			size_t index = N;
+			/**
+			 * Слои возрастающей длины: бабочка Джентльмена-Санда
+			 */
+			for(size_t length = 1; length < N; length <<= 1){
 				/**
 				 * Выполняем перебор
 				 */
-				for(size_t i = start; i < (start + length); i++){
-					// Сумма пары и произведение разности на степень слоя
-					const int32_t term = poly[i];
-					// Бабочка Джентльмена-Санда: верхняя половина пары есть сумма
-					poly[i] = (term + poly[i + length]);
-					// Нижняя половина пары есть разность
-					poly[i + length] = (term - poly[i + length]);
-					// Разность приводится к степени слоя
-					poly[i + length] = multiply(zeta, poly[i + length]);
+				for(size_t start = 0; start < N; start += (2 * length)){
+					// Степень слоя из прямой таблицы задом наперёд
+					const int32_t zeta = (static_cast <int32_t> (Q) - static_cast <int32_t> (ZETAS.forward[--index]));
+					/**
+					 * Выполняем перебор
+					 */
+					for(size_t i = start; i < (start + length); i++){
+						// Сумма пары и произведение разности на степень слоя
+						const int32_t term = poly[i];
+						// Бабочка Джентльмена-Санда: верхняя половина пары есть сумма
+						poly[i] = (term + poly[i + length]);
+						// Нижняя половина пары есть разность
+						poly[i + length] = (term - poly[i + length]);
+						// Разность приводится к степени слоя
+						poly[i + length] = multiply(zeta, poly[i + length]);
+					}
 				}
 			}
-		}
-		/**
-		 * Итоговый масштаб 2^56: 256⁻¹ с переводом произведений из формы 2⁻³² в обычную
-		 */
-		for(size_t i = 0; i < N; i++)
-			// Коэффициент снимает масштаб 256 и переводит произведение из формы Монтгомери
-			poly[i] = multiply(static_cast <int32_t> (ZETAS.factor), poly[i]);
+			/**
+			 * Итоговый масштаб 2^56: 256⁻¹ с переводом произведений из формы 2⁻³² в обычную
+			 */
+			for(size_t i = 0; i < N; i++)
+				// Коэффициент снимает масштаб 256 и переводит произведение из формы Монтгомери
+				poly[i] = multiply(static_cast <int32_t> (ZETAS.factor), poly[i]);
+		#endif
 	}
 
 	/**
@@ -337,11 +974,26 @@ namespace {
 	 */
 	static void pointwise(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
-		 * Выполняем перебор
+		 * Векторный путь: произведения четвёрок коэффициентов разом
 		 */
-		for(size_t i = 0; i < N; i++)
-			// Произведение коэффициентов в области NTT
-			result[i] = multiply(first[i], second[i]);
+		#if defined(__ANTS_MLDSA_VECTOR__)
+			/**
+			 * Выполняем перебор четвёрок коэффициентов
+			 */
+			for(size_t i = 0; i < N; i += 4)
+				// Произведение коэффициентов в области NTT
+				vstore(result + i, vmultiply(vload(first + i), vload(second + i)));
+		/**
+		 * Переносимый путь
+		 */
+		#else
+			/**
+			 * Выполняем перебор коэффициентов
+			 */
+			for(size_t i = 0; i < N; i++)
+				// Произведение коэффициентов в области NTT
+				result[i] = multiply(first[i], second[i]);
+		#endif
 	}
 
 	/**
