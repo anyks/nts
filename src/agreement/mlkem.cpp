@@ -452,6 +452,25 @@ namespace {
 		size_t dv;
 	} sample_t;
 	/**
+	 * @brief Слот кеша развёрнутой матрицы
+	 *
+	 * @details Матрица A выводится из публичного зерна ρ ключа инкапсуляции и секрета
+	 *          не содержит, поэтому её разворот держится по одному слоту на поток:
+	 *          повторные шифрования того же ключа берут готовые многочлены вместо
+	 *          новых выборок SHAKE128. Элемент A[x][y] лежит на месте (x * K) + y -
+	 *          шаг K постоянен при любой размерности, и слот большего набора годится
+	 *          меньшему без перезаполнения
+	 *
+	 */
+	typedef struct Matrix {
+		// Зерно развёрнутой матрицы
+		uint8_t seed[SEED];
+		// Размерность, до которой развёрнута матрица
+		size_t k;
+		// Многочлены матрицы: элемент A[x][y] на месте (x * K) + y
+		poly_t items[K * K];
+	} matrix_t;
+	/**
 	 * @brief Функция получения описания набора параметров
 	 *
 	 * @param kem набор параметров
@@ -1872,6 +1891,75 @@ namespace {
 		hash.finish(result, 64);
 	}
 	/**
+	 * @brief Функция получения развёрнутой матрицы набора
+	 *
+	 * @details При совпадении зерна и достаточной размерности слот отдаётся как есть,
+	 *          иначе строки разворачиваются заново выборками SHAKE128: скалярными либо
+	 *          параллельным ядром, как и до кеша
+	 *
+	 * @param sample описание набора
+	 * @param rho    зерно матрицы
+	 * @return       место k² многочленов матрицы A по строкам
+	 *
+	 */
+	static const poly_t * expanded(const sample_t & sample, const uint8_t * rho) noexcept {
+		// Слот кеша матрицы потока
+		static thread_local matrix_t cache;
+		// Если матрица того же зерна развёрнута до нужной размерности
+		if((cache.k >= sample.k) && (::memcmp(cache.seed, rho, SEED) == 0))
+			// Выводим развёрнутую матрицу
+			return cache.items;
+		/**
+		 * Если параллельное ядро губок готово и набор полон, строки выбираются четырьмя губками разом
+		 */
+		#if defined(__ANTS_KECCAK_X4__)
+			// Если строки полны и параллельное ядро готово
+			if((sample.k == K) && sponges4()){
+				/**
+				 * Выполняем разворот строк матрицы
+				 */
+				for(size_t x = 0; x < K; x++){
+					// Пары индексов губок: зерно || столбец y || строка x
+					uint8_t indices[K][2];
+					/**
+					 * Заполняем пары индексов
+					 */
+					for(size_t y = 0; y < K; y++){
+						// Первый индекс пары
+						indices[y][0] = static_cast <uint8_t> (y);
+						// Второй индекс пары
+						indices[y][1] = static_cast <uint8_t> (x);
+					}
+					// Выбираем строку из четырёх многочленов разом
+					sampling4(rho, indices, cache.items + (x * K));
+				}
+				// Запоминаем зерно развёрнутой матрицы
+				::memcpy(cache.seed, rho, SEED);
+				// Запоминаем размерность разворота
+				cache.k = sample.k;
+				// Выводим развёрнутую матрицу
+				return cache.items;
+			}
+		#endif
+		/**
+		 * Выполняем разворот строк матрицы по одному элементу
+		 */
+		for(size_t x = 0; x < sample.k; x++){
+			/**
+			 * Выполняем перебор столбцов строки
+			 */
+			for(size_t y = 0; y < sample.k; y++)
+				// Выбираем элемент матрицы
+				sampling(rho, static_cast <uint8_t> (x), static_cast <uint8_t> (y), cache.items[(x * K) + y]);
+		}
+		// Запоминаем зерно развёрнутой матрицы
+		::memcpy(cache.seed, rho, SEED);
+		// Запоминаем размерность разворота
+		cache.k = sample.k;
+		// Выводим развёрнутую матрицу
+		return cache.items;
+	}
+	/**
 	 * @brief Функция шифрования K-PKE
 	 *
 	 * @param sample описание набора
@@ -1953,39 +2041,12 @@ namespace {
 		#endif
 		// Вектор u
 		poly_t u[K];
+		// Развёрнутая матрица A: строка i произведения берёт элементы A[j][i]
+		const poly_t * matrix = expanded(sample, rho);
 		/**
 		 * Выполняем вычисление u = A^T r + e1
 		 */
 		for(size_t i = 0; i < sample.k; i++){
-			// Элементы строки A^T: многочлены A[j][i]
-			poly_t a[K];
-			#if defined(__ANTS_KECCAK_X4__)
-				// Если параллельное ядро губок готово
-				if((sample.k == K) && sponges4()){
-					// Пары индексов губок: зерно || колонка i || строка j
-					uint8_t indices[K][2];
-					/**
-					 * Заполняем пары индексов
-					 */
-					for(size_t j = 0; j < K; j++){
-						// Первый индекс пары
-						indices[j][0] = static_cast <uint8_t> (i);
-						// Второй индекс пары
-						indices[j][1] = static_cast <uint8_t> (j);
-					}
-					// Выбираем четыре элемента разом
-					sampling4(rho, indices, a);
-				} else {
-			#endif
-				/**
-				 * Выполняем перебор столбцов
-				 */
-				for(size_t j = 0; j < sample.k; j++)
-					// Выбираем элемент транспонированной матрицы
-					sampling(rho, static_cast <uint8_t> (j), static_cast <uint8_t> (i), a[j]);
-			#if defined(__ANTS_KECCAK_X4__)
-				}
-			#endif
 			// Накопитель произведений
 			wide_t wide;
 			// Обнуляем накопитель
@@ -1994,8 +2055,8 @@ namespace {
 			 * Выполняем перебор столбцов
 			 */
 			for(size_t j = 0; j < sample.k; j++)
-				// Накапливаем произведение
-				multiply(a[j], r[j], wide);
+				// Накапливаем произведение элемента A[j][i] на r[j]
+				multiply(matrix[(j * K) + i], r[j], wide);
 			// Приводим накопитель
 			settle(wide, u[i]);
 			// Переводим из области NTT
@@ -2274,6 +2335,8 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	#endif
 	// Длина ключа инкапсуляции
 	const size_t length = encapsulation(kem);
+	// Развёрнутая матрица A: строка i произведения берёт элементы A[i][j]
+	const poly_t * matrix = expanded(sample, rho);
 	/**
 	 * Выполняем вычисление t = A s + e
 	 */
@@ -2282,35 +2345,6 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		poly_t t = noises[i];
 		// Переводим шум в область NTT
 		forward(t);
-		// Элементы строки матрицы A: многочлены A[i][j]
-		poly_t a[K];
-		#if defined(__ANTS_KECCAK_X4__)
-			// Если параллельное ядро губок готово
-			if((sample.k == K) && sponges4()){
-				// Пары индексов губок: зерно || колонка j || строка i
-				uint8_t indices[K][2];
-				/**
-				 * Заполняем пары индексов
-				 */
-				for(size_t j = 0; j < K; j++){
-					// Первый индекс пары
-					indices[j][0] = static_cast <uint8_t> (j);
-					// Второй индекс пары
-					indices[j][1] = static_cast <uint8_t> (i);
-				}
-				// Выбираем четыре элемента разом
-				sampling4(rho, indices, a);
-			} else {
-		#endif
-			/**
-			 * Выполняем перебор столбцов
-			 */
-			for(size_t j = 0; j < sample.k; j++)
-				// Выбираем элемент матрицы
-				sampling(rho, static_cast <uint8_t> (i), static_cast <uint8_t> (j), a[j]);
-		#if defined(__ANTS_KECCAK_X4__)
-			}
-		#endif
 		// Накопитель произведений строки
 		wide_t wide;
 		// Обнуляем накопитель
@@ -2319,8 +2353,8 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		 * Выполняем перебор столбцов
 		 */
 		for(size_t j = 0; j < sample.k; j++)
-			// Накапливаем произведение
-			multiply(a[j], prepared[j], wide);
+			// Накапливаем произведение элемента A[i][j] на s[j]
+			multiply(matrix[(i * K) + j], prepared[j], wide);
 		// Произведение строки на секрет
 		poly_t product;
 		// Приводим накопитель
@@ -2335,7 +2369,7 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		encode(t, key + (i * POLY));
 		// Записываем многочлен s_i в ключ декапсуляции
 		encode(s[i], secret + (i * POLY));
-		// Выполняем затирание шума и строки матрицы
+		// Выполняем затирание шума
 		wipe(noises[i].values, sizeof(noises[i].values));
 	}
 	// Записываем зерно ρ в ключ инкапсуляции
