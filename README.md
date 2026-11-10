@@ -2,365 +2,319 @@
 
 # ANYKS - Network Transport Security (A-NTS)
 
-English version: [README.en.md](README.en.md)
+Русская версия: [README.md](README.md)
 
 [![LicenseRef-A-NTS-1.0](https://img.shields.io/badge/license-A--NTS%201.0-blue.svg)](LICENSE)
 
-Криптографическая библиотека и реализация TLS на C++ — самостоятельный проект,
-не зависящий ни от какого стороннего криптографического кода.
+A cryptographic library and a TLS implementation in C++ — a standalone project that
+depends on no third-party cryptographic code whatsoever.
 
-## Назначение
+## Purpose
 
-Библиотека пишется с листа по текстам стандартов, а не порождается форком OpenSSL
-или BoringSSL. Сторонние реализации привлекаются только как эталон для сличения:
-по ним проверяется совпадение результата, из них не заимствуется код.
+The library is written from scratch by the texts of the standards, not derived as a fork of
+OpenSSL or BoringSSL. Third-party implementations are involved only as a reference for
+comparison: the results are checked against them for equality, no code is borrowed from them.
 
-Основания выбора:
+Grounds for the choice:
 
-* **Своё владение кодом.** Производная от чужой библиотеки наследует и чужие
-  решения, и чужую ответственность за них.
-* **Сборка без чужой оснастки.** У OpenSSL в основании сборки лежит Perl, у
-  BoringSSL — Go и свой CMake. Здесь нет ни того, ни другого: проект собирается
-  одним CMake и одним собирателем C++.
-* **Переносимость.** Целевая матрица совпадает с матрицей AWH: macOS, FreeBSD,
-  NetBSD, OpenBSD, Solaris, illumos, Linux и MinGW на x86-64 и ARM64.
-* **C++ вместо Си.** Владение временем жизни, просмотры вместо пары «указатель и
-  длина», тип вместо розыска по строковому имени.
+* **Own ownership of the code.** A derivative of somebody else's library inherits both
+  somebody else's decisions and somebody else's responsibility for them.
+* **Build without foreign tooling.** OpenSSL has Perl at the foundation of its build,
+  BoringSSL has Go and its own CMake. Here there is neither: the project is built with
+  one CMake and one C++ compiler.
+* **Portability.** The target matrix coincides with the matrix of AWH: macOS, FreeBSD,
+  NetBSD, OpenBSD, Solaris, illumos, Linux and MinGW on x86-64 and ARM64.
+* **C++ instead of C.** Ownership of the lifetime, views instead of the pair "pointer and
+  length", a type instead of a lookup by a string name.
 
-## Отношение к AWH
+## Relation to AWH
 
-Проект самостоятелен: AWH его использует, но он не использует AWH. Общими
-остаются оформление кода, устройство сборки и порядок проверок.
+The project is standalone: AWH uses it, but it does not use AWH. What remains shared is
+the code style, the structure of the build and the order of testing.
 
-Пространство имён — `nts`.
+The namespace is `nts`.
 
-Готовые модули AWH разрешается переносить сюда и переделывать под нужды
-проекта — оба проекта ANYKS. Перенесённый модуль обязан
-подчиняться правилу внутреннего размещения.
+Ready modules of AWH are allowed to be moved here and reworked to the needs of the
+project — both are ANYKS projects. A moved module must obey the rule of internal
+placement.
 
-**Правило встраивания в AWH: укрытое хранение ключевого материала.** Ключи,
-которые A-NTS хранит между вызовами, лежат в её собственном укрытом хранилище
-`nts::sys::Vault` (раздел «Укрытое хранение ключевого материала»). При переезде
-AWH с BoringSSL на A-NTS (принятое решение от 17.09.2026):
+**Rule of embedding into AWH: sheltered storage of the key material.** The keys that
+A-NTS keeps between calls lie in its own sheltered vault
+`nts::sys::Vault` (section "Sheltered storage of the key material"). When AWH moves
+from BoringSSL to A-NTS (decision of 17.09.2026):
 
-- выносить хранилище в отдельный проект и подключать сабмодулем к обоим НЕ
-  нужно: A-NTS обязана оставаться без зависимостей, а зависимость AWH → A-NTS и
-  так односторонняя;
-- ключевой материал, который AWH держит между вызовами сама (выведенный ключ
-  `state_t::key` в `awh::Crypto`, пароли, соль — см. `AWH-KEY-EMBEDDING.md`,
-  требование 2а), AWH кладёт **напрямую в `nts::sys::Vault`**: участком
-  `nts::sys::secret_t` либо набором `nts::sys::bytes_t`. Заводить для этого второе
-  хранилище тайн (`Allocator::secure`) не нужно — тайна должна жить в одном
-  месте с ключами связи, одним докладом `shelter` и одним требованием
-  `demand`;
-- распределитель AWH (`awh::alloc`) остаётся распределителем общей памяти и с
-  хранилищем не спорит: куски хранилища берутся у ядра напрямую и никому не
-  отдаются; общий у них лишь предел `RLIMIT_MEMLOCK` — кто запирает память,
-  делит его, и каждый докладывает своё честно;
-- стык зашитого ключа: `scatter_t::gather` собирает материал, `embed::key` /
-  `embed::secret` выводят из него ключ, приёмник вывода — `nts::sys::secret_t`;
-  поля `context::ticket_t::secret` и `context::psk_t::key` AWH заполняет через
-  `assign(begin, end)`, а не присваиванием.
+- there is NO need to take the vault out into a separate project and attach it as a
+  submodule to both: A-NTS must stay without dependencies, and the dependency AWH → A-NTS
+  is one-way anyway;
+- the key material that AWH itself keeps between calls (the derived key
+  `state_t::key` in `awh::Crypto`, passwords, salt — see `AWH-KEY-EMBEDDING.md`,
+  requirement 2a) AWH puts **directly into `nts::sys::Vault`**: as a piece
+  `nts::sys::secret_t` or as a set `nts::sys::bytes_t`. There is no need to set up a second
+  storage of secrets (`Allocator::secure`) for this — a secret must live in one place
+  together with the keys of the connection, with one report `shelter()` and one demand
+  `demand()`;
+- the allocator of AWH (`awh::alloc`) remains the allocator of the general memory and does
+  not contend with the vault: the chunks of the vault are taken from the kernel directly and
+  are given to nobody; the only thing shared by them is the limit `RLIMIT_MEMLOCK` — whoever
+  locks memory shares it, and each one reports its own honestly;
+- the junction with the embedded key: `scatter_t::gather` collects the material, `embed::key` /
+  `embed::secret` derive the key from it, the receiver of the derivation is `nts::sys::secret_t`;
+  the fields `context::ticket_t::secret` and `context::psk_t::key` AWH fills through
+  `assign(begin, end)`, not by assignment.
 
-## Внутренние модули
+## Internal modules
 
-Всё, что перенесено из AWH или написано в помощь основным разделам, живёт под
-`src/internal` и **наружу не вывозится**: заголовочный файл внутреннего модуля
-подключается только из `.cpp`, никогда — из заголовочных файлов каталога
+Everything moved from AWH or written in aid of the main sections lives under
+`src/internal` and **is not exported outside**: the header file of an internal module
+is included only from `.cpp`, never from the header files of the directory
 `include`.
 
-Основание. Наружный вид библиотеки — это договор, который потом нельзя менять,
-не ломая потребителей. Внутренние модули переносятся из другого проекта и будут
-переделываться под задачу; попав в наружный вид, они этот договор закрепят
-собой, а вместе с ним закрепят и своё устройство, выбранное под другие задачи.
-Кроме того, наружный вид тем самым перестал бы отвечать на вопрос, что
-библиотека делает, и начал отвечать на вопрос, из чего она собрана.
+Grounds. The external view of the library is a contract that later cannot be changed
+without breaking the consumers. The internal modules are moved from another project and will
+be reworked to the task; having got into the external view, they would fix that contract
+by themselves, and together with it they would fix their own structure, chosen for other tasks.
+Besides, the external view would thereby stop answering the question of what the
+library does, and would start answering the question of what it is assembled from.
 
-Правило проверяется при настройке сборки: подключение `internal/` из
-заголовочного файла каталога `include` обрывает настройку отказом.
+The rule is checked at the configuration of the build: an inclusion of `internal/` from a
+header file of the directory `include` aborts the configuration with a refusal.
 
-## Сличение с эталонами
+## Comparison with the references
 
-Работоспособность и скорость сверяются с OpenSSL и BoringSSL. Роль их —
-исключительно эталон: по ним проверяется совпадение результата и меряется
-отставание или опережение. Код из них не заимствуется, и в дерево проекта они
-не попадают.
+Correctness and speed are checked against OpenSSL and BoringSSL. Their role is
+exclusively a reference: the results are checked against them for equality, and the lag
+or the lead is measured. No code is borrowed from them, and they do not get into the
+tree of the project.
 
-## Состав
+## Layout
 
-| Каталог | Назначение |
+| Directory | Purpose |
 |---|---|
-| `include/sys`, `src/sys` | Общие определения сборки, опознание машинных команд, затирание памяти с тайнами (`sys::wipe`) и укрытое хранилище ключевого материала (`sys::Vault`, `sys::Secret`, `sys::bytes_t`): запрет подкачки, укрытие от снимков, затирание у потомка и при освобождении, честный доклад `shelter` и требование `demand` |
-| `include/sys/log.hpp`, `src/sys/log.cpp` | Сток журнала: одна функция потребителя, ставится во время выполнения (`sys::log::sink`); без стока библиотека молчит и строк не собирает; никаких заголовков и определений сборки чужих проектов |
-| `include/embed`, `src/embed` | Вывод зашитого в образ приложения ключа: `embed::key` (HKDF над собранным по образу материалом) и `embed::secret` (Argon2 из пароля) со связкой версии и участка образа |
-| `include/asn1`, `src/asn1` | Разбор и запись ASN.1 в кодировке DER |
-| `include/x509`, `src/x509` | Разбор сертификатов X.509 по RFC 5280 и проверка их подписи по RFC 9215 |
-| `include/ocsp`, `src/ocsp` | Состояние сертификата по RFC 6960: разбор и проверка ответа OCSP против сертификата и издателя (сам издатель либо делегированный ответчик с `id-kp-OCSPSigning`, классические и ГОСТ алгоритмы, сроки с люфтом, неповторимое значение), проверка ответов иных записей цепочки потребителем (издатель разыскивается по имени сперва в остальных звеньях цепочки, потом самим сертификатом, если он самоподписанный, и в запасе доверенных), составление запроса `OCSPRequest` и адрес ответчика из AIA; ввода и вывода нет — октеты подаёт потребитель |
-| `include/digest`, `src/digest` | Хеширование «Стрибог» по ГОСТ Р 34.11-2012, SHA-2, SHA-1 и MD5, общий выбор хеша `hash_t`, имитовставка HMAC (разовая и поточная), HKDF с Expand-Label, PBKDF2, порождающая функция TLS по RFC 7836 («Стрибог») и по разделу 5 RFC 5246 (SHA-256, SHA-384) и выработка производного ключа по RFC 7836 |
-| `include/cipher`, `src/cipher` | Блочные шифры: «Кузнечик» и «Магма» по ГОСТ Р 34.12-2015, AES по FIPS 197; режимы работы по ГОСТ Р 34.13-2015 (общие для всех шифров, включая CBC и CFB), режим MGM по RFC 9058, GCM по SP 800-38D (разовый и поточный), ChaCha20, Poly1305 и AEAD_CHACHA20_POLY1305 по RFC 8439 (`chacha_t`, `poly1305_t`, `chachapoly_t`, договор потока тот же, что у GCM) и поточная обёртка `stream_t` для AWH: вектор в голове потока, метка GCM в хвосте, кусками любой длины |
-| `include/math`, `src/math` | Арифметика чисел постоянной разрядности по простому модулю, поле 2^255−19 и многоразрядные целые до 4096 разрядов для RSA |
-| `include/entropy`, `src/entropy` | Источник случайных значений системы |
-| `include/curve`, `src/curve` | Арифметика точек эллиптической кривой и наборы параметров кривых |
-| `include/sign`, `src/sign` | Электронная подпись по ГОСТ Р 34.10-2012, ECDSA на P-256/P-384, Ed25519, Ed448 по RFC 8032 (детерминирована, SHAKE256 со строкой dom4), RSA (PKCS #1 v1.5, PSS, OAEP); порождение долговременных ключей `generate` и верхний предел длины подписи в записанном виде `limit` |
-| `include/agreement`, `src/agreement` | Выработка общего ключа VKO по RFC 7836, X25519 по RFC 7748 с порождением пары ключей `generate`, пригодной и как долговременная, и обмен мимолётными ключами TLS 1.3 |
-| `include/record`, `src/record` | Слой записей протокола TLS по RFC 5246 и RFC 8446; издания DTLS 1.2 (0xFEFD) и DTLS 1.0 (0xFEFF, издание HelloVerifyRequest) в перечне изданий |
-| `include/protect`, `src/protect` | Защита записей TLS 1.3 наборами шифрования на алгоритмах ГОСТ и классическими наборами AES-GCM и ChaCha20-Poly1305 по RFC 8446; записи TLS 1.2 наборами ECDHE-ECDSA и ECDHE-RSA на AES-GCM (RFC 5288, явная часть одноразового значения - порядковый номер) и ChaCha20-Poly1305 (RFC 7905) с порядковым номером и заголовком записи по проводу в связанных данных (раздел 6.2.3.3 RFC 5246); предел записей AES-GCM 2^24,5 общий обоим изданиям; защита записей DTLS 1.2 с порой и порядковым номером в связанных данных и явной части (раздел 4.1.2.1 RFC 6347) через `wrap`/`unwrap` с заданными номером и изданием, `prefix` - длина явной части |
-| `include/datagram`, `src/datagram` | Слой записей DTLS 1.3 по RFC 9147: открытый заголовок и объединённый заголовок защищённой записи, обвязка кусков сообщений рукопожатия, сообщение подтверждения `ack`, шифрование номера записи маской AES-ECB либо ChaCha20 по метке `sn`, восстановление номера по младшим разрядам и окно защиты от повторов; причины отброса `reason_t`, в том числе `VERSION` у чужого издания в заголовке DTLS 1.2 |
-| `include/field`, `src/field` | Чтение и запись полей протокола переменной длины |
-| `include/handshake`, `src/handshake` | Обвязка сообщений рукопожатия по разделу 4 RFC 8446; виды сообщений TLS 1.2: HelloRequest (проводной ноль), ServerKeyExchange, ServerHelloDone, ClientKeyExchange, CertificateStatus; вид DTLS 1.2 HelloVerifyRequest (3, раздел 4.2.1 RFC 6347); вид «не установлен» `NONE` лежит вне реестра (0xFF) и с проводным не совпадает |
-| `include/hello`, `src/hello` | Приветствия рукопожатия по разделам 4.1.2 и 4.1.3 RFC 8446; приветствие клиента поверх дейтаграмм с полем метки возврата состояния за опознавателем связи (раздел 4.2.1 RFC 6347, раздел 5.3 RFC 9147) - перегрузки `parse`/`build` с признаком дейтаграмм |
-| `include/extension`, `src/extension` | Расширения приветствий по разделу 4.2 RFC 8446; перечень алгоритмов сжатия цепочки сертификатов `compress_certificate` по RFC 8879; вид `status_request` (0x0005) по RFC 6066; виды TLS 1.2: `ec_point_formats` (RFC 8422), `extended_master_secret` (RFC 7627), `renegotiation_info` (RFC 5746); схемы RSASSA-PKCS1-v1_5 (0x0401, 0x0501, 0x0601) для TLS 1.2 |
-| `include/message`, `src/message` | Цепочка сертификатов, подпись владения ключом и завершение рукопожатия |
-| `include/session`, `src/session` | Переписка рукопожатия и расписание ключей связи по разделу 7.1 RFC 8446 над хешем набора шифрования (SHA-256, SHA-384, «Стрибог»-256) |
-| `include/flow`, `src/flow` | Ход рукопожатия: порядок сообщений и пора ключей сторон |
-| `include/context`, `src/context` | Общие объявления фасадов: состояние связи, отказы, подлинность стороны, способ переноса (записи, уровни QUIC, дейтаграммы DTLS 1.3 и DTLS 1.2) и уровни защиты QUIC, билет возобновления и его кодек в октеты, описание алгоритма сжатия цепочки сертификатов `codec_t` (два вызова потребителя без состояния) |
-| `include/client`, `src/client` | Фасад связи клиента: рукопожатие TLS 1.3 и TLS 1.2 (пределы издания `versions`, `lowest`, `highest`, согласованное издание `version`), данные, смена ключей и возобновление; рукопожатие по уровням для QUIC с выдачей секретов уровней; связь поверх дейтаграмм по DTLS 1.3 и DTLS 1.2 по пределам издания (`mtu`, `timeout`, `elapsed`, `discarded` общий и по причинам; в 1.2 просьба HelloVerifyRequest чужого сервера отвечается повтором приветствия с меткой); сжатие цепочки сертификатов по RFC 8879 алгоритмами потребителя (`codecs`, `compression`); запрос и проверка сшитого ответа OCSP (`status`, `verification`, `certified`) |
-| `include/server`, `src/server` | Фасад связи сервера: рукопожатие TLS 1.3 и TLS 1.2 (пределы издания `versions`, `lowest`, `highest`, `version`, порядок выбора набора `preference`), подлинность, запрос подлинности клиента и билеты; рукопожатие по уровням для QUIC с выдачей секретов уровней; связь поверх дейтаграмм по DTLS 1.3 и DTLS 1.2 с обязательной меткой возврата состояния (`address`, `stamp`, `restamp`, `mtu`, `timeout`, `elapsed`, `discarded` общий и по причинам; в 1.2 - сервер без состояния с HelloVerifyRequest); сжатие цепочки сертификатов по RFC 8879 алгоритмами потребителя (`codecs`, `compression`); сшивка ответа OCSP по запросу клиента и запрос состояния сертификата клиента (`status`, `verification`, `certified`); выбор подлинности по имени узла из приветствия клиента вызовом потребителя `select` (раздел 3 RFC 6066: отклик звучит один раз за полное рукопожатие до составления ответа сервера, LEAVE оставляет общую, GIVEN берёт выданную - годна лишь этой связи, REFUSE обрывает извещением unrecognized_name) |
-| `include/trust`, `src/trust` | Доверие цепочке сертификатов: запас, проверка цепочки и сличение имени; списки отзыва в запас (`addList`, RFC 5280 §6.1: поданный список включает проверку отзыва всей цепочки - списание по серийному номеру со сверкой подписи списка ключом издателя, просрочка `nextUpdate` по мигу проверки, отсутствие списка у издателя - отказ MISSING, а запас без списков отзыва не проверяет вовсе) |
-| `include/pem`, `src/pem` | Хранение записей в виде PEM по RFC 7468: обёртка, цепочка сертификатов и секретный ключ |
-| `include/keys`, `src/keys` | Кодеки ключей: SubjectPublicKeyInfo, PrivateKeyInfo, EncryptedPrivateKeyInfo по PBES2, ECPrivateKey, RSAPrivateKey и RSAPublicKey; RSA, EC, Ed25519, X25519 и ГОСТ; из памяти в DER и PEM и обратно |
-| `include/alert`, `src/alert` | Извещения: уровень, описание и решение о разрыве связи; `no_renegotiation` (100) для TLS 1.2 - всегда предупреждением, связь продолжается |
-| `include/schedule`, `src/schedule` | Расписание ключей TLS 1.3 по разделу 7.1 RFC 8446 над `digest::hash_t`; методы без довода хеша ведут ветвь ГОСТ |
-| `src/internal` | Внутренние модули, наружу не вывозятся: `engine` — ведение связи TLS 1.3 обеих ролей (записи, уровни QUIC, дейтаграммы DTLS 1.3) и TLS 1.2 (записи: ECDHE, EMS по RFC 7627, renegotiation_info по RFC 5746 без пересогласования - отказ предупреждением `no_renegotiation`, CertificateStatus по RFC 6066, согласование издания по supported_versions и legacy_version с заслоном понижения у сервера, способного к 1.3, сличение издания заголовка записи с согласованным, закрытие связи `close_notify` с отказом `EXHAUSTED` по исчерпании записей на ключе), `flight` — перенос рукопожатия дейтаграммами по DTLS 1.3 и DTLS 1.2 (поры, залп, сборки, окна повторов, часы, метка; у 1.2 - открытые заголовки всех записей, смена набора в залпе, сервер без состояния, последний залп без часов) |
+| `include/sys`, `src/sys` | Common definitions of the build, detection of the machine instructions, wiping of the memory with secrets (`sys::wipe`) and the sheltered vault of the key material (`sys::Vault`, `sys::Secret`, `sys::bytes_t`): forbidding of swapping, hiding from dumps, wiping at the child and on release, the honest report `shelter()` and the demand `demand()` |
+| `include/sys/log.hpp`, `src/sys/log.cpp` | Log sink: one function of the consumer, set at run time (`sys::log::sink`); without a sink the library stays silent and builds no strings; no headers or build definitions of foreign projects |
+| `include/embed`, `src/embed` | Derivation of a key embedded into the image of the application: `embed::key` (HKDF over the material gathered from the image) and `embed::secret` (Argon2 from a password) with the binding of the version and of the region of the image |
+| `include/asn1`, `src/asn1` | Parsing and writing of ASN.1 in the DER encoding |
+| `include/x509`, `src/x509` | Parsing of X.509 certificates by RFC 5280 and verification of their signature by RFC 9215 |
+| `include/ocsp`, `src/ocsp` | Certificate status by RFC 6960: parsing and verification of an OCSP response against the certificate and the issuer (the issuer itself or a delegated responder with `id-kp-OCSPSigning`, classic and GOST algorithms, validity periods with a tolerance, a nonce), composition of the `OCSPRequest` and the address of the responder from AIA; there is no input and output — the octets are supplied by the consumer |
+| `include/digest`, `src/digest` | Hashing "Streebog" by GOST R 34.11-2012, SHA-2, SHA-1 and MD5, the common hash selection `hash_t`, the HMAC authentication tag (one-shot and streaming), HKDF with Expand-Label, PBKDF2, the TLS pseudo-random function by RFC 7836 ("Streebog") and by section 5 of RFC 5246 (SHA-256, SHA-384) and the derived key generation by RFC 7836 |
+| `include/cipher`, `src/cipher` | Block ciphers: "Kuznyechik" and "Magma" by GOST R 34.12-2015, AES by FIPS 197; modes of operation by GOST R 34.13-2015 (common to all ciphers, including CBC and CFB), the MGM mode by RFC 9058, GCM by SP 800-38D (one-shot and streaming), ChaCha20, Poly1305 and AEAD_CHACHA20_POLY1305 by RFC 8439 (`chacha_t`, `poly1305_t`, `chachapoly_t`, the streaming contract is the same as with GCM) and the streaming wrapper `stream_t` for AWH: the vector at the head of the stream, the GCM tag at the tail, in chunks of any length |
+| `include/math`, `src/math` | Arithmetic of fixed-width numbers by a prime modulus, the field 2^255−19 and multi-precision integers up to 4096 bits for RSA |
+| `include/entropy`, `src/entropy` | Source of random values of the system |
+| `include/curve`, `src/curve` | Arithmetic of the points of an elliptic curve and the parameter sets of the curves |
+| `include/sign`, `src/sign` | Digital signature by GOST R 34.10-2012, ECDSA on P-256/P-384, Ed25519, RSA (PKCS #1 v1.5, PSS, OAEP); generation of long-term keys `generate` and the upper bound of the length of the signature in the written form `limit` |
+| `include/agreement`, `src/agreement` | Shared key derivation VKO by RFC 7836, X25519 by RFC 7748 with the generation of a key pair `generate`, fit also as a long-term one, and the ephemeral key exchange of TLS 1.3 |
+| `include/record`, `src/record` | The record layer of the TLS protocol by RFC 5246 and RFC 8446; the versions DTLS 1.2 (0xFEFD) and DTLS 1.0 (0xFEFF, the version of HelloVerifyRequest) in the list of versions |
+| `include/protect`, `src/protect` | Record protection of TLS 1.3 with the cipher suites on the GOST algorithms and the classic suites AES-GCM and ChaCha20-Poly1305 by RFC 8446; TLS 1.2 records with the suites ECDHE-ECDSA and ECDHE-RSA on AES-GCM (RFC 5288, the explicit part of the nonce is the sequence number) and ChaCha20-Poly1305 (RFC 7905) with the sequence number and the wire record header in the associated data (section 6.2.3.3 of RFC 5246); the record limit of AES-GCM 2^24.5 common to both versions; record protection of DTLS 1.2 with the epoch and the sequence number in the associated data and in the explicit part (section 4.1.2.1 of RFC 6347) through `wrap`/`unwrap` with the given number and version, `prefix` — the length of the explicit part |
+| `include/datagram`, `src/datagram` | The record layer of DTLS 1.3 by RFC 9147: the plaintext header and the unified header of a protected record, the framing of the fragments of handshake messages, the acknowledgement message `ack`, encryption of the record number with a mask of AES-ECB or ChaCha20 by the label `sn`, recovery of the number by its low bits and the anti-replay window; the reasons of discarding `reason_t`, including `VERSION` at a foreign version in the DTLS 1.2 header |
+| `include/field`, `src/field` | Reading and writing of variable-length fields of the protocol |
+| `include/handshake`, `src/handshake` | Framing of the handshake messages by section 4 of RFC 8446; the TLS 1.2 message types: HelloRequest (wire zero), ServerKeyExchange, ServerHelloDone, ClientKeyExchange, CertificateStatus; the DTLS 1.2 type HelloVerifyRequest (3, section 4.2.1 of RFC 6347); the type "not set" `NONE` lies outside the registry (0xFF) and coincides with no wire value |
+| `include/hello`, `src/hello` | The hello messages of the handshake by sections 4.1.2 and 4.1.3 of RFC 8446; the client hello over datagrams with the stateless-cookie field after the connection identifier (section 4.2.1 of RFC 6347, section 5.3 of RFC 9147) — the overloads `parse`/`build` with the datagram flag |
+| `include/extension`, `src/extension` | The hello extensions by section 4.2 of RFC 8446; the list of the certificate chain compression algorithms `compress_certificate` by RFC 8879; the type `status_request` (0x0005) by RFC 6066; the TLS 1.2 types: `ec_point_formats` (RFC 8422), `extended_master_secret` (RFC 7627), `renegotiation_info` (RFC 5746); the schemes RSASSA-PKCS1-v1_5 (0x0401, 0x0501, 0x0601) for TLS 1.2 |
+| `include/message`, `src/message` | The certificate chain, the proof of key possession and the finishing of the handshake |
+| `include/session`, `src/session` | The handshake transcript and the key schedule of the connection by section 7.1 of RFC 8446 over the hash of the cipher suite (SHA-256, SHA-384, "Streebog"-256) |
+| `include/flow`, `src/flow` | The course of the handshake: the order of messages and the key epoch of the sides |
+| `include/context`, `src/context` | Common declarations of the facades: the state of the connection, the errors, the authentication of a side, the transport (records, QUIC levels, datagrams of DTLS 1.3 and DTLS 1.2) and the QUIC protection levels, the resumption ticket and its codec into octets, the description of a certificate chain compression algorithm `codec_t` (two stateless calls of the consumer) |
+| `include/client`, `src/client` | The client connection facade: the TLS 1.3 and TLS 1.2 handshake (the version bounds `versions`, `lowest`, `highest`, the negotiated version `version`), data, key update and resumption; the handshake by levels for QUIC with the release of the level secrets; the connection over datagrams by DTLS 1.3 and DTLS 1.2 by the version bounds (`mtu`, `timeout`, `elapsed`, `discarded` total and by reasons; in 1.2 the HelloVerifyRequest of a foreign server is answered with a repeated hello carrying the cookie); certificate chain compression by RFC 8879 with the algorithms of the consumer (`codecs`, `compression`); request and verification of the stapled OCSP response (`status`, `verification`, `certified`) |
+| `include/server`, `src/server` | The server connection facade: the TLS 1.3 and TLS 1.2 handshake (the version bounds `versions`, `lowest`, `highest`, `version`, the order of suite selection `preference`), authentication, request of the client authentication and tickets; the handshake by levels for QUIC with the release of the level secrets; the connection over datagrams by DTLS 1.3 and DTLS 1.2 with the mandatory stateless cookie (`address`, `stamp`, `restamp`, `mtu`, `timeout`, `elapsed`, `discarded` total and by reasons; in 1.2 — a stateless server with HelloVerifyRequest); certificate chain compression by RFC 8879 with the algorithms of the consumer (`codecs`, `compression`); stapling of the OCSP response at the request of the client and the request of the client certificate status (`status`, `verification`, `certified`) |
+| `include/trust`, `src/trust` | Trust in a certificate chain: the store, verification of the chain and matching of the name |
+| `include/pem`, `src/pem` | Storage of records in the PEM form by RFC 7468: the wrapper, the certificate chain and the private key |
+| `include/keys`, `src/keys` | Key codecs: SubjectPublicKeyInfo, PrivateKeyInfo, EncryptedPrivateKeyInfo by PBES2, ECPrivateKey, RSAPrivateKey and RSAPublicKey; RSA, EC, Ed25519, X25519 and GOST; from memory into DER and PEM and back |
+| `include/alert`, `src/alert` | Alerts: the level, the description and the decision on the closing of the connection; `no_renegotiation` (100) for TLS 1.2 — always a warning, the connection continues |
+| `include/schedule`, `src/schedule` | The key schedule of TLS 1.3 by section 7.1 of RFC 8446 over `digest::hash_t`; the methods without the hash argument drive the GOST branch |
+| `src/internal` | Internal modules, not exported outside: `engine` — driving of a TLS 1.3 connection in both roles (records, QUIC levels, DTLS 1.3 datagrams) and TLS 1.2 (records: ECDHE, EMS by RFC 7627, renegotiation_info by RFC 5746 without renegotiation — refusal by the warning `no_renegotiation`, CertificateStatus by RFC 6066, version negotiation by supported_versions and legacy_version with the downgrade guard at a server capable of 1.3, matching of the record header version with the negotiated one, closing of the connection with `close_notify` with the error `EXHAUSTED` on exhaustion of the records on a key), `flight` — transport of the handshake by datagrams by DTLS 1.3 and DTLS 1.2 (epochs, flights, reassemblies, anti-replay windows, timers, cookie; in 1.2 — plaintext headers of all records, change of cipher spec within the flight, a stateless server, the last flight without a timer) |
 
-Разделы добавляются по мере готовности. Порядок работ: ASN.1 и X.509, затем
-хеши и симметричные шифры, затем асимметрика, затем ход TLS.
+Sections are added as they become ready. The order of work: ASN.1 and X.509, then
+hashes and symmetric ciphers, then asymmetric cryptography, then the course of TLS.
 
-Постоянные величины криптографических преобразований переносятся из текста
-стандарта дословно и в исходном тексте не пересчитываются; всё производное от
-них вычисляется при сборке.
+The constants of the cryptographic transformations are carried over from the text of the
+standard verbatim and are not recomputed in the source text; everything derived from
+them is computed at build time.
 
-Разбор записи сертификата и проверка его подписи разведены нарочно: `x509` разбирает
-запись и ни о какой криптографии не знает, подпись сличается в `x509/signature`, а
-цепочка доверия строится в `trust`. Разбор оттого и остаётся годным там, где сличать
-подпись нечем и незачем.
+The parsing of a certificate record and the verification of its signature are separated on
+purpose: `x509` parses the record and knows nothing about any cryptography, the signature is
+matched in `x509/signature`, and the chain of trust is built in `trust`. That is why the parsing
+remains usable where there is nothing and no reason to match the signature with.
 
-## Наборы шифрования
+## Cipher suites
 
-| Набор | Число | Шифр записей | Хеш расписания | Обмен ключами | Подписи |
+| Suite | Number | Record cipher | Schedule hash | Key exchange | Signatures |
 |---|---|---|---|---|---|
-| `KUZNYECHIK_MGM_L` | 0xC103 | «Кузнечик» MGM, ключ TLSTREE | «Стрибог»-256 | ГОСТ `GC256A…GC512C` | ГОСТ Р 34.10-2012 |
-| `MAGMA_MGM_L` | 0xC104 | «Магма» MGM, ключ TLSTREE | «Стрибог»-256 | то же | то же |
-| `KUZNYECHIK_MGM_S` | 0xC105 | «Кузнечик» MGM, частая смена | «Стрибог»-256 | то же | то же |
-| `MAGMA_MGM_S` | 0xC106 | «Магма» MGM, частая смена | «Стрибог»-256 | то же | то же |
-| `AES_128_GCM_SHA256` | 0x1301 | AES-128-GCM, вектор 12, метка 16 | SHA-256 | `X25519`, `SECP256R1`, `SECP384R1` | ECDSA P-256/P-384, RSA-PSS (rsae, SHA-256/384/512), Ed25519 |
-| `AES_256_GCM_SHA384` | 0x1302 | AES-256-GCM, вектор 12, метка 16 | SHA-384 | то же | то же |
-| `CHACHA20_POLY1305_SHA256` | 0x1303 | ChaCha20-Poly1305 (`chachapoly_t`), ключ 32, вектор 12, метка 16, предел записей 2^62 | SHA-256 | то же | то же |
-| `ECDHE_ECDSA_AES_128_GCM_SHA256` … `ECDHE_ECDSA_CHACHA20_POLY1305_SHA256` | 0xC02B, 0xC02C, 0xC02F, 0xC030, 0xCCA8, 0xCCA9 | TLS 1.2: AES-GCM (RFC 5288, явная часть - номер) и ChaCha20-Poly1305 (RFC 7905) | SHA-256/384 (PRF) | ECDHE `X25519`, `SECP256R1`, `SECP384R1` | ECDSA, RSA-PSS, PKCS #1 v1.5, Ed25519 |
-| `ECDHE_ECDSA_AES_128_CBC_SHA256`, `ECDHE_RSA_AES_128_CBC_SHA256`, `ECDHE_ECDSA_AES_128/256_CBC_SHA`, `ECDHE_RSA_AES_128/256_CBC_SHA` | 0xC023, 0xC027, 0xC009, 0xC00A, 0xC013, 0xC014 | TLS 1.2: AES-CBC с HMAC-SHA256/SHA1 (раздел 6.2.3.2 RFC 5246), явный вектор, encrypt_then_mac RFC 7366 предпочитается | SHA-256 (PRF) | ECDHE | то же |
-| `RSA_AES_128/256_CBC_SHA`, `RSA_AES_128/256_CBC_SHA256`, `RSA_AES_128/256_GCM_SHA256/384` | 0x002F, 0x0035, 0x003C, 0x003D, 0x009C, 0x009D | TLS 1.2: голый обмен RSA (раздел 7.4.7.1 RFC 5246) с AES-CBC либо AES-GCM | SHA-256/384 (PRF) | RSAES-PKCS1-v1_5 ключом сертификата RSA | нет (подлинность - расшифрованием) |
-| `DHE_RSA_AES_128/256_GCM_SHA256/384`, `DHE_RSA_CHACHA20_POLY1305_SHA256`, `DHE_RSA_AES_128/256_CBC_SHA` | 0x009E, 0x009F, 0xCCAA, 0x0033, 0x0039 | TLS 1.2: мимолётные ключи конечного поля с подписью RSA (раздел 7.4.3 RFC 5246, RFC 7919), параметры ServerDHParams подписаны, доля клиента двухбайтовой длиной | SHA-256/384 (PRF) | DHE `FFDHE2048`…`FFDHE8192`; перечень групп у клиента может не прийти - сервер берёт группу своим порядком (раздел 4 RFC 7919) | RSA PKCS #1 v1.5, RSA-PSS |
-| `PSK_AES_128/256_CBC_SHA`, `ECDHE_PSK_AES_128/256_CBC_SHA`, `ECDHE_PSK_CHACHA20_POLY1305_SHA256` | 0x008C, 0x008D, 0xC035, 0xC036, 0xCCAC | TLS 1.2: заранее разделённый ключ (RFC 4279, RFC 5489, RFC 7905), без сертификатов | SHA-256 (PRF) | PSK либо ECDHE ‖ PSK | нет |
+| `KUZNYECHIK_MGM_L` | 0xC103 | "Kuznyechik" MGM, TLSTREE key | "Streebog"-256 | GOST `GC256A…GC512C` | GOST R 34.10-2012 |
+| `MAGMA_MGM_L` | 0xC104 | "Magma" MGM, TLSTREE key | "Streebog"-256 | the same | the same |
+| `KUZNYECHIK_MGM_S` | 0xC105 | "Kuznyechik" MGM, frequent rekeying | "Streebog"-256 | the same | the same |
+| `MAGMA_MGM_S` | 0xC106 | "Magma" MGM, frequent rekeying | "Streebog"-256 | the same | the same |
+| `AES_128_GCM_SHA256` | 0x1301 | AES-128-GCM, vector 12, tag 16 | SHA-256 | `X25519`, `SECP256R1`, `SECP384R1` | ECDSA P-256/P-384, RSA-PSS (rsae, SHA-256/384/512), Ed25519 |
+| `AES_256_GCM_SHA384` | 0x1302 | AES-256-GCM, vector 12, tag 16 | SHA-384 | the same | the same |
+| `CHACHA20_POLY1305_SHA256` | 0x1303 | ChaCha20-Poly1305 (`chachapoly_t`), key 32, vector 12, tag 16, record limit 2^62 | SHA-256 | the same | the same |
+| `ECDHE_ECDSA_AES_128_GCM_SHA256` … `ECDHE_ECDSA_CHACHA20_POLY1305_SHA256` | 0xC02B, 0xC02C, 0xC02F, 0xC030, 0xCCA8, 0xCCA9 | TLS 1.2: AES-GCM (RFC 5288, the explicit part is the number) and ChaCha20-Poly1305 (RFC 7905) | SHA-256/384 (PRF) | ECDHE `X25519`, `SECP256R1`, `SECP384R1` | ECDSA, RSA-PSS, PKCS #1 v1.5, Ed25519 |
+| `ECDHE_ECDSA_AES_128_CBC_SHA256`, `ECDHE_RSA_AES_128_CBC_SHA256`, `ECDHE_ECDSA_AES_128/256_CBC_SHA`, `ECDHE_RSA_AES_128/256_CBC_SHA` | 0xC023, 0xC027, 0xC009, 0xC00A, 0xC013, 0xC014 | TLS 1.2: AES-CBC with HMAC-SHA256/SHA1 (section 6.2.3.2 of RFC 5246), explicit vector, encrypt_then_mac of RFC 7366 is preferred | SHA-256 (PRF) | ECDHE | the same |
+| `RSA_AES_128/256_CBC_SHA`, `RSA_AES_128/256_CBC_SHA256`, `RSA_AES_128/256_GCM_SHA256/384` | 0x002F, 0x0035, 0x003C, 0x003D, 0x009C, 0x009D | TLS 1.2: plain RSA exchange (section 7.4.7.1 of RFC 5246) with AES-CBC or AES-GCM | SHA-256/384 (PRF) | RSAES-PKCS1-v1_5 with the key of the RSA certificate | none (authentication by decryption) |
+| `PSK_AES_128/256_CBC_SHA`, `ECDHE_PSK_AES_128/256_CBC_SHA`, `ECDHE_PSK_CHACHA20_POLY1305_SHA256` | 0x008C, 0x008D, 0xC035, 0xC036, 0xCCAC | TLS 1.2: pre-shared key (RFC 4279, RFC 5489, RFC 7905), without certificates | SHA-256 (PRF) | PSK or ECDHE ‖ PSK | none |
 
-Наборы, группы и схемы подписи объявляются потребителем на связь, в порядке
-предпочтения; умолчания — классика без ГОСТ, как у браузеров и OpenSSL 3.5: группы
-X25519MLKEM768, X25519, secp256r1, secp384r1 с долями ключа по гибриду и по X25519,
-наборы 0x1302, 0x1303, 0x1301 и наборы издания 1.2, схемы ECDSA, RSA-PSS, Ed25519,
-RSA PKCS #1. Кому нужен ГОСТ, тот объявляет кривые, наборы и схемы сам перечнями
-`groups()`, `suites()` и `schemes()` — как поддержку, дописав их к умолчанию из
-получателей тех же имён, либо как единственный вариант, заменив перечни целиком;
-перечень потребителя не пересортировывается. Порядок перечня — это и есть
-предпочтение: без назначения долей клиент шлёт долю по первой группе и по первой
-группе каждого ещё не представленного рода (кривые ГОСТ, гибриды с ML-KEM,
-классические кривые), а сервер выбирает набор и кривую своим порядком
-(`preference(true)`, умолчание) либо порядком клиента (`preference(false)`). Так
-сервер с ГОСТ впереди перечня берёт у клиента с поддержкой ГОСТ именно ГОСТ, у
-клиента без ГОСТ — классику, и всё без просьбы о повторе (`ContextTest.Defaults`,
-`ContextTest.Compatible`, `ContextTest.Gost`, `ContextTest.Preference`). Билет возобновления пригоден лишь набору
-с тем же хешем (§4.6.1): 0x1301 ↔ 0x1303 возобновляют друг друга, 0x1302 с ними — нет
-(`ClassicTest.Crossing`, `ClassicTest.Reselect`). Значения, связи неведомые
-(GREASE, RFC 8701), в перечнях собеседника пропускаются молча; свои значения GREASE
-вставляет одна ручка `grease(true)` по образцу BoringSSL (раздел «GREASE по RFC 8701»
-ниже), а сверх того потребитель волен вставлять такие значения снаружи в наборы, группы,
-схемы и доли ключа (`client::Context::shares`). Обмен ключами по ГОСТ-кривым, X25519 (RFC 7748) и кривым
-NIST несжатой точкой с проверкой принадлежности кривой; подпись владения ключом по
-схеме, отвечающей ключу сертификата (PKCS #1 v1.5 отвергается); секретный ключ
-классической подлинности подаётся записью PKCS #8 в DER либо PEM. Векторы RFC 8448
-(разделы 3, 4, 5) закреплены проверкой `ClassicTest.Rfc8448*`, обмен с настоящим
-`openssl s_server`/`s_client` — `ClassicTest.Openssl`.
+Suites, groups and signature schemes are declared by the consumer per connection, in the
+order of preference; the defaults are the classics without GOST, as at the browsers and OpenSSL 3.5:
+the groups X25519MLKEM768, X25519, secp256r1, secp384r1 with the key shares by the hybrid and by
+X25519, the suites 0x1302, 0x1303, 0x1301 and the suites of the edition 1.2, the schemes ECDSA,
+RSA-PSS, Ed25519, RSA PKCS #1. Whoever needs GOST declares the curves, the suites and the schemes
+by the lists `groups()`, `suites()` and `schemes()` — as a support, appending them to the default
+taken from the getters of the same names, or as the only option, replacing the lists entirely;
+the list of the consumer is not re-sorted. The order of the list is the preference itself: without
+assigned shares the client sends a share by the first group and by the first group of every kind
+not yet represented (the GOST curves, the hybrids with ML-KEM, the classic curves), and the server
+chooses the suite and the curve by its own order (`preference(true)`, the default) or by the order
+of the client (`preference(false)`). So a server with GOST ahead of its list takes GOST from a
+client with GOST support and the classics from a client without GOST, all without a retry request
+(`ContextTest.Defaults`, `ContextTest.Compatible`, `ContextTest.Gost`, `ContextTest.Preference`).
+A resumption ticket is fit only for a suite
+with the same hash (§4.6.1): 0x1301 ↔ 0x1303 resume each other, 0x1302 does not with them
+(`ClassicTest.Crossing`, `ClassicTest.Reselect`). Values unknown to the connection
+(GREASE, RFC 8701) are silently skipped in the lists of the peer; own GREASE values are
+inserted by one knob `grease(true)` after the pattern of BoringSSL (section "GREASE by RFC 8701"
+below), and beyond that the consumer is free to insert such values from outside into the suites,
+groups, schemes and key shares (`client::Context::shares`). Key exchange by the GOST curves, X25519 (RFC 7748) and the
+NIST curves with an uncompressed point with a check of membership in the curve; the proof of key
+possession by the scheme matching the key of the certificate (PKCS #1 v1.5 is rejected); the private
+key of the classic authentication is supplied as a PKCS #8 record in DER or PEM. The vectors of RFC 8448
+(sections 3, 4, 5) are pinned by the test `ClassicTest.Rfc8448*`, the exchange with a real
+`openssl s_server`/`s_client` — by `ClassicTest.Openssl`.
 
-Граница рукопожатия и записей: машина рукопожатия (`flow`, `handshake`, `session`,
-`schedule`) знает лишь секреты уровней (`session::secrets_t`: упреждение, рукопожатие
-и приложение по сторонам, возобновление — длиной по хешу набора), а ключи записей из
-них выводит отдельный шаг `session::material` → `protect::protection_t`; движок владеет
-лишь накопителями `push`/`output`/`consume`, сообщения после рукопожатия (смена ключей,
-билеты) идут той же машиной сообщений.
+The boundary between the handshake and the records: the handshake machine (`flow`, `handshake`, `session`,
+`schedule`) knows only the level secrets (`session::secrets_t`: early, handshake
+and application per side, resumption — of the length of the suite hash), and the record keys are
+derived from them by a separate step `session::material` → `protect::protection_t`; the engine owns
+only the buffers `push`/`output`/`consume`, the post-handshake messages (key update,
+tickets) go through the same message machine.
 
-## Сборка
+## Build
 
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release..
-cmake --build. -j
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . -j
 ```
 
-Ключи сборки:
+Build options:
 
-| Ключ | Умолчание | Назначение |
+| Option | Default | Purpose |
 |---|---|---|
-| `CMAKE_BUILD_TYPE` | `Debug` | Тип сборки |
-| `CMAKE_SHARED_BUILD_LIB` | `OFF` | Собирать динамическую библиотеку вместо статической |
-| `CMAKE_BUILD_TESTS` | `OFF` | Собирать набор проверок (требуется Google Test) |
-| `CMAKE_BUILD_SANITIZE` | `OFF` | Собирать проверки под санитайзерами |
-| `CMAKE_BUILD_LIBFUZZER` | `OFF` | Собирать ворошители разборщиков с управлением от покрытия (требуются `CMAKE_BUILD_TESTS`, `CMAKE_BUILD_SANITIZE` и Clang) |
-| `CMAKE_BUILD_SAMPLES` | `OFF` | Собирать образцы работы с библиотекой |
-| `CMAKE_BUILD_BENCHMARKS` | `OFF` | Собирать набор замеров |
-| `CMAKE_BENCHMARK_OPENSSL` | `ON` | Сличать замеры с эталоном OpenSSL, если он в системе есть |
-| `CMAKE_CIPHER_COMPACT` | `OFF` | Собирать блочные шифры малыми таблицами: у «Кузнечика» 4 КБ памяти вместо 128 КБ ценой девятикратного замедления, у «Магмы» 128 байтов вместо 4 КБ ценой замедления вдвое |
-| `CMAKE_CURVE_TABLES` | `ON` | Заготавливать при сборке кратные точки основания кривых: подпись идёт **2,8 раза** быстрее ценой 1,23 МБ у двоичного файла. Выключенной заготовкой подпись идёт общим умножением на точку, и итог её не меняется. При сборке на одной машине под другую заготовка выключается сама |
-| `CMAKE_CIPHER_CARRYLESS` | `OFF` | Брать машинные команды умножения без переносов: включать лишь там, где они у машины есть |
-| `CMAKE_BUILD_COVERAGE` | `ON` при `CMAKE_BUILD_TESTS` | Собирать проверки с подсчётом охвата: замеры на такой сборке негодны |
-| `CMAKE_BUILD_SANITIZE_LIST` | `address,undefined` | Перечень санитайзеров при `CMAKE_BUILD_SANITIZE` |
+| `CMAKE_BUILD_TYPE` | `Debug` | Build type |
+| `CMAKE_SHARED_BUILD_LIB` | `OFF` | Build a shared library instead of a static one |
+| `CMAKE_BUILD_TESTS` | `OFF` | Build the test suite (Google Test is required) |
+| `CMAKE_BUILD_SANITIZE` | `OFF` | Build the tests under sanitizers |
+| `CMAKE_BUILD_SAMPLES` | `OFF` | Build the samples of working with the library |
+| `CMAKE_BUILD_BENCHMARKS` | `OFF` | Build the benchmark suite |
+| `CMAKE_BENCHMARK_OPENSSL` | `ON` | Compare the benchmarks with the OpenSSL reference if it is present in the system |
+| `CMAKE_CIPHER_COMPACT` | `OFF` | Build the block ciphers with small tables: for "Kuznyechik" 4 KB of memory instead of 128 KB at the price of a ninefold slowdown, for "Magma" 128 bytes instead of 4 KB at the price of a twofold slowdown |
+| `CMAKE_CURVE_TABLES` | `ON` | Precompute at build time the multiples of the base points of the curves: signing goes **2.8 times** faster at the price of 1.23 MB in the binary. With the precomputation off, signing goes by the general multiplication by a point, and its result does not change. When cross-building on one machine for another the precomputation turns itself off |
+| `CMAKE_CIPHER_CARRYLESS` | `OFF` | Use the machine instructions of carry-less multiplication: enable only where the machine has them |
+| `CMAKE_BUILD_COVERAGE` | `ON` with `CMAKE_BUILD_TESTS` | Build the tests with coverage accounting: benchmarks on such a build are unfit |
+| `CMAKE_BUILD_SANITIZE_LIST` | `address,undefined` | The list of sanitizers with `CMAKE_BUILD_SANITIZE` |
 
-### Потребителю: find_package, add_subdirectory, динамическая библиотека
+### For the consumer: find_package, add_subdirectory, shared library
 
-Библиотека ставится пакетом CMake и берётся потребителем тремя способами, во всех трёх
-цель одна - `nts::nts`, и она несёт с собой пути заголовков, стандарт языка, признак
-статической сборки и системные библиотеки (потоки, под Windows `bcrypt`):
+The library is installed as a CMake package and is taken by the consumer in three ways; in all
+three the target is one — `nts::nts`, and it carries along the header paths, the language standard,
+the static build flag and the system libraries (threads, under Windows `bcrypt`):
 
 ```cmake
-# 1. Установленный пакет: cmake --install build --prefix /opt/nts
+# 1. Installed package: cmake --install build --prefix /opt/nts
 find_package(nts 1.0 CONFIG REQUIRED)      # -DCMAKE_PREFIX_PATH=/opt/nts
 target_link_libraries(app PRIVATE nts::nts)
 
-# 2. Подмодуль в дереве потребителя: без установки
+# 2. Submodule in the tree of the consumer: without installation
 add_subdirectory(submodules/anyks-tls nts)
 target_link_libraries(app PRIVATE nts::nts)
 ```
 
-Установка кладёт заголовки в `include/nts`, библиотеку в `lib` (динамическую под
-Windows - в `bin`), описание целей и файлы `ntsConfig.cmake`, `ntsConfigVersion.cmake` в
-`lib/cmake/nts`; совместимость версий - в пределах старшего номера. Третий способ - мимо
-CMake, с ручным `-I` и `-l` - описан ниже.
+The installation puts the headers into `include/nts`, the library into `lib` (the shared one under
+Windows — into `bin`), the description of the targets and the files `ntsConfig.cmake`, `ntsConfigVersion.cmake` into
+`lib/cmake/nts`; version compatibility is within the major number. The third way — bypassing
+CMake, with manual `-I` and `-l` — is described below.
 
-Динамическая библиотека собирается ключом `CMAKE_SHARED_BUILD_LIB=ON`: `libnts.so.1` →
-`libnts.so.1.0.0` под Linux и BSD, `libnts.1.dylib` под macOS, `nts.dll` под Windows;
-символы экспортируются признаком `ANTS_SHARED_LIBRARY_EXPORT` при сборке самой
-библиотеки и импортируются у потребителя без всяких признаков. Пути внутри проекта идут
-от `CMAKE_CURRENT_SOURCE_DIR` и переменной `ANTS_ROOT`, а не от корневых
-`CMAKE_SOURCE_DIR`/`CMAKE_BINARY_DIR`: через `add_subdirectory` корневые переменные
-указывают на проект потребителя, и на этом проект прежде ломался.
+The shared library is built with the option `CMAKE_SHARED_BUILD_LIB=ON`: `libnts.so.1` →
+`libnts.so.1.0.0` under Linux and BSD, `libnts.1.dylib` under macOS, `nts.dll` under Windows;
+the symbols are exported by the flag `ANTS_SHARED_LIBRARY_EXPORT` when building the
+library itself and are imported at the consumer without any flags. The paths inside the project go
+from `CMAKE_CURRENT_SOURCE_DIR` and the variable `ANTS_ROOT`, not from the root
+`CMAKE_SOURCE_DIR`/`CMAKE_BINARY_DIR`: through `add_subdirectory` the root variables
+point to the project of the consumer, and the project used to break on this before.
 
-Проверено 17.09.2026 на macOS: установленный статический пакет, установленный динамический
-пакет (`@rpath/libnts.1.dylib`) и подмодуль через `add_subdirectory` - три потребителя
-собраны и запущены.
+Verified 17.09.2026 on macOS: an installed static package, an installed shared
+package (`@rpath/libnts.1.dylib`) and a submodule through `add_subdirectory` — three consumers
+built and run.
 
-### Версия проекта
+### For the consumer of the static library
 
-Версия хранится в `CMakeLists.txt` одной строкой `project(nts VERSION 1.0.0 LANGUAGES CXX)`
-и используется сборкой в трёх местах: имя динамической библиотеки (`libnts.so.1.0.0` под
-Linux и BSD, `libnts.1.dylib` под macOS, `nts.dll` под Windows), файл версии пакета
-`ntsConfigVersion.cmake` (совместимость в пределах старшего номера) и документация
-Doxygen (`PROJECT_NUMBER`).
+The headers distinguish three builds: the build of the shared library itself, of its
+consumer, and the static one. A consumer taking `libnts.a` through the CMake target `nts`
+gets the flag `ANTS_STATICLIB` by itself (it is declared at the target as `PUBLIC`). One who
+attaches the library bypassing CMake must define `ANTS_STATICLIB` in his own build:
+without it under Windows the symbols are declared as imported from a shared library, and
+linking fails; on the other systems the flag affects only the visibility of the
+symbols, and its absence stays silent.
 
-Получить версию можно четырьмя способами:
+### Machine instructions of cryptography
 
-```cmake
-# 1. Из переменной CMake после find_package либо add_subdirectory
-message(STATUS "Версия A-NTS: ${nts_VERSION}")
+AES, SHA-256 and the multiplication in the GCM field go by the instructions of the extensions (ARMv8 Crypto, AES-NI,
+PCLMULQDQ) if the machine where the binary is run has them: both branches are always
+built, and the choice is made once at the first access by the detection of the processor
+(`sys/machine.hpp`). The environment variable `ANTS_MACHINE=0` or the call
+`machine::allow(false)` switch everything to the tables without a rebuild — that is how both
+paths are compared on one machine. `ANTS_NO_MACHINE` in the compiler flags throws the instruction branch
+out of the build entirely. The option `CMAKE_CIPHER_CARRYLESS` concerns MGM and is still
+set at build time.
 
-# 2. Из файла версии пакета напрямую
-include(/opt/nts/lib/cmake/nts/ntsConfigVersion.cmake)
-message(STATUS "Версия A-NTS: ${PACKAGE_VERSION}")
+**Elbrus (e2k).** The lcc compiler declares `__SSE2__`…`__AVX2__` and translates the x86-64
+instructions into the vector operations of Elbrus, but does not declare `__x86_64__`: the x86-64
+branches of ChaCha20, AES and GCM are open under `__e2k__` too, and the machine flags are derived
+from the generation of the instruction set fixed by the build (`__iset__`): from the fifth
+generation - the vector operations and the byte shuffle (ChaCha20 goes four blocks at once), from
+the sixth - the carry-less multiplication (GHASH). Elbrus has no AES and SHA instructions in any
+generation: AES and the hashes go by tables. The emulation of AES-NI and PCLMULQDQ, which lcc
+compiles silently, is not enabled by the flags - it is slower than the tables (see
+`bench/COMPARISON.md`, section "Elbrus"). The memory of Elbrus is tagged: a word left over from an
+uninitialised value crashes the process at the first operation on it - the library is not exposed
+(it reads no foreign memory), while the memory measure in the tests reads the stack and the freed
+blocks by words with the tag cleared (`__builtin_e2k_ld_64s_cleartag`).
 
-# 3. Из имени динамической библиотеки (под Linux/BSD)
-# libnts.so.1.0.0 → версия 1.0.0, старший номер 1
-```
+### Tests
 
-```cpp
-// 4. Из программного кода: sys/version.hpp
-std::cout << nts::sys::version();          // строка "1.0.0"
-nts::sys::number();                        // сводное число: 1000000
-nts::sys::majorVersion();                  // старший номер: 1
-// Решение о вызовах по изданию:
-if (nts::sys::number() >= 1000000) { /* издание 1.0 и новее */ }
-
-// Ворота условной компиляции - макросы видны потребителю цели:
-#if ANTS_VERSION_NUMBER >= 1000000
-        // код для издания 1.0 и новее
-#endif
-// Число сводится из номеров: старший * 1000000 + младший * 1000 + заплатка;
-// строка и числа задаются сборкой из строки project() и вручную не повторяются
-```
-
-Установить новую версию — правкой `CMakeLists.txt` в строке `project(nts VERSION X.Y.Z)`:
-старший номер X меняется при ломке договора (удаление либо изменение смысла наружного
-вызова), младший Y при добавлении вызова без ломки прежних, заплатка Z при правке,
-не трогающей договор. После смены версии пересобирается и переустанавливается пакет;
-потребитель с `find_package(nts 1.0 CONFIG REQUIRED)` примет новую версию в пределах
-старшего номера сам, с `find_package(nts 1.0.0 CONFIG REQUIRED)` — лишь точную.
-
-### Потребителю статической библиотеки
-
-Заголовки различают три сборки: сборку самой динамической библиотеки, её
-потребителя и статическую. Потребитель, берущий `libnts.a` через цель CMake `nts`,
-получает признак `ANTS_STATICLIB` сам (он объявлен у цели как `PUBLIC`). Тот, кто
-подключает библиотеку мимо CMake, обязан задать `ANTS_STATICLIB` в своей сборке:
-без него под Windows символы объявляются импортом из динамической библиотеки, и
-связывание отказывает; на прочих системах признак влияет лишь на видимость
-символов, и его отсутствие молчит.
-
-### Машинные команды криптографии
-
-AES, SHA-256 и умножение в поле GCM идут командами расширений (ARMv8 Crypto, AES-NI,
-PCLMULQDQ), если они есть у машины, где двоичный файл запущен: обе ветви собираются
-всегда, а выбор делается один раз при первом обращении по опознанию процессора
-(`sys/machine.hpp`). Переменная окружения `ANTS_MACHINE=0` либо вызов
-`machine::allow(false)` переводят всё на таблицы без пересборки - так сличаются оба
-пути на одной машине. `ANTS_NO_MACHINE` в ключах собирателя выбрасывает ветвь команд
-из сборки вовсе. Ключ `CMAKE_CIPHER_CARRYLESS` относится к MGM и по-прежнему
-задаётся на сборке.
-
-**Эльбрус (e2k).** Собиратель lcc объявляет `__SSE2__`…`__AVX2__` и переводит команды x86-64
-в векторные операции Эльбруса, но `__x86_64__` не объявляет: ветви x86-64 у ChaCha20, AES и
-GCM открыты и под `__e2k__`, а признаки машины выводятся из поколения набора команд, закреплённого
-сборкой (`__iset__`): с пятого поколения - векторные операции и перестановка байтов (ChaCha20
-идёт четырьмя блоками разом), с шестого - умножение без переносов (GHASH). Команд AES и SHA у
-Эльбруса нет ни в одном поколении: AES и хеши идут таблицами. Эмуляция AES-NI и PCLMULQDQ,
-которую lcc собирает молча, признаками не включается - она медленнее таблиц (см.
-`bench/COMPARISON.md`, раздел «Эльбрус»). Память Эльбруса меченая: слово, оставшееся от
-неинициализированного значения, роняет процесс при первом же действии над ним - библиотеке
-это не грозит (она чужой памяти не читает), а мера памяти в проверках читает стек и
-освобождённые блоки словами с очисткой метки (`__builtin_e2k_ld_64s_cleartag`).
-
-### Проверки
-
-Набор проверок собирается ключом `CMAKE_BUILD_TESTS=ON` и запускается из каталога сборки через `ctest`:
+The test suite is built with the option `CMAKE_BUILD_TESTS=ON` and is run from the build directory through `ctest`:
 
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_BUILD_TESTS=ON..
-cmake --build. -j
+cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_BUILD_TESTS=ON ..
+cmake --build . -j
 ctest --output-on-failure
 ```
 
-Проверки запускаются только из каталога сборки: пути к файлам образцов в них относительные. Одну проверку или их подмножество отбирает ключ `-R` по имени, например `ctest -R x509`; двоичные файлы проверок лежат в `tests/<модуль>/`.
+The tests are run only from the build directory: the paths to the sample files in them are relative. A single test or a subset of them is selected by the option `-R` by name, for example `ctest -R x509`; the test binaries lie in `tests/<module>/`.
 
-### Документация
+### Documentation
 
-Документация API собирается Doxygen по двуязычным комментариям заголовков `include/`: у каждого блока русская и английская ветви (`\~russian` / `\~english`). При найденном Doxygen в сборке заводятся цели:
+The API documentation is built by Doxygen from the bilingual comments of the headers in `include/`: each block has a Russian and an English branch (`\~russian` / `\~english`). When Doxygen is found, the build defines the targets:
 
-| Цель | Назначение |
+| Target | Purpose |
 |---|---|
-| `doc-ru` | Русская документация по `Doxyfile.ru`, итог в `doc/ru/html` |
-| `doc-en` | Английская документация по `Doxyfile.en`, итог в `doc/en/html` |
-| `doc` | Обе языковые цели разом |
+| `doc-ru` | Russian documentation by `Doxyfile.ru`, the result in `doc/ru/html` |
+| `doc-en` | English documentation by `Doxyfile.en`, the result in `doc/en/html` |
+| `doc` | Both language targets at once |
 
 ```bash
-cmake --build. --target doc
+cmake --build . --target doc
 ```
 
-Языковые файлы настроек наследуют общий `Doxyfile` и переопределяют лишь язык вывода, каталог назначения и подписи меток шапки. Если языковых файлов нет, цель `doc` собирает документацию по общему `Doxyfile` в `doc/html`.
+The language configuration files inherit the common `Doxyfile` and override only the output language, the destination directory and the labels of the header. If there are no language files, the target `doc` builds the documentation by the common `Doxyfile` into `doc/html`.
 
-## Стенды
+## Test stands
 
-Набор проверок прогнан на одиннадцати системах — всюду 31 набор из 31 и ни одного
-предупреждения сборки:
+The test suite has been run on eleven systems — everywhere 31 test suites out of 31 and not a single
+build warning:
 
-| Система | Набор команд | Собиратель |
+| System | Instruction set | Compiler |
 |---|---|---|
 | macOS 26 | ARM64 | Apple clang 21 |
-| FreeBSD 14.1 и 15.1 | x86-64 | clang 18 и 19 |
+| FreeBSD 14.1 and 15.1 | x86-64 | clang 18 and 19 |
 | NetBSD 10.1 | x86-64 | g++ 10.5 |
 | OpenBSD 7.9 | x86-64 | clang 19 |
 | Debian 12 | x86-64 | g++ 12, glibc |
@@ -375,1340 +329,1292 @@ cmake --build. --target doc
 | Alt Linux | x86-64 | g++ 13, glibc |
 | DragonFly 6.4 | x86-64 | g++ |
 | Windows 11 (MSYS2) | ARM64 | clang, clangarm64 |
-| Elbrus Linux 8.1 (Эльбрус-8С2) | e2k v5 | lcc 1.27 |
+| Elbrus Linux 8.1 (Elbrus-8C2) | e2k v5 | lcc 1.27 |
 
-**Astra Linux стоит в этом списке особняком** — и не только назначением. У OpenSSL там
-подключён провайдер `gostprov`, несущий ровно наши алгоритмы, и только на этом стенде
-замеры сличают **одно и то же**, а не работу одного рода. Итоги в
-[bench/COMPARISON.md](bench/COMPARISON.md). Прочие системы отвечают на вопрос о
-переносимости, а эта — на вопрос о назначении: библиотека пишется под отечественную
-криптографию и под отечественную же сертифицированную систему. Отказ на любом другом
-стенде — досада; отказ здесь означал бы, что работа не годится по существу.
+**Astra Linux stands apart in this list** — and not only by its purpose. OpenSSL there
+has the provider `gostprov` attached, carrying exactly our algorithms, and only on this stand
+do the benchmarks compare **the same thing**, and not work of the same kind. The results are in
+[bench/COMPARISON.md](bench/COMPARISON.md). The other systems answer the question of
+portability, and this one — the question of purpose: the library is written for the domestic
+cryptography and for the domestic certified system likewise. A failure on any other
+stand is an annoyance; a failure here would mean that the work is unfit in substance.
 
-Обход этот стоит проводить целиком, а не выборочно: четыре дефекта переносимости из
-найденных при первом обходе показала **каждый своя** система, и ни один из них не был
-виден на рабочей машине.
+This round should be walked in full, not selectively: each of the four portability defects
+found during the first round was shown by **its own** system, and none of them was
+visible on the workstation.
 
-Обходить их надо **всякий раз, когда правка касается того, что собиратель волен
-истолковать по-своему**. Принудительное встраивание (`__ANTS_INLINE__`) — правка
-именно такого рода: GCC вправе ответить на неё жёсткой ошибкой, если тело встроить не
-сумеет, и узнать об этом на машине с clang нельзя вовсе. Обход 31.08.2026 это и
-проверял; самый старый собиратель набора, g++ 10.5 у NetBSD, принял её без нареканий.
+They must be walked **every time a change touches what the compiler is free to
+interpret in its own way**. Forced inlining (`__ANTS_INLINE__`) is a change of
+exactly that kind: GCC is entitled to answer it with a hard error if it cannot inline the
+body, and there is no way at all to learn about this on a machine with clang. The round of 31.08.2026 checked
+exactly that; the oldest compiler of the set, g++ 10.5 on NetBSD, accepted it without complaint.
 
-## Замеры
+## Benchmarks
 
-Набор `bench` меряет свою работу и рядом — ту же по роду работы у OpenSSL. Правила
-замера лежат в [bench/README.md](bench/README.md), итоги сличения — в
+The suite `bench` measures its own work and next to it — the work of the same kind at OpenSSL. The rules of
+measurement lie in [bench/README.md](bench/README.md), the results of the comparison — in
 [bench/COMPARISON.md](bench/COMPARISON.md).
 
-Коротко: на алгоритмах ГОСТ против ГОСТ (эталон - OpenSSL с провайдером `gostprov`
-на Astra) шифры идут быстрее эталона в 1,1…3,4 раза, «Стрибог» отстаёт в 1,15 раза, а
-подпись, сличение и обмен ключами VKO отстают ровно в 2,0…2,4 раза. Против зарубежных
-алгоритмов с ускорением эталона разрыв по шифрованию доходит до сотни раз: машинных
-команд под ГОСТ нет ни на одной машине. Числа и работа по оставшемуся отставанию
-записаны в [bench/COMPARISON.md](bench/COMPARISON.md), а здесь не повторяются, чтобы
-не устаревать.
+In short: on the GOST algorithms against GOST (the reference is OpenSSL with the provider `gostprov`
+on Astra) the ciphers go faster than the reference by 1.1…3.4 times, "Streebog" lags by 1.15 times, and
+signing, verification and the VKO key exchange lag by exactly 2.0…2.4 times. Against the foreign
+algorithms with the acceleration of the reference the gap in encryption reaches a hundredfold: there are
+no machine instructions for GOST on any machine. The numbers and the work on the remaining lag are
+recorded in [bench/COMPARISON.md](bench/COMPARISON.md) and are not repeated here, so as not
+to go stale.
 
-## Сроки билетов и повторная подача
+## Ticket lifetimes and replay
 
-Часов библиотека не читает: миг, которым судятся сроки билетов возобновления, подаётся
-ей вызовом `moment` — и у клиента, и у сервера. Нулевой миг сроки судить запрещает
-вовсе. Заданный — включает два правила стандарта: билет с вышедшим сроком в дело не
-идёт (раздел 4.6.1 RFC 8446), а объявленный клиентом возраст билета сличается с
-наблюдаемым сервером, и расхождение шире десяти секунд отвергает упреждающие данные,
-не мешая самому возобновлению (раздел 4.2.10).
+The library reads no clock: the moment by which the lifetimes of the resumption tickets are judged is supplied
+to it by the call `moment` — at both the client and the server. A zero moment forbids judging the lifetimes
+at all. A set one enables two rules of the standard: a ticket with an expired lifetime is not put
+to use (section 4.6.1 of RFC 8446), and the ticket age declared by the client is matched against the one
+observed by the server, and a discrepancy wider than ten seconds rejects the early data
+without hindering the resumption itself (section 4.2.10).
 
-Предел упреждающих данных объявляется билетом: сервер задаёт его вызовом `advance`,
-клиент за него не выходит сам, а выход клиента-нарушителя сервер обрывает извещением
-«unexpected_message» (раздел 4.2.10). Билет, предела не объявивший, упреждающих данных
-не дозволяет вовсе (раздел 4.6.1).
+The limit of the early data is declared by the ticket: the server sets it by the call `advance`,
+the client does not exceed it on its own, and the excess of an offending client the server cuts off with the alert
+"unexpected_message" (section 4.2.10). A ticket that declared no limit allows no early data
+at all (section 4.6.1).
 
-Заслон от повторной подачи упреждающих данных (раздел 8) остаётся за тем, кому
-принадлежат билеты: второй раз билет предъявляется уже другой связи, и одна связь о
-повторе судить не может. Простейший заслон — выдавать всякий билет к одному
-употреблению, снимая его из запаса тотчас по возобновлении.
+The guard against the replay of the early data (section 8) stays with the one who owns
+the tickets: the second time the ticket is presented to a different connection, and a single connection
+cannot judge about a replay. The simplest guard is to issue every ticket for a single
+use, removing it from the store immediately upon resumption.
 
-## Упреждающие данные
+## Early data
 
-Клиент, возобновляющий связь билетом, вправе послать прикладные данные вместе с
-приветствием — до всякого ответа сервера. Шифрует он их **набором шифрования билета**,
-ибо иного на тот миг не знает.
+A client resuming a connection with a ticket is entitled to send application data together with the
+hello — before any answer of the server. It encrypts them with **the cipher suite of the ticket**,
+for it knows no other at that moment.
 
-Отсюда и три условия, при которых сервер их принимает (раздел 4.2.10 RFC 8446):
+Hence the three conditions under which the server accepts them (section 4.2.10 of RFC 8446):
 
-* признан **первый** из предложенных клиентом билетов;
-* набор шифрования связи **совпал** с набором того билета;
-* прикладной протокол связи **совпал** с протоколом связи, билет выдавшей.
+* the **first** of the tickets offered by the client is recognized;
+* the cipher suite of the connection **coincides** with the suite of that ticket;
+* the application protocol of the connection **coincides** with the protocol of the connection that issued the ticket.
 
-Последние два условия можно нарушить, ничего не подделывая: набор шифрования и
-прикладной протокол согласуются по спискам сторон, а билет несёт то, о чём условились
-прежде. Оттого билет и хранит их оба — набор в поле `suite`, протокол в поле `protocol`.
+The last two conditions can be violated without forging anything: the cipher suite and the
+application protocol are negotiated by the lists of the sides, and the ticket carries what was agreed
+before. That is why the ticket stores both of them — the suite in the field `suite`, the protocol in the field `protocol`.
 
-Отвергнутые упреждающие данные связи не рвут: сервер пропускает их записи, число
-пропусков ограничено, а клиент шлёт те же данные заново по установленной связи.
+Rejected early data do not break the connection: the server skips their records, the number of
+skips is limited, and the client sends the same data anew over the established connection.
 
-Есть и четвёртое условие, билету не принадлежащее: объявленный клиентом возраст билета
-сличается с наблюдаемым, и расхождение шире десяти секунд приёму препятствует. Так
-выдаёт себя **повторная подача** тех же упреждающих данных.
+There is also a fourth condition, not belonging to the ticket: the ticket age declared by the client
+is matched against the observed one, and a discrepancy wider than ten seconds prevents the acceptance. That is how
+a **replay** of the same early data gives itself away.
 
-О приёме обе стороны объявляют отдельным признаком — `accepted`. Отдельный он не для
-удобства: отвергнутые записи сервер пропускает **молча**, и по пустоте прочитанного
-отказ приёма неотличим от того, что упреждающих данных не слали вовсе. А знать о приёме
-нужно затем, что протокол повтора не отсекает: приняв упреждающие данные, ведущий связь
-обязан считаться с тем, что их могли подать дважды.
+Both sides declare the acceptance by a separate flag — `accepted()`. It is separate not for
+convenience: the rejected records the server skips **silently**, and by the emptiness of what was read
+the refusal of acceptance is indistinguishable from no early data having been sent at all. And the acceptance must be known
+because the protocol does not cut off a replay: having accepted early data, the one driving the connection
+must reckon with the fact that they could have been supplied twice.
 
-## Рукопожатие по уровням для QUIC
+## Handshake by levels for QUIC
 
-QUIC (RFC 9001) берёт у TLS 1.3 одно лишь рукопожатие: записи он шифрует сам, своими
-ключами по уровням защиты. Для него у обоих фасадов есть второй **способ переноса** —
-`transport(context::transport_t::LEVELS)`, устанавливаемый до заведения связи. Умолчание —
-записи протокола, как и прежде: ветвь ГОСТ и классика им не задеты.
+QUIC (RFC 9001) takes from TLS 1.3 only the handshake: it encrypts the records itself, with its own
+keys by protection levels. For it both facades have a second **transport** —
+`transport(context::transport_t::LEVELS)`, set before the connection is started. The default is
+the records of the protocol, as before: the GOST branch and the classic one are not touched by it.
 
-Устройство переноса по уровням:
+The structure of the transport by levels:
 
-* **Вход и выход — голые сообщения рукопожатия** с пометкой уровня, без заголовков записей
-  (данные потока CRYPTO, раздел 4.1.3 RFC 9001): `push(level, data)` принимает, а
-  `output(level)` и `consume(level, size)` отдают. Уровней четыре — `INITIAL`, `EARLY`,
-  `HANDSHAKE`, `APPLICATION`; сообщения несут три из них, `EARLY` несёт лишь ключи.
-  Уровень сообщения совпадает с порой ключей стороны: приветствия идут на `INITIAL`,
-  выход сервера и ответ клиента — на `HANDSHAKE`, билеты — на `APPLICATION`. Сообщение не
-  на своём уровне обрывает связь отказом `LEVEL` с извещением `unexpected_message`
-  (раздел 4.1.4), и сверка идёт на каждом сообщении подачи — приветствие сервера меняет
-  уровень чтения посреди подачи.
-* **Секреты уровней выдаются наружу** — `secret(level, direction, result, size)`:
-  `client_early_traffic_secret`, `{client,server}_handshake_traffic_secret` и
-  `{client,server}_application_traffic_secret` с длиной по хешу набора, по мере вывода
-  расписанием. Ключ, вектор и защиту заголовка (`quic key`, `quic iv`, `quic hp`) выводит
-  потребитель через `label`; следующее поколение прикладных ключей (`quic ku`, раздел 6)
-  он выводит из текущего секрета — тот доступен и после рукопожатия. Секреты выдаются и
-  переносом записями: там они те же, что легли в защиту записей, и проверка снимает ими
-  защиту с записей движка. Уровень `INITIAL` секретов TLS не имеет — его ключи QUIC выводит
-  из опознавателя связи сам.
-* **Записи, извещения, смена ключей и конец упреждения не идут вовсе.** Защита записей в
-  этом переносе не заводится; `write`, `read`, `update` и `close` отвечают отказом
-  `STATE`; принятый `KeyUpdate` либо `EndOfEarlyData` обрывает связь (разделы 6 и 8.3);
-  извещение об обрыве не складывается никуда — его код берётся из `alert` и уходит
-  сообщением закрытия QUIC (раздел 4.8).
-* **Параметры переноса** (`quic_transport_parameters`, 0x0039, раздел 8.2): свои кладутся
-  вызовом `parameters(...)` и уходят как есть — клиентом в приветствие, сервером в
-  защищённые расширения; чужие читаются вызовом `parameters`, а `acquired` отличает
-  пустые от отсутствующих. По уровням расширение обязательно с обеих сторон (отказ
-  `PARAMETERS`, извещение `missing_extension`), переносу записями оно не положено:
-  принятое там отвергается (`unsupported_extension`).
-* **Прикладной протокол обязателен** (раздел 8.1): связь без перечня протоколов не
-  заводится (`SETTINGS`), а без общего протокола обрывается извещением
+* **The input and the output are bare handshake messages** marked with a level, without record headers
+  (the data of the CRYPTO stream, section 4.1.3 of RFC 9001): `push(level, data)` accepts, and
+  `output(level)` and `consume(level, size)` give out. There are four levels — `INITIAL`, `EARLY`,
+  `HANDSHAKE`, `APPLICATION`; the messages carry three of them, `EARLY` carries only keys.
+  The level of a message coincides with the key epoch of the side: the hellos go at `INITIAL`,
+  the output of the server and the answer of the client — at `HANDSHAKE`, the tickets — at `APPLICATION`. A message not
+  at its own level aborts the connection with the error `LEVEL` and the alert `unexpected_message`
+  (section 4.1.4), and the check is made on every message of the feed — the server hello changes the
+  reading level in the middle of a feed.
+* **The level secrets are released outside** — `secret(level, direction, result, size)`:
+  `client_early_traffic_secret`, `{client,server}_handshake_traffic_secret` and
+  `{client,server}_application_traffic_secret` of the length of the suite hash, as they are derived
+  by the schedule. The key, the vector and the header protection (`quic key`, `quic iv`, `quic hp`) are derived by the
+  consumer through `label`; the next generation of the application keys (`quic ku`, section 6)
+  it derives from the current secret — that one is available after the handshake too. The secrets are released also
+  with the transport by records: there they are the same that went into the record protection, and the test removes with them
+  the protection from the records of the engine. The level `INITIAL` has no TLS secrets — QUIC derives its keys
+  from the connection identifier itself.
+* **Records, alerts, key update and the end of early data do not go at all.** The record protection in
+  this transport is not set up; `write`, `read`, `update` and `close` answer with the error
+  `STATE`; a received `KeyUpdate` or `EndOfEarlyData` aborts the connection (sections 6 and 8.3);
+  the alert about the abort is put nowhere — its code is taken from `alert()` and goes as
+  the QUIC closing message (section 4.8).
+* **The transport parameters** (`quic_transport_parameters`, 0x0039, section 8.2): own ones are put
+  by the call `parameters(...)` and go as they are — by the client into the hello, by the server into the
+  encrypted extensions; the foreign ones are read by the call `parameters()`, and `acquired()` distinguishes
+  the empty ones from the absent ones. By levels the extension is mandatory on both sides (the error
+  `PARAMETERS`, the alert `missing_extension`), with the transport by records it is not allowed:
+  received there, it is rejected (`unsupported_extension`).
+* **The application protocol is mandatory** (section 8.1): a connection without a list of protocols is not
+  started (`SETTINGS`), and without a common protocol it is aborted with the alert
   `no_application_protocol`.
-* **Упреждающие данные без их конца**: включаются как прежде (`advance`), сервер
-  объявляет приём (`accepted`), обе стороны знают, идут ли они прямо сейчас
-  (`earlying`), а клиент — отвергнуты ли они (`rejected`), чтобы сбросить их состояние и
-  послать заново прикладными ключами. Секрет упреждения выдаётся сразу за приветствием
-  клиента. Билет, принятый по уровням, уносит с собою параметры переноса сервера
-  (`ticket.parameters`) — по ним клиент судит, дозволено ли упреждение будущей связи.
-* **Билет в октеты и обратно** — `context::encode` и `context::decode`: запись
-  самодостаточна, от процесса не зависит и несёт байт издания; обрезание, порча длин,
-  лишний хвост и чужое издание отвергаются целиком (`TICKET`).
+* **Early data without their end**: enabled as before (`advance`), the server
+  declares the acceptance (`accepted`), both sides know whether they are going right now
+  (`earlying`), and the client — whether they are rejected (`rejected`), to reset their state and
+  send them anew with the application keys. The early secret is released right after the client
+  hello. A ticket accepted by levels carries with it the transport parameters of the server
+  (`ticket.parameters`) — by them the client judges whether early data are allowed to a future connection.
+* **The ticket into octets and back** — `context::encode` and `context::decode`: the record is
+  self-contained, does not depend on the process and carries a version byte; truncation, corruption of the lengths,
+  an extra tail and a foreign version are rejected entirely (`TICKET`).
 
-Проверки лежат в `tests/quic`: петлевое рукопожатие по уровням по всем наборам, группам и
-ключам, просьба о повторе, сличение выданных секретов с расписанием на записях и с RFC
-8448, отказы, кодек билета, отказ от упреждения и нехватка памяти.
+The tests lie in `tests/quic`: a loopback handshake by levels over all suites, groups and
+keys, a retry request, matching of the released secrets against the schedule on records and against RFC
+8448, errors, the ticket codec, rejection of early data and memory exhaustion.
 
-## Связь поверх дейтаграмм DTLS 1.3
+## Connection over DTLS 1.3 datagrams
 
-DTLS 1.3 (RFC 9147) ведёт то же рукопожатие TLS 1.3 поверх дейтаграмм, которые теряются,
-двоятся и приходят не по порядку. Для него у обоих фасадов есть третий **способ переноса** —
-`transport(context::transport_t::DATAGRAMS)`, устанавливаемый до заведения связи. Ход
-рукопожатия, расписание ключей, подлинность, билеты и извещения те же, что и записями;
-различие лежит в слое записей, в раскладке сообщений по дейтаграммам и в повторной
-передаче. Ввода-вывода по-прежнему нет: перенос по UDP либо SCTP SEQPACKET и часы
-остаются за тем, кто связь ведёт.
+DTLS 1.3 (RFC 9147) drives the same TLS 1.3 handshake over datagrams, which get lost,
+duplicated and arrive out of order. For it both facades have a third **transport** —
+`transport(context::transport_t::DATAGRAMS)`, set before the connection is started. The course of
+the handshake, the key schedule, authentication, tickets and alerts are the same as with records;
+the difference lies in the record layer, in the layout of the messages over the datagrams and in the
+retransmission. There is still no input-output: the transport over UDP or SCTP SEQPACKET and the timer
+stay with the one who drives the connection.
 
-Устройство: слой записей — `include/datagram`; всё, чем дейтаграммы отличаются от потока
-(поры ключей с окнами повторов, залп с кусками и подтверждениями, сборки принимаемых
-сообщений, отложенные записи, часы, метка возврата состояния) — внутренний объект
-`src/internal/flight` (`flight_t`), у движка связи остаются лишь крючки в `emit`, `push`,
-`start`, `clear`, `output` и запрос издания; классический путь читается как прежде.
+The structure: the record layer is `include/datagram`; everything by which the datagrams differ from a stream
+(the key epochs with anti-replay windows, the flight with fragments and acknowledgements, the reassemblies of the received
+messages, the deferred records, the timer, the stateless cookie) is the internal object
+`src/internal/flight` (`flight_t`); the connection engine keeps only the hooks in `emit`, `push`,
+`start`, `clear`, `output` and the version request; the classic path reads as before.
 
-* **Вход и выход — целые дейтаграммы.** `push(data)` принимает ровно одну принятую
-  дейтаграмму, `output` отдаёт ровно одну готовую дейтаграмму — первую из очереди, и звать
-  `output`/`consume` надлежит до пустоты: за одну подачу готовых дейтаграмм может быть
-  несколько, всякая запись данных либо извещения уходит своей дейтаграммой, ни одна не
-  теряется. `consume(size)` снимает дейтаграмму целиком. Свой размер задаётся `mtu(size)`
-  (умолчание 1200 по разделу 4.4, порог снизу `DATAGRAM_MTU_LEAST` = 256, верхнего предела
-  нет — по SCTP сообщения длиннее 1500); принимаемые дейтаграммы своим размером не
-  ограничены, стороны с разными размерами сходятся; принимается до `DATAGRAM_LONGEST`
-  (заголовок и запись наибольшей длины, 2^14 + 256), длиннее — отброс `LENGTH`.
-* **Записи** (`include/datagram`): открытый заголовок DTLSPlaintext с порой ключей и
-  48-разрядным номером у нулевой поры (издание в нём по разделу 4 не толкуется вовсе),
-  объединённый заголовок DTLSCiphertext (0b001CSLEE) у защищённых пор — связь составляет
-  его с 16-разрядным номером и длиной, а принимает все четыре вида; опознаватель связи
-  (разряд C, RFC 9146) не поддерживается. Номер записи шифруется маской по разделу 4.2.3:
-  AES-ECB у наборов AES, гамма ChaCha20 у 0x1303; ключ маски выводится меткой `sn`. Полный
-  номер восстанавливается по младшим разрядам ближайшим к ожидаемому (раздел 4.2.2).
-  Наборы ГОСТ маски не имеют и поверх дейтаграмм не предлагаются.
-* **Поры ключей** (раздел 4.2.1): нулевая — открытые приветствия, вторая — рукопожатие,
-  третья — прикладные данные, далее по одной на всякую смену ключей. Прежняя пора чтения
-  держится ради запоздалых записей; запись следующей поры (за нулевой — второй), обогнавшая
-  её ключи, откладывается до их прихода (не более `DATAGRAM_DEFERRED` = 8), и собеседнику
-  уходит пустое подтверждение (раздел 7.1), по которому он повторяет залп тотчас же.
-  Первая пора (упреждающие данные) не заводится: предложение упреждения отвечает
+* **The input and the output are whole datagrams.** `push(data)` accepts exactly one received
+  datagram, `output()` gives out exactly one ready datagram — the first from the queue, and
+  `output`/`consume` must be called until empty: per one feed there may be several ready datagrams,
+  every record of data or of an alert goes in its own datagram, none is
+  lost. `consume(size)` removes the datagram entirely. The own size is set by `mtu(size)`
+  (the default is 1200 by section 4.4, the lower threshold `DATAGRAM_MTU_LEAST` = 256, there is no upper
+  limit — over SCTP the messages are longer than 1500); the received datagrams are not limited by the own
+  size, sides with different sizes converge; up to `DATAGRAM_LONGEST` is accepted
+  (the header and the record of the greatest length, 2^14 + 256), longer ones are discarded with `LENGTH`.
+* **Records** (`include/datagram`): the plaintext header DTLSPlaintext with the key epoch and a
+  48-bit number at the zero epoch (the version in it is not interpreted at all by section 4),
+  the unified header DTLSCiphertext (0b001CSLEE) at the protected epochs — the connection composes
+  it with a 16-bit number and a length, and accepts all four kinds; the connection identifier
+  (bit C, RFC 9146) is not supported. The record number is encrypted with a mask by section 4.2.3:
+  AES-ECB with the AES suites, the ChaCha20 keystream with 0x1303; the mask key is derived with the label `sn`. The full
+  number is recovered by the low bits as the closest to the expected one (section 4.2.2).
+  The GOST suites have no mask and are not offered over datagrams.
+* **Key epochs** (section 4.2.1): the zero one — plaintext hellos, the second — the handshake,
+  the third — application data, further one per every key update. The previous reading epoch
+  is kept for the sake of late records; a record of the next epoch (after the zero one — the second), having outrun
+  its keys, is deferred until they arrive (no more than `DATAGRAM_DEFERRED` = 8), and the peer
+  is sent an empty acknowledgement (section 7.1), by which it repeats the flight at once.
+  The first epoch (early data) is not set up: an offer of early data answers
   `SETTINGS`.
-* **Окно повторов** (раздел 4.5.1): скользящее окно на `DATAGRAM_WINDOW` (64) записей у
-  всякой поры чтения; повтор и запись позади окна отбрасываются до снятия защиты.
-* **Молчаливые отбросы** (раздел 4.5.2): порча, повтор, чужая пора, опознаватель связи,
-  открытая запись не ко времени, далёкий кусок, данные до установления связи, чужая метка —
-  всё без извещений; `discarded` даёт общий счёт, `discarded(datagram::reason_t)` — по
-  причинам: `LENGTH`, `TYPE`, `EPOCH`, `IDENTIFIER`, `REPLAY`, `DAMAGE`, `PLAIN`, `AHEAD`,
+* **The anti-replay window** (section 4.5.1): a sliding window of `DATAGRAM_WINDOW` (64) records at
+  every reading epoch; a replay and a record behind the window are discarded before the protection is removed.
+* **Silent discards** (section 4.5.2): corruption, replay, a foreign epoch, a connection identifier,
+  a plaintext record out of time, a distant fragment, data before the connection is established, a foreign cookie —
+  all without alerts; `discarded()` gives the total count, `discarded(datagram::reason_t)` — by
+  reasons: `LENGTH`, `TYPE`, `EPOCH`, `IDENTIFIER`, `REPLAY`, `DAMAGE`, `PLAIN`, `AHEAD`,
   `FRAMING`, `PREMATURE`, `COOKIE`.
-* **Рукопожатие** (раздел 5): сообщения несут обвязку с номером сообщения, смещением и
-  длиной куска; исходящие дробятся под размер дейтаграммы, входящие собираются из кусков с
-  любым перекрытием и в любом порядке. Сборка привязана к поре ключей: по появлении ключей
-  чтения открытые куски принимаются лишь повтором уже разобранного сообщения, и подделанная
-  открытая запись защищённое рукопожатие не рвёт. Сборок не более `DATAGRAM_AHEAD` (8), по
-  `DATAGRAM_ASSEMBLY` (64 КБ) каждая. Переписка ведётся сообщениями в обвязке TLS.
-* **Подтверждения** (раздел 7): сообщение `ack` (вид 26) с номерами записей по
-  возрастанию, наивысшей порой записи; подтверждаются лишь записи, куски которых разобраны
-  либо сложены в сборку, отброшенное не подтверждается. Залп, на который отвечено своим
-  залпом, подтверждён неявно; часть залпа, завершение клиента и сообщения за рукопожатием
-  подтверждаются явно; открытые записи (приветствие сервера) подтверждаются в защищённой
-  поре. Открытой порой принимается лишь пустое подтверждение и лишь при залпе, ждущем часов.
-* **Часы и повторная передача** (раздел 5.8): `timeout` отдаёт срок в миллисекундах и
-  ноль, когда повторять нечего; по истечении ведущий зовёт `elapsed` — неподтверждённые
-  куски нарезаются заново новыми номерами записей, срок удваивается до 60000; удвоенный
-  срок держится, пока залп не подтверждён без повторов (раздел 5.8.2), и лишь тогда
-  возвращается к 1000; по исчерпании `DATAGRAM_ATTEMPTS` попыток — `TIMEOUT`. Свой залп
-  повторяется по повтору собеседником уже разобранного сообщения (раздел 5.8.1), а не по
-  всякой записи без продвижения. Прикладные данные и извещения повторной передачи не знают.
-* **Метка возврата состояния** (раздел 5.1): сервер отвечает на первое приветствие
-  просьбой о повторе с меткой всегда. Метка — поколение секрета, хеш приветствия и HMAC-SHA256
-  по секрету поколения над ними и адресом собеседника; адрес подаётся `address(view)` до
-  заведения связи (без него `start` отвечает `SETTINGS`), содержимое его непрозрачно и
-  сличается побайтно, длина до `DATAGRAM_ADDRESS` (256) байтов. При проверке хеш приветствия
-  сверяется с запомненным: метка чужой связи с того же адреса отвергается. Секрет задаётся
-  `stamp(secret)` либо порождается энтропией; `restamp` открывает следующее поколение,
-  живы два. Приветствие с негодной меткой отбрасывается молча (намеренно, смотри
+* **The handshake** (section 5): the messages carry the framing with the message number, the offset and the
+  length of the fragment; the outgoing ones are split to the size of the datagram, the incoming ones are reassembled from fragments with
+  any overlap and in any order. The reassembly is bound to the key epoch: once the reading keys
+  appear, plaintext fragments are accepted only as a repeat of an already parsed message, and a forged
+  plaintext record does not break the protected handshake. There are no more than `DATAGRAM_AHEAD` (8) reassemblies, of
+  `DATAGRAM_ASSEMBLY` (64 KB) each. The transcript is kept with the messages in the TLS framing.
+* **Acknowledgements** (section 7): the message `ack` (type 26) with the record numbers in
+  ascending order, at the highest epoch of a record; only the records whose fragments are parsed
+  or put into a reassembly are acknowledged, what is discarded is not acknowledged. A flight answered with an own
+  flight is acknowledged implicitly; a part of a flight, the client finishing and the post-handshake messages
+  are acknowledged explicitly; the plaintext records (the server hello) are acknowledged in the protected
+  epoch. In the plaintext epoch only an empty acknowledgement is accepted, and only with a flight waiting for the timer.
+* **The timer and retransmission** (section 5.8): `timeout()` gives the deadline in milliseconds and
+  zero when there is nothing to repeat; on expiry the driver calls `elapsed()` — the unacknowledged
+  fragments are cut anew with new record numbers, the deadline doubles up to 60000; the doubled
+  deadline is kept until a flight is acknowledged without repeats (section 5.8.2), and only then
+  returns to 1000; on exhaustion of `DATAGRAM_ATTEMPTS` attempts — `TIMEOUT`. The own flight
+  is repeated on a repeat by the peer of an already parsed message (section 5.8.1), and not on
+  every record without progress. Application data and alerts know no retransmission.
+* **The stateless cookie** (section 5.1): the server always answers the first hello with a
+  retry request with a cookie. The cookie is the generation of the secret, the hash of the hello and an HMAC-SHA256
+  by the secret of the generation over them and the address of the peer; the address is supplied by `address(view)` before
+  the connection is started (without it `start` answers `SETTINGS`), its content is opaque and
+  is matched byte by byte, the length is up to `DATAGRAM_ADDRESS` (256) bytes. At verification the hash of the hello
+  is checked against the remembered one: a cookie of a foreign connection from the same address is rejected. The secret is set by
+  `stamp(secret)` or is generated from entropy; `restamp()` opens the next generation,
+  two are alive. A hello with an unfit cookie is discarded silently (deliberately, see
   CONFORMANCE).
-* **Издание** (раздел 5.3): `legacy_version` приветствия и открытых записей 0xFEFD, в
-  `supported_versions` единственное 0xFEFC. `EndOfEarlyData` не бывает (раздел 5.6),
-  `KeyUpdate` идёт с подтверждением, новая пора записи вступает лишь по нему, а вторая смена
-  до подтверждения первой отвечает `STATE` (раздел 8).
+* **The version** (section 5.3): the `legacy_version` of the hello and of the plaintext records is 0xFEFD, in
+  `supported_versions` the only one is 0xFEFC. There is no `EndOfEarlyData` (section 5.6),
+  `KeyUpdate` goes with an acknowledgement, the new writing epoch comes into force only by it, and a second update
+  before the acknowledgement of the first answers `STATE` (section 8).
 
-Проверки лежат в `tests/dtls`: заголовки и маска номера векторами из FIPS 197 и RFC 8439,
-петлевое рукопожатие по трём наборам, двум группам и трём ключам, потери, перестановки и
-повторы, дробление, окно повторов, смена ключей, отбросы по причинам, подделка открытой
-записи, признак повтора, отсрочка с пустым подтверждением, метка чужой связи, порядок
-номеров подтверждения, срок ожидания, разные размеры сторон, договор выдачи, отказы, часы
-и нехватка памяти.
+The tests lie in `tests/dtls`: the headers and the number mask with the vectors from FIPS 197 and RFC 8439,
+a loopback handshake over three suites, two groups and three keys, losses, reorderings and
+replays, fragmentation, the anti-replay window, key update, discards by reasons, forgery of a plaintext
+record, the replay flag, deferral with an empty acknowledgement, a cookie of a foreign connection, the order of the
+acknowledgement numbers, the wait deadline, different sizes of the sides, the output contract, errors, the timer
+and memory exhaustion.
 
-## Связь поверх дейтаграмм DTLS 1.2
+## Connection over DTLS 1.2 datagrams
 
-DTLS 1.2 (RFC 6347) - четвёртое сочетание того же движка: рукопожатие издания 1.2 (ECDHE,
-AEAD, расширенный главный секрет, всё как у TLS 1.2 записями) поверх переноса дейтаграммами
-`flight_t`. Отдельного способа переноса нет: `transport(DATAGRAMS)` ведёт оба издания, а
-выбирают его пределы `versions(lowest, highest)` - 0x0303 отвечает DTLS 1.2 (на проводе 0xFEFD),
-0x0304 - DTLS 1.3 (на проводе 0xFEFC), умолчание 1.2…1.3. Шкала изданий едина на любом переносе:
-пределы задаются и `version` отдаётся кодами TLS 0x0303/0x0304, а проводные 0xFEFD/0xFEFC наружу
-не показываются нигде (счёт изданий DTLS обратный, и в проводной шкале диапазон «от 1.2 до 1.3»
-выглядел бы перевёрнутым). Клиент шлёт `legacy_version` 0xFEFD и `supported_versions`
-[0xFEFC, 0xFEFD] по пределу и наборам (издание предлагается лишь при наличии его наборов), сервер
-выбирает высшее общее; чужой сервер 1.2 отвечает ServerHello 0xFEFD без расширения издания -
-связь идёт DTLS 1.2, `version` отдаёт 0x0303. Пределы «только 1.3» отвергают 1.2
-извещением `protocol_version`, «только 1.2» - принимаются заведением связи; заголовок
-приветствия клиента с изданием не DTLS либо старше 1.2 (0x0303, 0xFEFF, 0x0000) - `protocol_version`.
+DTLS 1.2 (RFC 6347) is the fourth combination of the same engine: the handshake of version 1.2 (ECDHE,
+AEAD, extended master secret, everything as with TLS 1.2 over records) over the datagram transport
+`flight_t`. There is no separate transport: `transport(DATAGRAMS)` drives both versions, and
+they are selected by the bounds `versions(lowest, highest)` — 0x0303 corresponds to DTLS 1.2 (on the wire 0xFEFD),
+0x0304 — to DTLS 1.3 (on the wire 0xFEFC), the default is 1.2…1.3. The scale of the versions is uniform on any transport:
+the bounds are set and `version()` is given out with the TLS codes 0x0303/0x0304, and the wire ones 0xFEFD/0xFEFC are
+shown outside nowhere (the numbering of the DTLS versions is inverted, and in the wire scale the range "from 1.2 to 1.3"
+would look upside down). The client sends `legacy_version` 0xFEFD and `supported_versions`
+[0xFEFC, 0xFEFD] by the bound and the suites (a version is offered only when its suites are present), the server
+picks the highest common one; a foreign 1.2 server answers with ServerHello 0xFEFD without the version extension —
+the connection goes DTLS 1.2, `version()` gives 0x0303. The bounds "only 1.3" reject 1.2
+with the alert `protocol_version`, "only 1.2" are accepted by starting the connection; a header of
+the client hello with a version that is not DTLS or older than 1.2 (0x0303, 0xFEFF, 0x0000) — `protocol_version`.
 
-* **Записи** (раздел 4.1): все записи, и защищённые тоже, идут открытым заголовком
-  type(1) version(2) epoch(2) sequence(6) length(2); объединённого заголовка и шифрования
-  номера нет. Защита - наборами 1.2 (RFC 5288, RFC 7905) с порой и порядковым номером в
-  связанных данных (раздел 4.1.2.1) и явной частью у AES-GCM; пор две: нулевая до смены
-  набора шифрования, первая за нею. Окно повторов - то же `datagram::window_t` на 64
-  записи; порча и повтор отбрасываются молча (`DAMAGE`, `REPLAY`), запись неведомой поры -
-  `EPOCH`, чужое издание в заголовке - `VERSION` (0xFEFF дозволено лишь открытой записи
-  рукопожатия: первому приветствию и просьбе чужих узлов; у защищённой записи оно тоже
-  `VERSION`, до снятия защиты). Заголовок издания 1.2 разбирают и составляют перегрузки
-  `datagram::parse`/`build` с признаком `legacy`, рядом с заголовком DTLS 1.3. Запись первой
-  поры, обогнавшая смену набора, откладывается до неё - но не у сервера без состояния.
-  Записи одной дейтаграммы - одной поры.
-* **Рукопожатие** (раздел 4.2): обвязка сообщений с номером, смещением и длиной куска -
-  та же, что у DTLS 1.3, сборка и дробление под `mtu` общие. Смена набора шифрования -
-  отдельная запись (вид 20), ложится в залп и повторяется вместе с ним, повышает пору;
-  завершение идёт первой порой. Порядок залпов по разделу 4.2.4: CH → HVR → CH(cookie) →
-  SH, Cert, SKE, [CR], SHD → [Cert], CKE, [CV], CCS, Fin → CCS, Fin. Переписка для
-  Finished и CertificateVerify ведётся сообщениями в обвязке DTLS без учёта дробления
-  (раздел 4.2.6) и без HelloVerifyRequest и первого приветствия (раздел 4.2.1).
-* **HelloVerifyRequest и метка** (раздел 4.2.1): сервер без состояния отвечает на первое
-  приветствие просьбой с изданием 0xFEFF (по букве раздела 4.2.1, так же у всех шести
-  изданий openssl) и меткой; метка - те же `stamp`/`restamp`/`address` и тот же
-  секрет поколения, что у DTLS 1.3, но короткая: поколение и HMAC-SHA256 по секрету над
-  поколением, хешем приветствия без метки и адресом - 33 байта, чтобы просьба (61 байт)
-  была короче наименьшего приветствия (69 байтов) и не усиливала чужой поток; проверяется
-  без состояния - хеш считается заново по повторённому приветствию и сверяется
-  имитовставкой, оттого метку признаёт и соседний сервер с тем же секретом и адресом.
-  До подтверждения адреса сервер не тратит состояния и не шлёт извещений: усечённое,
-  порченое либо иначе негодное приветствие отбрасывается молча (`GREETING`), приветствие
-  принимается лишь целиком одним куском (дроблёное и чужие куски - `GREETING`, как у
-  `DTLSv1_listen`), записи первой поры не откладываются (`EPOCH`), окно нулевой поры не
-  ведётся; приветствие без метки отвечается просьбой вновь (и повтор первого - тоже), с
-  негодной либо чужой меткой - отбрасывается молча (`COOKIE`); залп просьбы сбрасывается,
-  часов нет, приветствие клиента принимается номером 0 либо 1. По принятой метке запись
-  приветствия ложится в окно нулевой поры - повтор её `REPLAY`. Клиент повторяет
-  приветствие с тем же случайным значением и опознавателем, метку любой длины до 255
-  байтов повторяет дословно, издание в просьбе не судит, просьбу принимает всегда - и от
-  сервера без `-listen` (openssl шлёт её всегда); повторная просьба (сервер сменил секрет
-  метки) принимается с новой меткой и приветствием номером один вновь, но не более трёх
-  за рукопожатие - четвёртая `unexpected_message`.
-* **Часы и повторная передача** (раздел 4.2.4): те же `timeout`/`elapsed`, 1000 мс с
-  удвоением до 60000, `DATAGRAM_ATTEMPTS`, повтор всего последнего залпа; подтверждений нет
-  - залп подтверждается лишь ответным залпом, повтор собеседником уже разобранного
-  сообщения повторяет свой залп; последний залп сервера (CCS, Fin) часов не ждёт и
-  повторяется лишь по повтору завершения клиента, а сбрасывается первыми прикладными
-  данными. Смена набора, обогнавшая сообщения своего залпа при потерях либо перестановке,
-  ждёт своего черёда у сервера; у клиента и в прочих ступенях - `unexpected_message`.
-* **Извещения**: fatal alert записью, `close_notify`, `no_renegotiation` предупреждением
-  на HelloRequest и повторное приветствие за связью, `EXHAUSTED` по пределу AES-GCM - как у
+* **Records** (section 4.1): all records, the protected ones too, go with the plaintext header
+  type(1) version(2) epoch(2) sequence(6) length(2); there is no unified header and no encryption of the
+  number. The protection is by the 1.2 suites (RFC 5288, RFC 7905) with the epoch and the sequence number in
+  the associated data (section 4.1.2.1) and the explicit part with AES-GCM; there are two epochs: the zero one until the change
+  of the cipher spec, the first after it. The anti-replay window is the same `datagram::window_t` of 64
+  records; corruption and replay are discarded silently (`DAMAGE`, `REPLAY`), a record of an unknown epoch —
+  `EPOCH`, a foreign version in the header — `VERSION` (0xFEFF is allowed only to a plaintext handshake
+  record: the first hello and the request of foreign nodes; at a protected record it is also
+  `VERSION`, before the protection is removed). The header of version 1.2 is parsed and composed by the overloads
+  `datagram::parse`/`build` with the flag `legacy`, next to the DTLS 1.3 header. A record of the first
+  epoch that outran the change of the cipher spec is deferred until it — but not at a stateless server.
+  The records of one datagram belong to one epoch.
+* **The handshake** (section 4.2): the framing of the messages with the number, the offset and the length of the fragment is
+  the same as with DTLS 1.3, the reassembly and the fragmentation to `mtu` are shared. The change of the cipher spec is
+  a separate record (type 20), it goes into the flight and is repeated together with it, raising the epoch;
+  the finishing goes in the first epoch. The order of the flights by section 4.2.4: CH → HVR → CH(cookie) →
+  SH, Cert, SKE, [CR], SHD → [Cert], CKE, [CV], CCS, Fin → CCS, Fin. The transcript for
+  Finished and CertificateVerify is kept with the messages in the DTLS framing without regard to fragmentation
+  (section 4.2.6) and without HelloVerifyRequest and the first hello (section 4.2.1).
+* **HelloVerifyRequest and the cookie** (section 4.2.1): a stateless server answers the first
+  hello with a request with the version 0xFEFF (by the letter of section 4.2.1, the same at all six
+  versions of openssl) and a cookie; the cookie is the same `stamp()`/`restamp()`/`address()` and the same
+  generation secret as with DTLS 1.3, but short: the generation and an HMAC-SHA256 by the secret over the
+  generation, the hash of the hello without the cookie and the address — 33 bytes, so that the request (61 bytes)
+  is shorter than the smallest hello (69 bytes) and does not amplify a foreign flood; it is verified
+  statelessly — the hash is computed anew over the repeated hello and is checked by the
+  authentication tag, therefore the cookie is recognized also by a neighbouring server with the same secret and address.
+  Until the address is confirmed the server spends no state and sends no alerts: a truncated,
+  corrupted or otherwise unfit hello is discarded silently (`GREETING`), a hello
+  is accepted only whole in one fragment (a fragmented one and foreign fragments — `GREETING`, as at
+  `DTLSv1_listen`), records of the first epoch are not deferred (`EPOCH`), the window of the zero epoch is not
+  kept; a hello without a cookie is answered with a request again (and a repeat of the first one — too), one with
+  an unfit or foreign cookie is discarded silently (`COOKIE`); the flight of the request is dropped,
+  there is no timer, the client hello is accepted with the number 0 or 1. Once the cookie is accepted, the record of the
+  hello goes into the window of the zero epoch — its repeat is `REPLAY`. The client repeats the
+  hello with the same random value and identifier, repeats a cookie of any length up to 255
+  bytes verbatim, does not judge the version in the request, accepts the request always — also from a
+  server without `-listen` (openssl always sends it); a repeated request (the server changed the cookie
+  secret) is accepted with the new cookie and a hello with the number one again, but no more than three
+  per handshake — the fourth is `unexpected_message`.
+* **The timer and retransmission** (section 4.2.4): the same `timeout()`/`elapsed()`, 1000 ms with
+  doubling up to 60000, `DATAGRAM_ATTEMPTS`, a repeat of the whole last flight; there are no acknowledgements
+  — a flight is acknowledged only by the answering flight, a repeat by the peer of an already parsed
+  message repeats the own flight; the last flight of the server (CCS, Fin) waits for no timer and
+  is repeated only on a repeat of the client finishing, and is dropped by the first application
+  data. A change of the cipher spec that outran the messages of its flight at losses or reordering
+  waits for its turn at the server; at the client and in the other stages — `unexpected_message`.
+* **Alerts**: a fatal alert as a record, `close_notify`, `no_renegotiation` as a warning
+  on HelloRequest and a repeated hello after the connection, `EXHAUSTED` by the AES-GCM limit — as with
   TLS 1.2.
-* **Не поддерживается и отвергается явно**: билет за рукопожатием (`issue` - `STATE`;
-  билет RFC 5077 идёт внутри рукопожатия, смотри «TLS 1.2: второй круг»), SRTP (`use_srtp`
-  не предлагается и не признаётся), опознаватель связи RFC 9146, пересогласование, сжатие
-  кроме нулевого, наборы ГОСТ поверх дейтаграмм.
+* **Not supported and rejected explicitly**: a post-handshake ticket (`issue()` — `STATE`;
+  the RFC 5077 ticket goes inside the handshake, see "TLS 1.2: the second round"), SRTP (`use_srtp`
+  is neither offered nor recognized), the RFC 9146 connection identifier, renegotiation, compression
+  other than null, the GOST suites over datagrams.
 
-Обмен с чужой реализацией: системный openssl 3.6 по UDP - наш клиент против
-`s_server -dtls1_2 -listen -Verify 1 -mtu 300` и наш сервер против `s_client -dtls1_2 -mtu 300`
-по шести наборам и трём группам; векторы шести изданий openssl (3.0.15…3.5.7) в
-`tests/corpus/dtls12` - дейтаграмма за дейтаграммой с ключевым файлом.
+Exchange with a foreign implementation: the system openssl 3.6 over UDP — our client against
+`s_server -dtls1_2 -listen -Verify 1 -mtu 300` and our server against `s_client -dtls1_2 -mtu 300`
+over six suites and three groups; the vectors of six versions of openssl (3.0.15…3.5.7) in
+`tests/corpus/dtls12` — datagram by datagram with a key log file.
 
-Проверки лежат в `tests/dtls12`: договор приёмки, векторы (сервер, клиент, завершения по
-ключевому файлу), петля по шести наборам и трём группам, сервер без состояния, поддельный
-клиент с независимым расчётом PRF по переписке в обвязке DTLS, потери, перестановки и повторы,
-дробление под 300, окно повторов и порча, смена набора не в свой черёд, согласование
-издания, обмен с openssl и нехватка памяти.
+The tests lie in `tests/dtls12`: the acceptance contract, the vectors (server, client, the finishings by the
+key log file), the loopback over six suites and three groups, a stateless server, a forged
+client with an independent computation of the PRF over the transcript in the DTLS framing, losses, reorderings and replays,
+fragmentation to 300, the anti-replay window and corruption, a change of the cipher spec out of turn, version
+negotiation, exchange with openssl and memory exhaustion.
 
-## TLS 1.2: второй круг - CBC, голый RSA, PSK и билеты RFC 5077
+## TLS 1.2: the second round - CBC, plain RSA, PSK and RFC 5077 tickets
 
-Решение 06.09.2026 (см. AWH-REQUIREMENTS): в TLS 1.2 и DTLS 1.2 добавлены наборы
-CBC, голый обмен RSA, заранее разделённые ключи и билеты сеансов. Всё в том же движке и тех
-же фасадах; новые наборы в реестре `protect::suite_t` несут способ обмена `protect::exchange`
-(`ECDHE`, `RSA`, `PSK`, `ECDHE_PSK`) и хеш имитовставки `protect::mac` (у CBC).
+Decision of 06.09.2026 (see AWH-REQUIREMENTS): in TLS 1.2 and DTLS 1.2 the CBC suites,
+the plain RSA exchange, pre-shared keys and session tickets are added. All in the same engine and the
+same facades; the new suites in the registry `protect::suite_t` carry the exchange method `protect::exchange`
+(`ECDHE`, `RSA`, `PSK`, `ECDHE_PSK`) and the hash of the authentication tag `protect::mac` (with CBC).
 
-* **CBC** (раздел 6.2.3.2 RFC 5246): явный вектор замены, HMAC-SHA1/SHA256 над номером,
-  заголовком и содержимым, дополнение до блока со сверкой всех байтов; порядок
-  `encrypt_then_mac` (RFC 7366, расширение 0x0016) предлагается клиентом и подтверждается
-  сервером всегда, когда в деле набор CBC; без него - MAC-then-encrypt со снятием защиты за
-  постоянное время относительно длины дополнения (Lucky13: маски, холостые сжатия хеша,
-  извлечение имитовставки перебором окна - смотри CONFORMANCE, «Намеренные решения второго
-  круга»). Ручки фасадов: `etm` - согласован ли порядок RFC 7366 (у AEAD ложен),
-  `etm(true)` - требовать его при CBC (иначе `handshake_failure`, отказ `ETM`). Порча
-  записи - `bad_record_mac`. Векторов замены в key_block нет (`protect::block` = 0).
-* **Голый RSA** (раздел 7.4.7.1): без ServerKeyExchange, ClientKeyExchange несёт
-  EncryptedPreMasterSecret по RSAES-PKCS1-v1_5 с изданием из заголовка приветствия клиента;
-  лишь с сертификатом RSA. Защита от Бляйхенбахера: при всяком отказе расшифрования, чужой
-  длине либо чужом издании premaster подменяется случайным под маской без ветвления, ответа
-  на CKE нет, и рукопожатие проваливается лишь на завершении клиента `bad_record_mac`.
-* **PSK** (RFC 4279, RFC 5489): сервер - `psk(context::psk_t)` с вызовом `respond`
-  «дано identity → ключ либо отказ» (много узлов одним контекстом), необязательной
-  подсказкой `identity` (psk_identity_hint) и ручкой `disclose` (неизвестный опознаватель -
-  `unknown_psk_identity` (115) сразу либо случайный ключ и `bad_record_mac` на завершении);
-  клиент - `identity` + `key` и необязательный вызов `advise` «дана подсказка → identity +
-  ключ» (клиент с несколькими identity выбирает нужную). Опознаватель ≤ 128 байтов, ключ
-  ≤ 64 (иначе `SETTINGS`); сертификаты и CertificateRequest не идут; наборы PSK
-  предлагаются лишь при заданном ключе либо `advise` и признаются лишь при заданном
-  `respond`; сервер без сертификата заводится с `respond`. Неверный ключ - `bad_record_mac`
-  на завершении (ключи записей разошлись; так же у openssl).
-* **Билеты RFC 5077**: расширение `session_ticket` (0x0023) пустое у клиента без билета,
-  NewSessionTicket перед сменой набора сервера, билет = key_name ‖ IV ‖ длина ‖
-  AES-128-CBC(состояние: издание записи, набор, главный секрет, признак EMS, миг, срок,
-  прикладной протокол) ‖ HMAC-SHA256; ключ билетов - `server::vault(secret)` (наружу, два
-  живых поколения, соседние узлы с одним секретом признают билеты друг друга; не заданный
-  порождается энтропией). Кэша сеансов нет - всё состояние в билете. Форма наружу едина с
-  1.3: `tickets` отдаёт `context::ticket_t` (тело билета в `identity`, главный секрет в
-  `secret`, издание узнаётся по набору), `context::encode`/`decode` уносят его в другой
-  процесс, клиент подаёт `resume(ticket)`. Сокращённое рукопожатие: ServerHello, [NST],
-  CCS, Finished сервера первым, затем CCS и Finished клиента; признак `shared`; негодный,
-  чужой, просроченный билет либо набор вне предложения - полное рукопожатие без отказа;
-  возобновление лишь с EMS. Клиент судит о сокращённом рукопожатии по первому сообщению за
-  приветствием сервера (openssl опознаватель связи не повторяет). В DTLS 1.2 - то же
-  дейтаграммами; залп 1.2 подтверждается лишь целиком (потеря хвоста залпа с билетом
-  повторяется по часам).
-* **Порядок и умолчания**: предложение клиента по умолчанию - ECDHE-AEAD, затем ECDHE-CBC,
-  обмен RSA (GCM, затем CBC), наборы PSK последними и лишь при ключе; выбор сервером -
-  порядком сервера либо клиента по `preference`, по ключу сертификата и наличию `respond`.
+* **CBC** (section 6.2.3.2 of RFC 5246): an explicit initialization vector, HMAC-SHA1/SHA256 over the number,
+  the header and the content, padding to the block with a check of all bytes; the order
+  `encrypt_then_mac` (RFC 7366, extension 0x0016) is offered by the client and is confirmed by the
+  server always when a CBC suite is in play; without it — MAC-then-encrypt with the removal of the protection in
+  constant time relative to the length of the padding (Lucky13: masks, dummy hash compressions,
+  extraction of the authentication tag by scanning a window — see CONFORMANCE, "Deliberate decisions of the second
+  round"). The knobs of the facades: `etm()` — whether the order of RFC 7366 is negotiated (false with AEAD),
+  `etm(true)` — require it with CBC (otherwise `handshake_failure`, the error `ETM`). Corruption of a
+  record — `bad_record_mac`. There are no initialization vectors in the key_block (`protect::block` = 0).
+* **Plain RSA** (section 7.4.7.1): without ServerKeyExchange, ClientKeyExchange carries the
+  EncryptedPreMasterSecret by RSAES-PKCS1-v1_5 with the version from the header of the client hello;
+  only with an RSA certificate. Protection against Bleichenbacher: on any decryption failure, a foreign
+  length or a foreign version the premaster is replaced with a random one under a mask without branching, there is no answer
+  to CKE, and the handshake fails only at the client finishing with `bad_record_mac`.
+* **PSK** (RFC 4279, RFC 5489): the server — `psk(context::psk_t)` with the call `respond`
+  "given identity → the key or a refusal" (many nodes with one context), an optional
+  hint `identity` (psk_identity_hint) and the knob `disclose` (an unknown identifier —
+  `unknown_psk_identity` (115) at once, or a random key and `bad_record_mac` at the finishing);
+  the client — `identity` + `key` and an optional call `advise` "given the hint → identity +
+  key" (a client with several identities picks the needed one). The identifier ≤ 128 bytes, the key
+  ≤ 64 (otherwise `SETTINGS`); certificates and CertificateRequest do not go; the PSK suites
+  are offered only with a set key or `advise` and are recognized only with a set
+  `respond`; a server without a certificate is started with `respond`. A wrong key — `bad_record_mac`
+  at the finishing (the record keys diverged; the same at openssl).
+* **RFC 5077 tickets**: the extension `session_ticket` (0x0023) is empty at a client without a ticket,
+  NewSessionTicket before the change of the cipher spec of the server, the ticket = key_name ‖ IV ‖ length ‖
+  AES-128-CBC(state: the record version, the suite, the master secret, the EMS flag, the moment, the lifetime,
+  the application protocol) ‖ HMAC-SHA256; the key of the tickets is `server::vault(secret)` (exposed, two
+  live generations, neighbouring nodes with one secret recognize each other's tickets; an unset one
+  is generated from entropy). There is no session cache — all the state is in the ticket. The external form is uniform with
+  1.3: `tickets()` gives `context::ticket_t` (the body of the ticket in `identity`, the master secret in
+  `secret`, the version is told by the suite), `context::encode`/`decode` carry it into another
+  process, the client supplies `resume(ticket)`. The abbreviated handshake: ServerHello, [NST],
+  CCS, the server Finished first, then the CCS and Finished of the client; the flag `shared()`; an unfit,
+  foreign, expired ticket or a suite outside the offer — a full handshake without a refusal;
+  resumption only with EMS. The client judges the abbreviated handshake by the first message after the
+  server hello (openssl does not repeat the connection identifier). In DTLS 1.2 — the same
+  with datagrams; a 1.2 flight is acknowledged only whole (the loss of the tail of the flight with the ticket
+  is repeated by the timer).
+* **Order and defaults**: the default offer of the client is ECDHE-AEAD, then ECDHE-CBC,
+  the RSA exchange (GCM, then CBC), the PSK suites last and only with a key; the choice of the server is
+  by the order of the server or of the client by `preference`, by the key of the certificate and the presence of `respond`.
 
-Проверки: `tests/tls12` (`Chained`, `Plain`, `Preshared`, `Tickets`, `Interop`,
+Tests: `tests/tls12` (`Chained`, `Plain`, `Preshared`, `Tickets`, `Interop`,
 `VectorSecond`, `StarvedSecond`), `tests/dtls12` (`Second`, `Interop`),
-`tests/protect` (`Chaining`), `tests/cipher` (`AesChaining`, SP 800-38A F.2); векторы шести
-изданий openssl 3.0.15…3.5.7 в `tests/corpus/tls12x` (одиннадцать сценариев: CBC с ETM и
-без, PSK с подсказкой, ECDHE-PSK без сертификатов, неверный ключ PSK, голый RSA двумя
-наборами, билет полным и возобновлённым рукопожатием с `session.pem`).
+`tests/protect` (`Chaining`), `tests/cipher` (`AesChaining`, SP 800-38A F.2); the vectors of six
+versions of openssl 3.0.15…3.5.7 in `tests/corpus/tls12x` (eleven scenarios: CBC with ETM and
+without, PSK with a hint, ECDHE-PSK without certificates, a wrong PSK key, plain RSA with two
+suites, a ticket with a full and a resumed handshake with `session.pem`).
 
-## Ворошитель
+## Fuzzer
 
-Набор `tests/fuzzer` подделывает то, чего никто не обещал: искажает настоящий поток
-рукопожатия по одному разряду и подаёт разборщикам случайные области байтов.
+The suite `tests/fuzzer` forges what nobody has promised: it distorts a real handshake
+stream by a single bit and feeds random regions of bytes to the parsers.
 
-Закрепляется им три правила:
+Three rules are pinned by it:
 
-* разбор потока не зависит от нарезки его на куски — приход по одному байту от
-  прихода целиком ничем не отличается;
-* искажение любого байта потока, кроме издания записи, связи не устанавливает —
-  раздел 5.1 RFC 8446 велит издание пропускать без разбора, а всё прочее прикрыто
-  перепиской рукопожатия и защитой записей;
-* непереданная область байтов — тоже недоверенные данные, и всякий разборщик
-  отвечает на неё отказом.
+* the parsing of the stream does not depend on its cutting into chunks — arrival one byte at a time
+  differs in nothing from arrival in whole;
+* the distortion of any byte of the stream, except the record version, establishes no connection —
+  section 5.1 of RFC 8446 orders the version to be skipped without parsing, and everything else is covered by
+  the handshake transcript and the record protection;
+* an untransmitted region of bytes is untrusted data too, and every parser
+  answers it with a refusal.
 
-Зерно ворошителя задано числом: находка его повторима, тогда как случайное зерно
-давало бы находку, которую нельзя ни воспроизвести, ни закрепить проверкой.
+The seed of the fuzzer is fixed as a number: its finding is reproducible, whereas a random seed
+would give a finding that can be neither reproduced nor pinned by a test.
 
-Отдельный режим `CMAKE_BUILD_LIBFUZZER=ON` добавляет десять целей с управлением от
-покрытия: `fuzzer_asn1`, `fuzzer_keys`, `fuzzer_x509`, `fuzzer_cms`, `fuzzer_cmp`,
-`fuzzer_tls`, `fuzzer_dtls`, `fuzzer_noise`, `fuzzer_state` и `fuzzer_differential`.
-Первые протокольные цели подают недоверенный вход сборщикам записей и вложенных
-сообщений TLS, заголовкам и кускам сообщений всех поддержанных изданий DTLS, а также
-разборщику имён и обеим сторонам рукопожатия `Noise_NN`. Цель `fuzzer_state` ведёт
-полные сценарии машин состояний: нарезку потока, MTU, потери, повторы и перестановку
-дейтаграмм, обрыв и порчу записей, KeyUpdate, прикладной обмен, закрытие и
-возобновление. Замыкает `fuzzer_differential`: один и тот же сценарий исполняют пара
-связей A-NTS и пара связей OpenSSL через собственные накопители потока и дейтаграмм,
-а сличаются итоги стадий — установление, возобновление, смена ключей, обмен и
-закрытие. Цель строится при найденном системой OpenSSL 3; намеренная порча и обрыв
-проверяют безопасность состояний, но успех не обещают, поскольку одна реализация
-вправе восстановиться повторной передачей, а другая — оборвать связь. Санитайзеры при
-нём обязательны, поэтому сборка всегда отдельная:
+## Stateless cookie
 
-```bash
-cmake -S . -B build-fuzz -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-  -DCMAKE_BUILD_TESTS=ON -DCMAKE_BUILD_COVERAGE=OFF \
-  -DCMAKE_BUILD_SANITIZE=ON -DCMAKE_BUILD_LIBFUZZER=ON
-cmake --build build-fuzz --target fuzzer_asn1 fuzzer_keys fuzzer_x509 fuzzer_cms fuzzer_cmp fuzzer_tls fuzzer_dtls fuzzer_noise fuzzer_state fuzzer_differential -j
-ctest --test-dir build-fuzz --output-on-failure -R '^fuzzer_(asn1|keys|x509|cms|cmp|tls|dtls|noise|state|differential)$'
-```
+The server is entitled to keep no state between the hellos: it gives the retry request
+with a cookie, and the client repeats it in the new hello verbatim (section 4.2.2
+of RFC 8446).
 
-Стартовые записи DER, проводные сообщения TLS/DTLS и Noise, а также управляемые
-сценарии состояний лежат в `tests/fuzzer/corpus`, а рабочий корпус копируется в каталог
-сборки и пополняется там.
-Повторимая проверка делает 1024 запуска каждой цели с зерном 1, пределами входа 64 КБ,
-памяти 2 ГБ и десятью секундами на один вход. Длительная сессия запускается
-непосредственно, например:
+Both sides can do this. The client stores the cookie and repeats it itself. The server gives it out with the call
+`cookie(...)` and receives the repeated one with the call `cookie()`. **The content of the cookie is composed by
+the consumer**: the connection carries it verbatim and parses nothing in it — what to put into the cookie
+and how to judge the received one is known only by the one who composed it.
 
-```bash
-ASAN_OPTIONS=abort_on_error=1 \
-UBSAN_OPTIONS=halt_on_error=1:abort_on_error=1:print_stacktrace=1 \
-build-fuzz/tests/fuzzer/fuzzer_keys build-fuzz/tests/fuzzer/corpus/keys \
-  -max_total_time=60 -max_len=65536 -timeout=10 -rss_limit_mb=2048
-```
+## Hostile peer
 
-Аварийный вход libFuzzer сохраняет отдельным файлом: его место — в соответствующем
-каталоге стартового корпуса и в постоянной регрессионной проверке. На macOS сборка
-ведётся Apple Clang; недостающий в Xcode runtime libFuzzer берётся из пакета
-`llvm` Homebrew, а ASan/UBSan остаются от Xcode. Stateful- и дифференциальный
-прогоны получают `-reload=0`: путь `RereadOutputCorpus` смешанного runtime падает
-с container-overflow, а отключение перечитывания не снимает проверки памяти самой
-библиотеки.
+The guards of the own side are tested by a peer that does not intend to obey the protocol.
+The hellos go in plaintext, and forging them right in the stream of bytes is quite direct — that is what
+`forge` and `submit` of the suite `tests/context` are busy with.
 
-## Метка возврата состояния
+Everything that goes after the server hello lies under the protection of the handshake, and a forgery in
+the stream of bytes proves nothing there: a distorted record will not decrypt at all, and the
+refusal will come not from the guard being tested. That is why the hostile server
+`tests/adversary.hpp` drives its side itself — parses the client hello,
+generates its ephemeral pair, derives the handshake keys for real and
+composes with them a message distorted to the order of the test.
 
-Сервер вправе не держать у себя состояния между приветствиями: просьбу о повторе он
-отдаёт с меткой, а клиент повторяет её в новом приветствии дословно (раздел 4.2.2
-RFC 8446).
+The mirror — the hostile client — is composed in the same way: it composes its hello,
+derives the keys from the answer of the server and forges what already goes under their protection. Without it
+there is nothing to test the guards of the server after the hello with: a forgery of the plaintext hello does not reach beyond
+the answer of the server.
 
-Обе стороны это умеют. Клиент метку хранит и повторяет сам. Сервер отдаёт её вызовом
-`cookie(...)` и получает повторённую вызовом `cookie`. **Содержимое метки складывает
-потребитель**: связь несёт её дословно и ничего в ней не разбирает — что в метку класть
-и как судить о принятой, знает лишь тот, кто её сложил.
+The hostile server can also play a **two-step**: first it asks for a repeat of the hello, and the answer
+to the repeated hello it composes already distorted. That is how the guards are tested of what the
+server is entitled to change between the request and the hello, and what it is not.
 
-## Враждебный собеседник
+Every guard is pinned twice: by a test that touches it, and by muting its
+condition, under which the same test must fail. A guard without the second experiment
+proves nothing — it could well not work at all, with the refusal coming from a neighbour.
 
-Заслоны своей стороны проверяются собеседником, который блюсти протокол не намерен.
-Приветствия идут открытыми, и подделать их довольно прямо в потоке байтов — тем и
-заняты `forge` и `submit` набора `tests/context`.
+It drives the handshake exactly to the place where the guard under test stands: some distortions
+need only the encrypted extensions, others need the certificate chain, and the
+guards of the ticket — the whole handshake, together with the proof of key possession, the finishing
+and the application data stage. A course of the handshake driven to the end is proven by itself:
+with the lifetime guard muted the client accepts the ticket and drives the connection.
 
-Всё, что идёт за приветствием сервера, лежит под защитой рукопожатия, и подделка в
-потоке байтов там ничего не доказывает: искажённая запись не расшифруется вовсе, и
-отказ придёт не от того заслона, который проверяется. Оттого враждебный сервер
-`tests/adversary.hpp` ведёт свою сторону сам — разбирает приветствие клиента,
-вырабатывает свою мимолётную пару, выводит ключи рукопожатия по-настоящему и
-складывает ими сообщение, искажённое по заказу проверки.
+## Placement of an extension
 
-Тем же способом сложено и зеркало — враждебный клиент: он складывает своё приветствие,
-выводит ключи по ответу сервера и подделывает уже то, что идёт под их защитой. Без него
-заслоны сервера за приветствием проверять нечем: подделка открытого приветствия дальше
-ответа сервера не достаёт.
+Section 4.2 of RFC 8446 assigns every extension its own list of messages, and separates
+**two** refusal alerts that are easy to confuse:
 
-Враждебный сервер умеет и **двухходовку**: сперва просит повтора приветствия, а ответ
-на повторное приветствие складывает уже искажённым. Так проверяются заслоны того, что
-сервер вправе менять между просьбой и приветствием, а что нет.
-
-Всякий заслон закрепляется дважды: проверкой, которая его задевает, и заглушением его
-условия, при котором та же проверка обязана провалиться. Заслон без второго опыта
-ничего не доказывает — он мог бы и не работать вовсе, а отказ приходить от соседа.
-
-Рукопожатие он доводит ровно до того места, где стоит проверяемый заслон: одним
-искажениям довольно защищённых расширений, другим нужна цепочка сертификатов, а
-заслонам билета — рукопожатие целиком, вместе с подписью владения ключом, завершением
-и ступенью прикладных данных. Ход рукопожатия, доведённый до конца, доказан сам собою:
-с заглушённым заслоном срока клиент билет принимает и связь ведёт.
-
-## Место расширения
-
-Раздел 4.2 RFC 8446 отводит всякому расширению свой перечень сообщений, и разводит
-**два** извещения об отказе, которые легко спутать:
-
-* расширение, стороне **известное**, но пришедшее **не в своём сообщении**, обрывает
-  связь извещением `illegal_parameter`;
-* расширение, о котором сторона **не просила вовсе**, — извещением
+* an extension **known** to the side, but arriving **not in its message**, aborts the
+  connection with the alert `illegal_parameter`;
+* an extension that the side **did not ask for at all** — with the alert
   `unsupported_extension`.
 
-Заслоны эти друг друга не покрывают, и второй первого не заменяет. Открытая часть ключа
-обмена, издание протокола, заранее разделённый ключ, способы обмена им, метка возврата
-состояния и схемы подписи предлагаются связью **всякий раз** — стало быть, сверка с
-предложенным пропустила бы их в защищённых расширениях сервера, где им места нет ни
-одному.
+These guards do not cover each other, and the second does not replace the first. The public part of the
+exchange key, the protocol version, the pre-shared key, the modes of exchanging it, the stateless
+cookie and the signature schemes are offered by the connection **every time** — hence a check against the
+offered ones would let them through in the encrypted extensions of the server, where not one of them
+has a place.
 
-Места признаваемых расширений сведены в таблицу `PLACEMENTS` движка, и заслон стоит у
-**всех пяти** сообщений сервера, которые несут расширения: приветствие, просьба о
-повторе, защищённые расширения, запрос подлинности и билет возобновления связи.
+The placements of the recognized extensions are gathered in the table `PLACEMENTS` of the engine, and the guard stands at
+**all five** messages of the server that carry extensions: the hello, the retry request,
+the encrypted extensions, the authentication request and the resumption ticket.
 
-Проверяется всякий заслон своим искажением: `MISPLACED` шлёт защищёнными расширениями
-то, что положено одному приветствию клиента, `OUTPLACED` — билетом то, чему место лишь
-в приветствии, `OFFPLACED` — запросом подлинности то же самое, а `EXTENSION` шлёт то,
-что защищённым расширениям положено, но связью не предлагалось.
+Every guard is tested by its own distortion: `MISPLACED` sends in the encrypted extensions
+what belongs to the client hello alone, `OUTPLACED` — in the ticket what has its place only
+in the hello, `OFFPLACED` — in the authentication request the same, and `EXTENSION` sends what
+is allowed to the encrypted extensions but was not offered by the connection.
 
-Ход сверки исходного текста со стандартом ведётся в [CONFORMANCE.md](CONFORMANCE.md):
-там записано **всякое** проверенное требование, а не одни лишь найденные расхождения.
-Непроверенное и проверенное-годное со стороны неотличимы, и без такой записи следующий
-заход разбирает то же самое заново.
+The course of the check of the source text against the standard is kept in [CONFORMANCE.md](CONFORMANCE.md):
+**every** verified requirement is recorded there, not only the discrepancies found.
+The unverified and the verified-fit are indistinguishable from the outside, and without such a record the next
+pass parses the same thing anew.
 
-## Сжатие цепочки сертификатов
+## Certificate chain compression
 
-RFC 8879 «TLS Certificate Compression»: клиент объявляет приветствием расширение
-`compress_certificate` (0x001B) с перечнем алгоритмов, сервер отвечает сообщением
-`CompressedCertificate` (тип 25) вместо `Certificate`, если общий алгоритм нашёлся; тем же
-расширением в запросе подлинности сервер объявляет, какую сжатую цепочку он примет от клиента.
+RFC 8879 "TLS Certificate Compression": the client declares with the hello the extension
+`compress_certificate` (0x001B) with a list of algorithms, the server answers with the message
+`CompressedCertificate` (type 25) instead of `Certificate` if a common algorithm was found; with the same
+extension in the authentication request the server declares which compressed chain it will accept from the client.
 
-Библиотека **не зависит** ни от zlib, ни от Brotli, ни от Zstandard и их не тащит: сами
-алгоритмы предоставляет потребитель описанием `context::codec_t` — опознаватель по реестру
-(zlib 1, Brotli 2, Zstandard 3, частные 16384…65535) и два вызова без состояния,
-`compress(source, result, context)` и `decompress(source, expected, result, context)`,
-указателями на функции с указателем контекста потребителя. Перечень регистрируется у фасада
-`codecs(перечень, предел)` в порядке предпочтения потребителя и не пересортировывается;
-пустой перечень выключает сжатие вовсе, и рукопожатие идёт байт в байт как прежде (ветвь ГОСТ
-и классика не меняются).
+The library **does not depend** on zlib, Brotli or Zstandard and does not drag them in: the
+algorithms themselves are provided by the consumer with the description `context::codec_t` — the identifier by the registry
+(zlib 1, Brotli 2, Zstandard 3, private 16384…65535) and two stateless calls,
+`compress(source, result, context)` and `decompress(source, expected, result, context)`,
+as function pointers with a pointer to the context of the consumer. The list is registered at the facade
+`codecs(list, limit)` in the order of preference of the consumer and is not re-sorted;
+an empty list turns the compression off entirely, and the handshake goes byte for byte as before (the GOST branch
+and the classic one do not change).
 
-Устройство. Сжатие покрывает лишь перенос сообщения: тело `Certificate` составляется как
-обычно, сжимается первым общим алгоритмом **по порядку объявившей стороны** (сервер идёт по
-перечню клиента, клиент — по перечню запроса подлинности; неведомые значения собеседника
-пропускаются молча) и уходит полями `algorithm(2) uncompressed_length(3)
-compressed_certificate_message<1..2^24-1>`. В переписку сжатое сообщение ложится **как есть**,
-подпись владения ключом и завершение считаются над ним. На приёме `CompressedCertificate`
-распаковывается вызовом потребителя и подаётся в **тот же** разбор цепочки, что и несжатое, —
-одна точка входа, одни заслоны, одни извещения. Режим уровней QUIC ничего не меняет: сообщение
-идёт тем же уровнем, что и `Certificate`.
+The structure. The compression covers only the transport of the message: the body of `Certificate` is composed as
+usual, is compressed with the first common algorithm **in the order of the declaring side** (the server goes by
+the list of the client, the client — by the list of the authentication request; unknown values of the peer
+are skipped silently) and goes with the fields `algorithm(2) uncompressed_length(3)
+compressed_certificate_message<1..2^24-1>`. Into the transcript the compressed message goes **as is**,
+the proof of key possession and the finishing are computed over it. On receipt `CompressedCertificate`
+is decompressed with the call of the consumer and is fed into **the same** chain parsing as the uncompressed one —
+one entry point, the same guards, the same alerts. The QUIC levels mode changes nothing: the message
+goes at the same level as `Certificate`.
 
-Заслоны раздела 4 RFC 8879: сторона вправе не сжимать (отказ сжатия у потребителя, цепочка
-длиннее 2^24-1 либо отсутствие общего алгоритма шлют обычное `Certificate`); длина после
-распаковки обязана сойтись с `uncompressed_length`, отказ распаковки и длина за пределом —
-`bad_certificate`; алгоритм вне объявленных — `illegal_parameter`; сжатая цепочка без своего
-объявления — `unexpected_message`; расширение в защищённых расширениях — `illegal_parameter`
-(место расширения). Предел длины после распаковки задаёт потребитель (умолчание 64 КиБ, ноль
-оставляет умолчание, верх — предел протокола): память под цепочку по слову собеседника
-отводится лишь в этих пределах. Чужое исключение из вызова потребителя связью удерживается:
-на сжатии оно считается отказом сжатия, на распаковке — негодной цепочкой.
+The guards of section 4 of RFC 8879: a side is entitled not to compress (a compression failure at the consumer, a chain
+longer than 2^24-1 or the absence of a common algorithm send the usual `Certificate`); the length after
+decompression must match `uncompressed_length`, a decompression failure and a length beyond the limit —
+`bad_certificate`; an algorithm outside the declared ones — `illegal_parameter`; a compressed chain without its
+declaration — `unexpected_message`; the extension in the encrypted extensions — `illegal_parameter`
+(placement of an extension). The limit of the length after decompression is set by the consumer (the default is 64 KiB, zero
+keeps the default, the top is the limit of the protocol): the memory for the chain by the word of the peer
+is allocated only within these limits. A foreign exception from the call of the consumer is held by the connection:
+on compression it counts as a compression failure, on decompression — as an unfit chain.
 
-Каким алгоритмом пришла цепочка собеседника и каким ушла своя, сообщает
-`compression(direction)`: чтение — принятая, запись — отправленная, ноль — несжатая.
+With which algorithm the chain of the peer came and with which the own one went is reported by
+`compression(direction)`: reading — the received one, writing — the sent one, zero — uncompressed.
 
-Набор `tests/compress` несёт образцовые кодеки потребителя: zlib со «stored»-блоками по
-RFC 1950/1951 с суммой Adler-32 (поток без сжатия, но всякий настоящий zlib его разбирает;
-сличён с zlib через `python3`) и частный алгоритм 16384 обратимым преобразованием. Обмен с
-настоящим openssl 3.2+ идёт в обе стороны: `s_server -cert_comp` шлёт нам пред-сжатую
-цепочку и принимает нашу сжатую, `s_client` принимает нашу сжатую и шлёт свою сжатой по
-нашему запросу подлинности; пропускается вслух там, где openssl собран без zlib.
+The suite `tests/compress` carries sample codecs of the consumer: zlib with "stored" blocks by
+RFC 1950/1951 with the Adler-32 checksum (a stream without compression, but every real zlib parses it;
+checked against zlib through `python3`) and the private algorithm 16384 with a reversible transformation. The exchange with
+a real openssl 3.2+ goes in both directions: `s_server -cert_comp` sends us a pre-compressed
+chain and accepts our compressed one, `s_client` accepts our compressed one and sends its own compressed by
+our authentication request; skipped with a notice where openssl is built without zlib.
 
-## Состояние сертификата OCSP и сшивка ответа
+## OCSP certificate status and stapling of the response
 
-RFC 6960 «Online Certificate Status Protocol», раздел 4.4.2.1 RFC 8446 «OCSP Status and SCT
-Extensions» и раздел 8 RFC 6066: клиент запрашивает состояние сертификата сервера
-расширением `status_request` (0x0005) приветствия, сервер отвечает тем же расширением в
-записи цепочки сертификатов с телом `CertificateStatus` — вид `ocsp` (1) и запись
-`OCSPResponse` с трёхбайтовой длиной. При запросе подлинности клиента то же расширение идёт
-в `CertificateRequest`, и клиент сшивает свой ответ той же записью цепочки.
+RFC 6960 "Online Certificate Status Protocol", section 4.4.2.1 of RFC 8446 "OCSP Status and SCT
+Extensions" and section 8 of RFC 6066: the client requests the status of the server certificate
+with the extension `status_request` (0x0005) of the hello, the server answers with the same extension in
+the record of the certificate chain with the body `CertificateStatus` — the type `ocsp` (1) and the record
+`OCSPResponse` with a three-byte length. On a request of the client authentication the same extension goes
+in `CertificateRequest`, and the client staples its response with the same chain record.
 
-Ядро **ввода и вывода не ведёт**: ответ ответчика получает потребитель сам и подаёт октетами.
-Ему в помощь модуль `ocsp` составляет запрос (`ocsp::request(сертификат, издатель, хеш,
-значение) → DER`, байт в байт с `openssl ocsp -reqout`; неповторимое значение по RFC 8954) и
-извлекает адрес ответчика из сертификата (`ocsp::responder` — `id-ad-ocsp` из расширения
-сведений о доступе к издателю). Ответ разбирается классом `ocsp::response_t` (`OCSPResponse` с
-`BasicOCSPResponse`: исход, ответчик именем либо хешем ключа, `producedAt`, ответы по
-сертификатам с `CertID`, состоянием `good`/`revoked`/`unknown`, `thisUpdate`/`nextUpdate` и
-расширениями, подпись, приложенные сертификаты) без исключений на пути разбора и с отказом
-`MEMORY` при нехватке памяти; просмотры глядят внутрь поданной записи, как у `x509`.
-Проверка `ocsp::verify(ответ, сертификат, издатель, миг, люфт, значение, состояние)`: исход
-`successful`, ответ с опознавателем именно этого сертификата (хеши имени и ключа издателя по
-объявленному алгоритму — SHA-1, SHA-2, «Стрибог» — и порядковый номер), подпись ответчика
-существующим `x509::verify` (классика и ГОСТ) и его право отвечать (сам издатель либо
-приложенный сертификат с `id-kp-OCSPSigning`, изданный тем же издателем и действующий на
-миг проверки — раздел 4.2.2.2 RFC 6960), сроки `thisUpdate`/`nextUpdate` относительно мига с
-люфтом в обе стороны (нулевой миг сроки не судит), неповторимое значение, если ожидается.
-Состояние отказом не считается: отозванный сертификат — успешно проверенный ответ с
-состоянием `REVOKED`, решение о связи принимает вызывающий.
+The core **does no input and output**: the response of the responder is obtained by the consumer itself and is fed as octets.
+In aid of it the module `ocsp` composes the request (`ocsp::request(certificate, issuer, hash,
+nonce) → DER`, byte for byte with `openssl ocsp -reqout`; the nonce by RFC 8954) and
+extracts the address of the responder from the certificate (`ocsp::responder` — `id-ad-ocsp` from the
+authority information access extension). The response is parsed by the class `ocsp::response_t` (`OCSPResponse` with
+`BasicOCSPResponse`: the status, the responder by name or by key hash, `producedAt`, the responses per
+certificate with `CertID`, the status `good`/`revoked`/`unknown`, `thisUpdate`/`nextUpdate` and
+extensions, the signature, the attached certificates) without exceptions on the parsing path and with the error
+`MEMORY` on memory exhaustion; the views look inside the supplied record, as with `x509`.
+The verification `ocsp::verify(response, certificate, issuer, moment, tolerance, nonce, status)`: the status
+`successful`, a response with the identifier of exactly this certificate (the hashes of the name and the key of the issuer by
+the declared algorithm — SHA-1, SHA-2, "Streebog" — and the serial number), the signature of the responder
+with the existing `x509::verify` (classic and GOST) and its right to answer (the issuer itself or an
+attached certificate with `id-kp-OCSPSigning`, issued by the same issuer and valid at the
+moment of verification — section 4.2.2.2 of RFC 6960), the periods `thisUpdate`/`nextUpdate` relative to the moment with
+a tolerance in both directions (a zero moment does not judge the periods), the nonce if expected.
+The status is not counted as a failure: a revoked certificate is a successfully verified response with the
+status `REVOKED`, the decision about the connection is made by the caller.
 
-У фасадов. Клиент: `status(true)` — запрашивать состояние, `status` — принятый ответ как
-есть (пустой, если сервер не ответил), `verification(проверять, люфт, запас)` — проверка
-принятого ответа связью против сертификата собеседника и его издателя (издатель разыскивается
-по имени среди звеньев цепочки, у самоподписанного — он сам, иначе в запасе доверенных), сроки
-судятся мигом `moment`; `certified` — состояние по проверенному ответу. Сервер:
-`status(DER, место)` — ответ для сшивки по месту сертификата в цепочке (ноль — лист; ответы
-для прочих звеньев допускаются), `status(true)` — запрашивать состояние сертификата клиента
-запросом подлинности, `status`, `verification`, `certified` — те же. Политика: отсутствие
-ответа при запросе — **не отказ** (раздел 4.4.2.1 RFC 8446 дозволяет серверу не отвечать),
-потребитель узнаёт об этом пустым `status`; ответ без запроса не посылается и, придя,
-отвергается как непрошенное расширение (`unsupported_extension`); при включённой проверке
-негодный ответ (структура, подпись, ответчик, чужой опознаватель, срок) и отозванный
-сертификат обрывают связь извещением `bad_certificate_status_response` (113); неведомый
-ответчику сертификат связь не обрывает — состояние `UNKNOWN` доступно `certified`.
-Без проверки ответ лишь хранится, и суждение о нём выносит потребитель модулем `ocsp`.
-Режим уровней QUIC ничего не меняет: расширение идёт с `Certificate` на своём уровне.
+At the facades. The client: `status(true)` — request the status, `status()` — the received response as
+is (empty if the server did not answer), `verification(verify, tolerance, store)` — verification of the
+received response by the connection against the certificate of the peer and its issuer (the issuer is looked up
+by name among the links of the chain, at a self-signed one — itself, otherwise in the trusted store), the periods
+are judged by the moment `moment()`; `certified()` — the status by the verified response. The server:
+`status(DER, place)` — the response for stapling by the place of the certificate in the chain (zero — the leaf; responses
+for the other links are allowed), `status(true)` — request the status of the client certificate
+with the authentication request, `status()`, `verification`, `certified` — the same. The policy: the absence of a
+response on a request is **not a failure** (section 4.4.2.1 of RFC 8446 allows the server not to answer),
+the consumer learns about it from an empty `status()`; a response without a request is not sent and, having come,
+is rejected as an unrequested extension (`unsupported_extension`); with the verification enabled
+an unfit response (structure, signature, responder, a foreign identifier, period) and a revoked
+certificate abort the connection with the alert `bad_certificate_status_response` (113); a certificate unknown
+to the responder does not abort the connection — the status `UNKNOWN` is available to `certified()`.
+Without the verification the response is only stored, and the judgement about it is made by the consumer with the module `ocsp`.
+The QUIC levels mode changes nothing: the extension goes with `Certificate` at its level.
 
-Набор `tests/ocsp`: ответы и запросы, выработанные настоящим `openssl ocsp` (каталог
-`tests/corpus/ocsp`: good/revoked/unknown, делегированный ответчик по имени и по хешу ключа,
-ответчик без назначения, чужой ответчик, sha256, короткий срок, без `nextUpdate`, с
-неповторимым значением, RSA и самоподписанные ключи набора), ответ ГОСТ своей выработки
-(подпись ГОСТ Р 34.10-2012, опознаватель по «Стрибогу»-256), составление запроса байт в байт
-с `openssl ocsp -reqout` и живьём, петлевые рукопожатия по записям и по уровням со сшивкой в
-обе стороны (самоподписанные ключи, цепочка трёх звеньев, издатель из запаса, ветвь ГОСТ),
-отказы с извещением 113 и искажения на пути, обмен с настоящим openssl (`s_server -status_all
--status_file` → наш клиент с проверкой, `s_client -status` → наш сервер со сшивкой) и
-нехватка памяти.
+The suite `tests/ocsp`: responses and requests generated by a real `openssl ocsp` (the directory
+`tests/corpus/ocsp`: good/revoked/unknown, a delegated responder by name and by key hash,
+a responder without the purpose, a foreign responder, sha256, a short period, without `nextUpdate`, with
+a nonce, RSA and self-signed keys of the set), a GOST response of own generation
+(the signature GOST R 34.10-2012, the identifier by "Streebog"-256), composition of the request byte for byte
+with `openssl ocsp -reqout` and live, loopback handshakes over records and over levels with stapling in
+both directions (self-signed keys, a chain of three links, the issuer from the store, the GOST branch),
+failures with the alert 113 and distortions on the way, exchange with a real openssl (`s_server -status_all
+-status_file` → our client with verification, `s_client -status` → our server with stapling) and
+memory exhaustion.
 
-Просьба об ответе OCSP у клиента (раздел 4.4.2.1 RFC 8446) идёт ПУСТЫМ расширением `status_request` в
-CertificateRequest - так шлёт GnuTLS; клиент принимает и прежнюю форму со структурой
-CertificateStatusRequest (как в приветствии), а наш сервер шлёт форму RFC. Найдено чужим эталоном
-`gnutls-serv`, который просит сертификат клиента по умолчанию.
+The request for an OCSP response from the client (section 4.4.2.1 of RFC 8446) goes as an EMPTY extension `status_request` in
+CertificateRequest — that is how GnuTLS sends it; the client accepts also the former form with the structure
+CertificateStatusRequest (as in the hello), and our server sends the RFC form. Found by the foreign reference
+`gnutls-serv`, which asks for the client certificate by default.
 
-## Гибридное шифрование с открытым ключом HPKE
+## Hybrid public key encryption HPKE
 
-RFC 9180 «Hybrid Public Key Encryption»: модуль `hpke` (`include/hpke/hpke.hpp`,
-`src/hpke/hpke.cpp`) — самостоятельный примитив поверх `agreement` (X25519), `digest`
-(HKDF на потоковой HMAC) и `cipher` (AES-GCM, ChaCha20-Poly1305); из движка TLS не берёт
-ничего и назначен основой зашифрованного приветствия ECH второй ступени, но годится и
-потребителю напрямую. Состав: KEM `DHKEM(X25519, HKDF-SHA256)` (0x0020); KDF `HKDF-SHA256`
+RFC 9180 "Hybrid Public Key Encryption": the module `hpke` (`include/hpke/hpke.hpp`,
+`src/hpke/hpke.cpp`) — a standalone primitive over `agreement` (X25519), `digest`
+(HKDF on the streaming HMAC) and `cipher` (AES-GCM, ChaCha20-Poly1305); it takes nothing from the TLS engine
+and is designated as the foundation of the encrypted client hello ECH of the second stage, but is fit also
+for the consumer directly. The composition: KEM `DHKEM(X25519, HKDF-SHA256)` (0x0020); KDF `HKDF-SHA256`
 (0x0001), `HKDF-SHA384` (0x0002), `HKDF-SHA512` (0x0003); AEAD `AES-128-GCM` (0x0001),
-`AES-256-GCM` (0x0002), `ChaCha20-Poly1305` (0x0003) и `Export-only` (0xFFFF); все четыре
-режима раздела 5 — `BASE`, `PSK`, `AUTH`, `AUTH_PSK`.
+`AES-256-GCM` (0x0002), `ChaCha20-Poly1305` (0x0003) and `Export-only` (0xFFFF); all four
+modes of section 5 — `BASE`, `PSK`, `AUTH`, `AUTH_PSK`.
 
-Устройство. Набор — тройка `hpke::suite_t(kem, kdf, aead)`; пара ключей KEM —
-`hpke::key_t`: `generate(kem)` из случайных байтов, `derive(kem, ikm)` по `DeriveKeyPair`
-раздела 7.1.3 (так воспроизводятся вектора), `set(kem, секрет)` по байтам секретного
-ключа, `secret`/`point` — просмотры, `clear` и деструктор стирают. Состояние связи —
-`hpke::context_t` (ключ, base_nonce, порядковый номер, секрет экспорта): у отправителя
-`seal(aad, текст, место | накопитель)`, у получателя `open(aad, шифртекст, место |
-накопитель)`, у обоих `exporter(привязка, место, длина)`; шифртекст несёт метку хвостом
-(`+ TAG_SIZE`), начальное заполнение — `base_nonce XOR seq`, номер растёт после каждого
-сообщения и читается/переставляется `sequence` (раздел 9.7.1 — переписка не по порядку).
-Установка: `hpke::sender(suite, mode, pkR, info, psk, authenticator, [ephemeral,] enc,
-context)` и `hpke::recipient(suite, mode, own, enc, info, psk, pkS, context)`; заранее
-разделённый ключ подаётся парой `hpke::shared_t(key, identity)` и обязан отвечать режиму
-(раздел 5.1: оба непустые в `PSK`/`AUTH_PSK`, оба пустые иначе — иначе `PSK`), ключ
-отправителя — только в `AUTH`/`AUTH_PSK` (иначе `KEY`). KEM отдельно: `encapsulate` и
-`decapsulate` (Encap/AuthEncap, Decap/AuthDecap раздела 7.1.1). Одношаговые обёртки
-раздела 6: `hpke::seal`/`hpke::open` (одно сообщение) и `hpke::dispatch`/`hpke::receive`
+The structure. A suite is the triple `hpke::suite_t(kem, kdf, aead)`; a KEM key pair is
+`hpke::key_t`: `generate(kem)` from random bytes, `derive(kem, ikm)` by `DeriveKeyPair`
+of section 7.1.3 (that is how the vectors are reproduced), `set(kem, secret)` from the bytes of the private
+key, `secret()`/`point()` — views, `clear()` and the destructor wipe. The state of a connection is
+`hpke::context_t` (the key, base_nonce, the sequence number, the exporter secret): at the sender
+`seal(aad, text, place | buffer)`, at the recipient `open(aad, ciphertext, place |
+buffer)`, at both `exporter(binding, place, length)`; the ciphertext carries the tag at the tail
+(`+ TAG_SIZE`), the nonce is `base_nonce XOR seq`, the number grows after every
+message and is read/reset by `sequence()` (section 9.7.1 — out-of-order messaging).
+The setup: `hpke::sender(suite, mode, pkR, info, psk, authenticator, [ephemeral,] enc,
+context)` and `hpke::recipient(suite, mode, own, enc, info, psk, pkS, context)`; the pre-shared
+key is supplied as the pair `hpke::shared_t(key, identity)` and must correspond to the mode
+(section 5.1: both non-empty in `PSK`/`AUTH_PSK`, both empty otherwise — else `PSK`), the key of the
+sender — only in `AUTH`/`AUTH_PSK` (else `KEY`). KEM separately: `encapsulate` and
+`decapsulate` (Encap/AuthEncap, Decap/AuthDecap of section 7.1.1). The single-shot wrappers
+of section 6: `hpke::seal`/`hpke::open` (one message) and `hpke::dispatch`/`hpke::receive`
 (SendExport/ReceiveExport).
 
-Отказы кодами `hpke::error_t` без исключений: `SUITE`, `MODE`, `PSK`, `KEY`,
-`ENCAPSULATION` (длина `enc` либо нулевое общее значение — раздел 7.1.4), `ENTROPY`,
-`READY`, `AEAD` (набор только для экспорта, чужая сторона состояния), `SEQUENCE`
-(номера исчерпаны), `OPEN` (подлинность не сошлась; место под открытый текст стирается),
-`LENGTH` (экспорт вне `1…255·Nh`), `ARGUMENT`, `MEMORY`. Ключевой путь — установка,
-`seal`/`open` в место, экспорт — памяти не выделяет вовсе (метки HPKE подаются потоковой
-HMAC по частям); выделяют лишь накопители `vector` обёрток, нехватка отдаётся `MEMORY`.
-Все секреты — общие значения, ключ шифра, секрет экспорта, секретные ключи — стираются
-`sys::wipe` по завершении и при всяком отказе.
+The errors are codes `hpke::error_t` without exceptions: `SUITE`, `MODE`, `PSK`, `KEY`,
+`ENCAPSULATION` (the length of `enc` or a zero shared value — section 7.1.4), `ENTROPY`,
+`READY`, `AEAD` (an export-only suite, the wrong side of the state), `SEQUENCE`
+(the numbers are exhausted), `OPEN` (the authentication did not match; the place for the plaintext is wiped),
+`LENGTH` (an export outside `1…255·Nh`), `ARGUMENT`, `MEMORY`. The key path — the setup,
+`seal`/`open` into a place, the export — allocates no memory at all (the HPKE labels are fed to the streaming
+HMAC in parts); only the `vector` buffers of the wrappers allocate, the exhaustion is returned as `MEMORY`.
+All the secrets — the shared values, the cipher key, the exporter secret, the private keys — are wiped
+with `sys::wipe` on completion and on every failure.
 
-Набор `tests/hpke` (`ctest -R hpke`, 9 проверок): вектора приложения A RFC 9180 (A.1
-AES-128-GCM, A.2 ChaCha20-Poly1305, все четыре режима) и полный набор X25519 из
-`test-vectors.json` рабочей группы CFRG того же издания — 32 вектора на HKDF-SHA256 и
-HKDF-SHA512 по четырём шифрам: пары из `ikm`, `enc`, `shared_secret`, шифртексты по
-номерам 0, 1, 2, 4, 255, 256 и три экспорта у обеих сторон байт в байт; переписка живьём
-по 12 наборам и 4 режимам (пустой текст, пустые связанные данные, 1000 байтов); отказы
-(чужой ключ получателя, чужой ключ отправителя, чужой PSK и опознаватель, чужой режим при
-том же ключе, порча каждого байта шифртекста, усечение, чужие `info`/`aad`, режимы против
-ключей, исчерпание номеров у обеих сторон, рассинхрон номеров, длины экспорта); различие
-секретов по наборам (опознаватель набора в расписании); голодание одношаговых обёрток и
-нулевой запас на ключевом пути. HKDF-SHA384 внешним вектором не покрыт (у CFRG для X25519
-его нет) — только переписка живьём и различие наборов.
+The suite `tests/hpke` (`ctest -R hpke`, 9 tests): the vectors of appendix A of RFC 9180 (A.1
+AES-128-GCM, A.2 ChaCha20-Poly1305, all four modes) and the full X25519 set from
+`test-vectors.json` of the CFRG working group of the same edition — 32 vectors on HKDF-SHA256 and
+HKDF-SHA512 over the four ciphers: the pairs from `ikm`, `enc`, `shared_secret`, the ciphertexts by
+the numbers 0, 1, 2, 4, 255, 256 and three exports at both sides byte for byte; live messaging
+over 12 suites and 4 modes (empty text, empty associated data, 1000 bytes); failures
+(a foreign key of the recipient, a foreign key of the sender, a foreign PSK and identifier, a foreign mode with
+the same key, corruption of every byte of the ciphertext, truncation, foreign `info`/`aad`, modes against
+keys, exhaustion of the numbers at both sides, desynchronization of the numbers, the export lengths); the difference of the
+secrets by suites (the identifier of the suite in the schedule); starvation of the single-shot wrappers and
+a zero allocation budget on the key path. HKDF-SHA384 is not covered by an external vector (CFRG has none for X25519)
+— only live messaging and the difference of the suites.
 
-## GREASE по RFC 8701
+## GREASE by RFC 8701
 
-Ручка одна на связь: `client::Context::grease(bool)`, `server::Context::grease(bool)`,
-состояние — `grease`. По умолчанию **выключено**, и байты сообщений прежние
-(`GreaseTest.Disabled`). Поведение при включении — как у BoringSSL при
+One knob per connection: `client::Context::grease(bool)`, `server::Context::grease(bool)`,
+the state — `grease()`. By default **off**, and the bytes of the messages are as before
+(`GreaseTest.Disabled`). The behaviour when enabled is as at BoringSSL with
 `SSL_CTX_set_grease_enabled(1)`.
 
-Клиент (раздел 3.1 RFC 8701) в приветствии:
+The client (section 3.1 of RFC 8701) in the hello:
 
-* набор GREASE **первым** в перечне наборов;
-* расширение GREASE **первым** с пустым телом и второе расширение GREASE **последним
-  среди расширений потребителя** с телом в один нулевой байт; значения двух расширений
-  различны; заранее разделённый ключ (раздел 4.2.11 RFC 8446) остаётся за вторым;
-* группа GREASE **первой** в перечне групп и доля GREASE **первой** в перечне долей с
-  телом в один байт (группа доли та же, что в перечне);
-* издание GREASE **первым** в перечне изданий.
+* a GREASE suite **first** in the list of suites;
+* a GREASE extension **first** with an empty body and a second GREASE extension **last
+  among the extensions of the consumer** with a body of one zero byte; the values of the two extensions
+  differ; the pre-shared key (section 4.2.11 of RFC 8446) stays after the second one;
+* a GREASE group **first** in the list of groups and a GREASE share **first** in the list of shares with
+  a body of one byte (the group of the share is the same as in the list);
+* a GREASE version **first** in the list of versions.
 
-Значения вида `0x?A?A` выводятся из зерна в шесть байтов, взятого из энтропии при
-заведении связи, по байту на место (старшие четыре разряда байта, младшие `0xA`, байт
-повторён дважды); совпавшие старшие разряды двух расширений разводятся. Зерно живёт до
-сброса связи, и повторное приветствие после просьбы о повторе несёт **те же** значения
-на тех же местах (`GreaseTest.Retry`, `GreaseTest.Cookie`). Одно отступление по букве
-RFC 8446 и по openssl: просьба о повторе **с долей ключа** велит слать долю по одной
-лишь запрошенной группе (раздел 4.2.8), и доля GREASE снимается вместе с прежними — иначе
-`openssl s_server` отвечает `illegal_parameter`; просьба одной меткой (DTLS 1.3) доли не
-трогает, и доля GREASE остаётся. Так же поступает BoringSSL.
+The values of the form `0x?A?A` are derived from a seed of six bytes, taken from entropy at the
+start of the connection, one byte per place (the high four bits of the byte, the low ones `0xA`, the byte
+repeated twice); coinciding high bits of the two extensions are separated. The seed lives until the
+reset of the connection, and the repeated hello after the retry request carries **the same** values
+in the same places (`GreaseTest.Retry`, `GreaseTest.Cookie`). One deviation by the letter of
+RFC 8446 and by openssl: a retry request **with a key share** orders to send a share by the one
+requested group only (section 4.2.8), and the GREASE share is removed together with the previous ones — otherwise
+`openssl s_server` answers `illegal_parameter`; a request with a cookie alone (DTLS 1.3) does not touch the
+shares, and the GREASE share stays. BoringSSL does the same.
 
-Сервер (раздел 3.2 RFC 8701) издания TLS 1.3: пустое расширение GREASE **первым** в
-запросе подлинности клиента и пустое расширение GREASE в билете возобновления связи за
-пределом упреждающих данных (`GreaseTest.Server`). У издания TLS 1.2 ни билет RFC 5077,
-ни запрос подлинности расширений не несут, и вставки там нет. Собеседник значения
-GREASE не выбирает ни при каких условиях — это заслон прежний (`ClassicTest.Grease`).
+The server (section 3.2 of RFC 8701) of version TLS 1.3: an empty GREASE extension **first** in the
+request of the client authentication and an empty GREASE extension in the resumption ticket after
+the early data limit (`GreaseTest.Server`). In version TLS 1.2 neither the RFC 5077 ticket
+nor the authentication request carry extensions, and there is no insertion there. The peer's GREASE
+values are never selected under any conditions — that is the former guard (`ClassicTest.Grease`).
 
-Обмен с настоящим openssl при включённой ручке: TLS 1.3 напрямую и через просьбу о
-повторе, `s_client` против нашего сервера с запросом подлинности и билетом
-(`GreaseTest.Openssl13`), TLS 1.2 (`GreaseTest.Openssl12`), DTLS 1.2 с повторным
-приветствием по метке (`GreaseTest.Dtls`). Энтропия: у шестнадцати связей подряд набор
-GREASE обязан различаться (`GreaseTest.Entropy`). Нехватка памяти — `GreaseTest.Starved`.
+The exchange with a real openssl with the knob enabled: TLS 1.3 directly and through a retry
+request, `s_client` against our server with the authentication request and a ticket
+(`GreaseTest.Openssl13`), TLS 1.2 (`GreaseTest.Openssl12`), DTLS 1.2 with a repeated
+hello by the cookie (`GreaseTest.Dtls`). Entropy: at sixteen connections in a row the GREASE
+suite must differ (`GreaseTest.Entropy`). Memory exhaustion — `GreaseTest.Starved`.
 
-Точка перекрытия профилем отпечатка: решение о вставке живёт в одном месте движка —
-`Engine::greased`; приветствие, запрос подлинности и билет спрашивают его, а не признак
-напрямую. Профиль (места и число значений GREASE из снимка) перекрывает умолчание там же,
-и ручка `grease` на профиль не влияет; ветвь профиля — отдельная работа.
+The point of override by a fingerprint profile: the decision on the insertion lives in one place of the engine —
+`Engine::greased()`; the hello, the authentication request and the ticket ask it, and not the flag
+directly. The profile (the places and the number of GREASE values from the snapshot) overrides the default in the same place,
+and the knob `grease` does not affect the profile; the profile branch is a separate work.
 
-## Отпечатки приветствия и применение снимка
+## Hello fingerprints and application of a snapshot
 
-Модуль `fingerprint` (`include/fingerprint/fingerprint.hpp`) перенесён из AWH
-(`awh::tls::Fingerprint`) и переделан под библиотеку: без ввода-вывода, журнала, потоков,
-виртуальности и исключений на путях разбора. Разбор приветствия ведёт модуль `hello`:
-отпечаток снимается с того же разбора, что ведёт рукопожатие.
+The module `fingerprint` (`include/fingerprint/fingerprint.hpp`) is moved from AWH
+(`awh::tls::Fingerprint`) and reworked for the library: without input-output, log, threads,
+virtuality and exceptions on the parsing paths. The parsing of the hello is done by the module `hello`:
+the fingerprint is taken from the same parsing that drives the handshake.
 
-- `fingerprint::parse(view, profile)` разбирает запись рукопожатия либо голое сообщение
-  приветствия клиента (записями и поверх дейтаграмм, устройство узнаётся по изданию
-  записи; для голого сообщения поверх дейтаграмм есть `parse(view, profile, true)`) в
-  `profile_t`: издания записи и приветствия, случайное значение, опознаватель связи, метка
-  возврата, наборы, способы сжатия и расширения в порядке провода с сырыми телами и
-  разобранными полями (имена, протоколы, группы, схемы, издания, записи точек, способы PSK,
-  алгоритмы сжатия, доли, опознаватели ключей, профили SRTP, числа). Значения GREASE
-  отмечаются признаком, неведомое хранится числами по проводу.
-- `fingerprint::imprint(profile, imprint)` считает JA3 и его MD5, JA4 по описанию FoxIO
-  (SHA-256, у AWH считался MD5 - расхождение исправлено), JA4_r, JA4_o, PeetPrint и его MD5,
-  записи случайного значения и опознавателя, согласуемое издание; `browser` - грубая
-  оценка «похоже на обозреватель»; `print` - печать профиля для человека.
-- `fingerprint::parse(view, stream)` и `akamai(stream, text)` - отпечаток Akamai по началу
-  потока HTTP/2 (SETTINGS, WINDOW_UPDATE, PRIORITY, порядок псевдозаголовков первого запроса).
-- `fingerprint::dump`/`load` - переносимый снимок профиля: метка `ANTSFP`, издание, старший
-  байт вперёд, фиксированные ширины; разобранные поля выводятся заново при загрузке.
-  `store_t` - связка профилей с опознавателями и своим снимком, без охраны потоков.
+- `fingerprint::parse(view, profile)` parses a handshake record or a bare client hello
+  message (over records and over datagrams, the layout is told by the record version;
+  for a bare message over datagrams there is `parse(view, profile, true)`) into
+  `profile_t`: the versions of the record and of the hello, the random value, the connection identifier, the
+  cookie, the suites, the compression methods and the extensions in the wire order with raw bodies and
+  parsed fields (names, protocols, groups, schemes, versions, point formats, PSK modes,
+  compression algorithms, shares, key identifiers, SRTP profiles, numbers). GREASE values
+  are marked with a flag, the unknown is stored as wire numbers.
+- `fingerprint::imprint(profile, imprint)` computes JA3 and its MD5, JA4 by the FoxIO description
+  (SHA-256; AWH computed MD5 — the discrepancy is fixed), JA4_r, JA4_o, PeetPrint and its MD5,
+  the records of the random value and of the identifier, the negotiable version; `browser()` — a rough
+  estimate "looks like a browser"; `print()` — a human-readable print of the profile.
+- `fingerprint::parse(view, stream)` and `akamai(stream, text)` — the Akamai fingerprint by the beginning of an
+  HTTP/2 stream (SETTINGS, WINDOW_UPDATE, PRIORITY, the order of the pseudo-headers of the first request).
+- `fingerprint::dump`/`load` — a portable snapshot of a profile: the marker `ANTSFP`, the version, big-endian,
+  fixed widths; the parsed fields are derived anew on loading.
+  `store_t` — a bundle of profiles with identifiers and its own snapshot, without thread guarding.
 
-Применение снимка «как есть» - `client::profile(profile)` до `start`: движок складывает
-приветствие по профилю, а не по своим умолчаниям. Издание приветствия, длина опознавателя
-связи (свежие байты той же длины), способы сжатия, порядок наборов с GREASE на записанных
-местах (значения свои и свежие, стабильные через просьбу о повторе), порядок и состав
-расширений дословно, тела статичных расширений как записаны, группы и издания с GREASE на
-местах, доли ключа свежими ключами по записанным группам, заполнение по RFC 7685 правилом
-BoringSSL до 512 байтов. Имя узла - из `name` (без имени расширение не идёт), прикладные
-протоколы и алгоритмы сжатия - свои, если заданы, иначе профиля; `status_request` профиля
-включает запрос состояния; зашифрованное приветствие 0xFE0D идёт значением GREASE
-случайным телом записанной длины; заранее разделённые ключи - лишь при билете. Перечни
-наборов, групп, долей и схем связи сужаются до ведомых значений профиля в порядке профиля,
-пределы изданий берутся из профиля. Неведомые связи наборы и группы предлагаются как
-записаны; выбери сервер такой набор - связь обрывается отказом `context::error_t::PROFILE`.
-Доля X25519MLKEM768 (0x11EC) идёт свежей гибридной парой в 1216 байтов (ключ инкапсуляции
-ML-KEM-768 и точка X25519), как у Chrome; доли прочих постквантовых групп опускаются, а
-группы остаются в перечне. Ручка `grease` на профиль не влияет; профиль только клиенту.
+Application of a snapshot "as is" — `client::profile(profile)` before `start()`: the engine composes the
+hello by the profile, and not by its own defaults. The version of the hello, the length of the connection
+identifier (fresh bytes of the same length), the compression methods, the order of the suites with GREASE in the recorded
+places (own and fresh values, stable through a retry request), the order and composition of the
+extensions verbatim, the bodies of the static extensions as recorded, the groups and versions with GREASE in
+place, the key shares with fresh keys by the recorded groups, the padding by RFC 7685 by the
+BoringSSL rule up to 512 bytes. The host name — from `name()` (without a name the extension does not go), the application
+protocols and the compression algorithms — own if set, otherwise those of the profile; `status_request` of the profile
+enables the status request; the encrypted client hello 0xFE0D goes as a GREASE value with a
+random body of the recorded length; pre-shared keys — only with a ticket. The lists of
+suites, groups, shares and schemes of the connection are narrowed to the known values of the profile in the order of the profile,
+the version bounds are taken from the profile. Suites and groups unknown to the connection are offered as
+recorded; should the server pick such a suite — the connection is aborted with the error `context::error_t::PROFILE`.
+The share X25519MLKEM768 (0x11EC) goes as a fresh hybrid pair of 1216 bytes (the encapsulation key of
+ML-KEM-768 and an X25519 point), as at Chrome; the shares of the other post-quantum groups are omitted, and the
+groups stay in the list. The knob `grease` does not affect the profile; the profile is for the client only.
 
-Сервер отдаёт принятое приветствие разобранным профилем `server::profile(profile)` (с
-момента приёма приветствия) и сырыми байтами `server::greeting` для своего разбора.
-Критерий «как есть» закреплён проверками: у приветствия, сложенного по снимку, JA3, JA4,
-JA4_r, JA4_o и PeetPrint равны снимку (`ProfileTest.Loopback`, `Retry`, `Unknown`), обмен с
-`openssl s_server` по профилю проходит (`ProfileTest.Openssl`), подделанный выбор
-неведомого набора обрывается `PROFILE` (`ProfileTest.Alien`). Образец - `sample/fingerprint`.
+The server gives out the received hello as a parsed profile `server::profile(profile)` (from the
+moment of receiving the hello) and as raw bytes `server::greeting()` for own parsing.
+The criterion "as is" is pinned by tests: for a hello composed by a snapshot, JA3, JA4,
+JA4_r, JA4_o and PeetPrint are equal to the snapshot (`ProfileTest.Loopback`, `Retry`, `Unknown`), the exchange with
+`openssl s_server` by a profile passes (`ProfileTest.Openssl`), a forged choice of an
+unknown suite is aborted with `PROFILE` (`ProfileTest.Alien`). The sample is `sample/fingerprint`.
 
-## Зашифрованное приветствие клиента ECH
+## Encrypted client hello ECH
 
-Модуль `ech` (`include/ech/ech.hpp`) реализует RFC 9849 поверх `hpke`: конфигурации
-`ECHConfig` издания 0xFE0D и их перечень `ECHConfigList` (разбор с пропуском чужих изданий
-и составление байт в байт, сверено с `bssl generate-ech`), расширение `encrypted_client_hello`
-внешнего и внутреннего вида, кодирование внутреннего приветствия `EncodedClientHelloInner` со
-сжатием `ech_outer_extensions` и заполнением по разделу 6.1.3, восстановление по правилам
-раздела 7.1 (опознаватель связи из внешнего, ссылки по порядку, отказ на повтор, отсутствие и
-ссылку на само ECH, нулевой хвост), добавочные данные `ClientHelloOuterAAD`, привязку HPKE
-`"tls ech" || 0 || ECHConfig` и подтверждение принятия разделов 7.2 и 7.2.1.
+The module `ech` (`include/ech/ech.hpp`) implements RFC 9849 over `hpke`: the configurations
+`ECHConfig` of version 0xFE0D and their list `ECHConfigList` (parsing with skipping of foreign versions
+and composition byte for byte, checked against `bssl generate-ech`), the extension `encrypted_client_hello`
+of the outer and inner kinds, encoding of the inner hello `EncodedClientHelloInner` with
+compression `ech_outer_extensions` and padding by section 6.1.3, recovery by the rules of
+section 7.1 (the connection identifier from the outer one, references in order, refusal on a repeat, absence and
+a reference to ECH itself, a zero tail), the additional data `ClientHelloOuterAAD`, the HPKE binding
+`"tls ech" || 0 || ECHConfig` and the acceptance confirmation of sections 7.2 and 7.2.1.
 
-Клиент: `client::ech(ECHConfigList)` до `start` - берётся первая признаваемая конфигурация
-(KEM X25519, наборы HPKE модуля); приветствие движка становится внутренним (расширение ECH
-внутреннего вида, своё случайное значение), внешнее несёт публичное имя конфигурации и
-шифротекст HPKE; ведущий ряд одинаковых расширений выносится `ech_outer_extensions`. С ECH
-связь ведёт одно лишь издание 1.3 (раздел 6.1); билет возобновления предъявляется во
-внутреннем приветствии с привязкой по его усечённому телу, внешнее не несёт ни
-`pre_shared_key`, ни `early_data` (иначе опознаватель билета выдавал бы связь наблюдателю не
-хуже имени), внутреннее расширение ECH встаёт перед `pre_shared_key`; упреждающие данные под
-ECH не предлагаются (их ключи выводятся до ответа сервера, когда неизвестно, принят ли ECH).
-Поверх дейтаграмм DTLS 1.3 ECH работает так же: внутреннее и внешнее приветствия идут
-записью с полем метки возврата состояния (RFC 9147), внутреннее предлагает 0xFEFC, метка
-из просьбы о повторе живёт в обоих; дробление длинного внешнего приветствия по MTU и его
-пересборка на сервере - дело залпа, а раскрытие ECH идёт над целым сообщением
-(`EchTest.Datagram`). Эталона для ECH поверх дейтаграмм нет: bssl и openssl его не ведут. Принятие судится по подтверждению в приветствии сервера
-либо просьбе о повторе постоянным временем (`shrouded`); по принятии переписка переводится на
-внутреннее приветствие, а повторное приветствие после просьбы о повторе шифруется тем же
-состоянием HPKE с пустым `enc` и пишется в переписку внутренним. При отказе сервера рукопожатие
-складывается по внешнему приветствию, запасные конфигурации из защищённых расширений кладутся
-в `retry`, и по установлении связь обрывается извещением `ech_required` с отказом
-`context::error_t::ECH` (раздел 6.1.7); имя для удостоверения сертификата в этом случае -
-`visible` (публичное), при принятии - `name`; удостоверение по имени ведёт потребитель над
-`peer`. Без конфигураций при `grease(true)` идёт значение GREASE ECH (раздел 6.2): случайный
-опознаватель, обязательный набор, годная точка X25519 и случайный шифротекст правдоподобной длины.
+The client: `client::ech(ECHConfigList)` before `start()` — the first recognized configuration is taken
+(KEM X25519, the HPKE suites of the module); the hello of the engine becomes the inner one (the ECH extension
+of the inner kind, its own random value), the outer one carries the public name of the configuration and the
+HPKE ciphertext; the leading run of identical extensions is taken out by `ech_outer_extensions`. With ECH
+the connection is driven by version 1.3 alone (section 6.1); the resumption ticket is presented in the
+inner hello with the binding over its truncated body, the outer one carries neither
+`pre_shared_key` nor `early_data` (otherwise the identifier of the ticket would give the connection away to an observer no
+worse than the name), the inner ECH extension goes before `pre_shared_key`; early data under
+ECH are not offered (their keys are derived before the answer of the server, when it is unknown whether ECH is accepted).
+Over DTLS 1.3 datagrams ECH works the same way: the inner and the outer hellos go
+as a record with the stateless cookie field (RFC 9147), the inner one offers 0xFEFC, the cookie
+from the retry request lives in both; the fragmentation of a long outer hello by MTU and its
+reassembly at the server is the business of the flight, and the opening of ECH goes over the whole message
+(`EchTest.Datagram`). There is no reference for ECH over datagrams: bssl and openssl do not drive it. The acceptance is judged by the confirmation in the server hello
+or in the retry request in constant time (`shrouded()`); on acceptance the transcript is switched to the
+inner hello, and the repeated hello after the retry request is encrypted with the same
+HPKE state with an empty `enc` and is written into the transcript as the inner one. On the refusal of the server the handshake
+is composed by the outer hello, the retry configurations from the encrypted extensions are put
+into `retry()`, and upon establishment the connection is aborted with the alert `ech_required` and the error
+`context::error_t::ECH` (section 6.1.7); the name for the verification of the certificate in that case is
+`visible()` (the public one), on acceptance — `name()`; the verification by name is done by the consumer over
+`peer()`. Without configurations, with `grease(true)` a GREASE ECH value goes (section 6.2): a random
+identifier, the mandatory suite, a valid X25519 point and a random ciphertext of a plausible length.
 
-Сервер: `server::ech(секрет X25519 либо пусто, публичное имя, опознаватель, наибольшая длина
-имени)` до `start` складывает одну конфигурацию с наборами AES-128-GCM и ChaCha20-Poly1305 на
-HKDF-SHA256; `server::ech` отдаёт `ECHConfigList` для записи DNS HTTPS (секрет наружу не
-отдаётся). Внешнее приветствие раскрывается по опознавателю, набору и ключу, внутреннее
-восстанавливается и проверяется (ECH внутреннего вида, одни издания 1.3), рукопожатие идёт по
-нему, подтверждение вписывается в хвост случайного значения приветствия либо в расширение
-просьбы о повторе; за просьбой второе приветствие раскрывается тем же состоянием. Чужое либо
-нераскрываемое ECH отвергается: связь идёт по внешнему приветствию, свои конфигурации уходят как
-`retry_configs`. `greeting` и `profile` сервера отдают внешнее приветствие, как оно шло на
-проводе. Сверка с BoringSSL (`bssl server`/`bssl client`, `bssl generate-ech`) в обе стороны,
-включая просьбу о повторе, - `EchTest.Boringssl2` (пропускается вслух без инструмента; путь -
-`ANTS_BSSL`). Образец - `sample/ech`.
+The server: `server::ech(X25519 secret or empty, public name, identifier, maximum length
+of the name)` before `start()` composes one configuration with the suites AES-128-GCM and ChaCha20-Poly1305 on
+HKDF-SHA256; `server::ech()` gives the `ECHConfigList` for the DNS HTTPS record (the secret is not
+given out). The outer hello is opened by the identifier, the suite and the key, the inner one is
+recovered and verified (ECH of the inner kind, versions 1.3 only), the handshake goes by
+it, the confirmation is written into the tail of the random value of the hello or into the extension of the
+retry request; after the request the second hello is opened with the same state. A foreign or
+unopenable ECH is rejected: the connection goes by the outer hello, the own configurations go as
+`retry_configs`. `greeting()` and `profile()` of the server give out the outer hello as it went on the
+wire. The check against BoringSSL (`bssl server`/`bssl client`, `bssl generate-ech`) in both directions,
+including the retry request, — `EchTest.Boringssl2` (skipped with a notice without the tool; the path is
+`ANTS_BSSL`). The sample is `sample/ech`.
 
-Упреждающие данные под ECH (раздел 6.1 RFC 9849) идут: `early_data` лишь во внутреннем
-приветствии, ключи упреждения с переписки ClientHelloInner; сервер, отклонивший ECH, записи
-упреждения пропускает (раздел 4.2.10 RFC 8446), а связь рвётся по ech_required клиента.
+Early data under ECH (section 6.1 of RFC 9849) go: `early_data` only in the inner
+hello, the early keys from the transcript of ClientHelloInner; a server that declined ECH skips the
+early data records (section 4.2.10 of RFC 8446), and the connection is broken by the client's ech_required.
 
-## Аудит кода и закрепляющий набор `tests/audit`
+## Code audit and the pinning suite `tests/audit`
 
-Круги аудита ведутся до нулевой находки: независимые читатели по зонам, всякая находка со
-сценарием отказа и щупом, правка, пин. Итоги круга 1 (09.09.2026) - в CONFORMANCE.md, раздел
-«Аудит кода, круг 1»: 27 находок, все исправлены, подтверждённые закреплены набором `tests/audit`.
-Из круга вышли и правки договора: `trust::verify(chain, store, moment, role_t)` судит назначение
-листа по роли собеседника (`SERVER` требует serverAuth, `CLIENT` - clientAuth, `ANY` - как прежний
-трёхдоводный вызов); `x509::recognized` проверяет критичные расширения и у звеньев цепочки, и у
-делегированного ответчика OCSP; `math::integer_t::power(…, bits)` возводит с заданной шириной
-перебора показателя; две записи host_name в server_name отвергаются (раздел 3 RFC 6066).
-Круг 3б (шифры и математика) добавил `math::integer_t::residue(value, modulus)` - приведение по
-нечётному модулю за постоянное время проходами Монтгомери; секретное действие RSA берёт обратное
-к ослепляющему числу по малой теореме Ферма, а не Евклидом, и приводит по сомножителям через
-`residue` - ветвлений по секрету на горячем пути нет, цена секретного действия около двух прежних.
-Круг 4 (все зоны) дал 26 находок и три правки договора: `trust::verify` отвергает звенья с подписью
-SHA-1/MD5 и ключами RSA короче 2048 разрядов (`trust::error_t::WEAK`, RFC 9155 и SP 800-131A);
-ответ OCSP без `nextUpdate` годен не дольше `ocsp::OCSP_STALE` (десять суток); предупреждения
-изданий до 1.3 связь не рвут (`alert::grave` перечисляет описания, смертельные всегда). Пины - в
-`tests/audit`, таблица - в CONFORMANCE.md «Аудит кода, круг 4».
+The audit rounds are run until a zero finding: independent readers by zones, every finding with a
+failure scenario and a probe, a fix, a pin. The results of round 1 (09.09.2026) are in CONFORMANCE.md, section
+"Code audit, round 1": 27 findings, all fixed, the confirmed ones pinned by the suite `tests/audit`.
+Out of the round came also contract changes: `trust::verify(chain, store, moment, role_t)` judges the purpose
+of the leaf by the role of the peer (`SERVER` requires serverAuth, `CLIENT` — clientAuth, `ANY` — as the former
+three-argument call); `x509::recognized()` checks the critical extensions also at the links of the chain and at
+the delegated OCSP responder; `math::integer_t::power(…, bits)` exponentiates with the given width of the
+exponent scan; two host_name records in server_name are rejected (section 3 of RFC 6066).
+Round 3b (ciphers and mathematics) added `math::integer_t::residue(value, modulus)` — reduction by an
+odd modulus in constant time with Montgomery passes; the RSA private operation takes the inverse
+of the blinding number by Fermat's little theorem, not by Euclid, and reduces by the factors through
+`residue` — there is no branching on the secret on the hot path, the cost of the private operation is about two of the former.
+Round 4 (all zones) gave 26 findings and three contract changes: `trust::verify` rejects links with an
+SHA-1/MD5 signature and RSA keys shorter than 2048 bits (`trust::error_t::WEAK`, RFC 9155 and SP 800-131A);
+an OCSP response without `nextUpdate` is valid no longer than `ocsp::OCSP_STALE` (ten days); warnings
+of the versions before 1.3 do not break the connection (`alert::grave` lists the descriptions that are always fatal). The pins are in
+`tests/audit`, the table is in CONFORMANCE.md "Code audit, round 4".
 
-## SHA-3 и SHAKE по FIPS 202
+## SHA-3 and SHAKE by FIPS 202
 
-Модуль `digest::keccak_t` (`include/digest/sha3.hpp`): губка над Keccak-f[1600] с
-разновидностями `sha3_t::SHA3_224/256/384/512` и функциями переменного выхода
-`SHAKE128/SHAKE256`. У хешей итог снимается `finish(result, size)` ровно на длину
-разновидности; у SHAKE итог выжимается `squeeze(result, size)` любыми кусками сколько
-угодно раз, поглощение после выжимания отвергается. Один вызов - `digest::sha3(type, data,
-result, size)`; `length(type)` и `rate(type)` отдают длину итога и скорость. Векторы FIPS
-202 (пустое сообщение, «abc», 448 разрядов, миллион «a», SHAKE128 на 200 байтов за
-пределом скорости) закреплены в `tests/digest/sha3.cpp`, сверены с `openssl dgst`.
+The module `digest::keccak_t` (`include/digest/sha3.hpp`): a sponge over Keccak-f[1600] with the
+variants `sha3_t::SHA3_224/256/384/512` and the extendable-output functions
+`SHAKE128/SHAKE256`. For the hashes the result is taken by `finish(result, size)` exactly at the length of the
+variant; for SHAKE the result is squeezed by `squeeze(result, size)` in any chunks as many
+times as desired, absorbing after squeezing is rejected. One call — `digest::sha3(type, data,
+result, size)`; `length(type)` and `rate(type)` give the length of the result and the rate. The vectors of FIPS
+202 (the empty message, "abc", 448 bits, a million "a", SHAKE128 at 200 bytes beyond
+the rate) are pinned in `tests/digest/sha3.cpp`, checked against `openssl dgst`.
 
-## Группы обмена ключами по кривым и конечному полю
+## Key exchange groups by curves and by a finite field
 
-Кроме `X25519`, `SECP256R1` и `SECP384R1` связь ведёт обмен по группам, прежде
-отложенным. Все они объявляются потребителем на связь наравне с прочими, доля ключа
-идёт записью раздела 4.2.8 RFC 8446, а выбор группы сервером блюдёт правила издания.
+Besides `X25519`, `SECP256R1` and `SECP384R1` the connection drives the exchange by the groups previously
+deferred. All of them are declared by the consumer per connection on a par with the others, the key share
+goes as a record of section 4.2.8 of RFC 8446, and the choice of the group by the server obeys the rules of the version.
 
-| Группа | Число | Доля ключа | Издания | Примитив |
+| Group | Number | Key share | Versions | Primitive |
 |---|---|---|---|---|
-| `X448` | 0x001E | первая координата точки, 56 байтов (RFC 7748) | 1.3 и 1.2 | `agreement::x448` |
-| `SECP521R1` | 0x0019 | несжатая точка `0x04‖X‖Y`, 133 байта | 1.3 и 1.2 | кривая P-521, подпись `ecdsa_secp521r1_sha512` (0x0603) |
-| `SECP256K1` | 0x0016 | несжатая точка, 65 байтов | **только 1.2** (RFC 8422) | кривая secp256k1 |
-| `FFDHE2048…FFDHE8192` | 0x0100…0x0104 | открытый ключ длиной в модуль, 256…1024 байта | **только 1.3** | Диффи-Хеллман в конечном поле (RFC 7919) |
+| `X448` | 0x001E | the first coordinate of the point, 56 bytes (RFC 7748) | 1.3 and 1.2 | `agreement::x448` |
+| `SECP521R1` | 0x0019 | uncompressed point `0x04‖X‖Y`, 133 bytes | 1.3 and 1.2 | the curve P-521, the signature `ecdsa_secp521r1_sha512` (0x0603) |
+| `SECP256K1` | 0x0016 | uncompressed point, 65 bytes | **1.2 only** (RFC 8422) | the curve secp256k1 |
+| `FFDHE2048…FFDHE8192` | 0x0100…0x0104 | public key of the modulus length, 256…1024 bytes | **1.3 only** | Diffie-Hellman in a finite field (RFC 7919) |
 
-Кривая `X448` идёт лестницей Монтгомери в общей арифметике по модулю поля
-2^448 − 2^224 − 1; общее значение из одних нулей отвергается, как X25519 (§6.2 RFC 7748).
-Кривая `secp521r1` занимает 521 разряд, оттого разрядность числа арифметики поднята до
-576; подпись `ecdsa_secp521r1_sha512` объявляется схемой 0x0603 и годна обоим изданиям.
-Кривая `secp256k1` изданием 1.3 недопустима (RFC 8446 знает лишь пять групп) и сервер
-изданием 1.3 её не выбирает даже с долей клиента — связь идёт по следующей общей группе.
+The curve `X448` goes by the Montgomery ladder in the general arithmetic by the modulus of the field
+2^448 − 2^224 − 1; an all-zero shared value is rejected, as with X25519 (§6.2 of RFC 7748).
+The curve `secp521r1` takes 521 bits, therefore the width of the number of the arithmetic is raised to
+576; the signature `ecdsa_secp521r1_sha512` is declared with the scheme 0x0603 and is fit for both versions.
+The curve `secp256k1` is not allowed in version 1.3 (RFC 8446 knows only five groups) and the server
+in version 1.3 does not select it even with a share of the client — the connection goes by the next common group.
 
-Конечное поле RFC 7919 наоборот годно лишь изданию 1.3: наборов DHE у издания 1.2 связь
-не ведёт. Модули пяти групп выведены из разложения числа e и сверены с openssl 3.6.3;
-образующая у всех равна двум. Открытый ключ собеседника проверяется границами
-`1 < Y < p − 1` (§4.2.8.1 RFC 8446). Проверки принадлежности подгруппе порядка `q`
-возведением `Y^q` нет намеренно: модули RFC 7919 — безопасные простые, подгрупп малого
-порядка у них нет кроме отсечённых границами, а возведение в `q` длиной модуля стоило бы
-у `ffdhe8192` около секунды на всякое рукопожатие. Секретный показатель берётся длиной
-удвоенной стойкости группы (§5.2 RFC 7919), со старшим разрядом на месте, оттого число
-шагов возведения его ширины не выдаёт. Наибольший модуль `ffdhe8192` поднял разрядность
-многоразрядного целого до 8192.
+The finite field of RFC 7919, on the contrary, is fit only for version 1.3: the connection drives no DHE suites
+of version 1.2. The moduli of the five groups are derived from the expansion of the number e and are checked against openssl 3.6.3;
+the generator of all of them is two. The public key of the peer is checked by the bounds
+`1 < Y < p − 1` (§4.2.8.1 of RFC 8446). There is deliberately no check of membership in the subgroup of order `q`
+by the exponentiation `Y^q`: the moduli of RFC 7919 are safe primes, they have no small-order subgroups
+except those cut off by the bounds, and the exponentiation to `q` of the modulus length would cost
+about a second per every handshake at `ffdhe8192`. The private exponent is taken of the length of
+double the strength of the group (§5.2 of RFC 7919), with the top bit in place, hence the number of
+steps of the exponentiation does not give away its width. The largest modulus `ffdhe8192` raised the width of the
+multi-precision integer to 8192.
 
-Проверки: `X448Test` (векторы §6.2 RFC 7748, сличение с openssl), `FfdheTest` (модули против
-openssl, обмен, границы), `ParametersTest.Deferred` (P-521 и secp256k1: обмен и подпись),
-`GroupsTest` (доли, рукопожатия обоих изданий, правила издания, подпись P-521 и сличение с
-openssl обеими ролями по каждой группе).
+Tests: `X448Test` (the vectors of §6.2 of RFC 7748, comparison with openssl), `FfdheTest` (the moduli against
+openssl, the exchange, the bounds), `ParametersTest.Deferred` (P-521 and secp256k1: exchange and signature),
+`GroupsTest` (the shares, the handshakes of both versions, the rules of the version, the P-521 signature and comparison with
+openssl in both roles for every group).
 
-## ML-KEM по FIPS 203
+## ML-KEM by FIPS 203
 
-Модуль `agreement::mlkem` (`include/agreement/mlkem.hpp`): наборы `kem_t::MLKEM512/768/1024`,
-длины `encapsulation`, `decapsulation`, `ciphertext`, проверка ключа `validate` (раздел 7.2:
-длина и коэффициенты в диапазоне модуля), выработка `generate(kem, seed d||z, key, secret)`
-детерминированно и на случайном зерне, `encapsulate(kem, key, message m, cipher, shared)` с
-сообщением снаружи и на случайном, `decapsulate(kem, secret, cipher, shared)` с проверками
-раздела 7.3 (длины, хеш ключа внутри ключа декапсуляции) и неявным отказом J(z||c) на
-негодном шифртексте за постоянное время. Ключ декапсуляции держится полной записью
-dk_PKE||ek||H(ek)||z. Вся память на стеке, методы не отвечают нехваткой. Векторы -
-официальные (BoringSSL `mlkem768/1024_{keygen,encap,decap}_tests`, включая отказные с
-коэффициентами вне модуля) и NIST (d/z порознь; декапсуляция негодных шифртекстов с
-ожидаемым J(z||c)) в `tests/corpus/mlkem`; сличение с `openssl pkeyutl -encap/-decap`
-(3.5+) в обе стороны.
+The module `agreement::mlkem` (`include/agreement/mlkem.hpp`): the sets `kem_t::MLKEM512/768/1024`,
+the lengths `encapsulation`, `decapsulation`, `ciphertext`, the key check `validate` (section 7.2:
+the length and the coefficients within the range of the modulus), the generation `generate(kem, seed d||z, key, secret)`
+deterministically and on a random seed, `encapsulate(kem, key, message m, cipher, shared)` with the
+message from outside and on a random one, `decapsulate(kem, secret, cipher, shared)` with the checks of
+section 7.3 (the lengths, the hash of the key inside the decapsulation key) and the implicit rejection J(z||c) on an
+unfit ciphertext in constant time. The decapsulation key is kept as the full record
+dk_PKE||ek||H(ek)||z. All the memory is on the stack, the methods do not answer with exhaustion. The vectors are
+the official ones (BoringSSL `mlkem768/1024_{keygen,encap,decap}_tests`, including the failing ones with
+coefficients outside the modulus) and NIST (d/z separately; decapsulation of unfit ciphertexts with the
+expected J(z||c)) in `tests/corpus/mlkem`; comparison with `openssl pkeyutl -encap/-decap`
+(3.5+) in both directions.
 
-## Гибридная группа X25519MLKEM768 (0x11EC)
+## Hybrid group X25519MLKEM768 (0x11EC)
 
-По RFC 10024: доля клиента - ключ инкапсуляции ML-KEM-768 и точка X25519
-(1216 байтов), доля сервера - шифртекст и точка (1120 байтов), общее значение - секрет
-инкапсуляции и общее значение кривой (64 байта). Группа `extension::group_t::X25519MLKEM768`
-первая в перечне умолчаний, и доля по ней идёт в каждом приветствии умолчаний вместе с долей
-X25519 (с 23.09.2026; прежде стояла между группами ГОСТ и X25519 с одной долей по первой
-группе перечня); `extension::hybrid(group)` отличает её,
-`extension::length(group)` отдаёт длину доли клиента. Сервер вырабатывает свою долю
-инкапсуляцией на долю клиента (`Engine::encapsulating`), клиент раскрывает шифртекст своим
-ключом (`Engine::agree`); изданию TLS 1.2 гибрид негоден с обеих сторон. Просьба о повторе
-работает как с любой группой: за ней идёт одна доля гибрида. В профилях отпечатков доля
-0x11EC вырабатывается свежей, порядок долей снимка сохраняется. Согласованную группу отдают
-`client::group` и `server::group` рядом с `suite` (NONE до установления связи и у
-возобновления без обмена) - так потребитель считает связи, сложившиеся постквантовым
-обменом. Закреплено `tests/hybrid`:
-петля, повтор, профиль Chrome, голодание, сличение с `openssl s_server`/`s_client`
-(3.5+) и `bssl server`/`bssl client`.
+By RFC 10024: the share of the client is the ML-KEM-768 encapsulation key and an X25519 point
+(1216 bytes), the share of the server is the ciphertext and a point (1120 bytes), the shared value is the
+encapsulation secret and the shared value of the curve (64 bytes). The group `extension::group_t::X25519MLKEM768`
+is the first in the list of defaults, and its share goes in every default hello together with the
+X25519 share (since 23.09.2026; before that it stood between the GOST groups and X25519 with a single
+share by the first group of the list); `extension::hybrid(group)` distinguishes it,
+`extension::length(group)` gives the length of the client share. The server generates its share by
+encapsulation to the share of the client (`Engine::encapsulating`), the client opens the ciphertext with its
+key (`Engine::agree`); for version TLS 1.2 the hybrid is unfit on both sides. The retry request
+works as with any group: after it one share of the hybrid goes. In fingerprint profiles the share
+0x11EC is generated fresh, the order of the shares of the snapshot is kept. The negotiated group is given by
+`client::group()` and `server::group()` next to `suite()` (NONE before the connection is established and at
+resumption without an exchange) — that is how the consumer counts the connections made with a post-quantum
+exchange. Pinned by `tests/hybrid`:
+loopback, retry, the Chrome profile, starvation, comparison with `openssl s_server`/`s_client`
+(3.5+) and `bssl server`/`bssl client`.
 
-Гибриды NIST по тому же черновику: `SECP256R1MLKEM768` (0x11EB: точка secp256r1 ‖ ML-KEM-768) и
-`SECP384R1MLKEM1024` (0x11ED: точка secp384r1 ‖ ML-KEM-1024) - у них впереди кривая, общее
-значение ss_ECDH ‖ ss_ML-KEM; в перечень умолчаний не входят, включаются через `groups`/`shares`
-либо профилем; сверены с openssl 3.5+ обеими ролями.
+The NIST hybrids by the same draft: `SECP256R1MLKEM768` (0x11EB: a secp256r1 point ‖ ML-KEM-768) and
+`SECP384R1MLKEM1024` (0x11ED: a secp384r1 point ‖ ML-KEM-1024) — with them the curve goes first, the shared
+value is ss_ECDH ‖ ss_ML-KEM; they are not in the list of defaults, they are enabled through `groups()`/`shares()`
+or by a profile; checked against openssl 3.5+ in both roles.
 
-## BLAKE2b и BLAKE2s по RFC 7693
+## BLAKE2b and BLAKE2s by RFC 7693
 
-Модуль `digest::blake2_t` (`include/digest/blake2.hpp`): разновидности `blake_t::BLAKE2B`
-(слова 64 разряда, блок 128, итог до 64 байтов) и `BLAKE2S` (32 разряда, блок 64, итог до
-32). Длина итога задаётся при заведении `start(type, length, key)`, ключ до наибольшей длины
-разновидности даёт имитовставку (раздел 3.3); один вызов `digest::blake2(type, key, data,
-result, size)`. Векторы: приложения A и B RFC 7693, пустое сообщение и ключевой режим
-сверены с `openssl dgst`/`openssl mac`, самопроверка приложения E (обе константы стандарта, сошлись и с hashlib), независимость от
-нарезки.
+The module `digest::blake2_t` (`include/digest/blake2.hpp`): the variants `blake_t::BLAKE2B`
+(64-bit words, block 128, result up to 64 bytes) and `BLAKE2S` (32 bits, block 64, result up to
+32). The length of the result is set at the start `start(type, length, key)`, a key up to the maximum length of the
+variant gives an authentication tag (section 3.3); one call `digest::blake2(type, key, data,
+result, size)`. The vectors: appendices A and B of RFC 7693, the empty message and the keyed mode
+checked against `openssl dgst`/`openssl mac`, the self-test of appendix E (both constants of the standard, matched also with hashlib), independence from
+the chunking.
 
-## Argon2 по RFC 9106
+## Argon2 by RFC 9106
 
-Модуль `digest::argon2` (`include/digest/argon2.hpp`): `argon_t::ARGON2D/ARGON2I/ARGON2ID`,
-параметры `argon_params_t{type, memory (КиБ), passes, lanes}` (умолчание - Argon2id, 64 МиБ,
-три прохода, четыре дорожки - второй набор раздела 4), вызов `argon2(params, password,
-salt, secret, associated, result, size)`. Издание 0x13; дорожки считаются последовательно,
-итог от числа потоков не зависит; память под матрицу занимается на время вызова, при
-нехватке - отказ, не падение. Параметры m/t/p, соль и метку хранит потребитель (у AWH -
-контейнер) и читает при проверке. Векторы раздела 5 RFC 9106 (все три разновидности, с
-тайным значением и связанными данными) и сличение с `openssl kdf` на иных параметрах
-(длинная метка через H′, несколько дорожек и проходов). Строка PHC: `digest::phc(text,
-record)` и `phc(record, text)` - параметры и соль обязательны, выход необязателен (у вывода
-ключа его нет); только `v=19`, порядок `m,t,p`, base64 без дополнения. PBKDF2 остаётся для
-PKCS #8 и RFC 7914. BLAKE2S256/BLAKE2B512 есть и в `digest::hash_t`: HMAC и HKDF над ними -
-как в Noise и WireGuard.
+The module `digest::argon2` (`include/digest/argon2.hpp`): `argon_t::ARGON2D/ARGON2I/ARGON2ID`,
+the parameters `argon_params_t{type, memory (KiB), passes, lanes}` (the default is Argon2id, 64 MiB,
+three passes, four lanes — the second set of section 4), the call `argon2(params, password,
+salt, secret, associated, result, size)`. Version 0x13; the lanes are computed sequentially,
+the result does not depend on the number of threads; the memory for the matrix is taken for the duration of the call, on
+exhaustion — a failure, not a crash. The parameters m/t/p, the salt and the tag are stored by the consumer (at AWH —
+the container) and are read at verification. The vectors of section 5 of RFC 9106 (all three variants, with
+a secret value and associated data) and comparison with `openssl kdf` on other parameters
+(a long tag through H′, several lanes and passes). The PHC string: `digest::phc(text,
+record)` and `phc(record, text)` — the parameters and the salt are mandatory, the output is optional (key
+derivation has none); only `v=19`, the order `m,t,p`, base64 without padding. PBKDF2 remains for
+PKCS #8 and RFC 7914. BLAKE2S256/BLAKE2B512 are also in `digest::hash_t`: HMAC and HKDF over them —
+as in Noise and WireGuard.
 
-## Сырой поточный шифр: XChaCha20 и AES-CTR без имитовставки
+## Raw stream cipher: XChaCha20 and AES-CTR without an authentication tag
 
-`cipher::chacha_t::start(key, nonce, counter)` с заполнением в 24 байта идёт как XChaCha20
-(draft-irtf-cfrg-xchacha): подключ HChaCha20 (`chacha_t::hchacha`) от первых шестнадцати
-байтов, заполнение ChaCha20 из четырёх нулей и последних восьми; `encrypt`/`decrypt`
-накладывают гамму на данные без метки. `chachapoly_t::start` с 24-байтовым заполнением -
-XChaCha20-Poly1305 в варианте IETF (как у libsodium). AES-CTR без GCM - `cipher::counter_t`
-над `block_t`. Договор сырого потока сверх векторов: выход неотличим от равномерного при
-любом ключе, включая заведомо неверный - закреплено `RawTest.Statistics` (монобит и χ²).
-Назначение - контейнеры, где метка имитовставки была бы оракулом перебора пароля, а
-целостность выносится на подпись.
+`cipher::chacha_t::start(key, nonce, counter)` with a nonce of 24 bytes goes as XChaCha20
+(draft-irtf-cfrg-xchacha): the HChaCha20 subkey (`chacha_t::hchacha`) from the first sixteen
+bytes, the ChaCha20 nonce from four zeros and the last eight; `encrypt`/`decrypt`
+apply the keystream to the data without a tag. `chachapoly_t::start` with a 24-byte nonce is
+XChaCha20-Poly1305 in the IETF variant (as at libsodium). AES-CTR without GCM is `cipher::counter_t`
+over `block_t`. The contract of the raw stream beyond the vectors: the output is indistinguishable from uniform under
+any key, including a deliberately wrong one — pinned by `RawTest.Statistics` (monobit and χ²).
+The purpose is containers where an authentication tag would be an oracle for password brute-forcing, and
+integrity is carried out to a signature.
 
 ## SipHash-2-4
 
-`digest::siphash(key16, data, result, 8|16)` и `siphash(key16, data, uint64_t &)`:
-ключевая хеш-функция для ключей хеш-таблиц и коротких меток (WireGuard); вектора статьи
-Аумассона и Бернштейна, 128-разрядный вариант.
+`digest::siphash(key16, data, result, 8|16)` and `siphash(key16, data, uint64_t &)`:
+a keyed hash function for hash table keys and short tags (WireGuard); the vectors of the paper
+by Aumasson and Bernstein, the 128-bit variant.
 
-## Каркас Noise (ревизия 34)
+## Noise framework (revision 34)
 
-Пространство `nts::noise`, заголовки `include/noise/{noise,cipher,symmetric,handshake}.hpp`,
-ядро без ввода-вывода, отказ значением вместо исключений: в Noise весь разбор недоверенный.
+The namespace `nts::noise`, the headers `include/noise/{noise,cipher,symmetric,handshake}.hpp`,
+a core without input-output, a refusal by value instead of exceptions: in Noise all parsing is untrusted.
 
-- Узоры заданы данными - таблицей знаков в `src/noise/patterns.cpp`: односторонние N, K, X,
-  основные NN, NK, NX, XN, XK, XX, KN, KK, KX, IN, IK, IX и двадцать три отложенных (§7.3);
-  добавление узора это строка таблицы. Заранее разделённые ключи - видоизменениями `psk0..psk3`
-  в любом сочетании (`Noise_XXpsk0+psk3_…`).
-- Наборы: `25519_{ChaChaPoly,AESGCM}_{SHA256,SHA512,BLAKE2s,BLAKE2b}` - все восемь; при длине
-  хеша 64 ключ шифра усекается до 32 октетов, `ck` остаётся полным. Кривая 448 не поддержана:
-  имя с ней разбирается, `dh` остаётся `NONE`.
-- `noise::cipher_t` (CipherState): ключ и 64-разрядный счётчик, значение 2^64-1 запретно на
-  шифровании, расшифровании и установке; при несошедшейся метке счётчик не растёт; `rekey`
-  наружу и счётчик не сбрасывает; сырой доступ с явным счётчиком `encrypt(n, …)/decrypt(n, …)` и
-  выдача ключа `key(out)` - под таблицы пар и окно повтора WireGuard.
+- The patterns are given as data — a table of tokens in `src/noise/patterns.cpp`: the one-way N, K, X,
+  the fundamental NN, NK, NX, XN, XK, XX, KN, KK, KX, IN, IK, IX and the twenty-three deferred ones (§7.3);
+  adding a pattern is a row of the table. Pre-shared keys — by the modifiers `psk0..psk3`
+  in any combination (`Noise_XXpsk0+psk3_…`).
+- The suites: `25519_{ChaChaPoly,AESGCM}_{SHA256,SHA512,BLAKE2s,BLAKE2b}` — all eight; at a hash
+  length of 64 the cipher key is truncated to 32 octets, `ck` stays full. The curve 448 is not supported:
+  a name with it is parsed, `dh` stays `NONE`.
+- `noise::cipher_t` (CipherState): a key and a 64-bit counter, the value 2^64-1 is forbidden on
+  encryption, decryption and setting; on a mismatched tag the counter does not grow; `rekey()`
+  is exposed and does not reset the counter; raw access with an explicit counter `encrypt(n, …)/decrypt(n, …)` and
+  the key output `key(out)` — for the pair tables and the replay window of WireGuard.
 - `noise::symmetric_t` (SymmetricState): `start(name, suite)`, `key` (MixKey), `hash` (MixHash),
-  `blend` (MixKeyAndHash на три выхода), `seal/open` (EncryptAndHash/DecryptAndHash, `h` не
-  тронут при отказе), `split`, `digest`. HKDF Noise = `digest::extract` с солью `ck` и
-  `digest::expand` с пустой привязкой.
-- `noise::handshake_t` (HandshakeState): `start(name, role, prologue)` либо перечислениями;
-  ключи `statics/ephemeral/remote/psks` строго до первого сообщения; `step` - чей ход;
-  `write/read` по буферам вызывающего без выделений памяти; предел сообщения 65535 целиком;
-  `split(one, two)` - от инициатора к отвечающему и обратно, у односторонних `two` без ключа;
-  `digest` для привязки канала, `peer` - постоянный ключ собеседника. Принятый ключ
-  собеседника сличается с заданным заранее, при расхождении отказ. После любого отказа чтения
-  состояние неисправно (`step == NONE`). Точка малого порядка у DH - отказ (как у WireGuard).
-- Приёмка: корпуса в дереве как есть - `tests/corpus/noise/flynn.txt` (flynn/noise v1.1.0,
-  1920 векторов, psk во всех положениях, взято 1920 из 1920), `flynn-hashes.txt` (хеши
-  рукопожатия ко всем 1920, порождены библиотекой-издателем корпуса),
-  `cacophony.txt` (944; свой читатель JSON в проверке; взято 472 из 944, ровно 448
-  пропущено вслух со счётом). Корпуса расходятся в направлении переноса после раскола: flynn
-  чередует заново с инициатора и шлёт обратный ход даже у односторонних (у нас `two` без
-  ключа - эти 288 сообщений пропущены со счётом, прямой ход сличён), Cacophony продолжает по
-  номеру сообщения. Ядро: HKDF против ручного счёта по §4.3, счётчик, rekey по определению,
-  предел 65535, отказы, восемь наборов в обе роли, паёк выделений в нуль.
+  `blend` (MixKeyAndHash with three outputs), `seal/open` (EncryptAndHash/DecryptAndHash, `h` is not
+  touched on failure), `split`, `digest`. The HKDF of Noise = `digest::extract` with the salt `ck` and
+  `digest::expand` with an empty info.
+- `noise::handshake_t` (HandshakeState): `start(name, role, prologue)` or by enumerations;
+  the keys `statics/ephemeral/remote/psks` strictly before the first message; `step()` — whose move it is;
+  `write/read` over the buffers of the caller without memory allocations; the message limit is 65535 in whole;
+  `split(one, two)` — from the initiator to the responder and back, at the one-way ones `two` has no key;
+  `digest()` for channel binding, `peer()` — the static key of the peer. A received key of the
+  peer is matched against the one set beforehand, on a mismatch a refusal. After any read failure
+  the state is broken (`step() == NONE`). A small-order point at DH is a refusal (as at WireGuard).
+- Acceptance: the corpora in the tree as they are — `tests/corpus/noise/flynn.txt` (flynn/noise v1.1.0,
+  1920 vectors, psk in all positions, 1920 of 1920 taken), `flynn-hashes.txt` (the handshake
+  hashes for all 1920, generated with the library that published the corpus),
+  `cacophony.txt` (944; an own JSON reader in the test; 472 of 944 taken, exactly 448
+  skipped with a printed count). The corpora diverge in the direction of the transport after the split: flynn
+  alternates anew from the initiator and sends the backward move even at the one-way ones (with us `two` has no
+  key — these 288 messages are skipped with a count, the forward move is matched), Cacophony continues by the
+  message number. The core: HKDF against a manual computation by §4.3, the counter, rekey by definition,
+  the limit 65535, failures, eight suites in both roles, the allocation budget at zero.
 
-## PQNoise и WireGuard
+## PQNoise and WireGuard
 
-- **WireGuard.** Кадры рукопожатия собираются в проверке `tests/noise/wireguard.cpp` поверх
-  `Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s` с прологом `WireGuard v1 zx2c4 Jason@zx2c4.com`: 148 и
-  92 байта, TAI64N, mac1 = BLAKE2s-128 с ключом HASH("mac1----" ‖ Spub получателя), перенос с
-  явным счётчиком из заголовка через `cipher_t::encrypt(n, …)`. Эталон
-  `tests/corpus/noise/wireguard.txt` порождён wireguard-go на закреплённых ключах, эфемеридах и
-  метке времени: оба кадра сходятся байт в байт, включая mac1. Ядро кадров не знает.
-- **PQNoise** по статье Angel, Dowling, Hülsing, Schwabe, Weber (CCS 2022): знаки `ekem` (шифртекст
-  к временному ключу получателя в открытом виде, MixHash, MixKey) и `skem` (к постоянному, через
-  EncryptAndHash, MixKey), тринадцать узоров `pqN … pqIX` теми же строками таблицы. Гибрид живёт
-  внутри отвлечения KEM: `noise::kem_t::X25519MLKEM768` (составной, как в гибридной группе TLS:
-  ek ‖ pk, ct ‖ pk_e, ss_mlkem ‖ ss_x25519) и `MLKEM768` строкой перечня, не умолчанием. Размеры -
-  свойство KEM (`kemlength(kem, part)`), не постоянные заголовка. Имя вида
-  `PQNoise_pqXX_X25519MLKEM768_ChaChaPoly_SHA256` - наше: реестра нет, собеседника, с которым оно
-  сойдётся, не существует. psk у PQNoise не заведён. Детерминированные вызовы
+- **WireGuard.** The handshake frames are assembled in the test `tests/noise/wireguard.cpp` over
+  `Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s` with the prologue `WireGuard v1 zx2c4 Jason@zx2c4.com`: 148 and
+  92 bytes, TAI64N, mac1 = BLAKE2s-128 with the key HASH("mac1----" ‖ Spub of the recipient), the transport with
+  an explicit counter from the header through `cipher_t::encrypt(n, …)`. The reference
+  `tests/corpus/noise/wireguard.txt` is generated by wireguard-go on fixed keys, ephemerals and
+  timestamp: both frames match byte for byte, including mac1. The core knows nothing of the frames.
+- **PQNoise** by the paper of Angel, Dowling, Hülsing, Schwabe, Weber (CCS 2022): the tokens `ekem` (a ciphertext
+  to the ephemeral key of the recipient in plaintext, MixHash, MixKey) and `skem` (to the static one, through
+  EncryptAndHash, MixKey), the thirteen patterns `pqN … pqIX` as the same rows of the table. The hybrid lives
+  inside the KEM abstraction: `noise::kem_t::X25519MLKEM768` (composite, as in the TLS hybrid group:
+  ek ‖ pk, ct ‖ pk_e, ss_mlkem ‖ ss_x25519) and `MLKEM768` as a row of the enumeration, not the default. The sizes are
+  a property of the KEM (`kemlength(kem, part)`), not constants of the header. A name of the form
+  `PQNoise_pqXX_X25519MLKEM768_ChaChaPoly_SHA256` is ours: there is no registry, a peer with which it would
+  match does not exist. psk is not set up for PQNoise. The deterministic calls
   `kemgenerateDeterministic`, `encapsulateDeterministic`, `handshake_t::coinsDeterministic`
-  выведены наружу ради корпусов: повтор зерна либо случайности - полная потеря без отказа.
-- **Приёмка PQNoise** (чужого корпуса и живой реализации в мире нет на 08.09.2026: nyquist без KEM; при появлении второй реализации замороженный корпус сличается с ней, и при расхождении виноват скорее корпус): целость классики теми же
-  числами после обобщения таблицы; составной KEM против раздельного счёта ML-KEM + X25519; обе
-  роли на 13 узорах × 2 KEM × 8 наборов; предельные длины сообщений посчитаны заранее
-  (pqXX на составном 1216 / 2368 / 2384 / 1152) и закреплены; свой замороженный корпус
-  `tests/corpus/noise/pqnoise.txt` (52 записи) - доказывает неизменность с дня заморозки, не
-  правильность; пересоздание только вслух через `ANTS_NOISE_FREEZE`.
+  are exposed for the sake of the corpora: a repeat of the seed or of the randomness is a total loss without a refusal.
+- **Acceptance of PQNoise** (there is no foreign corpus and no live implementation in the world as of 08.09.2026: nyquist is without KEM; when a second implementation appears the frozen corpus is compared with it, and on a discrepancy the corpus is the more likely culprit): the integrity of the classics with the same
+  numbers after the generalization of the table; the composite KEM against a separate computation of ML-KEM + X25519; both
+  roles over 13 patterns × 2 KEMs × 8 suites; the maximum message lengths are computed beforehand
+  (pqXX on the composite 1216 / 2368 / 2384 / 1152) and pinned; an own frozen corpus
+  `tests/corpus/noise/pqnoise.txt` (52 records) — it proves invariance since the day of freezing, not
+  correctness; regeneration only explicitly through `ANTS_NOISE_FREEZE`.
 
-## Прикладные настройки ALPS (draft-vvv-tls-alps)
+## Application-layer settings ALPS (draft-vvv-tls-alps)
 
-Настройки прикладного уровня согласуются рукопожатием TLS 1.3 (и DTLS 1.3, и по уровням под
-QUIC) для выбранного протокола ALPN: `client::settings(protocol, value)` и
-`server::settings(protocol, value)` объявляют настройки по протоколам (протокол обязан значиться
-в `protocols`, иначе `start` отвечает `PROTOCOL`), `codepoint(type)` выбирает точку кода -
-`extension::type_t::SETTINGS` (0x44CD, новая, умолчание как у BoringSSL) либо `SETTINGS_OLD`
-(0x4469, прежняя); `settled` говорит, согласованы ли настройки, `settings` отдаёт настройки
-собеседника как есть, `codepoint` - точку кода связи. Провод как у BoringSSL: перечень
-протоколов с настройками в приветствии клиента, настройки сервера в защищённых расширениях,
-ответ клиента сообщением защищённых расширений (тип 8) сразу за завершением сервера; при
-принятых упреждающих данных ни расширение, ни сообщение не идут - обе стороны наследуют
-состояние из билета (`ticket_t::settled`, `settings`, `obtained`, запись билета издания 3), а
-сменившиеся настройки не дают ни предложить, ни принять упреждение. Разошедшиеся точки кода
-сторон оставляют связь без настроек молча: снаружи это различает `codepoint`. Профиль
-отпечатка с расширением ALPS выставляет точку профиля сам и объявляет протоколы снимка с
-пустыми настройками - так снимок Chrome складывается байт в байт, а сервер Google получает
-сообщение, которого ждёт. Издание 1.2 расширения не несёт.
+The application-layer settings are negotiated by the TLS 1.3 handshake (and DTLS 1.3, and by levels under
+QUIC) for the selected ALPN protocol: `client::settings(protocol, value)` and
+`server::settings(protocol, value)` declare the settings per protocol (the protocol must be listed
+in `protocols()`, otherwise `start()` answers `PROTOCOL`), `codepoint(type)` selects the codepoint —
+`extension::type_t::SETTINGS` (0x44CD, the new one, the default as at BoringSSL) or `SETTINGS_OLD`
+(0x4469, the former one); `settled()` says whether the settings are negotiated, `settings()` gives the settings
+of the peer as they are, `codepoint()` — the codepoint of the connection. The wire is as at BoringSSL: the list of
+protocols with settings in the client hello, the settings of the server in the encrypted extensions,
+the answer of the client with an encrypted extensions message (type 8) right after the server finishing; with
+accepted early data neither the extension nor the message goes — both sides inherit the
+state from the ticket (`ticket_t::settled`, `settings`, `obtained`, the ticket record of version 3), and
+changed settings allow neither to offer nor to accept early data. Divergent codepoints of the
+sides leave the connection without settings silently: from outside this is told apart by `codepoint()`. A fingerprint
+profile with the ALPS extension sets the codepoint of the profile itself and declares the protocols of the snapshot with
+empty settings — that is how the Chrome snapshot is composed byte for byte, and the Google server gets the
+message it expects. Version 1.2 does not carry the extension.
 
-## Метки времени подписанного сертификата SCT (RFC 6962)
+## Signed certificate timestamps SCT (RFC 6962)
 
-`client::timestamps(true)` запрашивает метки пустым расширением `signed_certificate_timestamp`
-(0x0012) приветствия; ответ изданием 1.3 приходит расширением записи листа цепочки, изданием
-1.2 - расширением приветствия сервера, и отдаётся `client::timestamps` как записан
-(SignedCertificateTimestampList); `extension::timestamps(data, entries)` делит перечень на
-записи, `extension::timestamps(entries, out)` собирает. `server::timestamps(list)` задаёт
-перечень для выдачи по запросу - лишь при подлинности сертификатом и не при возобновлении;
-негодный перечень (пустой, пустая запись, хвост) отвергается `start` отказом `SETTINGS`, а
-негодный перечень собеседника - отказом `TIMESTAMPS` с извещением decode_error. Профиль
-отпечатка с расширением 0x0012 включает запрос сам. Сами метки (журналы CT, подписи) связь не
-толкует - как и BoringSSL, это дело потребителя.
+`client::timestamps(true)` requests the timestamps with an empty extension `signed_certificate_timestamp`
+(0x0012) of the hello; the answer in version 1.3 comes as an extension of the leaf record of the chain, in version
+1.2 — as an extension of the server hello, and is given by `client::timestamps()` as recorded
+(SignedCertificateTimestampList); `extension::timestamps(data, entries)` splits the list into
+entries, `extension::timestamps(entries, out)` assembles it. `server::timestamps(list)` sets the
+list for issuance on request — only with certificate authentication and not at resumption;
+an unfit list (empty, an empty entry, a tail) is rejected by `start()` with the error `SETTINGS`, and
+an unfit list of the peer — with the error `TIMESTAMPS` and the alert decode_error. A fingerprint profile
+with the extension 0x0012 enables the request itself. The timestamps themselves (the CT logs, the signatures) the connection does not
+interpret — as at BoringSSL, that is the business of the consumer.
 
-## Перечень доверенных центров в запросе подлинности (RFC 8446 §4.2.4)
+## List of trusted authorities in the authentication request (RFC 8446 §4.2.4)
 
-`server::authorities(names)` задаёт перечень DER-имён удостоверяющих центров, чьи сертификаты
-сервер примет от клиента; имя владельца сертификата центра даёт
-`x509::certificate_t::subjects.element`. Перечень идёт запросом подлинности: изданием 1.3
-расширением `certificate_authorities` (0x002F), изданием 1.2 полем запроса (RFC 5246 §7.4.4);
-без перечня запрос идёт как прежде. Клиент отдаёт принятый перечень `client::authorities`
-разобранным на имена - выбор сертификата по нему за потребителем. Негодное имя (пустое, не
-DER SEQUENCE) отвергается `start` отказом `SETTINGS`, негодный перечень собеседника -
-decode_error; `extension::authorities` разбирает и собирает перечень.
+`server::authorities(names)` sets the list of the DER names of the certification authorities whose certificates
+the server will accept from the client; the subject name of the certificate of an authority is given by
+`x509::certificate_t::subjects().element`. The list goes with the authentication request: in version 1.3
+as the extension `certificate_authorities` (0x002F), in version 1.2 as a field of the request (RFC 5246 §7.4.4);
+without a list the request goes as before. The client gives the received list by `client::authorities()`
+parsed into names — the choice of the certificate by it is up to the consumer. An unfit name (empty, not a
+DER SEQUENCE) is rejected by `start()` with the error `SETTINGS`, an unfit list of the peer —
+decode_error; `extension::authorities()` parses and assembles the list.
 
-## Выработка следующего протокола NPN (draft-agl-tls-nextprotoneg)
+## Next protocol negotiation NPN (draft-agl-tls-nextprotoneg)
 
-Ради снимков отпечатков, несущих расширение 0x3374, и старых серверов: `client::negotiation(true)`
-предлагает NPN пустым расширением изданию 1.2 потоком (не 1.3, не дейтаграммам, не под ECH);
-`server::negotiation(true)` объявляет `protocols` в приветствии сервера по запросу и лишь когда
-ALPN не выбран; клиент выбирает первый из своих `protocols`, объявленный сервером (без общего -
-первый свой, без своих - первый объявленный, без всего - пустое имя, как у BoringSSL), и шлёт
-сообщение NextProtocol (тип 67, заполнение нулями длиной 32 − ((len + 2) mod 32), то есть от 1 до 32 байт) за сменой набора и до
-завершения; итог в `protocol`, `negotiated` отличает NPN от ALPN. Сервер ждёт NextProtocol
-при выработке, приход без неё либо дважды - unexpected_message, негодное заполнение -
-decode_error. Билет 1.2 протокол, выбранный NPN, не несёт. `extension::negotiation` разбирает
-и собирает перечень.
+For the sake of fingerprint snapshots carrying the extension 0x3374, and of old servers: `client::negotiation(true)`
+offers NPN with an empty extension in version 1.2 over a stream (not 1.3, not datagrams, not under ECH);
+`server::negotiation(true)` declares `protocols()` in the server hello on request and only when
+ALPN is not selected; the client picks the first of its `protocols()` declared by the server (without a common one —
+the first of its own, without its own — the first declared, without anything — an empty name, as at BoringSSL), and sends
+the message NextProtocol (type 67, zero padding of the length 32 − ((len + 2) mod 32), that is from 1 to 32 bytes) after the change of the cipher spec and before
+the finishing; the result is in `protocol()`, `negotiated()` tells NPN from ALPN. The server waits for NextProtocol
+at the negotiation, an arrival without it or twice — unexpected_message, unfit padding —
+decode_error. The 1.2 ticket does not carry the protocol selected by NPN. `extension::negotiation()` parses
+and assembles the list.
 
-## Издание DTLS 1.0 (RFC 4347 поверх TLS 1.1)
+## Version DTLS 1.0 (RFC 4347 over TLS 1.1)
 
-Ради старых собеседников по постановке задачи: `versions(0x0302, …)` у обеих сторон поверх
-дейтаграмм дозволяет DTLS 1.0 (на проводе 0xFEFF в приветствиях и всех записях; в кодах TLS
-издание 0x0302, как DTLS1_VERSION ↔ TLS1_1_VERSION у BoringSSL). Изданию 1.1 положены лишь
-наборы CBC с HMAC-SHA1 (ECDHE и RSA, PSK); PRF - `digest::legacy` (P_MD5 ⊕ P_SHA1 по RFC 4346 §5),
-хеш переписки - MD5 ‖ SHA-1, подписи без схем: RSA PKCS #1 v1.5 над MD5 ‖ SHA-1 без DigestInfo
-(`x509::verify(digest, signature, key)`), ECDSA над SHA-1; запрос подлинности без перечня схем,
-signature_algorithms клиента не требуется. Расширенный главный секрет, renegotiation_info,
-ec_point_formats, билеты RFC 5077 и ETM применимы как у 1.2. Выбор издания: заголовок 0xFEFD с
-перечнем изданий, включающим 0xFEFF, у клиента до 1.2; зажатый на 1.0 клиент шлёт 0xFEFF без
-перечня 1.2; сервер, способный к 1.2, ведя 1.1, кладёт заслон DOWNGRD00, и клиент, предлагавший
-1.2, на нём обрывается. TLS 1.0/1.1 потоком не заводятся - `start` отвечает `SETTINGS`.
+For the sake of old peers, by the statement of the task: `versions(0x0302, …)` at both sides over
+datagrams allows DTLS 1.0 (on the wire 0xFEFF in the hellos and all records; in the TLS codes
+the version is 0x0302, as DTLS1_VERSION ↔ TLS1_1_VERSION at BoringSSL). Version 1.1 is allowed only
+the CBC suites with HMAC-SHA1 (ECDHE and RSA, PSK); the PRF is `digest::legacy` (P_MD5 ⊕ P_SHA1 by RFC 4346 §5),
+the transcript hash is MD5 ‖ SHA-1, the signatures without schemes: RSA PKCS #1 v1.5 over MD5 ‖ SHA-1 without DigestInfo
+(`x509::verify(digest, signature, key)`), ECDSA over SHA-1; the authentication request without a list of schemes,
+the signature_algorithms of the client is not required. The extended master secret, renegotiation_info,
+ec_point_formats, the RFC 5077 tickets and ETM are applicable as with 1.2. The choice of the version: the header 0xFEFD with
+a list of versions including 0xFEFF at a client up to 1.2; a client clamped to 1.0 sends 0xFEFF without
+the 1.2 list; a server capable of 1.2, driving 1.1, sets the guard DOWNGRD00, and a client that offered
+1.2 aborts on it. TLS 1.0/1.1 over a stream are not started — `start()` answers `SETTINGS`.
 
-## Укрытое хранение ключевого материала
+## Sheltered storage of the key material
 
-Ключ, который библиотека хранит **между вызовами**, не лежит в обычной куче: он живёт в
-укрытом хранилище `sys::Vault` (`include/sys/vault.hpp`). Хранилище одно на процесс, берёт
-память у ядра напрямую (`mmap`/`VirtualAlloc`, минуя любой распределитель), запрещает ей
-подкачку (`mlock`/`VirtualLock`), укрывает от снимков памяти (`MADV_DONTDUMP` у Linux,
-`MADV_NOCORE` у FreeBSD и DragonFly), потомку после `fork` отдаёт затёртой (`MADV_WIPEONFORK`,
-`INHERIT_ZERO` либо обработчик `pthread_atfork`), а освобождённый участок затирает в момент
-возврата. Что из этого состоялось **на деле**, говорит `Vault::shelter`: три признака -
-`wired` (подкачка запрещена), `hidden` (вне снимков), `forked` (потомку затёрто). Понижение
-умолчанием не отказ, а честный доклад: библиотека работает и там, где запрет подкачки не дан
-(DragonFly непривилегированному не даёт его вовсе, macOS не умеет укрытие от снимков). Кому
-понижение непозволительно, тот зовёт `Vault::instance.demand(true)` - тогда кусок без запрета
-подкачки не принимается, и связь без укрытого участка негодна с рождения: `state` -
-`FAILED`, `error` - `MEMORY`, `start` отвечает отказом, разрушение безопасно.
+A key that the library keeps **between calls** does not lie in the ordinary heap: it lives in the
+sheltered vault `sys::Vault` (`include/sys/vault.hpp`). The vault is one per process, takes
+memory from the kernel directly (`mmap`/`VirtualAlloc`, bypassing any allocator), forbids it
+swapping (`mlock`/`VirtualLock`), hides it from memory dumps (`MADV_DONTDUMP` on Linux,
+`MADV_NOCORE` on FreeBSD and DragonFly), gives it wiped to the child after `fork` (`MADV_WIPEONFORK`,
+`INHERIT_ZERO` or a `pthread_atfork` handler), and wipes a released piece at the moment of
+return. Which of this has happened **in fact** is told by `Vault::shelter()`: three flags —
+`wired` (swapping is forbidden), `hidden` (outside dumps), `forked` (wiped for the child). A lowering
+by default is not a refusal but an honest report: the library works also where the forbidding of swapping is not
+granted (DragonFly does not grant it to the unprivileged at all, macOS cannot hide from dumps). One to whom
+the lowering is unacceptable calls `Vault::instance().demand(true)` — then a chunk without the forbidding of
+swapping is not accepted, and a connection without a sheltered piece is unfit from birth: `state()` is
+`FAILED`, `error()` is `MEMORY`, `start()` answers with a refusal, destruction is safe.
 
-Что лежит в хранилище: у связи - главный секрет издания 1.2, ключи завершения рукопожатия,
-ключи и векторы прикладных данных, ключи имитовставки CBC, значения направлений по уровням
-защиты, общее значение обмена и заранее разделённый ключ; у расписания ключей
-(`session::Secrets`) - пять его значений; у хранителя билетов - ключи двух поколений. Что
-живёт вызовом (буферы открытого текста, промежуточные значения на стеке), укрытия не требует и
-затирается `sys::wipe`.
+What lies in the vault: at a connection — the master secret of version 1.2, the keys of the handshake finishing,
+the keys and vectors of the application data, the CBC authentication tag keys, the values of the directions by the protection
+levels, the shared value of the exchange and the pre-shared key; at the key schedule
+(`session::Secrets`) — its five values; at the ticket keeper — the keys of two generations. What
+lives within a call (plaintext buffers, intermediate values on the stack) needs no sheltering and
+is wiped by `sys::wipe`.
 
-**Договор с потребителем.** Две открытые структуры несут ключ, живущий между вызовами, и
-их поля тоже лежат в хранилище: `context::ticket_t::secret` (ключ билета возобновления) и
-`context::psk_t::key` (заранее разделённый ключ). Их тип - `sys::bytes_t`, то есть
-`std::vector <uint8_t>` над распределителем хранилища. Что это значит:
+**The contract with the consumer.** Two public structures carry a key living between calls, and
+their fields lie in the vault too: `context::ticket_t::secret` (the key of the resumption ticket) and
+`context::psk_t::key` (the pre-shared key). Their type is `sys::bytes_t`, that is
+`std::vector <uint8_t>` over the allocator of the vault. What it means:
 
-- чтение `data`, `size`, `empty`, перебор - как у обычного набора;
-- присваивание из обычного `vector <uint8_t>` не собирается (распределители разные): кладите
-  байты через `assign(begin, end)` либо `assign(ptr, ptr + size)`;
-- копирование и перенос билета целиком (`ticket_t` в свой `vector <ticket_t>`, `resume(...)`)
-  работают как прежде - копия ключа тоже ложится в хранилище;
-- вызовы потребителя `psk_t::respond` и `psk_t::advise` по-прежнему принимают обычные наборы:
-  движок переносит выданный ключ в укрытую память и затирает его в куче сам;
-- `Vault::instance.owns(secret.data)` подтверждает, что байты лежат в хранилище.
+- reading `data()`, `size()`, `empty()`, iteration — as with an ordinary set;
+- assignment from an ordinary `vector <uint8_t>` does not compile (the allocators differ): put
+  the bytes through `assign(begin, end)` or `assign(ptr, ptr + size)`;
+- copying and moving a ticket as a whole (`ticket_t` into an own `vector <ticket_t>`, `resume(...)`)
+  work as before — the copy of the key goes into the vault too;
+- the calls of the consumer `psk_t::respond` and `psk_t::advise` still accept ordinary sets: the
+  engine moves the issued key into the sheltered memory and wipes it in the heap itself;
+- `Vault::instance().owns(secret.data())` confirms that the bytes lie in the vault.
 
-Зависимостей это не добавляет: хранилище - часть A-NTS, распределитель AWH ей не нужен, и
-чужой проект без него получает то же поведение. С распределителем AWH хранилище не спорит:
-куски берутся у ядра напрямую и никому не отдаются; единственный общий ресурс - предел
-`RLIMIT_MEMLOCK`, который делят все, кто запирает память, и каждый честно докладывает своё.
+This adds no dependencies: the vault is a part of A-NTS, the allocator of AWH is not needed by it, and
+a foreign project without it gets the same behaviour. The vault does not contend with the allocator of AWH:
+the chunks are taken from the kernel directly and are given to nobody; the only shared resource is the limit
+`RLIMIT_MEMLOCK`, which is shared by everyone who locks memory, and each one reports its own honestly.
 
-Пины: `tests/sys/vault.cpp` (выдача, затирание при возврате, слияние, рост, доклад, участок,
-распределитель, потомок, требование), `tests/sys/demand.cpp` (связь без участка под
-требованием - отдельной программой), `tests/sys/trace.cpp` (ключ билета не проходит через кучу
-C++ и не остаётся на стеке), `tests/context` (`Sheltered`: ключи билета и PSK лежат в
-хранилище, договор `assign`). Образцы - `sys/sys-vault`, `context/tls-connection`,
-`tls12/tls12-psk`. Приёмка сторонним обходом памяти на десяти системах - CONFORMANCE.md, круг 17.
+Pins: `tests/sys/vault.cpp` (taking, wiping on return, merging, growth, the report, the piece,
+the allocator, the child, the demand), `tests/sys/demand.cpp` (a connection without a piece under the
+demand — as a separate program), `tests/sys/trace.cpp` (the ticket key does not pass through the C++ heap
+and does not remain on the stack), `tests/context` (`Sheltered`: the keys of the ticket and the PSK lie in the
+vault, the contract `assign`). The samples are `sys/sys-vault`, `context/tls-connection`,
+`tls12/tls12-psk`. The acceptance by a third-party walk of the memory on ten systems is in CONFORMANCE.md, round 17.
 
-## Затирание памяти: механизм и классы
+## Memory wiping: the mechanism and the classes
 
-Тайна, отжившая своё, не должна оставаться в памяти: её вынесет чужое чтение памяти,
-снимок процесса или повторная выдача освобождённого блока. Затирает `sys::wipe`
-(`include/sys/wipe.hpp`): область по указателю и длине, набор байтов и строку с
-опустошением. Что и когда затирает связь, выбирает потребитель классами затирания.
+A secret that has served its purpose must not remain in memory: a foreign read of the memory, a
+dump of the process or a reuse of a freed block would carry it out. The wiping is done by `sys::wipe`
+(`include/sys/wipe.hpp`): an area by a pointer and a length, a byte vector and a string with emptying.
+What and when the connection wipes is chosen by the consumer with the wiping classes.
 
-**Механизм.** Голый `memset` затиранием не годится: по правилу «как если бы» собиратель
-вправе выбросить запись, итог которой никто не читает, и вместе с ней выпадает само
-затирание. Это не теория: разбор порождённого кода функции, где ключ на стеке отживает
-своё, показал у clang 21, GCC 12, GCC 16 и lcc 1.27 одно и то же - с голым `memset`
-обнуления нет, а байты ключа остаются на стеке; под сквозной оптимизацией (`-flto`, у AWH
-включена под Windows) проверкой набора этого не поймать, ибо программа не может наблюдать,
-выброшена ли мёртвая запись. Оттого `sys::wipe` зовёт `memset` через изменчивый указатель
-на функцию (путь OpenSSL без ассемблера, `crypto/mem_clr.c`): собиратель обязан прочитать
-указатель при каждом вызове и не вправе знать, что за ним стоит `memset`, - а за вызовом
-стоит барьер собирателя (путь BoringSSL и libsodium): пустая asm-вставка с доводом-указателем
-и пометкой `memory`, объявляющая область прочитанной. Оба удерживают затирание у всех трёх
-собирателей и под `-flto`, и оба идут полной скоростью `memset`. До круга 32 затирание шло
-пословной изменчивой записью - гарантия та же, но полоса 35 ГБ/с на M4 и 6 на Эльбрусе
-против 140 и 43 у `memset`; ассемблерный `OPENSSL_cleanse` OpenSSL, к слову, тоже
-пословный. Системные `memset_s` и `explicit_bzero` заменой не годятся: первый есть лишь у
-macOS и FreeBSD, второй у FreeBSD, glibc и Эльбруса, но не у macOS и MinGW, а
-`SecureZeroMemory` Windows побайтный. Ограничение всякого способа: разливы регистров с
-байтами ключа, которые собиратель делает вокруг вызовов, не затирает никто.
+**The mechanism.** A plain `memset` is unfit for wiping: by the as-if rule the compiler may drop a
+write whose result nobody reads, and the wiping itself drops out with it. This is not a theory: the
+inspection of the generated code of a function where a key on the stack serves its purpose showed
+one and the same thing at clang 21, GCC 12, GCC 16 and lcc 1.27 - with a plain `memset` there is no
+zeroing, and the bytes of the key remain on the stack; under the link-time optimization (`-flto`,
+enabled at AWH on Windows) a test cannot catch this, since a program cannot observe whether a dead
+write was dropped. Hence `sys::wipe` calls `memset` through a volatile function pointer (the way of
+OpenSSL without assembly, `crypto/mem_clr.c`): the compiler has to read the pointer at every call and
+may not know that `memset` stands behind it - and a compiler barrier stands after the call (the way of
+BoringSSL and libsodium): an empty asm insertion with the pointer as an argument and the `memory`
+mark, declaring the area read. Both keep the wiping at all three compilers and under `-flto`, and both
+go at the full speed of `memset`. Before round 32 the wiping went by a word-wise volatile write - the
+same guarantee, but a bandwidth of 35 GB/s on M4 and 6 on Elbrus against 140 and 43 of `memset`;
+the assembly `OPENSSL_cleanse` of OpenSSL, by the way, is word-wise too. The system `memset_s` and
+`explicit_bzero` are unfit as a replacement: the former exists only on macOS and FreeBSD, the latter
+on FreeBSD, glibc and Elbrus but not on macOS and MinGW, and `SecureZeroMemory` of Windows is
+byte-wise. The limit of every way: the register spills with the bytes of the key, which the compiler
+makes around the calls, are wiped by nobody.
 
-Гарантия сверяется не проверкой, а разбором порождённого кода: `tools/wipe/probe.sh`
-собирает пять способов затирания (голый `memset`, `memset` с барьером, пословная
-изменчивая запись, та же по четыре слова, `memset` через изменчивый указатель) заданным
-собирателем и ключами, печатает по каждому число команд, вызовов `memset` и строк с
-обнулением в функции с ключом на стеке, а затем полосу затирания 16 КиБ. Голый `memset`
-обязан показать отсутствие затирания, остальные - его наличие. Заголовок `wipe.hpp` несёт
-это намеренным решением: голый `memset` в `sys::wipe` запрещён.
+The guarantee is verified not by a test but by the inspection of the generated code: `tools/wipe/probe.sh`
+builds five ways of wiping (a plain `memset`, `memset` with the barrier, the word-wise volatile write,
+the same by four words, `memset` through the volatile pointer) with the given compiler and flags, prints
+for each the number of instructions, of `memset` calls and of lines with zeroing in the function with the
+key on the stack, and then the bandwidth of the wiping of 16 KiB. The plain `memset` has to show the
+absence of the wiping, the others its presence. The header `wipe.hpp` carries this as a deliberate
+decision: a plain `memset` in `sys::wipe` is forbidden.
 
-**Классы затирания связи** - `context::wiping_t`, ручка `wiping(vector)` у
-`client::Context` и `server::Context`, получатель `wiping()`:
+**The wiping classes of a connection** - `context::wiping_t`, the knob `wiping(vector)` at
+`client::Context` and `server::Context`, the getter `wiping()`:
 
-| Класс | Что затирается | Когда | Цена | Умолчание |
+| Class | What is wiped | When | Cost | Default |
 |---|---|---|---|---|
-| `SECRETS` | Секреты рукопожатия и ключи на путях связи: мимолётные ключи и общие значения, premaster, привязки PSK, ключи билетов, промежуточные значения вывода ключей | Сразу, как только из них нечего более выводить, и при сбросе связи | Одноразовая, малая | Включён |
-| `PLAINTEXT` | Открытый текст принятых записей: накопитель прикладных данных, накопитель открытого содержимого записи, содержимое снятых дейтаграмм DTLS | Между записями, после выдачи вызовом `read` и при сбросе | На каждую запись | Выключен |
+| `SECRETS` | The secrets of the handshake and the keys on the paths of the connection: the ephemeral keys and shared values, the premaster, the PSK binders, the ticket keys, the intermediate values of the key derivation | As soon as there is nothing more to derive from them, and on the reset of the connection | One-off, small | Enabled |
+| `PLAINTEXT` | The plaintext of the received records: the accumulator of the application data, the accumulator of the opened content of a record, the content of the opened DTLS datagrams | Between the records, after the hand-over by the `read` call and on the reset | Per record | Disabled |
 
-Умолчание - только `SECRETS`: затирание секретов одноразово и дёшево, затирание открытого
-текста стоит на каждую запись, а защищает лишь окно до следующей записи - копия, выданная
-потребителю вызовом `read`, ему недоступна, и её затирание за потребителем (`sys::wipe`).
-У OpenSSL то же самое - `SSL_OP_CLEANSE_PLAINTEXT`, умолчанием выключенная; BoringSSL
-открытый текст записей не затирает вовсе. Пустой перечень выключает затирания связи:
-кому тайн в связи нет (замеры, открытые данные), тот ничего не платит. Классов не
-касается то, что затирается по договору своего объекта всегда: укрытое хранилище
-ключевого материала при возврате участка, объекты-значения (билет, заранее разделённый
-ключ, мимолётная пара) в разрушителе, примитивы (шифры, хеши, расписание ключей, защита
-записей) при сбросе состояния и во временных буферах вызова. В движке голых вызовов
-`wipe` нет: секреты идут через `purge` по классу `SECRETS`, накопители открытого текста
-через `cleanse` по классу `PLAINTEXT` (намеренное решение 20 шапки движка).
+The default is `SECRETS` only: the wiping of the secrets is one-off and cheap, the wiping of the
+plaintext costs per record and protects only the window until the next record - the copy handed to the
+consumer by the `read` call is out of reach, and its wiping is up to the consumer (`sys::wipe`). OpenSSL
+has the same - `SSL_OP_CLEANSE_PLAINTEXT`, disabled by default; BoringSSL does not wipe the plaintext
+of the records at all. An empty list disables the wipings of the connection: one who has no secrets in the
+connection (measurements, public data) pays nothing. The classes do not concern what is always wiped by
+the contract of its own object: the sheltered vault of the key material on the return of a piece, the value
+objects (the ticket, the pre-shared key, the ephemeral pair) in the destructor, the primitives (the ciphers,
+the hashes, the key schedule, the protection of records) on the reset of the state and in the temporary
+buffers of a call. There are no bare `wipe` calls in the engine: the secrets go through `purge` by the
+`SECRETS` class, the plaintext accumulators through `cleanse` by the `PLAINTEXT` class (deliberate
+decision 20 of the engine header).
 
 ```cpp
 client::context_t client;
-// Умолчание - только секреты
-client.wiping({context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT}); // принятые данные - тайна
+// The default is the secrets only
+client.wiping({context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT}); // the received data is a secret
 server::context_t server;
-server.wiping({}); // тайн нет вовсе: связь ничего не затирает
+server.wiping({}); // no secrets at all: the connection wipes nothing
 ```
 
-Пины: `tests/sys/wipe.cpp` (границы, пустые доводы, контейнеры с опустошением, большая
-невыровненная область), `tests/context` (`Wiping`: умолчание, возврат перечня, связь при
-всяком перечне), `tests/audit` (`PlaintextCleansing`: накопители движка нулевые лишь с
-классом `PLAINTEXT`, без него держат принятые байты; `SecretsViaPurge`: голых `wipe` в
-движке нет). Образцы - `sys/sys-wipe`, `context/tls-connection`. Разбор порождённого кода на
-пяти стендах, полоса и цена на пути записи - CONFORMANCE.md, круг 32.
+Pins: `tests/sys/wipe.cpp` (the bounds, empty arguments, containers with emptying, a large unaligned
+area), `tests/context` (`Wiping`: the default, the return of the list, a connection under every list),
+`tests/audit` (`PlaintextCleansing`: the accumulators of the engine are zero only with the `PLAINTEXT`
+class, without it they hold the received bytes; `SecretsViaPurge`: no bare `wipe` in the engine). The
+samples are `sys/sys-wipe`, `context/tls-connection`. The inspection of the generated code on five
+stands, the bandwidth and the cost on the record path are in CONFORMANCE.md, round 32.
 
-## Сток журнала
+## Log sink
 
-Библиотека журнала не ведёт - у неё есть только **сток** (`include/sys/log.hpp`): одна
-функция `void (*)(level, const char * text, void * context)`, которую потребитель ставит
-вызовом `sys::log::sink(fn, context)` при старте процесса, до заведения связей. Пока сток не
-поставлен, библиотека молчит, и сообщение стоит одно сравнение с nullptr - строка не
-собирается вовсе. Уровни `INFO`, `WARNING`, `CRITICAL` совпадают с видами сообщений журнала
-AWH, потому переходник у AWH - одна функция, переводящая уровень в `log::flag_t` и зовущая
-статическую функцию своего журнала; ни объекта, ни времени жизни, ни заголовков AWH внутри
-A-NTS. Чужой проект без журнала не ставит ничего.
+The library keeps no log — it has only a **sink** (`include/sys/log.hpp`): one
+function `void (*)(level, const char * text, void * context)`, which the consumer sets by the
+call `sys::log::sink(fn, context)` at the start of the process, before any connections are started. Until the sink is
+set, the library stays silent, and a message costs one comparison with nullptr — the string is
+not built at all. The levels `INFO`, `WARNING`, `CRITICAL` coincide with the kinds of messages of the AWH
+log, therefore the adapter at AWH is one function, translating the level into `log::flag_t` and calling
+the static function of its log; no object, no lifetime, no AWH headers inside
+A-NTS. A foreign project without a log sets nothing.
 
-Намеренно **не** сделано: слабые символы (в статических архивах и под MinGW ненадёжны) и
-определения сборки с чужими заголовками (ломают отсутствие зависимостей). Подключение только
-во время выполнения - потому оно «само подключается», когда журнал есть, и не ломает API,
-когда его нет.
+Deliberately **not** done: weak symbols (unreliable in static archives and under MinGW) and
+build definitions with foreign headers (they break the absence of dependencies). Attachment only
+at run time — that is why it "attaches itself" when a log is present, and does not break the API
+when there is none.
 
-Что уходит в сток: отказы, которые иначе доходят до потребителя лишь кодом - обрыв связи
-извещением (`CRITICAL`: сторона, код отказа, имя извещения), понижение укрытия хранилища
-(`WARNING`: что именно не состоялось), отказ хранилища под требованием (`CRITICAL`),
-исчерпание повторов поверх дейтаграмм (`WARNING`). Тайны - ключи, случайные значения, тела
-записей - в журнал не идут никогда; это правило шапки модуля, и пин `LogTest.Abort` держит
-строку обрыва короткой и без них. Строка образца `printf` собирается в буфер на стеке в 512
-байтов, длиннее обрезается.
+What goes into the sink: the failures that otherwise reach the consumer only as a code — the abort of a connection
+with an alert (`CRITICAL`: the side, the error code, the name of the alert), the lowering of the sheltering of the vault
+(`WARNING`: what exactly did not happen), the refusal of the vault under the demand (`CRITICAL`),
+the exhaustion of retries over datagrams (`WARNING`). Secrets — keys, random values, bodies of
+records — never go into the log; that is the rule of the header of the module, and the pin `LogTest.Abort` keeps
+the abort line short and without them. The `printf`-style line is built in a buffer on the stack of 512
+bytes, a longer one is truncated.
 
-Пины: `tests/sys/log.cpp` - без стока молчит, сток получает уровень, строку и контекст,
-обрезание, снятие стока, обрыв связи в сток, понижение и отказ хранилища в сток. Образец
-`sys/sys-log` показывает переходник на статический журнал потребителя, как у AWH.
+Pins: `tests/sys/log.cpp` — silent without a sink, the sink gets the level, the string and the context,
+truncation, removal of the sink, the abort of a connection into the sink, the lowering and the refusal of the vault into the sink. The sample
+`sys/sys-log` shows the adapter to a static log of the consumer, as at AWH.
 
-## Правила разработки
+## Development rules
 
-* Реализация только в `.cpp`; в заголовочных файлах — объявления и посредники
-  для встраивания.
-* Внутренние модули подключаются только из `.cpp` и не выносятся в наружный вид
-  библиотеки.
-* Обращение к полям всегда через `this->`.
-* На пути разбора недоверенных данных исключения не применяются: отказ
-  возвращается значением.
-* Внутри криптографических примитивов запрещены исключения, шаблоны и
-  виртуальность — всё, что порождает ветвление по секретному значению.
+* Implementation only in `.cpp`; in the header files — declarations and forwarders
+  for inlining.
+* Internal modules are included only from `.cpp` and are not taken out into the external view
+  of the library.
+* Access to the fields always through `this->`.
+* On the path of parsing untrusted data exceptions are not used: a refusal
+  is returned by value.
+* Inside the cryptographic primitives exceptions, templates and
+  virtuality are forbidden — everything that produces branching on a secret value.
 
-## Пределы длины записи record_size_limit и max_fragment_length (RFC 8449, раздел 4 RFC 6066)
+## Record length limits record_size_limit and max_fragment_length (RFC 8449, section 4 of RFC 6066)
 
-Профили отпечатков несут `record_size_limit` (0x001C, так шлёт Firefox: 16385) и
-`max_fragment_length` (0x0001), и обещание держится: клиент предлагает их лишь по профилю сырым
-телом, а ответ сервера применяет - присланный предел режет ОТПРАВКУ (`emit` режет всякую запись:
-рукопожатие, извещения, данные; у 1.3 предел считается вместе с октетом вида, потому полезная
-часть на единицу короче - раздел 4 RFC 8449), свой предложенный и подтверждённый предел стережёт
-ПРИЁМ (запись длиннее - record_overflow). Значение ниже 64, код длины не 1…4 либо не равный
-предложенному, оба ответа разом (раздел 5 RFC 8449) - illegal_parameter. Сервер отвечает всякому
-клиенту: на `record_size_limit` - своим пределом протокола (16384, у 1.3 - 16385) и режет отправку
-под предел клиента; на `max_fragment_length` - тем же кодом, длина связывает обе стороны; на оба
-разом - только `record_size_limit`. Приём сервер связывает лишь с отправкой ответа: второе
-приветствие после HelloRetryRequest длиной не ограничено. У клиента издания 1.2 предел на приём
-вступает с разбора полёта сервера (приветствие и цепочка идут одним полётом под пределом
-протокола), далее - договорённый. Над дейтаграммами пределы не договариваются: длину записи диктует
-MTU полёта. Итог наружу: `ceiling` - предел отправки, `threshold` - предел приёма у клиента и
-сервера. Разряд правки - исправление дефекта: предложенное профилем и не соблюдённое расширение
-рвало связь о строгий сервер (GnuTLS, NSS, wolfSSL, rustls).
+Fingerprint profiles carry `record_size_limit` (0x001C, that is how Firefox sends it: 16385) and
+`max_fragment_length` (0x0001), and the promise is kept: the client offers them only by a profile with the raw
+body, and the answer of the server is applied — the received limit cuts the SENDING (`emit()` cuts every record:
+handshake, alerts, data; in 1.3 the limit is counted together with the content type octet, therefore the payload
+is one shorter — section 4 of RFC 8449), the own offered and confirmed limit guards
+the RECEIVING (a longer record — record_overflow). A value below 64, a length code not 1…4 or not equal to the
+offered one, both answers at once (section 5 of RFC 8449) — illegal_parameter. The server answers every
+client: to `record_size_limit` — with its protocol limit (16384, in 1.3 — 16385) and cuts the sending
+to the limit of the client; to `max_fragment_length` — with the same code, the length binds both sides; to both
+at once — only `record_size_limit`. The server binds the receiving only with the sending of the answer: the second
+hello after HelloRetryRequest is not limited in length. At a client of version 1.2 the limit on receiving
+comes into force from the parsing of the flight of the server (the hello and the chain go in one flight under the limit of the
+protocol), further — the negotiated one. Over datagrams the limits are not negotiated: the length of the record is dictated by
+the MTU of the flight. The result outside: `ceiling()` — the sending limit, `threshold()` — the receiving limit at the client and
+the server. The class of the change is a defect fix: an extension offered by a profile and not obeyed
+broke the connection against a strict server (GnuTLS, NSS, wolfSSL, rustls).
 
-## Сердцебиение heartbeat (RFC 6520): терпимость без ответа
+## Heartbeat (RFC 6520): tolerance without an answer
 
-Профили отпечатков старых клиентов несут расширение `heartbeat` (0x000F); приветствие уходит байт в
-байт, а на приём движок с предложенным расширением РОНЯЕТ запись вида 24 молча и НЕ отвечает
-HeartbeatResponse - намеренное отступление от RFC 6520: ответ давал бы собеседнику усилитель и
-поддержание связи (семейство Heartbleed), а отпечаток - это октеты приветствия, не поведение на
-приём. Без предложенного расширения запись вида 24 - unexpected_message, как прежде. Сервер ведёт
-себя так же по предложению клиента.
+Fingerprint profiles of old clients carry the extension `heartbeat` (0x000F); the hello goes byte for
+byte, and on receiving, the engine with the offered extension DROPS a record of type 24 silently and does NOT answer with
+HeartbeatResponse — a deliberate deviation from RFC 6520: an answer would give the peer an amplifier and
+a keep-alive (the Heartbleed family), and a fingerprint is the octets of the hello, not the behaviour on
+receiving. Without the offered extension a record of type 24 is unexpected_message, as before. The server behaves
+the same way by the offer of the client.
 
-Условие пересмотра снято по постановке задачи: потребителю, которому heartbeat нужен по-настоящему,
-открыт явный вызов `heartbeat(payload)` (`client`/`server`). Он шлёт HeartbeatRequest по
-установленной связи издания 1.2 (либо DTLS 1.2), лишь при предложенном расширении и дозволении
-собеседника `peer_allowed_to_send`, по одному до ответа (§4 RFC 6520); нагрузка возвращается слово в
-слово, число принятых ответов доступно `pulses`. На **входящий** HeartbeatRequest движок отвечает
-HeartbeatResponse с той же нагрузкой и своим заполнением, но лишь по установленной связи - остаётся
-осознанным, что автоматического ответа на приёме до установления связи нет (усилитель Heartbleed
-жил именно там). Сообщение вне установленной связи, короче заголовка либо с длиной нагрузки за
-границей записи роняется молча. Над дейтаграммами незнакомые виды записей роняются полётом и без
-того, а запись сердцебиения DTLS 1.2 разбирается тем же путём.
+The condition of reconsideration is lifted by the statement of the task: to a consumer who really needs heartbeat,
+an explicit call `heartbeat(payload)` (`client`/`server`) is open. It sends HeartbeatRequest over an
+established connection of version 1.2 (or DTLS 1.2), only with the offered extension and the permission of the
+peer `peer_allowed_to_send`, one at a time until an answer (§4 of RFC 6520); the payload is returned word for
+word, the number of received answers is available by `pulses()`. To an **incoming** HeartbeatRequest the engine answers with
+HeartbeatResponse with the same payload and its own padding, but only over an established connection — it remains
+deliberate that there is no automatic answer on receiving before the connection is established (the Heartbleed amplifier
+lived exactly there). A message outside an established connection, shorter than the header or with a payload length beyond
+the bound of the record is dropped silently. Over datagrams unknown record types are dropped by the flight anyway,
+and a DTLS 1.2 heartbeat record is parsed by the same path.
 
-## Образцы
+## Samples
 
-Образцы работы с библиотекой лежат в каталоге `sample` и собираются ключом `CMAKE_BUILD_SAMPLES`:
+The samples of working with the library lie in the directory `sample` and are built with the option `CMAKE_BUILD_SAMPLES`:
 
 ```bash
-cmake.. -DCMAKE_BUILD_SAMPLES=ON && make
+cmake .. -DCMAKE_BUILD_SAMPLES=ON && make
 ```
 
-Собранные образцы кладутся в `samples` каталога сборки:
+The built samples are put into `samples` of the build directory:
 
-| Образец | Что показывает |
+| Sample | What it shows |
 |---|---|
-| `digest/digest-streebog` | Хеширование потоком и разом, обе длины и обе записи хеша, имитовставка HMAC, выработка производного ключа и порождающая последовательность |
-| `cipher/cipher-kuznyechik` | Преобразование одного блока, гаммирование со счётчиком, имитовставка OMAC1 и шифрование с проверкой целостности в режиме MGM |
-| `sign/sign-gost` | Заведение кривой по опознавателю набора параметров, выработка ключевой пары отбором, подписание и проверка подписи |
-| `record/record-layer` | Нарезка данных на записи и сборка их обратно из кусков произвольной длины |
-| `record/record-protect` | Наложение и снятие защиты записей TLS 1.3, дополнение против разбора обмена по его виду, отвержение подмены |
-| `handshake/handshake-hello` | Составление приветствия клиента с расширениями и разбор его обратно |
-| `handshake/handshake-message` | Подписание владения ключом, проверка подписи встречной стороной и завершение рукопожатия |
-| `session/session-state` | Переписка рукопожатия, прохождение расписания ключей и передача записи выведенными ключами |
-| `handshake/handshake-flow` | Полное рукопожатие целиком: от приветствий до прикладных данных, с переключением ключей |
-| `agreement/agreement-ecdhe` | Обмен мимолётными ключами: пары ключей сторон и схождение общего значения |
-| `context/tls-connection` | Связь целиком: рукопожатие, смена ключей, билет, возобновление и упреждение; классы затирания `wiping` и затирание копии потребителем |
-| `trust/trust-chain` | Доверие цепочке: связь принимает её, а решение принимает запас доверенных |
-| `pem/pem-storage` | Запись подлинности стороны в текст и подъём её оттуда обратно в связь |
-| `protocol/alpn-choice` | Выбор прикладного протокола сервером и объявление имени узла клиентом |
-| `alert/alert-notice` | Извещения: передача записью слоя записей и решение о продолжении связи |
-| `tls12/tls12-handshake` | Издание TLS 1.2: пределы `versions`, порядок выбора набора `preference`, обмен данными, обязательный расширенный главный секрет, билет сеанса RFC 5077 октетами через `vault`/`resume`/`shared` |
-| `tls12/tls12-psk` | Заранее разделённый ключ RFC 4279/5489: `respond` по опознавателю и подсказка у сервера, `advise` у клиента, ручка `disclose`, неверный ключ, пределы длин |
-| `tls12/tls12-cbc` | Наборы CBC с порядком RFC 7366: `etm` согласован сторонами, требование `etm(true)` против чужого клиента без расширения, порядок MAC-then-encrypt без требования |
-| `dtls/dtls-datagrams` | DTLS 1.3 и DTLS 1.2 поверх дейтаграмм: `transport(DATAGRAMS)`, `mtu`, `address`/`stamp`/`restamp`, просьба о повторе с меткой, `timeout`/`elapsed` с потерей дейтаграммы, `discarded(reason)`, выбор издания пределами |
-| `quic/quic-levels` | Рукопожатие по уровням для QUIC: `protocols`, `parameters`, `push`/`output`/`consume` по уровням, `secret` уровней в обе стороны, отказ подачи не тем переносом |
-| `ocsp/ocsp-stapling` | Состояние сертификата OCSP: сшивка `status(DER)` сервером, `status(true)`+`verification`+`moment`+`certified` у клиента, отозванный сертификат и извещение 113, `ocsp::request`/`ocsp::responder` |
-| `compress/compress-chain` | Сжатие цепочки RFC 8879: свой кодек повторами (`sample/compress/lz77.hpp`) под частным опознавателем, системный zlib при наличии, `codecs`/`compression` и сбережение залпа |
-| `keys/keys-codec` | Кодеки ключей: выработка ECDSA P-256 и Ed25519, PKCS #8 и SubjectPublicKeyInfo, PEM открытая и зашифрованная паролем, разбор обратно и подпись разобранным ключом |
-| `cipher/cipher-stream` | Поточное шифрование `cipher::stream_t` кусками любой длины (GCM и гаммирование), ChaCha20-Poly1305 разом и потоком, затирание тайн `sys::wipe` |
-| `digest/digest-sha3` | Хеши FIPS 202 и RFC 7693: четыре разрядности SHA-3, SHAKE с длиной выхода по вызову, хеширование потоком `hasher_t`, BLAKE2b/BLAKE2s с ключом и без, SipHash-2-4 на 64 и 128 разрядов |
-| `digest/digest-argon2` | Argon2id по RFC 9106: ключ из пароля с 64 МиБ памяти, запись PHC для хранилища `phc`, проверка верного и неверного пароля по разобранной записи |
-| `agreement/agreement-mlkem` | ML-KEM-768 по FIPS 203: пара, `encapsulate`/`decapsulate`, неявное отклонение испорченного шифртекста и гибрид X25519MLKEM768 как в TLS |
-| `hpke/hpke-hpke` | HPKE по RFC 9180: `seal`/`open` одним вызовом, отказ на порче, поток сообщений через `sender`/`recipient` и контексты, режим PSK |
-| `noise/noise-noise` | Каркас Noise: рукопожатие XX с обменом сообщениями, `split` на два состояния шифрования и перенос данных, сличение хешей рукопожатия, то же узором pqXX на X25519MLKEM768 |
-| `cipher/stream-raw` | Сырой поточный шифр без имитовставки: XChaCha20 с 24-байтовым заполнением, мусор вместо отказа на неверном ключе (нет оракула перебора), HChaCha20, AES-256-CTR через `counter_t` |
-| `embed/embed-key` | Зашитый в образ ключ: `embed::key` из материала в укрытой памяти со связкой хеша участка образа и версией (смена версии и подмена участка дают иной ключ), `embed::secret` из пароля Argon2id |
-| `sys/sys-vault` | Укрытое хранилище тайн: участок `sys::Secret` с одним владельцем и переносом, затирание при возврате, набор `sys::bytes_t` над хранилищем, доклад `shelter` о том, что состоялось на деле, требование `demand` |
-| `sys/sys-log` | Сток журнала: без стока библиотека молчит, переходник одной функцией на статический журнал потребителя (как у AWH), обрыв связи и понижение укрытия в журнале, снятие стока |
-| `sys/sys-wipe` | Затирание памяти с тайнами: область на стеке с точными границами, набор байтов и строка с опустошением, полоса затирания 16 КиБ, классы затирания связи `wiping` (умолчание, с открытым текстом, без затираний) и копия потребителя |
-| `codec/codec-base64` | Кодирование основания 64: запись `encode` с заполнением и без, алфавит STANDARD и URL, разбор `decode` со строгими отказами, пропуском пробельных знаков и запретом заполнителей (издания вроде RFC 7515 велит запись без них), векторное ядро AVX2 двадцать четыре байта за шаг, сличение путей машины и переносимого |
-| `sys/sys-version` | Издание библиотеки: строка `version()`, номера `majorVersion`/`minorVersion`/`patchVersion`, сводное число `number()` (старший·1000000 + младший·1000 + заплатка), ворота условной компиляции `#if ANTS_VERSION_NUMBER` и решение на исполнении сравнением числа |
+| `digest/digest-streebog` | Hashing streamed and at once, both lengths and both records of the hash, the HMAC authentication tag, derived key generation and the pseudo-random sequence |
+| `cipher/cipher-kuznyechik` | Transformation of one block, counter-mode keystream encryption, the OMAC1 authentication tag and authenticated encryption in the MGM mode |
+| `sign/sign-gost` | Setting up a curve by the identifier of the parameter set, generation of a key pair by selection, signing and verification of the signature |
+| `record/record-layer` | Cutting data into records and assembling them back from chunks of arbitrary length |
+| `record/record-protect` | Applying and removing the protection of TLS 1.3 records, padding against the analysis of the exchange by its type, rejection of a substitution |
+| `handshake/handshake-hello` | Composition of a client hello with extensions and parsing it back |
+| `handshake/handshake-message` | Signing the proof of key possession, verification of the signature by the opposite side and finishing of the handshake |
+| `session/session-state` | The handshake transcript, passing through the key schedule and transfer of a record with the derived keys |
+| `handshake/handshake-flow` | A full handshake as a whole: from the hellos to the application data, with key switching |
+| `agreement/agreement-ecdhe` | Ephemeral key exchange: the key pairs of the sides and convergence of the shared value |
+| `context/tls-connection` | A connection as a whole: handshake, key update, ticket, resumption and early data; the wiping classes `wiping` and the wiping of the copy by the consumer |
+| `trust/trust-chain` | Trust in a chain: the connection accepts it, and the decision is made by the trusted store |
+| `pem/pem-storage` | Writing the authentication of a side into text and raising it from there back into a connection |
+| `protocol/alpn-choice` | Choice of the application protocol by the server and declaration of the host name by the client |
+| `alert/alert-notice` | Alerts: transfer as a record of the record layer and the decision on continuing the connection |
+| `tls12/tls12-handshake` | Version TLS 1.2: the bounds `versions`, the order of suite selection `preference`, data exchange, the mandatory extended master secret, the RFC 5077 session ticket as octets through `vault`/`resume`/`shared` |
+| `tls12/tls12-psk` | Pre-shared key RFC 4279/5489: `respond` by identifier and the hint at the server, `advise` at the client, the knob `disclose`, a wrong key, the length limits |
+| `tls12/tls12-cbc` | CBC suites with the RFC 7366 order: `etm()` negotiated by the sides, the requirement `etm(true)` against a foreign client without the extension, the MAC-then-encrypt order without the requirement |
+| `dtls/dtls-datagrams` | DTLS 1.3 and DTLS 1.2 over datagrams: `transport(DATAGRAMS)`, `mtu`, `address`/`stamp`/`restamp`, a retry request with a cookie, `timeout`/`elapsed` with a lost datagram, `discarded(reason)`, choice of the version by the bounds |
+| `quic/quic-levels` | Handshake by levels for QUIC: `protocols`, `parameters`, `push`/`output`/`consume` by levels, the level `secret` in both directions, refusal of a feed with the wrong transport |
+| `ocsp/ocsp-stapling` | OCSP certificate status: stapling `status(DER)` by the server, `status(true)`+`verification`+`moment`+`certified()` at the client, a revoked certificate and the alert 113, `ocsp::request`/`ocsp::responder` |
+| `compress/compress-chain` | Chain compression RFC 8879: its own back-reference codec (`sample/compress/lz77.hpp`) under a private identifier, the system zlib if present, `codecs`/`compression` and the saving of the flight |
+| `keys/keys-codec` | Key codecs: generation of ECDSA P-256 and Ed25519, PKCS #8 and SubjectPublicKeyInfo, PEM open and password-encrypted, parsing back and signing with the parsed key |
+| `cipher/cipher-stream` | Streaming encryption `cipher::stream_t` in chunks of any length (GCM and keystream mode), ChaCha20-Poly1305 at once and streamed, wiping of secrets with `sys::wipe` |
+| `digest/digest-sha3` | Hashes of FIPS 202 and RFC 7693: the four widths of SHA-3, SHAKE with the output length per call, streamed hashing with `hasher_t`, BLAKE2b/BLAKE2s with and without a key, SipHash-2-4 at 64 and 128 bits |
+| `digest/digest-argon2` | Argon2id by RFC 9106: a key from a password with 64 MiB of memory, the PHC record for the store `phc()`, verification of a right and a wrong password by the parsed record |
+| `agreement/agreement-mlkem` | ML-KEM-768 by FIPS 203: a pair, `encapsulate`/`decapsulate`, implicit rejection of a corrupted ciphertext and the hybrid X25519MLKEM768 as in TLS |
+| `hpke/hpke-hpke` | HPKE by RFC 9180: `seal`/`open` with one call, refusal on corruption, a stream of messages through `sender`/`recipient` and contexts, the PSK mode |
+| `noise/noise-noise` | The Noise framework: the XX handshake with message exchange, `split` into two cipher states and data transfer, matching of the handshake hashes, the same with the pattern pqXX on X25519MLKEM768 |
+| `cipher/stream-raw` | A raw stream cipher without an authentication tag: XChaCha20 with a 24-byte nonce, garbage instead of a refusal on a wrong key (no brute-force oracle), HChaCha20, AES-256-CTR through `counter_t` |
+| `embed/embed-key` | A key embedded into the image: `embed::key` from the material in sheltered memory with the binding of the hash of the image region and the version (a change of the version and a substitution of the region give a different key), `embed::secret` from a password by Argon2id |
+| `sys/sys-vault` | The sheltered vault of secrets: the piece `sys::Secret` with a single owner and moving, wiping on return, the set `sys::bytes_t` over the vault, the report `shelter()` about what has happened in fact, the demand `demand()` |
+| `sys/sys-log` | The log sink: without a sink the library stays silent, the adapter with one function to a static log of the consumer (as at AWH), the abort of a connection and the lowering of the sheltering in the log, removal of the sink |
+| `sys/sys-wipe` | Wiping of the memory with secrets: an area on the stack with exact bounds, a byte vector and a string with emptying, the bandwidth of wiping 16 KiB, the wiping classes of a connection `wiping` (the default, with the plaintext, without wipings) and the copy of the consumer |
 
-Образцы издания 1.2, дейтаграмм, уровней, сшивки OCSP и сжатия читают ключи, сертификаты
-и ответы ответчика из набора `tests/corpus` (путь передаётся сборкой): вырабатывать
-сертификаты ECDSA и RSA на месте образцу не по чину. Всякий образец заканчивается кодом 0
-при успехе и ненулевым при отказе, оттого годится и проверкой.
+The samples of version 1.2, datagrams, levels, OCSP stapling and compression read the keys, certificates
+and the responses of the responder from the set `tests/corpus` (the path is passed by the build): generating
+ECDSA and RSA certificates on the spot is not a sample's business. Every sample ends with the code 0
+on success and a non-zero one on failure, therefore it is fit as a test too.
