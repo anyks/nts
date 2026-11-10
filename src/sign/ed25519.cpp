@@ -76,6 +76,12 @@
 #include <internal/math/field25519.hpp>
 #include <internal/sign/edwards.hpp>
 #include <internal/sign/tables.hpp>
+/**
+ * Векторная выборка окна доступна на ARM64 с NEON
+ */
+#if defined(__ARM_NEON)
+	#include <arm_neon.h>
+#endif
 
 /**
  * Используем стандартное пространство имён
@@ -694,30 +700,96 @@ namespace {
 		for(size_t i = sign::COMB_WINDOWS; i > 0; i--){
 			// Полубайт скаляра текущего окна
 			const uint8_t nibble = ((scalar[((4 * (i - 1)) / 8)] >> ((4 * (i - 1)) % 8)) & 15);
-			// Обнуляем сумму координат выбираемого места
-			zero(picked.plus);
-			// Обнуляем разность координат выбираемого места
-			zero(picked.minus);
-			// Обнуляем удвоенное произведение выбираемого места
-			zero(picked.crossed);
 			/**
-			 * Выполняем перебор мест окна
+			 * Векторная выборка: девять аккумуляторов несут три значения места по пять слов
 			 */
-			for(size_t j = 0; j < sign::COMB_CHOICES; j++){
-				// Маска совпадения очередного места с полубайтом
-				const uint64_t mask = (0 - (((static_cast <uint64_t> (nibble) ^ j) - 1) >> 63));
+			#if defined(__ARM_NEON)
+				// Слова суммы координат выбранного места в векторах
+				uint64x2_t p0 = vdupq_n_u64(0), p1 = vdupq_n_u64(0), p2 = vdupq_n_u64(0);
+				// Слова разности координат выбранного места в векторах
+				uint64x2_t m0 = vdupq_n_u64(0), m1 = vdupq_n_u64(0), m2 = vdupq_n_u64(0);
+				// Слова удвоенного произведения выбранного места в векторах
+				uint64x2_t c0 = vdupq_n_u64(0), c1 = vdupq_n_u64(0), c2 = vdupq_n_u64(0);
 				/**
-				 * Выполняем наложение слов очередного места по маске
+				 * Выполняем перебор мест окна с наложением по маске совпадения
 				 */
-				for(size_t w = 0; w < LIMBS; w++){
-					// Накладываем слово суммы координат очередного места
-					picked.plus.limbs[w] |= (table[i - 1][j].plus[w] & mask);
-					// Накладываем слово разности координат очередного места
-					picked.minus.limbs[w] |= (table[i - 1][j].minus[w] & mask);
-					// Накладываем слово удвоенного произведения очередного места
-					picked.crossed.limbs[w] |= (table[i - 1][j].crossed[w] & mask);
+				for(size_t j = 0; j < sign::COMB_CHOICES; j++){
+					// Маска совпадения очередного места с полубайтом
+					const uint64_t mask = (0 - (((static_cast <uint64_t> (nibble) ^ j) - 1) >> 63));
+					// Маска в векторе
+					const uint64x2_t veiled = vdupq_n_u64(mask);
+					// Слова суммы координат очередного места
+					const uint64_t * plus = table[i - 1][j].plus;
+					// Накапливаем слова суммы координат
+					p0 = vorrq_u64(p0, vandq_u64(vld1q_u64(plus + 0), veiled));
+					// Накапливаем слова суммы координат дальше
+					p1 = vorrq_u64(p1, vandq_u64(vld1q_u64(plus + 2), veiled));
+					// Накапливаем последнее слово суммы координат: одно слово в старшей половине
+					p2 = vorrq_u64(p2, vandq_u64(vcombine_u64(vld1_u64(plus + 4), vdup_n_u64(0)), veiled));
+					// Слова разности координат очередного места
+					const uint64_t * minus = table[i - 1][j].minus;
+					// Накапливаем слова разности координат
+					m0 = vorrq_u64(m0, vandq_u64(vld1q_u64(minus + 0), veiled));
+					// Накапливаем слова разности координат дальше
+					m1 = vorrq_u64(m1, vandq_u64(vld1q_u64(minus + 2), veiled));
+					// Накапливаем последнее слово разности координат: одно слово в старшей половине
+					m2 = vorrq_u64(m2, vandq_u64(vcombine_u64(vld1_u64(minus + 4), vdup_n_u64(0)), veiled));
+					// Слова удвоенного произведения очередного места
+					const uint64_t * crossed = table[i - 1][j].crossed;
+					// Накапливаем слова удвоенного произведения
+					c0 = vorrq_u64(c0, vandq_u64(vld1q_u64(crossed + 0), veiled));
+					// Накапливаем слова удвоенного произведения дальше
+					c1 = vorrq_u64(c1, vandq_u64(vld1q_u64(crossed + 2), veiled));
+					// Накапливаем последнее слово удвоенного произведения: одно слово в старшей половине
+					c2 = vorrq_u64(c2, vandq_u64(vcombine_u64(vld1_u64(crossed + 4), vdup_n_u64(0)), veiled));
 				}
-			}
+				// Выгружаем слова выбранного места суммы координат
+				vst1q_u64(picked.plus.limbs + 0, p0);
+				// Выгружаем слова дальше
+				vst1q_u64(picked.plus.limbs + 2, p1);
+				// Выгружаем последнее слово
+				picked.plus.limbs[4] = vgetq_lane_u64(p2, 0);
+				// Выгружаем слова выбранного места разности координат
+				vst1q_u64(picked.minus.limbs + 0, m0);
+				// Выгружаем слова дальше
+				vst1q_u64(picked.minus.limbs + 2, m1);
+				// Выгружаем последнее слово
+				picked.minus.limbs[4] = vgetq_lane_u64(m2, 0);
+				// Выгружаем слова выбранного места удвоенного произведения
+				vst1q_u64(picked.crossed.limbs + 0, c0);
+				// Выгружаем слова дальше
+				vst1q_u64(picked.crossed.limbs + 2, c1);
+				// Выгружаем последнее слово
+				picked.crossed.limbs[4] = vgetq_lane_u64(c2, 0);
+			/**
+			 * Переносимая выборка слов с наложением по маске совпадения
+			 */
+			#else
+				// Обнуляем сумму координат выбираемого места
+				zero(picked.plus);
+				// Обнуляем разность координат выбираемого места
+				zero(picked.minus);
+				// Обнуляем удвоенное произведение выбираемого места
+				zero(picked.crossed);
+				/**
+				 * Выполняем перебор мест окна
+				 */
+				for(size_t j = 0; j < sign::COMB_CHOICES; j++){
+					// Маска совпадения очередного места с полубайтом
+					const uint64_t mask = (0 - (((static_cast <uint64_t> (nibble) ^ j) - 1) >> 63));
+					/**
+					 * Выполняем наложение слов очередного места по маске
+					 */
+					for(size_t w = 0; w < LIMBS; w++){
+						// Накладываем слово суммы координат очередного места
+						picked.plus.limbs[w] |= (table[i - 1][j].plus[w] & mask);
+						// Накладываем слово разности координат очередного места
+						picked.minus.limbs[w] |= (table[i - 1][j].minus[w] & mask);
+						// Накладываем слово удвоенного произведения очередного места
+						picked.crossed.limbs[w] |= (table[i - 1][j].crossed[w] & mask);
+					}
+				}
+			#endif
 			// Прибавляем выбранное место к накопленной точке
 			attach(result, picked);
 		}
