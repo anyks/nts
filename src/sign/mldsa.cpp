@@ -3048,16 +3048,8 @@ namespace {
 		{
 			// Матрица из ρ ключа (укладка строк подряд по l многочленов)
 			int32_t matrix[8 * 7 * N];
-			/**
-			 * Выполняем перебор
-			 */
-			for(size_t row = 0; row < p.k; row++)
-				/**
-				 * Выполняем перебор
-				 */
-				for(size_t column = 0; column < p.l; column++)
-					// Многочлен матрицы из зерна ρ
-					expandA(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), matrix + (((row * p.l) + column) * N));
+			// Многочлены матрицы из зерна ρ: плашмя четвёрками губок, хвост по одной
+			matrixExpand(rho, p.k, p.l, p.l, matrix);
 			// Произведение матрицы на ответ в области NTT
 			matrixVector(matrix, z[0], p.k, p.l, w[0]);
 			// Затираем матрицу
