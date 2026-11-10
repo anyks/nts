@@ -575,7 +575,7 @@ namespace {
 		 * @return      слово с байтами в обратном порядке
 		 *
 		 */
-		static inline uint64_t swap64(const uint64_t value) noexcept {
+		static inline uint64_t reverse64(const uint64_t value) noexcept {
 			/**
 			 * Для MSVC берём библиотечную перестановку байтов
 			 */
@@ -4962,7 +4962,7 @@ bool nts::math::Integer::load(const view_t & data) noexcept {
 			// Копируем восемь байтов слова
 			::memcpy(&word, data.data + (data.size - i - 8), sizeof(word));
 			// Записываем слово в порядке машины
-			this->_words[i / 8] = swap64(word);
+			this->_words[i / 8] = reverse64(word);
 		}
 	#endif
 	/**
@@ -5002,7 +5002,7 @@ bool nts::math::Integer::store(uint8_t * data, const size_t size) const noexcept
 		 */
 		for(; ((i + 8) <= size) && ((i + 8) <= INTEGER_SIZE); i += 8){
 			// Слово в порядке записи: от старшего байта к младшему
-			const uint64_t word = swap64(this->_words[i / 8]);
+			const uint64_t word = reverse64(this->_words[i / 8]);
 			// Записываем восемь байтов слова
 			::memcpy(data + (size - i - 8), &word, sizeof(word));
 		}
