@@ -102,6 +102,40 @@ namespace nts {
 		static constexpr size_t COMB_DIGITS = 4;
 		/**
 		 * \~russian
+		 * @brief Число окон позиционной таблицы кратных точки основания
+		 *
+		 * @details Скаляр подписи в двести пятьдесят шесть разрядов делится на
+		 *          шестьдесят четыре окна по четыре разряда: позиция окна прошита
+		 *          в кратные таблицы, оттого умножение идёт без удвоений
+		 *
+		 * \~english
+		 * @brief Number of the windows of the positional table of the base point multiples
+		 *
+		 * @details The signature scalar of two hundred fifty six bits is divided into
+		 *          sixty four windows of four bits: the window position is stitched into
+		 *          the table multiples, so the multiplication goes without doublings
+		 *
+		 * \~
+		 */
+		static constexpr size_t COMB_WINDOWS = 64;
+		/**
+		 * \~russian
+		 * @brief Число мест в окне позиционной таблицы кратных точки основания
+		 *
+		 * @details Место окна держит кратное своего номера: от нулевого -
+		 *          нейтральной точки - до пятнадцатого
+		 *
+		 * \~english
+		 * @brief Number of the places in a window of the positional table of the base point multiples
+		 *
+		 * @details A window place keeps a multiple of its number: from the zeroth -
+		 *          the neutral point - to the fifteenth
+		 *
+		 * \~
+		 */
+		static constexpr size_t COMB_CHOICES = 16;
+		/**
+		 * \~russian
 		 * @brief Число строк гребёнки кратных точки основания Ed448
 		 *
 		 * @details Скаляр Ed448 в четыреста сорок восемь разрядов делится на
@@ -219,6 +253,24 @@ namespace nts {
 		 * \~
 		 */
 		const comb_t * prepared() noexcept;
+		/**
+		 * \~russian
+		 * @brief Функция розыска позиционной таблицы окон кратных точки основания
+		 *
+		 * @return указатель на первое окно таблицы либо nullptr, когда кратные
+		 *         не заготовлены сборкой: отказом это не считается, и умножение
+		 *         точки основания отступает к общей лестнице
+		 *
+		 * \~english
+		 * @brief Function of the search of the positional table of the windows of the base point multiples
+		 *
+		 * @return the pointer to the first window of the table or nullptr when the
+		 *         multiples are not prepared by the build: that is not a refusal, and the
+		 *         multiplication of the base point falls back to the common ladder
+		 *
+		 * \~
+		 */
+		const comb_t (* positioned() noexcept)[COMB_CHOICES];
 		/**
 		 * \~russian
 		 * @brief Функция розыска заготовленной гребёнки кратных точки основания Ed448

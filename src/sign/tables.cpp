@@ -38,6 +38,16 @@ const nts::sign::comb_t * nts::sign::prepared() noexcept {
 	return nullptr;
 }
 /**
+ * @brief Метод поиска позиционной таблицы окон кратных точки основания
+ *
+ * @return nullptr: кратные не заготовлены сборкой
+ *
+ */
+const nts::sign::comb_t (* nts::sign::positioned() noexcept)[nts::sign::COMB_CHOICES] {
+	// Выводим отсутствие позиционной таблицы окон
+	return nullptr;
+}
+/**
  * @brief Метод поиска заготовленной гребёнки кратных точки основания Ed448
  *
  * @return nullptr: кратные не заготовлены сборкой
