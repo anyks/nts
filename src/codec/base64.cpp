@@ -136,7 +136,7 @@ static size_t stepping() noexcept {
 	/**
 	 * x86-64 спрашивает команды AVX2 у машины на исполнении
 	 */
-	#if (defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) && !defined(ANTS_NO_MACHINE)
+	#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
 		// Шаг двадцать четыре байта при векторном ядре машины
 		return (::nts::machine::has(::nts::machine::feature_t::AVX2) ? 24 : 12);
 	/**
@@ -164,7 +164,7 @@ static void dispatchBlocks(const size_t step, const uint8_t * data, uint8_t * re
 	/**
 	 * Шаг двадцать четыре байта достаётся лишь векторному ядру AVX2
 	 */
-	#if (defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) && !defined(ANTS_NO_MACHINE)
+	#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
 		// Векторное ядро несётся при шаге двадцать четыре
 		if(step == 24){
 			// Кодируем очередь блоков векторным ядром

@@ -36,7 +36,7 @@
 /**
  * Если сборка ведётся под ARM64
  */
-#if defined(__aarch64__) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -48,6 +48,14 @@
 	#if defined(__ARM_FEATURE_AES)
 		/**
 		 * Атрибут цели не нужен
+		 */
+		#define __ANTS_CCM_TARGET__
+	/**
+	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
+	 */
+	#elif defined(_MSC_VER)
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
 		#define __ANTS_CCM_TARGET__
 	/**
@@ -75,7 +83,7 @@
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC
  */
-#elif (defined(__x86_64__) || defined(__e2k__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__e2k__) || defined(_M_X64)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд x86-64
 	 */
@@ -87,6 +95,14 @@
 	#if defined(__AES__)
 		/**
 		 * Атрибут цели не нужен
+		 */
+		#define __ANTS_CCM_TARGET__
+	/**
+	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
+	 */
+	#elif defined(_MSC_VER)
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
 		#define __ANTS_CCM_TARGET__
 	/**
@@ -103,6 +119,30 @@
 	 * Объявляем наличие ветви слитного прохода командами машины
 	 */
 	#define __ANTS_CCM_X86__ 1
+#endif
+
+/**
+ * Перестановка байтов слова: у собирателей семейства GCC это встроенная функция
+ * собирателя, у Microsoft Visual C++ - внутренняя функция того же действия
+ */
+#if defined(_MSC_VER)
+	/**
+	 * Подключаем заголовочный файл внутренних функций перестановки байтов
+	 */
+	#include <cstdlib>
+
+	/**
+	 * Объявляем перестановку байтов слова в шестьдесят четыре разряда
+	 */
+	#define __ANTS_BSWAP64__(value) ::_byteswap_uint64(value)
+/**
+ * Для собирателей семейства GCC и Эльбруса
+ */
+#else
+	/**
+	 * Объявляем перестановку байтов слова в шестьдесят четыре разряда
+	 */
+	#define __ANTS_BSWAP64__(value) __builtin_bswap64(value)
 #endif
 
 /**
@@ -529,7 +569,7 @@ namespace {
 					// Записываем итог блока: шифртекст при зашифровании, открытый текст при расшифровании
 					vst1q_u8(result, (sealing ? veorq_u8(plain, stream) : plain));
 					// Блок счётчика гаммы следующего блока: номер растёт от старшего байта
-					uint8x16_t lane = vreinterpretq_u8_u64(vsetq_lane_u64(__builtin_bswap64(tail + b + 1), vreinterpretq_u64_u8(vld1q_u8(counter)), 1));
+					uint8x16_t lane = vreinterpretq_u8_u64(vsetq_lane_u64(__ANTS_BSWAP64__(tail + b + 1), vreinterpretq_u64_u8(vld1q_u8(counter)), 1));
 					// Складываем открытый текст с состоянием имитовставки
 					state = veorq_u8(state, plain);
 					/**
@@ -617,7 +657,7 @@ namespace {
 					// Записываем итог блока: шифртекст при зашифровании, открытый текст при расшифровании
 					_mm_storeu_si128(reinterpret_cast <__m128i *> (result), (sealing ? _mm_xor_si128(plain, stream) : plain));
 					// Блок счётчика гаммы следующего блока: номер растёт от старшего байта
-					__m128i lane = _mm_xor_si128(_mm_set_epi64x(static_cast <int64_t> (__builtin_bswap64(tail + b + 1)), static_cast <int64_t> (head)), first);
+					__m128i lane = _mm_xor_si128(_mm_set_epi64x(static_cast <int64_t> (__ANTS_BSWAP64__(tail + b + 1)), static_cast <int64_t> (head)), first);
 					// Складываем открытый текст с состоянием имитовставки и первым ключом
 					state = _mm_xor_si128(_mm_xor_si128(state, plain), first);
 					/**

@@ -107,7 +107,7 @@
 /**
  * Если сборка ведётся под ARM64
  */
-#if defined(__aarch64__) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -119,6 +119,14 @@
 	#if defined(__ARM_FEATURE_AES)
 		/**
 		 * Атрибут цели не нужен
+		 */
+		#define __ANTS_GHASH_TARGET__
+	/**
+	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
+	 */
+	#elif defined(_MSC_VER)
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
 		#define __ANTS_GHASH_TARGET__
 	/**
@@ -148,10 +156,29 @@
 	 * Цель слитого ядра: расширение crypto несёт и AES, и умножение без переносов
 	 */
 	#define __ANTS_FUSED_TARGET__ __ANTS_GHASH_TARGET__
+
+	/**
+	 * Если собиратель Microsoft Visual C++: его команда умножения без переносов принимает
+	 * вектор из одного места, собранный из слова внутренней функцией
+	 */
+	#if defined(_MSC_VER)
+		/**
+		 * Умножение слова на слово без переносов командой PMULL
+		 */
+		#define __ANTS_PMULL64__(first, second) vmull_p64(vcreate_p64(first), vcreate_p64(second))
+	/**
+	 * У собирателей семейства GCC команда принимает слово в типе многочлена
+	 */
+	#else
+		/**
+		 * Умножение слова на слово без переносов командой PMULL
+		 */
+		#define __ANTS_PMULL64__(first, second) vmull_p64(static_cast <poly64_t> (first), static_cast <poly64_t> (second))
+	#endif
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC
  */
-#elif (defined(__x86_64__) || defined(__e2k__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__e2k__) || defined(_M_X64)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочные файлы команд x86-64
 	 */
@@ -164,6 +191,14 @@
 	#if defined(__PCLMUL__) && defined(__SSSE3__)
 		/**
 		 * Атрибут цели не нужен
+		 */
+		#define __ANTS_GHASH_TARGET__
+	/**
+	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
+	 */
+	#elif defined(_MSC_VER)
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
 		#define __ANTS_GHASH_TARGET__
 	/**
@@ -190,6 +225,14 @@
 		 */
 		#define __ANTS_FUSED_TARGET__
 	/**
+	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
+	 */
+	#elif defined(_MSC_VER)
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
+		 */
+		#define __ANTS_FUSED_TARGET__
+	/**
 	 * Иначе команды расширений слитого ядра разрешаем одной функции
 	 */
 	#else
@@ -200,6 +243,38 @@
 	#endif
 #endif
 
+
+/**
+ * Перестановка байтов слова: у собирателей семейства GCC это встроенная функция
+ * собирателя, у Microsoft Visual C++ - внутренняя функция того же действия
+ */
+#if defined(_MSC_VER)
+	/**
+	 * Подключаем заголовочный файл внутренних функций перестановки байтов
+	 */
+	#include <cstdlib>
+
+	/**
+	 * Объявляем перестановку байтов слова в тридцать два разряда
+	 */
+	#define __ANTS_BSWAP32__(value) ::_byteswap_ulong(value)
+	/**
+	 * Объявляем перестановку байтов слова в шестьдесят четыре разряда
+	 */
+	#define __ANTS_BSWAP64__(value) ::_byteswap_uint64(value)
+/**
+ * Для собирателей семейства GCC и Эльбруса
+ */
+#else
+	/**
+	 * Объявляем перестановку байтов слова в тридцать два разряда
+	 */
+	#define __ANTS_BSWAP32__(value) __builtin_bswap32(value)
+	/**
+	 * Объявляем перестановку байтов слова в шестьдесят четыре разряда
+	 */
+	#define __ANTS_BSWAP64__(value) __builtin_bswap64(value)
+#endif
 /**
  * Используем стандартное пространство имён
  */
@@ -403,29 +478,29 @@ namespace {
 			// Отражённый ключ хеширования
 			const uint64x2_t b = vld1q_u64(mirror);
 			// Многочлен приведения x^7 + x^2 + x + 1
-			const poly64_t r = static_cast <poly64_t> (0x87ULL);
+			const uint64_t r = 0x87ULL;
 			// Произведение младших половин
-			const uint64x2_t p0 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(a, 0)), static_cast <poly64_t> (vgetq_lane_u64(b, 0))));
+			const uint64x2_t p0 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 0)));
 			// Произведение старших половин
-			const uint64x2_t p2 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(a, 1)), static_cast <poly64_t> (vgetq_lane_u64(b, 1))));
+			const uint64x2_t p2 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 1)));
 			// Перекрёстные произведения
 			const uint64x2_t p1 = veorq_u64(
-			vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(a, 0)), static_cast <poly64_t> (vgetq_lane_u64(b, 1)))),
-			vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(a, 1)), static_cast <poly64_t> (vgetq_lane_u64(b, 0)))));
+			vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 1))),
+			vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 0))));
 			// Младшие 128 разрядов произведения: p0 с младшей половиной p1, сдвинутой на 64
 			uint64x2_t low = veorq_u64(p0, vextq_u64(vdupq_n_u64(0), p1, 1));
 			// Старшие 128 разрядов произведения: p2 со старшей половиной p1
 			const uint64x2_t high = veorq_u64(p2, vextq_u64(p1, vdupq_n_u64(0), 1));
 			// Приведение старшей половины: младшее слово, умноженное на многочлен
-			const uint64x2_t f0 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(high, 0)), r));
+			const uint64x2_t f0 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(high, 0), r));
 			// Приведение старшей половины: старшее слово, умноженное на многочлен
-			const uint64x2_t f1 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(high, 1)), r));
+			const uint64x2_t f1 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(high, 1), r));
 			// Складываем приведение младшего слова
 			low = veorq_u64(low, f0);
 			// Складываем младшую половину приведения старшего слова, сдвинутую на 64
 			low = veorq_u64(low, vextq_u64(vdupq_n_u64(0), f1, 1));
 			// Остаток приведения старшего слова, ушедший за 128 разрядов, приводится ещё раз
-			low = veorq_u64(low, vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(f1, 1)), r)));
+			low = veorq_u64(low, vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(f1, 1), r)));
 			// Записываем произведение, отразив разряды байтов обратно в порядок GCM
 			vst1q_u8(value, vrbitq_u8(vreinterpretq_u8_u64(low)));
 		}
@@ -440,13 +515,13 @@ namespace {
 		 */
 		static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ void productArm(const uint64x2_t a, const uint64x2_t b, uint64x2_t & low, uint64x2_t & high) noexcept {
 			// Произведение младших половин
-			const uint64x2_t p0 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(a, 0)), static_cast <poly64_t> (vgetq_lane_u64(b, 0))));
+			const uint64x2_t p0 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 0)));
 			// Произведение старших половин
-			const uint64x2_t p2 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(a, 1)), static_cast <poly64_t> (vgetq_lane_u64(b, 1))));
+			const uint64x2_t p2 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 1)));
 			// Перекрёстные произведения
 			const uint64x2_t p1 = veorq_u64(
-			vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(a, 0)), static_cast <poly64_t> (vgetq_lane_u64(b, 1)))),
-			vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(a, 1)), static_cast <poly64_t> (vgetq_lane_u64(b, 0)))));
+			vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 1))),
+			vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 0))));
 			// Складываем младшие 128 разрядов
 			low = veorq_u64(low, veorq_u64(p0, vextq_u64(vdupq_n_u64(0), p1, 1)));
 			// Складываем старшие 128 разрядов
@@ -462,7 +537,7 @@ namespace {
 		 */
 		static __ANTS_GHASH_TARGET__ void aggregateArm(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
 			// Многочлен приведения x^7 + x^2 + x + 1
-			const poly64_t r = static_cast <poly64_t> (0x87ULL);
+			const uint64_t r = 0x87ULL;
 			// Накопитель, сложенный с первым блоком, отражённый
 			const uint64x2_t z = vreinterpretq_u64_u8(vrbitq_u8(veorq_u8(vld1q_u8(accumulator), vld1q_u8(blocks))));
 			// Младшие и старшие 128 разрядов суммы произведений
@@ -480,15 +555,15 @@ namespace {
 			productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 96))), vld1q_u64(powers[6]), low, high);
 			productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 112))), vld1q_u64(powers[7]), low, high);
 			// Приведение старшей половины: младшее слово, умноженное на многочлен
-			const uint64x2_t f0 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(high, 0)), r));
+			const uint64x2_t f0 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(high, 0), r));
 			// Приведение старшей половины: старшее слово, умноженное на многочлен
-			const uint64x2_t f1 = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(high, 1)), r));
+			const uint64x2_t f1 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(high, 1), r));
 			// Складываем приведение младшего слова
 			low = veorq_u64(low, f0);
 			// Складываем младшую половину приведения старшего слова, сдвинутую на 64
 			low = veorq_u64(low, vextq_u64(vdupq_n_u64(0), f1, 1));
 			// Остаток приведения старшего слова, ушедший за 128 разрядов, приводится ещё раз
-			low = veorq_u64(low, vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (vgetq_lane_u64(f1, 1)), r)));
+			low = veorq_u64(low, vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(f1, 1), r)));
 			// Записываем итог, отразив разряды байтов обратно
 			vst1q_u8(accumulator, vrbitq_u8(vreinterpretq_u8_u64(low)));
 		}
@@ -548,7 +623,7 @@ namespace {
 				 */
 				if((tail & 0xFFU) < 0xF8U){
 					// Переставленный счётчик восьмёрки
-					const uint32x4_t c0 = vaddq_u32(vsetq_lane_u32(__builtin_bswap32(tail), vreinterpretq_u32_u8(base), 3), step1);
+					const uint32x4_t c0 = vaddq_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail), vreinterpretq_u32_u8(base), 3), step1);
 					// Счётчик восьмёрки со сдвигом на шаг
 					const uint32x4_t c1 = vaddq_u32(c0, step1);
 					// Счётчик восьмёрки со сдвигом на два шага
@@ -574,21 +649,21 @@ namespace {
 				// Иначе младший байт переполняется внутри восьмёрки
 				} else {
 					// Собираем восемь блоков счётчика по одному
-					s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 1), vreinterpretq_u32_u8(base), 3));
+					s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 1), vreinterpretq_u32_u8(base), 3));
 					// второй блок счётчика через скаляр
-					s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 2), vreinterpretq_u32_u8(base), 3));
+					s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 2), vreinterpretq_u32_u8(base), 3));
 					// третий блок счётчика через скаляр
-					s2 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 3), vreinterpretq_u32_u8(base), 3));
+					s2 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 3), vreinterpretq_u32_u8(base), 3));
 					// четвёртый блок счётчика через скаляр
-					s3 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 4), vreinterpretq_u32_u8(base), 3));
+					s3 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 4), vreinterpretq_u32_u8(base), 3));
 					// пятый блок счётчика через скаляр
-					s4 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 5), vreinterpretq_u32_u8(base), 3));
+					s4 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 5), vreinterpretq_u32_u8(base), 3));
 					// шестой блок счётчика через скаляр
-					s5 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 6), vreinterpretq_u32_u8(base), 3));
+					s5 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 6), vreinterpretq_u32_u8(base), 3));
 					// седьмой блок счётчика через скаляр
-					s6 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 7), vreinterpretq_u32_u8(base), 3));
+					s6 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 7), vreinterpretq_u32_u8(base), 3));
 					// восьмой блок счётчика через скаляр
-					s7 = vreinterpretq_u8_u32(vsetq_lane_u32(__builtin_bswap32(tail + 8), vreinterpretq_u32_u8(base), 3));
+					s7 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 8), vreinterpretq_u32_u8(base), 3));
 				}
 				// Продвигаем счётчик на восемь блоков
 				tail += 8;
@@ -982,7 +1057,7 @@ namespace {
 				 */
 				if((tail & 0xFFU) < 0xF8U){
 					// Переставленный счётчик восьмёрки
-					const __m128i c0 = _mm_add_epi32(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail)), 0, 0, 0)), step1);
+					const __m128i c0 = _mm_add_epi32(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail)), 0, 0, 0)), step1);
 					// Счётчик восьмёрки со сдвигом на шаг
 					const __m128i c1 = _mm_add_epi32(c0, step1);
 					// Счётчик восьмёрки со сдвигом на два шага
@@ -1008,21 +1083,21 @@ namespace {
 				// Иначе младший байт переполняется внутри восьмёрки
 				} else {
 					// Собираем восемь блоков счётчика по одному под первым ключом
-					s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 1)), 0, 0, 0)), first);
+					s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 1)), 0, 0, 0)), first);
 					// второй блок счётчика через скаляр
-					s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 2)), 0, 0, 0)), first);
+					s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 2)), 0, 0, 0)), first);
 					// третий блок счётчика через скаляр
-					s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 3)), 0, 0, 0)), first);
+					s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 3)), 0, 0, 0)), first);
 					// четвёртый блок счётчика через скаляр
-					s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 4)), 0, 0, 0)), first);
+					s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 4)), 0, 0, 0)), first);
 					// пятый блок счётчика через скаляр
-					s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 5)), 0, 0, 0)), first);
+					s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 5)), 0, 0, 0)), first);
 					// шестой блок счётчика через скаляр
-					s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 6)), 0, 0, 0)), first);
+					s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 6)), 0, 0, 0)), first);
 					// седьмой блок счётчика через скаляр
-					s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 7)), 0, 0, 0)), first);
+					s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 7)), 0, 0, 0)), first);
 					// восьмой блок счётчика через скаляр
-					s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__builtin_bswap32(tail + 8)), 0, 0, 0)), first);
+					s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 8)), 0, 0, 0)), first);
 				}
 				// Продвигаем счётчик на восемь блоков
 				tail += 8;

@@ -83,6 +83,17 @@
 #endif
 
 /**
+ * Если сборка ведётся под x86-64 собирателем Microsoft Visual C++
+ */
+#if defined(_M_X64)
+	/**
+	 * Подключаем заголовочный файл внутренних функций собирателя: опрос процессора
+	 * и чтение регистра разрешённых системой состояний
+	 */
+	#include <intrin.h>
+#endif
+
+/**
  * Используем стандартное пространство имён
  */
 using namespace std;
@@ -203,7 +214,7 @@ namespace {
 		/**
 		 * Если сборка ведётся под ARM64 на Windows
 		 */
-		#elif defined(__aarch64__) && defined(_WIN32)
+		#elif (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && defined(_WIN32)
 			// Если расширение криптографии ARMv8 есть: AES, PMULL и SHA-256 идут вместе
 			if(::IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE))
 			// Записываем разряды расширений
@@ -271,11 +282,75 @@ namespace {
 					}
 				}
 			}
+		/**
+		 * Если сборка ведётся под x86-64 собирателем Microsoft Visual C++
+		 *
+		 * @note Опрос процессора ведут внутренние функции собирателя из <intrin.h>, а не
+		 *       <cpuid.h> собирателей семейства GCC. Ключ /arch не нужен: внутренние функции
+		 *       всякого расширения доступны собирателю и без него, а выбор пути целиком
+		 *       остаётся за снятыми здесь признаками
+		 *
+		 */
+		#elif defined(_M_X64)
+			// Регистры опроса процессора
+			int regs[4] = {0, 0, 0, 0};
+			// Выполняем опрос первого листа процессора
+			::__cpuid(regs, 1);
+			// Значение ECX первого листа опроса
+			const unsigned int first = static_cast <unsigned int> (regs[2]);
+			// Признак перестановки байтов SSSE3: разряд 9 ECX, нужен отражению байтов
+			const bool ssse3 = ((first & (1U << 9)) != 0);
+			// Если команды AES-NI есть: разряд 25 ECX
+			if((first & (1U << 25)) && ssse3)
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AES));
+			// Если умножение без переносов есть: разряд 1 ECX
+			if((first & (1U << 1)) && ssse3)
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::CARRYLESS));
+			// Если перестановка байтов SSSE3 есть: разряд 9 ECX
+			if(ssse3)
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SSSE3));
+			// Если загрузка с перестановкой байтов MOVBE есть: разряд 22 ECX
+			if(first & (1U << 22))
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::MOVBE));
+			// Выполняем опрос седьмого листа процессора
+			::__cpuidex(regs, 7, 0);
+			// Значение EBX седьмого листа опроса
+			const unsigned int seventh = static_cast <unsigned int> (regs[1]);
+			// Если команды SHA-NI есть: разряд 29 EBX
+			if(seventh & (1U << 29))
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA256));
+			// Если умножение MULX (BMI2, разряд 8 EBX) и сложения ADCX/ADOX (ADX, разряд 19 EBX) есть вместе
+			if((seventh & (1U << 8)) && (seventh & (1U << 19)))
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::ADX));
+			// Признак того, что система сохраняет верхние половины векторов: OSXSAVE, разряд 27 ECX
+			const bool osxsave = ((first & (1U << 27)) != 0);
+			// Признак AVX: разряд 28 ECX
+			const bool avx = ((first & (1U << 28)) != 0);
+			// Если сохранение верхних половин и AVX объявлены
+			if(osxsave && avx){
+				// Разрешённые системой состояния регистров из XCR0
+				const unsigned long long states = ::_xgetbv(0);
+				// Если система сохраняет и XMM, и YMM: разряды 1 и 2
+				if((states & 0x6) == 0x6){
+					// Записываем разряд кодировки VEX
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AVX));
+					// Если седьмой лист несёт AVX2: разряд 5 EBX
+					if(seventh & (1U << 5))
+						// Записываем разряд расширения
+						result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AVX2));
+				}
+			}
 		#endif
 		/**
 		 * Если сборка ведётся под ARM64 либо x86-64
 		 */
-		#if defined(__aarch64__) || defined(__x86_64__)
+		#if defined(__aarch64__) || defined(__x86_64__) || defined(_M_X64) || defined(_M_ARM64) || defined(_M_ARM64EC)
 			// Векторные команды основания набора есть у всякой машины
 			result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::VECTOR));
 		/**

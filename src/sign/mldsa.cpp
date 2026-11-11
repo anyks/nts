@@ -68,9 +68,14 @@
  * Векторные команды под арифметику NTT: SSE2 на x86-64 (есть на всякой x86-64) и NEON
  * на ARM64 (вечно доступно на этой архитектуре) - четыре 32-разрядных места в одном
  * регистре, обе ветви идут через одну прослойку (vec_t и v-функции ниже); Эльбрусу
- * и MSVC остаётся переносимый путь без векторных слоёв
+ * остаётся переносимый путь без векторных слоёв
+ *
+ * @note Собиратель Microsoft Visual C++ признаков наборов команд не объявляет, но команды
+ *       основания набора - SSE2 у x86-64 и NEON у ARM64 - доступны ему без ключей сборки,
+ *       потому стена открывается признаком архитектуры вместо признака набора
+ *
  */
-#if defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) && defined(__SSE2__)) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
 	#include <emmintrin.h>
 	/**
 	 * Признаки векторного пути: команды SSE2
@@ -83,7 +88,7 @@
 /**
  * Ветвь NEON на ARM64
  */
-#elif defined(__aarch64__) && defined(__ARM_NEON) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+#elif ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(ANTS_NO_MACHINE)
 	#include <arm_neon.h>
 	/**
 	 * Признаки векторного пути: команды NEON

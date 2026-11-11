@@ -55,6 +55,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <cipher/mgm.hpp>
+#include <sys/machine.hpp>
 #include <sys/wipe.hpp>
 
 /**
@@ -90,6 +91,61 @@
 	 * Объявляем наличие машинного умножения без переносов
 	 */
 	#define __ANTS_CARRYLESS__ 1
+/**
+ * Если сборка ведётся собирателем Microsoft Visual C++ под ARM64 либо x86-64: внутренние функции
+ * умножения без переносов доступны ему без ключей сборки, а несёт ли их машина, знает лишь опознание
+ */
+#elif (defined(_M_ARM64) || defined(_M_ARM64EC) || defined(_M_X64)) && !defined(ANTS_NO_CARRYLESS)
+	/**
+	 * Если сборка ведётся под x86-64
+	 */
+	#if defined(_M_X64)
+		/**
+		 * Подключаем заголовочный файл команд x86-64
+		 */
+		#include <wmmintrin.h>
+	/**
+	 * Если сборка ведётся под ARM64
+	 */
+	#else
+		/**
+		 * Подключаем заголовочный файл команд ARM
+		 */
+		#include <arm_neon.h>
+	#endif
+
+	/**
+	 * Объявляем наличие машинного умножения без переносов
+	 */
+	#define __ANTS_CARRYLESS__ 1
+	/**
+	 * Объявляем, что пригодность команды спрашивается на исполнении: ключами сборки она не закреплена
+	 */
+	#define __ANTS_CARRYLESS_ASK__ 1
+#endif
+
+/**
+ * Если машина умножает без переносов командой PMULL
+ */
+#if defined(__ANTS_CARRYLESS__) && (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC))
+	/**
+	 * Если собиратель Microsoft Visual C++: его команда умножения без переносов принимает
+	 * вектор из одного места, собранный из слова внутренней функцией
+	 */
+	#if defined(_MSC_VER)
+		/**
+		 * Умножение слова на слово без переносов командой PMULL
+		 */
+		#define __ANTS_PMULL64__(first, second) vmull_p64(vcreate_p64(first), vcreate_p64(second))
+	/**
+	 * У собирателей семейства GCC команда принимает слово в типе многочлена
+	 */
+	#else
+		/**
+		 * Умножение слова на слово без переносов командой PMULL
+		 */
+		#define __ANTS_PMULL64__(first, second) vmull_p64(static_cast <poly64_t> (first), static_cast <poly64_t> (second))
+	#endif
 #endif
 
 /**
@@ -158,9 +214,9 @@ namespace {
 			/**
 			 * Если умножение ведётся командой PMULL
 			 */
-			#if defined(__aarch64__)
+			#if defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
 				// Выполняем умножение сомножителей без переносов
-				const uint64x2_t value = vreinterpretq_u64_p128(vmull_p64(static_cast <poly64_t> (first), static_cast <poly64_t> (second)));
+				const uint64x2_t value = vreinterpretq_u64_p128(__ANTS_PMULL64__(first, second));
 				// Записываем младшую половину произведения
 				lo = vgetq_lane_u64(value, 0);
 				// Записываем старшую половину произведения
@@ -184,9 +240,9 @@ namespace {
 		}
 	#endif
 	/**
-	 * Если умножения без переносов командой у машины нет
+	 * Если умножения без переносов командой у машины нет либо наличие команды спрашивается на исполнении
 	 */
-	#if !defined(__ANTS_CARRYLESS__)
+	#if !defined(__ANTS_CARRYLESS__) || defined(__ANTS_CARRYLESS_ASK__)
 		/**
 		 * @brief Функция обращения порядка разрядов числа
 		 *
@@ -362,6 +418,20 @@ namespace {
 		 * Если умножение без переносов делает сама машина
 		 */
 		#if defined(__ANTS_CARRYLESS__)
+			/**
+			 * Если пригодность команды не закреплена ключами сборки, её наличие спрашивает опознание машины
+			 */
+			#if defined(__ANTS_CARRYLESS_ASK__)
+				// Если машина умножение без переносов своей командой не несёт
+				if(!machine::has(machine::feature_t::CARRYLESS)){
+					// Выполняем умножение сомножителей произведениями слоёв разрядов
+					lo = spread(first, second);
+					// Выполняем обращение порядка разрядов: старшая половина произведения обращённых сомножителей стоит на месте младшей
+					hi = (reverse(spread(reverse(first), reverse(second))) >> 1);
+					// Выходим из умножения без переносов
+					return;
+				}
+			#endif
 			// Выполняем умножение без переносов машинной командой
 			carryless(first, second, hi, lo);
 		/**

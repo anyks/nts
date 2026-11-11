@@ -337,7 +337,7 @@
 /**
  * Векторные команды выбора записи таблицы окна: NEON под AArch64, SSE2 под x86-64
  */
-#if defined(__aarch64__) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
 	#include <arm_neon.h>
 /**
  * Для x86-64 подключаем заголовочные файлы SSE2 и AVX2
@@ -3220,7 +3220,7 @@ namespace {
 			/**
 			 * Под AArch64 пары слов накапливаются командами NEON
 			 */
-			#if defined(__aarch64__) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+			#if (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
 				/**
 				 * Выполняем перебор слов записи восьмёрками пар
 				 */

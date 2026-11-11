@@ -83,7 +83,7 @@
 /**
  * Если сборка ведётся под ARM64 от младшего байта
  */
-#if defined(__aarch64__) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -94,9 +94,9 @@
 	 */
 	#define __ANTS_CHACHA_NEON__ 1
 /**
- * Если сборка ведётся под x86-64 собирателем семейства GCC без ядер на ассемблере
+ * Если сборка ведётся под x86-64 собирателем семейства GCC либо Microsoft Visual C++ без ядер на ассемблере
  */
-#elif (defined(__x86_64__) || defined(__e2k__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE) && !defined(__ANTS_CHACHA_X86_64__)
+#elif (defined(__x86_64__) || defined(__e2k__) || defined(_M_X64)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE) && !defined(__ANTS_CHACHA_X86_64__)
 	/**
 	 * Подключаем заголовочный файл команд x86-64 вплоть до AVX2
 	 */
@@ -117,6 +117,22 @@
 		#define __ANTS_CHACHA_SSSE3_TARGET__
 		/**
 		 * Атрибут цели не нужен: собиратель lcc переводит команды сам
+		 */
+		#define __ANTS_CHACHA_AVX2_TARGET__
+	/**
+	 * Если собиратель Microsoft Visual C++: внутренние функции команд доступны ему без ключей сборки
+	 */
+	#elif defined(_MSC_VER)
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
+		 */
+		#define __ANTS_CHACHA_SSE2_TARGET__
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
+		 */
+		#define __ANTS_CHACHA_SSSE3_TARGET__
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
 		#define __ANTS_CHACHA_AVX2_TARGET__
 	/**

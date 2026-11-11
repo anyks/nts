@@ -2572,14 +2572,24 @@ TEST(KeysTest, GostForms){
 	{
 		// Запись ключа целым числом порядком от старшего байта к младшему
 		asn1::writer_t body;
+		// Смещение значащей части скаляра: кодировка DER требует кратчайшей записи числа
+		size_t offset = 0;
+		/**
+		 * Выполняем пропуск ведущих нулей скаляра
+		 */
+		while((offset < secret.d.size()) && (secret.d[offset] == 0))
+			// Пропускаем очередной ведущий ноль
+			offset++;
+		// Значащая часть скаляра порядком от старшего байта к младшему
+		const std::vector <uint8_t> significant(secret.d.begin() + offset, secret.d.end());
 		// Байты целого числа с местом под ведущий ноль знака
 		std::vector <uint8_t> number;
-		// Если старший разряд скаляра выставлен
-		if((secret.d[0] & 0x80) != 0)
+		// Если старший разряд значащей части скаляра выставлен
+		if((significant[0] & 0x80) != 0)
 			// Заводим ведущий ноль знака
 			number.push_back(0x00);
-		// Дописываем скаляр порядком от старшего байта к младшему
-		number.insert(number.end(), secret.d.begin(), secret.d.end());
+		// Дописываем значащую часть скаляра порядком от старшего байта к младшему
+		number.insert(number.end(), significant.begin(), significant.end());
 		// Записываем целое число ключа
 		body.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), view(number));
 		// Запись PrivateKeyInfo с телом целым числом
@@ -2612,8 +2622,8 @@ TEST(KeysTest, GostForms){
 		ASSERT_EQ(keys::decodePrivateKeyInfo(writer.data(), key), keys::error_t::NONE);
 		// Проверяем вид ключа
 		ASSERT_EQ(key.kind, keys::kind_t::GOST);
-		// Проверяем совпадение секретных частей
-		ASSERT_EQ(key.d, secret.d);
+		// Проверяем совпадение секретных частей: разбор числа даёт значащую часть без ведущих нулей
+		ASSERT_EQ(key.d, significant);
 	}
 	{
 		// Запись ключа набором из издания и строки байтов порядком от старшего байта

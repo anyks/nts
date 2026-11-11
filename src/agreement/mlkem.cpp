@@ -101,8 +101,13 @@
  * Векторные команды под арифметику NTT: SSE2 на x86-64 (есть на всякой x86-64) и пакетные
  * команды Эльбруса с набором команд 5 и старше (128-разрядные регистры, восемь мест по 16
  * разрядов); обе ветви идут через одну прослойку (vec_t и v-функции ниже)
+ *
+ * @note Собиратель Microsoft Visual C++ признаков наборов команд не объявляет, но команды
+ *       основания набора - SSE2 у x86-64 и NEON у ARM64 - доступны ему без ключей сборки,
+ *       потому стена открывается признаком архитектуры вместо признака набора
+ *
  */
-#if defined(__x86_64__) && defined(__SSE2__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) && defined(__SSE2__)) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
 	#include <emmintrin.h>
 	/**
 	 * Признаки векторного пути: команды SSE2
@@ -127,7 +132,7 @@
 /**
  * Ветвь NEON на ARM64: расширение вечно доступно на этой архитектуре
  */
-#elif defined(__aarch64__) && defined(__ARM_NEON) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+#elif ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(ANTS_NO_MACHINE)
 	#include <arm_neon.h>
 	/**
 	 * Признаки векторного пути: команды NEON
@@ -364,10 +369,13 @@ namespace {
 		}
 		// Чётные 32-разрядные места вперёд, нечётные назад
 		static inline vec_t vevenodd32(const vec_t value) noexcept {
-			// Номера байтов мест 0, 2, 1, 3 по порядку
-			const uint8x16_t indices = {0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7, 12, 13, 14, 15};
+			/**
+			 * Номера байтов мест 0, 2, 1, 3 по порядку: таблица читается загрузкой, потому что
+			 * собиратель Microsoft Visual C++ не принимает инициализацию вектора списком
+			 */
+			static const uint8_t INDICES[16] = {0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7, 12, 13, 14, 15};
 			// Выводим перестановку байтов таблицей
-			return vreinterpretq_s16_u8(vqtbl1q_u8(vreinterpretq_u8_s16(value), indices));
+			return vreinterpretq_s16_u8(vqtbl1q_u8(vreinterpretq_u8_s16(value), vld1q_u8(INDICES)));
 		}
 		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места: старшие половины мест пусты
 		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept {

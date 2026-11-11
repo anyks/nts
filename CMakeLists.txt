@@ -519,6 +519,12 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
         # Выводим сообщение о векторном ядре кодека
         message(STATUS "Base64 codec: AVX2\n")
     endif (AVX2_BASE64_FLAG)
+    # Если ключ собирателем не принят, но собиратель - Microsoft Visual C++: внутренние функции
+    # команд AVX2 доступны ему без ключей сборки, и ядро собирается само
+    if (NOT AVX2_BASE64_FLAG AND MSVC)
+        # Выводим сообщение о векторном ядре кодека
+        message(STATUS "Base64 codec: AVX2 (MSVC intrinsics)\n")
+    endif ()
 endif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
 
 ##
