@@ -636,6 +636,226 @@ TEST(GaloisTest, Lengths) {
 }
 
 /**
+ * Проверка того, что нарезка сообщения потоком не меняет итога
+ *
+ * @note Поточные зашифрование и расшифрование выражают разовые, оттого шифртекст и
+ *       метка целостности, снятые с потока кусками любой длины, обязаны байт в байт
+ *       совпадать с итогом разового вызова на той же паре связанных данных и сообщения
+ *
+ */
+TEST(GaloisTest, Streaming) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[16];
+	// Открытый текст, шифртекст разового хода и шифртекст потока
+	uint8_t plain[128], sealed[128], streamed[128];
+	// Связанные данные
+	uint8_t associated[64];
+	// Метка целостности разового хода и метка целостности потока
+	uint8_t tag[16], flow[16];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("1122334455667700ffeeddccbbaa9988", nonce);
+	/**
+	 * Выполняем заполнение открытого текста и связанных данных
+	 */
+	for(size_t i = 0; i < sizeof(plain); i++){
+		// Записываем очередной байт открытого текста
+		plain[i] = static_cast <uint8_t> ((i * 37) + 11);
+		// Если очередной байт связанных данных ещё не заполнен
+		if(i < sizeof(associated))
+			// Записываем очередной байт связанных данных
+			associated[i] = static_cast <uint8_t> ((i * 53) + 7);
+	}
+	// Объект блочного шифра «Кузнечик»
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект блочного шифра «Магма»
+	cipher::magma_t small;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(small.key(view_t(secret, sizeof(secret))));
+	/**
+	 * Выполняем перебор блочных шифров режима работы
+	 */
+	for(size_t item = 0; item < 2; item++){
+		// Получаем описание базового алгоритма блочного шифрования
+		const cipher::block_t block = ((item == 0) ? cipher::block_t(base) : cipher::block_t(small));
+		/**
+		 * Выполняем перебор длин шифруемого сообщения
+		 */
+		for(size_t size = 0; size <= sizeof(plain); size += 3){
+			// Получаем длину связанных данных сообщения
+			const size_t length = ((size / 3) % (sizeof(associated) + 1));
+			// Если ни сообщения, ни связанных данных не осталось
+			if((size == 0) && (length == 0))
+				// Переходим к следующей длине шифруемого сообщения
+				continue;
+			// Объект режима разового зашифрования
+			cipher::galois_t mode;
+			// Выполняем запуск режима работы
+			ASSERT_TRUE(mode.start(block, view_t(nonce, block.size))) << "длина " << size;
+			// Выполняем разовое зашифрование открытого текста
+			ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), sealed, tag)) << "длина " << size;
+			// Объект режима поточного зашифрования
+			cipher::galois_t sender;
+			// Выполняем запуск режима работы
+			ASSERT_TRUE(sender.start(block, view_t(nonce, block.size))) << "длина " << size;
+			/**
+			 * Выполняем подачу связанных данных потоком по одному байту: наименьший
+			 * возможный кусок всякий раз оставляет в накопителе метки неполный блок
+			 */
+			for(size_t i = 0; i < length; i++)
+				// Проверяем успешность подачи очередного байта связанных данных
+				ASSERT_TRUE(sender.associate(view_t(associated + i, 1))) << "длина " << size;
+			/**
+			 * Выполняем зашифрование сообщения потоком кусками по семь байтов: длина
+			 * куска не кратна блоку ни одного из двух шифров, оттого остаток блока гаммы
+			 * переносится из куска в кусок всякий раз
+			 */
+			for(size_t offset = 0; offset < size; offset += 7){
+				// Определяем длину очередного куска открытого текста
+				const size_t count = (((size - offset) < 7) ? (size - offset) : 7);
+				// Проверяем успешность зашифрования очередного куска
+				ASSERT_TRUE(sender.encrypt(view_t(plain + offset, count), streamed + offset)) << "длина " << size;
+			}
+			// Проверяем успешность завершения поточного зашифрования
+			ASSERT_TRUE(sender.finish(flow)) << "длина " << size;
+			// Проверяем схождение шифртекста потока с шифртекстом разового хода
+			ASSERT_EQ(::memcmp(streamed, sealed, size), 0) << "длина " << size;
+			// Проверяем схождение метки потока с меткой разового хода
+			ASSERT_EQ(::memcmp(flow, tag, block.size), 0) << "длина " << size;
+			// Объект режима поточного расшифрования
+			cipher::galois_t receiver;
+			// Выполняем запуск режима работы
+			ASSERT_TRUE(receiver.start(block, view_t(nonce, block.size))) << "длина " << size;
+			// Выполняем подачу связанных данных потока одним куском
+			ASSERT_TRUE(receiver.associate(view_t(associated, length))) << "длина " << size;
+			/**
+			 * Выполняем расшифрование шифртекста потоком на месте кусками по пять байтов:
+			 * итог пишется поверх самого шифртекста, оттого место итога совпадает с местом
+			 * исходного куска, а поглощение накопителем метки обязано идти прежде гаммы
+			 */
+			for(size_t offset = 0; offset < size; offset += 5){
+				// Определяем длину очередного куска шифртекста
+				const size_t count = (((size - offset) < 5) ? (size - offset) : 5);
+				// Проверяем успешность расшифрования очередного куска на месте
+				ASSERT_TRUE(receiver.decrypt(view_t(sealed + offset, count), sealed + offset)) << "длина " << size;
+			}
+			// Проверяем схождение метки целостности потока с меткой разового хода
+			ASSERT_TRUE(receiver.verify(view_t(tag, block.size))) << "длина " << size;
+			// Проверяем схождение расшифрованного потоком текста с исходным
+			ASSERT_EQ(::memcmp(sealed, plain, size), 0) << "длина " << size;
+		}
+	}
+}
+
+/**
+ * Проверка заслонов поточного хода режима работы
+ *
+ * @note Поток однонаправлен: связанные данные подаются лишь до первого куска
+ *       сообщения, направление кусков смешивать нельзя, а после снятия либо сличения
+ *       метки поток закрыт до нового запуска либо смены начального заполнения счётчика
+ *
+ */
+TEST(GaloisTest, StreamGuards) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Начальное заполнение счётчика
+	uint8_t nonce[16];
+	// Открытый текст и шифртекст
+	uint8_t plain[32], sealed[32];
+	// Связанные данные
+	uint8_t associated[16];
+	// Метка целостности
+	uint8_t tag[16];
+	// Выполняем разбор ключа шифрования
+	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
+	// Выполняем разбор начального заполнения счётчика
+	bytes("1122334455667700ffeeddccbbaa9988", nonce);
+	// Выполняем разбор связанных данных
+	const size_t length = bytes("01010101010101010101010101010101", associated);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes("1122334455667700ffeeddccbbaa998800112233445566778899aabbcceeff0a", plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	// Объект режима шифрования с проверкой целостности
+	cipher::galois_t mode;
+	// Проверяем отказ подачи связанных данных до запуска режима работы
+	ASSERT_FALSE(mode.associate(view_t(associated, length)));
+	// Проверяем отказ поточного зашифрования до запуска режима работы
+	ASSERT_FALSE(mode.encrypt(view_t(plain, size), sealed));
+	// Проверяем отказ поточного расшифрования до запуска режима работы
+	ASSERT_FALSE(mode.decrypt(view_t(plain, size), sealed));
+	// Проверяем отказ завершения поточного зашифрования до запуска режима работы
+	ASSERT_FALSE(mode.finish(tag));
+	// Проверяем отказ сличения метки целостности до запуска режима работы
+	ASSERT_FALSE(mode.verify(view_t(tag, sizeof(tag))));
+	// Выполняем запуск режима работы
+	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Проверяем отказ смены заполнения, не занимающего блока шифра
+	ASSERT_FALSE(mode.restart(view_t(nonce, cipher::MAGMA_BLOCK)));
+	// Объект режима с пустым потоком
+	cipher::galois_t empty;
+	// Выполняем запуск режима работы с пустым потоком
+	ASSERT_TRUE(empty.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Проверяем отказ выработки метки на пустом потоке: подписывать нечего
+	ASSERT_FALSE(empty.finish(tag));
+	// Выполняем подачу связанных данных потока
+	ASSERT_TRUE(mode.associate(view_t(associated, length)));
+	// Выполняем зашифрование первого куска открытого текста
+	ASSERT_TRUE(mode.encrypt(view_t(plain, 16), sealed));
+	// Проверяем отказ подачи связанных данных после первого куска сообщения
+	ASSERT_FALSE(mode.associate(view_t(associated, length)));
+	// Проверяем отказ расшифрования куска в потоке зашифрования
+	ASSERT_FALSE(mode.decrypt(view_t(sealed, 16), plain));
+	// Выполняем зашифрование остатка открытого текста
+	ASSERT_TRUE(mode.encrypt(view_t(plain + 16, size - 16), sealed + 16));
+	// Выполняем завершение поточного зашифрования выработкой метки целостности
+	ASSERT_TRUE(mode.finish(tag));
+	// Проверяем отказ повторного завершения того же потока
+	ASSERT_FALSE(mode.finish(tag));
+	// Проверяем отказ зашифрования куска после закрытия потока
+	ASSERT_FALSE(mode.encrypt(view_t(plain, size), sealed));
+	// Проверяем отказ сличения метки целостности после закрытия потока
+	ASSERT_FALSE(mode.verify(view_t(tag, sizeof(tag))));
+	// Проверяем отказ разового зашифрования на израсходованном заполнении счётчика
+	ASSERT_FALSE(mode.encrypt(view_t(associated, length), view_t(plain, size), sealed, tag));
+	// Выполняем смену начального заполнения счётчика прежним значением
+	ASSERT_TRUE(mode.restart(view_t(nonce, sizeof(nonce))));
+	// Проверяем, что смена заполнения сняла признак его расходования на зашифрование
+	ASSERT_TRUE(mode.associate(view_t(associated, length)));
+	// Выполняем поточное зашифрование сообщения после смены заполнения
+	ASSERT_TRUE(mode.encrypt(view_t(plain, size), sealed));
+	// Проверяем успешность завершения поточного зашифрования после смены заполнения
+	ASSERT_TRUE(mode.finish(tag));
+	// Объект режима расшифрования с проверкой целостности
+	cipher::galois_t receiver;
+	// Выполняем запуск режима работы
+	ASSERT_TRUE(receiver.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
+	// Выполняем подачу связанных данных потока
+	ASSERT_TRUE(receiver.associate(view_t(associated, length)));
+	// Выполняем поточное расшифрование шифртекста
+	ASSERT_TRUE(receiver.decrypt(view_t(sealed, size), plain));
+	// Проверяем отказ зашифрования куска в потоке расшифрования
+	ASSERT_FALSE(receiver.encrypt(view_t(plain, size), sealed));
+	// Выполняем порчу последнего байта метки целостности
+	tag[sizeof(tag) - 1] = static_cast <uint8_t> (tag[sizeof(tag) - 1] ^ 0x01);
+	// Проверяем отказ сличения порченой метки целостности
+	ASSERT_FALSE(receiver.verify(view_t(tag, sizeof(tag))));
+	// Проверяем отказ сличения метки целостности после закрытия потока
+	ASSERT_FALSE(receiver.verify(view_t(tag, sizeof(tag) - 1)));
+	// Выполняем сброс состояния режима работы
+	receiver.clear();
+	// Проверяем отказ сличения метки целостности после сброса состояния режима работы
+	ASSERT_FALSE(receiver.verify(view_t(tag, sizeof(tag))));
+}
+
+/**
  * Проверка отказов MGM на неполный описатель шифра и негодные места
  */
 TEST(MgmTest, Descriptor) {

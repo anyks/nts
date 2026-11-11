@@ -106,6 +106,12 @@ namespace nts {
 		 *       новым заполнением. Расшифрование под заслон не подпадает: повторная
 		 *       проверка метки на том же заполнении ничего не раскрывает
 		 *
+		 * @note Поточный ход: после start связанные данные подаются associate (до
+		 *       первого куска сообщения), сообщение - поточными encrypt либо decrypt
+		 *       кусками любой длины, метка снимается finish либо сличается verify;
+		 *       после них поток закрыт до нового start либо restart. Разовые encrypt и
+		 *       decrypt выражены тем же потоком, оттого нарезка на итог не влияет
+		 *
 		 * \~english
 		 * @brief MGM authenticated encryption mode
 		 *
@@ -129,6 +135,12 @@ namespace nts {
 		 *       The decryption is not subject to the guard: a repeated check of the tag
 		 *       under the same nonce reveals nothing
 		 *
+		 * @note The streaming course: after start the associated data is fed by associate (before
+		 *       the first chunk of the message), the message - by the streaming encrypt or decrypt by
+		 *       chunks of any length, the tag is taken by finish or compared by verify; after them the
+		 *       stream is closed until a new start or restart. The one-shot encrypt and decrypt are
+		 *       expressed by the same stream, therefore the slicing does not affect the result
+		 *
 		 * \~
 		 */
 		typedef class __ANTS_SHARED_EXPORT__ Galois {
@@ -147,6 +159,151 @@ namespace nts {
 			private:
 				// Начальное заполнение счётчика
 				uint8_t _nonce[MODE_BLOCK];
+			private:
+				// Ступень потока: нет, связанные данные, данные, закрыт
+				uint8_t _stage;
+				// Направление потока: нет, зашифрование, расшифрование
+				uint8_t _direction;
+			private:
+				// Число неизрасходованных байтов остатка блока гаммы
+				size_t _rest;
+				// Число накопленных байтов неполного блока метки
+				size_t _filled;
+			private:
+				// Длина связанных данных в байтах
+				uint64_t _associated;
+				// Длина шифртекста в байтах
+				uint64_t _sealed;
+			private:
+				// Счётчик выработки гаммы: растёт младшая половина
+				uint8_t _counter[MODE_BLOCK];
+				// Счётчик выработки метки: растёт старшая половина
+				uint8_t _marked[MODE_BLOCK];
+				// Остаток блока гаммы
+				uint8_t _gamma[MODE_BLOCK];
+				// Накопитель суммы произведений метки
+				uint8_t _sum[MODE_BLOCK];
+				// Неполный блок метки
+				uint8_t _pending[MODE_BLOCK];
+			private:
+				/**
+				 * \~russian
+				 * @brief Метод сброса состояния потока
+				 *
+				 * @return признак успешности сброса: счётчики гаммы и метки вырабатываются шифром
+				 *
+				 * \~english
+				 * @brief Method of the reset of the state of the stream
+				 *
+				 * @return the flag of the success of the reset: the counters of the gamma and of the tag are produced by the cipher
+				 *
+				 * \~
+				 */
+				bool reset() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод перехода потока к данным
+				 *
+				 * @param direction направление потока: единица - зашифрование, двойка - расшифрование
+				 * @return          признак допустимости перехода
+				 *
+				 * @details Неполный блок связанных данных дополняется нулями и поглощается здесь:
+				 *          счётчик метки непрерывен через обе части сообщения
+				 *
+				 * \~english
+				 * @brief Method of the transition of the stream to the data
+				 *
+				 * @param direction the direction of the stream: one - encryption, two - decryption
+				 * @return          the flag of the admissibility of the transition
+				 *
+				 * @details The incomplete block of the associated data is padded with zeroes and absorbed here:
+				 *          the counter of the tag is continuous through both parts of the message
+				 *
+				 * \~
+				 */
+				bool proceed(const uint8_t direction) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод поглощения неполного блока метки с дополнением нулями
+				 *
+				 * @return признак успешности поглощения
+				 *
+				 * \~english
+				 * @brief Method of the absorption of the incomplete block of the tag with the padding by zeroes
+				 *
+				 * @return the flag of the success of the absorption
+				 *
+				 * \~
+				 */
+				bool flush() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод умножения целого блока на выход шифра от счётчика метки
+				 *
+				 * @param data поглощаемый целый блок
+				 * @return     признак успешности умножения
+				 *
+				 * \~english
+				 * @brief Method of the multiplication of a whole block by the output of the cipher from the counter of the tag
+				 *
+				 * @param data the whole block being absorbed
+				 * @return     the flag of the success of the multiplication
+				 *
+				 * \~
+				 */
+				bool mark(const uint8_t * data) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод сложения части сообщения в накопитель метки
+				 *
+				 * @param data поглощаемые байты
+				 * @param size число поглощаемых байтов
+				 * @return     признак успешности сложения
+				 *
+				 * \~english
+				 * @brief Method of the addition of a part of the message into the accumulator of the tag
+				 *
+				 * @param data the bytes being absorbed
+				 * @param size the number of the bytes being absorbed
+				 * @return     the flag of the success of the addition
+				 *
+				 * \~
+				 */
+				bool absorb(const uint8_t * data, const size_t size) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод наложения гаммы на кусок сообщения
+				 *
+				 * @param source преобразуемый кусок
+				 * @param result место, в которое помещается преобразованный кусок
+				 * @return       признак успешности наложения гаммы
+				 *
+				 * \~english
+				 * @brief Method of the application of the gamma to a chunk of the message
+				 *
+				 * @param source the chunk being transformed
+				 * @param result the place the transformed chunk is put into
+				 * @return       the flag of the success of the application of the gamma
+				 *
+				 * \~
+				 */
+				bool cover(const view_t & source, uint8_t * result) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод замыкания метки целостности
+				 *
+				 * @param result место, в которое помещается метка длиной в блок шифра
+				 * @return       признак успешности замыкания метки
+				 *
+				 * \~english
+				 * @brief Method of the closing of the authentication tag
+				 *
+				 * @param result the place the tag of a length of a block of the cipher is put into
+				 * @return       the flag of the success of the closing of the tag
+				 *
+				 * \~
+				 */
+				bool authenticate(uint8_t * result) noexcept;
 			public:
 				/**
 				 * \~russian
@@ -206,6 +363,127 @@ namespace nts {
 				 * \~
 				 */
 				void clear() noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод смены начального заполнения счётчика без смены шифра
+				 *
+				 * @param nonce новое начальное заполнение длиной в блок шифра с нулевым старшим разрядом
+				 * @return      признак успешности смены заполнения
+				 *
+				 * @details Заполнение новое: прежнее израсходованным более не считается, состояние
+				 *          потока сбрасывается. Базовый шифр и длина метки остаются прежними
+				 *
+				 * \~english
+				 * @brief Method of the change of the initial counter nonce without the change of the cipher
+				 *
+				 * @param nonce the new initial nonce of a length of a block of the cipher with a zero senior bit
+				 * @return      the flag of the success of the change of the nonce
+				 *
+				 * @details The nonce is new: the previous one is no longer considered spent, the state of the
+				 *          stream is reset. The base cipher and the length of the tag remain the same
+				 *
+				 * \~
+				 */
+				bool restart(const view_t & nonce) noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод подачи связанных данных потоком
+				 *
+				 * @param associated связанные данные, целостность которых проверяется без их зашифрования
+				 * @return           признак успешности подачи
+				 *
+				 * @note Подавать связанные данные дозволено лишь до первого куска сообщения
+				 *
+				 * \~english
+				 * @brief Method of the feeding of the associated data by the stream
+				 *
+				 * @param associated the associated data the integrity of which is checked without their encryption
+				 * @return           the flag of the success of the feeding
+				 *
+				 * @note The associated data is allowed to be fed only before the first chunk of the message
+				 *
+				 * \~
+				 */
+				bool associate(const view_t & associated) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод поточного зашифрования куска
+				 *
+				 * @param source открытый текст
+				 * @param result место, в которое помещается шифртекст той же длины
+				 * @return       признак успешности зашифрования
+				 *
+				 * @note Место итога вправе совпадать с местом исходного куска
+				 *
+				 * \~english
+				 * @brief Method of the streaming encryption of a chunk
+				 *
+				 * @param source the plain text
+				 * @param result the place the cipher text of the same length is put into
+				 * @return       the flag of the success of the encryption
+				 *
+				 * @note The place of the result may coincide with the place of the source chunk
+				 *
+				 * \~
+				 */
+				bool encrypt(const view_t & source, uint8_t * result) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод поточного расшифрования куска
+				 *
+				 * @param source шифртекст
+				 * @param result место, в которое помещается открытый текст той же длины
+				 * @return       признак успешности расшифрования
+				 *
+				 * @note Открытый текст потока не проверен меткой до схождения verify: пользоваться
+				 *       им дозволено лишь после успешного сличения метки
+				 *
+				 * \~english
+				 * @brief Method of the streaming decryption of a chunk
+				 *
+				 * @param source the cipher text
+				 * @param result the place the plain text of the same length is put into
+				 * @return       the flag of the success of the decryption
+				 *
+				 * @note The plain text of the stream is not checked by the tag until verify converges: it is
+				 *       allowed to be used only after the successful comparison of the tag
+				 *
+				 * \~
+				 */
+				bool decrypt(const view_t & source, uint8_t * result) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод завершения поточного зашифрования выработкой метки
+				 *
+				 * @param tag место, в которое помещается метка установленной длины
+				 * @return    признак успешности завершения; поток закрывается
+				 *
+				 * \~english
+				 * @brief Method of the completion of the streaming encryption by the production of the tag
+				 *
+				 * @param tag the place the tag of the established length is put into
+				 * @return    the flag of the success of the completion; the stream is closed
+				 *
+				 * \~
+				 */
+				bool finish(uint8_t * tag) noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод завершения поточного расшифрования сличением метки
+				 *
+				 * @param tag проверяемая метка установленной длины
+				 * @return    признак схождения метки за постоянное время; поток закрывается
+				 *
+				 * \~english
+				 * @brief Method of the completion of the streaming decryption by the comparison of the tag
+				 *
+				 * @param tag the tag of the established length being checked
+				 * @return    the flag of the convergence of the tag in constant time; the stream is closed
+				 *
+				 * \~
+				 */
+				bool verify(const view_t & tag) noexcept;
 			public:
 				/**
 				 * \~russian

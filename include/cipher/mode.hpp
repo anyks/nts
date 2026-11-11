@@ -45,6 +45,7 @@
 #include <cipher/aes.hpp>
 #include <cipher/sm4.hpp>
 #include <cipher/des.hpp>
+#include <cipher/blowfish.hpp>
 
 /**
  * \~russian
@@ -224,6 +225,21 @@ namespace nts {
 			 * \~
 			 */
 			Block(const des_t & cipher) noexcept;
+			/**
+
+			 * \~russian
+			 * Конструктор
+			 *
+			 * @param cipher объект блочного шифра Blowfish
+			 *
+			 * \~english
+			 * Constructor
+			 *
+			 * @param cipher the object of the Blowfish block cipher
+			 *
+			 * \~
+			 */
+			Block(const blowfish_t & cipher) noexcept;
 		} block_t;
 
 		/**
@@ -236,6 +252,10 @@ namespace nts {
 		 * @note Режим не скрывает совпадения блоков открытого текста и годен лишь
 		 *       для преобразования отдельных величин длиной в блок
 		 *
+		 * @note Состояния режим не держит: блок преобразуется независимо от прочих,
+		 *       оттого подача сообщения кусками даёт тот же итог, что и подача целого.
+		 *       Длина всякого куска обязана быть кратна длине блока
+		 *
 		 * \~english
 		 * @brief Electronic codebook mode (ECB)
 		 *
@@ -244,6 +264,11 @@ namespace nts {
 		 *
 		 * @note The mode does not hide the coincidences of the blocks of the plain text and
 		 *       is suitable only for the transformation of separate values of a length of a block
+		 *
+		 * @note The mode holds no state: a block is transformed independently of the others,
+		 *       therefore the feeding of the message by the pieces gives the same result as the
+		 *       feeding of the whole one. The length of every piece must be a multiple of the
+		 *       length of the block
 		 *
 		 * \~
 		 */
@@ -544,6 +569,12 @@ namespace nts {
 		 *          регистра, а сам выход шифра дописывается в младшие разряды.
 		 *          Расшифрование от зашифрования не отличается.
 		 *
+		 * @note Длиной регистра m служит длина синхропосылки: она обязана занимать
+		 *       целое число блоков шифра и не превышать наибольшего регистра
+		 *
+		 * @note Состояние регистра и остаток блока гаммы переносятся между вызовами,
+		 *       оттого сообщение вправе подаваться кусками произвольного размера
+		 *
 		 * \~english
 		 * @brief Output feedback mode (OFB)
 		 *
@@ -551,6 +582,13 @@ namespace nts {
 		 *          filled by the initialization vector, the gamma is produced by the encryption
 		 *          of the senior bits of the register, while the output of the cipher itself is
 		 *          appended into the junior bits. The decryption does not differ from the encryption.
+		 *
+		 * @note The length of the register m is the length of the initialization vector: it
+		 *       must occupy a whole number of the blocks of the cipher and must not exceed the
+		 *       greatest register
+		 *
+		 * @note The state of the register and the leftover of the block of the gamma are carried
+		 *       between the calls, therefore the message may be fed by the pieces of an arbitrary size
 		 *
 		 * \~
 		 */
@@ -695,6 +733,11 @@ namespace nts {
 		 *          m кратна длине блока и при m больше n даёт зацепление через
 		 *          несколько блоков назад.
 		 *
+		 * @note Регистр зацепления переносится между вызовами, оттого сообщение вправе
+		 *       подаваться кусками; длина всякого куска обязана быть кратна длине блока,
+		 *       а последний блок прежнего куска служит звеном зацепления первому блоку
+		 *       следующего
+		 *
 		 * \~english
 		 * @brief Cipher block chaining mode (CBC)
 		 *
@@ -702,6 +745,11 @@ namespace nts {
 		 *          multiple of the length of the block: the mode does not deal with the padding.
 		 *          The length of the shift register m is a multiple of the length of the block
 		 *          and at m greater than n gives a chaining through several blocks back.
+		 *
+		 * @note The register of the chaining is carried between the calls, therefore the message
+		 *       may be fed by the pieces; the length of every piece must be a multiple of the length
+		 *       of the block, while the last block of the previous piece serves as the link of the
+		 *       chaining for the first block of the next one
 		 *
 		 * \~
 		 */
@@ -841,6 +889,9 @@ namespace nts {
 		 * @note Длина регистра m стандартом кратной длине блока не требуется, довольно
 		 *       того, что она не меньше длины блока
 		 *
+		 * @note Состояние регистра и остаток блока гаммы переносятся между вызовами,
+		 *       оттого сообщение вправе подаваться кусками произвольного размера
+		 *
 		 * \~english
 		 * @brief Cipher feedback mode (CFB)
 		 *
@@ -851,6 +902,9 @@ namespace nts {
 		 *
 		 * @note The length of the register m is not required by the standard to be a multiple
 		 *       of the length of the block, it is enough that it is not less than the length of the block
+		 *
+		 * @note The state of the register and the leftover of the block of the gamma are carried
+		 *       between the calls, therefore the message may be fed by the pieces of an arbitrary size
 		 *
 		 * \~
 		 */

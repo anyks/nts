@@ -266,6 +266,90 @@ namespace {
 		// Выполняем расшифрование блока шифром DES и 3DES
 		return reinterpret_cast <const des_t *> (cipher)->decrypt(source, result);
 	}
+	/**
+	 * @brief Функция разбора блока Blowfish на две половины словами от старшего байта
+	 *
+	 * @param source разбираемый блок в восемь байтов
+	 * @param left   место левой половины блока
+	 * @param right  место правой половины блока
+	 *
+	 */
+	static void fetchBlowfish(const uint8_t * source, uint32_t * left, uint32_t * right) noexcept {
+		/**
+		 * Выполняем разбор обеих половин блока от старшего байта к младшему
+		 */
+		for(size_t i = 0; i < 4; i++){
+			// Сдвигаем левую половину на байт и дополняем очередным байтом блока
+			*left = static_cast <uint32_t> ((*left << 8) | source[i]);
+			// Сдвигаем правую половину на байт и дополняем очередным байтом блока
+			*right = static_cast <uint32_t> ((*right << 8) | source[i + 4]);
+		}
+	}
+	/**
+	 * @brief Функция записи двух половин блока Blowfish байтами от старшего
+	 *
+	 * @param left   левая половина блока
+	 * @param right  правая половина блока
+	 * @param result место, в которое записывается блок в восемь байтов
+	 *
+	 */
+	static void storeBlowfish(const uint32_t left, const uint32_t right, uint8_t * result) noexcept {
+		/**
+		 * Выполняем запись обеих половин блока от старшего байта к младшему
+		 */
+		for(size_t i = 0; i < 4; i++){
+			// Записываем очередной байт левой половины
+			result[i] = static_cast <uint8_t> (left >> (24 - (i * 8)));
+			// Записываем очередной байт правой половины
+			result[i + 4] = static_cast <uint8_t> (right >> (24 - (i * 8)));
+		}
+	}
+	/**
+	 * @brief Функция зашифрования блока шифром Blowfish
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source зашифровываемый блок
+	 * @param result место, в которое помещается зашифрованный блок
+	 * @return       признак успешности зашифрования
+	 *
+	 */
+	static bool encryptBlowfish(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Левая половина зашифровываемого блока
+		uint32_t left = 0;
+		// Правая половина зашифровываемого блока
+		uint32_t right = 0;
+		// Выполняем разбор зашифровываемого блока на две половины
+		fetchBlowfish(source, &left, &right);
+		// Выполняем зашифрование блока шифром Blowfish
+		encipher(reinterpret_cast <const blowfish_t *> (cipher), &left, &right);
+		// Выполняем запись зашифрованного блока байтами
+		storeBlowfish(left, right, result);
+		// Выводим успешность зашифрования
+		return true;
+	}
+	/**
+	 * @brief Функция расшифрования блока шифром Blowfish
+	 *
+	 * @param cipher объект блочного шифра
+	 * @param source расшифровываемый блок
+	 * @param result место, в которое помещается расшифрованный блок
+	 * @return       признак успешности расшифрования
+	 *
+	 */
+	static bool decryptBlowfish(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+		// Левая половина расшифровываемого блока
+		uint32_t left = 0;
+		// Правая половина расшифровываемого блока
+		uint32_t right = 0;
+		// Выполняем разбор расшифровываемого блока на две половины
+		fetchBlowfish(source, &left, &right);
+		// Выполняем расшифрование блока шифром Blowfish
+		decipher(reinterpret_cast <const blowfish_t *> (cipher), &left, &right);
+		// Выполняем запись расшифрованного блока байтами
+		storeBlowfish(left, right, result);
+		// Выводим успешность расшифрования
+		return true;
+	}
 	// Затирание областей памяти берётся из открытого API библиотеки
 	using nts::sys::wipe;
 	/**
@@ -368,6 +452,14 @@ nts::cipher::Block::Block(const sm4_t & cipher) noexcept :
  */
 nts::cipher::Block::Block(const des_t & cipher) noexcept :
 	size(DES_BLOCK), cipher(&cipher), encrypt(&encryptDes), decrypt(&decryptDes), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
+/**
+ * @brief Конструктор
+ *
+ * @param cipher объект блочного шифра Blowfish
+ *
+ */
+nts::cipher::Block::Block(const blowfish_t & cipher) noexcept :
+	size(BLOWFISH_BLOCK), cipher(&cipher), encrypt(&encryptBlowfish), decrypt(&decryptBlowfish), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Метод проверки готовности режима к работе
  *

@@ -51,6 +51,10 @@ using namespace nts;
  *
  */
 int main(int argc, char * argv[]) noexcept {
+	// Не используем параметры приложения
+	(void) argc;
+	// Не используем параметры приложения
+	(void) argv;
 	// Кодируемые данные образца
 	const uint8_t data[] = " Man is distinguished by his reason";
 	// Запись основания с заполнением

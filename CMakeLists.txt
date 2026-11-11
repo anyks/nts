@@ -994,6 +994,12 @@ if (${CMAKE_BUILD_SAMPLES})
         add_sample(cipher-des sample/cipher/des.cpp cipher)
         # Выполняем создание приложения работы с блочным шифром SM4
         add_sample(cipher-sm4 sample/cipher/sm4.cpp cipher)
+        # Выполняем создание приложения работы с блочным шифром Blowfish
+        add_sample(cipher-blowfish sample/cipher/blowfish.cpp cipher)
+        # Выполняем создание приложения работы с режимом шифрования с проверкой целостности MGM
+        add_sample(cipher-mgm sample/cipher/mgm.cpp cipher)
+        # Выполняем создание приложения работы с режимами ГОСТ подачей сообщения кусками
+        add_sample(cipher-modes sample/cipher/modes.cpp cipher)
     # Если образец работы с блочным шифром собирать не нужно
     else()
         # Выводим сообщение о сборке образца

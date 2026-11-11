@@ -320,6 +320,52 @@ TEST(ModeTest, KuznyechikCodebook) {
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
 }
 /**
+ * @brief Проверка независимости режима простой замены от нарезки сообщения на куски
+ *
+ */
+TEST(ModeTest, KuznyechikCodebookChunks) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Открытый текст и шифртекст
+	uint8_t plain[64], cipher[64];
+	// Выполняем разбор ключа шифрования
+	bytes(KUZNYECHIK_SECRET, secret);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	/**
+	 * Выполняем перебор размеров куска, которыми подаётся сообщение: режим не держит
+	 * состояния, но длина всякого куска обязана быть кратна длине блока шифра
+	 */
+	for(size_t chunk = cipher::KUZNYECHIK_BLOCK; chunk <= size; chunk += cipher::KUZNYECHIK_BLOCK){
+		// Объект режима простой замены
+		cipher::codebook_t mode;
+		// Выполняем запуск режима работы
+		ASSERT_TRUE(mode.start(cipher::block_t(base)));
+		// Проверяем отказ зашифрования куска длиной не в целое число блоков
+		ASSERT_FALSE(mode.encrypt(view_t(plain, chunk - 1), cipher));
+		/**
+		 * Выполняем подачу сообщения кусками выбранного размера
+		 */
+		for(size_t offset = 0; offset < size; offset += chunk){
+			// Определяем размер очередного куска сообщения
+			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
+			// Выполняем зашифрование очередного куска сообщения
+			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
+		}
+		// Сличаем полученный шифртекст с контрольным примером
+		ASSERT_EQ(text(cipher, size), std::string(
+			"7f679d90bebc24305a468d42b9d4edcd"
+			"b429912c6e0032f9285452d76718d08b"
+			"f0ca33549d247ceef3f5a5313bd4b157"
+			"d0b09ccde830b9eb3a02c4c5aa8ada98"
+		)) << "Размер куска: " << chunk;
+	}
+}
+/**
  * @brief Проверка режима гаммирования на шифре «Кузнечик»
  *
  */
@@ -453,6 +499,54 @@ TEST(ModeTest, KuznyechikOutput) {
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
 }
 /**
+ * @brief Проверка независимости режима гаммирования с обратной связью по выходу от нарезки сообщения на куски
+ *
+ */
+TEST(ModeTest, KuznyechikOutputChunks) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Синхропосылка
+	uint8_t iv[32];
+	// Открытый текст и шифртекст
+	uint8_t plain[64], cipher[64];
+	// Выполняем разбор ключа шифрования
+	bytes(KUZNYECHIK_SECRET, secret);
+	// Выполняем разбор синхропосылки
+	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	/**
+	 * Выполняем перебор размеров куска, которыми подаётся сообщение: регистр сдвига и
+	 * остаток блока гаммы переносятся из вызова в вызов
+	 */
+	for(size_t chunk = 1; chunk <= 17; chunk++){
+		// Объект режима гаммирования с обратной связью по выходу
+		cipher::output_t mode;
+		// Выполняем запуск режима работы
+		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
+		/**
+		 * Выполняем подачу сообщения кусками выбранного размера
+		 */
+		for(size_t offset = 0; offset < size; offset += chunk){
+			// Определяем размер очередного куска сообщения
+			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
+			// Выполняем зашифрование очередного куска сообщения
+			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
+		}
+		// Сличаем полученный шифртекст с контрольным примером
+		ASSERT_EQ(text(cipher, size), std::string(
+			"81800a59b1842b24ff1f795e897abd95"
+			"ed5b47a7048cfab48fb521369d9326bf"
+			"66a257ac3ca0b8b1c80fe7fc10288a13"
+			"203ebbc066138660a0292243f6903150"
+		)) << "Размер куска: " << chunk;
+	}
+}
+/**
  * @brief Проверка режима простой замены с зацеплением на шифре «Кузнечик»
  *
  */
@@ -496,6 +590,57 @@ TEST(ModeTest, KuznyechikChaining) {
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
 }
 /**
+ * @brief Проверка независимости режима простой замены с зацеплением от нарезки сообщения на куски
+ *
+ */
+TEST(ModeTest, KuznyechikChainingChunks) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Синхропосылка
+	uint8_t iv[32];
+	// Открытый текст и шифртекст
+	uint8_t plain[64], cipher[64];
+	// Выполняем разбор ключа шифрования
+	bytes(KUZNYECHIK_SECRET, secret);
+	// Выполняем разбор синхропосылки
+	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	/**
+	 * Выполняем перебор размеров куска, которыми подаётся сообщение: регистр зацепления
+	 * переносится из вызова в вызов, оттого последний блок прежнего куска служит звеном
+	 * зацепления первому блоку следующего
+	 */
+	for(size_t chunk = cipher::KUZNYECHIK_BLOCK; chunk <= size; chunk += cipher::KUZNYECHIK_BLOCK){
+		// Объект режима простой замены с зацеплением
+		cipher::chaining_t mode;
+		// Выполняем запуск режима работы
+		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
+		// Проверяем отказ зашифрования куска длиной не в целое число блоков
+		ASSERT_FALSE(mode.encrypt(view_t(plain, chunk - 1), cipher));
+		/**
+		 * Выполняем подачу сообщения кусками выбранного размера
+		 */
+		for(size_t offset = 0; offset < size; offset += chunk){
+			// Определяем размер очередного куска сообщения
+			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
+			// Выполняем зашифрование очередного куска сообщения
+			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
+		}
+		// Сличаем полученный шифртекст с контрольным примером
+		ASSERT_EQ(text(cipher, size), std::string(
+			"689972d4a085fa4d90e52e3d6d7dcc27"
+			"2826e661b478eca6af1e8e448d5ea5ac"
+			"fe7babf1e91999e85640e8b0f49d90d0"
+			"167688065a895c631a2d9a1560b63970"
+		)) << "Размер куска: " << chunk;
+	}
+}
+/**
  * @brief Проверка режима гаммирования с обратной связью по шифртексту на шифре «Кузнечик»
  *
  */
@@ -537,6 +682,54 @@ TEST(ModeTest, KuznyechikFeedback) {
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
+}
+/**
+ * @brief Проверка независимости режима гаммирования с обратной связью по шифртексту от нарезки сообщения на куски
+ *
+ */
+TEST(ModeTest, KuznyechikFeedbackChunks) {
+	// Ключ шифрования
+	uint8_t secret[32];
+	// Синхропосылка
+	uint8_t iv[32];
+	// Открытый текст и шифртекст
+	uint8_t plain[64], cipher[64];
+	// Выполняем разбор ключа шифрования
+	bytes(KUZNYECHIK_SECRET, secret);
+	// Выполняем разбор синхропосылки
+	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
+	// Выполняем разбор открытого текста
+	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
+	// Объект блочного шифра
+	cipher::kuznyechik_t base;
+	// Выполняем установку ключа шифрования
+	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
+	/**
+	 * Выполняем перебор размеров куска, которыми подаётся сообщение: регистр сдвига и
+	 * остаток блока гаммы переносятся из вызова в вызов
+	 */
+	for(size_t chunk = 1; chunk <= 17; chunk++){
+		// Объект режима гаммирования с обратной связью по шифртексту
+		cipher::feedback_t mode;
+		// Выполняем запуск режима работы
+		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
+		/**
+		 * Выполняем подачу сообщения кусками выбранного размера
+		 */
+		for(size_t offset = 0; offset < size; offset += chunk){
+			// Определяем размер очередного куска сообщения
+			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
+			// Выполняем зашифрование очередного куска сообщения
+			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
+		}
+		// Сличаем полученный шифртекст с контрольным примером
+		ASSERT_EQ(text(cipher, size), std::string(
+			"81800a59b1842b24ff1f795e897abd95"
+			"ed5b47a7048cfab48fb521369d9326bf"
+			"79f2a8eb5cc68d38842d264e97a238b5"
+			"4ffebecd4e922de6c75bd9dd44fbf4d1"
+		)) << "Размер куска: " << chunk;
+	}
 }
 /**
  * @brief Проверка режима выработки имитовставки на шифре «Кузнечик»

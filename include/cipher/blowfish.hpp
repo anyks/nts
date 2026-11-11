@@ -65,6 +65,17 @@ namespace nts {
 	 */
 	namespace cipher {
 		/**
+
+		 * \~russian
+		 * Размер блока Blowfish в байтах
+		 *
+		 * \~english
+		 * Size of the block of the Blowfish cipher in bytes
+		 *
+		 * \~
+		 */
+		static constexpr size_t BLOWFISH_BLOCK = 8;
+		/**
 		 * \~russian
 		 * @brief Контекст Blowfish: P-array из 18 слов и четыре S-box по 256 слов
 		 *
@@ -153,6 +164,33 @@ namespace nts {
 		 */
 		__ANTS_SHARED_EXPORT__ void encipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept;
 		/**
+
+		 * \~russian
+		 * Функция расшифрования блока
+		 *
+		 * @details Сеть Фейстеля обращается переменой порядка подмешиваемых элементов
+		 *          P-array: расшифрование ведётся теми же раундами, но элементы накладываются
+		 *          от последнего к первому
+		 *
+		 * @param ctx контекст Blowfish
+		 * @param xl  левая половина блока
+		 * @param xr  правая половина блока
+		 *
+		 * \~english
+		 * Function of the decryption of a block
+		 *
+		 * @details The Feistel network is inverted by the change of the order of the mixed
+		 *          elements of the P-array: the decryption is done by the same rounds, but the
+		 *          elements are applied from the last one to the first one
+		 *
+		 * @param ctx Blowfish context
+		 * @param xl  left half of the block
+		 * @param xr  right half of the block
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ void decipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept;
+		/**
 		 * \~russian
 		 * @brief Функция шифрования нескольких блоков
 		 *
@@ -170,6 +208,25 @@ namespace nts {
 		 * \~
 		 */
 		__ANTS_SHARED_EXPORT__ void encrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept;
+		/**
+
+		 * \~russian
+		 * Функция расшифрования нескольких блоков
+		 *
+		 * @param ctx    контекст Blowfish
+		 * @param data   данные (массив uint32)
+		 * @param blocks число блоков по 8 байтов
+		 *
+		 * \~english
+		 * Function of the decryption of several blocks
+		 *
+		 * @param ctx    Blowfish context
+		 * @param data   data (array of uint32)
+		 * @param blocks number of 8-byte blocks
+		 *
+		 * \~
+		 */
+		__ANTS_SHARED_EXPORT__ void decrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения слова из потока байтов с зацикливанием
