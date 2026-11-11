@@ -107,12 +107,8 @@ namespace {
 	 *
 	 */
 	__ANTS_BASE64_TARGET__ static inline __m256i convert(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
-		// Таблица добавок: номер нуль - «A», единица - «a», далее цифры и хвост
-		const __m256i table = ((alphabet == nts::codec::alphabet_t::URL)
-			? _mm256_setr_epi8(65, 71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -17, 32, 0, 0,
-			                   65, 71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -17, 32, 0, 0)
-			: _mm256_setr_epi8(65, 71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -19, -16, 0, 0,
-			                   65, 71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -19, -16, 0, 0));
+		// Таблица добавок своего алфавита разводится по обеим полосам
+		const __m256i table = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast <const __m128i *> ((alphabet == nts::codec::alphabet_t::URL) ? nts::codec::kernel::OFFSETS_URL : nts::codec::kernel::OFFSETS)));
 		// Номер хвостового диапазона: нуль до пятидесяти одного, далее единица..двенадцать
 		const __m256i tail = _mm256_subs_epu8(groups, _mm256_set1_epi8(51));
 		// Признак значения от двадцати шести сдвигает номер диапазона на единицу
