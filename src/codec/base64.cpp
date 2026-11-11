@@ -148,36 +148,37 @@ static size_t stepping() noexcept {
 	#endif
 }
 /**
- * @brief Функция кодирования полного блока выбранного шага
+ * @brief Функция кодирования очереди полных блоков выбранным ядром
+ *
+ * @details Векторное ядро AVX2 берёт всю очередь одним вызовом и ведёт блоки
+ *          парами вперемежку, прочие ядра кодируют блок за блоком
  *
  * @param step     шаг блока из функции шага
- * @param data     кодируемые байты шага
- * @param result   место, в которое помещаются знаки шага
+ * @param data     кодируемые байты очереди
+ * @param result   место, в которое помещаются знаки очереди
+ * @param blocks   число полных блоков очереди
  * @param alphabet алфавит записи
  *
  */
-static void dispatchWide(const size_t step, const uint8_t * data, uint8_t * result, const codec::alphabet_t alphabet) noexcept {
+static void dispatchBlocks(const size_t step, const uint8_t * data, uint8_t * result, const size_t blocks, const codec::alphabet_t alphabet) noexcept {
 	/**
 	 * Шаг двадцать четыре байта достаётся лишь векторному ядру AVX2
 	 */
 	#if (defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) && !defined(ANTS_NO_MACHINE)
 		// Векторное ядро несётся при шаге двадцать четыре
-		if(step == 24)
-			// Кодируем блок векторным ядром
-			encode24(data, result, alphabet);
-		// Прочие шаги кодируются двенадцатибайтовым ядром
-		else
-			// Кодируем блок выбранным ядром
-			dispatch(data, result, alphabet);
-	/**
-	 * Без векторного ядра всякий шаг кодируется двенадцатью байтами
-	 */
-	#else
-		// Шаг без векторного ядра всегда двенадцать байтов
-		(void)step;
-		// Кодируем блок выбранным ядром
-		dispatch(data, result, alphabet);
+		if(step == 24){
+			// Кодируем очередь блоков векторным ядром
+			encodeBlocks(data, result, blocks, alphabet);
+			// Выходим из кодирования очереди
+			return;
+		}
 	#endif
+	/**
+	 * Выполняем перебор полных блоков: блок кодирует выбранное ядро
+	 */
+	for(size_t i = 0; i < blocks; i++)
+		// Кодируем блок выбранным ядром
+		dispatch(data + (step * i), result + (((step * 4) / 3) * i), alphabet);
 }
 };
 
@@ -243,17 +244,10 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 	const size_t total = ((blocks * ((step * 4) / 3)) + ((rest / 3) * 4) + ((odd != 0) ? ((odd + 1) + ((padding) ? (3 - odd) : 0)) : 0));
 	// Запись заводится точной длиной: знаки пишутся прямо в неё
 	result.resize(total);
-	// Счётчик знаков записи
-	size_t written = 0;
-	/**
-	 * Выполняем перебор полных блоков: блок кодирует выбранное ядро
-	 */
-	for(size_t i = 0; i < blocks; i++){
-		// Кодируем блок выбранным ядром
-		dispatchWide(step, data.data + (step * i), reinterpret_cast <uint8_t *> (result.data()) + written, alphabet);
-		// Знаки шага записаны
-		written += ((step * 4) / 3);
-	}
+	// Кодируем очередь полных блоков выбранным ядром
+	dispatchBlocks(step, data.data, reinterpret_cast <uint8_t *> (result.data()), blocks, alphabet);
+	// Счётчик знаков записи: знаки полных блоков уже записаны
+	size_t written = (blocks * ((step * 4) / 3));
 	// Хвост входа до двадцати трёх байтов переносимым ходом
 	const uint8_t * tail = data.data + (step * blocks);
 		/**

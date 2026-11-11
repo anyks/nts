@@ -48,6 +48,25 @@
 #include <sys/machine.hpp>
 
 /**
+ * Компиляционные стены машинных ядер: x86-64 требует SSSE3, ARM64 - NEON основания.
+ * Заголовки команд машины подключаются на файловом уровне: внутри пространства
+ * имён их типы и функции осели бы в нём и не были бы видны прочим ядрам файла
+ */
+#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON))) && !defined(ANTS_NO_MACHINE)
+	/**
+	 * x86-64 собирается интринсиками SSE
+	 */
+	#if defined(__x86_64__)
+		#include <immintrin.h>
+	/**
+	 * ARM64 собирается интринсиками NEON
+	 */
+	#else
+		#include <arm_neon.h>
+	#endif
+#endif
+
+/**
  * @brief Основное пространство имён
  *
  */
@@ -180,14 +199,15 @@ namespace nts {
 		 */
 		#if (defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) && !defined(ANTS_NO_MACHINE)
 			/**
-			 * @brief Функция кодирования двадцати четырёх байтов тридцатью двумя знаками командами AVX2
+			 * @brief Функция кодирования очереди блоков двадцати четырёх байтов командами AVX2
 			 *
-			 * @param data     кодируемые двадцать четыре байта
-			 * @param result   место, в которое помещаются тридцать два знака
+			 * @param data     кодируемые байты, по двадцать четыре на блок
+			 * @param result   место, в которое помещаются знаки, по тридцать два на блок
+			 * @param blocks   число полных блоков очереди
 			 * @param alphabet алфавит записи
 			 *
 			 */
-			void encode24(const uint8_t * data, uint8_t * result, const alphabet_t alphabet) noexcept;
+			void encodeBlocks(const uint8_t * data, uint8_t * result, const size_t blocks, const alphabet_t alphabet) noexcept;
 		#endif
 
 
@@ -195,21 +215,6 @@ namespace nts {
 		 * Компиляционные стены машинных ядер: x86-64 требует SSSE3, ARM64 - NEON основания
 		 */
 #if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON))) && !defined(ANTS_NO_MACHINE)
-		/**
-		 * Подключаем заголовочные файлы команд машины
-		 */
-		/**
-		 * x86-64 собирается интринсиками SSE
-		 */
-		#if defined(__x86_64__)
-			#include <immintrin.h>
-		/**
-		 * ARM64 собирается интринсиками NEON
-		 */
-		#else
-			#include <arm_neon.h>
-		#endif
-
 		/**
 		 * @brief Пространство имён машинных ядер основания 64
 		 *
