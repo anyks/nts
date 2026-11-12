@@ -537,6 +537,21 @@ endif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
  #       AArch64). Ключи добавляют эти метки всем функциям разом. Усиленные системы без
  #       меток код отвергают. Включать их дозволено лишь тогда, когда собиратель их
  #       принимает: пригодность проверяется ниже
+ #
+ # @note На ARM64 собиратель Microsoft Visual C++ из проверки исключён: ключ
+ #       -mbranch-protection он не принимает и отбрасывает с предупреждением D9002,
+ #       оттого метки всё равно не появились бы, а пробный исполняемый файл под cl.exe
+ #       не годен ни в какой конфигурации. В отладочной, которую cmake берёт для проб
+ #       по умолчанию, он завершается отказом - код возврата 3 у обеих проб (кэш стенда
+ #       ARM64 и зонд от 12.11.2026), а в интерактивной сессии тот же отказ выглядит как
+ #       незавершающийся процесс (сообщение потребителя AWH v4 от 12.11.2026: Ninja,
+ #       ключи /MDd /Od /RTC1, процесс пробы жив дольше 45 с, настройка cmake стоит).
+ #       В конфигурации Release проба вовсе возвращает 0, и чужой ключ, отбрасываемый с
+ #       D9002, попал бы во все файлы сборки. Ветвь x86-64 под MSVC остаётся: она
+ #       спрашивает лишь пригодность ключа, без запуска пробного файла, и отвечает
+ #       отказом (кэш стенда x86_64 держит пустой BRANCH_PROTECTION_FLAG), оттого ни
+ #       чужих ключей, ни зависания там нет. Контроль потока под MSVC обеспечивается
+ #       штатным /guard:cf и к этой проверке не относится
  ##
 
 # Подключаем проверку пригодности ключей собирателя
@@ -572,8 +587,8 @@ set(BRANCH_PROTECTION_PROBE [=[
     int main(){ return start(); }
 ]=])
 
-# Если сборка ведётся под ARM64
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+# Если сборка ведётся под ARM64 собирателем семейства GCC
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT MSVC)
     # Выполняем проверку того, что под ключом standard перехват исключений работает
     set(CMAKE_REQUIRED_FLAGS "-mbranch-protection=standard")
     check_cxx_source_runs("${BRANCH_PROTECTION_PROBE}" BRANCH_PROTECTION_STANDARD)
@@ -609,7 +624,7 @@ elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
         # Выводим сообщение о метках контроля потока управления
         message(STATUS "Control-flow protection: IBT, SHSTK\n")
     endif (BRANCH_PROTECTION_FLAG)
-endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT MSVC)
 
 ##
  # Указываем что блочный шифр собирается малыми таблицами
