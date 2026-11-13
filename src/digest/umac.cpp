@@ -40,6 +40,32 @@
 #include <cstring>
 
 /**
+ * Если сборка ведётся под x86-64: слой NH идёт SSE2 (базовый на архитектуре)
+ */
+#if (defined(__x86_64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+	/**
+	 * Подключаем заголовочный файл внутренних функций x86-64
+	 */
+	#include <immintrin.h>
+	/**
+	 * Объявляем наличие векторного пути NH SSE2
+	 */
+	#define __ANTS_UMAC_SSE__ 1
+/**
+ * Если сборка ведётся под ARM64: слой NH идёт NEON
+ */
+#elif (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+	/**
+	 * Подключаем заголовочный файл команд ARM
+	 */
+	#include <arm_neon.h>
+	/**
+	 * Объявляем наличие векторного пути NH NEON
+	 */
+	#define __ANTS_UMAC_NEON__ 1
+#endif
+
+/**
  * @brief Служебные объекты модуля
  *
  */
@@ -164,48 +190,136 @@ namespace {
 	 * @return       накопленное значение слоя
 	 *
 	 */
+	/**
+	 * Если есть векторный путь SSE2: разворот байтов в каждом слове чисто сдвигами
+	 * (SSE2, без SSSE3, чтобы путь собирался и на базовом x86-64)
+	 */
+	#if defined(__ANTS_UMAC_SSE__)
+		/**
+		 * @brief Функция разворота байтов в каждом 32-разрядном слове вектора
+		 *
+		 * @param value вектор слов младшим байтом вперёд
+		 * @return      вектор слов старшим байтом вперёд
+		 *
+		 */
+		static inline __m128i bswap32(const __m128i value) noexcept {
+			// Обмен соседних байтов в каждой 16-разрядной половине
+			const __m128i swapped = _mm_or_si128(_mm_slli_epi16(value, 8), _mm_srli_epi16(value, 8));
+			// Обмен двух 16-разрядных половин в каждом 32-разрядном слове
+			return _mm_or_si128(_mm_slli_epi32(swapped, 16), _mm_srli_epi32(swapped, 16));
+		}
+	#endif
+
 	static uint64_t nh(const uint8_t * key, const uint8_t * data, const size_t size) noexcept {
-		// Накопленное значение слоя
-		uint64_t acc = 0;
-		// Развёрнутый блок сообщения
-		uint8_t swapped[L1_BLOCK];
 		/**
-		 * Выполняем разворот каждой четвёрки байтов блока (ENDIAN-SWAP)
+		 * Если есть векторный путь SSE2: разворот четвёрок и произведения сумм идут
+		 * векторно, без побайтового чтения и скалярного накопления
 		 */
-		for(size_t i = 0; i < size; i += 4){
-			// Разворачиваем очередную четвёрку байтов
-			swapped[i] = data[i + 3];
-			// Переносим второй байт четвёрки
-			swapped[i + 1] = data[i + 2];
-			// Переносим третий байт четвёрки
-			swapped[i + 2] = data[i + 1];
-			// Переносим четвёртый байт четвёрки
-			swapped[i + 3] = data[i];
-		}
-		/**
-		 * Выполняем перебор групп по восемь слов (32 байта)
-		 */
-		for(size_t i = 0; i < size; i += 32){
+		#if defined(__ANTS_UMAC_SSE__)
+			// Накопитель произведений (два слова по 64 разряда)
+			__m128i acc = _mm_setzero_si128();
 			/**
-			 * Выполняем перебор четырёх пар слов в группе
+			 * Выполняем перебор групп по восемь слов (32 байта)
 			 */
-			for(size_t j = 0; j < 4; j++){
-				// Слово сообщения и слово ключа первой пары
-				const uint32_t m1 = static_cast <uint32_t> (fetch(swapped + i + j * 4, 4));
-				// Слово ключа первой пары
-				const uint32_t k1 = static_cast <uint32_t> (fetch(key + i + j * 4, 4));
-				// Слово сообщения и слово ключа второй пары (через четыре позиции)
-				const uint32_t m2 = static_cast <uint32_t> (fetch(swapped + i + j * 4 + 16, 4));
-				// Слово ключа второй пары
-				const uint32_t k2 = static_cast <uint32_t> (fetch(key + i + j * 4 + 16, 4));
-				// Накапливаем произведение сумм по модулю 2^64
-				acc += (static_cast <uint64_t> (m1 + k1) * static_cast <uint64_t> (m2 + k2));
+			for(size_t i = 0; i < size; i += 32){
+				// Первые четыре слова сообщения (младшим байтом вперёд) и ключа (старшим вперёд)
+				const __m128i m1 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data + i));
+				// Ключ первой пары, развёрнутый старшим байтом вперёд
+			const __m128i k1 = bswap32(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i)));
+				// Вторые четыре слова сообщения и ключа (через четыре позиции)
+				const __m128i m2 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data + i + 16));
+				// Ключ второй пары, развёрнутый старшим байтом вперёд
+			const __m128i k2 = bswap32(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i + 16)));
+				// Суммы слов по модулю 2^32
+				const __m128i a = _mm_add_epi32(m1, k1);
+				// Суммы вторых пар слов по модулю 2^32
+			const __m128i b = _mm_add_epi32(m2, k2);
+				// Произведения чётных пар (слова 0 и 2) по модулю 2^64
+				const __m128i pe = _mm_mul_epu32(a, b);
+				// Произведения нечётных пар (слова 1 и 3)
+				const __m128i po = _mm_mul_epu32(_mm_srli_epi64(a, 32), _mm_srli_epi64(b, 32));
+				// Накапливаем произведения
+				acc = _mm_add_epi64(acc, _mm_add_epi64(pe, po));
 			}
-		}
-		// Затираем развёрнутый блок
-		wipe(swapped, sizeof(swapped));
-		// Выводим накопленное значение
-		return acc;
+			// Складываем два слова накопителя
+			return static_cast <uint64_t> (_mm_cvtsi128_si64(acc)) + static_cast <uint64_t> (_mm_cvtsi128_si64(_mm_srli_si128(acc, 8)));
+		/**
+		 * Если есть векторный путь NEON
+		 */
+		#elif defined(__ANTS_UMAC_NEON__)
+			// Накопитель произведений
+			uint64x2_t acc = vdupq_n_u64(0);
+			/**
+			 * Выполняем перебор групп по восемь слов (32 байта)
+			 */
+			for(size_t i = 0; i < size; i += 32){
+				// Первые четыре слова сообщения (младшим байтом вперёд) и ключа (старшим вперёд)
+				const uint32x4_t m1 = vreinterpretq_u32_u8(vld1q_u8(data + i));
+				// Ключ первой пары, развёрнутый старшим байтом вперёд
+			const uint32x4_t k1 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(key + i)));
+				// Вторые четыре слова сообщения и ключа
+				const uint32x4_t m2 = vreinterpretq_u32_u8(vld1q_u8(data + i + 16));
+				// Ключ второй пары, развёрнутый старшим байтом вперёд
+			const uint32x4_t k2 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(key + i + 16)));
+				// Суммы слов по модулю 2^32
+				const uint32x4_t a = vaddq_u32(m1, k1);
+				// Суммы вторых пар слов по модулю 2^32
+			const uint32x4_t b = vaddq_u32(m2, k2);
+				// Произведения младших и старших пар слов по модулю 2^64
+				const uint64x2_t p0 = vmull_u32(vget_low_u32(a), vget_low_u32(b));
+				// Произведения старших пар слов (слова 2 и 3)
+			const uint64x2_t p1 = vmull_high_u32(a, b);
+				// Накапливаем произведения
+				acc = vaddq_u64(acc, vaddq_u64(p0, p1));
+			}
+			// Складываем два слова накопителя
+			return vgetq_lane_u64(acc, 0) + vgetq_lane_u64(acc, 1);
+		/**
+		 * Иначе переносимый путь побайтовым разворотом и скалярным накоплением
+		 */
+		#else
+			// Накопленное значение слоя
+			uint64_t acc = 0;
+			// Развёрнутый блок сообщения
+			uint8_t swapped[L1_BLOCK];
+			/**
+			 * Выполняем разворот каждой четвёрки байтов блока (ENDIAN-SWAP)
+			 */
+			for(size_t i = 0; i < size; i += 4){
+				// Разворачиваем очередную четвёрку байтов
+				swapped[i] = data[i + 3];
+				// Переносим второй байт четвёрки
+				swapped[i + 1] = data[i + 2];
+				// Переносим третий байт четвёрки
+				swapped[i + 2] = data[i + 1];
+				// Переносим четвёртый байт четвёрки
+				swapped[i + 3] = data[i];
+			}
+			/**
+			 * Выполняем перебор групп по восемь слов (32 байта)
+			 */
+			for(size_t i = 0; i < size; i += 32){
+				/**
+				 * Выполняем перебор четырёх пар слов в группе
+				 */
+				for(size_t j = 0; j < 4; j++){
+					// Слово сообщения и слово ключа первой пары
+					const uint32_t m1 = static_cast <uint32_t> (fetch(swapped + i + j * 4, 4));
+					// Слово ключа первой пары
+					const uint32_t k1 = static_cast <uint32_t> (fetch(key + i + j * 4, 4));
+					// Слово сообщения и слово ключа второй пары (через четыре позиции)
+					const uint32_t m2 = static_cast <uint32_t> (fetch(swapped + i + j * 4 + 16, 4));
+					// Слово ключа второй пары
+					const uint32_t k2 = static_cast <uint32_t> (fetch(key + i + j * 4 + 16, 4));
+					// Накапливаем произведение сумм по модулю 2^64
+					acc += (static_cast <uint64_t> (m1 + k1) * static_cast <uint64_t> (m2 + k2));
+				}
+			}
+			// Затираем развёрнутый блок
+			wipe(swapped, sizeof(swapped));
+			// Выводим накопленное значение
+			return acc;
+		#endif
 	}
 	/**
 	 * @brief Функция слоя L1-HASH (раздел 5.2.1 RFC 4418)
