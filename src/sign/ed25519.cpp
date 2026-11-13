@@ -80,7 +80,7 @@
  * Векторная выборка окна доступна на ARM64 с NEON: собиратель Microsoft Visual C++ признака
  * набора не объявляет, но команды NEON доступны ему на ARM64 без ключей сборки
  */
-#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(_M_ARM64EC)
+#if defined(__ARM_NEON) || defined(__ANTS_MSVC_ARM64__)
 	#include <arm_neon.h>
 #endif
 
@@ -704,7 +704,7 @@ namespace {
 			/**
 			 * Векторная выборка: девять аккумуляторов несут три значения места по пять слов
 			 */
-			#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(_M_ARM64EC)
+			#if defined(__ARM_NEON) || defined(__ANTS_MSVC_ARM64__)
 				// Слова суммы координат выбранного места в векторах
 				uint64x2_t p0 = vdupq_n_u64(0), p1 = vdupq_n_u64(0), p2 = vdupq_n_u64(0);
 				// Слова разности координат выбранного места в векторах

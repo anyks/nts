@@ -35,7 +35,7 @@
  * без ключей сборки (Microsoft Visual C++), и стены кодека допускают x86-64: прочие
  * машины ядра не зовут вовсе
  */
-#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 #include <immintrin.h>
 /**
  * Если собиратель Microsoft Visual C++: внутренние функции команд AVX2 доступны ему без ключей

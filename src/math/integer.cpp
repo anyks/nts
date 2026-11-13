@@ -337,12 +337,12 @@
 /**
  * Векторные команды выбора записи таблицы окна: NEON под AArch64, SSE2 под x86-64
  */
-#if (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
 	#include <arm_neon.h>
 /**
  * Для x86-64 подключаем заголовочные файлы SSE2 и AVX2
  */
-#elif (defined(__x86_64__) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 	#include <emmintrin.h>
 	#include <immintrin.h>
 #endif
@@ -3220,7 +3220,7 @@ namespace {
 			/**
 			 * Под AArch64 пары слов накапливаются командами NEON
 			 */
-			#if (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+			#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
 				/**
 				 * Выполняем перебор слов записи восьмёрками пар
 				 */
@@ -3280,7 +3280,7 @@ namespace {
 			/**
 			 * Под x86-64 пары слов накапливаются командами SSE2 основания набора
 			 */
-			#elif (defined(__x86_64__) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
+			#elif (defined(__x86_64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 				/**
 				 * Выполняем перебор слов записи восьмёрками пар
 				 */

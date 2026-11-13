@@ -61,11 +61,11 @@
  *       собирателя вместо признака набора
  *
  */
-#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(_M_X64) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(ANTS_NO_MACHINE)
+#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__ANTS_MSVC_X64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * x86-64 собирается интринсиками SSE
 	 */
-	#if defined(__x86_64__) || defined(_M_X64)
+	#if defined(__x86_64__) || defined(__ANTS_MSVC_X64__)
 		#include <immintrin.h>
 	/**
 	 * ARM64 собирается интринсиками NEON
@@ -228,7 +228,7 @@ namespace nts {
 		 * ключ не нужен вовсе, потому ядро объявлено здесь внешней связью и зовётся лишь при
 		 * признаке AVX2 машины
 		 */
-		#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(_M_X64)) && !defined(ANTS_NO_MACHINE)
+		#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 			/**
 			 * @brief Функция кодирования очереди блоков двадцати четырёх байтов командами AVX2
 			 *
@@ -245,7 +245,7 @@ namespace nts {
 		/**
 		 * Компиляционные стены машинных ядер: x86-64 требует SSSE3, ARM64 - NEON основания
 		 */
-#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(_M_X64) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(ANTS_NO_MACHINE)
+#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__ANTS_MSVC_X64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 		/**
 		 * @brief Пространство имён машинных ядер основания 64
 		 *
@@ -275,7 +275,7 @@ namespace nts {
 				/**
 				 * x86-64: ядра интринсиками SSE
 				 */
-				#if defined(__x86_64__) || defined(_M_X64)
+				#if defined(__x86_64__) || defined(__ANTS_MSVC_X64__)
 					// Загруженный блок
 					const __m128i loaded = _mm_loadu_si128(reinterpret_cast <const __m128i *> (block));
 					// Слова из старших трёх байтов каждой тройки
@@ -373,11 +373,11 @@ namespace nts {
 				/**
 				 * Машина несёт ядро кодирования: стены те же, что у самого ядра
 				 */
-				#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(_M_X64) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(ANTS_NO_MACHINE)
+				#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__ANTS_MSVC_X64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 					/**
 					 * x86-64 спрашивает команды SSSE3
 					 */
-					#if defined(__x86_64__) || defined(_M_X64)
+					#if defined(__x86_64__) || defined(__ANTS_MSVC_X64__)
 						// Машинное ядро несётся при наличии команд SSSE3
 						if(::nts::machine::has(::nts::machine::feature_t::SSSE3))
 							// Кодируем блок машинным ядром

@@ -197,6 +197,51 @@
 
 /**
  * \~russian
+ * Признаки сборки под собирателем Microsoft Visual C++ по целевой архитектуре
+ *
+ * @note Сами по себе _M_X64, _M_AMD64 и _M_ARM64 признаком собирателя не служат:
+ *       mingw-w64 объявляет их в собственных системных заголовках, и довольно
+ *       подключения <cstdint>, чтобы _M_X64 оказался определён под GCC. Условие
+ *       на один признак архитектуры открывает под MinGW ветвь, написанную для
+ *       cl.exe, - сборка падает на интринсиках, которым не дан ключ набора команд,
+ *       либо на объявлении функции, чьё имя совпало с макросом другого заголовка.
+ *       Верный признак собирателя - _MSC_VER, и здесь он соединён с архитектурой,
+ *       оттого стены ядер пользуют готовые признаки вместо пары условий
+ *
+ * \~english
+ * The flags of the Microsoft Visual C++ build by target architecture
+ *
+ * @note The _M_X64, _M_AMD64 and _M_ARM64 alone are not the compiler sign:
+ *       mingw-w64 declares them in its own system headers, and the inclusion
+ *       of <cstdint> is enough for _M_X64 to be defined under GCC. A condition
+ *       on the architecture sign alone opens under MinGW the branch written for
+ *       cl.exe - the build fails on the intrinsics given no instruction set key,
+ *       or on the function declaration whose name collides with a macro of
+ *       another header. The valid compiler sign is _MSC_VER, and here it is
+ *       joined with the architecture, so the kernel walls use the ready flags
+ *       instead of a pair of conditions
+ *
+ * \~
+ */
+#if defined(_MSC_VER) && defined(_M_X64)
+	/**
+	 * Признак сборки под x86-64 собирателем Microsoft Visual C++
+	 */
+	#define __ANTS_MSVC_X64__ 1
+#endif
+
+/**
+ * Если сборка ведётся под ARM64 собирателем Microsoft Visual C++
+ */
+#if defined(_MSC_VER) && (defined(_M_ARM64) || defined(_M_ARM64EC))
+	/**
+	 * Признак сборки под ARM64 собирателем Microsoft Visual C++
+	 */
+	#define __ANTS_MSVC_ARM64__ 1
+#endif
+
+/**
+ * \~russian
  * @brief Основное пространство имён
  *
  * \~english

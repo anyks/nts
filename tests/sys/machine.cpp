@@ -82,7 +82,7 @@ TEST(MachineTest, Denied) {
 	 * Векторные команды основания набора есть у всякой машины ARM64 либо x86-64,
 	 * и маска, не называющая их, обязана их оставить
 	 */
-	#if defined(__aarch64__) || defined(__x86_64__) || defined(_M_X64) || defined(_M_ARM64) || defined(_M_ARM64EC) || (defined(__e2k__) && defined(__iset__) && (__iset__ >= 5))
+	#if defined(__aarch64__) || defined(__x86_64__) || defined(__ANTS_MSVC_X64__) || defined(__ANTS_MSVC_ARM64__) || (defined(__e2k__) && defined(__iset__) && (__iset__ >= 5))
 		// Проверяем, что незапрещённое расширение осталось
 		ASSERT_TRUE(machine::has(machine::feature_t::VECTOR));
 	#endif

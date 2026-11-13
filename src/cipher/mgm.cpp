@@ -95,11 +95,11 @@
  * Если сборка ведётся собирателем Microsoft Visual C++ под ARM64 либо x86-64: внутренние функции
  * умножения без переносов доступны ему без ключей сборки, а несёт ли их машина, знает лишь опознание
  */
-#elif (defined(_M_ARM64) || defined(_M_ARM64EC) || defined(_M_X64)) && !defined(ANTS_NO_CARRYLESS)
+#elif (defined(__ANTS_MSVC_ARM64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_CARRYLESS)
 	/**
 	 * Если сборка ведётся под x86-64
 	 */
-	#if defined(_M_X64)
+	#if defined(__ANTS_MSVC_X64__)
 		/**
 		 * Подключаем заголовочный файл команд x86-64
 		 */
@@ -127,7 +127,7 @@
 /**
  * Если машина умножает без переносов командой PMULL
  */
-#if defined(__ANTS_CARRYLESS__) && (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC))
+#if defined(__ANTS_CARRYLESS__) && (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__))
 	/**
 	 * Если собиратель Microsoft Visual C++: его команда умножения без переносов принимает
 	 * вектор из одного места, собранный из слова внутренней функцией
@@ -214,7 +214,7 @@ namespace {
 			/**
 			 * Если умножение ведётся командой PMULL
 			 */
-			#if defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
+			#if defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)
 				// Выполняем умножение сомножителей без переносов
 				const uint64x2_t value = vreinterpretq_u64_p128(__ANTS_PMULL64__(first, second));
 				// Записываем младшую половину произведения

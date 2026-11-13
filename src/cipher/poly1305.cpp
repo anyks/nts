@@ -97,7 +97,7 @@
  * 26 разрядов (1,28 → 0,85 ГБ/с), оттого Эльбрус остаётся на переносимом пути; у собирателя
  * Microsoft Visual C++ числа нет, но есть _umul128 у x64 и __umulh у ARM64
  */
-#if (defined(__SIZEOF_INT128__) && !defined(__e2k__)) || defined(_M_X64) || defined(_M_ARM64) || defined(_M_ARM64EC)
+#if (defined(__SIZEOF_INT128__) && !defined(__e2k__)) || defined(__ANTS_MSVC_X64__) || defined(__ANTS_MSVC_ARM64__)
 	/**
 	 * Объявляем наличие 64-разрядного пути
 	 */

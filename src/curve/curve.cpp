@@ -112,7 +112,7 @@
  *       основания набора - SSE2 у x86-64 и NEON у ARM64 - доступны ему без ключей сборки
  *
  */
-#if (defined(__aarch64__) && defined(__ARM_NEON)) || defined(_M_ARM64) || defined(_M_ARM64EC)
+#if (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__ANTS_MSVC_ARM64__)
 	#include <arm_neon.h>
 	/**
 	 * Включаем ускоренный перебор таблицы векторными командами NEON
@@ -121,7 +121,7 @@
 /**
  * Иначе выбираем векторные команды SSE2 под x86-64
  */
-#elif (defined(__x86_64__) && defined(__SSE2__)) || defined(_M_X64)
+#elif (defined(__x86_64__) && defined(__SSE2__)) || defined(__ANTS_MSVC_X64__)
 	#include <emmintrin.h>
 	/**
 	 * Включаем ускоренный перебор таблицы векторными командами SSE2

@@ -137,7 +137,7 @@
 /**
  * Если сборка ведётся под ARM64
  */
-#if (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */

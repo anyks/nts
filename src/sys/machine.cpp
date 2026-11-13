@@ -84,8 +84,14 @@
 
 /**
  * Если сборка ведётся под x86-64 собирателем Microsoft Visual C++
+ *
+ * @note Одного признака архитектуры здесь мало: mingw-w64 объявляет _M_X64 и _M_AMD64
+ *       в собственном <windows.h>, не определяя при этом _MSC_VER. Без признака
+ *       собирателя <intrin.h> подключается под GCC, где макрос __cpuid из <cpuid.h>
+ *       ломает объявление функции того же имени в psdk_inc/intrin-impl.h
+ *
  */
-#if defined(_M_X64)
+#if defined(_MSC_VER) && defined(_M_X64)
 	/**
 	 * Подключаем заголовочный файл внутренних функций собирателя: опрос процессора
 	 * и чтение регистра разрешённых системой состояний
@@ -214,7 +220,7 @@ namespace {
 		/**
 		 * Если сборка ведётся под ARM64 на Windows
 		 */
-		#elif (defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)) && defined(_WIN32)
+		#elif (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && defined(_WIN32)
 			// Если расширение криптографии ARMv8 есть: AES, PMULL и SHA-256 идут вместе
 			if(::IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE))
 			// Записываем разряды расширений
@@ -291,7 +297,7 @@ namespace {
 		 *       остаётся за снятыми здесь признаками
 		 *
 		 */
-		#elif defined(_M_X64)
+		#elif defined(_MSC_VER) && defined(_M_X64)
 			// Регистры опроса процессора
 			int regs[4] = {0, 0, 0, 0};
 			// Выполняем опрос первого листа процессора
@@ -350,7 +356,7 @@ namespace {
 		/**
 		 * Если сборка ведётся под ARM64 либо x86-64
 		 */
-		#if defined(__aarch64__) || defined(__x86_64__) || defined(_M_X64) || defined(_M_ARM64) || defined(_M_ARM64EC)
+		#if defined(__aarch64__) || defined(__x86_64__) || defined(__ANTS_MSVC_X64__) || defined(__ANTS_MSVC_ARM64__)
 			// Векторные команды основания набора есть у всякой машины
 			result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::VECTOR));
 		/**

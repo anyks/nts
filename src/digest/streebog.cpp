@@ -62,7 +62,7 @@
  * Собиратель Microsoft Visual C++ признака набора SSE2 не объявляет, но команды основания
  * набора x86-64 доступны ему без ключей сборки
  */
-#if (defined(__x86_64__) && defined(__SSE2__)) || defined(_M_X64)
+#if (defined(__x86_64__) && defined(__SSE2__)) || defined(__ANTS_MSVC_X64__)
 	#include <emmintrin.h>
 	/**
 	 * Признак пути сжатия на SSE2
