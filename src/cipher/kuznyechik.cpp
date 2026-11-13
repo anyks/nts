@@ -51,6 +51,33 @@
 #include <sys/wipe.hpp>
 
 /**
+ * Если сборка ведётся под x86-64: векторное сложение итогов таблицы идёт SSE2,
+ * который на этой архитектуре базовый и ключей сборки не требует
+ */
+#if (defined(__x86_64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+	/**
+	 * Подключаем заголовочный файл внутренних функций x86-64
+	 */
+	#include <immintrin.h>
+	/**
+	 * Объявляем наличие векторного пути SSE2
+	 */
+	#define __ANTS_KUZ_SSE__ 1
+/**
+ * Если сборка ведётся под ARM64: векторное сложение идёт NEON
+ */
+#elif (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+	/**
+	 * Подключаем заголовочный файл команд ARM
+	 */
+	#include <arm_neon.h>
+	/**
+	 * Объявляем наличие векторного пути NEON
+	 */
+	#define __ANTS_KUZ_NEON__ 1
+#endif
+
+/**
  * Используем стандартное пространство имён
  */
 using namespace std;
@@ -496,23 +523,57 @@ namespace {
 		 *
 		 */
 		static void translate(uint8_t * block, const spread_t & table) noexcept {
-			// Собираемая младшая половина итога преобразования
-			uint64_t low = 0;
-			// Собираемая старшая половина итога преобразования
-			uint64_t high = 0;
 			/**
-			 * Выполняем перебор байтов преобразуемого блока
+			 * Если есть векторный путь SSE2: итог места байта - шестнадцать байтов,
+			 * они складываются одной векторной операцией вместо двух скалярных
 			 */
-			for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
-				// Складываем младшую половину итога места байта
-				low ^= table.values[i][block[i]][0];
-				// Складываем старшую половину итога места байта
-				high ^= table.values[i][block[i]][1];
-			}
-			// Переносим младшую половину итога преобразования
-			::memcpy(block, &low, sizeof(low));
-			// Переносим старшую половину итога преобразования
-			::memcpy(block + sizeof(low), &high, sizeof(high));
+			#if defined(__ANTS_KUZ_SSE__)
+				// Накопитель итога преобразования
+				__m128i acc = _mm_setzero_si128();
+				/**
+				 * Выполняем перебор байтов преобразуемого блока
+				 */
+				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
+					// Складываем вектор итога места байта
+					acc = _mm_xor_si128(acc, _mm_loadu_si128(reinterpret_cast <const __m128i *> (table.values[i][block[i]])));
+				// Переносим итог преобразования в блок
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (block), acc);
+			/**
+			 * Если есть векторный путь NEON
+			 */
+			#elif defined(__ANTS_KUZ_NEON__)
+				// Накопитель итога преобразования
+				uint8x16_t acc = vdupq_n_u8(0);
+				/**
+				 * Выполняем перебор байтов преобразуемого блока
+				 */
+				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
+					// Складываем вектор итога места байта
+					acc = veorq_u8(acc, vld1q_u8(reinterpret_cast <const uint8_t *> (table.values[i][block[i]])));
+				// Переносим итог преобразования в блок
+				vst1q_u8(block, acc);
+			/**
+			 * Иначе переносимый путь скалярными половинами
+			 */
+			#else
+				// Собираемая младшая половина итога преобразования
+				uint64_t low = 0;
+				// Собираемая старшая половина итога преобразования
+				uint64_t high = 0;
+				/**
+				 * Выполняем перебор байтов преобразуемого блока
+				 */
+				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
+					// Складываем младшую половину итога места байта
+					low ^= table.values[i][block[i]][0];
+					// Складываем старшую половину итога места байта
+					high ^= table.values[i][block[i]][1];
+				}
+				// Переносим младшую половину итога преобразования
+				::memcpy(block, &low, sizeof(low));
+				// Переносим старшую половину итога преобразования
+				::memcpy(block + sizeof(low), &high, sizeof(high));
+			#endif
 		}
 	#endif
 
@@ -541,41 +602,105 @@ namespace {
 		 *
 		 */
 		static void translate4(uint8_t * first, uint8_t * second, uint8_t * third, uint8_t * fourth, const spread_t & table) noexcept {
-			// Накопители половин четырёх блоков
-			uint64_t al = 0, ah = 0, bl = 0, bh = 0, cl = 0, ch = 0, dl = 0, dh = 0;
 			/**
-			 * Выполняем перебор байтов блоков
+			 * Если есть векторный путь SSE2: четыре независимых накопителя, чтения
+			 * таблицы по байтам блоков не зависят друг от друга и идут внахлёст
 			 */
-			for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
-				// Складываем строки таблицы по байтам первого блока
-				al ^= table.values[i][first[i]][0];
-				// Складываем старшую половину итога первого блока
-				ah ^= table.values[i][first[i]][1];
-				// Складываем строки таблицы по байтам второго блока
-				bl ^= table.values[i][second[i]][0];
-				// Складываем старшую половину итога второго блока
-				bh ^= table.values[i][second[i]][1];
-				// Складываем строки таблицы по байтам третьего блока
-				cl ^= table.values[i][third[i]][0];
-				// Складываем старшую половину итога третьего блока
-				ch ^= table.values[i][third[i]][1];
-				// Складываем строки таблицы по байтам четвёртого блока
-				dl ^= table.values[i][fourth[i]][0];
-				// Складываем старшую половину итога четвёртого блока
-				dh ^= table.values[i][fourth[i]][1];
-			}
-			// Записываем половины первого блока
-			::memcpy(first, &al, sizeof(al));
-			::memcpy(first + sizeof(al), &ah, sizeof(ah));
-			// Записываем половины второго блока
-			::memcpy(second, &bl, sizeof(bl));
-			::memcpy(second + sizeof(bl), &bh, sizeof(bh));
-			// Записываем половины третьего блока
-			::memcpy(third, &cl, sizeof(cl));
-			::memcpy(third + sizeof(cl), &ch, sizeof(ch));
-			// Записываем половины четвёртого блока
-			::memcpy(fourth, &dl, sizeof(dl));
-			::memcpy(fourth + sizeof(dl), &dh, sizeof(dh));
+			#if defined(__ANTS_KUZ_SSE__)
+				// Накопители итогов четырёх блоков
+				__m128i a = _mm_setzero_si128(), b = _mm_setzero_si128();
+				// Накопители итогов третьего и четвёртого блоков
+				__m128i c = _mm_setzero_si128(), d = _mm_setzero_si128();
+				/**
+				 * Выполняем перебор байтов блоков
+				 */
+				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
+					// Складываем вектор итога места байта первого блока
+					a = _mm_xor_si128(a, _mm_loadu_si128(reinterpret_cast <const __m128i *> (table.values[i][first[i]])));
+					// Складываем вектор итога места байта второго блока
+					b = _mm_xor_si128(b, _mm_loadu_si128(reinterpret_cast <const __m128i *> (table.values[i][second[i]])));
+					// Складываем вектор итога места байта третьего блока
+					c = _mm_xor_si128(c, _mm_loadu_si128(reinterpret_cast <const __m128i *> (table.values[i][third[i]])));
+					// Складываем вектор итога места байта четвёртого блока
+					d = _mm_xor_si128(d, _mm_loadu_si128(reinterpret_cast <const __m128i *> (table.values[i][fourth[i]])));
+				}
+				// Записываем итог первого блока
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (first), a);
+				// Записываем итог второго блока
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (second), b);
+				// Записываем итог третьего блока
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (third), c);
+				// Записываем итог четвёртого блока
+				_mm_storeu_si128(reinterpret_cast <__m128i *> (fourth), d);
+			/**
+			 * Если есть векторный путь NEON
+			 */
+			#elif defined(__ANTS_KUZ_NEON__)
+				// Накопители итогов четырёх блоков
+				uint8x16_t a = vdupq_n_u8(0), b = vdupq_n_u8(0);
+				// Накопители итогов третьего и четвёртого блоков
+				uint8x16_t c = vdupq_n_u8(0), d = vdupq_n_u8(0);
+				/**
+				 * Выполняем перебор байтов блоков
+				 */
+				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
+					// Складываем вектор итога места байта первого блока
+					a = veorq_u8(a, vld1q_u8(reinterpret_cast <const uint8_t *> (table.values[i][first[i]])));
+					// Складываем вектор итога места байта второго блока
+					b = veorq_u8(b, vld1q_u8(reinterpret_cast <const uint8_t *> (table.values[i][second[i]])));
+					// Складываем вектор итога места байта третьего блока
+					c = veorq_u8(c, vld1q_u8(reinterpret_cast <const uint8_t *> (table.values[i][third[i]])));
+					// Складываем вектор итога места байта четвёртого блока
+					d = veorq_u8(d, vld1q_u8(reinterpret_cast <const uint8_t *> (table.values[i][fourth[i]])));
+				}
+				// Записываем итог первого блока
+				vst1q_u8(first, a);
+				// Записываем итог второго блока
+				vst1q_u8(second, b);
+				// Записываем итог третьего блока
+				vst1q_u8(third, c);
+				// Записываем итог четвёртого блока
+				vst1q_u8(fourth, d);
+			/**
+			 * Иначе переносимый путь скалярными половинами
+			 */
+			#else
+				// Накопители половин четырёх блоков
+				uint64_t al = 0, ah = 0, bl = 0, bh = 0, cl = 0, ch = 0, dl = 0, dh = 0;
+				/**
+				 * Выполняем перебор байтов блоков
+				 */
+				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
+					// Складываем строки таблицы по байтам первого блока
+					al ^= table.values[i][first[i]][0];
+					// Складываем старшую половину итога первого блока
+					ah ^= table.values[i][first[i]][1];
+					// Складываем строки таблицы по байтам второго блока
+					bl ^= table.values[i][second[i]][0];
+					// Складываем старшую половину итога второго блока
+					bh ^= table.values[i][second[i]][1];
+					// Складываем строки таблицы по байтам третьего блока
+					cl ^= table.values[i][third[i]][0];
+					// Складываем старшую половину итога третьего блока
+					ch ^= table.values[i][third[i]][1];
+					// Складываем строки таблицы по байтам четвёртого блока
+					dl ^= table.values[i][fourth[i]][0];
+					// Складываем старшую половину итога четвёртого блока
+					dh ^= table.values[i][fourth[i]][1];
+				}
+				// Записываем половины первого блока
+				::memcpy(first, &al, sizeof(al));
+				::memcpy(first + sizeof(al), &ah, sizeof(ah));
+				// Записываем половины второго блока
+				::memcpy(second, &bl, sizeof(bl));
+				::memcpy(second + sizeof(bl), &bh, sizeof(bh));
+				// Записываем половины третьего блока
+				::memcpy(third, &cl, sizeof(cl));
+				::memcpy(third + sizeof(cl), &ch, sizeof(ch));
+				// Записываем половины четвёртого блока
+				::memcpy(fourth, &dl, sizeof(dl));
+				::memcpy(fourth + sizeof(dl), &dh, sizeof(dh));
+			#endif
 		}
 	#endif
 	// Метод сложения блока с ключом
