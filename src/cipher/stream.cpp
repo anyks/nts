@@ -75,7 +75,7 @@ bool nts::cipher::Stream::pass(const view_t & source, vector <uint8_t> & result)
 	 * Выполняем перехват ошибок
 	 */
 	try {
-		// Выполняем рост накопителя под кусок
+		// Рост накопителя под кусок
 		result.resize(offset + source.size);
 	/**
 	 * Выполняем перехват ошибок
@@ -105,7 +105,7 @@ bool nts::cipher::Stream::pass(const view_t & source, vector <uint8_t> & result)
 	}
 	// Если пропуск не удался
 	if(!passed){
-		// Выполняем затирание недописанного итога
+		// Затирание недописанного итога
 		wipe(output, source.size);
 		// Возвращаем накопителю прежнюю длину
 		result.resize(offset);
@@ -159,7 +159,7 @@ bool nts::cipher::Stream::ready() const noexcept {
  *
  */
 bool nts::cipher::Stream::start(const direction_t direction, const block_t & block, const regime_t mode, const size_t tag) noexcept {
-	// Выполняем сброс прежнего потока
+	// Сброс прежнего потока
 	this->clear();
 	// Если направление не установлено
 	if((direction != direction_t::ENCRYPT) && (direction != direction_t::DECRYPT))
@@ -191,14 +191,14 @@ bool nts::cipher::Stream::start(const direction_t direction, const block_t & blo
 	if(direction == direction_t::ENCRYPT){
 		// Если вектор из энтропии выработать не удалось
 		if(!entropy::bytes(this->_vector, this->_head)){
-			// Выполняем сброс потока
+			// Сброс потока
 			this->clear();
 			// Выводим отказ заведения
 			return false;
 		}
 		// Если режим на выработанном векторе не запустился
 		if(!this->launch()){
-			// Выполняем сброс потока
+			// Сброс потока
 			this->clear();
 			// Выводим отказ заведения
 			return false;
@@ -209,13 +209,13 @@ bool nts::cipher::Stream::start(const direction_t direction, const block_t & blo
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем заготовку места под удерживаемый хвост
+			// Заготовка места под удерживаемый хвост
 			this->_tail.reserve(this->_tag);
 		/**
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
-			// Выполняем сброс потока
+			// Сброс потока
 			this->clear();
 			// Выводим отказ заведения
 			return false;
@@ -245,19 +245,19 @@ void nts::cipher::Stream::clear() noexcept {
 	this->_head = 0;
 	// Сбрасываем число накопленных байтов вектора
 	this->_gathered = 0;
-	// Выполняем затирание вектора
+	// Затирание вектора
 	wipe(this->_vector, sizeof(this->_vector));
 	// Если удерживаемый хвост непуст
 	if(!this->_tail.empty())
-		// Выполняем затирание удерживаемого хвоста
+		// Затирание удерживаемого хвоста
 		wipe(this->_tail.data(), this->_tail.size());
 	// Сбрасываем удерживаемый хвост, память остаётся за ним
 	this->_tail.clear();
 	// Сбрасываем базовый шифр
 	this->_block = block_t();
-	// Выполняем сброс режима гаммирования с обратной связью
+	// Сброс режима гаммирования с обратной связью
 	this->_feedback.clear();
-	// Выполняем сброс режима GCM
+	// Сброс режима GCM
 	this->_gcm.clear();
 }
 /**
@@ -387,7 +387,7 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 	if(held < this->_tail.size())
 		// Сдвигаем остаток хвоста к началу
 		::memmove(this->_tail.data(), this->_tail.data() + held, this->_tail.size() - held);
-	// Выполняем затирание выданной части хвоста
+	// Затирание выданной части хвоста
 	wipe(this->_tail.data() + (this->_tail.size() - held), held);
 	// Укорачиваем хвост на выданное
 	this->_tail.resize(this->_tail.size() - held);
@@ -469,7 +469,7 @@ bool nts::cipher::Stream::finish(vector <uint8_t> & result) noexcept {
 					finished = false;
 				}
 			}
-			// Выполняем затирание метки
+			// Затирание метки
 			wipe(tag, sizeof(tag));
 		}
 	// Иначе поток на расшифрование
@@ -483,7 +483,7 @@ bool nts::cipher::Stream::finish(vector <uint8_t> & result) noexcept {
 			// Сличаем удержанную метку
 			finished = this->_gcm.verify(view_t(this->_tail.data(), this->_tail.size()));
 	}
-	// Выполняем сброс потока: завершение закрывает его
+	// Сброс потока: завершение закрывает его
 	this->clear();
 	// Выводим признак успешности завершения
 	return finished;
@@ -493,7 +493,7 @@ bool nts::cipher::Stream::finish(vector <uint8_t> & result) noexcept {
  *
  */
 nts::cipher::Stream::Stream() noexcept : _ready(false), _headed(false), _direction(direction_t::NONE), _mode(regime_t::NONE), _tag(0), _head(0), _gathered(0) {
-	// Выполняем затирание вектора
+	// Затирание вектора
 	wipe(this->_vector, sizeof(this->_vector));
 }
 /**
@@ -501,6 +501,6 @@ nts::cipher::Stream::Stream() noexcept : _ready(false), _headed(false), _directi
  *
  */
 nts::cipher::Stream::~Stream() noexcept {
-	// Выполняем сброс потока
+	// Сброс потока
 	this->clear();
 }

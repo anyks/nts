@@ -488,7 +488,7 @@ namespace nts {
 			 * @return        признак успешности сжатия; отказ шлёт цепочку несжатой
 			 *
 			 * \~english
-			 * @brief Call of the compression of the chain of the certificates
+			 * @brief Метод Call of the compression of the chain of the certificates
 			 *
 			 * @param source  the body of the message of the chain of the certificates being compressed
 			 * @param result  the accumulator the compressed body is put into
@@ -509,7 +509,7 @@ namespace nts {
 			 * @return         признак успешности распаковки; отказ отвергает цепочку
 			 *
 			 * \~english
-			 * @brief Call of the decompression of the chain of the certificates
+			 * @brief Метод Call of the decompression of the chain of the certificates
 			 *
 			 * @param source   the compressed body being decompressed
 			 * @param expected the expected length of the body after the decompression
@@ -610,7 +610,7 @@ namespace nts {
 			 * @return         признак того, что опознаватель известен и ключ выдан
 			 *
 			 * \~english
-			 * @brief Call of the server: the key by the identity of the client
+			 * @brief Метод Call of the server: the key by the identity of the client
 			 *
 			 * @param identity the identity presented by the client
 			 * @param key      the accumulator the key not longer than 64 bytes is put into
@@ -631,7 +631,7 @@ namespace nts {
 			 * @return         признак того, что опознаватель и ключ выбраны заново; отказ оставляет настроенные
 			 *
 			 * \~english
-			 * @brief Call of the client: the identity and the key by the hint of the server
+			 * @brief Метод Call of the client: the identity and the key by the hint of the server
 			 *
 			 * @param hint     the psk_identity_hint of the server
 			 * @param identity the accumulator the identity not longer than 128 bytes is put into
@@ -774,7 +774,7 @@ namespace nts {
 			 *                   GIVEN берёт выданную, REFUSE обрывает рукопожатие
 			 *
 			 * \~english
-			 * @brief Call of the server: the authenticity by the name of the host presented by the client
+			 * @brief Метод Call of the server: the authenticity by the name of the host presented by the client
 			 *
 			 * @param name       the name of the host as the client has sent it; an empty name -
 			 *                   there was no server_name extension in the greeting
@@ -1058,7 +1058,7 @@ namespace nts {
 		 * @param context указатель контекста потребителя
 		 *
 		 * \~english
-		 * @brief Call of the connection secrets log
+		 * @brief Метод Call of the connection secrets log
 		 *
 		 * @details NSS Key Log Format: label, client_random and secret in hexadecimal
 		 *          separated by spaces. Labels: CLIENT_RANDOM (TLS 1.2 master_secret),

@@ -24,7 +24,7 @@
  *          заведёнными при установке ключа
  *
  * @section Намеренные решения
- * 1. Ослепление ведётся по сомножителям порознь: вычет числа по p умножается на
+ *  1. Ослепление ведётся по сомножителям порознь: вычет числа по p умножается на
  *    r₁^e, вычет по q - на r₂^e, а после секретной степени итог умножается на r₁⁻¹ и
  *    r₂⁻¹ (секретная степень открытой степени ослепляющего числа есть само число).
  *    Обратные числа считаются алгоритмом Бернстайна и Янга за постоянное время
@@ -48,11 +48,11 @@
  *    всегда идёт быстрым путём, одновременные платят 75 мкс на Xeon вместо отказа.
  *    Разветвление процесса посреди чужой подписи оставляет признак у потомка
  *    занятым до установки ключа, и потомок идёт путём свежего ослепления.
- * 2. Предвычисления Монтгомери по n, p и q и коэффициент qInv в области по p
+ *  2. Предвычисления Монтгомери по n, p и q и коэффициент qInv в области по p
  *    заводятся при установке ключа (prepare), оттого подпись и сличение не платят за
  *    них: прежде сличение подписи RSA-2048 стоило 308 мкс, из которых сами
  *    восемнадцать умножений - 22 (круг 28, CONFORMANCE.md).
- * 3. Итог секретного действия сверяется открытой степенью с исходным числом: сбой
+ *  3. Итог секретного действия сверяется открытой степенью с исходным числом: сбой
  *    в одной из ветвей китайской теоремы выдаёт сомножитель модуля (Ленстра), и
  *    расходящийся итог не выдаётся.
  *
@@ -423,7 +423,7 @@ namespace {
 		if((data.data != nullptr) && (data.size > 0))
 			// Затираем буфер: память принадлежит записчику и постоянной не является
 			wipe(const_cast <uint8_t *> (data.data), data.size);
-		// Выполняем сброс записчика
+		// Сброс записчика
 		writer.clear();
 	}
 	/**
@@ -490,7 +490,7 @@ bool nts::sign::Rsa::factor(const size_t bits, math::integer_t & result) const n
 		result.add(random, top);
 		// Если сомножитель чётный
 		if(!result.odd())
-			// Делаем сомножитель нечётным
+			// Сомножитель нечётным
 			result.add(result, one);
 		// Сомножитель без единицы и обратное к показателю
 		math::integer_t lessened, inverse;
@@ -515,7 +515,7 @@ bool nts::sign::Rsa::factor(const size_t bits, math::integer_t & result) const n
  *
  */
 bool nts::sign::Rsa::derive() noexcept {
-	// Единица
+	// Единица поля RSA
 	math::integer_t one;
 	// Записываем единицу
 	one.word(1);
@@ -1481,7 +1481,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 			// Выводим отрицательный результат - схема не поддержана
 			return false;
 	}
-	// Выполняем секретное действие над закодированным сообщением
+	// Секретное действие над закодированным сообщением
 	const bool result = this->decipher(view_t(encoded, length), signature);
 	// Затираем закодированное сообщение
 	wipe(encoded, sizeof(encoded));
@@ -1520,7 +1520,7 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 		return false;
 	// Закодированное сообщение из подписи
 	uint8_t encoded[math::INTEGER_SIZE];
-	// Выполняем открытое действие над подписью
+	// Открытое действие над подписью
 	if(!this->encipher(signature, encoded))
 		// Выводим отрицательный результат - действие не выполнено
 		return false;
@@ -1752,7 +1752,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 			} else if(!entropy::bytes(seed, hash))
 				// Выводим отрицательный результат - затравка не выработана
 				return false;
-			// Маска
+			// Маска OAEP
 			uint8_t mask[math::INTEGER_SIZE];
 			// Вырабатываем маску блока данных по затравке
 			if(!mgf1(algorithm, seed, hash, mask, block)){
@@ -1788,7 +1788,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 			// Выводим отрицательный результат - схема не поддержана
 			return false;
 	}
-	// Выполняем открытое действие над закодированным сообщением
+	// Открытое действие над закодированным сообщением
 	const bool result = this->encipher(view_t(encoded, modulus), output);
 	// Затираем закодированное сообщение
 	wipe(encoded, sizeof(encoded));
@@ -1818,7 +1818,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 		return false;
 	// Закодированное сообщение
 	uint8_t encoded[math::INTEGER_SIZE];
-	// Выполняем секретное действие над шифротекстом
+	// Секретное действие над шифротекстом
 	if(!this->decipher(input, encoded))
 		// Выводим отрицательный результат - действие не выполнено
 		return false;

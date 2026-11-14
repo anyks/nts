@@ -693,7 +693,7 @@ namespace {
 				::memcpy(b + 8, result.data() + 8 + i * 8, 8);
 				// Зашифровываем сшивку
 				if(!aes.encrypt(b, b)){
-					// Выполняем затирание сшивки
+					// Затирание сшивки
 					nts::sys::wipe(b, sizeof(b));
 					// Выводим отказ защиты
 					return false;
@@ -704,13 +704,13 @@ namespace {
 				 * Обновляем регистр целостности
 				 */
 				for(size_t k = 0; k < 8; k++)
-					// Выполняем сложение по модулю два со счётчиком
+					// Сложение по модулю два со счётчиком
 					a[k] = b[k] ^ static_cast <uint8_t> (t >> (56 - k * 8));
 				// Переносим младшую половину в блок итога
 				::memcpy(result.data() + 8 + i * 8, b + 8, 8);
 			}
 		}
-		// Выполняем затирание сшивки
+		// Затирание сшивки
 		nts::sys::wipe(b, sizeof(b));
 		// Переносим регистр целостности в голову итога
 		::memcpy(result.data(), a, 8);
@@ -775,13 +775,13 @@ namespace {
 				 * Сшиваем регистр со счётчиком и очередной блок
 				 */
 				for(size_t k = 0; k < 8; k++)
-					// Выполняем сложение по модулю два со счётчиком
+					// Сложение по модулю два со счётчиком
 					b[k] = a[k] ^ static_cast <uint8_t> (t >> (56 - k * 8));
 				// Переносим блок ключа в сшивку
 				::memcpy(b + 8, result.data() + i * 8, 8);
 				// Расшифровываем сшивку
 				if(!aes.decrypt(b, b)){
-					// Выполняем затирание сшивки
+					// Затирание сшивки
 					nts::sys::wipe(b, sizeof(b));
 					// Выводим отказ снятия защиты
 					return false;
@@ -792,7 +792,7 @@ namespace {
 				::memcpy(result.data() + i * 8, b + 8, 8);
 			}
 		}
-		// Выполняем затирание сшивки
+		// Затирание сшивки
 		nts::sys::wipe(b, sizeof(b));
 		// Сверяем регистр целостности с начальным значением A6A6A6A6A6A6A6A6
 		bool sound = true;
@@ -802,11 +802,11 @@ namespace {
 		for(size_t k = 0; k < 8; k++)
 			// Накапливаем признак целостности
 			sound = (sound && (a[k] == 0xA6));
-		// Выполняем затирание регистра
+		// Затирание регистра
 		nts::sys::wipe(a, sizeof(a));
 		// Если целостность нарушена
 		if(!sound){
-			// Выполняем затирание итога
+			// Затирание итога
 			nts::sys::wipe(result.data(), result.size());
 			// Выводим отказ снятия защиты
 			return false;
@@ -906,7 +906,7 @@ namespace {
 			vector <uint8_t> plain(padded, static_cast <uint8_t> (BLOCK - (content.size % BLOCK)));
 			// Переносим содержимое
 			if(content.size > 0)
-				// Выполняем копирование содержимого
+				// Копирование содержимого
 				::memcpy(plain.data(), content.data, content.size);
 			// Занимаем место под шифротекст
 			result.assign(padded, 0);
@@ -916,19 +916,19 @@ namespace {
 			cipher::chaining_t chaining;
 			// Если ключ и режим установить не удалось
 			if(!aes.key(cek) || !chaining.start(cipher::block_t(aes), iv)){
-				// Выполняем затирание дополненного содержимого
+				// Затирание дополненного содержимого
 				nts::sys::wipe(plain.data(), plain.size());
 				// Выводим отказ зашифрования
 				return nts::cms::error_t::KEY;
 			}
 			// Если содержимое зашифровать не удалось
 			if(!chaining.encrypt(view_t(plain.data(), plain.size()), result.data())){
-				// Выполняем затирание дополненного содержимого
+				// Затирание дополненного содержимого
 				nts::sys::wipe(plain.data(), plain.size());
 				// Выводим отказ зашифрования
 				return nts::cms::error_t::KEY;
 			}
-			// Выполняем затирание дополненного содержимого
+			// Затирание дополненного содержимого
 			nts::sys::wipe(plain.data(), plain.size());
 		// Если памяти под итог не хватило
 		/**
@@ -978,7 +978,7 @@ namespace {
 			const uint8_t padding = result.back();
 			// Если дополнение негодно
 			if((padding == 0) || (padding > BLOCK)){
-				// Выполняем затирание итога
+				// Затирание итога
 				nts::sys::wipe(result.data(), result.size());
 				// Выводим отказ устройства записи
 				return nts::cms::error_t::STRUCTURE;
@@ -993,7 +993,7 @@ namespace {
 				sound = (sound && (result[i] == padding));
 			// Если дополнение нарушено
 			if(!sound){
-				// Выполняем затирание итога
+				// Затирание итога
 				nts::sys::wipe(result.data(), result.size());
 				// Выводим отказ устройства записи
 				return nts::cms::error_t::STRUCTURE;
@@ -1034,7 +1034,7 @@ namespace {
 		nts::cms::error_t outcome = encryptContent(content, view_t(cek, CEK), view_t(iv, sizeof(iv)), encrypted);
 		// Если содержимое зашифровать не удалось
 		if(outcome != nts::cms::error_t::NONE){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 			// Выводим отказ сборки
 			return outcome;
@@ -1047,14 +1047,14 @@ namespace {
 			asn1::writer_t body;
 			// Открываем запись EnvelopedData
 			if(!body.open(asn1::tag_t::SEQUENCE)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Записываем издание записи EnvelopedData
 			if(!body.integer(version)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
@@ -1063,91 +1063,91 @@ namespace {
 			const view_t record = recipient.data();
 			// Если запись сведений о получателе перенести не удалось
 			if(record.data == nullptr){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Открываем набор сведений о получателях
 			if(!body.open(asn1::tag_t::SET)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Переносим запись сведений о получателе как готовый элемент
 			if(!embed(body, record)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Закрываем набор сведений о получателях
 			if(!body.close()){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Открываем запись EncryptedContentInfo
 			if(!body.open(asn1::tag_t::SEQUENCE)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Записываем опознаватель вида содержимого id-data
 			if(!body.oid(OID_DATA)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Открываем запись алгоритма шифрования содержимого
 			if(!body.open(asn1::tag_t::SEQUENCE)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Записываем опознаватель шифра AES-256-CBC
 			if(!body.oid(OID_AES256_CBC)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Записываем синхропосылку
 			if(!body.octets(view_t(iv, sizeof(iv)))){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Закрываем запись алгоритма шифрования содержимого
 			if(!body.close()){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Записываем зашифрованное содержимое меткой [0] простого вида
 			if(!body.element(asn1::cls_t::CONTEXT, false, 0, view_t(encrypted.data(), encrypted.size()))){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Закрываем запись EncryptedContentInfo
 			if(!body.close()){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Закрываем запись EnvelopedData
 			if(!body.close()){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
@@ -1156,21 +1156,21 @@ namespace {
 			asn1::writer_t wrapper;
 			// Открываем запись ContentInfo
 			if(!wrapper.open(asn1::tag_t::SEQUENCE)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Записываем опознаватель вида содержимого id-envelopedData
 			if(!wrapper.oid(OID_ENVELOPED)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Открываем содержимое записи меткой [0]
 			if(!wrapper.open(asn1::cls_t::CONTEXT, 0)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
@@ -1179,21 +1179,21 @@ namespace {
 			const view_t envelope = body.data();
 			// Переносим запись EnvelopedData как готовый элемент
 			if(!embed(wrapper, envelope)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Закрываем содержимое записи
 			if(!wrapper.close()){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
 			}
 			// Закрываем запись ContentInfo
 			if(!wrapper.close()){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 				// Выводим отказ сборки
 				return nts::cms::error_t::MEMORY;
@@ -1207,12 +1207,12 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 			// Выводим отказ памяти
 			return nts::cms::error_t::MEMORY;
 		}
-		// Выполняем затирание ключа шифрования содержимого
+		// Затирание ключа шифрования содержимого
 		nts::sys::wipe(cek, sizeof(cek));
 		// Выводим успешность сборки
 		return nts::cms::error_t::NONE;
@@ -1227,7 +1227,7 @@ namespace {
  *
  */
 nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
-	// Выполняем сброс разобранных сведений
+	// Сброс разобранных сведений
 	this->clear();
 	// Если запись пуста
 	if((data.data == nullptr) || (data.size == 0))
@@ -1552,7 +1552,7 @@ nts::cms::Signed::Signed() noexcept : _error(error_t::NONE) {}
  *
  */
 nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
-	// Выполняем сброс разобранных сведений
+	// Сброс разобранных сведений
 	this->clear();
 	// Если запись пуста
 	if((data.data == nullptr) || (data.size == 0))
@@ -2608,7 +2608,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	sign::rsa_t rsa;
 	// Если ключ RSA установить не удалось
 	if(!rsa.key(view_t(public_.n.data(), public_.n.size()), view_t(public_.e.data(), public_.e.size()))){
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ ключа
 		return error_t::KEY;
@@ -2626,14 +2626,14 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
 	// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
 	// Если ключ защитить не удалось
 	if(!rsa.encrypt(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(cek, sizeof(cek)), wrapped.data())){
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ ключа
 		return error_t::KEY;
@@ -2650,21 +2650,21 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		asn1::writer_t recipient;
 		// Открываем запись KeyTransRecipientInfo
 		if(!recipient.open(asn1::tag_t::SEQUENCE)){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем издание записи: у rid issuerAndSerialNumber издание 0
 		if(!recipient.integer(0)){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Открываем запись IssuerAndSerialNumber
 		if(!recipient.open(asn1::tag_t::SEQUENCE)){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
 			return error_t::MEMORY;
@@ -2677,14 +2677,14 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			asn1::element_t element;
 			// Если запись имени издателя разобрать не удалось
 			if(!name.next(asn1::tag_t::SEQUENCE, element)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 			// Выводим отказ устройства записи
 				return error_t::STRUCTURE;
 			}
 			// Переносим содержимое имени издателя
 			if(!recipient.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), element.content)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
 			// Выводим отказ сборки
 				return error_t::MEMORY;
@@ -2692,35 +2692,35 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем порядковый номер сертификата
 		if(!recipient.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), serial)){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Закрываем запись IssuerAndSerialNumber
 		if(!recipient.close()){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем алгоритм rsaEncryption с пустыми настройками
 		if(!writeAlgorithm(recipient, OID_RSA, true)){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем защищённый ключ
 		if(!recipient.octets(view_t(wrapped.data(), wrapped.size()))){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Закрываем запись KeyTransRecipientInfo
 		if(!recipient.close()){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
 			return error_t::MEMORY;
@@ -2732,12 +2732,12 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
 	// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
-	// Выполняем затирание ключа шифрования содержимого
+	// Затирание ключа шифрования содержимого
 	nts::sys::wipe(cek, sizeof(cek));
 	// Выводим итог сборки
 	return outcome;
@@ -2790,14 +2790,14 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
 	// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
 	// Если инкапсуляцию выполнить не удалось
 	if(!agreement::encapsulate(kem, key, kemct.data(), shared)){
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ ключа
 		return error_t::KEY;
@@ -2806,19 +2806,19 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	uint8_t kek[32];
 	// Вырабатываем ключ KEK по разделу 5 RFC 9629
 	if(!deriveKek(view_t(shared, sizeof(shared)), OID_AES256_WRAP, sizeof(kek), kek)){
-		// Выполняем затирание секретов
+		// Затирание секретов
 		nts::sys::wipe(shared, sizeof(shared));
 		nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	}
-	// Выполняем затирание общего секрета
+	// Затирание общего секрета
 	nts::sys::wipe(shared, sizeof(shared));
 	// Защищённый ключ содержимого
 	vector <uint8_t> wrapped;
 	// Если ключ содержимого защитить не удалось
 	if(!aesWrap(view_t(kek, sizeof(kek)), view_t(cek, sizeof(cek)), wrapped)){
-		// Выполняем затирание секретов
+		// Затирание секретов
 		nts::sys::wipe(kek, sizeof(kek));
 		nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ ключа
@@ -2836,7 +2836,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		asn1::writer_t recipient;
 		// Открываем запись KEMRecipientInfo
 		if(!recipient.open(asn1::tag_t::SEQUENCE)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2844,7 +2844,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем издание записи: по разделу 3 RFC 9629 издание всегда 0
 		if(!recipient.integer(0)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2852,7 +2852,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Открываем запись IssuerAndSerialNumber
 		if(!recipient.open(asn1::tag_t::SEQUENCE)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2866,7 +2866,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			asn1::element_t element;
 			// Если запись имени издателя разобрать не удалось
 			if(!name.next(asn1::tag_t::SEQUENCE, element)){
-				// Выполняем затирание секретов
+				// Затирание секретов
 				nts::sys::wipe(kek, sizeof(kek));
 				nts::sys::wipe(cek, sizeof(cek));
 			// Выводим отказ устройства записи
@@ -2874,7 +2874,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			}
 			// Переносим содержимое имени издателя
 			if(!recipient.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), element.content)){
-				// Выполняем затирание секретов
+				// Затирание секретов
 				nts::sys::wipe(kek, sizeof(kek));
 				nts::sys::wipe(cek, sizeof(cek));
 			// Выводим отказ сборки
@@ -2883,7 +2883,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем порядковый номер сертификата
 		if(!recipient.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), serial)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2891,7 +2891,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Закрываем запись IssuerAndSerialNumber
 		if(!recipient.close()){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2899,7 +2899,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем алгоритм KEM без настроек
 		if(!writeAlgorithm(recipient, kemOid, false)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2907,7 +2907,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем текст инкапсуляции
 		if(!recipient.octets(view_t(kemct.data(), kemct.size()))){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2915,7 +2915,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем алгоритм выработки ключа HKDF-SHA-256 без настроек
 		if(!writeAlgorithm(recipient, OID_HKDF_SHA256, false)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2923,7 +2923,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем длину ключа KEK
 		if(!recipient.integer(static_cast <int64_t> (sizeof(kek)))){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2931,7 +2931,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем алгоритм защиты ключа AES-256-KW без настроек
 		if(!writeAlgorithm(recipient, OID_AES256_WRAP, false)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2939,7 +2939,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем защищённый ключ содержимого
 		if(!recipient.octets(view_t(wrapped.data(), wrapped.size()))){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2947,7 +2947,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Закрываем запись KEMRecipientInfo
 		if(!recipient.close()){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2957,7 +2957,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		asn1::writer_t ori;
 		// Открываем запись OtherRecipientInfo
 		if(!ori.open(asn1::tag_t::SEQUENCE)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2965,7 +2965,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Записываем опознаватель сведений KEM
 		if(!ori.oid(OID_ORI_KEM)){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2973,7 +2973,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Переносим запись KEMRecipientInfo как готовый элемент
 		if(!embed(ori, recipient.data())){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2981,7 +2981,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		}
 		// Закрываем запись OtherRecipientInfo
 		if(!ori.close()){
-			// Выполняем затирание секретов
+			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ сборки
@@ -2994,13 +2994,13 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
-		// Выполняем затирание секретов
+		// Затирание секретов
 		nts::sys::wipe(kek, sizeof(kek));
 		nts::sys::wipe(cek, sizeof(cek));
 	// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
-	// Выполняем затирание секретов
+	// Затирание секретов
 	nts::sys::wipe(kek, sizeof(kek));
 	nts::sys::wipe(cek, sizeof(cek));
 	// Выводим итог сборки
@@ -3078,21 +3078,21 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys:
 	size_t size = sizeof(cek);
 	// Если ключ расшифровать не удалось
 	if(!rsa.decrypt(sign::scheme_t::PKCS1, digest::hash_t::NONE, recipient->encryptedKey, cek, size)){
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ ключа
 		return error_t::KEY;
 	}
 	// Если длина ключа не отвечает шифру содержимого
 	if(size != bits / 8){
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
 		// Выводим отказ ключа
 		return error_t::KEY;
 	}
 	// Расшифровываем содержимое
 	const error_t outcome = decryptContent(enveloped.content(), view_t(cek, size), iv, result);
-	// Выполняем затирание ключа
+	// Затирание ключа
 	nts::sys::wipe(cek, sizeof(cek));
 	// Выводим итог расшифрования
 	return outcome;
@@ -3188,7 +3188,7 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 	uint8_t shared[agreement::MLKEM_SHARED];
 	// Если декапсуляцию выполнить не удалось
 	if(!agreement::decapsulate(kem, secret, recipient->kemct, shared)){
-		// Выполняем затирание секрета
+		// Затирание секрета
 		nts::sys::wipe(shared, sizeof(shared));
 		// Выводим отказ ключа
 		return error_t::KEY;
@@ -3197,38 +3197,38 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 	uint8_t kek[32];
 	// Вырабатываем ключ KEK по разделу 5 RFC 9629
 	if(!deriveKek(view_t(shared, sizeof(shared)), recipient->wrap.c_str(), recipient->kekLength, kek)){
-		// Выполняем затирание секрета
+		// Затирание секрета
 		nts::sys::wipe(shared, sizeof(shared));
 		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	}
-	// Выполняем затирание общего секрета
+	// Затирание общего секрета
 	nts::sys::wipe(shared, sizeof(shared));
 	// Ключ шифрования содержимого
 	vector <uint8_t> cek;
 	// Если ключ содержимого снять с защиты не удалось
 	if(!aesUnwrap(view_t(kek, recipient->kekLength), recipient->encryptedKey, cek)){
-		// Выполняем затирание ключа KEK
+		// Затирание ключа KEK
 		nts::sys::wipe(kek, sizeof(kek));
 		// Выводим отказ ключа
 		return error_t::KEY;
 	}
-	// Выполняем затирание ключа KEK
+	// Затирание ключа KEK
 	nts::sys::wipe(kek, sizeof(kek));
 	// Если длина ключа не отвечает шифру содержимого
 	if(cek.size() != bits / 8){
-		// Выполняем затирание ключа
+		// Затирание ключа
 		if(!cek.empty())
-			// Выполняем затирание ключа
+			// Затирание ключа
 			nts::sys::wipe(cek.data(), cek.size());
 		// Выводим отказ ключа
 		return error_t::KEY;
 	}
 	// Расшифровываем содержимое
 	const error_t outcome = decryptContent(enveloped.content(), view_t(cek.data(), cek.size()), iv, result);
-	// Выполняем затирание ключа
+	// Затирание ключа
 	if(!cek.empty())
-		// Выполняем затирание ключа
+		// Затирание ключа
 		nts::sys::wipe(cek.data(), cek.size());
 	// Выводим итог расшифрования
 	return outcome;

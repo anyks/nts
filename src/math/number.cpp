@@ -210,7 +210,7 @@ namespace {
 	static void lessen(uint64_t * value, const uint64_t * modulus, const uint64_t carry, const size_t size) noexcept {
 		// Итог вычитания модуля из уменьшаемого
 		uint64_t buffer[NUMBER_WORDS];
-		// Выполняем вычитание модуля из уменьшаемого
+		// Вычитание модуля из уменьшаемого
 		const uint64_t borrow = decrease(value, modulus, buffer, size);
 		/**
 		 * Модуль вычитается, когда уменьшаемое его не меньше: либо вычитание прошло
@@ -223,7 +223,7 @@ namespace {
 		for(size_t i = 0; i < size; i++)
 			// Выбираем очередное слово итога наложением маски
 			value[i] = select(mask, buffer[i], value[i]);
-		// Выполняем затирание итога вычитания модуля
+		// Затирание итога вычитания модуля
 		clean(buffer, size);
 	}
 };
@@ -273,7 +273,7 @@ size_t nts::math::Modulus::size() const noexcept {
  *
  */
 bool nts::math::Modulus::start(const view_t & modulus) noexcept {
-	// Выполняем сброс прежде установленного модуля
+	// Сброс прежде установленного модуля
 	this->clear();
 	// Если модуль не передан либо не укладывается в разрядность числа
 	if((modulus.data == nullptr) || (modulus.size == 0) || (modulus.size > (NUMBER_BITS / 8)))
@@ -294,14 +294,14 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 	}
 	// Если модуль оказался чётным либо меньшим трёх
 	if(((this->_modulus.words[0] & 0x01) == 0) || ((this->_words == 1) && (this->_modulus.words[0] < 3))){
-		// Выполняем сброс установленного модуля
+		// Сброс установленного модуля
 		this->clear();
 		// Выводим отказ установки модуля
 		return false;
 	}
 	// Если старшее слово модуля оказалось нулевым
 	if(this->_modulus.words[this->_words - 1] == 0){
-		// Выполняем сброс установленного модуля
+		// Сброс установленного модуля
 		this->clear();
 		// Выводим отказ установки модуля
 		return false;
@@ -316,7 +316,7 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 	 * Выполняем уточнение обратного значения
 	 */
 	for(size_t i = 0; i < 6; i++)
-		// Выполняем очередной шаг уточнения обратного значения
+		// Очередной шаг уточнения обратного значения
 		factor *= (2 - (this->_modulus.words[0] * factor));
 	// Запоминаем обратное значение со сменой знака
 	this->_factor = (0 - factor);
@@ -385,7 +385,7 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 		 * Выполняем удвоение значения по модулю
 		 */
 		for(size_t i = 0; i < (this->_words * 128); i++)
-			// Выполняем очередное удвоение значения
+			// Очередное удвоение значения
 			this->add(this->_square, this->_square, this->_square);
 	}
 	// Устанавливаем признак того, что модуль установлен
@@ -398,13 +398,13 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
  *
  */
 void nts::math::Modulus::clear() noexcept {
-	// Выполняем затирание квадрата основания области Монтгомери
+	// Затирание квадрата основания области Монтгомери
 	wipe(this->_square.words, sizeof(this->_square.words));
-	// Выполняем затирание значения модуля
+	// Затирание значения модуля
 	wipe(this->_modulus.words, sizeof(this->_modulus.words));
 	// Сбрасываем обратное к младшему слову модуля значение
 	this->_factor = 0;
-	// Выполняем затирание основания разрядной сетки по модулю
+	// Затирание основания разрядной сетки по модулю
 	wipe(this->_shift.words, sizeof(this->_shift.words));
 	// Сбрасываем хвост модуля
 	this->_tail = 0;
@@ -426,7 +426,7 @@ void nts::math::Modulus::clear() noexcept {
  *
  */
 bool nts::math::Modulus::load(const view_t & data, number_t & result) const noexcept {
-	// Выполняем обнуление разбираемого числа
+	// Обнуление разбираемого числа
 	result = number_t();
 	// Если модуль не установлен либо поток байтов не передан
 	if(!this->_ready || (data.data == nullptr) || (data.size > (this->_words * 8)))
@@ -443,13 +443,13 @@ bool nts::math::Modulus::load(const view_t & data, number_t & result) const noex
 	}
 	// Итог вычитания модуля из разобранного числа
 	uint64_t buffer[NUMBER_WORDS];
-	// Выполняем вычитание модуля из разобранного числа
+	// Вычитание модуля из разобранного числа
 	const uint64_t borrow = decrease(result.words, this->_modulus.words, buffer, this->_words);
-	// Выполняем затирание итога вычитания модуля
+	// Затирание итога вычитания модуля
 	clean(buffer, this->_words);
 	// Если разобранное число оказалось не меньше модуля
 	if(borrow == 0){
-		// Выполняем обнуление разобранного числа
+		// Обнуление разобранного числа
 		result = number_t();
 		// Выводим отказ разбора числа
 		return false;
@@ -466,7 +466,7 @@ bool nts::math::Modulus::load(const view_t & data, number_t & result) const noex
  *
  */
 bool nts::math::Modulus::reduce(const view_t & data, number_t & result) const noexcept {
-	// Выполняем обнуление приводимого числа
+	// Обнуление приводимого числа
 	result = number_t();
 	// Если модуль не установлен либо поток байтов не передан
 	if(!this->_ready || (data.data == nullptr))
@@ -515,13 +515,13 @@ bool nts::math::Modulus::reduce(const view_t & data, number_t & result) const no
 		 * вычитания; у прочих кусок приводится в область Монтгомери и выводится из неё
 		 */
 		if((this->_form == form_t::MINUS) || (this->_form == form_t::PLUS))
-			// Выполняем условное вычитание модуля
+			// Условное вычитание модуля
 			lessen(item.words, this->_modulus.words, 0, this->_words);
 		// Иначе приводим кусок умножениями
 		else {
-			// Выполняем умножение куска на квадрат основания области Монтгомери
+			// Умножение куска на квадрат основания области Монтгомери
 			this->multiply(item, this->_square, item);
-			// Выполняем умножение на единицу: кусок выведен из области и приведён по модулю
+			// Умножение на единицу: кусок выведен из области и приведён по модулю
 			this->multiply(item, unit, item);
 		}
 		// Если это первый кусок потока
@@ -603,7 +603,7 @@ bool nts::math::Modulus::store(const number_t & value, uint8_t * data, const siz
  *
  */
 void nts::math::Modulus::word(const uint64_t value, number_t & result) const noexcept {
-	// Выполняем обнуление получаемого числа
+	// Обнуление получаемого числа
 	result = number_t();
 	// Записываем значение машинного слова в младшее слово числа
 	result.words[0] = value;
@@ -662,7 +662,7 @@ void nts::math::Modulus::enter(const number_t & value, number_t & result) const 
 		// Выходим из приведения
 		return;
 	}
-	// Выполняем умножение числа на квадрат основания области Монтгомери
+	// Умножение числа на квадрат основания области Монтгомери
 	this->multiply(value, this->_square, result);
 }
 /**
@@ -684,7 +684,7 @@ void nts::math::Modulus::leave(const number_t & value, number_t & result) const 
 	number_t unit;
 	// Записываем значение единицы
 	unit.words[0] = 1;
-	// Выполняем умножение числа на единицу
+	// Умножение числа на единицу
 	this->multiply(value, unit, result);
 }
 /**
@@ -698,20 +698,20 @@ void nts::math::Modulus::leave(const number_t & value, number_t & result) const 
 void nts::math::Modulus::add(const number_t & first, const number_t & second, number_t & result) const noexcept {
 	// Если модуль поля укладывается в четыре слова
 	if(this->_words == 4){
-		// Выполняем сложение слагаемых развёрнутым способом
+		// Сложение слагаемых развёрнутым способом
 		addition <4> (first.words, second.words, this->_modulus.words, result.words);
 		// Выходим из сложения чисел
 		return;
 	// Если модуль поля укладывается в восемь слов
 	} else if(this->_words == 8) {
-		// Выполняем сложение слагаемых развёрнутым способом
+		// Сложение слагаемых развёрнутым способом
 		addition <8> (first.words, second.words, this->_modulus.words, result.words);
 		// Выходим из сложения чисел
 		return;
 	}
-	// Выполняем сложение слагаемых
+	// Сложение слагаемых
 	const uint64_t carry = increase(first.words, second.words, result.words, this->_words);
-	// Выполняем приведение суммы по модулю
+	// Приведение суммы по модулю
 	lessen(result.words, this->_modulus.words, carry, this->_words);
 }
 /**
@@ -725,22 +725,22 @@ void nts::math::Modulus::add(const number_t & first, const number_t & second, nu
 void nts::math::Modulus::subtract(const number_t & first, const number_t & second, number_t & result) const noexcept {
 	// Если модуль поля укладывается в четыре слова
 	if(this->_words == 4){
-		// Выполняем вычитание развёрнутым способом
+		// Вычитание развёрнутым способом
 		subtraction <4> (first.words, second.words, this->_modulus.words, result.words);
 		// Выходим из вычитания чисел
 		return;
 	// Если модуль поля укладывается в восемь слов
 	} else if(this->_words == 8) {
-		// Выполняем вычитание развёрнутым способом
+		// Вычитание развёрнутым способом
 		subtraction <8> (first.words, second.words, this->_modulus.words, result.words);
 		// Выходим из вычитания чисел
 		return;
 	}
-	// Выполняем вычитание вычитаемого из уменьшаемого
+	// Вычитание вычитаемого из уменьшаемого
 	const uint64_t borrow = decrease(first.words, second.words, result.words, this->_words);
 	// Сумма разности с модулем, применяемая при заёме из старшего слова
 	uint64_t buffer[NUMBER_WORDS];
-	// Выполняем сложение разности с модулем
+	// Сложение разности с модулем
 	increase(result.words, this->_modulus.words, buffer, this->_words);
 	/**
 	 * Выполняем перебор слов разности
@@ -748,7 +748,7 @@ void nts::math::Modulus::subtract(const number_t & first, const number_t & secon
 	for(size_t i = 0; i < this->_words; i++)
 		// Выбираем очередное слово итога наложением маски заёма
 		result.words[i] = select(0 - borrow, buffer[i], result.words[i]);
-	// Выполняем затирание суммы разности с модулем
+	// Затирание суммы разности с модулем
 	clean(buffer, this->_words);
 }
 /**
@@ -852,9 +852,9 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 	for(size_t i = 0; i < this->_words; i++)
 		// Записываем очередное слово произведения
 		result.words[i] = buffer[i];
-	// Выполняем приведение произведения по модулю
+	// Приведение произведения по модулю
 	lessen(result.words, this->_modulus.words, buffer[this->_words], this->_words);
-	// Выполняем затирание накопленного произведения
+	// Затирание накопленного произведения
 	clean(buffer, total);
 }
 /**
@@ -895,7 +895,7 @@ void nts::math::Modulus::power(const number_t & base, const number_t & exponent,
 	number_t unit;
 	// Записываем значение единицы вне области Монтгомери
 	unit.words[0] = 1;
-	// Выполняем приведение единицы в область Монтгомери
+	// Приведение единицы в область Монтгомери
 	this->enter(unit, value);
 	/**
 	 * Выполняем перебор разрядов показателя степени от старшего к младшему
@@ -903,9 +903,9 @@ void nts::math::Modulus::power(const number_t & base, const number_t & exponent,
 	for(size_t i = (this->_words * 64); i > 0; i--){
 		// Извлекаем очередной разряд показателя степени
 		const uint64_t bit = ((exponent.words[(i - 1) / 64] >> ((i - 1) % 64)) & 0x01);
-		// Выполняем возведение накопленной степени в квадрат
+		// Возведение накопленной степени в квадрат
 		this->square(value, value);
-		// Выполняем умножение накопленной степени на основание
+		// Умножение накопленной степени на основание
 		this->multiply(value, base, item);
 		/**
 		 * Выполняем перебор слов накопленной степени
@@ -916,11 +916,11 @@ void nts::math::Modulus::power(const number_t & base, const number_t & exponent,
 	}
 	// Записываем накопленную степень
 	result = value;
-	// Выполняем затирание единицы области Монтгомери
+	// Затирание единицы области Монтгомери
 	wipe(unit.words, sizeof(unit.words));
-	// Выполняем затирание произведения накопленной степени на основание
+	// Затирание произведения накопленной степени на основание
 	wipe(item.words, sizeof(item.words));
-	// Выполняем затирание накопленной степени основания
+	// Затирание накопленной степени основания
 	wipe(value.words, sizeof(value.words));
 }
 /**
@@ -1324,11 +1324,11 @@ namespace {
 			constexpr size_t BATCHES = ((STEPS + (SLICE - 1)) / SLICE);
 			// Модуль порциями
 			Sliced <LIMBS> m;
-			// Выполняем разложение модуля на порции
+			// Разложение модуля на порции
 			slice <WORDS, LIMBS> (modulus, m);
 			// Пара чисел деления: модуль и обращаемое число
 			Sliced <LIMBS> f = m, g;
-			// Выполняем разложение обращаемого числа на порции
+			// Разложение обращаемого числа на порции
 			slice <WORDS, LIMBS> (value.words, g);
 			// Пара сомножителей обращения: ноль и единица
 			Sliced <LIMBS> d = {}, e = {};
@@ -1344,7 +1344,7 @@ namespace {
 			 * Выполняем проходы шагов деления
 			 */
 			for(size_t i = 0; i < BATCHES; i++){
-				// Выполняем 62 шага деления по младшим порциям пары чисел
+				// 62 шага деления по младшим порциям пары чисел
 				eta = divsteps(eta, static_cast <uint64_t> (f.v[0]), static_cast <uint64_t> (g.v[0]), t);
 				// Применяем матрицу переходов к сомножителям по модулю
 				advance <LIMBS> (d, e, t, m, inverse);
@@ -1353,17 +1353,17 @@ namespace {
 			}
 			// Приводим первый сомножитель к отрезку [0, модуль) со знаком первого числа деления
 			settle <LIMBS> (d, f.v[LIMBS - 1], m);
-			// Выполняем обнуление обратного числа: слова выше ширины модуля нулевые
+			// Обнуление обратного числа: слова выше ширины модуля нулевые
 			result = nts::math::number_t();
-			// Выполняем сборку обратного числа из порций
+			// Сборка обратного числа из порций
 			gather <WORDS, LIMBS> (d, result.words);
-			// Выполняем затирание сомножителей обращения
+			// Затирание сомножителей обращения
 			wipe(&d, sizeof(d));
 			wipe(&e, sizeof(e));
-			// Выполняем затирание пары чисел деления
+			// Затирание пары чисел деления
 			wipe(&f, sizeof(f));
 			wipe(&g, sizeof(g));
-			// Выполняем затирание матрицы переходов
+			// Затирание матрицы переходов
 			wipe(&t, sizeof(t));
 		}
 	#endif
@@ -1431,7 +1431,7 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		number_t two;
 		// Записываем значение двойки
 		two.words[0] = 2;
-		// Выполняем вычитание двойки из модуля
+		// Вычитание двойки из модуля
 		decrease(this->_modulus.words, two.words, exponent.words, this->_words);
 		// Заготовленные степени обращаемого числа от нулевой до пятнадцатой
 		number_t table[16];
@@ -1439,7 +1439,7 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		number_t unit;
 		// Записываем значение единицы
 		unit.words[0] = 1;
-		// Выполняем приведение единицы в область: нулевая степень
+		// Приведение единицы в область: нулевая степень
 		this->enter(unit, table[0]);
 		// Первая степень есть само число
 		table[1] = value;
@@ -1467,11 +1467,11 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 				 * Выполняем возведение накопленной степени в шестнадцатую степень
 				 */
 				for(size_t j = 0; j < 4; j++)
-					// Выполняем возведение накопленной степени в квадрат
+					// Возведение накопленной степени в квадрат
 					this->square(item, item);
 				// Если окно показателя ненулевое, умножаем на заготовленную степень
 				if(window != 0)
-					// Выполняем умножение накопленной степени на заготовленную
+					// Умножение накопленной степени на заготовленную
 					this->multiply(item, table[window], item);
 			// Если очередное окно показателя первое ненулевое
 			} else if(window != 0) {
@@ -1483,11 +1483,11 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		}
 		// Записываем накопленную степень обратным числом
 		result = item;
-		// Выполняем затирание накопленной степени
+		// Затирание накопленной степени
 		wipe(item.words, sizeof(item.words));
-		// Выполняем затирание заготовленных степеней обращаемого числа
+		// Затирание заготовленных степеней обращаемого числа
 		wipe(table, sizeof(table));
-		// Выполняем затирание показателя степени обращения числа
+		// Затирание показателя степени обращения числа
 		wipe(exponent.words, sizeof(exponent.words));
 	#endif
 }
@@ -1501,6 +1501,6 @@ nts::math::Modulus::Modulus() noexcept : _ready(false), _form(form_t::GENERAL), 
  *
  */
 nts::math::Modulus::~Modulus() noexcept {
-	// Выполняем сброс установленного модуля
+	// Сброс установленного модуля
 	this->clear();
 }

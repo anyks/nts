@@ -453,7 +453,7 @@ namespace {
 		uint32_t left = static_cast <uint32_t> (permuted >> 32);
 		// Правая половина блока
 		uint32_t right = static_cast <uint32_t> (permuted);
-		// Выполняем шестнадцать кругов Фейстеля
+		// Шестнадцать кругов Фейстеля
 		circles(left, right, rounds, invert);
 		// Выводим блок после конечной перестановки (половины на выходе меняются местами)
 		return leaving((static_cast <uint64_t> (right) << 32) | left);
@@ -574,11 +574,11 @@ bool nts::cipher::Des::encrypt(const uint8_t * source, uint8_t * result) const n
 		circles(left, right, this->_rounds[0], false);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t swap = left; left = right; right = swap;
-		// Выполняем средний проход расшифрованием вторым ключом
+		// Средний проход расшифрованием вторым ключом
 		circles(left, right, this->_rounds[1], true);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t change = left; left = right; right = change;
-		// Выполняем третий проход зашифрованием третьим ключом
+		// Третий проход зашифрованием третьим ключом
 		circles(left, right, this->_rounds[2], false);
 		// Запоминаем блок после конечной перестановки
 		block = leaving((static_cast <uint64_t> (right) << 32) | left);
@@ -622,11 +622,11 @@ bool nts::cipher::Des::decrypt(const uint8_t * source, uint8_t * result) const n
 		circles(left, right, this->_rounds[2], true);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t swap = left; left = right; right = swap;
-		// Выполняем средний проход зашифрованием вторым ключом
+		// Средний проход зашифрованием вторым ключом
 		circles(left, right, this->_rounds[1], false);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t change = left; left = right; right = change;
-		// Выполняем первый проход расшифрованием первым ключом
+		// Первый проход расшифрованием первым ключом
 		circles(left, right, this->_rounds[0], true);
 		// Запоминаем блок после конечной перестановки
 		block = leaving((static_cast <uint64_t> (right) << 32) | left);

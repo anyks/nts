@@ -1047,7 +1047,7 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
  *
  */
 nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
-	// Выполняем сброс прежних сведений
+	// Сброс прежних сведений
 	this->clear();
 	// Создаём разборщик записи ответа
 	asn1::reader_t reader(data);
@@ -1149,13 +1149,13 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	if(!parts.empty())
 		// Выводим отказ состава записи
 		return (this->_error = error_t::STRUCTURE);
-	// Выполняем разбор основного ответа
+	// Разбор основного ответа
 	this->_error = this->basic(item.content);
 	// Если основной ответ разобрать не удалось
 	if(this->_error != error_t::NONE){
 		// Запоминаем причину отказа
 		const error_t error = this->_error;
-		// Выполняем сброс разобранных сведений
+		// Сброс разобранных сведений
 		this->clear();
 		// Восстанавливаем причину отказа
 		this->_error = error;
@@ -1466,11 +1466,11 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 		if((parsed != x509::error_t::NONE) || !named(response, candidate))
 			// Переходим к следующему сертификату
 			continue;
-		// Выполняем проверку права приложенного сертификата отвечать за издателя
+		// Проверка права приложенного сертификата отвечать за издателя
 		failure = delegated(candidate, authority, moment);
 		// Если приложенный сертификат отвечать вправе
 		if(failure == error_t::NONE)
-			// Выполняем проверку подписи ответа ключом ответчика
+			// Проверка подписи ответа ключом ответчика
 			failure = signed_(response, candidate);
 	}
 	// Если приложенные сертификаты ответ не подтвердили, а ответчиком назван сам издатель
@@ -1670,7 +1670,7 @@ nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, co
 			return error_t::KEY;
 		// Состояние сертификата записи
 		status_t status = status_t::NONE;
-		// Выполняем проверку ответа против сертификата записи и его издателя
+		// Проверка ответа против сертификата записи и его издателя
 		const error_t refused = ocsp::verify(response, view_t(chain[i].data(), chain[i].size()), issuer, moment, leeway, view_t(nullptr, 0), status);
 		// Если ответ о состоянии проверку не прошёл
 		if(refused != error_t::NONE)

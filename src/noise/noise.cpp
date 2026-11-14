@@ -61,11 +61,11 @@ namespace {
 		 * Определяем механизм
 		 */
 		switch(kem){
-			// Составной
+			// Составной механизм
 			case kem_t::X25519MLKEM768: return "X25519MLKEM768";
 			// Чистый ML-KEM-768
 			case kem_t::MLKEM768: return "MLKEM768";
-			// Прочее
+			// Прочие механизмы
 			default: return "";
 		}
 	}
@@ -85,7 +85,7 @@ namespace {
 			case aead_t::CHACHAPOLY: return "ChaChaPoly";
 			// AES-256-GCM
 			case aead_t::AESGCM: return "AESGCM";
-			// Прочее
+			// Прочие механизмы
 			default: return "";
 		}
 	}
@@ -109,7 +109,7 @@ namespace {
 			case nts::digest::hash_t::BLAKE2S256: return "BLAKE2s";
 			// BLAKE2b
 			case nts::digest::hash_t::BLAKE2B512: return "BLAKE2b";
-			// Прочее
+			// Прочие механизмы
 			default: return "";
 		}
 	}
@@ -269,7 +269,7 @@ bool nts::noise::parse(const view_t & text, pattern_t & pattern, psk_t & psks, s
 	for(uint8_t i = 1; i <= static_cast <uint8_t> (pattern_t::PQIX); i++){
 		// Узоры семейства другого префикса не рассматриваются
 		if(postquantum(static_cast <pattern_t> (i)) != pq)
-			// Пропускаем
+			// Пропускаем маркер конца
 			continue;
 		// Имя узора
 		const char * label = title(static_cast <pattern_t> (i));

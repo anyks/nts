@@ -249,7 +249,7 @@ namespace nts {
 		 *
 		 */
 		static void encodeBase64url(const view_t & data, string & result){
-			// Выполняем кодирование кодеком с пробросом нехватки памяти вызывающему
+			// Кодирование кодеком с пробросом нехватки памяти вызывающему
 			codec::rawEncode(data, result, false, codec::alphabet_t::URL);
 		}
 
@@ -528,7 +528,7 @@ namespace nts {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем кодирование записи
+			// Кодирование записи
 			encodeBase64url(data, result);
 		/**
 		 * Выполняем перехват ошибок
@@ -551,7 +551,7 @@ namespace nts {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем декодирование записи
+			// Декодирование записи
 			return decode(text, result);
 		/**
 		 * Выполняем перехват ошибок
@@ -792,7 +792,7 @@ namespace nts {
 			result += '.';
 			// Кодируем полезную нагрузку в base64url
 			string body;
-			// Выполняем кодирование полезной нагрузки
+			// Кодирование полезной нагрузки
 			encodeBase64url(payload, body);
 			// Дописываем полезную нагрузку
 			result += body;
@@ -808,7 +808,7 @@ namespace nts {
 			result += '.';
 			// Кодируем подпись в base64url
 			string tail;
-			// Выполняем кодирование подписи
+			// Кодирование подписи
 			encodeBase64url(view_t(signature.data(), signature.size()), tail);
 			// Дописываем подпись
 			result += tail;
@@ -852,11 +852,11 @@ namespace nts {
 						return error_t::EMPTY;
 					// Кодируем модуль
 					string n;
-					// Выполняем кодирование модуля
+					// Кодирование модуля
 					encodeBase64url(view_t(key.n.data(), key.n.size()), n);
 					// Кодируем показатель
 					string e;
-					// Выполняем кодирование показателя
+					// Кодирование показателя
 					encodeBase64url(view_t(key.e.data(), key.e.size()), e);
 					// Собираем запись: члены в порядке словаря, как у канонической записи отпечатка
 					result.assign("{\"e\":\"");
@@ -881,11 +881,11 @@ namespace nts {
 						return error_t::EMPTY;
 					// Кодируем первую координату
 					string x;
-					// Выполняем кодирование первой координаты
+					// Кодирование первой координаты
 					encodeBase64url(view_t(key.x.data(), key.x.size()), x);
 					// Кодируем вторую координату
 					string y;
-					// Выполняем кодирование второй координаты
+					// Кодирование второй координаты
 					encodeBase64url(view_t(key.y.data(), key.y.size()), y);
 					// Собираем запись: члены в порядке словаря
 					result.assign("{\"crv\":\"");
@@ -910,7 +910,7 @@ namespace nts {
 						return error_t::EMPTY;
 					// Кодируем ключ
 					string x;
-					// Выполняем кодирование ключа
+					// Кодирование ключа
 					encodeBase64url(view_t(key.key.data(), key.key.size()), x);
 					// Собираем запись: члены в порядке словаря
 					result.assign("{\"crv\":\"Ed25519\",\"kty\":\"OKP\",\"x\":\"");
@@ -1129,7 +1129,7 @@ namespace nts {
 				return (this->_error = error_t::STRUCTURE);
 			// Декодируем заголовок
 			vector <uint8_t> header;
-			// Выполняем декодирование заголовка
+			// Декодирование заголовка
 			if(!decode(this->_protected, header) || header.empty())
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
@@ -1141,7 +1141,7 @@ namespace nts {
 				return (this->_error = error_t::STRUCTURE);
 			// Извлекаем член alg заголовка
 			view_t alg;
-			// Выполняем извлечение члена алгоритма
+			// Извлечение члена алгоритма
 			if(!member(view_t(reinterpret_cast <const uint8_t *> (this->_header.data()), this->_header.size()), "alg", alg))
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);

@@ -520,7 +520,7 @@ bool nts::asn1::Reader::next(element_t & element) noexcept {
  *
  */
 bool nts::asn1::Reader::next(const tag_t tag, element_t & element) noexcept {
-	// Выполняем разбор очередного элемента
+	// Разбор очередного элемента
 	if(!this->next(element))
 		// Выводим отказ разбора
 		return false;
@@ -700,7 +700,7 @@ nts::asn1::error_t nts::asn1::integer(const element_t & element, view_t & result
 nts::asn1::error_t nts::asn1::integer(const element_t & element, int64_t & result) noexcept {
 	// Просмотр содержимого числа
 	view_t view;
-	// Выполняем извлечение содержимого числа
+	// Извлечение содержимого числа
 	const error_t error = integer(element, view);
 	// Если извлечение содержимого числа не удалось
 	if(error != error_t::NONE)
@@ -917,7 +917,7 @@ nts::asn1::error_t nts::asn1::time(const element_t & element, const tag_t type, 
 	uint32_t year = 0;
 	// Определяем место начала записи месяца
 	const size_t offset = (shortly ? 2 : 4);
-	// Выполняем извлечение года
+	// Извлечение года
 	if(!digits(element.content.data, offset, year))
 		// Выводим причину отказа
 		return error_t::VALUE;
@@ -930,7 +930,7 @@ nts::asn1::error_t nts::asn1::time(const element_t & element, const tag_t type, 
 		year += (year >= 50 ? 1900 : 2000);
 	// Значения месяца, дня, часа, минуты и секунды
 	uint32_t month = 0, day = 0, hour = 0, minute = 0, second = 0;
-	// Выполняем извлечение остальных составляющих записи времени
+	// Извлечение остальных составляющих записи времени
 	if(!digits(element.content.data + offset, 2, month) ||
 	   !digits(element.content.data + offset + 2, 2, day) ||
 	   !digits(element.content.data + offset + 4, 2, hour) ||
@@ -988,7 +988,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 		switch(static_cast <uint32_t> (type)){
 			// Если строка записана знаками кодировки UTF-8
 			case static_cast <uint32_t> (tag_t::UTF8_STRING): {
-				// Выполняем проверку записи строки
+				// Проверка записи строки
 				const error_t error = utf8(element.content, nullptr);
 				// Если запись строки не отвечает правилам кодировки
 				if(error != error_t::NONE)
@@ -1368,7 +1368,7 @@ bool nts::asn1::Writer::open(const cls_t cls, const uint32_t tag) noexcept {
  *
  */
 bool nts::asn1::Writer::open(const tag_t tag) noexcept {
-	// Выполняем открытие составного элемента универсального класса
+	// Открытие составного элемента универсального класса
 	return this->open(cls_t::UNIVERSAL, static_cast <uint32_t> (tag));
 }
 
@@ -1453,7 +1453,7 @@ bool nts::asn1::Writer::element(const cls_t cls, const bool constructed, const u
 				// Выводим отказ записи
 				return false;
 			}
-			// Выполняем запись содержимого элемента
+			// Запись содержимого элемента
 			this->_buffer.insert(this->_buffer.end(), content.data, content.data + content.size);
 		}
 	/**
@@ -1479,7 +1479,7 @@ bool nts::asn1::Writer::element(const cls_t cls, const bool constructed, const u
 bool nts::asn1::Writer::boolean(const bool value) noexcept {
 	// Собираем содержимое логического значения
 	const uint8_t content = (value ? 0xFF : 0x00);
-	// Выполняем запись логического значения
+	// Запись логического значения
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::BOOLEAN), view_t(&content, 1));
 }
 
@@ -1490,7 +1490,7 @@ bool nts::asn1::Writer::boolean(const bool value) noexcept {
  *
  */
 bool nts::asn1::Writer::nothing() noexcept {
-	// Выполняем запись отсутствия значения
+	// Запись отсутствия значения
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::NOTHING), view_t());
 }
 
@@ -1523,7 +1523,7 @@ bool nts::asn1::Writer::integer(const int64_t value) noexcept {
 	       ((content[offset] == 0xFF) && ((content[offset + 1] & 0x80) != 0))))
 		// Отбрасываем лишний старший байт записи
 		offset++;
-	// Выполняем запись целого числа
+	// Запись целого числа
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::INTEGER), view_t(content + offset, sizeof(int64_t) - offset));
 }
 
@@ -1535,7 +1535,7 @@ bool nts::asn1::Writer::integer(const int64_t value) noexcept {
  *
  */
 bool nts::asn1::Writer::octets(const view_t & value) noexcept {
-	// Выполняем запись строки байтов
+	// Запись строки байтов
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::OCTET_STRING), value);
 }
 
@@ -1580,7 +1580,7 @@ bool nts::asn1::Writer::bits(const view_t & value, const uint8_t unused) noexcep
 		if((value.data != nullptr) && (value.size > 0))
 			// Записываем содержимое строки битов
 			content.insert(content.end(), value.data, value.data + value.size);
-		// Выполняем запись строки битов
+		// Запись строки битов
 		return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::BIT_STRING), view_t(content.data(), content.size()));
 	/**
 	 * Выполняем перехват ошибок
@@ -1725,7 +1725,7 @@ bool nts::asn1::Writer::oid(const string & value) noexcept {
 				// Записываем очередные семь разрядов составляющей
 				content.push_back(static_cast <uint8_t> (((item >> (7 * (j - 1))) & 0x7F) | (j > 1 ? 0x80 : 0x00)));
 		}
-		// Выполняем запись опознавателя объекта
+		// Запись опознавателя объекта
 		return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::OBJECT), view_t(content.data(), content.size()));
 	/**
 	 * Выполняем перехват ошибок
@@ -1768,7 +1768,7 @@ bool nts::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
 	int64_t year = 0;
 	// Значения месяца и дня
 	uint32_t month = 0, day = 0;
-	// Выполняем перевод числа суток в дату
+	// Перевод числа суток в дату
 	civil(days, year, month, day);
 	/**
 	 * Запись с двузначным годом различает лишь сто лет: правилом RFC 5280 это
@@ -1819,7 +1819,7 @@ bool nts::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
 	}
 	// Записываем обозначение всемирного времени
 	content[offset + 10] = 0x5A;
-	// Выполняем запись времени
+	// Запись времени
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (type), view_t(content, offset + 11));
 }
 
@@ -1848,7 +1848,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 		switch(static_cast <uint32_t> (type)){
 			// Если строка записывается знаками кодировки UTF-8
 			case static_cast <uint32_t> (tag_t::UTF8_STRING): {
-				// Выполняем проверку записи строки
+				// Проверка записи строки
 				const error_t error = utf8(view, nullptr);
 				// Если запись строки не отвечает правилам кодировки
 				if(error != error_t::NONE){
@@ -1857,7 +1857,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 					// Выводим отказ записи
 					return false;
 				}
-				// Выполняем запись строки
+				// Запись строки
 				return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (type), view);
 			}
 			// Если строка записывается знаками печатного набора, набора IA5 либо видимыми знаками
@@ -1889,7 +1889,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 						return false;
 					}
 				}
-				// Выполняем запись строки
+				// Запись строки
 				return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (type), view);
 			}
 			// Если строка записывается знаками кодировки UCS-2 либо UCS-4
@@ -1897,7 +1897,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 			case static_cast <uint32_t> (tag_t::UNIVERSAL_STRING): {
 				// Набор знаков записываемой строки
 				vector <uint32_t> codes;
-				// Выполняем проверку записи строки с извлечением знаков
+				// Проверка записи строки с извлечением знаков
 				const error_t error = utf8(view, &codes);
 				// Если запись строки не отвечает правилам кодировки
 				if(error != error_t::NONE){
@@ -1934,12 +1934,12 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 						// Записываем очередной байт знака
 						content.push_back(static_cast <uint8_t> ((codes[i] >> (8 * (j - 1))) & 0xFF));
 				}
-				// Выполняем запись строки
+				// Запись строки
 				return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (type), view_t(content.data(), content.size()));
 			}
 			// Если строка записывается кодировкой T.61
 			case static_cast <uint32_t> (tag_t::T61_STRING):
-				// Выполняем запись строки как есть
+				// Запись строки как есть
 				return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (type), view);
 			// Если вид строки не поддерживается
 			default: {

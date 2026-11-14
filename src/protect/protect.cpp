@@ -17,30 +17,30 @@
  *
  * @section Намеренные решения
  *
- * 1. Ключ записи вырабатывается заново лишь тогда, когда обрезанный постоянными
+ *  1. Ключ записи вырабатывается заново лишь тогда, когда обрезанный постоянными
  *    порядковый номер изменился. Постоянные построения TLSTREE обрезают номер старшими
  *    разрядами, оттого у соседних записей обрезанный номер чаще всего один и тот же, а
  *    выработка ключа стоит шести хеширований. Итог от этого не меняется ни на байт.
  *
- * 2. Старший разряд одноразового значения гасится, а не отвергается вместе со всем
+ *  2. Старший разряд одноразового значения гасится, а не отвергается вместе со всем
  *    вектором замены. Так велит раздел 4.1.1 описания наборов: разряд занят самим
  *    режимом MGM, а гашение единственного разряда вектора замены различия соседних
  *    записей не отменяет - номер записи занимает младшие восемь байтов.
  *
- * 3. Порядковый номер растёт лишь после успеха. Отказ снятия защиты смертелен для связи
+ *  3. Порядковый номер растёт лишь после успеха. Отказ снятия защиты смертелен для связи
  *    по разделу 5.2 RFC 8446, и продолжать приём после него всё равно не с чем.
  *
- * 4. Наложение защиты составляет целую запись вместе с заголовком. Заголовок служит
+ *  4. Наложение защиты составляет целую запись вместе с заголовком. Заголовок служит
  *    связанными данными шифрования, и составить его обязан тот, кто накладывает защиту:
  *    иначе связанные данные и сама запись разъехались бы.
  *
- * 5. Классические наборы AES-GCM живут в том же объекте, что и наборы ГОСТ, и различаются
+ *  5. Классические наборы AES-GCM живут в том же объекте, что и наборы ГОСТ, и различаются
  *    лишь описанием набора: у них нет построения TLSTREE (ключ один на направление), вектор
  *    замены занимает двенадцать байтов, метка целостности - шестнадцать, а старший разряд
  *    одноразового значения не гасится (раздел 5.3 RFC 8446). Предел записей на одном ключе
  *    взят по разделу 5.5 RFC 8446: около 2^24,5 записей полной длины для AES-GCM.
  *
- * 6. Режим GCM заводится один раз на ключ: таблица кратных ключа хеширования строится при
+ *  6. Режим GCM заводится один раз на ключ: таблица кратных ключа хеширования строится при
  *    установке ключевого материала, а на всякую запись меняется лишь заполнение (restart).
  *    До круга 31 (23.09.2026) режим заводился заново на каждую запись, и три затирания
  *    таблицы с её построением стоили около 0,8 мкс на запись - вчетверо дороже самого
@@ -50,7 +50,7 @@
  *    затираются до возврата. Наборы ГОСТ собирают открытый текст в памяти по-прежнему:
  *    у режима MGM поточного вызова нет.
  *
- * 7. Набор ChaCha20-Poly1305 живёт тем же классическим путём, что и AES-GCM: одноразовое
+ *  7. Набор ChaCha20-Poly1305 живёт тем же классическим путём, что и AES-GCM: одноразовое
  *    значение, связанные данные и предел длины у них общие (разделы 5.2 и 5.3 RFC 8446), а
  *    различие лишь в примитиве - AEAD берётся у chachapoly_t на запись (его заведение - копия
  *    ключа и один блок гаммы под ключ Poly1305, чего требует сам RFC 8439), и базовый блочный
@@ -59,7 +59,7 @@
  *    раньше), а недостижимый предел оставляет заслон номеров живым и не подпускает
  *    счётчик к переполнению.
  *
- * 8. Наборы CBC издания TLS 1.2 (раздел 6.2.3.2 RFC 5246) ведутся тем же объектом: ключ
+ *  8. Наборы CBC издания TLS 1.2 (раздел 6.2.3.2 RFC 5246) ведутся тем же объектом: ключ
  *    имитовставки лежит рядом с ключом шифрования, вектор замены явный и случайный на всякую
  *    запись, а порядок «имитовставка, затем шифрование» либо «шифрование, затем имитовставка»
  *    (RFC 7366) переключается признаком etm. Снятие защиты в порядке MAC-then-encrypt идёт
@@ -599,14 +599,14 @@ bool nts::protect::tree(const suite_t suite, const view_t & key, const uint64_t 
 	for(size_t i = 0; ok && (i < 3); i++){
 		// Записываем порядковый номер записи, обрезанный постоянной яруса
 		number((sequence & sample->masks[i]), seed);
-		// Выполняем выработку ключа очередного яруса построения
+		// Выработка ключа очередного яруса построения
 		ok = digest::kdf(view_t(buffer, PROTECT_KEY), view_t(reinterpret_cast <const uint8_t *> (LEVELS[i]), ::strlen(LEVELS[i])), view_t(seed, sizeof(seed)), buffer);
 	}
 	// Если ключ записи выработан
 	if(ok)
 		// Переносим ключ записи на место итога
 		::memcpy(result, buffer, PROTECT_KEY);
-	// Выполняем затирание ключа яруса построения
+	// Затирание ключа яруса построения
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки ключа записи
 	return ok;
@@ -675,7 +675,7 @@ nts::protect::error_t nts::protect::Protection::prepare(const uint64_t sequence,
 		uint8_t key[PROTECT_KEY];
 		// Если ключ записи выработать не удалось
 		if(!nts::protect::tree(this->_suite, view_t(this->_key, this->_width), sequence, key)){
-			// Выполняем затирание ключа записи
+			// Затирание ключа записи
 			wipe(key, sizeof(key));
 			// Выводим отказ подготовки базового шифра
 			return error_t::CIPHER;
@@ -688,7 +688,7 @@ nts::protect::error_t nts::protect::Protection::prepare(const uint64_t sequence,
 			ok = this->_magma.key(view_t(key, sizeof(key)));
 		// Устанавливаем ключ базового шифра «Кузнечик»
 		else ok = this->_kuznyechik.key(view_t(key, sizeof(key)));
-		// Выполняем затирание ключа записи
+		// Затирание ключа записи
 		wipe(key, sizeof(key));
 		// Если ключ базового шифра установить не удалось
 		if(!ok)
@@ -783,7 +783,7 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
  *
  */
 bool nts::protect::Protection::start(const suite_t suite, const view_t & key, const view_t & vector, const view_t & mac) noexcept {
-	// Выполняем сброс прежнего ключевого материала
+	// Сброс прежнего ключевого материала
 	this->clear();
 	// Получаем описание набора шифрования
 	const Sample * sample = search(suite);
@@ -848,7 +848,7 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 	cipher::block_t block;
 	// Если базовый шифр к первой записи подготовить не удалось
 	if(this->prepare(0, block) != error_t::NONE){
-		// Выполняем сброс ключевого материала
+		// Сброс ключевого материала
 		this->clear();
 		// Выводим отказ установки ключевого материала
 		return false;
@@ -860,20 +860,20 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 	if(this->_classic && !this->_stream && !this->_cbc){
 		// Заполнение-заглушка: настоящее ставится на каждую запись
 		uint8_t zeros[12];
-		// Выполняем обнуление заглушки
+		// Обнуление заглушки
 		::memset(zeros, 0, sizeof(zeros));
 		// Если набор шифрования - SM4-CCM по RFC 8998
 		if(this->_ccm){
 			// Если режим CCM завести не удалось
 			if(!this->_mode.start(block, view_t(zeros, sizeof(zeros)), this->_tag)){
-				// Выполняем сброс состояния защиты записей
+				// Сброс состояния защиты записей
 				this->clear();
 				// Выводим отказ установки ключевого материала
 				return false;
 			}
 		// Если режим GCM завести не удалось
 		} else if(!this->_gcm.start(block, view_t(zeros, sizeof(zeros)), this->_tag)){
-			// Выполняем сброс состояния защиты записей
+			// Сброс состояния защиты записей
 			this->clear();
 			// Выводим отказ установки ключевого материала
 			return false;
@@ -887,11 +887,11 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 	if(this->_stream){
 		// Заполнение-заглушка: настоящее ставится на каждую запись
 		uint8_t zeros[12];
-		// Выполняем обнуление заглушки
+		// Обнуление заглушки
 		::memset(zeros, 0, sizeof(zeros));
 		// Если режим ChaCha20-Poly1305 завести не удалось
 		if(!this->_chachapoly.start(view_t(this->_key, this->_width), view_t(zeros, sizeof(zeros)))){
-			// Выполняем сброс состояния защиты записей
+			// Сброс состояния защиты записей
 			this->clear();
 			// Выводим отказ установки ключевого материала
 			return false;
@@ -907,23 +907,23 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
  *
  */
 void nts::protect::Protection::clear() noexcept {
-	// Выполняем затирание корневого ключа направления связи
+	// Затирание корневого ключа направления связи
 	wipe(this->_key, sizeof(this->_key));
-	// Выполняем затирание вектора замены направления связи
+	// Затирание вектора замены направления связи
 	wipe(this->_vector, sizeof(this->_vector));
-	// Выполняем сброс базового шифра «Магма»
+	// Сброс базового шифра «Магма»
 	this->_magma.clear();
-	// Выполняем сброс базового шифра «Кузнечик»
+	// Сброс базового шифра «Кузнечик»
 	this->_kuznyechik.clear();
-	// Выполняем сброс базового шифра AES
+	// Сброс базового шифра AES
 	this->_aes.clear();
-	// Выполняем сброс базового шифра SM4
+	// Сброс базового шифра SM4
 	this->_sm4.clear();
-	// Выполняем сброс режима GCM: таблица кратных ключа хеширования затирается
+	// Сброс режима GCM: таблица кратных ключа хеширования затирается
 	this->_gcm.clear();
-	// Выполняем сброс режима ChaCha20-Poly1305: ключ и одноразовый ключ имитовставки затираются
+	// Сброс режима ChaCha20-Poly1305: ключ и одноразовый ключ имитовставки затираются
 	this->_chachapoly.clear();
-	// Выполняем сброс режима CCM
+	// Сброс режима CCM
 	this->_mode.clear();
 	// Сбрасываем набор шифрования направления связи
 	this->_suite = suite_t::NONE;
@@ -945,7 +945,7 @@ void nts::protect::Protection::clear() noexcept {
 	this->_etm = false;
 	// Сбрасываем хеш имитовставки набора
 	this->_digest = digest::hash_t::NONE;
-	// Выполняем затирание ключа имитовставки направления связи
+	// Затирание ключа имитовставки направления связи
 	wipe(this->_mac, sizeof(this->_mac));
 	// Сбрасываем порядковый номер очередной записи
 	this->_sequence = 0;
@@ -1024,7 +1024,7 @@ nts::protect::error_t nts::protect::Protection::seal(const record::type_t type, 
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
 	}
-	// Выполняем наложение защиты на запись собственным порядковым номером
+	// Наложение защиты на запись собственным порядковым номером
 	const error_t outcome = this->seal(view_t(associated, record::RECORD_HEADER), this->_sequence, type, data, result, padding);
 	// Если защиту наложить не удалось
 	if(outcome != error_t::NONE){
@@ -1071,7 +1071,7 @@ nts::protect::error_t nts::protect::Protection::open(const record::header_t & he
 	if(record::build(header, associated) != record::error_t::NONE)
 		// Выводим отказ снятия защиты
 		return error_t::LENGTH;
-	// Выполняем снятие защиты с записи собственным порядковым номером
+	// Снятие защиты с записи собственным порядковым номером
 	const error_t outcome = this->open(view_t(associated, record::RECORD_HEADER), this->_sequence, data, type, result);
 	// Если защиту снять не удалось
 	if(outcome != error_t::NONE)
@@ -1137,7 +1137,7 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 		return error_t::LENGTH;
 	// Описание базового шифра записи
 	cipher::block_t block;
-	// Выполняем подготовку базового шифра к защите записи
+	// Подготовка базового шифра к защите записи
 	const error_t error = this->prepare(sequence, block);
 	// Если базовый шифр подготовить не удалось
 	if(error != error_t::NONE)
@@ -1145,7 +1145,7 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 		return error;
 	// Место, в которое помещается одноразовое значение записи
 	uint8_t nonce[PROTECT_VECTOR];
-	// Выполняем выработку одноразового значения записи
+	// Выработка одноразового значения записи
 	this->nonce(sequence, nonce);
 	// Итог наложения защиты на запись
 	error_t outcome = error_t::NONE;
@@ -1165,7 +1165,7 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 		if(this->_stream){
 			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
 			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
-				// Выполняем наложение шифрования с проверкой целостности: содержимое, вид и дополнение шифруются потоком прямо из места вызова
+				// Наложение шифрования с проверкой целостности: содержимое, вид и дополнение шифруются потоком прямо из места вызова
 				ok = sealing(this->_chachapoly, associated, data, total, type, padding, cipher);
 		// Если набор шифрования - SM4-CCM по RFC 8998
 		} else if(this->_ccm) {
@@ -1179,15 +1179,15 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 			plain[total] = static_cast <uint8_t> (type);
 			// Если заполнение записи установить удалось
 			if(this->_mode.restart(view_t(nonce, this->_size)))
-				// Выполняем наложение шифрования с проверкой целостности
+				// Наложение шифрования с проверкой целостности
 				ok = this->_mode.encrypt(associated, view_t(plain.data(), plain.size()), cipher, (cipher + length));
-			// Выполняем затирание открытого текста записи
+			// Затирание открытого текста записи
 			wipe(plain.data(), plain.size());
 		// Если набор шифрования классический на AES-GCM либо SM4-GCM
 		} else if(this->_classic) {
 			// Если заполнение записи установить удалось: таблица режима построена при заведении ключа
 			if(this->_gcm.restart(view_t(nonce, this->_size)))
-				// Выполняем наложение шифрования с проверкой целостности
+				// Наложение шифрования с проверкой целостности
 				ok = sealing(this->_gcm, associated, data, total, type, padding, cipher);
 		// Если набор шифрования на алгоритмах ГОСТ
 		} else {
@@ -1203,9 +1203,9 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 			cipher::galois_t galois;
 			// Если режим MGM запустить удалось
 			if(galois.start(block, view_t(nonce, this->_size), this->_tag))
-				// Выполняем наложение шифрования с проверкой целостности
+				// Наложение шифрования с проверкой целостности
 				ok = galois.encrypt(associated, view_t(plain.data(), plain.size()), cipher, (cipher + length));
-			// Выполняем затирание открытого текста записи
+			// Затирание открытого текста записи
 			wipe(plain.data(), plain.size());
 		}
 		// Если наложить шифрование не удалось
@@ -1222,7 +1222,7 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 		// Запоминаем отказ нехватки памяти
 		outcome = error_t::MEMORY;
 	}
-	// Выполняем затирание одноразового значения
+	// Затирание одноразового значения
 	wipe(nonce, sizeof(nonce));
 	// Выводим итог наложения защиты на запись
 	return outcome;
@@ -1268,7 +1268,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 		return error_t::LENGTH;
 	// Описание базового шифра записи
 	cipher::block_t block;
-	// Выполняем подготовку базового шифра к снятию защиты
+	// Подготовка базового шифра к снятию защиты
 	const error_t error = this->prepare(sequence, block);
 	// Если базовый шифр подготовить не удалось
 	if(error != error_t::NONE)
@@ -1276,7 +1276,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 		return error;
 	// Место, в которое помещается одноразовое значение записи
 	uint8_t nonce[PROTECT_VECTOR];
-	// Выполняем выработку одноразового значения записи
+	// Выработка одноразового значения записи
 	this->nonce(sequence, nonce);
 	// Итог снятия защиты с записи
 	error_t outcome = error_t::NONE;
@@ -1296,13 +1296,13 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 		if(this->_stream){
 			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
 			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
-				// Выполняем снятие шифрования с проверкой целостности прямо в накопитель
+				// Снятие шифрования с проверкой целостности прямо в накопитель
 				ok = this->_chachapoly.decrypt(associated, view_t(data.data, length), plain, view_t((data.data + length), this->_tag));
 		// Если набор шифрования - SM4-CCM по RFC 8998
 		} else if(this->_ccm) {
 			// Если заполнение записи установить удалось
 			if(this->_mode.restart(view_t(nonce, this->_size)))
-				// Выполняем снятие шифрования с проверкой целостности прямо в накопитель
+				// Снятие шифрования с проверкой целостности прямо в накопитель
 				ok = this->_mode.decrypt(associated, view_t(data.data, length), view_t((data.data + length), this->_tag), plain);
 		// Если набор шифрования классический на AES-GCM либо SM4-GCM
 		} else if(this->_classic) {
@@ -1318,7 +1318,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 			cipher::galois_t galois;
 			// Если режим MGM запустить удалось
 			if(galois.start(block, view_t(nonce, this->_size), this->_tag))
-				// Выполняем снятие шифрования с проверкой целостности прямо в накопитель
+				// Снятие шифрования с проверкой целостности прямо в накопитель
 				ok = galois.decrypt(associated, view_t(data.data, length), plain, view_t((data.data + length), this->_tag));
 		}
 		// Длина открытого содержимого записи без дополнения и вида: ноль остаётся при отказе
@@ -1358,7 +1358,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 				}
 			}
 		}
-		// Выполняем затирание хвоста открытого текста: вида и дополнения, а при отказе - всего расшифрованного
+		// Затирание хвоста открытого текста: вида и дополнения, а при отказе - всего расшифрованного
 		wipe(plain + inner, (length - inner));
 		// Возвращаем накопитель к длине открытого содержимого: при отказе - к прежней
 		result.resize(offset + inner);
@@ -1369,7 +1369,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 		// Запоминаем отказ нехватки памяти
 		outcome = error_t::MEMORY;
 	}
-	// Выполняем затирание одноразового значения
+	// Затирание одноразового значения
 	wipe(nonce, sizeof(nonce));
 	// Выводим итог снятия защиты с записи
 	return outcome;
@@ -1518,7 +1518,7 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 	const size_t prefix = (this->_stream ? 0 : LEGACY_EXPLICIT);
 	// Описание базового шифра записи
 	cipher::block_t block;
-	// Выполняем подготовку базового шифра к защите записи
+	// Подготовка базового шифра к защите записи
 	const error_t error = this->prepare(sequence, block);
 	// Если базовый шифр подготовить не удалось
 	if(error != error_t::NONE)
@@ -1563,13 +1563,13 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 		if(this->_stream){
 			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
 			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
-				// Выполняем наложение шифрования с проверкой целостности
+				// Наложение шифрования с проверкой целостности
 				ok = this->_chachapoly.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
 		// Если набор шифрования - AES-GCM
 		} else {
 			// Если режим GCM запустить не удалось
 			if(this->_gcm.restart(view_t(nonce, LEGACY_SALT + LEGACY_EXPLICIT)))
-				// Выполняем наложение шифрования с проверкой целостности
+				// Наложение шифрования с проверкой целостности
 				ok = this->_gcm.encrypt(view_t(associated, sizeof(associated)), view_t(data.data, total), cipher, (cipher + total));
 		}
 		// Если наложить шифрование не удалось
@@ -1586,7 +1586,7 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 		// Запоминаем отказ нехватки памяти
 		outcome = error_t::MEMORY;
 	}
-	// Выполняем затирание одноразового значения
+	// Затирание одноразового значения
 	wipe(nonce, sizeof(nonce));
 	// Выводим итог наложения защиты на запись
 	return outcome;
@@ -1674,7 +1674,7 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 		return error_t::LENGTH;
 	// Описание базового шифра записи
 	cipher::block_t block;
-	// Выполняем подготовку базового шифра к снятию защиты
+	// Подготовка базового шифра к снятию защиты
 	const error_t error = this->prepare(sequence, block);
 	// Если базовый шифр подготовить не удалось
 	if(error != error_t::NONE)
@@ -1716,13 +1716,13 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 		if(this->_stream){
 			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
 			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
-				// Выполняем снятие шифрования с проверкой целостности
+				// Снятие шифрования с проверкой целостности
 				ok = this->_chachapoly.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
 		// Если набор шифрования - AES-GCM
 		} else {
 			// Если режим GCM запустить не удалось
 			if(this->_gcm.restart(view_t(nonce, LEGACY_SALT + LEGACY_EXPLICIT)))
-				// Выполняем снятие шифрования с проверкой целостности
+				// Снятие шифрования с проверкой целостности
 				ok = this->_gcm.decrypt(view_t(associated, sizeof(associated)), view_t(data.data + prefix, length), plain.data(), view_t((data.data + prefix + length), this->_tag));
 		}
 		// Если метка целостности записи не сошлась
@@ -1733,7 +1733,7 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 		else
 			// Складываем открытое содержимое записи в накопитель
 			result.insert(result.end(), plain.data(), (plain.data() + length));
-		// Выполняем затирание открытого текста записи
+		// Затирание открытого текста записи
 		wipe(plain.data(), plain.size());
 	/**
 	 * Выполняем перехват ошибок
@@ -1742,7 +1742,7 @@ nts::protect::error_t nts::protect::Protection::unwrap(const uint64_t sequence, 
 		// Запоминаем отказ нехватки памяти
 		outcome = error_t::MEMORY;
 	}
-	// Выполняем затирание одноразового значения
+	// Затирание одноразового значения
 	wipe(nonce, sizeof(nonce));
 	// Выводим итог снятия защиты с записи
 	return outcome;
@@ -1786,7 +1786,7 @@ nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, c
 	const size_t width = digest::length(this->_digest);
 	// Описание базового шифра записи
 	cipher::block_t block;
-	// Выполняем подготовку базового шифра к защите записи
+	// Подготовка базового шифра к защите записи
 	const error_t error = this->prepare(sequence, block);
 	// Если базовый шифр подготовить не удалось
 	if(error != error_t::NONE)
@@ -1840,7 +1840,7 @@ nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, c
 			mac.update(view_t(plain.data(), total));
 			// Если имитовставку над содержимым снять не удалось
 			if(!mac.finish(plain.data() + total, width)){
-				// Выполняем затирание открытого текста записи
+				// Затирание открытого текста записи
 				wipe(plain.data(), plain.size());
 				// Выводим отказ базового шифра
 				return error_t::CIPHER;
@@ -1874,7 +1874,7 @@ nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, c
 				outcome = error_t::CIPHER;
 			}
 		}
-		// Выполняем затирание открытого текста записи
+		// Затирание открытого текста записи
 		wipe(plain.data(), plain.size());
 	/**
 	 * Выполняем перехват ошибок
@@ -1922,7 +1922,7 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
 		return error_t::LENGTH;
 	// Описание базового шифра записи
 	cipher::block_t block;
-	// Выполняем подготовку базового шифра к снятию защиты
+	// Подготовка базового шифра к снятию защиты
 	const error_t error = this->prepare(sequence, block);
 	// Если базовый шифр подготовить не удалось
 	if(error != error_t::NONE)
@@ -1950,14 +1950,14 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
 		mac.update(view_t(data.data, (CBC_BLOCK + length)));
 		// Если ожидаемую имитовставку снять не удалось
 		if(!mac.finish(expected, width)){
-			// Выполняем затирание ожидаемой имитовставки
+			// Затирание ожидаемой имитовставки
 			wipe(expected, sizeof(expected));
 			// Выводим отказ базового шифра
 			return error_t::CIPHER;
 		}
 		// Если принятая имитовставка не сошлась с ожидаемой: сличение за постоянное время
 		if(!message::compare(view_t(data.data + CBC_BLOCK + length, width), view_t(expected, width))){
-			// Выполняем затирание ожидаемой имитовставки
+			// Затирание ожидаемой имитовставки
 			wipe(expected, sizeof(expected));
 			// Выводим отказ метки целостности
 			return error_t::TAG;
@@ -1975,9 +1975,9 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
 		cipher::chaining_t chaining;
 		// Если режим запустить либо расшифровать шифртекст не удалось
 		if(!chaining.start(block, view_t(data.data, CBC_BLOCK)) || !chaining.decrypt(view_t(data.data + CBC_BLOCK, length), plain.data())){
-			// Выполняем затирание открытого текста записи
+			// Затирание открытого текста записи
 			wipe(plain.data(), plain.size());
-			// Выполняем затирание ожидаемой имитовставки
+			// Затирание ожидаемой имитовставки
 			wipe(expected, sizeof(expected));
 			// Выводим отказ базового шифра
 			return error_t::CIPHER;
@@ -2002,7 +2002,7 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
 		else
 			// Складываем открытое содержимое записи в накопитель
 			result.insert(result.end(), plain.data(), (plain.data() + total));
-		// Выполняем затирание открытого текста записи
+		// Затирание открытого текста записи
 		wipe(plain.data(), plain.size());
 	/**
 	 * Выполняем перехват ошибок
@@ -2011,7 +2011,7 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
 		// Запоминаем отказ нехватки памяти
 		outcome = error_t::MEMORY;
 	}
-	// Выполняем затирание ожидаемой имитовставки
+	// Затирание ожидаемой имитовставки
 	wipe(expected, sizeof(expected));
 	// Выводим итог снятия защиты с записи
 	return outcome;
@@ -2139,9 +2139,9 @@ uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record:
 		diff = static_cast <uint8_t> (diff | (expected[k] ^ received[k]));
 	// Учитываем схождение имитовставок и их выработку в итоговом признаке
 	good = static_cast <uint8_t> (good & same(diff, 0) & produced);
-	// Выполняем затирание ожидаемой имитовставки
+	// Затирание ожидаемой имитовставки
 	wipe(expected, sizeof(expected));
-	// Выполняем затирание принятой имитовставки
+	// Затирание принятой имитовставки
 	wipe(received, sizeof(received));
 	// Выводим маску годности записи
 	return good;
@@ -2163,6 +2163,6 @@ nts::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_t:
  *
  */
 nts::protect::Protection::~Protection() noexcept {
-	// Выполняем сброс ключевого материала
+	// Сброс ключевого материала
 	this->clear();
 }

@@ -16,15 +16,15 @@
  *
  * @section Намеренные решения
  *
- * 1. Фасад ведения связи в себе не держит. Клиент и сервер проходят одно и то же
+ *  1. Фасад ведения связи в себе не держит. Клиент и сервер проходят одно и то же
  *    рукопожатие с разных его концов, и ведёт их один внутренний модуль: фасад лишь
  *    объявляет ту часть его вызовов, которая этой роли принадлежит.
  *
- * 2. Ведение связи заводится конструктором, а не первым вызовом. Нехватка памяти на
+ *  2. Ведение связи заводится конструктором, а не первым вызовом. Нехватка памяти на
  *    заведении вида связи заметна сразу, тогда как отложенное заведение потребовало бы
  *    проверки указателя у всякого вызова фасада.
  *
- * 3. Связь копированию не подлежит. Защита записей ведёт счётчик записей, единый на
+ *  3. Связь копированию не подлежит. Защита записей ведёт счётчик записей, единый на
  *    направление связи, и две копии одной связи повторили бы его значение - а повтор
  *    значения счётчика при том же ключе выдаёт открытое содержимое обеих записей.
  *
@@ -247,7 +247,7 @@ context::error_t nts::server::Context::issue() noexcept {
 void nts::server::Context::suites(const vector <protect::suite_t> & suites) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку предлагаемых наборов шифрования
+		// Установка предлагаемых наборов шифрования
 		this->_engine->suites(suites);
 }
 /**
@@ -259,7 +259,7 @@ void nts::server::Context::suites(const vector <protect::suite_t> & suites) noex
 void nts::server::Context::keylog(const context::keylog_t & keylog) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку журнала секретов
+		// Установка журнала секретов
 		this->_engine->keylog(keylog);
 }
 /**
@@ -271,7 +271,7 @@ void nts::server::Context::keylog(const context::keylog_t & keylog) noexcept {
 void nts::server::Context::pinned(const view_t & pinned) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку закреплённого ключа
+		// Установка закреплённого ключа
 		this->_engine->pinned(pinned);
 }
 /**
@@ -311,7 +311,7 @@ context::error_t nts::server::Context::versions(const uint16_t lowest, const uin
 void nts::server::Context::master(const bool mandatory) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку обязательности расширенного главного секрета
+		// Установка обязательности расширенного главного секрета
 		this->_engine->master(mandatory);
 }
 /**
@@ -363,7 +363,7 @@ uint16_t nts::server::Context::version() const noexcept {
 void nts::server::Context::preference(const bool own) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку порядка выбора набора шифрования
+		// Установка порядка выбора набора шифрования
 		this->_engine->preference(own);
 }
 /**
@@ -376,7 +376,7 @@ void nts::server::Context::preference(const bool own) noexcept {
 void nts::server::Context::groups(const vector <extension::group_t> & groups) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку предлагаемых кривых обмена ключами
+		// Установка предлагаемых кривых обмена ключами
 		this->_engine->groups(groups);
 }
 /**
@@ -401,7 +401,7 @@ const vector <nts::extension::group_t> & nts::server::Context::groups() const no
 void nts::server::Context::schemes(const vector <extension::scheme_t> & schemes) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку признаваемых схем подписи
+		// Установка признаваемых схем подписи
 		this->_engine->schemes(schemes);
 }
 /**
@@ -426,7 +426,7 @@ const vector <nts::extension::scheme_t> & nts::server::Context::schemes() const 
 void nts::server::Context::codecs(const vector <context::codec_t> & codecs, const size_t inflation) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку алгоритмов сжатия цепочки сертификатов
+		// Установка алгоритмов сжатия цепочки сертификатов
 		this->_engine->codecs(codecs, inflation);
 }
 /**
@@ -439,7 +439,7 @@ void nts::server::Context::codecs(const vector <context::codec_t> & codecs, cons
 void nts::server::Context::status(const bool request) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку запроса состояния сертификата собеседника
+		// Установка запроса состояния сертификата собеседника
 		this->_engine->inquire(request);
 }
 /**
@@ -453,7 +453,7 @@ void nts::server::Context::status(const bool request) noexcept {
 void nts::server::Context::status(const vector <uint8_t> & response, const size_t index) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку ответа о состоянии своего сертификата
+		// Установка ответа о состоянии своего сертификата
 		this->_engine->staple(response, index);
 }
 /**
@@ -465,7 +465,7 @@ void nts::server::Context::status(const vector <uint8_t> & response, const size_
 void nts::server::Context::timestamps(const vector <uint8_t> & list) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку перечня меток времени
+		// Установка перечня меток времени
 		this->_engine->timestamps(list);
 }
 /**
@@ -547,7 +547,7 @@ uint16_t nts::server::Context::profile() const noexcept {
 void nts::server::Context::verification(const bool verify, const int64_t leeway, const trust::store_t & store) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку проверки принятого ответа о состоянии
+		// Установка проверки принятого ответа о состоянии
 		this->_engine->verification(verify, leeway, store);
 }
 /**
@@ -569,7 +569,7 @@ nts::ocsp::status_t nts::server::Context::certified() const noexcept {
 void nts::server::Context::credential(const context::credential_t & credential) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку подлинности своей стороны связи
+		// Установка подлинности своей стороны связи
 		this->_engine->credential(credential);
 }
 /**
@@ -581,7 +581,7 @@ void nts::server::Context::credential(const context::credential_t & credential) 
 void nts::server::Context::protocols(const vector <string> & protocols) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку предлагаемых прикладных протоколов
+		// Установка предлагаемых прикладных протоколов
 		this->_engine->protocols(protocols);
 }
 /**
@@ -595,7 +595,7 @@ void nts::server::Context::protocols(const vector <string> & protocols) noexcept
 void nts::server::Context::settings(const string & protocol, const vector <uint8_t> & value) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем объявление прикладных настроек
+		// Объявление прикладных настроек
 		this->_engine->settings(protocol, value);
 }
 /**
@@ -608,7 +608,7 @@ void nts::server::Context::settings(const string & protocol, const vector <uint8
 void nts::server::Context::codepoint(const extension::type_t type) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку точки кода
+		// Установка точки кода
 		this->_engine->codepoint(static_cast <uint16_t> (type));
 }
 /**
@@ -653,7 +653,7 @@ extension::type_t nts::server::Context::codepoint() const noexcept {
 void nts::server::Context::cookie(const vector <uint8_t> & cookie) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку метки возврата состояния сервера
+		// Установка метки возврата состояния сервера
 		this->_engine->cookie(cookie);
 }
 /**
@@ -677,7 +677,7 @@ const vector <uint8_t> & nts::server::Context::cookie() const noexcept {
 void nts::server::Context::moment(const int64_t moment) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку мига суждения о сроках билетов
+		// Установка мига суждения о сроках билетов
 		this->_engine->moment(moment);
 }
 /**
@@ -689,7 +689,7 @@ void nts::server::Context::moment(const int64_t moment) noexcept {
 void nts::server::Context::lifetime(const uint32_t lifetime) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку срока жизни выдаваемых билетов
+		// Установка срока жизни выдаваемых билетов
 		this->_engine->lifetime(lifetime);
 }
 /**
@@ -701,7 +701,7 @@ void nts::server::Context::lifetime(const uint32_t lifetime) noexcept {
 void nts::server::Context::request(const bool request) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку требования подлинности клиента
+		// Установка требования подлинности клиента
 		this->_engine->request(request);
 }
 /**
@@ -713,7 +713,7 @@ void nts::server::Context::request(const bool request) noexcept {
 void nts::server::Context::authorities(const vector <vector <uint8_t>> & names) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку перечня доверенных центров
+		// Установка перечня доверенных центров
 		this->_engine->authorities(names);
 }
 /**
@@ -725,7 +725,7 @@ void nts::server::Context::authorities(const vector <vector <uint8_t>> & names) 
 void nts::server::Context::negotiation(const bool negotiation) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку выработки NPN
+		// Установка выработки NPN
 		this->_engine->negotiation(negotiation);
 }
 /**
@@ -747,7 +747,7 @@ bool nts::server::Context::negotiated() const noexcept {
 void nts::server::Context::resume(const vector <context::ticket_t> & tickets) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку билетов возобновления связи
+		// Установка билетов возобновления связи
 		this->_engine->resume(tickets);
 }
 /**
@@ -759,7 +759,7 @@ void nts::server::Context::resume(const vector <context::ticket_t> & tickets) no
 void nts::server::Context::psk(const context::psk_t & psk) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку заранее разделённого ключа
+		// Установка заранее разделённого ключа
 		this->_engine->psk(psk);
 }
 /**
@@ -771,7 +771,7 @@ void nts::server::Context::psk(const context::psk_t & psk) noexcept {
 void nts::server::Context::select(const context::select_t & select) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку выбора подлинности по имени узла
+		// Установка выбора подлинности по имени узла
 		this->_engine->select(select);
 }
 /**
@@ -784,7 +784,7 @@ void nts::server::Context::select(const context::select_t & select) noexcept {
 void nts::server::Context::etm(const bool required) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку требования порядка
+		// Установка требования порядка
 		this->_engine->etm(required);
 }
 /**
@@ -807,7 +807,7 @@ bool nts::server::Context::etm() const noexcept {
 void nts::server::Context::grease(const bool grease) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку вставки значений GREASE
+		// Установка вставки значений GREASE
 		this->_engine->grease(grease);
 }
 /**
@@ -830,7 +830,7 @@ bool nts::server::Context::grease() const noexcept {
 void nts::server::Context::wiping(const vector <context::wiping_t> & classes) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку классов затирания
+		// Установка классов затирания
 		this->_engine->wiping(classes);
 }
 /**
@@ -984,7 +984,7 @@ bool nts::server::Context::shrouded() const noexcept {
 void nts::server::Context::vault(const vector <uint8_t> & secret) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку ключа билетов сеансов
+		// Установка ключа билетов сеансов
 		this->_engine->vault(secret);
 }
 /**
@@ -1007,7 +1007,7 @@ bool nts::server::Context::shared() const noexcept {
 void nts::server::Context::advance(const bool advance, const uint32_t limit) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку предложения упреждающих данных
+		// Установка предложения упреждающих данных
 		this->_engine->advance(advance, limit);
 }
 /**
@@ -1030,7 +1030,7 @@ bool nts::server::Context::accepted() const noexcept {
 void nts::server::Context::renewal(const bool automatic, const uint64_t records) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку порядка смены ключей по счётчику записей
+		// Установка порядка смены ключей по счётчику записей
 		this->_engine->renewal(automatic, records);
 }
 /**
@@ -1139,7 +1139,7 @@ view_t nts::server::Context::output(const context::level_t level) const noexcept
 void nts::server::Context::consume(const context::level_t level, const size_t size) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем снятие отправленных сообщений с накопителя уровня
+		// Снятие отправленных сообщений с накопителя уровня
 		this->_engine->consume(level, size);
 }
 /**
@@ -1187,7 +1187,7 @@ bool nts::server::Context::earlying() const noexcept {
 void nts::server::Context::mtu(const size_t mtu) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку размера дейтаграммы связи
+		// Установка размера дейтаграммы связи
 		this->_engine->mtu(mtu);
 }
 /**
@@ -1210,7 +1210,7 @@ size_t nts::server::Context::mtu() const noexcept {
 void nts::server::Context::strict(const bool strict) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку строгости сервера без состояния
+		// Установка строгости сервера без состояния
 		this->_engine->strict(strict);
 }
 /**
@@ -1289,7 +1289,7 @@ bool nts::server::Context::address(const view_t & address) noexcept {
 void nts::server::Context::stamp(const vector <uint8_t> & secret) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем установку секрета метки возврата состояния
+		// Установка секрета метки возврата состояния
 		this->_engine->stamp(secret);
 }
 /**
@@ -1299,7 +1299,7 @@ void nts::server::Context::stamp(const vector <uint8_t> & secret) noexcept {
 void nts::server::Context::restamp() noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем смену поколения секрета метки
+		// Смену поколения секрета метки
 		this->_engine->restamp();
 }
 /**
@@ -1323,7 +1323,7 @@ context::error_t nts::server::Context::start() noexcept {
 void nts::server::Context::clear() noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем сброс состояния связи
+		// Сброс состояния связи
 		this->_engine->clear();
 }
 /**
@@ -1360,7 +1360,7 @@ view_t nts::server::Context::output() const noexcept {
 void nts::server::Context::consume(const size_t size) noexcept {
 	// Если ведение связи заведено
 	if(this->_engine != nullptr)
-		// Выполняем снятие отправленных байтов с накопителя
+		// Снятие отправленных байтов с накопителя
 		this->_engine->consume(size);
 }
 /**
@@ -1431,13 +1431,13 @@ nts::server::Context::Context() noexcept : _engine(nullptr) {
 	 * Выполняем перехват ошибок
 	 */
 	try {
-		// Выполняем создание объекта ведения связи
+		// Создание объекта ведения связи
 		this->_engine = make_unique <internal::engine_t> (true);
 	/**
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
-		// Выполняем сброс объекта ведения связи
+		// Сброс объекта ведения связи
 		this->_engine = nullptr;
 	}
 }

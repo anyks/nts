@@ -16,40 +16,40 @@
  *
  * @section Намеренные решения
  *
- * 1. Открытая часть секретного ключа выводится из секретной всегда, а записанная в файле
+ *  1. Открытая часть секретного ключа выводится из секретной всегда, а записанная в файле
  *    лишь сличается с выведенной. Довериться записанной значило бы принять ключ, у которого
  *    подпись вырабатывается одним числом, а проверяется другим: такой ключ разбирается, но
  *    не работает, и отказ его всплыл бы далеко от места разбора.
  *
- * 2. Настройки алгоритма RSA обязаны быть записаны пустым значением NULL. Раздел 2.3.1
+ *  2. Настройки алгоритма RSA обязаны быть записаны пустым значением NULL. Раздел 2.3.1
  *    RFC 3279 так и велит, openssl так и пишет, а запись без настроек вовсе стандарту
  *    не отвечает. Закреплено проверкой KeysTest.Refusal.
  *
- * 3. Кривая у EC принимается только именованной. Раздел 2.1.1 RFC 5480 велит писать
+ *  3. Кривая у EC принимается только именованной. Раздел 2.1.1 RFC 5480 велит писать
  *    именно так, а явные параметры кривой требуют доверия к чужому набору чисел, тогда
  *    как известные кривые заведены самим составом библиотеки.
  *
- * 4. Негодный пароль зашифрованного ключа опознаётся по дополнению PKCS #7 и по устройству
+ *  4. Негодный пароль зашифрованного ключа опознаётся по дополнению PKCS #7 и по устройству
  *    расшифрованной записи. Схема PBES2 признака подлинности не несёт, и различить негодный
  *    пароль от испорченного шифртекста ей нечем: оба отдаются одним отказом PASSWORD.
  *
- * 5. Записи ключей без пароля выходят байт в байт теми же, что у openssl издания 3:
+ *  5. Записи ключей без пароля выходят байт в байт теми же, что у openssl издания 3:
  *    нулевое издание PrivateKeyInfo, открытый ключ внутри ECPrivateKey без повторения
  *    кривой, зерно Ed25519 строкой байтов в строке байтов. Иных способов записи стандарты
  *    дозволяют несколько, а сличение с эталоном возможно только при одном.
  *
- * 6. Соль зашифрованной записи берётся длиной в шестнадцать байтов, а не в восемь, как у
+ *  6. Соль зашифрованной записи берётся длиной в шестнадцать байтов, а не в восемь, как у
  *    openssl: раздел 4 RFC 8018 велит не меньше восьми, и большая соль стандарту не
  *    противоречит, а обороты PBKDF2 при чтении берутся из записи, а не подразумеваются.
  *
- * 7. Буферы записчика ASN.1 с секретным содержимым затираются через снятие постоянства
+ *  7. Буферы записчика ASN.1 с секретным содержимым затираются через снятие постоянства
  *    у просмотра его накопителя (buffer(), а не data(): последнее пусто при отказе записи
  *    и при незакрытом элементе, и затирание на пути отказа через него не работало вовсе).
  *    Записчик хранит запись в обычной памяти и затирать её сам не умеет, а оставлять
  *    секретный ключ в освобождённой памяти нельзя; рост же его буфера затирает прежнюю
  *    память сам (asn1::Writer::grow), потому промежуточных копий записи не остаётся.
  *
- * 8. Подготовленный ключ (Signer) заводится один раз и не копируется. Разбор записи,
+ *  8. Подготовленный ключ (Signer) заводится один раз и не копируется. Разбор записи,
  *    проверки составляющих RSA делением, выработка открытой точки и предвычисления
  *    Монтгомери стоят у RSA-2048 вдвое дороже подписи, у ECDSA - вдвое дороже всего
  *    рукопожатия, и до круга 29 (22.09.2026) связь вела их на каждой подписи. Модули
@@ -369,7 +369,7 @@ namespace {
 	static void erase(vector <uint8_t> & data) noexcept {
 		// Если набор байтов не пуст
 		if(!data.empty())
-			// Выполняем затирание содержимого набора байтов
+			// Затирание содержимого набора байтов
 			wipe(data.data(), data.size());
 		// Пустой набор, которым подменяется затёртый
 		vector <uint8_t> empty;
@@ -387,9 +387,9 @@ namespace {
 		const view_t data = writer.buffer();
 		// Если буфер записчика не пуст
 		if((data.data != nullptr) && (data.size > 0))
-			// Выполняем затирание буфера: память буфера принадлежит записчику и постоянной не является
+			// Затирание буфера: память буфера принадлежит записчику и постоянной не является
 			wipe(const_cast <uint8_t *> (data.data), data.size);
-		// Выполняем сброс записчика
+		// Сброс записчика
 		writer.clear();
 	}
 	/**
@@ -406,7 +406,7 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем копирование области байтов
+			// Копирование области байтов
 			result.assign(data, data + size);
 		// Если памяти не хватило
 		/**
@@ -583,9 +583,9 @@ namespace {
 			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
 		}
-		// Выполняем запись целого числа
+		// Запись целого числа
 		writer.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), view_t(buffer.data(), buffer.size()));
-		// Выполняем затирание байтов числа: оно вправе быть секретным
+		// Затирание байтов числа: оно вправе быть секретным
 		erase(buffer);
 		// Выводим итог записи
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
@@ -631,7 +631,7 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем копирование опознавателя
+			// Копирование опознавателя
 			result.assign(value);
 		// Если памяти не хватило
 		/**
@@ -1549,7 +1549,7 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
-			// Выполняем затирание скаляра
+			// Затирание скаляра
 			erase(scalar);
 			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
@@ -1577,7 +1577,7 @@ namespace {
 		writer.close();
 		// Закрываем набор записи
 		writer.close();
-		// Выполняем затирание скаляра
+		// Затирание скаляра
 		erase(scalar);
 		// Выводим итог записи
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
@@ -1977,7 +1977,7 @@ namespace {
 			buffer[first.size() + i] = second[second.size() - i - 1];
 		// Записываем строку байтов
 		writer.octets(view_t(buffer.data(), buffer.size()));
-		// Выполняем затирание буфера: он вправе нести секрет
+		// Затирание буфера: он вправе нести секрет
 		erase(buffer);
 		// Выводим итог записи
 		return ((writer.err() == asn1::error_t::NONE) ? error_t::NONE : translate(writer.err()));
@@ -2088,14 +2088,14 @@ namespace {
 				 * Выполняем перехват ошибок
 				 */
 				} catch(const bad_alloc &) {
-					// Выполняем затирание скаляра
+					// Затирание скаляра
 					erase(scalar);
 					// Выводим отказ нехватки памяти
 					return error_t::MEMORY;
 				}
 				// Итог записи скаляра порядком от младшего байта к старшему
 				const error_t written = reversedOctets(writer, scalar, vector <uint8_t> ());
-				// Выполняем затирание скаляра
+				// Затирание скаляра
 				erase(scalar);
 				// Выводим итог записи
 				return written;
@@ -2446,11 +2446,11 @@ namespace {
 			hasher.update(view_t(passkey.data(), passkey.size()));
 		// Если первый блок материала снять не удалось
 		if(!hasher.finish(item, length)){
-			// Выполняем затирание дополнений
+			// Затирание дополнений
 			erase(diversifier);
-			// Выполняем затирание дополнений
+			// Затирание дополнений
 			erase(salted);
-			// Выполняем затирание дополнений
+			// Затирание дополнений
 			erase(passkey);
 			// Выводим отказ выработки ключа
 			return false;
@@ -2461,7 +2461,7 @@ namespace {
 		for(uint32_t i = 1; i < iterations; i++){
 			// Если очередной оборот не удался
 			if(!digest::hash(algorithm, view_t(item, length), item, length)){
-				// Выполняем затирание текущего блока
+				// Затирание текущего блока
 				wipe(item, sizeof(item));
 				// Выводим отказ выработки ключа
 				return false;
@@ -2493,7 +2493,7 @@ namespace {
 				next.update(view_t(passkey.data(), passkey.size()));
 			// Если следующий блок снять не удалось
 			if(!next.finish(item, length)){
-				// Выполняем затирание текущего блока
+				// Затирание текущего блока
 				wipe(item, sizeof(item));
 				// Выводим отказ выработки ключа
 				return false;
@@ -2504,20 +2504,20 @@ namespace {
 			for(uint32_t i = 1; i < iterations; i++){
 				// Если очередной оборот не удался
 				if(!digest::hash(algorithm, view_t(item, length), item, length)){
-					// Выполняем затирание текущего блока
+					// Затирание текущего блока
 					wipe(item, sizeof(item));
 					// Выводим отказ выработки ключа
 					return false;
 				}
 			}
 		}
-		// Выполняем затирание текущего блока
+		// Затирание текущего блока
 		wipe(item, sizeof(item));
-		// Выполняем затирание дополнений
+		// Затирание дополнений
 		erase(diversifier);
-		// Выполняем затирание дополнений
+		// Затирание дополнений
 		erase(salted);
-		// Выполняем затирание дополнений
+		// Затирание дополнений
 		erase(passkey);
 		// Выводим успешность выработки ключа
 		return true;
@@ -2588,7 +2588,7 @@ namespace {
 		uint8_t secret[cipher::AES_KEY];
 		// Если ключ шифра из пароля вывести не удалось
 		if(!digest::pbkdf2(prf, password, salt, iterations, secret, bits / 8)){
-			// Выполняем затирание ключа шифра
+			// Затирание ключа шифра
 			wipe(secret, sizeof(secret));
 			// Выводим отказ схемы
 			return error_t::CIPHER;
@@ -2597,7 +2597,7 @@ namespace {
 		cipher::aes_t aes;
 		// Признак установки ключа шифра
 		const bool keyed = aes.key(view_t(secret, bits / 8));
-		// Выполняем затирание ключа шифра
+		// Затирание ключа шифра
 		wipe(secret, sizeof(secret));
 		// Режим сцепления блоков
 		cipher::chaining_t chaining;
@@ -2621,7 +2621,7 @@ namespace {
 		}
 		// Если расшифровать запись не удалось
 		if(!chaining.decrypt(encrypted, plain.data())){
-			// Выполняем затирание расшифрованной записи
+			// Затирание расшифрованной записи
 			erase(plain);
 			// Выводим отказ схемы
 			return error_t::CIPHER;
@@ -2638,7 +2638,7 @@ namespace {
 			padded = (plain[plain.size() - i - 1] == padding);
 		// Если дополнение негодно: пароль не подошёл
 		if(!padded){
-			// Выполняем затирание расшифрованной записи
+			// Затирание расшифрованной записи
 			erase(plain);
 			// Выводим отказ пароля
 			return error_t::PASSWORD;
@@ -2743,7 +2743,7 @@ namespace {
 				password[i] = bmp.data[(i * 2) + 1];
 			// Итог разбора EncryptedPrivateKeyInfo
 			outcome = decodeEncryptedPrivateKeyInfo(body.element, view_t(password.data(), password.size()), key);
-			// Выполняем затирание пароля октетами
+			// Затирание пароля октетами
 			erase(password);
 			// Если EncryptedPrivateKeyInfo разобрать не удалось
 			if(outcome != error_t::NONE)
@@ -2907,7 +2907,7 @@ void nts::keys::Key::clear() noexcept {
  *
  */
 bool nts::keys::Key::load(sign::rsa_t & rsa) const noexcept {
-	// Выполняем сброс примитива
+	// Сброс примитива
 	rsa.clear();
 	// Если ключ не RSA
 	if(this->kind != kind_t::RSA)
@@ -2934,7 +2934,7 @@ bool nts::keys::Key::load(sign::rsa_t & rsa) const noexcept {
  *
  */
 bool nts::keys::Key::load(sign::ecdsa_t & ecdsa, curve::curve_t & curve) const noexcept {
-	// Выполняем сброс примитива
+	// Сброс примитива
 	ecdsa.clear();
 	// Если ключ не EC либо кривую по опознавателю установить не удалось
 	if((this->kind != kind_t::EC) || (curveOf(* this, curve) != error_t::NONE))
@@ -2961,7 +2961,7 @@ bool nts::keys::Key::load(sign::ecdsa_t & ecdsa, curve::curve_t & curve) const n
  *
  */
 bool nts::keys::Key::load(sign::sm2_t & sm2, curve::curve_t & curve, const view_t & id) const noexcept {
-	// Выполняем сброс примитива
+	// Сброс примитива
 	sm2.clear();
 	// Если ключ не SM2 либо кривую по опознавателю установить не удалось
 	if((this->kind != kind_t::SM2) || (curveOf(* this, curve) != error_t::NONE))
@@ -2986,7 +2986,7 @@ bool nts::keys::Key::load(sign::sm2_t & sm2, curve::curve_t & curve, const view_
  *
  */
 bool nts::keys::Key::load(sign::ed25519_t & ed25519) const noexcept {
-	// Выполняем сброс примитива
+	// Сброс примитива
 	ed25519.clear();
 	// Если ключ не Ed25519
 	if(this->kind != kind_t::ED25519)
@@ -3007,7 +3007,7 @@ bool nts::keys::Key::load(sign::ed25519_t & ed25519) const noexcept {
  *
  */
 bool nts::keys::Key::load(sign::ed448_t & ed448) const noexcept {
-	// Выполняем сброс примитива
+	// Сброс примитива
 	ed448.clear();
 	// Если ключ не Ed448
 	if(this->kind != kind_t::ED448)
@@ -3029,7 +3029,7 @@ bool nts::keys::Key::load(sign::ed448_t & ed448) const noexcept {
  *
  */
 bool nts::keys::Key::load(sign::gost_t & gost, curve::curve_t & curve) const noexcept {
-	// Выполняем сброс примитива
+	// Сброс примитива
 	gost.clear();
 	// Если ключ не ГОСТ либо кривую по опознавателю установить не удалось
 	if((this->kind != kind_t::GOST) || (curveOf(* this, curve) != error_t::NONE))
@@ -3054,7 +3054,7 @@ bool nts::keys::Key::load(sign::gost_t & gost, curve::curve_t & curve) const noe
  *
  */
 bool nts::keys::Key::load(sign::mldsa_t & mldsa) const noexcept {
-	// Выполняем сброс примитива
+	// Сброс примитива
 	mldsa.clear();
 	// Если ключ не ML-DSA
 	if(this->kind != kind_t::MLDSA)
@@ -3107,7 +3107,7 @@ bool nts::keys::Key::load(sign::mldsa_t & mldsa) const noexcept {
  *
  */
 nts::keys::Key::~Key() noexcept {
-	// Выполняем сброс ключа с затиранием секретных составляющих
+	// Сброс ключа с затиранием секретных составляющих
 	this->clear();
 }
 /**
@@ -3277,7 +3277,7 @@ nts::keys::error_t nts::keys::Signer::prepare(const view_t & secret) noexcept {
 			outcome = decode(text, view_t(), key);
 			// Если текст записи непуст
 			if(!text.empty())
-				// Выполняем затирание текста записи секретного ключа
+				// Затирание текста записи секретного ключа
 				nts::sys::wipe(reinterpret_cast <uint8_t *> (&text[0]), text.size());
 		/**
 		 * Выполняем перехват ошибок
@@ -3502,7 +3502,7 @@ nts::keys::Signer::~Signer() noexcept {
  *
  */
 nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key_t & result) noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	result.clear();
 	// Набор верхней записи
 	asn1::element_t sequence;
@@ -3558,12 +3558,12 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		if(!present || !tagged(params, asn1::cls_t::UNIVERSAL, static_cast <uint32_t> (asn1::tag_t::NOTHING), false) || (params.content.size != 0))
 			// Выводим отказ алгоритма
 			return error_t::ALGORITHM;
-		// Выполняем разбор RSAPublicKey
+		// Разбор RSAPublicKey
 		outcome = rsaPublic(bytes, key);
 	// Если ключ id-RSASSA-PSS
 	} else if(algorithm.compare(OID_RSAPSS) == 0){
 		// Настройки RSASSA-PSS по разделу 3.1 RFC 4055 вольны отсутствовать: разбору ключа они не мешают
-		// Выполняем разбор RSAPublicKey
+		// Разбор RSAPublicKey
 		outcome = rsaPublic(bytes, key);
 	// Если ключ EC
 	} else if(algorithm.compare(OID_EC) == 0){
@@ -3587,7 +3587,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 			return outcome;
 		// Устанавливаем вид ключа: ключ на кривой curveSM2 есть ключ SM2, прочие EC - ECDSA
 		key.kind = ((key.oid.compare(OID_SM2) == 0) ? kind_t::SM2 : kind_t::EC);
-		// Выполняем разбор несжатой точки
+		// Разбор несжатой точки
 		outcome = pointOf(bytes, curve, key.x, key.y);
 	// Если ключ SM2
 	} else if(algorithm.compare(OID_SM2) == 0){
@@ -3607,7 +3607,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 			return outcome;
 		// Устанавливаем вид ключа
 		key.kind = kind_t::SM2;
-		// Выполняем разбор несжатой точки
+		// Разбор несжатой точки
 		outcome = pointOf(bytes, curve, key.x, key.y);
 	// Если ключ Ed25519 либо X25519
 	} else if((algorithm.compare(OID_ED25519) == 0) || (algorithm.compare(OID_X25519) == 0)){
@@ -3621,7 +3621,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 			return error_t::MEMORY;
 		// Устанавливаем вид ключа
 		key.kind = ((algorithm.compare(OID_ED25519) == 0) ? kind_t::ED25519 : kind_t::X25519);
-		// Выполняем проверку открытого ключа
+		// Проверка открытого ключа
 		outcome = derive(key);
 	// Если ключ Ed448
 	} else if(algorithm.compare(OID_ED448) == 0){
@@ -3671,7 +3671,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Выполняем разбор открытого ключа
+		// Разбор открытого ключа
 		outcome = gostPublic(bytes, key);
 	// Если алгоритм ключа неизвестен
 	} else return error_t::ALGORITHM;
@@ -3813,7 +3813,7 @@ nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vect
  *
  */
 nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & result) noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	result.clear();
 	// Набор верхней записи
 	asn1::element_t sequence;
@@ -3918,12 +3918,12 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		if(!present || !tagged(params, asn1::cls_t::UNIVERSAL, static_cast <uint32_t> (asn1::tag_t::NOTHING), false) || (params.content.size != 0))
 			// Выводим отказ алгоритма
 			return error_t::ALGORITHM;
-		// Выполняем разбор RSAPrivateKey
+		// Разбор RSAPrivateKey
 		outcome = rsaSecret(body, key);
 	// Если ключ id-RSASSA-PSS
 	} else if(algorithm.compare(OID_RSAPSS) == 0){
 		// Настройки RSASSA-PSS по разделу 3.1 RFC 4055 вольны отсутствовать: разбору ключа они не мешают
-		// Выполняем разбор RSAPrivateKey
+		// Разбор RSAPrivateKey
 		outcome = rsaSecret(body, key);
 	// Если ключ EC
 	} else if(algorithm.compare(OID_EC) == 0){
@@ -3937,7 +3937,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Выполняем разбор ECPrivateKey внутри обёртки
+		// Разбор ECPrivateKey внутри обёртки
 		outcome = ecSecret(body, true, key);
 		// Если ключ разобран, а кривая его - curveSM2: вид ключа есть SM2, а не ECDSA
 		if((outcome == error_t::NONE) && (key.oid.compare(OID_SM2) == 0))
@@ -3953,7 +3953,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			vector <uint8_t> x, y;
 			// Если кривая установлена
 			if(outcome == error_t::NONE)
-				// Выполняем разбор несжатой точки
+				// Разбор несжатой точки
 				outcome = pointOf(opened, curve, x, y);
 			// Если точка разобрана, а с выведенной не сошлась
 			if((outcome == error_t::NONE) && (!same(x, key.x) || !same(y, key.y)))
@@ -3968,7 +3968,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			return error_t::ALGORITHM;
 		// Запоминаем опознаватель кривой curveSM2
 		key.oid = OID_SM2;
-		// Выполняем разбор ECPrivateKey внутри обёртки
+		// Разбор ECPrivateKey внутри обёртки
 		outcome = ecSecret(body, true, key);
 		// Если ключ разобран, вид его - SM2
 		if(outcome == error_t::NONE)
@@ -3984,7 +3984,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			vector <uint8_t> x, y;
 			// Если кривая установлена
 			if(outcome == error_t::NONE)
-				// Выполняем разбор несжатой точки
+				// Разбор несжатой точки
 				outcome = pointOf(opened, curve, x, y);
 			// Если точка разобрана, а с выведенной не сошлась
 			if((outcome == error_t::NONE) && (!same(x, key.x) || !same(y, key.y)))
@@ -4004,7 +4004,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
 		}
-		// Выполняем разбор зерна
+		// Разбор зерна
 		outcome = seedSecret(body, ((algorithm.compare(OID_ED25519) == 0) ? kind_t::ED25519 : kind_t::X25519), key);
 	// Если ключ Ed448
 	} else if(algorithm.compare(OID_ED448) == 0){
@@ -4041,7 +4041,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			return error_t::MEMORY;
 		// Устанавливаем вид ключа
 		key.kind = kind_t::ED448;
-		// Выполняем выведение открытой части ключа
+		// Выведение открытой части ключа
 		outcome = derive(key);
 	// Если ключ ML-DSA
 	} else if((algorithm.compare(OID_MLDSA44) == 0) || (algorithm.compare(OID_MLDSA65) == 0) || (algorithm.compare(OID_MLDSA87) == 0)){
@@ -4051,7 +4051,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			return error_t::ALGORITHM;
 		// Устанавливаем опознаватель алгоритма: обмен памяти не выделяет
 		key.algorithm.swap(algorithm);
-		// Выполняем разбор секретного ключа
+		// Разбор секретного ключа
 		outcome = mldsaSecret(body, key.algorithm, key);
 		// Если ключ разобран, а обёртка несёт открытый ключ, а с выведенным не сошёлся
 		if((outcome == error_t::NONE) && (opened.data != nullptr) && ((opened.size != key.key.size()) || (::memcmp(opened.data, key.key.data(), key.key.size()) != 0)))
@@ -4071,7 +4071,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Выполняем разбор секретного ключа
+		// Разбор секретного ключа
 		outcome = gostSecret(body, key);
 		// Если ключ разобран, а опознаватель алгоритма с кривой не согласован
 		if((outcome == error_t::NONE) && !gostAlgorithm(key))
@@ -4107,7 +4107,7 @@ nts::keys::error_t nts::keys::encodePrivateKeyInfo(const key_t & key, vector <ui
 	error_t outcome = secretBody(key, body);
 	// Если тело секретного ключа собрать не удалось
 	if(outcome != error_t::NONE){
-		// Выполняем затирание буфера записчика
+		// Затирание буфера записчика
 		scrub(body);
 		// Выводим отказ сборки
 		return outcome;
@@ -4122,7 +4122,7 @@ nts::keys::error_t nts::keys::encodePrivateKeyInfo(const key_t & key, vector <ui
 	outcome = algorithmIdentifier(writer, key);
 	// Если набор алгоритма записать не удалось
 	if(outcome != error_t::NONE){
-		// Выполняем затирание буфера записчика
+		// Затирание буфера записчика
 		scrub(body);
 		// Выводим отказ записи
 		return outcome;
@@ -4131,11 +4131,11 @@ nts::keys::error_t nts::keys::encodePrivateKeyInfo(const key_t & key, vector <ui
 	writer.octets(body.data());
 	// Закрываем набор записи
 	writer.close();
-	// Выполняем затирание буфера тела
+	// Затирание буфера тела
 	scrub(body);
 	// Итог завершения записи
 	outcome = finish(writer, result);
-	// Выполняем затирание буфера записи
+	// Затирание буфера записи
 	scrub(writer);
 	// Выводим итог завершения записи
 	return outcome;
@@ -4149,7 +4149,7 @@ nts::keys::error_t nts::keys::encodePrivateKeyInfo(const key_t & key, vector <ui
  *
  */
 nts::keys::error_t nts::keys::decodeECPrivateKey(const view_t & der, key_t & result) noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	result.clear();
 	// Разбираемый ключ
 	key_t key;
@@ -4179,9 +4179,9 @@ nts::keys::error_t nts::keys::encodeECPrivateKey(const key_t & key, vector <uint
 	error_t outcome = ecSecret(key, true, writer);
 	// Если запись собрана
 	if(outcome == error_t::NONE)
-		// Выполняем завершение записи
+		// Завершение записи
 		outcome = finish(writer, result);
-	// Выполняем затирание буфера записи
+	// Затирание буфера записи
 	scrub(writer);
 	// Выводим итог записи
 	return outcome;
@@ -4195,7 +4195,7 @@ nts::keys::error_t nts::keys::encodeECPrivateKey(const key_t & key, vector <uint
  *
  */
 nts::keys::error_t nts::keys::decodeRSAPrivateKey(const view_t & der, key_t & result) noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	result.clear();
 	// Разбираемый ключ
 	key_t key;
@@ -4225,9 +4225,9 @@ nts::keys::error_t nts::keys::encodeRSAPrivateKey(const key_t & key, vector <uin
 	error_t outcome = rsaIntegers(key, true, writer);
 	// Если запись собрана
 	if(outcome == error_t::NONE)
-		// Выполняем завершение записи
+		// Завершение записи
 		outcome = finish(writer, result);
-	// Выполняем затирание буфера записи
+	// Затирание буфера записи
 	scrub(writer);
 	// Выводим итог записи
 	return outcome;
@@ -4241,7 +4241,7 @@ nts::keys::error_t nts::keys::encodeRSAPrivateKey(const key_t & key, vector <uin
  *
  */
 nts::keys::error_t nts::keys::decodeRSAPublicKey(const view_t & der, key_t & result) noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	result.clear();
 	// Разбираемый ключ
 	key_t key;
@@ -4286,7 +4286,7 @@ nts::keys::error_t nts::keys::encodeRSAPublicKey(const key_t & key, vector <uint
  *
  */
 nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, const view_t & password, key_t & result) noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	result.clear();
 	// Набор верхней записи
 	asn1::element_t sequence;
@@ -4350,7 +4350,7 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 	uint8_t secret[cipher::AES_KEY];
 	// Если ключ шифра из пароля вывести не удалось
 	if(!digest::pbkdf2(prf, password, salt, iterations, secret, bits / 8)){
-		// Выполняем затирание ключа шифра
+		// Затирание ключа шифра
 		wipe(secret, sizeof(secret));
 		// Выводим отказ схемы
 		return error_t::CIPHER;
@@ -4359,7 +4359,7 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 	cipher::aes_t aes;
 	// Признак установки ключа шифра
 	const bool keyed = aes.key(view_t(secret, bits / 8));
-	// Выполняем затирание ключа шифра
+	// Затирание ключа шифра
 	wipe(secret, sizeof(secret));
 	// Режим сцепления блоков
 	cipher::chaining_t chaining;
@@ -4385,7 +4385,7 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 	}
 	// Если расшифровать запись не удалось
 	if(!chaining.decrypt(encrypted, plain.data())){
-		// Выполняем затирание расшифрованной записи
+		// Затирание расшифрованной записи
 		erase(plain);
 		// Выводим отказ схемы
 		return error_t::CIPHER;
@@ -4402,14 +4402,14 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 		padded = (plain[plain.size() - i - 1] == padding);
 	// Если дополнение негодно: пароль не подошёл
 	if(!padded){
-		// Выполняем затирание расшифрованной записи
+		// Затирание расшифрованной записи
 		erase(plain);
 		// Выводим отказ пароля
 		return error_t::PASSWORD;
 	}
-	// Выполняем разбор расшифрованной записи
+	// Разбор расшифрованной записи
 	outcome = decodePrivateKeyInfo(view_t(plain.data(), plain.size() - padding), result);
-	// Выполняем затирание расшифрованной записи
+	// Затирание расшифрованной записи
 	erase(plain);
 	// Если запись разобрать не удалось и это не нехватка памяти: расшифровано не то
 	if((outcome != error_t::NONE) && (outcome != error_t::MEMORY))
@@ -4429,9 +4429,9 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
  *
  */
 nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & password, key_t & key, vector <vector <uint8_t>> & chain) noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	key.clear();
-	// Выполняем сброс цепочки сертификатов
+	// Сброс цепочки сертификатов
 	chain.clear();
 	// Набор верхней записи PFX
 	asn1::element_t pfx;
@@ -4609,7 +4609,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		const size_t width = digest::length(macHash);
 		// Если ключ имитовставки вывести не удалось: назначение 3 - имитовставка записи
 		if(!pkcs12kdf(macHash, view_t(bmp.data(), bmp.size()), macSalt, macIterations, 3, secret, width)){
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим отказ схемы
 			return error_t::CIPHER;
@@ -4620,9 +4620,9 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		digest::mac_t macer;
 		// Если ключ имитовставки установить не удалось
 		if(!macer.start(macHash, view_t(secret, width))){
-			// Выполняем затирание ключа имитовставки
+			// Затирание ключа имитовставки
 			wipe(secret, sizeof(secret));
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим отказ схемы
 			return error_t::CIPHER;
@@ -4631,25 +4631,25 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		macer.update(safe);
 		// Снимаем выработанную имитовставку
 		const bool made = macer.finish(computed, width);
-		// Выполняем затирание ключа имитовставки
+		// Затирание ключа имитовставки
 		wipe(secret, sizeof(secret));
 		// Если имитовставку выработать не удалось
 		if(!made){
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим отказ схемы
 			return error_t::CIPHER;
 		}
 		// Если имитовставка записи не сошлась: пароль не подошёл
 		if((macValue.size != width) || (::memcmp(macValue.data, computed, width) != 0)){
-			// Выполняем затирание выработанной имитовставки
+			// Затирание выработанной имитовставки
 			wipe(computed, sizeof(computed));
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим отказ пароля
 			return error_t::PASSWORD;
 		}
-		// Выполняем затирание выработанной имитовставки
+		// Затирание выработанной имитовставки
 		wipe(computed, sizeof(computed));
 	}
 	// Набор записи AuthenticatedSafe
@@ -4658,7 +4658,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 	outcome = outer(safe, sequence);
 	// Если запись AuthenticatedSafe разобрать не удалось
 	if(outcome != error_t::NONE){
-		// Выполняем затирание строки пароля
+		// Затирание строки пароля
 		erase(bmp);
 		// Выводим отказ разбора
 		return outcome;
@@ -4673,7 +4673,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 	while(!contents.empty()){
 		// Если очередные сведения о содержимом разобрать не удалось
 		if(!contents.next(asn1::tag_t::SEQUENCE, content) || !content.constructed){
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим переведённый отказ разбора
 			return translate(contents.err());
@@ -4684,7 +4684,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		string bag;
 		// Если опознаватель вида содержимого разобрать не удалось
 		if(!inner.next(asn1::tag_t::OBJECT, element)){
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим переведённый отказ разбора
 			return translate(inner.err());
@@ -4693,7 +4693,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		outcome = identifier(element, bag);
 		// Если опознаватель вида содержимого разобрать не удалось
 		if(outcome != error_t::NONE){
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим отказ разбора
 			return outcome;
@@ -4704,7 +4704,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		if(bag.compare(OID_DATA) == 0){
 			// Если содержимое данных не записано явным образом
 			if(!inner.next(element) || !tagged(element, asn1::cls_t::CONTEXT, 0, true)){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(inner.err());
@@ -4713,7 +4713,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			asn1::reader_t holder(element.content);
 			// Если строку байтов SafeContents разобрать не удалось
 			if(!holder.next(asn1::tag_t::OCTET_STRING, element) || element.constructed){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(holder.err());
@@ -4724,7 +4724,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		} else if(bag.compare(OID_ENCRYPTED) == 0){
 			// Если содержимое не записано явным образом
 			if(!inner.next(element) || !tagged(element, asn1::cls_t::CONTEXT, 0, true)){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(inner.err());
@@ -4735,7 +4735,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			asn1::element_t encrypted;
 			// Если сведения зашифрованного содержимого разобрать не удалось
 			if(!holder.next(asn1::tag_t::SEQUENCE, encrypted) || !encrypted.constructed){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(holder.err());
@@ -4744,7 +4744,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			asn1::reader_t body(encrypted.content);
 			// Если издание зашифрованного содержимого разобрать не удалось: EncryptedData несёт его первым
 			if(!body.next(asn1::tag_t::INTEGER, element)){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(body.err());
@@ -4753,7 +4753,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			asn1::element_t contentInfo;
 			// Если сведения о зашифрованном содержимом разобрать не удалось
 			if(!body.next(asn1::tag_t::SEQUENCE, contentInfo) || !contentInfo.constructed){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(body.err());
@@ -4764,7 +4764,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			string view;
 			// Если опознаватель вида разобрать не удалось
 			if(!info.next(asn1::tag_t::OBJECT, element)){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(info.err());
@@ -4773,14 +4773,14 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			outcome = identifier(element, view);
 			// Если опознаватель вида разобрать не удалось
 			if(outcome != error_t::NONE){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим отказ разбора
 				return outcome;
 			}
 			// Если зашифрованное содержимое не данные
 			if(view.compare(OID_DATA) != 0){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
@@ -4795,14 +4795,14 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			outcome = algorithmIdentifier(info, scheme, params, present);
 			// Если схему защиты разобрать не удалось
 			if(outcome != error_t::NONE){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим отказ разбора
 				return outcome;
 			}
 			// Если схема защиты не PBES2 либо настроек нет
 			if((scheme.compare(OID_PBES2) != 0) || !present){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим отказ схемы
 				return error_t::CIPHER;
@@ -4810,7 +4810,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			// Если шифртекст разобрать не удалось: он идёт неявным [0] примитивной формы,
 			// содержимое его есть сам шифртекст (раздел 13.3 RFC 2315)
 			if(!info.next(element) || (element.cls != asn1::cls_t::CONTEXT) || (element.tag != 0)){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(info.err());
@@ -4821,7 +4821,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			outcome = undress(params, element.content, password, plain);
 			// Если содержимое расшифровать не удалось
 			if(outcome != error_t::NONE){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим отказ расшифрования
 				return outcome;
@@ -4832,9 +4832,9 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			outcome = outer(view_t(plain.data(), plain.size()), unwrapped);
 			// Если расшифрованную запись разобрать не удалось: пароль не подошёл
 			if(outcome != error_t::NONE){
-				// Выполняем затирание расшифрованной записи
+				// Затирание расшифрованной записи
 				erase(plain);
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим отказ пароля
 				return error_t::PASSWORD;
@@ -4849,9 +4849,9 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			while(!reader.empty()){
 				// Если очередной мешок разобрать не удалось
 				if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed){
-					// Выполняем затирание расшифрованной записи
+					// Затирание расшифрованной записи
 					erase(plain);
-					// Выполняем затирание строки пароля
+					// Затирание строки пароля
 					erase(bmp);
 					// Выводим переведённый отказ разбора
 					return translate(reader.err());
@@ -4860,21 +4860,21 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 				outcome = pkcs12bag(element, view_t(bmp.data(), bmp.size()), key, chain, keyed);
 				// Если мешок разобрать не удалось
 				if(outcome != error_t::NONE){
-					// Выполняем затирание расшифрованной записи
+					// Затирание расшифрованной записи
 					erase(plain);
-					// Выполняем затирание строки пароля
+					// Затирание строки пароля
 					erase(bmp);
 					// Выводим отказ разбора
 					return outcome;
 				}
 			}
-			// Выполняем затирание расшифрованной записи
+			// Затирание расшифрованной записи
 			erase(plain);
 			// Переходим к следующим сведениям о содержимом
 			continue;
 		// Иначе вид содержимого неведом
 		} else {
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
@@ -4885,7 +4885,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		outcome = outer(bags, unwrapped);
 		// Если запись SafeContents разобрать не удалось
 		if(outcome != error_t::NONE){
-			// Выполняем затирание строки пароля
+			// Затирание строки пароля
 			erase(bmp);
 			// Выводим отказ разбора
 			return outcome;
@@ -4898,7 +4898,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 		while(!reader.empty()){
 			// Если очередной мешок разобрать не удалось
 			if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим переведённый отказ разбора
 				return translate(reader.err());
@@ -4907,14 +4907,14 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			outcome = pkcs12bag(element, view_t(bmp.data(), bmp.size()), key, chain, keyed);
 			// Если мешок разобрать не удалось
 			if(outcome != error_t::NONE){
-				// Выполняем затирание строки пароля
+				// Затирание строки пароля
 				erase(bmp);
 				// Выводим отказ разбора
 				return outcome;
 			}
 		}
 	}
-	// Выполняем затирание строки пароля
+	// Затирание строки пароля
 	erase(bmp);
 	// Если ключ так и не разобран
 	if(!keyed)
@@ -4977,20 +4977,20 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
-		// Выполняем затирание записи ровно по длине
+		// Затирание записи ровно по длине
 		erase(exact);
-		// Выполняем затирание открытой записи
+		// Затирание открытой записи
 		erase(plain);
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
 	}
-	// Выполняем затирание записи ровно по длине
+	// Затирание записи ровно по длине
 	erase(exact);
 	// Соль и синхропосылка
 	uint8_t salt[SALT], iv[BLOCK];
 	// Если случайные байты выработать не удалось
 	if(!entropy::bytes(salt, sizeof(salt)) || !entropy::bytes(iv, sizeof(iv))){
-		// Выполняем затирание открытой записи
+		// Затирание открытой записи
 		erase(plain);
 		// Выводим отказ случайности
 		return error_t::RANDOM;
@@ -5003,7 +5003,7 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 	cipher::aes_t aes;
 	// Учитываем установку ключа шифра
 	ready = (ready && aes.key(view_t(secret, bits / 8)));
-	// Выполняем затирание ключа шифра
+	// Затирание ключа шифра
 	wipe(secret, sizeof(secret));
 	// Зашифрованная запись
 	vector <uint8_t> encrypted;
@@ -5018,7 +5018,7 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const bad_alloc &) {
-		// Выполняем затирание открытой записи
+		// Затирание открытой записи
 		erase(plain);
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
@@ -5027,7 +5027,7 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 	cipher::chaining_t chaining;
 	// Учитываем запуск режима и зашифрование записи
 	ready = (ready && chaining.start(cipher::block_t(aes), view_t(iv, sizeof(iv))) && chaining.encrypt(view_t(plain.data(), plain.size()), encrypted.data()));
-	// Выполняем затирание открытой записи
+	// Затирание открытой записи
 	erase(plain);
 	// Если запись зашифровать не удалось
 	if(!ready)
@@ -5094,7 +5094,7 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
  *
  */
 nts::keys::error_t nts::keys::decode(const string & text, const view_t & password, key_t & result) noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	result.clear();
 	// Разобранные записи текста
 	vector <pem::block_t> blocks;
@@ -5117,9 +5117,9 @@ nts::keys::error_t nts::keys::decode(const string & text, const view_t & passwor
 	for(auto & block : blocks){
 		// Признак известной метки записи
 		bool known = false;
-		// Выполняем разбор записи по её метке
+		// Разбор записи по её метке
 		outcome = labeled(block.label, view_t(block.data.data(), block.data.size()), password, result, known);
-		// Выполняем затирание тела записи: оно вправе нести секрет
+		// Затирание тела записи: оно вправе нести секрет
 		erase(block.data);
 		// Если метка записи известна
 		if(known)
@@ -5148,7 +5148,7 @@ nts::keys::error_t nts::keys::decode(const string & text, const view_t & passwor
  *
  */
 nts::keys::error_t nts::keys::encode(const key_t & key, const container_t container, string & result, const view_t & password, const size_t bits, const uint32_t iterations) noexcept {
-	// Выполняем сброс текста: обёртка дописывается к нему, а не заменяет его
+	// Сброс текста: обёртка дописывается к нему, а не заменяет его
 	result.clear();
 	// Записываемая запись
 	pem::block_t block;
@@ -5164,21 +5164,21 @@ nts::keys::error_t nts::keys::encode(const key_t & key, const container_t contai
 		case static_cast <uint8_t> (container_t::PRIVATE): {
 			// Устанавливаем метку записи
 			label = pem::PEM_SECRET;
-			// Выполняем запись PrivateKeyInfo
+			// Запись PrivateKeyInfo
 			outcome = encodePrivateKeyInfo(key, block.data);
 		} break;
 		// Если записывается EncryptedPrivateKeyInfo
 		case static_cast <uint8_t> (container_t::ENCRYPTED): {
 			// Устанавливаем метку записи
 			label = pem::PEM_ENCRYPTED;
-			// Выполняем запись EncryptedPrivateKeyInfo
+			// Запись EncryptedPrivateKeyInfo
 			outcome = encodeEncryptedPrivateKeyInfo(key, password, block.data, bits, iterations);
 		} break;
 		// Если записывается SubjectPublicKeyInfo
 		case static_cast <uint8_t> (container_t::PUBLIC): {
 			// Устанавливаем метку записи
 			label = LABEL_PUBLIC;
-			// Выполняем запись SubjectPublicKeyInfo
+			// Запись SubjectPublicKeyInfo
 			outcome = encodeSubjectPublicKeyInfo(key, block.data);
 		} break;
 		// Если вид записи неизвестен
@@ -5188,21 +5188,21 @@ nts::keys::error_t nts::keys::encode(const key_t & key, const container_t contai
 	}
 	// Если запись в кодировке DER не удалась
 	if(outcome != error_t::NONE){
-		// Выполняем затирание тела записи
+		// Затирание тела записи
 		erase(block.data);
 		// Выводим отказ записи
 		return outcome;
 	}
 	// Если метку записи скопировать не удалось
 	if(!store(label, block.label)){
-		// Выполняем затирание тела записи
+		// Затирание тела записи
 		erase(block.data);
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
 	}
 	// Итог записи обёртки
 	const pem::error_t wrapped = pem::encode(block, result);
-	// Выполняем затирание тела записи
+	// Затирание тела записи
 	erase(block.data);
 	// Если обёртку записать не удалось
 	if(wrapped != pem::error_t::NONE)

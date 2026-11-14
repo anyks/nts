@@ -1181,7 +1181,7 @@ namespace {
 			uint32_t * limbs = reinterpret_cast <uint32_t *> (lanes + 20);
 			// Переводим накопитель в конечности по 26 разрядов
 			widen(h0, h1, h2, limbs);
-			// Выполняем сложение четвёрок ядром
+			// Сложение четвёрок ядром
 			kernel::poly1305avx2(lanes, limbs, table, data, quads);
 			// Суммы дорожек по конечностям
 			uint64_t total[5];
@@ -1550,7 +1550,7 @@ void nts::cipher::Poly1305::clear() noexcept {
 	uint8_t * first = reinterpret_cast <uint8_t *> (this->_powers);
 	// Конец секретных полей: неполный блок; поля объявлены подряд под одним доступом, и порядок их размещения задан стандартом
 	uint8_t * last = (this->_pending + sizeof(this->_pending));
-	// Выполняем затирание всех секретных полей одним вызовом: степени, стол ядра, накопители, множитель, слагаемое и неполный блок
+	// Затирание всех секретных полей одним вызовом: степени, стол ядра, накопители, множитель, слагаемое и неполный блок
 	wipe(first, static_cast <size_t> (last - first));
 }
 /**
@@ -1593,7 +1593,7 @@ bool nts::cipher::Poly1305::update(const view_t & source) noexcept {
 		if(this->_filled < POLY1305_TAG)
 			// Выводим успешность подачи
 			return true;
-		// Выполняем сложение собранного блока
+		// Сложение собранного блока
 		this->absorb(this->_pending, POLY1305_TAG, false);
 		// Сбрасываем число накопленных байтов
 		this->_filled = 0;
@@ -1602,7 +1602,7 @@ bool nts::cipher::Poly1305::update(const view_t & source) noexcept {
 	const size_t whole = (left - (left % POLY1305_TAG));
 	// Если целые блоки есть
 	if(whole > 0){
-		// Выполняем сложение целых блоков
+		// Сложение целых блоков
 		this->absorb(cursor, whole, false);
 		// Сдвигаем позицию чтения
 		cursor += whole;
@@ -1641,7 +1641,7 @@ bool nts::cipher::Poly1305::finish(uint8_t * tag) noexcept {
 		for(size_t i = (this->_filled + 1); i < POLY1305_TAG; i++)
 			// Обнуляем очередной байт
 			this->_pending[i] = 0x00;
-		// Выполняем сложение дополненного блока без старшего разряда
+		// Сложение дополненного блока без старшего разряда
 		this->absorb(this->_pending, POLY1305_TAG, true);
 		// Сбрасываем число накопленных байтов
 		this->_filled = 0;
@@ -1817,7 +1817,7 @@ bool nts::cipher::Poly1305::finish(uint8_t * tag) noexcept {
  *
  */
 nts::cipher::Poly1305::Poly1305() noexcept : _ready(false), _prepared(false), _filled(0) {
-	// Выполняем затирание секретных полей одним вызовом: они идут подряд от степеней до неполного блока
+	// Затирание секретных полей одним вызовом: они идут подряд от степеней до неполного блока
 	this->clear();
 }
 /**
@@ -1825,6 +1825,6 @@ nts::cipher::Poly1305::Poly1305() noexcept : _ready(false), _prepared(false), _f
  *
  */
 nts::cipher::Poly1305::~Poly1305() noexcept {
-	// Выполняем сброс имитовставки
+	// Сброс имитовставки
 	this->clear();
 }

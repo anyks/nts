@@ -16,27 +16,27 @@
  *
  * @section Намеренные решения
  *
- * 1. Переписка рукопожатия не хранится, а хешируется потоком. Промежуточный хеш берётся
+ *  1. Переписка рукопожатия не хранится, а хешируется потоком. Промежуточный хеш берётся
  *    со снимка состояния хеширования, снимок этот стоит копирования одной структуры. Иначе
  *    связь держала бы у себя всю цепочку сертификатов собеседника до конца рукопожатия -
  *    а объявить цепочку в шестнадцать мегабайтов дешевле, чем её прислать.
  *
- * 2. Ступени расписания проходятся только вперёд и только по порядку. Раздел 7.1 RFC 8446
+ *  2. Ступени расписания проходятся только вперёд и только по порядку. Раздел 7.1 RFC 8446
  *    выводит всякую следующую ступень из предыдущей, и вызов не в свой черёд означает
  *    дефект в состоянии рукопожатия, а не в расписании: такой вызов отвергается.
  *
- * 3. Отказы выработки значений расписания и хеширования переписки недостижимы данными.
+ *  3. Отказы выработки значений расписания и хеширования переписки недостижимы данными.
  *    Длины всех доводов задаются самим расписанием: значения ступеней держатся полями
  *    объявленного размера, метки вывода заданы постоянными, а хеш переписки берётся со
  *    снимка состояния. Заслоны на них стоят ради связности вывода: молчаливое употребление
  *    значения, выработанного лишь наполовину, было бы хуже отказа. Охват их не задевает, и
  *    это не пробел проверок - потому отдельно они и не помечаются.
  *
- * 4. Значения обоих направлений связи лежат в одном объекте. Направления различаются лишь
+ *  4. Значения обоих направлений связи лежат в одном объекте. Направления различаются лишь
  *    меткою вывода и выводятся из одного и того же значения ступени: два одинаковых
  *    объекта под них только развели бы состояние надвое.
  *
- * 5. Хеш переписки задаётся набором шифрования, а приветствие клиента входит в переписку
+ *  5. Хеш переписки задаётся набором шифрования, а приветствие клиента входит в переписку
  *    прежде выбора набора. Оттого переписка до выбора ведётся всеми хешами наборов разом
  *    (SHA-256, SHA-384 и «Стрибог»-256), а выбор лишь оставляет один: сообщений
  *    рукопожатия до выбора мало, и три хеша стоят дешевле, чем хранить приветствие.
@@ -255,7 +255,7 @@ void nts::session::Transcript::start() noexcept {
 	 * Выполняем перебор хешей, которыми ведётся переписка
 	 */
 	for(size_t i = 0; i < CANDIDATES; i++)
-		// Выполняем сброс объекта хеширования переписки очередным хешем
+		// Сброс объекта хеширования переписки очередным хешем
 		this->_hashers[i].reset(::CANDIDATES[i]);
 }
 /**
@@ -266,7 +266,7 @@ void nts::session::Transcript::start() noexcept {
  *
  */
 nts::session::error_t nts::session::Transcript::start(const digest::hash_t algorithm) noexcept {
-	// Выполняем начало переписки всеми хешами
+	// Начало переписки всеми хешами
 	this->start();
 	// Выводим итог выбора хеша переписки
 	return this->select(algorithm);
@@ -297,7 +297,7 @@ nts::session::error_t nts::session::Transcript::select(const digest::hash_t algo
  *
  */
 void nts::session::Transcript::clear() noexcept {
-	// Выполняем начало переписки заново
+	// Начало переписки заново
 	this->start();
 }
 /**
@@ -419,7 +419,7 @@ nts::session::error_t nts::session::Transcript::replace() noexcept {
 		return chosen;
 	// Место, в которое помещается хеш накопленной переписки
 	uint8_t digest[schedule::SCHEDULE_WIDEST];
-	// Выполняем получение хеша накопленной переписки
+	// Получение хеша накопленной переписки
 	const error_t error = this->digest(digest);
 	// Если хеш накопленной переписки получить не удалось
 	if(error != error_t::NONE)
@@ -443,7 +443,7 @@ nts::session::error_t nts::session::Transcript::replace() noexcept {
 	for(size_t i = 0; i < CANDIDATES; i++){
 		// Если хеш переписки выбранный
 		if(::CANDIDATES[i] == algorithm){
-			// Выполняем начало переписки заново выбранным хешем
+			// Начало переписки заново выбранным хешем
 			this->_hashers[i].reset(algorithm);
 			// Добавляем в переписку обвязку сообщения с хешем
 			this->_hashers[i].update(view_t(header, sizeof(header)));
@@ -451,7 +451,7 @@ nts::session::error_t nts::session::Transcript::replace() noexcept {
 			this->_hashers[i].update(view_t(digest, length));
 		}
 	}
-	// Выполняем затирание хеша замещённой переписки
+	// Затирание хеша замещённой переписки
 	wipe(digest, sizeof(digest));
 	// Выводим успешность замены накопленной переписки
 	return error_t::NONE;
@@ -461,7 +461,7 @@ nts::session::error_t nts::session::Transcript::replace() noexcept {
  *
  */
 nts::session::Transcript::Transcript() noexcept : _selected(digest::hash_t::NONE) {
-	// Выполняем начало переписки всеми хешами
+	// Начало переписки всеми хешами
 	this->start();
 }
 /**
@@ -499,7 +499,7 @@ stage_t nts::session::Secrets::stage() const noexcept {
  *
  */
 void nts::session::Secrets::clear() noexcept {
-	// Выполняем затирание всех значений расписания ключей в укрытой памяти
+	// Затирание всех значений расписания ключей в укрытой памяти
 	this->_shelter.wipe();
 	// Сбрасываем хеш расписания ключей на хеш ветви ГОСТ
 	this->_algorithm = DEFAULT;
@@ -536,7 +536,7 @@ nts::session::error_t nts::session::Secrets::start(const digest::hash_t algorith
 	if(this->_keys == nullptr)
 		// Выводим отказ состояния расписания
 		return error_t::STATE;
-	// Выполняем сброс значений расписания ключей
+	// Сброс значений расписания ключей
 	this->clear();
 	// Получаем длину хеша расписания ключей
 	const size_t length = digest::length(algorithm);
@@ -556,7 +556,7 @@ nts::session::error_t nts::session::Secrets::start(const digest::hash_t algorith
 	const view_t material = (((secret.data != nullptr) && (secret.size > 0)) ? secret : view_t(zeroes, length));
 	// Если начальное значение расписания извлечь не удалось
 	if(!schedule::extract(algorithm, view_t(zeroes, length), material, this->_keys->secret)){
-		// Выполняем сброс значений расписания ключей
+		// Сброс значений расписания ключей
 		this->clear();
 		// Выводим отказ заведения начальной ступени
 		return error_t::SCHEDULE;
@@ -591,19 +591,19 @@ nts::session::error_t nts::session::Secrets::handshake(const view_t & shared, co
 	uint8_t derived[schedule::SCHEDULE_WIDEST];
 	// Если промежуточное значение вывести не удалось
 	if(!stepping(this->_algorithm, this->_keys->secret, derived)){
-		// Выполняем затирание промежуточного значения
+		// Затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени рукопожатия
 		return error_t::SCHEDULE;
 	}
 	// Если значение ступени рукопожатия извлечь не удалось
 	if(!schedule::extract(this->_algorithm, view_t(derived, this->_length), shared, this->_keys->secret)){
-		// Выполняем затирание промежуточного значения
+		// Затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени рукопожатия
 		return error_t::SCHEDULE;
 	}
-	// Выполняем затирание промежуточного значения
+	// Затирание промежуточного значения
 	wipe(derived, sizeof(derived));
 	// Если значение направления связи от клиента вывести не удалось
 	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(CLIENT_HANDSHAKE), transcript, this->_keys->client))
@@ -642,7 +642,7 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
 	uint8_t derived[schedule::SCHEDULE_WIDEST];
 	// Если промежуточное значение вывести не удалось
 	if(!stepping(this->_algorithm, this->_keys->secret, derived)){
-		// Выполняем затирание промежуточного значения
+		// Затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени прикладных данных
 		return error_t::SCHEDULE;
@@ -653,12 +653,12 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
 	::memset(zeroes, 0, sizeof(zeroes));
 	// Если значение ступени прикладных данных извлечь не удалось
 	if(!schedule::extract(this->_algorithm, view_t(derived, this->_length), view_t(zeroes, this->_length), this->_keys->secret)){
-		// Выполняем затирание промежуточного значения
+		// Затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени прикладных данных
 		return error_t::SCHEDULE;
 	}
-	// Выполняем затирание промежуточного значения
+	// Затирание промежуточного значения
 	wipe(derived, sizeof(derived));
 	// Если значение направления связи от клиента вывести не удалось
 	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(CLIENT_APPLICATION), transcript, this->_keys->client))
@@ -730,11 +730,11 @@ nts::session::error_t nts::session::material(const view_t & traffic, const prote
 	if((key == nullptr) || (vector == nullptr))
 		// Выводим отказ вывода ключевого материала
 		return error_t::EMPTY;
-	// Выполняем вывод корневого ключа направления связи
+	// Вывод корневого ключа направления связи
 	bool ok = schedule::derive(algorithm, traffic, ::label("key"), view_t(nullptr, 0), key, protect::key(suite));
 	// Если корневой ключ выведен
 	if(ok)
-		// Выполняем вывод вектора замены направления связи
+		// Вывод вектора замены направления связи
 		ok = schedule::derive(algorithm, traffic, ::label("iv"), view_t(nullptr, 0), vector, size);
 	// Выводим итог вывода ключевого материала направления связи
 	return (ok ? error_t::NONE : error_t::SCHEDULE);
@@ -756,7 +756,7 @@ nts::session::error_t nts::session::Secrets::material(const side_t side, const p
 		return error_t::STATE;
 	// Место, в которое помещается значение направления связи
 	uint8_t traffic[schedule::SCHEDULE_WIDEST];
-	// Выполняем получение значения направления связи
+	// Получение значения направления связи
 	const error_t error = this->traffic(side, traffic);
 	// Если значение направления связи получить не удалось
 	if(error != error_t::NONE)
@@ -767,14 +767,14 @@ nts::session::error_t nts::session::Secrets::material(const side_t side, const p
 	 * ведёт расписание хешем набора, и материал под набор с иным хешем невыводим
 	 */
 	if(protect::hash(suite) != this->_algorithm){
-		// Выполняем затирание значения направления связи
+		// Затирание значения направления связи
 		wipe(traffic, sizeof(traffic));
 		// Выводим отказ вывода ключевого материала
 		return error_t::SUITE;
 	}
-	// Выполняем вывод ключевого материала направления связи
+	// Вывод ключевого материала направления связи
 	const error_t outcome = nts::session::material(view_t(traffic, this->_length), suite, key, vector);
-	// Выполняем затирание значения направления связи
+	// Затирание значения направления связи
 	wipe(traffic, sizeof(traffic));
 	// Выводим итог вывода ключевого материала направления связи
 	return outcome;
@@ -925,7 +925,7 @@ nts::session::error_t nts::session::Secrets::exporting(const view_t & label, con
 	const uint8_t * source = (early ? this->_keys->early_exporter : this->_keys->exporter);
 	// Если значение по метке назначения вывести не удалось
 	if(!schedule::secret(this->_algorithm, view_t(source, this->_length), label, view_t(empty, this->_length), secret)){
-		// Выполняем затирание значения по метке назначения
+		// Затирание значения по метке назначения
 		wipe(secret, sizeof(secret));
 		// Выводим отказ вывода экспортируемого материала
 		return error_t::SCHEDULE;
@@ -936,14 +936,14 @@ nts::session::error_t nts::session::Secrets::exporting(const view_t & label, con
 	const view_t binding(((context.data != nullptr) && (context.size > 0)) ? context : view_t(nullptr, 0));
 	// Если хеш привязки вычислить не удалось
 	if(!digest::hash(this->_algorithm, binding, hashed, sizeof(hashed))){
-		// Выполняем затирание значения по метке назначения
+		// Затирание значения по метке назначения
 		wipe(secret, sizeof(secret));
 		// Выводим отказ вывода экспортируемого материала
 		return error_t::SCHEDULE;
 	}
-	// Выполняем растяжение значения по метке хешем привязки до требуемой длины
+	// Растяжение значения по метке хешем привязки до требуемой длины
 	const bool ok = schedule::expand(this->_algorithm, view_t(secret, this->_length), view_t(hashed, this->_length), result, size);
-	// Выполняем затирание значения по метке назначения
+	// Затирание значения по метке назначения
 	wipe(secret, sizeof(secret));
 	// Выводим итог вывода экспортируемого материала
 	return (ok ? error_t::NONE : error_t::SCHEDULE);
@@ -963,7 +963,7 @@ nts::session::error_t nts::session::Secrets::finished(const side_t side, uint8_t
 		return error_t::STATE;
 	// Место, в которое помещается значение направления связи
 	uint8_t traffic[schedule::SCHEDULE_WIDEST];
-	// Выполняем получение значения направления связи
+	// Получение значения направления связи
 	const error_t error = this->traffic(side, traffic);
 	// Если значение направления связи получить не удалось
 	if(error != error_t::NONE)
@@ -971,14 +971,14 @@ nts::session::error_t nts::session::Secrets::finished(const side_t side, uint8_t
 		return error;
 	// Если место для ключа завершения не передано
 	if(result == nullptr){
-		// Выполняем затирание значения направления связи
+		// Затирание значения направления связи
 		wipe(traffic, sizeof(traffic));
 		// Выводим отказ вывода ключа завершения
 		return error_t::EMPTY;
 	}
-	// Выполняем вывод ключа завершения рукопожатия
+	// Вывод ключа завершения рукопожатия
 	const bool ok = schedule::derive(this->_algorithm, view_t(traffic, this->_length), ::label("finished"), view_t(nullptr, 0), result, this->_length);
-	// Выполняем затирание значения направления связи
+	// Затирание значения направления связи
 	wipe(traffic, sizeof(traffic));
 	// Выводим итог вывода ключа завершения рукопожатия
 	return (ok ? error_t::NONE : error_t::SCHEDULE);
@@ -1069,7 +1069,7 @@ nts::session::error_t nts::session::Secrets::binder(const view_t & transcript, u
 	uint8_t secret[schedule::SCHEDULE_WIDEST];
 	// Если значение привязки вывести не удалось
 	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::label(BINDER), view_t(empty, this->_length), secret)){
-		// Выполняем затирание значения привязки
+		// Затирание значения привязки
 		wipe(secret, sizeof(secret));
 		// Выводим отказ выработки привязки
 		return error_t::SCHEDULE;
@@ -1078,18 +1078,18 @@ nts::session::error_t nts::session::Secrets::binder(const view_t & transcript, u
 	uint8_t key[schedule::SCHEDULE_WIDEST];
 	// Если ключ привязки вывести не удалось
 	if(!schedule::derive(this->_algorithm, view_t(secret, this->_length), ::label("finished"), view_t(nullptr, 0), key, this->_length)){
-		// Выполняем затирание ключа привязки
+		// Затирание ключа привязки
 		wipe(key, sizeof(key));
-		// Выполняем затирание значения привязки
+		// Затирание значения привязки
 		wipe(secret, sizeof(secret));
 		// Выводим отказ выработки привязки
 		return error_t::SCHEDULE;
 	}
-	// Выполняем выработку привязки имитовставкой от хеша переписки
+	// Выработка привязки имитовставкой от хеша переписки
 	const bool ok = digest::hmac(this->_algorithm, view_t(key, this->_length), transcript, result, this->_length);
-	// Выполняем затирание ключа привязки
+	// Затирание ключа привязки
 	wipe(key, sizeof(key));
-	// Выполняем затирание значения привязки
+	// Затирание значения привязки
 	wipe(secret, sizeof(secret));
 	// Выводим итог выработки привязки заранее разделённого ключа
 	return (ok ? error_t::NONE : error_t::DIGEST);
@@ -1116,14 +1116,14 @@ nts::session::error_t nts::session::Secrets::renew(const side_t side) noexcept {
 	uint8_t result[schedule::SCHEDULE_WIDEST];
 	// Если новое значение направления связи вывести не удалось
 	if(!schedule::derive(this->_algorithm, view_t(traffic, this->_length), ::label(UPDATE), view_t(nullptr, 0), result, this->_length)){
-		// Выполняем затирание нового значения направления связи
+		// Затирание нового значения направления связи
 		wipe(result, sizeof(result));
 		// Выводим отказ смены значения направления связи
 		return error_t::SCHEDULE;
 	}
 	// Переносим новое значение направления связи на место прежнего
 	::memcpy(traffic, result, this->_length);
-	// Выполняем затирание нового значения направления связи
+	// Затирание нового значения направления связи
 	wipe(result, sizeof(result));
 	// Выводим успешность смены значения направления связи
 	return error_t::NONE;
@@ -1146,6 +1146,6 @@ nts::session::Secrets::Secrets() noexcept : _stage(stage_t::NONE), _algorithm(DE
  *
  */
 nts::session::Secrets::~Secrets() noexcept {
-	// Выполняем сброс значений расписания ключей
+	// Сброс значений расписания ключей
 	this->clear();
 }

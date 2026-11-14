@@ -248,9 +248,9 @@ namespace nts {
 					result.limbs[0] += static_cast <uint64_t> (carry);
 					// Прибавляем девятый разряд к четвёртой конечности
 					result.limbs[4] += static_cast <uint64_t> (carry);
-					// Выполняем первую волну переносов
+					// Первую волну переносов
 					wave(result);
-					// Выполняем вторую волну переносов
+					// Вторую волну переносов
 					wave(result);
 				}
 				/**
@@ -446,9 +446,9 @@ namespace nts {
 					result.limbs[0] += static_cast <uint64_t> (carry);
 					// Прибавляем девятый разряд к четвёртой конечности
 					result.limbs[4] += static_cast <uint64_t> (carry);
-					// Выполняем первую волну переносов
+					// Первую волну переносов
 					wave(result);
-					// Выполняем вторую волну переносов
+					// Вторую волну переносов
 					wave(result);
 				}
 			};

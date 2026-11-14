@@ -23,15 +23,15 @@
  *
  * @section Намеренные решения
  *
- * 1. Дорожки считаются последовательно одним потоком: итог Argon2 от числа потоков не
+ *  1. Дорожки считаются последовательно одним потоком: итог Argon2 от числа потоков не
  *    зависит по устройству, а библиотека потоков не заводит; параллелизм - дело потребителя.
  *
- * 2. Память под матрицу занимается на время вызова обычным new с перехватом bad_alloc и при
+ *  2. Память под матрицу занимается на время вызова обычным new с перехватом bad_alloc и при
  *    нехватке метод отвечает false: перебор m до гибибайтов есть законная настройка, и падение
  *    на ней недопустимо. Обычный new, а не nothrow: он идёт через заменяемый оператор, и паёк
  *    выделений проверок ловит тот же путь, что настоящая нехватка.
  *
- * 3. Блок хеша переменной длины H' строится над BLAKE2b библиотеки, без отдельного кода.
+ *  3. Блок хеша переменной длины H' строится над BLAKE2b библиотеки, без отдельного кода.
  *
  * @copyright Copyright © 2026
  *
@@ -64,6 +64,11 @@ namespace {
 	 * Подписываемся на метод затирания памяти
 	 */
 	using nts::sys::wipe;
+
+	/**
+	 * Число срезов прохода
+	 */
+	static constexpr size_t SLICES = 4;
 	/**
 	 * Число слов в блоке
 	 */
@@ -72,10 +77,7 @@ namespace {
 	 * Длина блока в байтах
 	 */
 	static constexpr size_t BLOCK = 1024;
-	/**
-	 * Число срезов прохода
-	 */
-	static constexpr size_t SLICES = 4;
+
 	/**
 	 * @brief Блок матрицы
 	 *
@@ -84,6 +86,7 @@ namespace {
 		// Слова блока
 		uint64_t words[WORDS];
 	} block_t;
+
 	/**
 	 * @brief Функция записи 32-разрядного числа от младшего байта
 	 *
@@ -118,7 +121,7 @@ namespace {
 		return (hasher.update(view_t(length, sizeof(length))) && hasher.update(data));
 	}
 	/**
-	 * @brief Хеш переменной длины H' по разделу 3.3 RFC 9106
+	 * @brief Функция хеширования переменной длины H' по разделу 3.3 RFC 9106
 	 *
 	 * @param data   вход
 	 * @param result место итога
@@ -133,7 +136,7 @@ namespace {
 		quartet(static_cast <uint32_t> (size), length);
 		// Если итог помещается в один хеш
 		if(size <= digest::BLAKE2B_LENGTH){
-			// Хеш
+			// Хеш BLAKE2b длиной итога
 			digest::blake2_t hasher;
 			// Заводим, подаём длину и вход, снимаем
 			return (hasher.start(digest::blake_t::BLAKE2B, size, view_t()) && hasher.update(view_t(length, sizeof(length))) && hasher.update(data) && hasher.finish(result, size));
@@ -151,7 +154,7 @@ namespace {
 		// Место записи
 		size_t offset = 0;
 		/**
-		 * Выполняем шаги по 32 байта
+		 * Строим выход шагами по 32 байта
 		 */
 		for(size_t i = 0; i < steps; i++){
 			// Переносим первые 32 байта
@@ -176,7 +179,7 @@ namespace {
 		if(!last.start(digest::blake_t::BLAKE2B, tail, view_t()) || !last.update(view_t(current, sizeof(current))) || !last.finish(result + offset, tail))
 			// Выводим отрицательный результат - последний хеш не снят
 			return false;
-		// Выполняем затирание
+		// Стираем текущее значение V последовательности
 		wipe(current, sizeof(current));
 		// Сообщаем об успешной выработке последовательности
 		return true;
@@ -194,113 +197,120 @@ namespace {
 		return ((word >> count) | (word << (64 - count)));
 	}
 	/**
-	 * @brief Смешивание четырёх слов GB по разделу 3.6
+	 * @brief Функция смешивания четырёх слов GB по разделу 3.6
 	 *
-	 * @param a первое слово
-	 * @param b второе слово
-	 * @param c третье слово
-	 * @param d четвёртое слово
+	 * @param first  первое слово
+	 * @param second второе слово
+	 * @param third  третье слово
+	 * @param fourth четвёртое слово
 	 *
 	 */
-	static __ANTS_INLINE__ void blend(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d) noexcept {
+	static __ANTS_INLINE__ void blend(uint64_t & first, uint64_t & second, uint64_t & third, uint64_t & fourth) noexcept {
 		// Маска младших 32 разрядов
 		static constexpr uint64_t LOW = 0xFFFFFFFFULL;
 		// Складываем первые два слова с удвоенным произведением младших половин
-		a = (a + b + (2 * (a & LOW) * (b & LOW)));
+		first = (first + second + (2 * (first & LOW) * (second & LOW)));
 		// Сдвигаем четвёртое слово на 32 разряда
-		d = spin(d ^ a, 32);
+		fourth = spin(fourth ^ first, 32);
 		// Складываем третье и четвёртое слова
-		c = (c + d + (2 * (c & LOW) * (d & LOW)));
+		third = (third + fourth + (2 * (third & LOW) * (fourth & LOW)));
 		// Сдвигаем на 24 разряда
-		b = spin(b ^ c, 24);
+		second = spin(second ^ third, 24);
 		// Повторяем пару для первых двух слов
-		a = (a + b + (2 * (a & LOW) * (b & LOW)));
+		first = (first + second + (2 * (first & LOW) * (second & LOW)));
 		// Сдвигаем на 16 разрядов
-		d = spin(d ^ a, 16);
+		fourth = spin(fourth ^ first, 16);
 		// Повторяем пару для третьего и четвёртого слов
-		c = (c + d + (2 * (c & LOW) * (d & LOW)));
+		third = (third + fourth + (2 * (third & LOW) * (fourth & LOW)));
 		// Сдвигаем на 63 разряда
-		b = spin(b ^ c, 63);
+		second = spin(second ^ third, 63);
 	}
 	/**
-	 * @brief Перестановка P над шестнадцатью словами по указателям
+	 * @brief Функция перестановки P из раздела 3.6: восемь смешиваний GB над шестнадцатью словами
 	 *
-	 * @param v указатели на шестнадцать слов
+	 * @details Шестнадцать слов образуют матрицу 4×4. Первые четыре смешивания GB идут по её
+	 *          строкам: четвёрки (0,4,8,12), (1,5,9,13), (2,6,10,14), (3,7,11,15); следующие
+	 *          четыре - по столбцам: четвёрки (0,5,10,15), (1,6,11,12), (2,7,8,13), (3,4,9,14).
+	 *          Сжатие G применяет P сперва к каждой строке блока, затем к каждому столбцу.
+	 *
+	 * @param words места шестнадцати слов одной строки либо одного столбца блока
 	 *
 	 */
-	static __ANTS_INLINE__ void permute(uint64_t ** v) noexcept {
-		// Переставляем слова по строкам и затем по столбцам
-		blend(*v[0], *v[4], *v[8], *v[12]);
-		blend(*v[1], *v[5], *v[9], *v[13]);
-		blend(*v[2], *v[6], *v[10], *v[14]);
-		blend(*v[3], *v[7], *v[11], *v[15]);
-		blend(*v[0], *v[5], *v[10], *v[15]);
-		blend(*v[1], *v[6], *v[11], *v[12]);
-		blend(*v[2], *v[7], *v[8], *v[13]);
-		blend(*v[3], *v[4], *v[9], *v[14]);
+	static __ANTS_INLINE__ void permute(uint64_t ** words) noexcept {
+		// Смешиваем строки матрицы 4×4 четвёрками слов
+		blend(*words[0], *words[4], *words[8], *words[12]);
+		blend(*words[1], *words[5], *words[9], *words[13]);
+		blend(*words[2], *words[6], *words[10], *words[14]);
+		blend(*words[3], *words[7], *words[11], *words[15]);
+		// Смешиваем столбцы матрицы 4×4 четвёрками слов
+		blend(*words[0], *words[5], *words[10], *words[15]);
+		blend(*words[1], *words[6], *words[11], *words[12]);
+		blend(*words[2], *words[7], *words[8], *words[13]);
+		blend(*words[3], *words[4], *words[9], *words[14]);
 	}
 	/**
 	 * @brief Функция сжатия G по разделу 3.5
 	 *
-	 * @param x       первый вход
-	 * @param y       второй вход
+	 * @param first   первый вход
+	 * @param second  второй вход
 	 * @param result  итог
 	 * @param overlay признак сложения итога с прежним содержимым (издание 0x13, проходы после первого)
 	 *
 	 */
-	static void compress(const block_t & x, const block_t & y, block_t & result, const bool overlay) noexcept {
-		// R = X xor Y
-		block_t r;
+	static void compress(const block_t & first, const block_t & second, block_t & result, const bool overlay) noexcept {
+		// Блок R - поразрядная сумма входов
+		block_t mixed;
 		/**
-		 * Выполняем сложение входов
+		 * Складываем входы по разрядам: R = X ⊕ Y
 		 */
 		for(size_t i = 0; i < WORDS; i++)
 			// Складываем слова
-			r.words[i] = (x.words[i] ^ y.words[i]);
-		// Q: перестановка над строками
-		block_t q = r;
+			mixed.words[i] = (first.words[i] ^ second.words[i]);
+		// Блок Q - матрица из восьми строк по шестнадцать слов: перестановка P идёт по строкам, затем по столбцам
+		block_t shuffled = mixed;
 		/**
-		 * Выполняем перебор строк по 16 слов
+		 * Перебираем строки матрицы по шестнадцати слов
 		 */
 		for(size_t row = 0; row < 8; row++){
-			// Указатели на слова строки
-			uint64_t * v[16];
+			// Собираем шестнадцать слов строки блока
+			uint64_t * words[16];
 			/**
 			 * Перебираем слова строки
 			 */
 			for(size_t i = 0; i < 16; i++)
 				// Слово строки
-				v[i] = &q.words[(row * 16) + i];
-			// Переставляем
-			permute(v);
+				words[i] = &shuffled.words[(row * 16) + i];
+			// Переставляем слова строки перестановкой P
+			permute(words);
 		}
 		/**
-		 * Выполняем перебор столбцов по 16 слов: пары слов из каждой строки
+		 * Перебираем столбцы матрицы по шестнадцати слов: пары слов из каждой строки
 		 */
 		for(size_t column = 0; column < 8; column++){
-			// Указатели на слова столбца
-			uint64_t * v[16];
+			// Собираем шестнадцать слов столбца: по паре из каждой строки блока
+			uint64_t * words[16];
 			/**
 			 * Перебираем строки матрицы: собираем пары слов
 			 */
 			for(size_t row = 0; row < 8; row++){
 				// Первое слово пары
-				v[2 * row] = &q.words[(row * 16) + (2 * column)];
+				words[2 * row] = &shuffled.words[(row * 16) + (2 * column)];
 				// Второе слово пары
-				v[(2 * row) + 1] = &q.words[(row * 16) + (2 * column) + 1];
+				words[(2 * row) + 1] = &shuffled.words[(row * 16) + (2 * column) + 1];
 			}
-			// Переставляем
-			permute(v);
+			// Переставляем слова столбца перестановкой P
+			permute(words);
 		}
 		/**
-		 * Выполняем сложение Z с R и, при наложении, с прежним итогом
+		 * Складываем итог Z с R и, при наложении, с прежним итогом
 		 */
 		for(size_t i = 0; i < WORDS; i++)
-			// Складываем
-			result.words[i] = ((overlay ? result.words[i] : 0) ^ q.words[i] ^ r.words[i]);
-		// Выполняем затирание
-		wipe(r.words, sizeof(r.words));
-		wipe(q.words, sizeof(q.words));
+			// Складываем слова итога по разрядам
+			result.words[i] = ((overlay ? result.words[i] : 0) ^ shuffled.words[i] ^ mixed.words[i]);
+		// Стираем слова блока R
+		wipe(mixed.words, sizeof(mixed.words));
+		// Стираем слова блока Q
+		wipe(shuffled.words, sizeof(shuffled.words));
 	}
 	/**
 	 * @brief Функция чтения 64-разрядного слова из байтов от младшего
@@ -365,7 +375,7 @@ namespace {
 	static __ANTS_INLINE__ void enbase(const vector <uint8_t> & data, string & result) {
 		// Знаки кода во временной строке: кодек очищает место, а строка PHC собирается дописыванием
 		string encoded;
-		// Выполняем кодирование кодеком с пробросом нехватки памяти вызывающему
+		// Кодируем кодеком с пробросом нехватки памяти вызывающему
 		codec::rawEncode(view_t(data.data(), data.size()), encoded, false, codec::alphabet_t::STANDARD);
 		// Дописываем знаки к собираемой строке
 		result += encoded;
@@ -395,7 +405,7 @@ namespace {
 		if(text.empty() || (text.size() > 10) || ((text.size() > 1) && (text[0] == '0')))
 			// Отвергаем строку
 			return false;
-		// Накопитель
+		// Накопитель числа из знаков строки
 		uint64_t value = 0;
 		/**
 		 * Перебираем знаки строки
@@ -460,12 +470,17 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 		digest::blake2_t hasher;
 		// Числа от младшего байта
 		uint8_t numbers[24];
-		// Число дорожек
+		// Число дорожек p
 		quartet(params.lanes, numbers);
+		// Длина метки T
 		quartet(static_cast <uint32_t> (size), numbers + 4);
+		// Число блоков памяти m
 		quartet(params.memory, numbers + 8);
+		// Число проходов t
 		quartet(params.passes, numbers + 12);
+		// Издание v
 		quartet(ARGON2_VERSION, numbers + 16);
+		// Разновидность y
 		quartet(kind, numbers + 20);
 		// Если H0 не снят
 		if(!hasher.start(digest::blake_t::BLAKE2B, digest::BLAKE2B_LENGTH, view_t()) || !hasher.update(view_t(numbers, sizeof(numbers))) || !feed(hasher, password) || !feed(hasher, salt) || !feed(hasher, secret) || !feed(hasher, associated) || !hasher.finish(h0, sizeof(h0)))
@@ -484,7 +499,7 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
-		// Выполняем затирание H0
+		// Стираем нулевой хеш H0
 		wipe(h0, sizeof(h0));
 		// Выводим отказ памяти
 		return false;
@@ -494,7 +509,7 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 	// Байты блока
 	uint8_t bytes[BLOCK];
 	/**
-	 * Выполняем заполнение первых двух столбцов: B[i][j] = H'(H0 || LE32(j) || LE32(i))
+	 * Заполняем первые два столбца каждой дорожки: B[i][j] = H'(H0 ‖ LE32(j) ‖ LE32(i))
 	 */
 	for(uint32_t i = 0; (i < params.lanes) && ok; i++){
 		/**
@@ -505,8 +520,9 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 			uint8_t input[digest::BLAKE2B_LENGTH + 8];
 			// Копируем нулевой хеш во вход
 			::memcpy(input, h0, sizeof(h0));
-			// Номер столбца от младшего байта
+			// Номер столбца j от младшего байта
 			quartet(j, input + sizeof(h0));
+			// Номер дорожки i от младшего байта
 			quartet(i, input + sizeof(h0) + 4);
 			// Считаем блок
 			ok = stretch(view_t(input, sizeof(input)), bytes, BLOCK);
@@ -519,7 +535,7 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 		}
 	}
 	/**
-	 * Выполняем проходы, срезы и дорожки
+	 * Проходим проходы, срезы и дорожки
 	 */
 	for(uint32_t pass = 0; (pass < params.passes) && ok; pass++){
 		/**
@@ -529,7 +545,7 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 			/**
 			 * Перебираем дорожки
 			 */
-			for(uint32_t l = 0; l < params.lanes; l++){
+			for(uint32_t track = 0; track < params.lanes; track++){
 				// Признак независимой от данных адресации на этом срезе
 				const bool independent = ((kind == 1) || ((kind == 2) && (pass == 0) && (slice < 2)));
 				// Блок адресов и его счётчик
@@ -542,14 +558,14 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 					// Номер прохода
 					input.words[0] = pass;
 					// Номер дорожки
-					input.words[1] = l;
+					input.words[1] = track;
 					// Номер среза
 					input.words[2] = slice;
 					// Число блоков памяти
 					input.words[3] = blocks;
 					// Число проходов
 					input.words[4] = params.passes;
-					// Разновидность
+					// Разновидность Аргона y
 					input.words[5] = kind;
 				}
 				// Первый столбец среза: в первом срезе первого прохода два блока уже есть
@@ -563,12 +579,12 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 					// Предыдущий столбец по кольцу
 					const size_t previous = ((column == 0) ? (lane - 1) : (column - 1));
 					// J1 и J2
-					uint64_t j1 = 0, j2 = 0;
+					uint64_t address1 = 0, address2 = 0;
 					// Если адресация независима
 					if(independent){
 						// Новый блок адресов в начале среза и каждые 128 блоков
 						if((index == first) || ((index % WORDS) == 0)){
-							// Счётчик
+							// Наращиваем счётчик блоков адресов
 							input.words[6]++;
 							// G(0, G(0, Z))
 							block_t middle;
@@ -577,26 +593,26 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 							compress(zero, middle, addresses, false);
 						}
 						// Пара из блока адресов
-						j1 = (addresses.words[index % WORDS] & 0xFFFFFFFFULL);
+						address1 = (addresses.words[index % WORDS] & 0xFFFFFFFFULL);
 						// Старшие разряды — второе число
-						j2 = (addresses.words[index % WORDS] >> 32);
+						address2 = (addresses.words[index % WORDS] >> 32);
 					// Иначе из предыдущего блока
 					} else {
 						// Слово предыдущего блока
-						const uint64_t word = matrix[(static_cast <size_t> (l) * lane) + previous].words[0];
+						const uint64_t word = matrix[(static_cast <size_t> (track) * lane) + previous].words[0];
 						// Младшие разряды — первое число
-						j1 = (word & 0xFFFFFFFFULL);
+						address1 = (word & 0xFFFFFFFFULL);
 						// Старшие разряды — второе число
-						j2 = (word >> 32);
+						address2 = (word >> 32);
 					}
 					// Опорная дорожка
-					size_t reference = static_cast <size_t> (j2 % params.lanes);
+					size_t reference = static_cast <size_t> (address2 % params.lanes);
 					// В первом срезе первого прохода - своя дорожка
 					if((pass == 0) && (slice == 0))
 						// Берём свою дорожку
-						reference = l;
+						reference = track;
 					// Признак своей дорожки
-					const bool same = (reference == l);
+					const bool same = (reference == track);
 					// Размер опорной области по разделу 3.4.1.2
 					size_t area = 0;
 					// Если первый проход
@@ -621,12 +637,12 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 						// Если проход первый
 						else area = (lane - segment + ((index == 0) ? static_cast <size_t> (-1) : 0));
 					}
-					// x = J1^2 / 2^32, y = area·x / 2^32, z = area − 1 − y
-					const uint64_t x = ((j1 * j1) >> 32);
-					// Доля площади
-					const uint64_t y = ((static_cast <uint64_t> (area) * x) >> 32);
+					// square = J1² / 2³², share = area·square / 2³², backset = area − 1 − share
+					const uint64_t square = ((address1 * address1) >> 32);
+					// Доля площади опорной области
+					const uint64_t share = ((static_cast <uint64_t> (area) * square) >> 32);
 					// Смещение от конца области
-					const size_t z = (area - 1 - static_cast <size_t> (y));
+					const size_t backset = (area - 1 - static_cast <size_t> (share));
 					// Начало отсчёта
 					size_t start = 0;
 					// После первого прохода отсчёт идёт от начала следующего среза
@@ -634,16 +650,17 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 						// Сдвигаем начало отсчёта
 						start = ((slice + 1) * segment);
 					// Опорный столбец
-					const size_t position = ((start + z) % lane);
+					const size_t position = ((start + backset) % lane);
 					// Опорный блок
 					const block_t & ref = matrix[(reference * lane) + position];
 					// Предыдущий блок
-					const block_t & prev = matrix[(static_cast <size_t> (l) * lane) + previous];
+					const block_t & prev = matrix[(static_cast <size_t> (track) * lane) + previous];
 					// Новый блок: с наложением после первого прохода
-					compress(prev, ref, matrix[(static_cast <size_t> (l) * lane) + column], (pass > 0));
+					compress(prev, ref, matrix[(static_cast <size_t> (track) * lane) + column], (pass > 0));
 				}
-				// Выполняем затирание блока адресов
+				// Стираем блок адресов
 				wipe(addresses.words, sizeof(addresses.words));
+				// Стираем вход блока адресов
 				wipe(input.words, sizeof(input.words));
 			}
 		}
@@ -657,26 +674,27 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 		/**
 		 * Перебираем дорожки
 		 */
-		for(uint32_t l = 0; l < params.lanes; l++)
+		for(uint32_t track = 0; track < params.lanes; track++)
 			/**
 			 * Перебираем слова блока
 			 */
 			for(size_t i = 0; i < WORDS; i++)
 				// Складываем последний блок дорожки
-				final_.words[i] ^= matrix[(static_cast <size_t> (l) * lane) + (lane - 1)].words[i];
+				final_.words[i] ^= matrix[(static_cast <size_t> (track) * lane) + (lane - 1)].words[i];
 		// Байты C
 		store(final_, bytes);
 		// Метка: H'(C)
 		ok = stretch(view_t(bytes, BLOCK), result, size);
-		// Выполняем затирание
+		// Стираем блок C итога
 		wipe(final_.words, sizeof(final_.words));
 	}
-	// Выполняем затирание матрицы
+	// Стираем блоки матрицы памяти
 	wipe(matrix, blocks * sizeof(block_t));
 	// Освобождаем матрицу
 	delete [] matrix;
-	// Выполняем затирание байтов и H0
+	// Стираем байты рабочего блока
 	wipe(bytes, sizeof(bytes));
+	// Стираем нулевой хеш H0
 	wipe(h0, sizeof(h0));
 	// Выводим итог
 	return ok;
@@ -700,7 +718,7 @@ bool nts::digest::phc(const string & text, argon_record_t & result) noexcept {
 		// Место начала поля
 		size_t start = 0;
 		/**
-		 * Выполняем разрезание строки
+		 * Разрезаем строку по знакам «$»
 		 */
 		for(size_t i = 0; i <= text.size(); i++){
 			// Если конец строки либо знак «$»
@@ -745,7 +763,7 @@ bool nts::digest::phc(const string & text, argon_record_t & result) noexcept {
 		if(!decimal(parameters.substr(2, first - 2), result.params.memory) || !decimal(parameters.substr(first + 3, second - first - 3), result.params.passes) || !decimal(parameters.substr(second + 3), result.params.lanes))
 			// Отвергаем строку
 			return false;
-		// Соль
+		// Соль: не пуста, base64 и не короче восьми байтов
 		if(fields[4].empty() || !debase(fields[4], result.salt) || (result.salt.size() < 8))
 			// Отвергаем строку
 			return false;
@@ -757,6 +775,7 @@ bool nts::digest::phc(const string & text, argon_record_t & result) noexcept {
 		result.tag.clear();
 		// Если выход присутствует
 		if(fields.size() == 6){
+			// Если выход пуст, не разбирается base64 либо короче четырёх байтов
 			if(fields[5].empty() || !debase(fields[5], result.tag) || (result.tag.size() < 4))
 				// Отвергаем строку
 				return false;
@@ -788,7 +807,7 @@ bool nts::digest::phc(const argon_record_t & record, string & result) noexcept {
 		if((record.salt.size() < 8) || (!record.tag.empty() && (record.tag.size() < 4)) || (record.params.lanes == 0) || (record.params.passes == 0) || (record.params.memory < (8 * record.params.lanes)) || !record.secret.empty() || !record.associated.empty())
 			// Отвергаем запись
 			return false;
-		// Вариант
+		// Имя разновидности Аргона
 		const char * name = nullptr;
 		/**
 		 * Выбираем имя разновидности

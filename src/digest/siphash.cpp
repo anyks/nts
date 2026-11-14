@@ -51,7 +51,7 @@ namespace {
 		return ((word << count) | (word >> (64 - count)));
 	}
 	/**
-	 * @brief Круг SipHash
+	 * @brief Функция Круг SipHash
 	 *
 	 * @param v состояние из четырёх слов
 	 *
@@ -113,7 +113,7 @@ bool nts::digest::siphash(const view_t & key, const view_t & data, uint8_t * res
 	};
 	// У итога в 128 разрядов второе слово складывается с 0xEE
 	if(size == 16)
-		// Складываем
+		// Складываем признак длины 128 разрядов
 		v[1] ^= 0xEE;
 	// Число полных слов сообщения
 	const size_t whole = (data.size / 8);
@@ -167,9 +167,9 @@ bool nts::digest::siphash(const view_t & key, const view_t & data, uint8_t * res
 			// Байт итога
 			result[8 + i] = static_cast <uint8_t> (second >> (8 * i));
 	}
-	// Выполняем затирание состояния
+	// Затирание состояния
 	wipe(v, sizeof(v));
-	// Выполняем затирание первого слова
+	// Затирание первого слова
 	first = 0;
 	// Сообщаем об успешном снятии итога
 	return true;

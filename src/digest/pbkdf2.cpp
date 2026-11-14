@@ -101,11 +101,11 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 	for(uint32_t index = 1; ok && (produced < size); index++){
 		// Номер блока от старшего байта
 		const uint8_t number[4] = {static_cast <uint8_t> (index >> 24), static_cast <uint8_t> (index >> 16), static_cast <uint8_t> (index >> 8), static_cast <uint8_t> (index)};
-		// Выполняем начало первого оборота
+		// Начало первого оборота
 		mac.restart();
-		// Выполняем подачу соли
+		// Подачу соли
 		mac.update(salt);
-		// Выполняем подачу номера блока
+		// Подачу номера блока
 		mac.update(view_t(number, sizeof(number)));
 		// Если первый оборот снять не удалось
 		if(!(ok = mac.finish(round, length)))
@@ -117,9 +117,9 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 		 * Выполняем остальные обороты: каждый - имитовставка предыдущего
 		 */
 		for(uint32_t i = 1; ok && (i < iterations); i++){
-			// Выполняем начало очередного оборота
+			// Начало очередного оборота
 			mac.restart();
-			// Выполняем подачу предыдущего оборота
+			// Подачу предыдущего оборота
 			mac.update(view_t(round, length));
 			// Если оборот снять не удалось
 			if(!(ok = mac.finish(round, length)))
@@ -143,13 +143,13 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 		// Считаем выведенные байты
 		produced += taken;
 	}
-	// Выполняем затирание оборота
+	// Затирание оборота
 	wipe(round, sizeof(round));
-	// Выполняем затирание блока
+	// Затирание блока
 	wipe(block, sizeof(block));
 	// Если вывод не удался
 	if(!ok)
-		// Выполняем затирание недовыведенного ключа
+		// Затирание недовыведенного ключа
 		wipe(result, size);
 	// Выводим признак успешности вывода
 	return ok;

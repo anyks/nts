@@ -656,7 +656,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_
 	if(power.zero())
 		// Выводим отрицательный результат - показатель нулевой
 		return false;
-	// Единица
+	// Значение-единица поля
 	one.word(1);
 	// Граница p - 1
 	if(!edge.subtract(modulus, one))
@@ -777,7 +777,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	if(!modulus.odd() || modulus.zero())
 		// Выводим отрицательный результат - модуль нулевой либо чётный
 		return false;
-	// Единица
+	// Значение-единица поля
 	one.word(1);
 	// Граница p − 1
 	if(!edge.subtract(modulus, one))
@@ -832,7 +832,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	if(!modulus.odd() || modulus.zero())
 		// Выводим отрицательный результат - модуль нулевой либо чётный
 		return false;
-	// Единица
+	// Значение-единица поля
 	one.word(1);
 	// Граница p − 1
 	if(!edge.subtract(modulus, one))
@@ -887,7 +887,7 @@ bool nts::agreement::pairffdhe(const view_t & prime, const view_t & generator, c
 	if(!modulus.odd() || modulus.zero())
 		// Выводим отрицательный результат - модуль нулевой либо чётный
 		return false;
-	// Единица
+	// Значение-единица поля
 	one.word(1);
 	// Граница p − 1
 	if(!edge.subtract(modulus, one) || !inside(base, one, edge))

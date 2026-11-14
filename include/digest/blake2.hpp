@@ -17,7 +17,7 @@
  *
  * @section Намеренные решения
  *
- * 1. BLAKE2 заведён и в общий перечень `digest::hash_t` (BLAKE2S256, BLAKE2B512), оттого HMAC и
+ *  1. BLAKE2 заведён и в общий перечень `digest::hash_t` (BLAKE2S256, BLAKE2B512), оттого HMAC и
  *    HKDF идут поверх него как поверх любого хеша. Это выглядит избыточным при родном ключевом
  *    режиме, но именно так описаны Noise и WireGuard: HKDF там строится над HMAC-BLAKE2s, а не над
  *    ключевым BLAKE2s. Соблюдение описания, а не недосмотр; ключевой режим - для тех, кому он нужен
@@ -27,7 +27,7 @@
  *
  * @section Deliberate decisions
  *
- * 1. BLAKE2 is registered in the common list of `digest::hash_t` (BLAKE2S256, BLAKE2B512), therefore HMAC and
+ *  1. BLAKE2 is registered in the common list of `digest::hash_t` (BLAKE2S256, BLAKE2B512), therefore HMAC and
  *    HKDF go on top of it as on top of any hash. This looks redundant with the native keyed mode, but this is
  *    exactly how Noise and WireGuard are described: HKDF there is built on HMAC-BLAKE2s, and not on the keyed
  *    BLAKE2s. Following the description, and not an oversight; the keyed mode is for those who need it

@@ -16,14 +16,14 @@
  *
  * @section Намеренные решения
  *
- * 1. Запись состояния несёт своё издание: билет прежнего издания распечатывается
+ *  1. Запись состояния несёт своё издание: билет прежнего издания распечатывается
  *    ключом, но состоянием не признаётся - рукопожатие идёт полным, а не отказом.
  *
- * 2. Имитовставка сличается прежде расшифрования и за постоянное время, а дополнение
+ *  2. Имитовставка сличается прежде расшифрования и за постоянное время, а дополнение
  *    состояния судится уже под сошедшейся имитовставкой: порча любого байта билета
  *    отсеивается до шифра, и утечки по времени расшифрования нет.
  *
- * 3. Состояние помнит порядок RFC 7366, подлинность клиента (с его сертификатом) и имя
+ *  3. Состояние помнит порядок RFC 7366, подлинность клиента (с его сертификатом) и имя
  *    узла: возобновлённая связь обязана наследовать проверенное выдавшей, а не обходить
  *    его сокращённым рукопожатием.
  *
@@ -271,7 +271,7 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const bad_alloc &) {
-			// Выполняем сброс состояния
+			// Сброс состояния
 			result.clear();
 			// Выводим негодность записи
 			return false;
@@ -304,7 +304,7 @@ namespace {
 void nts::internal::ticket::State::clear() noexcept {
 	// Сбрасываем набор шифрования
 	this->suite = protect::suite_t::NONE;
-	// Выполняем затирание главного секрета
+	// Затирание главного секрета
 	wipe(this->master, sizeof(this->master));
 	// Сбрасываем порядок защиты записей
 	this->etm = false;
@@ -330,7 +330,7 @@ void nts::internal::ticket::State::clear() noexcept {
  *
  */
 nts::internal::ticket::State::State() noexcept : suite(protect::suite_t::NONE), etm(false), ancient(false), verified(false), moment(0), authenticated(0), lifetime(0) {
-	// Выполняем обнуление главного секрета
+	// Обнуление главного секрета
 	::memset(this->master, 0, sizeof(this->master));
 }
 /**
@@ -338,7 +338,7 @@ nts::internal::ticket::State::State() noexcept : suite(protect::suite_t::NONE), 
  *
  */
 nts::internal::ticket::State::~State() noexcept {
-	// Выполняем затирание главного секрета
+	// Затирание главного секрета
 	wipe(this->master, sizeof(this->master));
 }
 /**
@@ -367,7 +367,7 @@ bool nts::internal::ticket::Keeper::stash(const view_t & secret) noexcept {
 	uint8_t fresh[TICKET_VAULT];
 	// Если ключ из секрета вывести не удалось
 	if(!keyring(secret, fresh)){
-		// Выполняем затирание места ключа
+		// Затирание места ключа
 		wipe(fresh, sizeof(fresh));
 		// Выводим отказ заведения ключа
 		return false;
@@ -382,7 +382,7 @@ bool nts::internal::ticket::Keeper::stash(const view_t & secret) noexcept {
 	::memcpy(this->_keys->vault[0], fresh, sizeof(this->_keys->vault[0]));
 	// Отмечаем заведённость нынешнего поколения
 	this->_vaulted[0] = true;
-	// Выполняем затирание места ключа
+	// Затирание места ключа
 	wipe(fresh, sizeof(fresh));
 	// Выводим успешность заведения ключа
 	return true;
@@ -442,7 +442,7 @@ nts::internal::ticket::error_t nts::internal::ticket::Keeper::mint(const state_t
 		plain.assign(record.size + 1 + padding, static_cast <uint8_t> (padding));
 		// Переносим состояние билета
 		::memcpy(plain.data(), record.data, record.size);
-		// Выполняем сброс накопителя билета
+		// Сброс накопителя билета
 		result.clear();
 		// Записываем имя ключа билета
 		result.insert(result.end(), vault, vault + TICKET_NAME);
@@ -482,15 +482,15 @@ nts::internal::ticket::error_t nts::internal::ticket::Keeper::mint(const state_t
 	}
 	// Если открытый текст состояния занят
 	if(!plain.empty())
-		// Выполняем затирание открытого текста состояния
+		// Затирание открытого текста состояния
 		wipe(plain.data(), plain.size());
 	// Если билет запечатать не удалось
 	if(failure != error_t::NONE)
-		// Выполняем сброс накопителя билета
+		// Сброс накопителя билета
 		result.clear();
 	// Раздел 3.3 RFC 5077: билет идёт с двухбайтовой длиной
 	else if(result.size() > TICKET_LONGEST){
-		// Выполняем сброс накопителя билета
+		// Сброс накопителя билета
 		result.clear();
 		// Запоминаем отказ длины
 		failure = error_t::LENGTH;
@@ -507,7 +507,7 @@ nts::internal::ticket::error_t nts::internal::ticket::Keeper::mint(const state_t
  *
  */
 bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & result) noexcept {
-	// Выполняем сброс состояния
+	// Сброс состояния
 	result.clear();
 	// Раздел 4 RFC 5077: имя ключа, вектор, длина, хоть один блок шифртекста и имитовставка
 	if((ticket.data == nullptr) || (ticket.size < LEAST) || (ticket.size > TICKET_LONGEST))
@@ -575,7 +575,7 @@ bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & resu
 				// Разбираем запись состояния
 				valid = decompose(view_t(plain.data(), length - padding - 1), result);
 		}
-		// Выполняем затирание открытого текста
+		// Затирание открытого текста
 		wipe(plain.data(), plain.size());
 	/**
 	 * Выполняем перехват ошибок
@@ -586,7 +586,7 @@ bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & resu
 	}
 	// Если билет негоден
 	if(!valid)
-		// Выполняем сброс состояния
+		// Сброс состояния
 		result.clear();
 	// Выводим признак годности билета
 	return valid;
@@ -596,7 +596,7 @@ bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & resu
  *
  */
 void nts::internal::ticket::Keeper::clear() noexcept {
-	// Выполняем затирание ключей билетов
+	// Затирание ключей билетов
 	this->_shelter.wipe();
 	// Сбрасываем заведённость нынешнего поколения
 	this->_vaulted[0] = false;
@@ -622,6 +622,6 @@ nts::internal::ticket::Keeper::Keeper() noexcept : _keys(nullptr) {
  *
  */
 nts::internal::ticket::Keeper::~Keeper() noexcept {
-	// Выполняем затирание ключей билетов
+	// Затирание ключей билетов
 	this->clear();
 }

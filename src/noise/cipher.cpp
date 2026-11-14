@@ -94,7 +94,7 @@ bool nts::noise::Cipher::seal(const uint64_t nonce, const view_t & associated, c
 	if(!this->_has || (nonce == FORBIDDEN) || (tag == nullptr) || (source.size > (MESSAGE - TAG)) || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))) || ((associated.size > 0) && (associated.data == nullptr)))
 		// Выводим отрицательный результат - печать невозможна
 		return false;
-	// Нонс
+	// Нонс шифра
 	uint8_t iv[NONCE];
 	// Заполняем нонс
 	fill(this->_aead, nonce, iv);
@@ -118,7 +118,7 @@ bool nts::noise::Cipher::seal(const uint64_t nonce, const view_t & associated, c
 			// Заводим и шифруем
 			status = (aead.start(cipher::block_t(this->_aes), view_t(iv, NONCE), TAG) && aead.encrypt(associated, source, result, tag));
 		} break;
-		// Прочее
+		// Прочие шифры Noise
 		default: break;
 	}
 	// Возвращаем итог печати
@@ -140,7 +140,7 @@ bool nts::noise::Cipher::open(const uint64_t nonce, const view_t & associated, c
 	if(!this->_has || (nonce == FORBIDDEN) || (tag.data == nullptr) || (tag.size != TAG) || (source.size > (MESSAGE - TAG)) || ((source.size > 0) && ((source.data == nullptr) || (result == nullptr))) || ((associated.size > 0) && (associated.data == nullptr)))
 		// Выводим отрицательный результат - вскрытие невозможно
 		return false;
-	// Нонс
+	// Нонс шифра
 	uint8_t iv[NONCE];
 	// Заполняем нонс
 	fill(this->_aead, nonce, iv);
@@ -164,7 +164,7 @@ bool nts::noise::Cipher::open(const uint64_t nonce, const view_t & associated, c
 			// Заводим и расшифровываем
 			status = (aead.start(cipher::block_t(this->_aes), view_t(iv, NONCE), TAG) && aead.decrypt(associated, source, result, tag));
 		} break;
-		// Прочее
+		// Прочие шифры Noise
 		default: break;
 	}
 	// Если подлинность не сошлась, выход обнуляется - кроме вскрытия на месте, где выход и есть вход вызывающего
@@ -390,7 +390,7 @@ bool nts::noise::Cipher::rekey() noexcept {
 			// Заводим и шифруем нули
 			status = (aead.start(cipher::block_t(this->_aes), view_t(iv, NONCE), TAG) && aead.encrypt(view_t(), view_t(zeros, KEY), fresh, tag));
 		} break;
-		// Прочее
+		// Прочие шифры Noise
 		default: break;
 	}
 	// Счётчик сохраняется: ключ ставится в обход установки

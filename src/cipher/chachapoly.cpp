@@ -172,14 +172,14 @@ bool nts::cipher::Chachapoly::reset() noexcept {
 	uint8_t block[CHACHA_BLOCK];
 	// Если блок выработать не удалось
 	if(!this->_cipher.block(block)){
-		// Выполняем затирание блока
+		// Затирание блока
 		wipe(block, sizeof(block));
 		// Выводим отказ сброса
 		return false;
 	}
 	// Признак запуска имитовставки одноразовым ключом
 	const bool started = this->_mac.start(view_t(block, POLY1305_KEY));
-	// Выполняем затирание блока
+	// Затирание блока
 	wipe(block, sizeof(block));
 	// Выводим итог запуска имитовставки
 	return started;
@@ -255,7 +255,7 @@ size_t nts::cipher::Chachapoly::size() const noexcept {
  *
  */
 bool nts::cipher::Chachapoly::start(const view_t & key, const view_t & nonce) noexcept {
-	// Выполняем сброс прежнего состояния
+	// Сброс прежнего состояния
 	this->clear();
 	// Если ключ либо заполнение не той длины либо не переданы
 	if((key.data == nullptr) || (key.size != CHACHA_KEY) || (nonce.data == nullptr) || ((nonce.size != CHACHA_NONCE) && (nonce.size != CHACHA_XNONCE)))
@@ -282,7 +282,7 @@ bool nts::cipher::Chachapoly::start(const view_t & key, const view_t & nonce) no
 	this->_ready = true;
 	// Если поток сбросить не удалось
 	if(!this->reset()){
-		// Выполняем сброс режима
+		// Сброс режима
 		this->clear();
 		// Выводим отказ запуска
 		return false;
@@ -310,7 +310,7 @@ bool nts::cipher::Chachapoly::restart(const view_t & nonce) noexcept {
 	this->_spent = false;
 	// Переносим заполнение
 	::memcpy(this->_nonce, nonce.data, sizeof(this->_nonce));
-	// Выполняем сброс состояния потока от нового заполнения: шифр и одноразовый ключ имитовставки заводятся заново
+	// Сброс состояния потока от нового заполнения: шифр и одноразовый ключ имитовставки заводятся заново
 	return this->reset();
 }
 /**
@@ -322,11 +322,11 @@ void nts::cipher::Chachapoly::clear() noexcept {
 	this->_ready = false;
 	// Сбрасываем признак израсходованного заполнения
 	this->_spent = false;
-	// Выполняем затирание ключа
+	// Затирание ключа
 	wipe(this->_key, sizeof(this->_key));
-	// Выполняем затирание заполнения
+	// Затирание заполнения
 	wipe(this->_nonce, sizeof(this->_nonce));
-	// Выполняем сброс состояния потока: без ключа он лишь затирает шифр и имитовставку
+	// Сброс состояния потока: без ключа он лишь затирает шифр и имитовставку
 	this->reset();
 }
 /**
@@ -428,7 +428,7 @@ bool nts::cipher::Chachapoly::decrypt(const view_t & source, uint8_t * result) n
 	this->_sealed += static_cast <uint64_t> (source.size);
 	// Если гамму снять не удалось
 	if(!this->_cipher.decrypt(source, result)){
-		// Выполняем затирание неполного открытого текста
+		// Затирание неполного открытого текста
 		wipe(result, source.size);
 		// Закрываем поток
 		this->_stage = 3;
@@ -481,14 +481,14 @@ bool nts::cipher::Chachapoly::verify(const view_t & tag) noexcept {
 	uint8_t buffer[CHACHAPOLY_TAG];
 	// Если метку вычислить не удалось
 	if(!this->authenticate(buffer)){
-		// Выполняем затирание метки
+		// Затирание метки
 		wipe(buffer, sizeof(buffer));
 		// Выводим отказ сличения
 		return false;
 	}
 	// Признак схождения метки за постоянное время
 	const bool matched = same(buffer, tag.data, CHACHAPOLY_TAG);
-	// Выполняем затирание вычисленной метки
+	// Затирание вычисленной метки
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак схождения метки
 	return matched;
@@ -582,7 +582,7 @@ bool nts::cipher::Chachapoly::decrypt(const view_t & associated, const view_t & 
 		return false;
 	// Если гамму снять не удалось
 	if(!this->_cipher.decrypt(source, result)){
-		// Выполняем затирание неполного открытого текста
+		// Затирание неполного открытого текста
 		wipe(result, source.size);
 		// Выводим отказ расшифрования
 		return false;
@@ -595,9 +595,9 @@ bool nts::cipher::Chachapoly::decrypt(const view_t & associated, const view_t & 
  *
  */
 nts::cipher::Chachapoly::Chachapoly() noexcept : _ready(false), _spent(false), _stage(0), _direction(0), _associated(0), _sealed(0) {
-	// Выполняем затирание ключа
+	// Затирание ключа
 	wipe(this->_key, sizeof(this->_key));
-	// Выполняем затирание заполнения
+	// Затирание заполнения
 	wipe(this->_nonce, sizeof(this->_nonce));
 }
 /**
@@ -605,6 +605,6 @@ nts::cipher::Chachapoly::Chachapoly() noexcept : _ready(false), _spent(false), _
  *
  */
 nts::cipher::Chachapoly::~Chachapoly() noexcept {
-	// Выполняем сброс режима
+	// Сброс режима
 	this->clear();
 }

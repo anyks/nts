@@ -222,7 +222,7 @@ void nts::digest::Md5::reset() noexcept {
 	for(size_t i = 0; i < 4; i++)
 		// Переносим очередное начальное значение
 		this->_hash[i] = H[i];
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
 }
 /**
@@ -269,7 +269,7 @@ void nts::digest::Md5::update(const view_t & data) noexcept {
 		left -= taken;
 		// Если блок набрался целиком
 		if(this->_size == 64){
-			// Выполняем разбор накопленного блока
+			// Разбор накопленного блока
 			this->compress(this->_block);
 			// Сбрасываем число байтов незавершённого блока
 			this->_size = 0;
@@ -280,7 +280,7 @@ void nts::digest::Md5::update(const view_t & data) noexcept {
 	 * Выполняем разбор целых блоков куска прямо из него
 	 */
 	while(left >= 64){
-		// Выполняем разбор очередного блока куска
+		// Разбор очередного блока куска
 		this->compress(cursor);
 		// Сдвигаем позицию чтения куска
 		cursor += 64;
@@ -321,7 +321,7 @@ bool nts::digest::Md5::finish(uint8_t * result, const size_t size) noexcept {
 		for(size_t i = this->_size; i < 64; i++)
 			// Записываем очередной нулевой байт
 			this->_block[i] = 0;
-		// Выполняем разбор дополненного блока
+		// Разбор дополненного блока
 		this->compress(this->_block);
 		// Сбрасываем число байтов незавершённого блока
 		this->_size = 0;
@@ -336,7 +336,7 @@ bool nts::digest::Md5::finish(uint8_t * result, const size_t size) noexcept {
 	store(static_cast <uint32_t> (bits), this->_block + 56);
 	// Записываем старшую половину длины сообщения от младшего байта
 	store(static_cast <uint32_t> (bits >> 32), this->_block + 60);
-	// Выполняем разбор последнего блока
+	// Разбор последнего блока
 	this->compress(this->_block);
 	/**
 	 * Выполняем запись слов хеша от младшего байта
@@ -344,9 +344,9 @@ bool nts::digest::Md5::finish(uint8_t * result, const size_t size) noexcept {
 	for(size_t i = 0; i < 4; i++)
 		// Записываем очередное слово хеша
 		store(this->_hash[i], result + (i * 4));
-	// Выполняем затирание значения хеша
+	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
 	// Сбрасываем число байтов незавершённого блока
 	this->_size = 0;
@@ -360,7 +360,7 @@ bool nts::digest::Md5::finish(uint8_t * result, const size_t size) noexcept {
  *
  */
 nts::digest::Md5::Md5() noexcept : _finished(true), _size(0), _count(0) {
-	// Выполняем сброс состояния хеширования
+	// Сброс состояния хеширования
 	this->reset();
 }
 /**
@@ -368,9 +368,9 @@ nts::digest::Md5::Md5() noexcept : _finished(true), _size(0), _count(0) {
  *
  */
 nts::digest::Md5::~Md5() noexcept {
-	// Выполняем затирание значения хеша
+	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
 }
 /**
@@ -385,7 +385,7 @@ nts::digest::Md5::~Md5() noexcept {
 bool nts::digest::md5(const view_t & data, uint8_t * result, const size_t size) noexcept {
 	// Объект хеширования
 	md5_t hasher;
-	// Выполняем подачу целого сообщения
+	// Подачу целого сообщения
 	hasher.update(data);
 	// Выводим итог снятия хеша
 	return hasher.finish(result, size);

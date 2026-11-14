@@ -158,7 +158,7 @@ namespace {
 	 *
 	 */
 	static void wipe(math::number_t & value) noexcept {
-		// Выполняем затирание слов числа
+		// Затирание слов числа
 		wipe(value.words, sizeof(value.words));
 	}
 	/**
@@ -201,7 +201,7 @@ namespace {
 		 * Иначе перезаписываем область затиранием с пустой вставкой ассемблера
 		 */
 		#else
-			// Выполняем перезапись области стека
+			// Перезапись области стека
 			::memset(area, 0, sizeof(area));
 			// Пустая вставка с областью на входе и порчей памяти: запись перед нею сохраняется
 			__asm__ __volatile__("" : : "r"(area) : "memory");
@@ -359,7 +359,7 @@ namespace {
 		 *
 		 */
 		__ANTS_INLINE__ void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
-			// Выполняем умножение встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
+			// Умножение встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
 			math::kernel::multiply <WORDS, ADX> (this->layout, first, second, result);
 		}
 		/**
@@ -367,7 +367,7 @@ namespace {
 		 *
 		 */
 		__ANTS_INLINE__ void square(const value_t & value, value_t & result) const noexcept {
-			// Выполняем возведение в квадрат встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
+			// Возведение в квадрат встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
 			math::kernel::square <WORDS, ADX> (this->layout, value, result);
 		}
 		/**
@@ -379,7 +379,7 @@ namespace {
 		 *
 		 */
 		__ANTS_INLINE__ void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
-			// Выполняем сложение встраиваемым ядром
+			// Сложение встраиваемым ядром
 			math::kernel::add <WORDS> (this->layout, first, second, result);
 		}
 		/**
@@ -387,7 +387,7 @@ namespace {
 		 *
 		 */
 		__ANTS_INLINE__ void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
-			// Выполняем вычитание встраиваемым ядром
+			// Вычитание встраиваемым ядром
 			math::kernel::subtract <WORDS> (this->layout, first, second, result);
 		}
 		/**
@@ -395,7 +395,7 @@ namespace {
 		 *
 		 */
 		__ANTS_INLINE__ void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
-			// Выполняем выбор наложением маски
+			// Выбор наложением маски
 			math::kernel::choose <WORDS> (mask, first, second, result);
 		}
 		/**
@@ -435,7 +435,7 @@ namespace {
 		 *
 		 */
 		__ANTS_INLINE__ void store(const value_t & value, math::number_t & number) const noexcept {
-			// Выполняем обнуление числа: слова выше ширины поля нулевые
+			// Обнуление числа: слова выше ширины поля нулевые
 			number = math::number_t();
 			// Записываем слова значения
 			math::kernel::put <WORDS> (value, number.words);
@@ -572,7 +572,7 @@ namespace {
 		 *
 		 */
 		void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
-			// Выполняем умножение через объект арифметики
+			// Умножение через объект арифметики
 			this->field.multiply(first, second, result);
 		}
 		/**
@@ -580,7 +580,7 @@ namespace {
 		 *
 		 */
 		void square(const value_t & value, value_t & result) const noexcept {
-			// Выполняем возведение в квадрат через объект арифметики
+			// Возведение в квадрат через объект арифметики
 			this->field.square(value, result);
 		}
 		/**
@@ -592,7 +592,7 @@ namespace {
 		 *
 		 */
 		void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
-			// Выполняем сложение через объект арифметики
+			// Сложение через объект арифметики
 			this->field.add(first, second, result);
 		}
 		/**
@@ -600,7 +600,7 @@ namespace {
 		 *
 		 */
 		void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
-			// Выполняем вычитание через объект арифметики
+			// Вычитание через объект арифметики
 			this->field.subtract(first, second, result);
 		}
 		/**
@@ -636,7 +636,7 @@ namespace {
 		 *
 		 */
 		void read(const uint64_t * place, value_t & result) const noexcept {
-			// Выполняем обнуление значения
+			// Обнуление значения
 			result = value_t();
 			/**
 			 * Выполняем чтение слов по ширине поля
@@ -728,15 +728,15 @@ namespace {
 		typedef typename F::value_t V;
 		// Квадрат второй координаты удваиваемой точки
 		V square;
-		// Выполняем возведение второй координаты в квадрат
+		// Возведение второй координаты в квадрат
 		f.square(value.y, square);
 		// Квадрат третьей координаты
 		V item;
-		// Выполняем возведение третьей координаты в квадрат
+		// Возведение третьей координаты в квадрат
 		f.square(value.z, item);
 		// Удвоенная вторая координата
 		V doubled;
-		// Выполняем удвоение второй координаты
+		// Удвоение второй координаты
 		f.add(value.y, value.y, doubled);
 		// Множитель уравнения касательной к кривой
 		V factor;
@@ -748,13 +748,13 @@ namespace {
 		if(shortened){
 			// Разность первой координаты с квадратом третьей
 			V difference;
-			// Выполняем вычитание квадрата третьей координаты из первой
+			// Вычитание квадрата третьей координаты из первой
 			f.subtract(value.x, item, difference);
 			// Складываем первую координату с квадратом третьей
 			f.add(value.x, item, item);
-			// Выполняем умножение разности на сумму
+			// Умножение разности на сумму
 			f.multiply(difference, item, factor);
-			// Выполняем удвоение произведения
+			// Удвоение произведения
 			f.add(factor, factor, item);
 			// Складываем удвоенное произведение с оставшимся его значением
 			f.add(item, factor, factor);
@@ -762,15 +762,15 @@ namespace {
 		} else {
 			// Утроенный квадрат первой координаты
 			V triple;
-			// Выполняем возведение первой координаты в квадрат
+			// Возведение первой координаты в квадрат
 			f.square(value.x, factor);
-			// Выполняем удвоение квадрата
+			// Удвоение квадрата
 			f.add(factor, factor, triple);
 			// Складываем удвоенный квадрат с оставшимся его значением
 			f.add(triple, factor, factor);
-			// Выполняем возведение третьей координаты в четвёртую степень
+			// Возведение третьей координаты в четвёртую степень
 			f.square(item, item);
-			// Выполняем умножение четвёртой степени на первый коэффициент уравнения
+			// Умножение четвёртой степени на первый коэффициент уравнения
 			f.multiply(item, coefficient, item);
 			// Складываем утроенный квадрат с полученным произведением
 			f.add(factor, item, factor);
@@ -788,15 +788,15 @@ namespace {
 		f.add(square, square, square);
 		// Произведение первой координаты на удвоенный квадрат второй
 		V product;
-		// Выполняем умножение первой координаты на удвоенный квадрат второй
+		// Умножение первой координаты на удвоенный квадрат второй
 		f.multiply(value.x, square, product);
 		// Третья координата удвоенной точки: удвоенная вторая на третью
 		f.multiply(doubled, value.z, result.z);
 		// Учетверённая четвёртая степень второй координаты
 		V quad;
-		// Выполняем возведение удвоенного квадрата в квадрат
+		// Возведение удвоенного квадрата в квадрат
 		f.square(square, quad);
-		// Выполняем удвоение произведения: учетверённое произведение
+		// Удвоение произведения: учетверённое произведение
 		f.add(product, product, product);
 		// Первая координата: квадрат множителя касательной
 		f.square(factor, result.x);
@@ -831,25 +831,25 @@ namespace {
 		typedef typename F::value_t V;
 		// Квадраты третьих координат слагаемых: независимы друг от друга
 		V z2, z1;
-		// Выполняем возведение третьей координаты второго слагаемого в квадрат
+		// Возведение третьей координаты второго слагаемого в квадрат
 		f.square(second.z, z2);
-		// Выполняем возведение третьей координаты первого слагаемого в квадрат
+		// Возведение третьей координаты первого слагаемого в квадрат
 		f.square(first.z, z1);
 		// Приведённые первые координаты слагаемых
 		V u1, u2;
-		// Выполняем приведение первой координаты первого слагаемого
+		// Приведение первой координаты первого слагаемого
 		f.multiply(first.x, z2, u1);
-		// Выполняем приведение первой координаты второго слагаемого
+		// Приведение первой координаты второго слагаемого
 		f.multiply(second.x, z1, u2);
-		// Выполняем возведение третьей координаты второго слагаемого в куб
+		// Возведение третьей координаты второго слагаемого в куб
 		f.multiply(z2, second.z, z2);
-		// Выполняем возведение третьей координаты первого слагаемого в куб
+		// Возведение третьей координаты первого слагаемого в куб
 		f.multiply(z1, first.z, z1);
 		// Приведённые вторые координаты слагаемых
 		V s1, s2;
-		// Выполняем приведение второй координаты первого слагаемого
+		// Приведение второй координаты первого слагаемого
 		f.multiply(first.y, z2, s1);
-		// Выполняем приведение второй координаты второго слагаемого
+		// Приведение второй координаты второго слагаемого
 		f.multiply(second.y, z1, s2);
 		// Разности приведённых координат слагаемых
 		V h, r;
@@ -859,23 +859,23 @@ namespace {
 		f.subtract(s2, s1, r);
 		// Квадрат разности первых координат
 		V square;
-		// Выполняем возведение разности первых координат в квадрат
+		// Возведение разности первых координат в квадрат
 		f.square(h, square);
 		// Произведение третьих координат слагаемых
 		V zz;
-		// Выполняем умножение третьих координат слагаемых
+		// Умножение третьих координат слагаемых
 		f.multiply(first.z, second.z, zz);
 		// Маски удалённости слагаемых: снимаются до первой записи в приёмник
 		const uint64_t empty2 = f.zero(second.z), empty1 = f.zero(first.z);
 		// Куб разности первых координат
 		V cube;
-		// Выполняем возведение разности первых координат в куб
+		// Возведение разности первых координат в куб
 		f.multiply(square, h, cube);
-		// Выполняем умножение приведённой первой координаты на квадрат разности
+		// Умножение приведённой первой координаты на квадрат разности
 		f.multiply(u1, square, u1);
 		// Квадрат разности вторых координат
 		V item;
-		// Выполняем возведение разности вторых координат в квадрат
+		// Возведение разности вторых координат в квадрат
 		f.square(r, item);
 		// Собираемая сумма точек
 		Triple <V> value;
@@ -925,17 +925,17 @@ namespace {
 		 * возведение её в квадрат с кубом делать нечего
 		 */
 		V z1;
-		// Выполняем возведение третьей координаты первого слагаемого в квадрат
+		// Возведение третьей координаты первого слагаемого в квадрат
 		f.square(first.z, z1);
 		// Приведённая первая координата второго слагаемого
 		V u2;
-		// Выполняем приведение первой координаты второго слагаемого
+		// Приведение первой координаты второго слагаемого
 		f.multiply(second.x, z1, u2);
-		// Выполняем возведение третьей координаты первого слагаемого в куб
+		// Возведение третьей координаты первого слагаемого в куб
 		f.multiply(z1, first.z, z1);
 		// Приведённая вторая координата второго слагаемого
 		V s2;
-		// Выполняем приведение второй координаты второго слагаемого
+		// Приведение второй координаты второго слагаемого
 		f.multiply(second.y, z1, s2);
 		// Разности приведённых координат слагаемых
 		V h, r;
@@ -945,7 +945,7 @@ namespace {
 		f.subtract(s2, first.y, r);
 		// Квадрат разности первых координат
 		V square;
-		// Выполняем возведение разности первых координат в квадрат
+		// Возведение разности первых координат в квадрат
 		f.square(h, square);
 		// Маски удалённости слагаемых: снимаются до первой записи в приёмник
 		const uint64_t empty2 = f.zero(second.z), empty1 = f.zero(first.z);
@@ -964,15 +964,15 @@ namespace {
 		f.multiply(first.z, h, value.z);
 		// Куб разности первых координат
 		V cube;
-		// Выполняем возведение разности первых координат в куб
+		// Возведение разности первых координат в куб
 		f.multiply(square, h, cube);
 		// Произведение первой координаты на квадрат разности
 		V u1;
-		// Выполняем умножение первой координаты на квадрат разности
+		// Умножение первой координаты на квадрат разности
 		f.multiply(first.x, square, u1);
 		// Квадрат разности вторых координат
 		V item;
-		// Выполняем возведение разности вторых координат в квадрат
+		// Возведение разности вторых координат в квадрат
 		f.square(r, item);
 		// Вычитаем куб разности первых координат
 		f.subtract(item, cube, item);
@@ -1032,25 +1032,25 @@ namespace {
 		}
 		// Квадраты третьих координат слагаемых
 		V z2, z1;
-		// Выполняем возведение третьей координаты второго слагаемого в квадрат
+		// Возведение третьей координаты второго слагаемого в квадрат
 		f.square(second.z, z2);
-		// Выполняем возведение третьей координаты первого слагаемого в квадрат
+		// Возведение третьей координаты первого слагаемого в квадрат
 		f.square(first.z, z1);
 		// Приведённые первые координаты слагаемых
 		V u1, u2;
-		// Выполняем приведение первой координаты первого слагаемого
+		// Приведение первой координаты первого слагаемого
 		f.multiply(first.x, z2, u1);
-		// Выполняем приведение первой координаты второго слагаемого
+		// Приведение первой координаты второго слагаемого
 		f.multiply(second.x, z1, u2);
-		// Выполняем возведение третьей координаты второго слагаемого в куб
+		// Возведение третьей координаты второго слагаемого в куб
 		f.multiply(z2, second.z, z2);
-		// Выполняем возведение третьей координаты первого слагаемого в куб
+		// Возведение третьей координаты первого слагаемого в куб
 		f.multiply(z1, first.z, z1);
 		// Приведённые вторые координаты слагаемых
 		V s1, s2;
-		// Выполняем приведение второй координаты первого слагаемого
+		// Приведение второй координаты первого слагаемого
 		f.multiply(first.y, z2, s1);
-		// Выполняем приведение второй координаты второго слагаемого
+		// Приведение второй координаты второго слагаемого
 		f.multiply(second.y, z1, s2);
 		// Разности приведённых координат слагаемых
 		V h, r;
@@ -1071,21 +1071,21 @@ namespace {
 		}
 		// Квадрат разности первых координат
 		V square;
-		// Выполняем возведение разности первых координат в квадрат
+		// Возведение разности первых координат в квадрат
 		f.square(h, square);
 		// Произведение третьих координат слагаемых
 		V zz;
-		// Выполняем умножение третьих координат слагаемых
+		// Умножение третьих координат слагаемых
 		f.multiply(first.z, second.z, zz);
 		// Куб разности первых координат
 		V cube;
-		// Выполняем возведение разности первых координат в куб
+		// Возведение разности первых координат в куб
 		f.multiply(square, h, cube);
-		// Выполняем умножение приведённой первой координаты на квадрат разности
+		// Умножение приведённой первой координаты на квадрат разности
 		f.multiply(u1, square, u1);
 		// Квадрат разности вторых координат
 		V item;
-		// Выполняем возведение разности вторых координат в квадрат
+		// Возведение разности вторых координат в квадрат
 		f.square(r, item);
 		// Третья координата суммы: все чтения третьих координат позади
 		f.multiply(zz, h, result.z);
@@ -1153,7 +1153,7 @@ namespace {
 	 */
 	template <size_t WORDS, bool ADX>
 	static __ANTS_INLINE__ void pick(const Fast <WORDS, ADX> & f, const Triple <math::kernel::Words <WORDS>> * table, const size_t count, const uint64_t index, Triple <math::kernel::Words <WORDS>> & result) noexcept {
-		// Выполняем выборку строки таблицы: три координаты подряд
+		// Выборка строки таблицы: три координаты подряд
 		f.gather(table[0].x.w, (3 * WORDS), count, 0, index, result.x.w, (3 * WORDS));
 	}
 	/**
@@ -1227,7 +1227,7 @@ namespace {
 				 * Выполняем удвоения по разрядам окна на месте
 				 */
 				for(size_t j = 0; j < WINDOW; j++)
-					// Выполняем удвоение накопленного произведения
+					// Удвоение накопленного произведения
 					doubling(f, shortened, coefficient, result, result);
 			}
 			// Знак цифры окна
@@ -1243,7 +1243,7 @@ namespace {
 			f.subtract(table[0].y, chosen.y, negated);
 			// Отрицательная цифра берёт кратное со сменой знака второй координаты
 			f.choose((0 - sign), negated, chosen.y, chosen.y);
-			// Выполняем сложение накопленного произведения с выбранным кратным на месте
+			// Сложение накопленного произведения с выбранным кратным на месте
 			attaching(f, result, chosen, result);
 		}
 	}
@@ -1295,7 +1295,7 @@ namespace {
 	static __ANTS_INLINE__ void gathering(const Fast <WORDS, ADX> & f, const uint64_t * row, const size_t words, const uint64_t index, Triple <math::kernel::Words <WORDS>> & chosen) noexcept {
 		// Число слов координаты заложено в арифметику
 		(void) words;
-		// Выполняем выборку строки: кратные от первого, координаты подряд
+		// Выборка строки: кратные от первого, координаты подряд
 		f.gather(row, (2 * WORDS), TABLES_MULTIPLES, 1, index, chosen.x.w, (2 * WORDS));
 	}
 	/**
@@ -1382,7 +1382,7 @@ namespace {
 		Triple <typename F::value_t> item, doubled;
 		// Переводим точку на значения
 		enter(f, value, item);
-		// Выполняем удвоение
+		// Удвоение точки окна
 		doubling(f, shortened, coefficient, item, doubled);
 		// Записываем удвоенную точку
 		leave(f, doubled, result);
@@ -1404,7 +1404,7 @@ namespace {
 		enter(f, first, left);
 		// Переводим второе слагаемое на значения
 		enter(f, second, right);
-		// Выполняем сложение
+		// Сложение накапливаемой точки
 		attaching(f, left, right, sum);
 		// Записываем сумму точек
 		leave(f, sum, result);
@@ -1426,7 +1426,7 @@ namespace {
 		enter(f, first, left);
 		// Переводим второе слагаемое на значения
 		enter(f, second, right);
-		// Выполняем смешанное сложение
+		// Смешанное сложение
 		joining(f, left, right, sum);
 		// Записываем сумму точек
 		leave(f, sum, result);
@@ -1454,7 +1454,7 @@ namespace {
 		enter(f, left, one);
 		// Переводим второе слагаемое на значения
 		enter(f, right, two);
-		// Выполняем сложение
+		// Сложение с заготовленным кратным
 		adding(f, shortened, coefficient, one, two, sum);
 		// Записываем сумму точек
 		leave(f, sum, result);
@@ -1481,11 +1481,11 @@ namespace {
 		Triple <typename F::value_t> item, product;
 		// Переводим точку на значения
 		enter(f, value, item);
-		// Выполняем умножение
+		// Умножение точки на число
 		multiplying(f, shortened, coefficient, item, factor, bits, product);
 		// Записываем произведение
 		leave(f, product, result);
-		// Выполняем затирание произведения на значениях: оно выведено из секретного множителя
+		// Затирание произведения на значениях: оно выведено из секретного множителя
 		wipe(&product, sizeof(product));
 	}
 	/**
@@ -1506,11 +1506,11 @@ namespace {
 		f.load(unit, one);
 		// Произведение на значениях
 		Triple <typename F::value_t> product;
-		// Выполняем умножение точки основания
+		// Умножение точки основания
 		producing(f, multiples, one, factor, product);
 		// Записываем произведение
 		leave(f, product, result);
-		// Выполняем затирание произведения на значениях: оно выведено из секретного множителя
+		// Затирание произведения на значениях: оно выведено из секретного множителя
 		wipe(&product, sizeof(product));
 	}
 };
@@ -1569,7 +1569,7 @@ const nts::math::modulus_t & nts::curve::Curve::order() const noexcept {
  *
  */
 bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, const view_t & second, const view_t & order, const view_t & x, const view_t & y, const uint64_t cofactor) noexcept {
-	// Выполняем сброс прежде установленных параметров кривой
+	// Сброс прежде установленных параметров кривой
 	this->clear();
 	// Если кофактор кривой не передан
 	if(cofactor == 0)
@@ -1583,7 +1583,7 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 		return false;
 	// Если порядок подгруппы точек кривой установить не удалось
 	if(!this->_order.start(order)){
-		// Выполняем сброс установленных параметров кривой
+		// Сброс установленных параметров кривой
 		this->clear();
 		// Выводим отказ установки параметров кривой
 		return false;
@@ -1592,12 +1592,12 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 	math::number_t item;
 	// Если первый коэффициент уравнения кривой разобрать не удалось
 	if(!this->_field.load(first, item)){
-		// Выполняем сброс установленных параметров кривой
+		// Сброс установленных параметров кривой
 		this->clear();
 		// Выводим отказ установки параметров кривой
 		return false;
 	}
-	// Выполняем приведение первого коэффициента в область Монтгомери
+	// Приведение первого коэффициента в область Монтгомери
 	this->_field.enter(item, this->_first);
 	// Число три, которым опознаётся коэффициент кривой
 	math::number_t three;
@@ -1605,7 +1605,7 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 	this->_field.word(3, three);
 	// Сумма первого коэффициента с числом три
 	math::number_t sum;
-	// Выполняем сложение первого коэффициента с числом три
+	// Сложение первого коэффициента с числом три
 	this->_field.add(item, three, sum);
 	/**
 	 * Коэффициент, равный модулю без трёх, даёт удвоению точки способ покороче:
@@ -1615,18 +1615,18 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 	this->_shortened = this->_field.zero(sum);
 	// Если второй коэффициент уравнения кривой разобрать не удалось
 	if(!this->_field.load(second, item)){
-		// Выполняем сброс установленных параметров кривой
+		// Сброс установленных параметров кривой
 		this->clear();
 		// Выводим отказ установки параметров кривой
 		return false;
 	}
-	// Выполняем приведение второго коэффициента в область Монтгомери
+	// Приведение второго коэффициента в область Монтгомери
 	this->_field.enter(item, this->_second);
 	// Устанавливаем признак того, что кривая установлена
 	this->_ready = true;
 	// Если образующую точку разобрать не удалось
 	if(!this->point(x, y, this->_base)){
-		// Выполняем сброс установленных параметров кривой
+		// Сброс установленных параметров кривой
 		this->clear();
 		// Выводим отказ установки параметров кривой
 		return false;
@@ -1635,7 +1635,7 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 	math::number_t one;
 	// Получаем число один в виде числа поля
 	this->_field.word(1, one);
-	// Выполняем приведение единицы поля в область Монтгомери
+	// Приведение единицы поля в область Монтгомери
 	this->_field.enter(one, this->_unit);
 	/**
 	 * Разыскиваем заготовленные при сборке кратные точки основания. Опознаются они
@@ -1664,7 +1664,7 @@ bool nts::curve::Curve::start(const view_t & modulus, const view_t & first, cons
 		sample.z = this->_unit;
 		// Удвоенная точка основания своей арифметикой
 		point_t doubled;
-		// Выполняем удвоение
+		// Удвоение базовой точки
 		this->twice(this->_base, doubled);
 		// Координаты обеих точек
 		uint8_t first[2 * math::NUMBER_SIZE], second[2 * math::NUMBER_SIZE];
@@ -1687,19 +1687,19 @@ void nts::curve::Curve::clear() noexcept {
 	this->_cofactor = 1;
 	// Сбрасываем заготовленные кратные точки основания
 	this->_multiples = nullptr;
-	// Выполняем сброс единицы поля кривой
+	// Сброс единицы поля кривой
 	this->_unit = math::number_t();
-	// Выполняем сброс образующей точки подгруппы точек кривой
+	// Сброс образующей точки подгруппы точек кривой
 	this->_base = point_t();
-	// Выполняем сброс второго коэффициента уравнения кривой
+	// Сброс второго коэффициента уравнения кривой
 	this->_second = math::number_t();
-	// Выполняем сброс первого коэффициента уравнения кривой
+	// Сброс первого коэффициента уравнения кривой
 	this->_first = math::number_t();
 	// Сбрасываем признак коэффициента, равного модулю без трёх
 	this->_shortened = false;
-	// Выполняем сброс порядка подгруппы точек кривой
+	// Сброс порядка подгруппы точек кривой
 	this->_order.clear();
-	// Выполняем сброс модуля поля кривой
+	// Сброс модуля поля кривой
 	this->_field.clear();
 	// Снимаем признак того, что кривая установлена
 	this->_ready = false;
@@ -1725,7 +1725,7 @@ void nts::curve::Curve::base(point_t & result) const noexcept {
  *
  */
 bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & result, const bool subgroup) const noexcept {
-	// Выполняем сброс разбираемой точки
+	// Сброс разбираемой точки
 	result = point_t();
 	// Если кривая не установлена
 	if(!this->_ready)
@@ -1737,23 +1737,23 @@ bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & resu
 	if(!this->_field.load(x, first) || !this->_field.load(y, second))
 		// Выводим отказ разбора точки
 		return false;
-	// Выполняем приведение первой координаты точки в область Монтгомери
+	// Приведение первой координаты точки в область Монтгомери
 	this->_field.enter(first, result.x);
-	// Выполняем приведение второй координаты точки в область Монтгомери
+	// Приведение второй координаты точки в область Монтгомери
 	this->_field.enter(second, result.y);
 	// Записываем единицу третьей координатой аффинной точки
 	this->_field.word(1, first);
-	// Выполняем приведение третьей координаты точки в область Монтгомери
+	// Приведение третьей координаты точки в область Монтгомери
 	this->_field.enter(first, result.z);
 	// Левая и правая части уравнения кривой
 	math::number_t left, right;
-	// Выполняем возведение второй координаты точки в квадрат
+	// Возведение второй координаты точки в квадрат
 	this->_field.square(result.y, left);
-	// Выполняем возведение первой координаты точки в квадрат
+	// Возведение первой координаты точки в квадрат
 	this->_field.square(result.x, right);
-	// Выполняем возведение первой координаты точки в куб
+	// Возведение первой координаты точки в куб
 	this->_field.multiply(right, result.x, right);
-	// Выполняем умножение первой координаты точки на первый коэффициент уравнения
+	// Умножение первой координаты точки на первый коэффициент уравнения
 	this->_field.multiply(result.x, this->_first, second);
 	// Складываем куб первой координаты с полученным произведением
 	this->_field.add(right, second, right);
@@ -1761,7 +1761,7 @@ bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & resu
 	this->_field.add(right, this->_second, right);
 	// Если части уравнения кривой не сошлись
 	if(!this->_field.equal(left, right)){
-		// Выполняем сброс разбираемой точки
+		// Сброс разбираемой точки
 		result = point_t();
 		// Выводим отказ разбора точки
 		return false;
@@ -1779,9 +1779,9 @@ bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & resu
 		math::number_t zero, one, last;
 		// Точки (q - 1)·Q и q·Q
 		point_t nearly, cleared;
-		// Ноль
+		// Нулевое слово порядка
 		this->_order.word(0, zero);
-		// Единица
+		// Единичное слово порядка
 		this->_order.word(1, one);
 		// q - 1: сам порядок числом арифметики по модулю q не выразить
 		this->_order.subtract(zero, one, last);
@@ -1801,7 +1801,7 @@ bool nts::curve::Curve::point(const view_t & x, const view_t & y, point_t & resu
 		this->add(nearly, result, cleared);
 		// Если точка не в подгруппе порядка q
 		if(!this->infinity(cleared)){
-			// Выполняем сброс разбираемой точки
+			// Сброс разбираемой точки
 			result = point_t();
 			// Выводим отказ разбора точки
 			return false;
@@ -1827,32 +1827,32 @@ bool nts::curve::Curve::coordinates(const point_t & value, uint8_t * x, uint8_t 
 		return false;
 	// Обратное значение третьей координаты точки и его степени
 	math::number_t item, square, item2;
-	// Выполняем обращение третьей координаты точки
+	// Обращение третьей координаты точки
 	this->_field.invert(value.z, item);
-	// Выполняем возведение обратного значения в квадрат
+	// Возведение обратного значения в квадрат
 	this->_field.square(item, square);
-	// Выполняем умножение первой координаты точки на квадрат обратного значения
+	// Умножение первой координаты точки на квадрат обратного значения
 	this->_field.multiply(value.x, square, item2);
-	// Выполняем вывод первой координаты точки из области Монтгомери
+	// Вывод первой координаты точки из области Монтгомери
 	this->_field.leave(item2, item2);
 	// Признак успешности записи первой координаты точки
 	bool ok = ((x == nullptr) || this->_field.store(item2, x, size));
 	// Если первая координата точки записана
 	if(ok){
-		// Выполняем возведение обратного значения в куб
+		// Возведение обратного значения в куб
 		this->_field.multiply(square, item, square);
-		// Выполняем умножение второй координаты точки на куб обратного значения
+		// Умножение второй координаты точки на куб обратного значения
 		this->_field.multiply(value.y, square, item2);
-		// Выполняем вывод второй координаты точки из области Монтгомери
+		// Вывод второй координаты точки из области Монтгомери
 		this->_field.leave(item2, item2);
 		// Записываем вторую координату точки
 		ok = ((y == nullptr) || this->_field.store(item2, y, size));
 	}
-	// Выполняем затирание выведенной координаты точки
+	// Затирание выведенной координаты точки
 	wipe(item2);
-	// Выполняем затирание степеней обратного значения
+	// Затирание степеней обратного значения
 	wipe(square);
-	// Выполняем затирание обратного значения третьей координаты
+	// Затирание обратного значения третьей координаты
 	wipe(item);
 	// Выводим признак успешности записи координат точки
 	return ok;
@@ -1882,11 +1882,11 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(mulxReady(this->_field.layout()))
-			// Выполняем удвоение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
+			// Удвоение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			twicing(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 		else twicing(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	} else if(words == 8)
-		// Выполняем удвоение встраиваемой арифметикой восьми слов
+		// Удвоение встраиваемой арифметикой восьми слов
 		twicing(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	else twicing(Slow {this->_field}, this->_shortened, this->_first, value, result);
 }
@@ -1905,11 +1905,11 @@ void nts::curve::Curve::attach(const point_t & first, const point_t & second, po
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(mulxReady(this->_field.layout()))
-			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
+			// Сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			attachment(Fast <4, true> {this->_field.layout()}, first, second, result);
 		else attachment(Fast <4> {this->_field.layout()}, first, second, result);
 	} else if(words == 8)
-		// Выполняем сложение встраиваемой арифметикой восьми слов
+		// Сложение встраиваемой арифметикой восьми слов
 		attachment(Fast <8> {this->_field.layout()}, first, second, result);
 	else attachment(Slow {this->_field}, first, second, result);
 }
@@ -1928,11 +1928,11 @@ void nts::curve::Curve::join(const point_t & first, const point_t & second, poin
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(mulxReady(this->_field.layout()))
-			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
+			// Сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			junction(Fast <4, true> {this->_field.layout()}, first, second, result);
 		else junction(Fast <4> {this->_field.layout()}, first, second, result);
 	} else if(words == 8)
-		// Выполняем сложение встраиваемой арифметикой восьми слов
+		// Сложение встраиваемой арифметикой восьми слов
 		junction(Fast <8> {this->_field.layout()}, first, second, result);
 	else junction(Slow {this->_field}, first, second, result);
 }
@@ -1951,11 +1951,11 @@ void nts::curve::Curve::add(const point_t & first, const point_t & second, point
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(mulxReady(this->_field.layout()))
-			// Выполняем сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
+			// Сложение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			summation(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 		else summation(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	} else if(words == 8)
-		// Выполняем сложение встраиваемой арифметикой восьми слов
+		// Сложение встраиваемой арифметикой восьми слов
 		summation(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	else summation(Slow {this->_field}, this->_shortened, this->_first, first, second, result);
 }
@@ -1976,11 +1976,11 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 	if(words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(mulxReady(this->_field.layout()))
-			// Выполняем умножение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
+			// Умножение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			multiplication(Fast <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 		else multiplication(Fast <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 	} else if(words == 8)
-		// Выполняем умножение встраиваемой арифметикой восьми слов
+		// Умножение встраиваемой арифметикой восьми слов
 		multiplication(Fast <8> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 	else multiplication(Slow {this->_field}, this->_shortened, this->_first, value, factor, bits, result);
 	/**
@@ -2001,7 +2001,7 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
 	const precomputed_t * multiples = static_cast <const precomputed_t *> (this->_multiples);
 	// Если кратные точки основания этой кривой не заготовлены
 	if(multiples == nullptr){
-		// Выполняем общее умножение точки основания на число
+		// Общее умножение точки основания на число
 		this->multiply(this->_base, factor, result);
 		// Выходим из умножения точки основания
 		return;
@@ -2010,14 +2010,14 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
 	if(multiples->words == 4){
 		// На четырёх словах у простого P-256 путь выбирается по признаку MULX и ADCX/ADOX у машины, снятому один раз
 		if(mulxReady(this->_field.layout()))
-			// Выполняем умножение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
+			// Умножение встраиваемой арифметикой с ядрами MULX и ADCX/ADOX
 			production(Fast <4, true> {this->_field.layout()}, multiples, this->_unit, factor, result);
 		else production(Fast <4> {this->_field.layout()}, multiples, this->_unit, factor, result);
 	} else if(multiples->words == 8)
-		// Выполняем умножение встраиваемой арифметикой восьми слов
+		// Умножение встраиваемой арифметикой восьми слов
 		production(Fast <8> {this->_field.layout()}, multiples, this->_unit, factor, result);
 	else production(Slow {this->_field}, multiples, this->_unit, factor, result);
-	// Выполняем перезапись кадров стека шагов умножения
+	// Перезапись кадров стека шагов умножения
 	overwrite();
 }
 /**
@@ -2040,13 +2040,13 @@ void nts::curve::Curve::combine(const point_t & first, const math::number_t & si
 	point_t left, right;
 	// Если первая точка есть точка основания, произведение берётся заготовленными кратными
 	if(::memcmp(&first, &this->_base, sizeof(point_t)) == 0)
-		// Выполняем умножение точки основания на число
+		// Умножение точки основания на число
 		this->product(single, left);
 	// Иную точку множим общим путём
 	else this->multiply(first, single, left);
-	// Выполняем умножение второй точки на число
+	// Умножение второй точки на число
 	this->multiply(second, pair, right);
-	// Выполняем сложение произведений
+	// Сложение произведений
 	this->add(left, right, result);
 }
 /**
@@ -2059,6 +2059,6 @@ nts::curve::Curve::Curve() noexcept : _ready(false), _shortened(false), _cofacto
  *
  */
 nts::curve::Curve::~Curve() noexcept {
-	// Выполняем сброс установленных параметров кривой
+	// Сброс установленных параметров кривой
 	this->clear();
 }

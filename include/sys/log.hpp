@@ -135,7 +135,7 @@ namespace nts {
 			 * @param context указатель контекста потребителя, переданный при установке
 			 *
 			 * \~english
-			 * @brief Log sink: the function of the consumer
+			 * @brief Метод Log sink: the function of the consumer
 			 *
 			 * @param level   the level of the message
 			 * @param text    the composed null-terminated message string

@@ -1312,7 +1312,7 @@ namespace {
 		if(protocol.empty()){
 			// Дописываем знаки отсутствия
 			result.append("00");
-			// Выходим
+			// Выходим: отсутствие протокола записано
 			return;
 		}
 		// Первый и последний знаки протокола
@@ -1407,7 +1407,7 @@ namespace {
 		result.clear();
 		// Если блок кончился
 		if(offset >= size)
-			// Выходим
+			// Выходим: блок разобран
 			return;
 		// Признак кодирования Хаффмана
 		const bool huffman = ((data[offset] & 0x80) != 0);
@@ -1417,7 +1417,7 @@ namespace {
 		if((offset + length) > size){
 			// Переходим к концу блока
 			offset = size;
-			// Выходим
+			// Выходим: строка вне блока
 			return;
 		}
 		// Если строка не закодирована Хаффманом
@@ -1760,7 +1760,7 @@ nts::fingerprint::Extension::Extension() noexcept :
 nts::fingerprint::Profile::Profile() noexcept :
  grease(false), datagram(false), epoch(0), length(0),
  record(0), version(0), message(0), sequence(0), random{0} {
-	// Выполняем обнуление случайного значения приветствия
+	// Обнуление случайного значения приветствия
 	::memset(this->random, 0, FINGERPRINT_RANDOM);
 }
 
@@ -2203,7 +2203,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 			// Печатаем заголовок секции с отступами
 			out << endl << "  [ " << title << " ]" << endl;
 		};
-		// Заголовок
+		// Заголовок отпечатка
 		out << endl << LINE << endl;
 		// Печатаем название отпечатка
 		out << "                  TLS ClientHello  -  Browser Fingerprint" << endl;
@@ -2350,7 +2350,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 		 * Перебираем расширения и выводим их имена с выравниванием, коды и подробности
 		 */
 		for(size_t i = 0; i < profile.extensions.size(); i++){
-			// Расширение
+			// Расширение профиля
 			const extension_t & extension = profile.extensions[i];
 			// Место записи индекса расширения
 			char index[24];
@@ -2718,7 +2718,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 			out << "    JA4        : " << imp.ja4 << endl;
 			// Печатаем раскрытый отпечаток JA4_r
 			out << "    JA4_r      : " << imp.ja4r << endl;
-			// PeetPrint
+			// Раздел PeetPrint
 			out << endl;
 			// Печатаем строку PeetPrint
 			out << "    PeetPrint  : " << imp.peetprint << endl;
@@ -2804,7 +2804,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 						 * Выполняем перебор настроек
 						 */
 						for(size_t i = 0; (i + 6) <= length; i += 6){
-							// Настройка
+							// Настройка согласования
 							setting_t setting;
 							// Читаем опознаватель настройки
 							setting.id = twain(body + i);
@@ -2828,7 +2828,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 				case FRAME_PRIORITY: {
 					// Если тело кадра цело
 					if(length >= 5){
-						// Приоритет
+						// Приоритет настройки
 						priority_t priority;
 						// Запоминаем поток
 						priority.stream = stream;

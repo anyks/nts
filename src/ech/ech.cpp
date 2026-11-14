@@ -400,7 +400,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 		 * Выполняем перебор конфигураций перечня
 		 */
 		while(offset < data.size){
-			// Конфигурация
+			// Конфигурация ECH
 			config_t config;
 			// Число прочитанных байтов
 			size_t consumed = 0;
@@ -1233,7 +1233,7 @@ bool nts::ech::confirmation(const digest::hash_t algorithm, const view_t & rando
 	const char * label = (retry ? RETRY : ACCEPT);
 	// Итог развёртывания: HKDF-Expand-Label(secret, метка, transcript, 8)
 	const bool derived = digest::label(algorithm, view_t(secret, size), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), transcript, result, ECH_CONFIRMATION);
-	// Выполняем затирание извлечённого секрета
+	// Затирание извлечённого секрета
 	sys::wipe(secret, sizeof(secret));
 	// Выводим итог развёртывания
 	return derived;

@@ -160,7 +160,7 @@ namespace {
 	 */
 	#if !defined(_MSC_VER) && !defined(WIN64) && !defined(_WIN64) && !defined(__WIN64__) && !defined(WIN32) && !defined(_WIN32) && !defined(__WIN32__) && !defined(__NT__)
 		/**
-		 * @brief Обработчик разветвления процесса у потомка
+		 * @brief Функция Обработчик разветвления процесса у потомка
 		 *
 		 */
 		static void forked() noexcept {
@@ -228,7 +228,7 @@ namespace {
 		 *
 		 */
 		static bool device(uint8_t * data, const size_t size) noexcept {
-			// Выполняем открытие устройства случайных байтов
+			// Открытие устройства случайных байтов
 			const int fd = ::open("/dev/urandom", O_RDONLY);
 			// Если устройство случайных байтов открыть не удалось
 			if(fd < 0)
@@ -240,15 +240,15 @@ namespace {
 			 * Выполняем чтение случайных байтов до их набора
 			 */
 			while(offset < size){
-				// Выполняем чтение очередной части случайных байтов
+				// Чтение очередной части случайных байтов
 				const ssize_t count = ::read(fd, data + offset, size - offset);
 				// Если чтение прервано сигналом
 				if((count < 0) && (errno == EINTR))
-				// Выполняем повторное чтение случайных байтов
+				// Повторное чтение случайных байтов
 				continue;
 				// Если чтение случайных байтов не удалось
 				if(count <= 0){
-					// Выполняем закрытие устройства случайных байтов
+					// Закрытие устройства случайных байтов
 					::close(fd);
 					// Выводим отказ чтения случайных байтов
 					return false;
@@ -256,7 +256,7 @@ namespace {
 				// Увеличиваем число прочитанных случайных байтов
 				offset += static_cast <size_t> (count);
 			}
-			// Выполняем закрытие устройства случайных байтов
+			// Закрытие устройства случайных байтов
 			::close(fd);
 			// Выводим успешность чтения случайных байтов
 			return true;
@@ -293,7 +293,7 @@ namespace {
 			 * Если у libc есть порождатель случайных байтов
 			 */
 			#if defined(__ANTS_ENTROPY_LIBC__)
-				// Выполняем получение случайных байтов у порождателя libc: отказать он не может
+				// Получение случайных байтов у порождателя libc: отказать он не может
 				::arc4random_buf(data, size);
 				// Выводим успешность получения случайных байтов
 				return true;
@@ -322,7 +322,7 @@ namespace {
 					if(::getentropy(data + offset, count) != 0){
 						// Если вызов ядра прерван сигналом
 						if(errno == EINTR)
-						// Выполняем повторное получение случайных байтов
+						// Повторное получение случайных байтов
 						continue;
 						// Выводим итог чтения случайных байтов из устройства системы
 						return device(data, size);
@@ -353,13 +353,13 @@ namespace {
 		if(!cipher.start(view_t(generator.key, internal::generator_t::KEY), view_t(generator.nonce, internal::generator_t::NONCE)))
 			// Выводим отказ наполнения
 			return false;
-		// Выполняем выработку гаммы покрытием нулевого текста
+		// Выработка гаммы покрытием нулевого текста
 		const bool produced = cipher.encrypt(view_t(ZEROS, sizeof(ZEROS)), generator.buffer);
-		// Выполняем затирание состояния шифра
+		// Затирание состояния шифра
 		cipher.clear();
 		// Если гамма выработана не была
 		if(!produced){
-			// Выполняем затирание запаса
+			// Затирание запаса
 			wipe(generator.buffer, sizeof(generator.buffer));
 			// Запаса нет
 			generator.rest = 0;
@@ -370,7 +370,7 @@ namespace {
 		::memcpy(generator.key, generator.buffer, internal::generator_t::KEY);
 		// Переносим новое заполнение следом за ключом
 		::memcpy(generator.nonce, generator.buffer + internal::generator_t::KEY, internal::generator_t::NONCE);
-		// Выполняем затирание перенесённого: ключ живёт в одном месте
+		// Затирание перенесённого: ключ живёт в одном месте
 		wipe(generator.buffer, internal::generator_t::TAKEN);
 		// Остаток запаса выдаётся потребителю
 		generator.rest = internal::generator_t::REST;
@@ -403,9 +403,9 @@ namespace {
 		for(size_t i = 0; i < sizeof(fresh); i++)
 			// Складываем очередной байт ключа со свежим
 			generator.key[i] = static_cast <uint8_t> (generator.key[i] ^ fresh[i]);
-		// Выполняем затирание свежих байтов
+		// Затирание свежих байтов
 		wipe(fresh, sizeof(fresh));
-		// Выполняем затирание неизрасходованного запаса
+		// Затирание неизрасходованного запаса
 		wipe(generator.buffer, sizeof(generator.buffer));
 		// Запаса нет
 		generator.rest = 0;
@@ -427,11 +427,11 @@ namespace {
  *
  */
 nts::internal::Generator::Generator() noexcept : rest(0), refills(0), stirs(0), generation(0), seeded(false) {
-	// Выполняем обнуление ключа
+	// Обнуление ключа
 	::memset(this->key, 0, sizeof(this->key));
-	// Выполняем обнуление заполнения
+	// Обнуление заполнения
 	::memset(this->nonce, 0, sizeof(this->nonce));
-	// Выполняем обнуление запаса
+	// Обнуление запаса
 	::memset(this->buffer, 0, sizeof(this->buffer));
 }
 /**
@@ -439,11 +439,11 @@ nts::internal::Generator::Generator() noexcept : rest(0), refills(0), stirs(0), 
  *
  */
 nts::internal::Generator::~Generator() noexcept {
-	// Выполняем затирание ключа
+	// Затирание ключа
 	wipe(this->key, sizeof(this->key));
-	// Выполняем затирание заполнения
+	// Затирание заполнения
 	wipe(this->nonce, sizeof(this->nonce));
-	// Выполняем затирание запаса
+	// Затирание запаса
 	wipe(this->buffer, sizeof(this->buffer));
 	// Запаса нет
 	this->rest = 0;
@@ -511,7 +511,7 @@ bool nts::entropy::bytes(uint8_t * data, const size_t size) noexcept {
 		uint8_t * place = (generator.buffer + (sizeof(generator.buffer) - generator.rest));
 		// Переносим случайные байты потребителю
 		::memcpy(data + offset, place, count);
-		// Выполняем затирание выданных байтов в запасе
+		// Затирание выданных байтов в запасе
 		wipe(place, count);
 		// Уменьшаем запас
 		generator.rest -= count;
@@ -530,7 +530,7 @@ bool nts::entropy::bytes(uint8_t * data, const size_t size) noexcept {
  *
  */
 bool nts::entropy::number(const math::modulus_t & modulus, math::number_t & result) noexcept {
-	// Выполняем обнуление получаемого случайного числа
+	// Обнуление получаемого случайного числа
 	result = math::number_t();
 	// Если модуль не установлен
 	if(!modulus.ready())
@@ -548,9 +548,9 @@ bool nts::entropy::number(const math::modulus_t & modulus, math::number_t & resu
 	{
 		// Ноль, единица и модуль без единицы
 		math::number_t zero, one, last;
-		// Ноль
+		// Нулевое слово модуля
 		modulus.word(0, zero);
-		// Единица
+		// Единичное слово модуля
 		modulus.word(1, one);
 		// Модуль без единицы: наибольшее число арифметики
 		modulus.subtract(zero, one, last);
@@ -580,15 +580,15 @@ bool nts::entropy::number(const math::modulus_t & modulus, math::number_t & resu
 		 * целиком: приведение по модулю сделало бы младшие значения вероятнее прочих
 		 */
 		if(modulus.load(view_t(buffer, modulus.size()), result) && !modulus.zero(result)){
-			// Выполняем затирание полученных случайных байтов
+			// Затирание полученных случайных байтов
 			wipe(buffer, sizeof(buffer));
 			// Выводим успешность получения случайного числа
 			return true;
 		}
 	}
-	// Выполняем затирание полученных случайных байтов
+	// Затирание полученных случайных байтов
 	wipe(buffer, sizeof(buffer));
-	// Выполняем обнуление получаемого случайного числа
+	// Обнуление получаемого случайного числа
 	result = math::number_t();
 	// Выводим отказ получения случайного числа
 	return false;

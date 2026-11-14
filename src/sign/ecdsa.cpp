@@ -139,7 +139,7 @@ namespace {
 			for(size_t i = count; i > 0; i--){
 				// Разряды, переходящие из старшего соседнего байта
 				const uint8_t carry = ((i > 1) ? static_cast <uint8_t> (result[i - 2] << (8 - shift)) : 0);
-				// Выполняем сдвиг очередного байта с приёмом разрядов соседа
+				// Сдвиг очередного байта с приёмом разрядов соседа
 				result[i - 1] = static_cast <uint8_t> ((result[i - 1] >> shift) | carry);
 			}
 		}
@@ -163,7 +163,7 @@ namespace {
 			return false;
 		// Место, в которое помещается усечённый хеш сообщения
 		uint8_t buffer[math::NUMBER_SIZE];
-		// Выполняем усечение хеша до разрядности порядка
+		// Усечение хеша до разрядности порядка
 		const size_t count = truncate(value, bits, buffer);
 		// Выводим итог приведения усечённого хеша по порядку подгруппы
 		return order.reduce(view_t(buffer, count), result);
@@ -275,7 +275,7 @@ size_t nts::sign::Ecdsa::limit() const noexcept {
  *
  */
 bool nts::sign::Ecdsa::start(const curve::curve_t & curve) noexcept {
-	// Выполняем сброс прежнего состояния модуля
+	// Сброс прежнего состояния модуля
 	this->clear();
 	// Если устанавливаемая кривая к работе не готова
 	if(!curve.ready())
@@ -338,9 +338,9 @@ bool nts::sign::Ecdsa::start(const curve::curve_t & curve) noexcept {
  *
  */
 void nts::sign::Ecdsa::clear() noexcept {
-	// Выполняем затирание ключа проверки подписи
+	// Затирание ключа проверки подписи
 	wipe(&this->_point, sizeof(this->_point));
-	// Выполняем затирание ключа подписи
+	// Затирание ключа подписи
 	wipe(this->_key.words, sizeof(this->_key.words));
 	// Сбрасываем эллиптическую кривую выработки подписи
 	this->_curve = nullptr;
@@ -369,12 +369,12 @@ bool nts::sign::Ecdsa::secret(const view_t & secret) noexcept {
 		return false;
 	// Если ключ подписи обратился в ноль
 	if(this->_curve->order().zero(this->_key)){
-		// Выполняем затирание ключа подписи
+		// Затирание ключа подписи
 		wipe(this->_key.words, sizeof(this->_key.words));
 		// Выводим отказ установки ключа подписи
 		return false;
 	}
-	// Выполняем выработку ключа проверки подписи из ключа подписи
+	// Выработка ключа проверки подписи из ключа подписи
 	this->_curve->product(this->_key, this->_point);
 	// Устанавливаем признак того, что ключ проверки подписи установлен
 	this->_public = true;
@@ -402,9 +402,9 @@ bool nts::sign::Ecdsa::generate(uint8_t * secret, const size_t size) noexcept {
 	if(size != order.size())
 		// Выводим отказ порождения ключа подписи
 		return false;
-	// Выполняем затирание прежнего ключа проверки подписи
+	// Затирание прежнего ключа проверки подписи
 	wipe(&this->_point, sizeof(this->_point));
-	// Выполняем затирание прежнего ключа подписи
+	// Затирание прежнего ключа подписи
 	wipe(this->_key.words, sizeof(this->_key.words));
 	// Снимаем признак того, что ключ проверки подписи установлен
 	this->_public = false;
@@ -417,21 +417,21 @@ bool nts::sign::Ecdsa::generate(uint8_t * secret, const size_t size) noexcept {
 	 * младшим значениям, а смещение вскрывается по множеству подписей
 	 */
 	if(!entropy::number(order, this->_key)){
-		// Выполняем затирание недовыработанного ключа подписи
+		// Затирание недовыработанного ключа подписи
 		wipe(this->_key.words, sizeof(this->_key.words));
 		// Выводим отказ порождения ключа подписи
 		return false;
 	}
 	// Если ключ подписи записать в переданное место не удалось
 	if(!order.store(this->_key, secret, size)){
-		// Выполняем затирание переданного места
+		// Затирание переданного места
 		wipe(secret, size);
-		// Выполняем затирание выработанного ключа подписи
+		// Затирание выработанного ключа подписи
 		wipe(this->_key.words, sizeof(this->_key.words));
 		// Выводим отказ порождения ключа подписи
 		return false;
 	}
-	// Выполняем выработку ключа проверки подписи из ключа подписи
+	// Выработка ключа проверки подписи из ключа подписи
 	this->_curve->product(this->_key, this->_point);
 	// Устанавливаем признак того, что ключ проверки подписи установлен
 	this->_public = true;
@@ -550,7 +550,7 @@ bool nts::sign::Ecdsa::make(const view_t & digest, const view_t & random, uint8_
 	bool ok = (order.load(random, number) && !order.zero(number));
 	// Если случайное число разобрано и в ноль не обратилось
 	if(ok){
-		// Выполняем умножение образующей точки на случайное число
+		// Умножение образующей точки на случайное число
 		this->_curve->product(number, point);
 		/**
 		 * Первая часть подписи есть первая координата кратной точки, приведённая по
@@ -563,26 +563,26 @@ bool nts::sign::Ecdsa::make(const view_t & digest, const view_t & random, uint8_
 	}
 	// Если первая часть подписи выработана
 	if(ok){
-		// Выполняем приведение первой части подписи в область Монтгомери
+		// Приведение первой части подписи в область Монтгомери
 		order.enter(first, entered);
-		// Выполняем приведение ключа подписи в область Монтгомери
+		// Приведение ключа подписи в область Монтгомери
 		order.enter(this->_key, item2);
-		// Выполняем умножение первой части подписи на ключ подписи
+		// Умножение первой части подписи на ключ подписи
 		order.multiply(entered, item2, second);
-		// Выполняем приведение хеша сообщения в область Монтгомери
+		// Приведение хеша сообщения в область Монтгомери
 		order.enter(item, item2);
 		// Складываем хеш сообщения с полученным произведением
 		order.add(second, item2, second);
-		// Выполняем приведение случайного числа в область Монтгомери
+		// Приведение случайного числа в область Монтгомери
 		order.enter(number, entered);
 		/**
 		 * Обращение случайного числа ведётся возведением в степень с наложением маски
 		 * на всяком разряде показателя: время его от случайного числа не зависит
 		 */
 		order.invert(entered, item2);
-		// Выполняем умножение суммы на обращённое случайное число
+		// Умножение суммы на обращённое случайное число
 		order.multiply(second, item2, second);
-		// Выполняем вывод второй части подписи из области Монтгомери
+		// Вывод второй части подписи из области Монтгомери
 		order.leave(second, second);
 		// Если вторая часть подписи в ноль обратилась, случайное число подлежит замене
 		ok = !order.zero(second);
@@ -596,19 +596,19 @@ bool nts::sign::Ecdsa::make(const view_t & digest, const view_t & random, uint8_
 			// Записываем вторую часть подписи
 			ok = order.store(second, result + order.size(), order.size());
 	}
-	// Выполняем затирание первой координаты кратной точки
+	// Затирание первой координаты кратной точки
 	wipe(buffer, sizeof(buffer));
-	// Выполняем затирание кратной точки образующей
+	// Затирание кратной точки образующей
 	wipe(&point, sizeof(point));
-	// Выполняем затирание промежуточных значений выработки подписи
+	// Затирание промежуточных значений выработки подписи
 	wipe(entered.words, sizeof(entered.words));
-	// Выполняем затирание промежуточных значений выработки подписи
+	// Затирание промежуточных значений выработки подписи
 	wipe(item2.words, sizeof(item2.words));
-	// Выполняем затирание второй части подписи
+	// Затирание второй части подписи
 	wipe(second.words, sizeof(second.words));
-	// Выполняем затирание первой части подписи
+	// Затирание первой части подписи
 	wipe(first.words, sizeof(first.words));
-	// Выполняем затирание случайного числа выработки подписи
+	// Затирание случайного числа выработки подписи
 	wipe(number.words, sizeof(number.words));
 	// Выводим признак успешности выработки подписи
 	return ok;
@@ -645,7 +645,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 	uint8_t secret[math::NUMBER_SIZE], reduced[math::NUMBER_SIZE];
 	// Если ключ подписи либо приведённый хеш записать не удалось
 	if(!order.store(this->_key, secret, order.size()) || !order.store(item, reduced, order.size())){
-		// Выполняем затирание записи ключа подписи
+		// Затирание записи ключа подписи
 		wipe(secret, sizeof(secret));
 		// Выводим отказ выработки подписи
 		return false;
@@ -674,7 +674,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 	for(uint8_t step = 0; ok && (step < 2); step++){
 		// Устанавливаем разделитель очередного шага
 		separator = step;
-		// Выполняем установку ключа K
+		// Установка ключа K
 		ok = mac.start(algorithm, view_t(k, length));
 		// Если ключ установлен
 		if(ok){
@@ -691,7 +691,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 		}
 		// Если новое значение K снято
 		if(ok)
-			// Выполняем установку нового ключа K
+			// Установка нового ключа K
 			ok = mac.start(algorithm, view_t(k, length));
 		// Если ключ установлен
 		if(ok){
@@ -719,7 +719,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 		 * Выполняем сбор значения T длиной в порядок подгруппы: V = HMAC_K(V), T = T || V
 		 */
 		while(ok && (collected < order.size())){
-			// Выполняем установку ключа K
+			// Установка ключа K
 			ok = mac.start(algorithm, view_t(k, length));
 			// Если ключ установлен
 			if(ok){
@@ -737,7 +737,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 		}
 		// Если значение T собрано
 		if(ok){
-			// Выполняем усечение значения T до разрядности порядка
+			// Усечение значения T до разрядности порядка
 			const size_t count = truncate(view_t(t, order.size()), this->_bits, candidate);
 			// Случайное число выработки подписи
 			math::number_t number;
@@ -746,16 +746,16 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 			 * меньше порядка, а ноль отвергается отдельно
 			 */
 			if(order.load(view_t(candidate, count), number) && !order.zero(number))
-				// Выполняем выработку подписи выведенным числом
+				// Выработка подписи выведенным числом
 				made = this->make(digest, view_t(candidate, count), result);
-			// Выполняем затирание случайного числа
+			// Затирание случайного числа
 			wipe(number.words, sizeof(number.words));
 		}
 		// Если подпись не выработана, K и V перезаводятся
 		if(ok && !made){
 			// Устанавливаем нулевой разделитель
 			separator = 0x00;
-			// Выполняем установку ключа K
+			// Установка ключа K
 			ok = mac.start(algorithm, view_t(k, length));
 			// Если ключ установлен
 			if(ok){
@@ -768,7 +768,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 			}
 			// Если новое значение K снято
 			if(ok)
-				// Выполняем установку нового ключа K
+				// Установка нового ключа K
 				ok = mac.start(algorithm, view_t(k, length));
 			// Если ключ установлен
 			if(ok){
@@ -779,19 +779,19 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 			}
 		}
 	}
-	// Выполняем сброс ключа имитовставки
+	// Сброс ключа имитовставки
 	mac.clear();
-	// Выполняем затирание усечённого значения T
+	// Затирание усечённого значения T
 	wipe(candidate, sizeof(candidate));
-	// Выполняем затирание собранного значения T
+	// Затирание собранного значения T
 	wipe(t, sizeof(t));
-	// Выполняем затирание значения K
+	// Затирание значения K
 	wipe(k, sizeof(k));
-	// Выполняем затирание значения V
+	// Затирание значения V
 	wipe(v, sizeof(v));
-	// Выполняем затирание записи приведённого хеша
+	// Затирание записи приведённого хеша
 	wipe(reduced, sizeof(reduced));
-	// Выполняем затирание записи ключа подписи
+	// Затирание записи ключа подписи
 	wipe(secret, sizeof(secret));
 	// Выводим признак успешности выработки подписи
 	return (ok && made);
@@ -840,21 +840,21 @@ bool nts::sign::Ecdsa::check(const view_t & digest, const view_t & signature) co
 		return false;
 	// Значения в области Монтгомери, участвующие в проверке подписи
 	math::number_t entered, inverse, u1, u2;
-	// Выполняем приведение второй части подписи в область Монтгомери
+	// Приведение второй части подписи в область Монтгомери
 	order.enter(second, entered);
-	// Выполняем обращение второй части подписи
+	// Обращение второй части подписи
 	order.invert(entered, inverse);
-	// Выполняем приведение хеша сообщения в область Монтгомери
+	// Приведение хеша сообщения в область Монтгомери
 	order.enter(item, entered);
-	// Выполняем умножение хеша сообщения на обращённую вторую часть
+	// Умножение хеша сообщения на обращённую вторую часть
 	order.multiply(entered, inverse, u1);
-	// Выполняем вывод первого множителя из области Монтгомери
+	// Вывод первого множителя из области Монтгомери
 	order.leave(u1, u1);
-	// Выполняем приведение первой части подписи в область Монтгомери
+	// Приведение первой части подписи в область Монтгомери
 	order.enter(first, entered);
-	// Выполняем умножение первой части подписи на обращённую вторую часть
+	// Умножение первой части подписи на обращённую вторую часть
 	order.multiply(entered, inverse, u2);
-	// Выполняем вывод второго множителя из области Монтгомери
+	// Вывод второго множителя из области Монтгомери
 	order.leave(u2, u2);
 	// Образующая точка подгруппы точек кривой
 	curve::point_t base;
@@ -878,7 +878,7 @@ bool nts::sign::Ecdsa::check(const view_t & digest, const view_t & signature) co
 	if(!this->_curve->coordinates(sum, buffer, nullptr, this->_curve->size()))
 		// Выводим отказ проверки подписи
 		return false;
-	// Выполняем приведение первой координаты суммы по порядку подгруппы
+	// Приведение первой координаты суммы по порядку подгруппы
 	if(!order.reduce(view_t(buffer, this->_curve->size()), item))
 		// Выводим отказ проверки подписи
 		return false;
@@ -895,7 +895,7 @@ nts::sign::Ecdsa::Ecdsa() noexcept : _secret(false), _public(false), _bits(0), _
  *
  */
 nts::sign::Ecdsa::~Ecdsa() noexcept {
-	// Выполняем сброс состояния модуля
+	// Сброс состояния модуля
 	this->clear();
 }
 /**

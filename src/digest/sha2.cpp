@@ -914,7 +914,7 @@ namespace {
 			register size_t x2 __asm__("x2") = count;
 			// Доводы вставки в закреплённых регистрах
 			register uint32_t * x3 __asm__("x3") = words;
-			// Выполняем вставку на ассемблере командами ARMv8
+			// Вставка на ассемблере командами ARMv8
 			__asm__ __volatile__(
 			"ld1   {v0.4s, v1.4s}, [x3]\n\t"
 			/* Блок: четвёрки слов от старшего байта, первая четвёрка расписания с постоянными, копия состояния */
@@ -1314,7 +1314,7 @@ namespace {
 					 * Выполняем четыре круга группы
 					 */
 					for(size_t r = 0; r < 4; r++)
-					// Выполняем очередной круг
+					// Очередной круг
 					round256(a, b, c, d, e, f, g, h, tw[r]);
 					// Слова расписания на один вперёд для сигмы нуля
 					const __m128i s0v = _mm_alignr_epi8(x1, x0, 4);
@@ -1365,7 +1365,7 @@ namespace {
 				 * Выполняем шестнадцать кругов хвоста без расписания
 				 */
 				for(size_t r = 0; r < 16; r++)
-				// Выполняем очередной круг
+				// Очередной круг
 				round256(a, b, c, d, e, f, g, h, K256[48 + r] + tw[r]);
 				// Складываем итог блока с прежним значением хеша
 				words[0] += a; words[1] += b; words[2] += c; words[3] += d;
@@ -1425,7 +1425,7 @@ namespace {
 					 * Выполняем два круга группы
 					 */
 					for(size_t r = 0; r < 2; r++)
-					// Выполняем очередной круг
+					// Очередной круг
 					round512(a, b, c, d, e, f, g, h, tw[r]);
 					// Слова расписания на один вперёд для сигмы нуля
 					const __m128i s0v = _mm_alignr_epi8(x[1], x[0], 8);
@@ -1466,7 +1466,7 @@ namespace {
 				 * Выполняем шестнадцать кругов хвоста без расписания
 				 */
 				for(size_t r = 0; r < 16; r++)
-				// Выполняем очередной круг
+				// Очередной круг
 				round512(a, b, c, d, e, f, g, h, K512[64 + r] + tw[r]);
 				// Складываем итог блока с прежним значением хеша
 				hash[0] += a; hash[1] += b; hash[2] += c; hash[3] += d;
@@ -1790,7 +1790,7 @@ namespace {
 		#if defined(__ANTS_SHA256_ARM__)
 			// Если машина хеширует командами
 			if(machine::has(machine::feature_t::SHA256)){
-				// Выполняем разбор пачки командами
+				// Разбор пачки командами
 				compressArm(data, count, hash);
 				// Выходим из метода
 				return;
@@ -1802,7 +1802,7 @@ namespace {
 		#if defined(__ANTS_SHA2_X86_64_MSVC__)
 			// Если перестановка байтов SSSE3 есть
 			if(machine::has(machine::feature_t::SSSE3)){
-				// Выполняем разбор пачки ядром на интринсиках
+				// Разбор пачки ядром на интринсиках
 				compress256Msvc(data, count, hash);
 				// Выходим из метода
 				return;
@@ -1826,15 +1826,15 @@ namespace {
 				if(machine::has(machine::feature_t::AVX2) && machine::has(machine::feature_t::ADX)){
 					// Если пар блоков хотя бы одна
 					if(count >= 2)
-					// Выполняем разбор пар блоков ядром AVX2
+					// Разбор пар блоков ядром AVX2
 					kernel::sha256avx2(words, data, count / 2, PAIRS256.words);
 					// Если остался нечётный блок
 					if((count & 1) != 0)
-					// Выполняем разбор последнего блока ядром AVX
+					// Разбор последнего блока ядром AVX
 					kernel::sha256avx(words, data + ((count & ~static_cast <size_t> (1)) * 64), 1, K256);
 				// Если есть AVX и BMI2
 				} else if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::ADX))
-				// Выполняем разбор блоков ядром AVX
+				// Разбор блоков ядром AVX
 				kernel::sha256avx(words, data, count, K256);
 				// Иначе разбираем блоки ядром SSSE3
 				else kernel::sha256ssse3(words, data, count, K256);
@@ -1852,7 +1852,7 @@ namespace {
 		 * Выполняем перебор блоков переносимым путём
 		 */
 		for(size_t block = 0; block < count; block++)
-			// Выполняем разбор очередного блока
+			// Разбор очередного блока
 			compress256(data + (block * 64), hash);
 	}
 	/**
@@ -1873,7 +1873,7 @@ namespace {
 		#if defined(__ANTS_SHA512_ARM__)
 			// Если машина хеширует командами
 			if(machine::has(machine::feature_t::SHA512)){
-				// Выполняем разбор пачки командами
+				// Разбор пачки командами
 				compressArm512(data, count, hash);
 				// Выходим из метода
 				return;
@@ -1885,7 +1885,7 @@ namespace {
 		#if defined(__ANTS_SHA2_X86_64_MSVC__)
 			// Если перестановка байтов SSSE3 есть
 			if(machine::has(machine::feature_t::SSSE3)){
-				// Выполняем разбор пачки ядром на интринсиках
+				// Разбор пачки ядром на интринсиках
 				compress512Msvc(data, count, hash);
 				// Выходим из метода
 				return;
@@ -1901,15 +1901,15 @@ namespace {
 				if(machine::has(machine::feature_t::AVX2) && machine::has(machine::feature_t::ADX)){
 					// Если пар блоков хотя бы одна
 					if(count >= 2)
-					// Выполняем разбор пар блоков ядром AVX2
+					// Разбор пар блоков ядром AVX2
 					kernel::sha512avx2(hash, data, count / 2, PAIRS512.words);
 					// Если остался нечётный блок
 					if((count & 1) != 0)
-					// Выполняем разбор последнего блока ядром AVX
+					// Разбор последнего блока ядром AVX
 					kernel::sha512avx(hash, data + ((count & ~static_cast <size_t> (1)) * 128), 1, K512);
 				// Если есть AVX и BMI2
 				} else if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::ADX))
-				// Выполняем разбор блоков ядром AVX
+				// Разбор блоков ядром AVX
 				kernel::sha512avx(hash, data, count, K512);
 				// Иначе разбираем блоки ядром SSSE3
 				else kernel::sha512ssse3(hash, data, count, K512);
@@ -1921,7 +1921,7 @@ namespace {
 		 * Выполняем перебор блоков переносимым путём
 		 */
 		for(size_t block = 0; block < count; block++)
-			// Выполняем разбор очередного блока
+			// Разбор очередного блока
 			compress512(data + (block * 128), hash);
 	}
 	/**
@@ -1936,7 +1936,7 @@ namespace {
 	static void blocks(const size_t width, const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		// Если хеш вырабатывается над словами в 64 разряда
 		if(width == 128)
-			// Выполняем разбор пачки преобразованием SHA-512
+			// Разбор пачки преобразованием SHA-512
 			blocks512(data, count, hash);
 		// Иначе хеш вырабатывается над словами в 32 разряда
 		else blocks256(data, count, hash);
@@ -1950,7 +1950,7 @@ namespace {
  *
  */
 void nts::digest::Sha2::compress(const uint8_t * block) noexcept {
-	// Выполняем разбор одного блока
+	// Разбор одного блока
 	blocks(this->block(), block, 1, this->_hash);
 }
 /**
@@ -2032,13 +2032,13 @@ void nts::digest::Sha2::reset(const sha_t type) noexcept {
 		} break;
 		// Если разновидность хеша не установлена
 		default: {
-			// Выполняем затирание значения хеша
+			// Затирание значения хеша
 			wipe(this->_hash, sizeof(this->_hash));
 			// Считаем хеш снятым: вырабатывать нечего
 			this->_finished = true;
 		}
 	}
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
 }
 /**
@@ -2093,7 +2093,7 @@ void nts::digest::Sha2::update(const view_t & data) noexcept {
 		left -= taken;
 		// Если блок набрался целиком
 		if(this->_size == width){
-			// Выполняем разбор накопленного блока
+			// Разбор накопленного блока
 			this->compress(this->_block);
 			// Сбрасываем число байтов незавершённого блока
 			this->_size = 0;
@@ -2156,7 +2156,7 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 		for(size_t i = this->_size; i < width; i++)
 			// Записываем очередной нулевой байт
 			this->_block[i] = 0;
-		// Выполняем разбор дополненного блока
+		// Разбор дополненного блока
 		this->compress(this->_block);
 		// Сбрасываем число байтов незавершённого блока
 		this->_size = 0;
@@ -2173,7 +2173,7 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 		store64(high, this->_block + (width - 16));
 	// Записываем младшую часть длины сообщения
 	store64(low, this->_block + (width - 8));
-	// Выполняем разбор последнего блока
+	// Разбор последнего блока
 	this->compress(this->_block);
 	// Если хеш вырабатывается над словами в 64 разряда
 	if(width == 128){
@@ -2192,9 +2192,9 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 			// Записываем очередное слово хеша
 			store32(static_cast <uint32_t> (this->_hash[i]), result + (i * 4));
 	}
-	// Выполняем затирание значения хеша
+	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
 	// Сбрасываем число байтов незавершённого блока
 	this->_size = 0;
@@ -2210,7 +2210,7 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
  *
  */
 nts::digest::Sha2::Sha2(const sha_t type) noexcept : _type(sha_t::NONE), _finished(true), _size(0) {
-	// Выполняем сброс состояния хеширования
+	// Сброс состояния хеширования
 	this->reset(type);
 }
 /**
@@ -2218,11 +2218,11 @@ nts::digest::Sha2::Sha2(const sha_t type) noexcept : _type(sha_t::NONE), _finish
  *
  */
 nts::digest::Sha2::~Sha2() noexcept {
-	// Выполняем затирание значения хеша
+	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
-	// Выполняем затирание числа разобранных байтов
+	// Затирание числа разобранных байтов
 	wipe(this->_count, sizeof(this->_count));
 }
 /**
@@ -2238,7 +2238,7 @@ nts::digest::Sha2::~Sha2() noexcept {
 bool nts::digest::sha2(const sha_t type, const view_t & data, uint8_t * result, const size_t size) noexcept {
 	// Объект хеширования
 	sha2_t hasher(type);
-	// Выполняем подачу целого сообщения
+	// Подачу целого сообщения
 	hasher.update(data);
 	// Выводим итог снятия хеша
 	return hasher.finish(result, size);

@@ -66,13 +66,13 @@ namespace nts {
 				enum class kind_t : uint8_t {
 					// Значение не установлено
 					NONE = 0x00,
-					// Объект
+					// Значение признака JSON-объекта
 					OBJECT = 0x01,
-					// Массив
+					// Значение признака JSON-массива
 					ARRAY = 0x02,
-					// Строка
+					// Значение признака JSON-строки
 					STRING = 0x03,
-					// Число
+					// Значение признака JSON-числа
 					NUMBER = 0x04,
 					// Булево значение либо null
 					VALUE = 0x05
@@ -193,11 +193,11 @@ namespace nts {
 							 * Экранированный символ
 							 */
 							switch(this->_text.data[++position]){
-								// Кавычка
+								// Экранированная кавычка
 								case '"': result.text += '"'; break;
 								// Обратная черта
 								case '\\': result.text += '\\'; break;
-								// Черта
+								// Экранированная обратная черта
 								case '/': result.text += '/'; break;
 								// Возврат на символ
 								case 'b': result.text += '\b'; break;
@@ -207,7 +207,7 @@ namespace nts {
 								case 'n': result.text += '\n'; break;
 								// Возврат каретки
 								case 'r': result.text += '\r'; break;
-								// Табуляция
+								// Символ табуляции
 								case 't': result.text += '\t'; break;
 								// Код Unicode: ответы ACME их не несут в именах и адресах
 								case 'u': {
@@ -299,7 +299,7 @@ namespace nts {
 					 * Символ начала значения
 					 */
 					switch(this->_text.data[this->_position]){
-						// Объект
+						// Начало объекта
 						case '{': {
 							// Запоминаем вид значения
 							result.kind = kind_t::OBJECT;
@@ -359,7 +359,7 @@ namespace nts {
 								this->_position++;
 							}
 						}
-						// Массив
+						// Начало массива
 						case '[': {
 							// Запоминаем вид значения
 							result.kind = kind_t::ARRAY;
@@ -403,7 +403,7 @@ namespace nts {
 								this->_position++;
 							}
 						}
-						// Строка
+						// Начало строки
 						case '"':
 							// Выводим итог разбора строки
 							return this->text(result);
@@ -452,7 +452,7 @@ namespace nts {
 							// Выводим успешность разбора
 							return true;
 						}
-						// Число
+						// Число без кавычек
 						default: {
 							// Символ начала числа
 							const uint8_t symbol = this->_text.data[this->_position];
@@ -599,7 +599,7 @@ namespace nts {
 			if(value.kind != json_t::kind_t::NUMBER)
 				// Выводим отсутствие числа
 				return false;
-			// Число
+			// Разобранное число
 			uint32_t outcome = 0;
 			/**
 			 * Выполняем разбор записи числа
@@ -737,7 +737,7 @@ namespace nts {
 				 * Выполняем определение символа
 				 */
 				switch(symbol){
-					// Кавычка
+					// Экранированная кавычка
 					case '"': result += "\\\""; break;
 					// Обратная черта
 					case '\\': result += "\\\\"; break;
@@ -745,7 +745,7 @@ namespace nts {
 					case '\n': result += "\\n"; break;
 					// Возврат каретки
 					case '\r': result += "\\r"; break;
-					// Табуляция
+					// Символ табуляции
 					case '\t': result += "\\t"; break;
 					// Прочие символы переносятся как есть
 					default: result += symbol;
@@ -901,7 +901,7 @@ namespace nts {
 		if(onlyReturnExisting){
 			// Собираем полезную нагрузку
 			result.assign("{\"onlyReturnExisting\":true}");
-			// Выходим
+			// Выходим: полезная нагрузка собрана
 			return;
 		}
 		// Дописываем открывающую скобку

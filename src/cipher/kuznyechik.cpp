@@ -380,7 +380,7 @@ namespace {
 		 * Выполняем перебор байтов преобразуемого блока
 		 */
 		for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
-			// Выполняем подстановку очередного байта блока
+			// Подстановка очередного байта блока
 			block[i] = PI[block[i]];
 	}
 	/**
@@ -394,7 +394,7 @@ namespace {
 		 * Выполняем перебор байтов преобразуемого блока
 		 */
 		for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
-			// Выполняем обратную подстановку очередного байта блока
+			// Обратную подстановку очередного байта блока
 			block[i] = REVERSED.values[block[i]];
 	}
 	/**
@@ -446,9 +446,9 @@ namespace {
 					block[i] = static_cast <uint8_t> (1 << j);
 					// Если строится таблица прямого преобразования
 					if(straight)
-						// Выполняем линейное преобразование блока основания
+						// Линейное преобразование блока основания
 						spread(block);
-					// Выполняем обратное линейное преобразование блока основания
+					// Обратное линейное преобразование блока основания
 					else unspread(block);
 					// Переносим младшую половину итога преобразования
 					::memcpy(&basis[i][j][0], block, sizeof(uint64_t));
@@ -734,7 +734,7 @@ bool nts::cipher::Kuznyechik::ready() const noexcept {
  *
  */
 bool nts::cipher::Kuznyechik::key(const view_t & key) noexcept {
-	// Выполняем затирание прежних раундовых ключей
+	// Затирание прежних раундовых ключей
 	this->clear();
 	// Если ключ шифрования не той длины
 	if((key.data == nullptr) || (key.size != KUZNYECHIK_KEY))
@@ -771,9 +771,9 @@ bool nts::cipher::Kuznyechik::key(const view_t & key) noexcept {
 			::memcpy(item, pair[0], KUZNYECHIK_BLOCK);
 			// Складываем половину пары с постоянной величиной итерации
 			add(item, constant);
-			// Выполняем подстановку байтов половины пары
+			// Подстановка байтов половины пары
 			substitute(item);
-			// Выполняем линейное преобразование половины пары
+			// Линейное преобразование половины пары
 			spread(item);
 			// Складываем итог преобразования со второй половиной пары
 			add(item, pair[1]);
@@ -781,14 +781,14 @@ bool nts::cipher::Kuznyechik::key(const view_t & key) noexcept {
 			::memcpy(pair[1], pair[0], KUZNYECHIK_BLOCK);
 			// Запоминаем итог преобразования первой половиной пары
 			::memcpy(pair[0], item, KUZNYECHIK_BLOCK);
-			// Выполняем затирание преобразуемой половины пары
+			// Затирание преобразуемой половины пары
 			wipe(item, sizeof(item));
 		}
 		// Запоминаем очередную пару раундовых ключей
 		::memcpy(this->_keys[(i * 2) + 2], pair[0], KUZNYECHIK_BLOCK);
 		::memcpy(this->_keys[(i * 2) + 3], pair[1], KUZNYECHIK_BLOCK);
 	}
-	// Выполняем затирание пары ключей
+	// Затирание пары ключей
 	wipe(pair, sizeof(pair));
 	// Устанавливаем признак того, что ключ установлен
 	this->_ready = true;
@@ -800,7 +800,7 @@ bool nts::cipher::Kuznyechik::key(const view_t & key) noexcept {
  *
  */
 void nts::cipher::Kuznyechik::clear() noexcept {
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 	// Снимаем признак того, что ключ установлен
 	this->_ready = false;
@@ -834,7 +834,7 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
 		for(size_t i = 0; i < 9; i++){
 			// Складываем блок с раундовым ключом
 			add(block, this->_keys[i]);
-			// Выполняем подстановку и линейное преобразование блока
+			// Подстановка и линейное преобразование блока
 			translate(block, table);
 		}
 	/**
@@ -847,9 +847,9 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
 		for(size_t i = 0; i < 9; i++){
 			// Складываем блок с раундовым ключом
 			add(block, this->_keys[i]);
-			// Выполняем подстановку байтов блока
+			// Подстановка байтов блока
 			substitute(block);
-			// Выполняем линейное преобразование блока
+			// Линейное преобразование блока
 			spread(block);
 		}
 	#endif
@@ -857,7 +857,7 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
 	add(block, this->_keys[9]);
 	// Переносим зашифрованный блок
 	::memcpy(result, block, KUZNYECHIK_BLOCK);
-	// Выполняем затирание преобразуемого блока
+	// Затирание преобразуемого блока
 	wipe(block, sizeof(block));
 	// Выводим успешность зашифрования
 	return true;
@@ -901,7 +901,7 @@ bool nts::cipher::Kuznyechik::batch(const uint8_t * sources, const size_t blocks
 				add(block[1], this->_keys[i]);
 				add(block[2], this->_keys[i]);
 				add(block[3], this->_keys[i]);
-				// Выполняем подстановку и линейное преобразование четырёх блоков разом
+				// Подстановка и линейное преобразование четырёх блоков разом
 				translate4(block[0], block[1], block[2], block[3], table);
 			}
 			// Складываем блоки с последним раундовым ключом
@@ -918,7 +918,7 @@ bool nts::cipher::Kuznyechik::batch(const uint8_t * sources, const size_t blocks
 			// Уменьшаем число оставшихся блоков
 			left -= 4;
 		}
-		// Выполняем затирание преобразуемых блоков
+		// Затирание преобразуемых блоков
 		wipe(block, sizeof(block));
 	#endif
 	/**
@@ -964,9 +964,9 @@ bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) 
 		for(size_t i = 9; i > 0; i--){
 			// Складываем блок с раундовым ключом
 			add(block, this->_keys[i]);
-			// Выполняем обратное линейное преобразование блока
+			// Обратное линейное преобразование блока
 			translate(block, table);
-			// Выполняем обратную подстановку байтов блока
+			// Обратную подстановку байтов блока
 			unsubstitute(block);
 		}
 	/**
@@ -979,9 +979,9 @@ bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) 
 		for(size_t i = 9; i > 0; i--){
 			// Складываем блок с раундовым ключом
 			add(block, this->_keys[i]);
-			// Выполняем обратное линейное преобразование блока
+			// Обратное линейное преобразование блока
 			unspread(block);
-			// Выполняем обратную подстановку байтов блока
+			// Обратную подстановку байтов блока
 			unsubstitute(block);
 		}
 	#endif
@@ -989,7 +989,7 @@ bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) 
 	add(block, this->_keys[0]);
 	// Переносим расшифрованный блок
 	::memcpy(result, block, KUZNYECHIK_BLOCK);
-	// Выполняем затирание преобразуемого блока
+	// Затирание преобразуемого блока
 	wipe(block, sizeof(block));
 	// Выводим успешность расшифрования
 	return true;
@@ -999,7 +999,7 @@ bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) 
  *
  */
 nts::cipher::Kuznyechik::Kuznyechik() noexcept : _ready(false) {
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 }
 /**
@@ -1007,6 +1007,6 @@ nts::cipher::Kuznyechik::Kuznyechik() noexcept : _ready(false) {
  *
  */
 nts::cipher::Kuznyechik::~Kuznyechik() noexcept {
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	this->clear();
 }

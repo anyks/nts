@@ -171,7 +171,7 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем копирование опознавателя
+			// Копирование опознавателя
 			oid.assign(value);
 		// Если памяти не хватило
 		/**
@@ -528,10 +528,10 @@ namespace {
 						if(!entropy::bytes(random, sizeof(random)))
 							// Выводим отказ подписи
 							return nts::x509::error_t::SIGNATURE;
-						// Выполняем выработку подписи
+						// Выработка подписи
 						made = sm2.make(content, view_t(random, sizeof(random)), raw);
 					}
-					// Выполняем затирание случайного числа
+					// Затирание случайного числа
 					nts::sys::wipe(random, sizeof(random));
 					// Если подпись выработать не удалось
 					if(!made)
@@ -782,7 +782,7 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем сборку содержимого записи сертификата
+			// Сборка содержимого записи сертификата
 			content.reserve(signedPart.size + tailPart.size);
 			// Дописываем подписываемую часть
 			content.insert(content.end(), signedPart.data, signedPart.data + signedPart.size);
@@ -810,7 +810,7 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем копирование записи
+			// Копирование записи
 			result.assign(data.data, data.data + data.size);
 		// Если памяти не хватило
 		/**

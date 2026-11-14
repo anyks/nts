@@ -16,19 +16,19 @@
  *
  * @section Намеренные решения
  *
- * 1. Неизвестные значения перечней не отбрасываются, а выдаются наверх как есть. Раздел
+ *  1. Неизвестные значения перечней не отбрасываются, а выдаются наверх как есть. Раздел
  *    4.1.2 RFC 8446 велит клиенту предлагать и то, чего сервер знать не обязан, а решать,
  *    что из предложенного годится, - дело согласования, а не разбора. Отброшенное здесь
  *    значение согласование не увидело бы вовсе.
  *
- * 2. У расширений, сложенных у клиента и у сервера по-разному, здесь по два разборщика.
+ *  2. У расширений, сложенных у клиента и у сервера по-разному, здесь по два разборщика.
  *    Клиент предлагает перечень, сервер выбирает одно, и общего разборщика на оба случая
  *    нет: он был бы вынужден угадывать, чьё приветствие разбирает.
  *
- * 3. Лишние байты за телом расширения - отказ. Длина тела объявлена обвязкой расширения,
+ *  3. Лишние байты за телом расширения - отказ. Длина тела объявлена обвязкой расширения,
  *    и остаток за разобранными полями означает, что либо длина, либо содержимое лгут.
  *
- * 4. У составления отказать способно лишь проставление длины поля. Число заданной ширины
+ *  4. У составления отказать способно лишь проставление длины поля. Число заданной ширины
  *    входит в неё по самому своему виду, занятие места под поле не судит ничего, а запись
  *    содержимого длину его не объявляет. Заслоны на этих действиях стоят ради связности
  *    составления - молчаливая запись поля, в свою длину не вошедшего, была бы хуже, - и
@@ -223,7 +223,7 @@ namespace {
 			while(reader.left() > 0){
 				// Очередное прочитанное число перечня
 				uint32_t value = 0;
-				// Выполняем чтение очередного числа перечня
+				// Чтение очередного числа перечня
 				reader.number(value, size);
 				// Добавляем очередное число в перечень
 				result.push_back(value);
@@ -287,7 +287,7 @@ namespace {
 				return translate(failure);
 			// Получаем составленное тело расширения
 			const view_t data = builder.data();
-			// Выполняем дописывание тела расширения в накопитель
+			// Дописывание тела расширения в накопитель
 			result.insert(result.end(), data.data, data.data + data.size);
 		/**
 		 * Выполняем перехват ошибок
@@ -335,7 +335,7 @@ namespace {
 				return translate(failure);
 			// Получаем составленное тело расширения
 			const view_t body = builder.data();
-			// Выполняем дописывание тела расширения в накопитель
+			// Дописывание тела расширения в накопитель
 			result.insert(result.end(), body.data, body.data + body.size);
 		/**
 		 * Выполняем перехват ошибок
@@ -540,7 +540,7 @@ nts::digest::hash_t nts::extension::hash(const scheme_t scheme) noexcept {
 nts::extension::error_t nts::extension::versions(const view_t & data, vector <uint16_t> & result) noexcept {
 	// Прочитанный перечень изданий протокола
 	vector <uint32_t> values;
-	// Выполняем разбор перечня изданий протокола
+	// Разбор перечня изданий протокола
 	const error_t error = numbers(data, 1, 2, values);
 	// Если перечень изданий протокола разобрать не удалось
 	if(error != error_t::NONE)
@@ -663,7 +663,7 @@ nts::extension::error_t nts::extension::version(const uint16_t version, vector <
 nts::extension::error_t nts::extension::groups(const view_t & data, vector <group_t> & result) noexcept {
 	// Прочитанный перечень групп обмена ключами
 	vector <uint32_t> values;
-	// Выполняем разбор перечня групп обмена ключами
+	// Разбор перечня групп обмена ключами
 	const error_t error = numbers(data, 2, 2, values);
 	// Если перечень групп обмена разобрать не удалось
 	if(error != error_t::NONE)
@@ -731,7 +731,7 @@ nts::extension::error_t nts::extension::groups(const vector <group_t> & groups, 
 nts::extension::error_t nts::extension::schemes(const view_t & data, vector <scheme_t> & result) noexcept {
 	// Прочитанный перечень схем подписи
 	vector <uint32_t> values;
-	// Выполняем разбор перечня схем подписи
+	// Разбор перечня схем подписи
 	const error_t error = numbers(data, 2, 2, values);
 	// Если перечень схем подписи разобрать не удалось
 	if(error != error_t::NONE)
@@ -907,7 +907,7 @@ nts::extension::error_t nts::extension::profiles(const view_t & data, vector <ui
 		while(reader.left() > 0){
 			// Очередная прочитанная запись перечня профилей
 			uint32_t value = 0;
-			// Выполняем чтение очередной записи перечня профилей
+			// Чтение очередной записи перечня профилей
 			reader.number(value, 2);
 			// Добавляем очередной профиль в перечень
 			result.push_back(static_cast <uint16_t> (value));
@@ -1139,7 +1139,7 @@ nts::extension::error_t nts::extension::shares(const vector <share_t> & shares, 
 			return translate(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
-		// Выполняем дописывание тела расширения в накопитель
+		// Дописывание тела расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
 	 * Выполняем перехват ошибок
@@ -1226,7 +1226,7 @@ nts::extension::error_t nts::extension::share(const share_t & share, vector <uin
 			return translate(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
-		// Выполняем дописывание тела расширения в накопитель
+		// Дописывание тела расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
 	 * Выполняем перехват ошибок
@@ -1838,7 +1838,7 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 			return translate(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
-		// Выполняем дописывание тела расширения в накопитель
+		// Дописывание тела расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
 	 * Выполняем перехват ошибок
@@ -1861,7 +1861,7 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 nts::extension::error_t nts::extension::protocol(const view_t & data, string & result) noexcept {
 	// Перечень названий прикладных протоколов
 	vector <string> protocols;
-	// Выполняем разбор перечня прикладных протоколов
+	// Разбор перечня прикладных протоколов
 	const error_t error = extension::protocols(data, protocols);
 	// Если разобрать перечень прикладных протоколов не удалось
 	if(error != error_t::NONE)
@@ -2167,7 +2167,7 @@ nts::extension::error_t nts::extension::chosen(const uint16_t chosen, vector <ui
 nts::extension::error_t nts::extension::selected(const view_t & data, group_t & result) noexcept {
 	// Выбранная сервером группа обмена ключами
 	uint16_t group = 0;
-	// Выполняем разбор выбранной группы обмена ключами
+	// Разбор выбранной группы обмена ключами
 	const error_t error = nts::extension::version(data, group);
 	// Если выбранную группу обмена разобрать удалось
 	if(error == error_t::NONE)
@@ -2199,7 +2199,7 @@ nts::extension::error_t nts::extension::selected(const group_t group, vector <ui
 nts::extension::error_t nts::extension::modes(const view_t & data, vector <regime_t> & result) noexcept {
 	// Прочитанный перечень способов обмена
 	vector <uint32_t> values;
-	// Выполняем разбор перечня способов обмена
+	// Разбор перечня способов обмена
 	const error_t error = numbers(data, 1, 1, values);
 	// Если перечень способов обмена разобрать не удалось
 	if(error != error_t::NONE)
@@ -2448,7 +2448,7 @@ nts::extension::error_t nts::extension::name(const view_t & name, vector <uint8_
 			return translate(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
-		// Выполняем дописывание тела расширения в накопитель
+		// Дописывание тела расширения в накопитель
 		result.insert(result.end(), data.data, data.data + data.size);
 	/**
 	 * Выполняем перехват ошибок

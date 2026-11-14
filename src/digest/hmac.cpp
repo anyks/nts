@@ -76,13 +76,13 @@ namespace {
 	static bool prepare(const type_t type, const view_t & key, uint8_t * inner, uint8_t * outer) noexcept {
 		// Дополняемый нулями ключ выработки имитовставки
 		uint8_t buffer[BLOCK];
-		// Выполняем обнуление дополняемого ключа
+		// Обнуление дополняемого ключа
 		::memset(buffer, 0, sizeof(buffer));
 		// Если ключ выработки имитовставки длиннее блока сжатия
 		if(key.size > BLOCK){
 			// Заменяем ключ его хешем
 			if(!streebog(type, key, buffer, static_cast <size_t> (type))){
-				// Выполняем затирание дополняемого ключа
+				// Затирание дополняемого ключа
 				wipe(buffer, sizeof(buffer));
 				// Выводим отказ выработки блоков ключа
 				return false;
@@ -100,7 +100,7 @@ namespace {
 			// Складываем очередной байт ключа с внешним дополнением
 			outer[i] = static_cast <uint8_t> (buffer[i] ^ 0x5C);
 		}
-		// Выполняем затирание дополняемого ключа
+		// Затирание дополняемого ключа
 		wipe(buffer, sizeof(buffer));
 		// Выводим успешность выработки блоков ключа
 		return true;
@@ -137,9 +137,9 @@ bool nts::digest::hmac(const type_t type, const view_t & key, const view_t & dat
 	uint8_t inner[BLOCK], outer[BLOCK];
 	// Если блоки ключа выработки имитовставки выработать не удалось
 	if(!prepare(type, key, inner, outer)){
-		// Выполняем затирание блоков ключа выработки имитовставки
+		// Затирание блоков ключа выработки имитовставки
 		wipe(inner, sizeof(inner));
-		// Выполняем затирание внешнего блока ключа
+		// Затирание внешнего блока ключа
 		wipe(outer, sizeof(outer));
 		// Выводим отказ выработки имитовставки
 		return false;
@@ -150,28 +150,28 @@ bool nts::digest::hmac(const type_t type, const view_t & key, const view_t & dat
 	bool ok = true;
 	// Объект выработки внутреннего хеша
 	streebog_t hash(type);
-	// Выполняем подачу внутреннего блока ключа
+	// Подачу внутреннего блока ключа
 	hash.update(view_t(inner, BLOCK));
-	// Выполняем подачу сообщения выработки имитовставки
+	// Подачу сообщения выработки имитовставки
 	hash.update(data);
 	// Если внутренний хеш снять не удалось
 	if((ok = hash.finish(buffer, sizeof(buffer)))){
-		// Выполняем приведение объекта хеширования к началу выработки внешнего хеша
+		// Приведение объекта хеширования к началу выработки внешнего хеша
 		hash.reset(type);
-		// Выполняем подачу внешнего блока ключа
+		// Подачу внешнего блока ключа
 		hash.update(view_t(outer, BLOCK));
-		// Выполняем подачу внутреннего хеша
+		// Подачу внутреннего хеша
 		hash.update(view_t(buffer, length));
-		// Выполняем снятие внешнего хеша
+		// Снятие внешнего хеша
 		if((ok = hash.finish(buffer, sizeof(buffer))))
 			// Записываем выработанную имитовставку
 			::memcpy(result, buffer, size);
 	}
-	// Выполняем затирание внутреннего хеша
+	// Затирание внутреннего хеша
 	wipe(buffer, sizeof(buffer));
-	// Выполняем затирание внешнего блока ключа
+	// Затирание внешнего блока ключа
 	wipe(outer, sizeof(outer));
-	// Выполняем затирание внутреннего блока ключа
+	// Затирание внутреннего блока ключа
 	wipe(inner, sizeof(inner));
 	// Выводим признак успешности выработки имитовставки
 	return ok;
@@ -195,7 +195,7 @@ bool nts::digest::Mac::ready() const noexcept {
  *
  */
 bool nts::digest::Mac::start(const hash_t algorithm, const view_t & key) noexcept {
-	// Выполняем сброс прежнего ключа
+	// Сброс прежнего ключа
 	this->clear();
 	// Размер блока сжатия выбранного алгоритма
 	const size_t width = digest::block(algorithm);
@@ -205,13 +205,13 @@ bool nts::digest::Mac::start(const hash_t algorithm, const view_t & key) noexcep
 		return false;
 	// Ключ, приведённый к размеру блока сжатия
 	uint8_t padded[128];
-	// Выполняем обнуление приведённого ключа
+	// Обнуление приведённого ключа
 	wipe(padded, sizeof(padded));
 	// Если ключ длиннее блока сжатия
 	if(key.size > width){
 		// Если хеш ключа выработать не удалось
 		if(!hash(algorithm, key, padded, sizeof(padded))){
-			// Выполняем затирание приведённого ключа
+			// Затирание приведённого ключа
 			wipe(padded, sizeof(padded));
 			// Выводим отказ установки ключа
 			return false;
@@ -229,7 +229,7 @@ bool nts::digest::Mac::start(const hash_t algorithm, const view_t & key) noexcep
 		// Складываем внешнее заполнение
 		this->_outer[i] = static_cast <uint8_t> (padded[i] ^ 0x5C);
 	}
-	// Выполняем затирание приведённого ключа
+	// Затирание приведённого ключа
 	wipe(padded, sizeof(padded));
 	// Запоминаем алгоритм хеширования
 	this->_type = algorithm;
@@ -251,9 +251,9 @@ bool nts::digest::Mac::restart() noexcept {
 	if(!this->_ready)
 		// Выводим отказ начала выработки
 		return false;
-	// Выполняем сброс хеширования под внутренний хеш
+	// Сброс хеширования под внутренний хеш
 	this->_hasher.reset(this->_type);
-	// Выполняем подачу внутреннего заполнения
+	// Подачу внутреннего заполнения
 	this->_hasher.update(view_t(this->_inner, this->_width));
 	// Выводим успешность начала выработки
 	return true;
@@ -267,7 +267,7 @@ bool nts::digest::Mac::restart() noexcept {
 void nts::digest::Mac::update(const view_t & data) noexcept {
 	// Если ключ установлен
 	if(this->_ready)
-		// Выполняем подачу куска хешированию
+		// Подачу куска хешированию
 		this->_hasher.update(data);
 }
 /**
@@ -291,18 +291,18 @@ bool nts::digest::Mac::finish(uint8_t * result, const size_t size) noexcept {
 	bool ok = this->_hasher.finish(buffer, sizeof(buffer));
 	// Если внутренний хеш снят
 	if(ok){
-		// Выполняем сброс хеширования под внешний хеш
+		// Сброс хеширования под внешний хеш
 		this->_hasher.reset(this->_type);
-		// Выполняем подачу внешнего заполнения
+		// Подачу внешнего заполнения
 		this->_hasher.update(view_t(this->_outer, this->_width));
-		// Выполняем подачу внутреннего хеша
+		// Подачу внутреннего хеша
 		this->_hasher.update(view_t(buffer, length));
 		// Если внешний хеш снят
 		if((ok = this->_hasher.finish(buffer, sizeof(buffer))))
 			// Переносим имитовставку в требуемую длину
 			::memcpy(result, buffer, size);
 	}
-	// Выполняем затирание внутреннего хеша
+	// Затирание внутреннего хеша
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки
 	return ok;
@@ -318,11 +318,11 @@ void nts::digest::Mac::clear() noexcept {
 	this->_type = hash_t::NONE;
 	// Сбрасываем размер блока сжатия
 	this->_width = 0;
-	// Выполняем затирание внутреннего заполнения
+	// Затирание внутреннего заполнения
 	wipe(this->_inner, sizeof(this->_inner));
-	// Выполняем затирание внешнего заполнения
+	// Затирание внешнего заполнения
 	wipe(this->_outer, sizeof(this->_outer));
-	// Выполняем сброс хеширования
+	// Сброс хеширования
 	this->_hasher.reset(hash_t::NONE);
 }
 /**
@@ -330,9 +330,9 @@ void nts::digest::Mac::clear() noexcept {
  *
  */
 nts::digest::Mac::Mac() noexcept : _ready(false), _type(hash_t::NONE), _width(0) {
-	// Выполняем затирание внутреннего заполнения
+	// Затирание внутреннего заполнения
 	wipe(this->_inner, sizeof(this->_inner));
-	// Выполняем затирание внешнего заполнения
+	// Затирание внешнего заполнения
 	wipe(this->_outer, sizeof(this->_outer));
 }
 /**
@@ -340,7 +340,7 @@ nts::digest::Mac::Mac() noexcept : _ready(false), _type(hash_t::NONE), _width(0)
  *
  */
 nts::digest::Mac::~Mac() noexcept {
-	// Выполняем сброс ключа
+	// Сброс ключа
 	this->clear();
 }
 /**
@@ -365,7 +365,7 @@ bool nts::digest::hmac(const hash_t algorithm, const view_t & key, const view_t 
 	if(!mac.start(algorithm, key))
 		// Выводим отказ выработки имитовставки
 		return false;
-	// Выполняем подачу сообщения
+	// Подачу сообщения
 	mac.update(data);
 	// Выводим итог снятия имитовставки
 	return mac.finish(result, size);
@@ -443,7 +443,7 @@ bool nts::digest::prf(const type_t type, const view_t & key, const view_t & labe
 			::memcpy(block + length, buffer, total);
 			// Если очередную часть последовательности выработать не удалось
 			if(!(ok = nts::digest::hmac(type, key, view_t(block, length + total), part, length))){
-				// Выполняем затирание слитной строки промежуточного значения
+				// Затирание слитной строки промежуточного значения
 				wipe(block, sizeof(block));
 				// Выходим из выработки последовательности
 				break;
@@ -454,17 +454,17 @@ bool nts::digest::prf(const type_t type, const view_t & key, const view_t & labe
 			::memcpy(result + offset, part, count);
 			// Увеличиваем число выработанных байтов последовательности
 			offset += count;
-			// Выполняем выработку следующего промежуточного значения
+			// Выработка следующего промежуточного значения
 			ok = nts::digest::hmac(type, key, view_t(item, length), item, length);
-			// Выполняем затирание слитной строки промежуточного значения
+			// Затирание слитной строки промежуточного значения
 			wipe(block, sizeof(block));
 		}
 	}
-	// Выполняем затирание очередной части последовательности
+	// Затирание очередной части последовательности
 	wipe(part, sizeof(part));
-	// Выполняем затирание промежуточного значения выработки последовательности
+	// Затирание промежуточного значения выработки последовательности
 	wipe(item, sizeof(item));
-	// Выполняем затирание слитной строки метки и затравки
+	// Затирание слитной строки метки и затравки
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки последовательности
 	return ok;
@@ -578,7 +578,7 @@ bool nts::digest::prf(const hash_t algorithm, const view_t & key, const view_t &
 		::memcpy(block, item, length);
 		// Записываем слитную строку метки и затравки
 		::memcpy(block + length, buffer, total);
-		// Выполняем выработку очередной части последовательности
+		// Выработка очередной части последовательности
 		ok = nts::digest::hmac(algorithm, key, view_t(block, length + total), part, length);
 		// Если очередная часть последовательности выработана
 		if(ok){
@@ -588,17 +588,17 @@ bool nts::digest::prf(const hash_t algorithm, const view_t & key, const view_t &
 			::memcpy(result + offset, part, count);
 			// Увеличиваем число выработанных байтов последовательности
 			offset += count;
-			// Выполняем выработку следующего промежуточного значения
+			// Выработка следующего промежуточного значения
 			ok = nts::digest::hmac(algorithm, key, view_t(item, length), item, length);
 		}
 	}
-	// Выполняем затирание слитной строки промежуточного значения
+	// Затирание слитной строки промежуточного значения
 	wipe(block, sizeof(block));
-	// Выполняем затирание очередной части последовательности
+	// Затирание очередной части последовательности
 	wipe(part, sizeof(part));
-	// Выполняем затирание промежуточного значения
+	// Затирание промежуточного значения
 	wipe(item, sizeof(item));
-	// Выполняем затирание слитной строки метки и затравки
+	// Затирание слитной строки метки и затравки
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки последовательности
 	return ok;

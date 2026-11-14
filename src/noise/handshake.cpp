@@ -220,7 +220,7 @@ bool nts::noise::Handshake::mix(const token_t token) noexcept {
 		} break;
 		// DH постоянных ключей
 		case token_t::SS: { secret = this->_s; own = this->_hasS; point = this->_rs; peer = this->_hasRS; } break;
-		// Прочее
+		// Прочие сообщения протокола
 		default: return false;
 	}
 	// Если ключей нет
@@ -702,7 +702,7 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 			} break;
 			// Заранее разделённый ключ - только видоизменением, в таблице его нет
 			case token_t::PSK: status = false; break;
-			// DH
+			// Обмен с разделением секрета
 			default: status = this->mix(list[i]); break;
 		}
 	}
@@ -875,7 +875,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 			} break;
 			// Заранее разделённый ключ - только видоизменением
 			case token_t::PSK: status = false; break;
-			// DH
+			// Обмен с разделением секрета
 			default: status = this->mix(list[i]); break;
 		}
 	}

@@ -83,14 +83,14 @@ bool nts::agreement::pairSntrup761x25519(uint8_t * key, uint8_t * secret) noexce
 		return false;
 	// Если пару sntrup761 выработать не удалось
 	if(!pair(key, secret)){
-		// Выполняем затирание секрета
+		// Затирание секрета
 		wipe(secret, SNTRUP761_SECRET + X25519_SIZE);
 		// Выводим отказ выработки
 		return false;
 	}
 	// Если пару X25519 выработать не удалось
 	if(!generate(secret + SNTRUP761_SECRET, key + SNTRUP761_PUBLIC)){
-		// Выполняем затирание секрета
+		// Затирание секрета
 		wipe(secret, SNTRUP761_SECRET + X25519_SIZE);
 		// Выводим отказ выработки
 		return false;
@@ -118,7 +118,7 @@ bool nts::agreement::encapsSntrup761x25519(const view_t & key, uint8_t * cipher,
 	uint8_t pq[SNTRUP761_SHARED];
 	// Если инкапсуляцию по ключу клиента выполнить не удалось
 	if(!encaps(view_t(key.data, SNTRUP761_PUBLIC), cipher, pq)){
-		// Выполняем затирание секрета
+		// Затирание секрета
 		wipe(pq, sizeof(pq));
 		// Выводим отказ ответа
 		return false;
@@ -127,7 +127,7 @@ bool nts::agreement::encapsSntrup761x25519(const view_t & key, uint8_t * cipher,
 	uint8_t cl[X25519_SIZE];
 	// Если пару X25519 выработать либо общее значение получить не удалось
 	if(!generate(secret, cipher + SNTRUP761_CIPHERTEXT) || !x25519(view_t(secret, X25519_SIZE), view_t(key.data + SNTRUP761_PUBLIC, X25519_SIZE), cl)){
-		// Выполняем затирание рабочих областей
+		// Затирание рабочих областей
 		wipe(pq, sizeof(pq));
 		wipe(cl, sizeof(cl));
 		// Выводим отказ ответа
@@ -135,7 +135,7 @@ bool nts::agreement::encapsSntrup761x25519(const view_t & key, uint8_t * cipher,
 	}
 	// Склеиваем общий секрет гибрида
 	combine(pq, cl, shared);
-	// Выполняем затирание рабочих областей
+	// Затирание рабочих областей
 	wipe(pq, sizeof(pq));
 	wipe(cl, sizeof(cl));
 	// Выводим признак успешности ответа
@@ -160,7 +160,7 @@ bool nts::agreement::decapsSntrup761x25519(const view_t & cipher, const view_t &
 	uint8_t pq[SNTRUP761_SHARED];
 	// Если распаковать шифртекст не удалось (подмена шифртекста)
 	if(!decaps(view_t(cipher.data, SNTRUP761_CIPHERTEXT), view_t(secret.data, SNTRUP761_SECRET), pq)){
-		// Выполняем затирание секрета
+		// Затирание секрета
 		wipe(pq, sizeof(pq));
 		// Выводим отказ завершения
 		return false;
@@ -169,7 +169,7 @@ bool nts::agreement::decapsSntrup761x25519(const view_t & cipher, const view_t &
 	uint8_t cl[X25519_SIZE];
 	// Если общее значение X25519 получить не удалось
 	if(!x25519(view_t(secret.data + SNTRUP761_SECRET, X25519_SIZE), view_t(cipher.data + SNTRUP761_CIPHERTEXT, X25519_SIZE), cl)){
-		// Выполняем затирание рабочих областей
+		// Затирание рабочих областей
 		wipe(pq, sizeof(pq));
 		wipe(cl, sizeof(cl));
 		// Выводим отказ завершения
@@ -177,7 +177,7 @@ bool nts::agreement::decapsSntrup761x25519(const view_t & cipher, const view_t &
 	}
 	// Склеиваем общий секрет гибрида
 	combine(pq, cl, shared);
-	// Выполняем затирание рабочих областей
+	// Затирание рабочих областей
 	wipe(pq, sizeof(pq));
 	wipe(cl, sizeof(cl));
 	// Выводим признак успешности завершения

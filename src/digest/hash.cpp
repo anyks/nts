@@ -257,7 +257,7 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
  *
  */
 nts::digest::Hasher::Hasher(const hash_t algorithm) noexcept : _type(hash_t::NONE), _spoiled(false) {
-	// Выполняем сброс состояния под выбранный алгоритм
+	// Сброс состояния под выбранный алгоритм
 	this->reset(algorithm);
 }
 /**
@@ -273,7 +273,7 @@ nts::digest::Hasher::Hasher(const hash_t algorithm) noexcept : _type(hash_t::NON
 bool nts::digest::hash(const hash_t algorithm, const view_t & data, uint8_t * result, const size_t size) noexcept {
 	// Объект хеширования выбранным алгоритмом
 	hasher_t hasher(algorithm);
-	// Выполняем подачу целого сообщения
+	// Подачу целого сообщения
 	hasher.update(data);
 	// Выводим итог снятия хеша
 	return hasher.finish(result, size);

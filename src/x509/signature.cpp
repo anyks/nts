@@ -363,7 +363,7 @@ namespace {
 	 *
 	 */
 	static nts::x509::error_t identifier(const view_t & parameters, string & result) noexcept {
-		// Выполняем сброс извлекаемого опознавателя
+		// Сброс извлекаемого опознавателя
 		result.clear();
 		// Если запись настроек алгоритма ключа не передана
 		if((parameters.data == nullptr) || (parameters.size == 0))
@@ -557,7 +557,7 @@ namespace {
 	 *
 	 */
 	static nts::x509::error_t algorithm(const view_t & data, string & oid, view_t & params) noexcept {
-		// Выполняем сброс записи настроек алгоритма
+		// Сброс записи настроек алгоритма
 		params = view_t();
 		// Разборщик записи опознавателя алгоритма
 		asn1::Reader reader(data);
@@ -977,7 +977,7 @@ namespace {
 	 *
 	 */
 	static bool declared(const view_t & body, view_t & parameters) noexcept {
-		// Выполняем сброс извлекаемой записи настроек
+		// Сброс извлекаемой записи настроек
 		parameters = view_t();
 		// Разборщик тела сертификата
 		asn1::Reader reader(body);

@@ -242,7 +242,7 @@ bool nts::cipher::Sm4::ready() const noexcept {
 bool nts::cipher::Sm4::key(const view_t & key) noexcept {
 	// Если ключ не передан либо его длина не та
 	if((key.data == nullptr) || (key.size != SM4_KEY)){
-		// Выполняем затирание раундовых ключей
+		// Затирание раундовых ключей
 		this->clear();
 		// Выводим отказ установки ключа
 		return false;
@@ -264,7 +264,7 @@ bool nts::cipher::Sm4::key(const view_t & key) noexcept {
 		// Запоминаем очередной раундовый ключ
 		this->_keys[i] = k[i + 4];
 	}
-	// Выполняем затирание промежуточных слов развёртывания
+	// Затирание промежуточных слов развёртывания
 	wipe(k, sizeof(k));
 	// Запоминаем, что ключ установлен
 	this->_ready = true;
@@ -278,7 +278,7 @@ bool nts::cipher::Sm4::key(const view_t & key) noexcept {
 void nts::cipher::Sm4::clear() noexcept {
 	// Сбрасываем признак установленного ключа
 	this->_ready = false;
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 }
 /**
@@ -314,7 +314,7 @@ bool nts::cipher::Sm4::encrypt(const uint8_t * source, uint8_t * result) const n
 	for(size_t i = 0; i < 4; i++)
 		// Записываем очередное слово итога от старшего байта
 		store(x[35 - i], result + (i * 4));
-	// Выполняем затирание рабочих слов преобразования
+	// Затирание рабочих слов преобразования
 	wipe(x, sizeof(x));
 	// Выводим успешность зашифрования
 	return true;
@@ -352,7 +352,7 @@ bool nts::cipher::Sm4::decrypt(const uint8_t * source, uint8_t * result) const n
 	for(size_t i = 0; i < 4; i++)
 		// Записываем очередное слово итога от старшего байта
 		store(x[35 - i], result + (i * 4));
-	// Выполняем затирание рабочих слов преобразования
+	// Затирание рабочих слов преобразования
 	wipe(x, sizeof(x));
 	// Выводим успешность расшифрования
 	return true;
@@ -362,7 +362,7 @@ bool nts::cipher::Sm4::decrypt(const uint8_t * source, uint8_t * result) const n
  *
  */
 nts::cipher::Sm4::Sm4() noexcept : _ready(false) {
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 }
 /**
@@ -370,6 +370,6 @@ nts::cipher::Sm4::Sm4() noexcept : _ready(false) {
  *
  */
 nts::cipher::Sm4::~Sm4() noexcept {
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 }

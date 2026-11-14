@@ -244,7 +244,7 @@ namespace {
 			item[15 - i] = static_cast <uint8_t> ((message >> (i * 8)) & 0xFF);
 		// Первый блок идёт в накопитель напрямую
 		if(!block.encrypt(block.cipher, item, result)){
-			// Выполняем затирание текущего блока
+			// Затирание текущего блока
 			wipe(item, sizeof(item));
 			// Выводим отказ выработки начала имитовставки
 			return false;
@@ -282,13 +282,13 @@ namespace {
 			::memcpy(item + prefix, associated.data, taken);
 			// Дополняем первый блок нулями
 			if((prefix + taken) < 16)
-				// Выполняем обнуление остатка первого блока
+				// Обнуление остатка первого блока
 				::memset(item + prefix + taken, 0, 16 - prefix - taken);
 			// Складываем первый блок с накопителем и зашифровываем
 			add(result, item, item, 16);
 			// Если очередной блок зашифровать не удалось
 			if(!block.encrypt(block.cipher, item, result)){
-				// Выполняем затирание текущего блока
+				// Затирание текущего блока
 				wipe(item, sizeof(item));
 				// Выводим отказ выработки имитовставки
 				return false;
@@ -303,7 +303,7 @@ namespace {
 				add(result, associated.data + offset, item, 16);
 				// Если очередной блок зашифровать не удалось
 				if(!block.encrypt(block.cipher, item, result)){
-					// Выполняем затирание текущего блока
+					// Затирание текущего блока
 					wipe(item, sizeof(item));
 					// Выводим отказ выработки имитовставки
 					return false;
@@ -323,7 +323,7 @@ namespace {
 				add(result, item, item, 16);
 				// Если последний блок зашифровать не удалось
 				if(!block.encrypt(block.cipher, item, result)){
-					// Выполняем затирание текущего блока
+					// Затирание текущего блока
 					wipe(item, sizeof(item));
 					// Выводим отказ выработки начала имитовставки
 					return false;
@@ -356,7 +356,7 @@ namespace {
 		uint8_t accumulator[16];
 		// Если начало имитовставки выработать не удалось
 		if(!heading(block, nonce, length, width, size, associated, source.size, accumulator)){
-			// Выполняем затирание накопителя имитовставки
+			// Затирание накопителя имитовставки
 			wipe(accumulator, sizeof(accumulator));
 			// Выводим отказ выработки имитовставки
 			return false;
@@ -384,7 +384,7 @@ namespace {
 				// Сдвигаем позицию чтения открытого текста
 				offset += piece;
 			}
-			// Выполняем затирание временного места шифрблоков
+			// Затирание временного места шифрблоков
 			wipe(scratch, sizeof(scratch));
 		}
 		/**
@@ -395,7 +395,7 @@ namespace {
 			add(accumulator, source.data + offset, item, 16);
 			// Если очередной блок зашифровать не удалось
 			if(!block.encrypt(block.cipher, item, accumulator)){
-				// Выполняем затирание текущего блока
+				// Затирание текущего блока
 				wipe(item, sizeof(item));
 				// Выводим отказ выработки имитовставки
 				return false;
@@ -415,7 +415,7 @@ namespace {
 			add(accumulator, item, item, 16);
 			// Если последний блок зашифровать не удалось
 			if(!block.encrypt(block.cipher, item, accumulator)){
-				// Выполняем затирание текущего блока
+				// Затирание текущего блока
 				wipe(item, sizeof(item));
 				// Выводим отказ выработки имитовставки
 				return false;
@@ -423,9 +423,9 @@ namespace {
 		}
 		// Переносим значение имитовставки на место итога
 		::memcpy(result, accumulator, 16);
-		// Выполняем затирание накопителя имитовставки
+		// Затирание накопителя имитовставки
 		wipe(accumulator, sizeof(accumulator));
-		// Выполняем затирание текущего блока
+		// Затирание текущего блока
 		wipe(item, sizeof(item));
 		// Выводим успешность выработки имитовставки
 		return true;
@@ -485,7 +485,7 @@ namespace {
 			counter(nonce, length, width, number, item);
 			// Если блок гаммы выработать не удалось
 			if(!block.encrypt(block.cipher, item, stream)){
-				// Выполняем затирание текущего блока счётчика
+				// Затирание текущего блока счётчика
 				wipe(item, sizeof(item));
 				// Выводим отказ наложения гаммы
 				return false;
@@ -503,9 +503,9 @@ namespace {
 			// Увеличиваем номер блока счётчика
 			number++;
 		}
-		// Выполняем затирание текущего блока счётчика
+		// Затирание текущего блока счётчика
 		wipe(item, sizeof(item));
-		// Выполняем затирание текущего блока гаммы
+		// Затирание текущего блока гаммы
 		wipe(stream, sizeof(stream));
 		// Выводим успешность наложения гаммы
 		return true;
@@ -556,7 +556,7 @@ namespace {
 				 * Выполняем внутренние круги шифрования гаммы первого блока
 				 */
 				for(size_t round = 0; (round + 1) < rounds; round++)
-					// Выполняем круг командами AESE и AESMC
+					// Круг командами AESE и AESMC
 					stream = vaesmcq_u8(vaeseq_u8(stream, vld1q_u8(keys + (round * 16))));
 				// Завершаем шифрование гаммы первого блока
 				stream = veorq_u8(vaeseq_u8(stream, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
@@ -578,9 +578,9 @@ namespace {
 					for(size_t round = 0; (round + 1) < rounds; round++){
 						// Ключ круга
 						const uint8x16_t key = vld1q_u8(keys + (round * 16));
-						// Выполняем круг имитовставки
+						// Круг имитовставки
 						state = vaesmcq_u8(vaeseq_u8(state, key));
-						// Выполняем круг гаммы следующего блока
+						// Круг гаммы следующего блока
 						lane = vaesmcq_u8(vaeseq_u8(lane, key));
 					}
 					// Завершаем круги имитовставки последним кругом без перемешивания
@@ -644,7 +644,7 @@ namespace {
 				 * Выполняем внутренние круги шифрования гаммы первого блока
 				 */
 				for(size_t round = 1; round < rounds; round++)
-					// Выполняем очередной круг
+					// Очередной круг
 					stream = _mm_aesenc_si128(stream, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
 				// Завершаем шифрование гаммы первого блока
 				stream = _mm_aesenclast_si128(stream, last);
@@ -666,9 +666,9 @@ namespace {
 					for(size_t round = 1; round < rounds; round++){
 						// Ключ круга
 						const __m128i key = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16)));
-						// Выполняем круг имитовставки
+						// Круг имитовставки
 						state = _mm_aesenc_si128(state, key);
-						// Выполняем круг гаммы следующего блока
+						// Круг гаммы следующего блока
 						lane = _mm_aesenc_si128(lane, key);
 					}
 					// Завершаем круги имитовставки последним кругом без перемешивания
@@ -708,16 +708,16 @@ namespace {
 			 * Если есть ветвь команд AES расширения ARMv8
 			 */
 			#if defined(__ANTS_CCM_ARM__)
-				// Выполняем слитный проход командами ARMv8
+				// Слитный проход командами ARMv8
 				fusedArm(block.schedule, block.rounds, record, item, sealing, source, result, blocks);
 			/**
 			 * Иначе слитный проход выполняется командами x86-64
 			 */
 			#else
-				// Выполняем слитный проход командами x86-64
+				// Слитный проход командами x86-64
 				fusedX86(block.schedule, block.rounds, record, item, sealing, source, result, blocks);
 			#endif
-			// Выполняем затирание блока счётчика
+			// Затирание блока счётчика
 			wipe(item, sizeof(item));
 		}
 	#endif
@@ -743,7 +743,7 @@ bool nts::cipher::Ccm::ready() const noexcept {
  *
  */
 bool nts::cipher::Ccm::start(const block_t & block, const view_t & nonce, const size_t size) noexcept {
-	// Выполняем сброс прежнего состояния режима работы
+	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый шифр непригоден либо блок его не в 16 байтов
 	if((block.cipher == nullptr) || (block.encrypt == nullptr) || (block.size != 16))
@@ -808,7 +808,7 @@ void nts::cipher::Ccm::clear() noexcept {
 	this->_length = 0;
 	// Сбрасываем базовый алгоритм блочного шифрования
 	this->_block = block_t();
-	// Выполняем затирание начального заполнения режима
+	// Затирание начального заполнения режима
 	wipe(this->_nonce, sizeof(this->_nonce));
 }
 /**
@@ -840,7 +840,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 			uint8_t value[16];
 			// Если начало имитовставки выработать не удалось
 			if(!heading(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, source.size, value)){
-				// Выполняем затирание значения имитовставки
+				// Затирание значения имитовставки
 				wipe(value, sizeof(value));
 				// Выводим отказ зашифрования
 				return false;
@@ -849,7 +849,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 			const size_t whole = (source.size & ~static_cast <size_t> (0xF));
 			// Целые блоки: имитовставка и гамма одним проходом
 			if(whole > 0)
-				// Выполняем слитный проход целых блоков
+				// Слитный проход целых блоков
 				coupling(this->_block, this->_nonce, this->_length, this->_width, value, source.data, result, whole >> 4, true);
 			// Блок счётчика
 			uint8_t item[16];
@@ -861,9 +861,9 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 				counter(this->_nonce, this->_length, this->_width, (whole >> 4) + 1, item);
 				// Если гамму блока счётчика выработать не удалось
 				if(!this->_block.encrypt(this->_block.cipher, item, stream)){
-					// Выполняем затирание значения имитовставки
+					// Затирание значения имитовставки
 					wipe(value, sizeof(value));
-					// Выполняем затирание блока счётчика
+					// Затирание блока счётчика
 					wipe(item, sizeof(item));
 					// Выводим отказ зашифрования
 					return false;
@@ -882,11 +882,11 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 				add(value, item, item, 16);
 				// Если последний блок зашифровать не удалось
 				if(!this->_block.encrypt(this->_block.cipher, item, value)){
-					// Выполняем затирание значения имитовставки
+					// Затирание значения имитовставки
 					wipe(value, sizeof(value));
-					// Выполняем затирание блока счётчика
+					// Затирание блока счётчика
 					wipe(item, sizeof(item));
-					// Выполняем затирание гаммы блока
+					// Затирание гаммы блока
 					wipe(stream, sizeof(stream));
 					// Выводим отказ зашифрования
 					return false;
@@ -896,11 +896,11 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 			counter(this->_nonce, this->_length, this->_width, 0, item);
 			// Если гамму блока A_0 выработать не удалось
 			if(!this->_block.encrypt(this->_block.cipher, item, stream)){
-				// Выполняем затирание значения имитовставки
+				// Затирание значения имитовставки
 				wipe(value, sizeof(value));
-				// Выполняем затирание блока счётчика
+				// Затирание блока счётчика
 				wipe(item, sizeof(item));
-				// Выполняем затирание гаммы блока
+				// Затирание гаммы блока
 				wipe(stream, sizeof(stream));
 				// Выводим отказ зашифрования
 				return false;
@@ -911,11 +911,11 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 			for(size_t i = 0; i < this->_size; i++)
 				// Накладываем очередной байт гаммы на метку
 				tag[i] = static_cast <uint8_t> (value[i] ^ stream[i]);
-			// Выполняем затирание значения имитовставки
+			// Затирание значения имитовставки
 			wipe(value, sizeof(value));
-			// Выполняем затирание блока счётчика
+			// Затирание блока счётчика
 			wipe(item, sizeof(item));
-			// Выполняем затирание гаммы блока
+			// Затирание гаммы блока
 			wipe(stream, sizeof(stream));
 			// Выводим успешность зашифрования
 			return true;
@@ -929,7 +929,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 		return false;
 	// Если гамму на сообщение наложить не удалось
 	if(!gamma(this->_block, this->_nonce, this->_length, this->_width, source, result)){
-		// Выполняем затирание значения имитовставки
+		// Затирание значения имитовставки
 		wipe(value, sizeof(value));
 		// Выводим отказ зашифрования
 		return false;
@@ -942,9 +942,9 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 	counter(this->_nonce, this->_length, this->_width, 0, item);
 	// Если гамму блока A_0 выработать не удалось
 	if(!this->_block.encrypt(this->_block.cipher, item, stream)){
-		// Выполняем затирание значения имитовставки
+		// Затирание значения имитовставки
 		wipe(value, sizeof(value));
-		// Выполняем затирание блока счётчика
+		// Затирание блока счётчика
 		wipe(item, sizeof(item));
 		// Выводим отказ зашифрования
 		return false;
@@ -955,11 +955,11 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 	for(size_t i = 0; i < this->_size; i++)
 		// Накладываем очередной байт гаммы на метку
 		tag[i] = static_cast <uint8_t> (value[i] ^ stream[i]);
-	// Выполняем затирание значения имитовставки
+	// Затирание значения имитовставки
 	wipe(value, sizeof(value));
-	// Выполняем затирание блока счётчика
+	// Затирание блока счётчика
 	wipe(item, sizeof(item));
-	// Выполняем затирание гаммы блока
+	// Затирание гаммы блока
 	wipe(stream, sizeof(stream));
 	// Выводим успешность зашифрования
 	return true;
@@ -993,7 +993,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 			uint8_t value[16];
 			// Если начало имитовставки выработать не удалось
 			if(!heading(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, source.size, value)){
-				// Выполняем затирание значения имитовставки
+				// Затирание значения имитовставки
 				wipe(value, sizeof(value));
 				// Выводим отказ расшифрования
 				return false;
@@ -1002,7 +1002,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 			const size_t whole = (source.size & ~static_cast <size_t> (0xF));
 			// Целые блоки: открытие гаммой и имитовставка одним проходом
 			if(whole > 0)
-				// Выполняем слитный проход целых блоков
+				// Слитный проход целых блоков
 				coupling(this->_block, this->_nonce, this->_length, this->_width, value, source.data, result, whole >> 4, false);
 			// Блок счётчика
 			uint8_t item[16];
@@ -1014,11 +1014,11 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 				counter(this->_nonce, this->_length, this->_width, (whole >> 4) + 1, item);
 				// Если гамму блока счётчика выработать не удалось
 				if(!this->_block.encrypt(this->_block.cipher, item, stream)){
-					// Выполняем затирание расшифрованного сообщения
+					// Затирание расшифрованного сообщения
 					wipe(result, source.size);
-					// Выполняем затирание значения имитовставки
+					// Затирание значения имитовставки
 					wipe(value, sizeof(value));
-					// Выполняем затирание блока счётчика
+					// Затирание блока счётчика
 					wipe(item, sizeof(item));
 					// Выводим отказ расшифрования
 					return false;
@@ -1037,13 +1037,13 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 				add(value, item, item, 16);
 				// Если последний блок зашифровать не удалось
 				if(!this->_block.encrypt(this->_block.cipher, item, value)){
-					// Выполняем затирание расшифрованного сообщения
+					// Затирание расшифрованного сообщения
 					wipe(result, source.size);
-					// Выполняем затирание значения имитовставки
+					// Затирание значения имитовставки
 					wipe(value, sizeof(value));
-					// Выполняем затирание блока счётчика
+					// Затирание блока счётчика
 					wipe(item, sizeof(item));
-					// Выполняем затирание гаммы блока
+					// Затирание гаммы блока
 					wipe(stream, sizeof(stream));
 					// Выводим отказ расшифрования
 					return false;
@@ -1053,11 +1053,11 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 			counter(this->_nonce, this->_length, this->_width, 0, item);
 			// Если гамму блока A_0 выработать не удалось
 			if(!this->_block.encrypt(this->_block.cipher, item, stream)){
-				// Выполняем затирание расшифрованного сообщения
+				// Затирание расшифрованного сообщения
 				wipe(result, source.size);
-				// Выполняем затирание значения имитовставки
+				// Затирание значения имитовставки
 				wipe(value, sizeof(value));
-				// Выполняем затирание блока счётчика
+				// Затирание блока счётчика
 				wipe(item, sizeof(item));
 				// Выводим отказ расшифрования
 				return false;
@@ -1070,15 +1070,15 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 			for(size_t i = 0; i < this->_size; i++)
 				// Накапливаем различие очередных байтов метки
 				difference |= static_cast <uint8_t> (tag.data[i] ^ (value[i] ^ stream[i]));
-			// Выполняем затирание значения имитовставки
+			// Затирание значения имитовставки
 			wipe(value, sizeof(value));
-			// Выполняем затирание блока счётчика
+			// Затирание блока счётчика
 			wipe(item, sizeof(item));
-			// Выполняем затирание гаммы блока
+			// Затирание гаммы блока
 			wipe(stream, sizeof(stream));
 			// Если метка целостности не сошлась
 			if(difference != 0){
-				// Выполняем затирание расшифрованного сообщения
+				// Затирание расшифрованного сообщения
 				wipe(result, source.size);
 				// Выводим отказ расшифрования
 				return false;
@@ -1095,7 +1095,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 	uint8_t value[16];
 	// Если имитовставку выработать не удалось
 	if(!mac(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, view_t(result, source.size), value)){
-		// Выполняем затирание расшифрованного сообщения
+		// Затирание расшифрованного сообщения
 		wipe(result, source.size);
 		// Выводим отказ расшифрования
 		return false;
@@ -1108,11 +1108,11 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 	counter(this->_nonce, this->_length, this->_width, 0, item);
 	// Если гамму блока A_0 выработать не удалось
 	if(!this->_block.encrypt(this->_block.cipher, item, stream)){
-		// Выполняем затирание расшифрованного сообщения
+		// Затирание расшифрованного сообщения
 		wipe(result, source.size);
-		// Выполняем затирание значения имитовставки
+		// Затирание значения имитовставки
 		wipe(value, sizeof(value));
-		// Выполняем затирание блока счётчика
+		// Затирание блока счётчика
 		wipe(item, sizeof(item));
 		// Выводим отказ расшифрования
 		return false;
@@ -1125,15 +1125,15 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 	for(size_t i = 0; i < this->_size; i++)
 		// Накапливаем различие очередных байтов метки
 		difference |= static_cast <uint8_t> (tag.data[i] ^ (value[i] ^ stream[i]));
-	// Выполняем затирание значения имитовставки
+	// Затирание значения имитовставки
 	wipe(value, sizeof(value));
-	// Выполняем затирание блока счётчика
+	// Затирание блока счётчика
 	wipe(item, sizeof(item));
-	// Выполняем затирание гаммы блока
+	// Затирание гаммы блока
 	wipe(stream, sizeof(stream));
 	// Если метка целостности не сошлась
 	if(difference != 0){
-		// Выполняем затирание расшифрованного сообщения
+		// Затирание расшифрованного сообщения
 		wipe(result, source.size);
 		// Выводим отказ расшифрования
 		return false;
@@ -1146,7 +1146,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
  *
  */
 nts::cipher::Ccm::Ccm() noexcept : _ready(false), _size(0), _width(0), _length(0) {
-	// Выполняем затирание начального заполнения режима
+	// Затирание начального заполнения режима
 	wipe(this->_nonce, sizeof(this->_nonce));
 }
 /**
@@ -1154,6 +1154,6 @@ nts::cipher::Ccm::Ccm() noexcept : _ready(false), _size(0), _width(0), _length(0
  *
  */
 nts::cipher::Ccm::~Ccm() noexcept {
-	// Выполняем затирание начального заполнения режима
+	// Затирание начального заполнения режима
 	wipe(this->_nonce, sizeof(this->_nonce));
 }

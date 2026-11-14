@@ -137,7 +137,7 @@ namespace {
 		for(size_t i = 0; i < blocks; i++){
 			// Если блок гаммы выработать не удалось
 			if(!aes.encrypt(counter, gamma)){
-				// Выполняем затирание блока
+				// Затирание блока
 				nts::sys::wipe(gamma, BLOCK);
 				// Выводим отказ ключа
 				return nts::srtp::error_t::KEY;
@@ -151,7 +151,7 @@ namespace {
 				// Переносим перенос в старший байт
 				++counter[BLOCK - 2];
 		}
-		// Выполняем затирание рабочих блоков
+		// Затирание рабочих блоков
 		nts::sys::wipe(gamma, BLOCK);
 		nts::sys::wipe(counter, BLOCK);
 		// Выводим признак успеха
@@ -331,7 +331,7 @@ namespace {
 		for(size_t i = 0; i < whole; i++){
 			// Если блок гаммы выработать не удалось
 			if(!aes.encrypt(counter, gamma)){
-				// Выполняем затирание блока
+				// Затирание блока
 				nts::sys::wipe(gamma, BLOCK);
 				// Выводим отказ ключа
 				return nts::srtp::error_t::KEY;
@@ -351,7 +351,7 @@ namespace {
 		if((source.size % BLOCK) != 0){
 			// Если блок гаммы выработать не удалось
 			if(!aes.encrypt(counter, gamma)){
-				// Выполняем затирание блока
+				// Затирание блока
 				nts::sys::wipe(gamma, BLOCK);
 				// Выводим отказ ключа
 				return nts::srtp::error_t::KEY;
@@ -363,7 +363,7 @@ namespace {
 				// Байт итога под гаммой
 				result[whole * BLOCK + j] = static_cast <uint8_t> (source.data[whole * BLOCK + j] ^ gamma[j]);
 		}
-		// Выполняем затирание рабочих блоков
+		// Затирание рабочих блоков
 		nts::sys::wipe(gamma, BLOCK);
 		nts::sys::wipe(counter, BLOCK);
 		// Выводим признак успеха
@@ -766,19 +766,19 @@ nts::srtp::error_t nts::srtp::Session::protect(const view_t & packet, vector <ui
 		cipher::aes_t aes;
 		// Если ключ либо режим установить не удалось
 		if(!aes.key(view_t(this->_cipher.data(), this->_cipher.size())) || !gcm.start(cipher::block_t(aes), view_t(iv, 12), AEAD_TAG)){
-			// Выполняем затирание одноразового числа
+			// Затирание одноразового числа
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
 		// Сопутствующие данные - заголовок пакета
 		if(!gcm.associate(view_t(packet.data, header)) || !gcm.encrypt(payload, result.data() + header) || !gcm.finish(result.data() + packet.size)){
-			// Выполняем затирание одноразового числа
+			// Затирание одноразового числа
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
-		// Выполняем затирание одноразового числа
+		// Затирание одноразового числа
 		nts::sys::wipe(iv, 12);
 	// Профиль AES-CM
 	} else {
@@ -788,12 +788,12 @@ nts::srtp::error_t nts::srtp::Session::protect(const view_t & packet, vector <ui
 		ivRtp(view_t(this->_salt.data(), this->_salt.size()), ssrc, this->_roc, seq, iv);
 		// Если наложение гаммы не удалось
 		if(applyCm(view_t(this->_cipher.data(), this->_cipher.size()), iv, payload, result.data() + header) != error_t::NONE){
-			// Выполняем затирание синхропосылки
+			// Затирание синхропосылки
 			nts::sys::wipe(iv, BLOCK);
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
-		// Выполняем затирание синхропосылки
+		// Затирание синхропосылки
 		nts::sys::wipe(iv, BLOCK);
 		// Буфер имитовставки: пакет и счётчик переполнений
 		vector <uint8_t> mac;
@@ -823,12 +823,12 @@ nts::srtp::error_t nts::srtp::Session::protect(const view_t & packet, vector <ui
 		}
 		// Если имитовставку вычислить не удалось
 		if(!digest::hmac(digest::hash_t::SHA1, view_t(this->_auth.data(), this->_auth.size()), view_t(mac.data(), mac.size()), result.data() + packet.size, tag)){
-			// Выполняем затирание буфера
+			// Затирание буфера
 			nts::sys::wipe(mac.data(), mac.size());
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
-		// Выполняем затирание буфера
+		// Затирание буфера
 		nts::sys::wipe(mac.data(), mac.size());
 	}
 	// Выводим признак успеха
@@ -913,7 +913,7 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 		cipher::aes_t aes;
 		// Если ключ либо режим установить не удалось
 		if(!aes.key(view_t(this->_cipher.data(), this->_cipher.size())) || !gcm.start(cipher::block_t(aes), view_t(iv, 12), AEAD_TAG)){
-			// Выполняем затирание одноразового числа
+			// Затирание одноразового числа
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ ключа
 			return error_t::KEY;
@@ -931,20 +931,20 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
-			// Выполняем затирание одноразового числа
+			// Затирание одноразового числа
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ памяти
 			return error_t::MEMORY;
 		}
 		// Сопутствующие данные - заголовок; расшифрование со сверкой метки
 		if(!gcm.associate(view_t(body.data, header)) || !gcm.decrypt(view_t(body.data + header, body.size - header), result.data() + header) || !gcm.verify(view_t(packet.data + body.size, tag))){
-			// Выполняем затирание итога и одноразового числа
+			// Затирание итога и одноразового числа
 			nts::sys::wipe(result.data(), result.size());
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ имитовставки
 			return error_t::SIGNATURE;
 		}
-		// Выполняем затирание одноразового числа
+		// Затирание одноразового числа
 		nts::sys::wipe(iv, 12);
 	// Профиль AES-CM
 	} else {
@@ -978,21 +978,21 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 		}
 		// Если имитовставку вычислить не удалось
 		if(!digest::hmac(digest::hash_t::SHA1, view_t(this->_auth.data(), this->_auth.size()), view_t(mac.data(), mac.size()), computed, tag)){
-			// Выполняем затирание буфера
+			// Затирание буфера
 			nts::sys::wipe(mac.data(), mac.size());
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
-		// Выполняем затирание буфера
+		// Затирание буфера
 		nts::sys::wipe(mac.data(), mac.size());
 		// Если метки не сошлись постоянной сверкой
 		if(!equal(view_t(computed, tag), view_t(packet.data + body.size, tag))){
-			// Выполняем затирание метки
+			// Затирание метки
 			nts::sys::wipe(computed, 10);
 			// Выводим отказ имитовставки
 			return error_t::SIGNATURE;
 		}
-		// Выполняем затирание метки
+		// Затирание метки
 		nts::sys::wipe(computed, 10);
 		// Синхропосылка пакета
 		uint8_t iv[BLOCK];
@@ -1011,20 +1011,20 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
-			// Выполняем затирание синхропосылки
+			// Затирание синхропосылки
 			nts::sys::wipe(iv, BLOCK);
 			// Выводим отказ памяти
 			return error_t::MEMORY;
 		}
 		// Если наложение гаммы не удалось
 		if(applyCm(view_t(this->_cipher.data(), this->_cipher.size()), iv, view_t(body.data + header, body.size - header), result.data() + header) != error_t::NONE){
-			// Выполняем затирание итога и синхропосылки
+			// Затирание итога и синхропосылки
 			nts::sys::wipe(result.data(), result.size());
 			nts::sys::wipe(iv, BLOCK);
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
-		// Выполняем затирание синхропосылки
+		// Затирание синхропосылки
 		nts::sys::wipe(iv, BLOCK);
 	}
 	// Обновляем состояние приёма по разделу 3.3.1 RFC 3711
@@ -1143,7 +1143,7 @@ nts::srtp::error_t nts::srtp::Session::protectControl(const view_t & packet, vec
 		cipher::aes_t aes;
 		// Если ключ либо режим установить не удалось
 		if(!aes.key(view_t(this->_cipher.data(), this->_cipher.size())) || !gcm.start(cipher::block_t(aes), view_t(iv, 12), AEAD_TAG)){
-			// Выполняем затирание одноразового числа
+			// Затирание одноразового числа
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ ключа
 			return error_t::KEY;
@@ -1162,13 +1162,13 @@ nts::srtp::error_t nts::srtp::Session::protectControl(const view_t & packet, vec
 		aad[11] = static_cast <uint8_t> (esrtcp);
 		// Шифрование с меткой
 		if(!gcm.associate(view_t(aad, 12)) || !gcm.encrypt(payload, result.data() + 8) || !gcm.finish(result.data() + packet.size)){
-			// Выполняем затирание рабочих буферов
+			// Затирание рабочих буферов
 			nts::sys::wipe(aad, 12);
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
-		// Выполняем затирание рабочих буферов
+		// Затирание рабочих буферов
 		nts::sys::wipe(aad, 12);
 		nts::sys::wipe(iv, 12);
 	// Профиль AES-CM
@@ -1179,12 +1179,12 @@ nts::srtp::error_t nts::srtp::Session::protectControl(const view_t & packet, vec
 		ivRtcp(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
 		// Если наложение гаммы не удалось
 		if(applyCm(view_t(this->_cipher.data(), this->_cipher.size()), iv, payload, result.data() + 8) != error_t::NONE){
-			// Выполняем затирание синхропосылки
+			// Затирание синхропосылки
 			nts::sys::wipe(iv, BLOCK);
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
-		// Выполняем затирание синхропосылки
+		// Затирание синхропосылки
 		nts::sys::wipe(iv, BLOCK);
 	}
 	// Место слова ESRTCP в итоге: у AES-GCM за меткой, у AES-CM за пакетом до метки
@@ -1265,7 +1265,7 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 		cipher::aes_t aes;
 		// Если ключ либо режим установить не удалось
 		if(!aes.key(view_t(this->_cipher.data(), this->_cipher.size())) || !gcm.start(cipher::block_t(aes), view_t(iv, 12), AEAD_TAG)){
-			// Выполняем затирание одноразового числа
+			// Затирание одноразового числа
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ ключа
 			return error_t::KEY;
@@ -1289,7 +1289,7 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
-			// Выполняем затирание рабочих буферов
+			// Затирание рабочих буферов
 			nts::sys::wipe(aad, 12);
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ памяти
@@ -1297,14 +1297,14 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 		}
 		// Расшифрование со сверкой метки
 		if(!gcm.associate(view_t(aad, 12)) || !gcm.decrypt(view_t(packet.data + 8, packet.size - tag - 4 - 8), result.data() + 8) || !gcm.verify(view_t(packet.data + packet.size - tag - 4, tag))){
-			// Выполняем затирание итога и рабочих буферов
+			// Затирание итога и рабочих буферов
 			nts::sys::wipe(result.data(), result.size());
 			nts::sys::wipe(aad, 12);
 			nts::sys::wipe(iv, 12);
 			// Выводим отказ имитовставки
 			return error_t::SIGNATURE;
 		}
-		// Выполняем затирание рабочих буферов
+		// Затирание рабочих буферов
 		nts::sys::wipe(aad, 12);
 		nts::sys::wipe(iv, 12);
 	// Профиль AES-CM
@@ -1317,12 +1317,12 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 			return error_t::KEY;
 		// Если метки не сошлись постоянной сверкой
 		if(!equal(view_t(computed, tag), view_t(packet.data + word + 4, tag))){
-			// Выполняем затирание метки
+			// Затирание метки
 			nts::sys::wipe(computed, 10);
 			// Выводим отказ имитовставки
 			return error_t::SIGNATURE;
 		}
-		// Выполняем затирание метки
+		// Затирание метки
 		nts::sys::wipe(computed, 10);
 		// Синхропосылка пакета
 		uint8_t iv[BLOCK];
@@ -1341,20 +1341,20 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
-			// Выполняем затирание синхропосылки
+			// Затирание синхропосылки
 			nts::sys::wipe(iv, BLOCK);
 			// Выводим отказ памяти
 			return error_t::MEMORY;
 		}
 		// Если наложение гаммы не удалось
 		if(applyCm(view_t(this->_cipher.data(), this->_cipher.size()), iv, view_t(packet.data + 8, packet.size - tag - 4 - 8), result.data() + 8) != error_t::NONE){
-			// Выполняем затирание итога и синхропосылки
+			// Затирание итога и синхропосылки
 			nts::sys::wipe(result.data(), result.size());
 			nts::sys::wipe(iv, BLOCK);
 			// Выводим отказ ключа
 			return error_t::KEY;
 		}
-		// Выполняем затирание синхропосылки
+		// Затирание синхропосылки
 		nts::sys::wipe(iv, BLOCK);
 	}
 	// Обновляем состояние приёма SRTCP

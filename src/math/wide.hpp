@@ -67,10 +67,13 @@
 				// Младшее и старшее слова
 				uint64_t lo, hi;
 				/**
-				 * @brief Усечение к младшему слову
+				 * @brief Метод Усечение к младшему слову
 				 *
 				 */
-				explicit operator uint64_t() const noexcept { return this->lo; }
+				explicit operator uint64_t() const noexcept {
+						// Отдаём младшее слово произведения
+						return this->lo;
+					}
 				/**
 				 * @brief Умножение на слово: старшее слово произведения из внутренней функции
 				 *

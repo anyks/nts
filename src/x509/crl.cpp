@@ -170,7 +170,7 @@ namespace {
 			while(!reader.empty()){
 				// Объект разобранной составляющей имени
 				asn1::element_t item;
-				// Выполняем разбор составляющей имени
+				// Разбор составляющей имени
 				if(!reader.next(asn1::tag_t::SET, item))
 					// Выводим причину отказа
 					return nts::x509::error_t::ENCODING;
@@ -195,7 +195,7 @@ namespace {
 				while(!items.empty()){
 					// Объект разобранного признака
 					asn1::element_t pair;
-					// Выполняем разбор признака
+					// Разбор признака
 					if(!items.next(asn1::tag_t::SEQUENCE, pair))
 						// Выводим причину отказа
 						return nts::x509::error_t::ENCODING;
@@ -209,7 +209,7 @@ namespace {
 					asn1::element_t field;
 					// Разбираемый признак имени
 					nts::x509::attribute_t attribute;
-					// Выполняем разбор опознавателя признака
+					// Разбор опознавателя признака
 					if(!fields.next(asn1::tag_t::OBJECT, field))
 						// Выводим причину отказа
 						return nts::x509::error_t::ENCODING;
@@ -223,7 +223,7 @@ namespace {
 					if(named != asn1::error_t::NONE)
 						// Выводим причину отказа
 						return nts::x509::error_t::NAME;
-					// Выполняем разбор значения признака
+					// Разбор значения признака
 					if(!fields.next(field))
 						// Выводим причину отказа
 						return nts::x509::error_t::ENCODING;
@@ -295,7 +295,7 @@ namespace {
 		if((type != asn1::tag_t::UTC_TIME) && (type != asn1::tag_t::GENERALIZED_TIME))
 			// Выводим причину отказа
 			return nts::x509::error_t::VALIDITY;
-		// Выполняем извлечение времени
+		// Извлечение времени
 		if(asn1::time(element, type, result) != asn1::error_t::NONE)
 			// Выводим причину отказа
 			return nts::x509::error_t::VALIDITY;
@@ -343,7 +343,7 @@ namespace {
 			while(!items.empty()){
 				// Объект разобранного расширения
 				asn1::element_t entry;
-				// Выполняем разбор расширения
+				// Разбор расширения
 				if(!items.next(asn1::tag_t::SEQUENCE, entry))
 					// Выводим причину отказа
 					return nts::x509::error_t::ENCODING;
@@ -357,7 +357,7 @@ namespace {
 				asn1::element_t field;
 				// Разбираемое расширение
 				nts::x509::extension_t extension;
-				// Выполняем разбор опознавателя расширения
+				// Разбор опознавателя расширения
 				if(!fields.next(asn1::tag_t::OBJECT, field))
 					// Выводим причину отказа
 					return nts::x509::error_t::ENCODING;
@@ -367,13 +367,13 @@ namespace {
 				if(status != nts::x509::error_t::NONE)
 					// Выводим причину отказа
 					return status;
-				// Выполняем разбор следующего поля расширения
+				// Разбор следующего поля расширения
 				if(!fields.next(field))
 					// Выводим причину отказа
 					return nts::x509::error_t::ENCODING;
 				// Если признак обязательности расширения записан явно
 				if((field.cls == asn1::cls_t::UNIVERSAL) && (field.tag == static_cast <uint32_t> (asn1::tag_t::BOOLEAN))){
-					// Выполняем извлечение признака обязательности расширения
+					// Извлечение признака обязательности расширения
 					if(asn1::boolean(field, extension.critical) != asn1::error_t::NONE)
 						// Выводим причину отказа
 						return nts::x509::error_t::EXTENSION;
@@ -384,7 +384,7 @@ namespace {
 					if(!extension.critical)
 						// Выводим причину отказа
 						return nts::x509::error_t::EXTENSION;
-					// Выполняем разбор следующего поля расширения
+					// Разбор следующего поля расширения
 					if(!fields.next(field))
 						// Выводим причину отказа
 						return nts::x509::error_t::ENCODING;
@@ -435,7 +435,7 @@ namespace {
  *
  */
 nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
-	// Выполняем очистку разобранных сведений
+	// Очистка разобранных сведений
 	this->clear();
 	/**
 	 * Выполняем перехват ошибок
@@ -445,7 +445,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		asn1::reader_t reader(data);
 		// Объект разобранной записи списка
 		asn1::element_t list;
-		// Выполняем разбор записи списка
+		// Разбор записи списка
 		if(!reader.next(asn1::tag_t::SEQUENCE, list))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
@@ -459,7 +459,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		asn1::reader_t top(list.content);
 		// Объект разобранной подписываемой части списка
 		asn1::element_t body;
-		// Выполняем разбор подписываемой части списка
+		// Разбор подписываемой части списка
 		if(!top.next(asn1::tag_t::SEQUENCE, body))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
@@ -475,7 +475,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		asn1::element_t params;
 		// Признак наличия настроек алгоритма подписи
 		bool present = false;
-		// Выполняем извлечение опознавателя алгоритма подписи
+		// Извлечение опознавателя алгоритма подписи
 		this->_error = algorithmIdentifier(top, this->_algorithm, params, present);
 		// Если извлечение опознавателя алгоритма подписи не удалось
 		if(this->_error != error_t::NONE)
@@ -485,11 +485,11 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		if(present)
 			// Запоминаем элемент настроек
 			this->_parameters = params.element;
-		// Выполняем разбор подписи списка
+		// Разбор подписи списка
 		if(!top.next(asn1::tag_t::BIT_STRING, item))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
-		// Выполняем извлечение подписи списка
+		// Извлечение подписи списка
 		if(asn1::bits(item, this->_signature, this->_unused) != asn1::error_t::NONE)
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
@@ -501,7 +501,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		asn1::reader_t inner(body.content);
 		// Объект разобранного поля подписываемой части
 		asn1::element_t field;
-		// Выполняем разбор первого поля подписываемой части
+		// Разбор первого поля подписываемой части
 		if(!inner.next(field))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
@@ -513,7 +513,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		if((field.cls == asn1::cls_t::UNIVERSAL) && (field.tag == static_cast <uint32_t> (asn1::tag_t::INTEGER))){
 			// Издание списка
 			int64_t version = -1;
-			// Выполняем извлечение издания списка
+			// Извлечение издания списка
 			if(smallInteger(field, version) != error_t::NONE)
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
@@ -521,7 +521,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			if(version != 1)
 				// Запоминаем причину отказа
 				return (this->_error = error_t::VERSION);
-			// Выполняем разбор набора алгоритма подписи подписываемой части
+			// Разбор набора алгоритма подписи подписываемой части
 			if(!inner.next(asn1::tag_t::SEQUENCE, field))
 				// Запоминаем причину отказа
 				return (this->_error = error_t::ENCODING);
@@ -535,13 +535,13 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			asn1::reader_t items(field.content);
 			// Объект разобранного опознавателя алгоритма
 			asn1::element_t oidField;
-			// Выполняем разбор опознавателя алгоритма подписи подписываемой части
+			// Разбор опознавателя алгоритма подписи подписываемой части
 			if(!items.next(asn1::tag_t::OBJECT, oidField))
 				// Запоминаем причину отказа
 				return (this->_error = error_t::ENCODING);
 			// Опознаватель алгоритма подписи подписываемой части
 			string innerAlgorithm;
-			// Выполняем извлечение опознавателя алгоритма подписи подписываемой части
+			// Извлечение опознавателя алгоритма подписи подписываемой части
 			if(oidOf(oidField, innerAlgorithm) != error_t::NONE)
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
@@ -553,21 +553,21 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
 		}
-		// Выполняем разбор имени издателя списка
+		// Разбор имени издателя списка
 		if(!inner.next(asn1::tag_t::SEQUENCE, field))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
-		// Выполняем извлечение имени издателя списка
+		// Извлечение имени издателя списка
 		this->_error = distinguished(field, this->_issuer);
 		// Если извлечение имени издателя не удалось
 		if(this->_error != error_t::NONE)
 			// Выводим причину отказа
 			return this->_error;
-		// Выполняем разбор даты выдачи списка
+		// Разбор даты выдачи списка
 		if(!inner.next(field))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
-		// Выполняем извлечение даты выдачи списка
+		// Извлечение даты выдачи списка
 		if(moment(field, this->_thisUpdate) != error_t::NONE)
 			// Запоминаем причину отказа
 			return (this->_error = error_t::VALIDITY);
@@ -575,7 +575,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		if(inner.empty())
 			// Выводим успешность разбора: дата следующего списка и всё за ней необязательны
 			return error_t::NONE;
-		// Выполняем разбор следующего поля подписываемой части
+		// Разбор следующего поля подписываемой части
 		if(!inner.next(field))
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
@@ -585,7 +585,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		 * сертификатов либо расширения списка
 		 */
 		if((field.cls == asn1::cls_t::UNIVERSAL) && ((field.tag == static_cast <uint32_t> (asn1::tag_t::UTC_TIME)) || (field.tag == static_cast <uint32_t> (asn1::tag_t::GENERALIZED_TIME)))){
-			// Выполняем извлечение даты следующего списка
+			// Извлечение даты следующего списка
 			if(moment(field, this->_nextUpdate) != error_t::NONE)
 				// Запоминаем причину отказа
 				return (this->_error = error_t::VALIDITY);
@@ -593,7 +593,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			if(inner.empty())
 				// Выводим успешность разбора
 				return error_t::NONE;
-			// Выполняем разбор следующего поля подписываемой части
+			// Разбор следующего поля подписываемой части
 			if(!inner.next(field))
 				// Запоминаем причину отказа
 				return (this->_error = error_t::ENCODING);
@@ -615,7 +615,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			while(!entries.empty()){
 				// Объект разобранной записи отзыва
 				asn1::element_t entry;
-				// Выполняем разбор записи отзыва
+				// Разбор записи отзыва
 				if(!entries.next(asn1::tag_t::SEQUENCE, entry))
 					// Запоминаем причину отказа
 					return (this->_error = error_t::ENCODING);
@@ -629,7 +629,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 				asn1::element_t entryField;
 				// Разбираемая запись отозванного сертификата
 				revoked_t revoked;
-				// Выполняем разбор порядкового номера отозванного сертификата
+				// Разбор порядкового номера отозванного сертификата
 				if(!fields.next(asn1::tag_t::INTEGER, entryField))
 					// Запоминаем причину отказа
 					return (this->_error = error_t::ENCODING);
@@ -642,21 +642,21 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 					return (this->_error = error_t::SERIAL);
 				// Запоминаем порядковый номер отозванного сертификата
 				revoked.serial = entryField.content;
-				// Выполняем разбор даты отзыва
+				// Разбор даты отзыва
 				if(!fields.next(entryField))
 					// Запоминаем причину отказа
 					return (this->_error = error_t::ENCODING);
-				// Выполняем извлечение даты отзыва
+				// Извлечение даты отзыва
 				if(moment(entryField, revoked.date) != error_t::NONE)
 					// Запоминаем причину отказа
 					return (this->_error = error_t::VALIDITY);
 				// Если запись отзыва не исчерпана
 				if(!fields.empty()){
-					// Выполняем разбор набора расширений записи отзыва
+					// Разбор набора расширений записи отзыва
 					if(!fields.next(asn1::tag_t::SEQUENCE, entryField))
 						// Запоминаем причину отказа
 						return (this->_error = error_t::ENCODING);
-					// Выполняем извлечение набора расширений записи отзыва
+					// Извлечение набора расширений записи отзыва
 					this->_error = extensions(entryField, revoked.extensions);
 					// Если извлечение расширений записи отзыва не удалось
 					if(this->_error != error_t::NONE)
@@ -674,7 +674,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			if(inner.empty())
 				// Выводим успешность разбора
 				return error_t::NONE;
-			// Выполняем разбор следующего поля подписываемой части
+			// Разбор следующего поля подписываемой части
 			if(!inner.next(field))
 				// Запоминаем причину отказа
 				return (this->_error = error_t::ENCODING);
@@ -692,7 +692,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			asn1::reader_t outside(field.content);
 			// Объект разобранного набора расширений
 			asn1::element_t items;
-			// Выполняем разбор набора расширений
+			// Разбор набора расширений
 			if(!outside.next(asn1::tag_t::SEQUENCE, items))
 				// Запоминаем причину отказа
 				return (this->_error = error_t::ENCODING);
@@ -700,7 +700,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			if(!outside.empty())
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
-			// Выполняем извлечение набора расширений списка
+			// Извлечение набора расширений списка
 			this->_error = extensions(items, this->_extensions);
 			// Если извлечение расширений списка не удалось
 			if(this->_error != error_t::NONE)

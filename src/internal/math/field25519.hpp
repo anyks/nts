@@ -449,7 +449,7 @@ namespace nts {
 					static __ANTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
 						// Адрес итога: берётся из памяти в конце, регистров под него нет
 						uint64_t * const hp = result.limbs;
-						// Выполняем умножение по столбцам на встроенном ассемблере
+						// Умножение по столбцам на встроенном ассемблере
 						__asm__ __volatile__(
 							/* Младшая конечность второго сомножителя и старшие, свёрнутые множителем девятнадцать */
 							"mov   8*0(%[g]), %%r12\n\t"
@@ -629,7 +629,7 @@ namespace nts {
 					static __ANTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
 						// Адрес итога: берётся из памяти в конце, регистров под него нет
 						uint64_t * const hp = result.limbs;
-						// Выполняем возведение в квадрат по столбцам на встроенном ассемблере
+						// Возведение в квадрат по столбцам на встроенном ассемблере
 						__asm__ __volatile__(
 							/* Свёрнутые множителем девятнадцать старшие конечности и удвоенная младшая */
 							"imulq $19, 8*4(%[g]), %%r15\n\t"
@@ -772,7 +772,7 @@ namespace nts {
 					static __ANTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
 						// Адрес итога: берётся из памяти в конце, регистров под него нет
 						uint64_t * const hp = result.limbs;
-						// Выполняем умножение на множитель по столбцам на встроенном ассемблере
+						// Умножение на множитель по столбцам на встроенном ассемблере
 						__asm__ __volatile__(
 							/* Произведения конечностей на множитель столбцами попеременно в две пары */
 							"mov  8*0(%[g]), %%rax\n\t"
@@ -895,7 +895,7 @@ namespace nts {
 					static __ANTS_INLINE__ void step(ladder_t & frame, const uint64_t flag) noexcept {
 						// Маска обмена: все разряды по признаку
 						const uint64_t mask = (0 - (flag & 1));
-						// Выполняем шаг лестницы на встроенном ассемблере
+						// Шаг лестницы на встроенном ассемблере
 						__asm__ __volatile__(
 							/* обмен x2/x3 и z2/z3 по маске, first = x3 - z3, second = x2 - z2, x2 = x2 + z2, z2 = x3 + z3 */
 							"mov  0(%[base]), %%rax\n\t"
@@ -2513,7 +2513,7 @@ namespace nts {
 					 *
 					 */
 					static __ANTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
-						// Выполняем умножение на встроенном ассемблере с командами переносов
+						// Умножение на встроенном ассемблере с командами переносов
 						__asm__ __volatile__(
 							/* Ряд младшего слова первого сомножителя */
 							"mov   8*0(%[f]), %%rdx\n\t"
@@ -2614,7 +2614,7 @@ namespace nts {
 					 *
 					 */
 					static __ANTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
-						// Выполняем возведение в квадрат на встроенном ассемблере с командами переносов
+						// Возведение в квадрат на встроенном ассемблере с командами переносов
 						__asm__ __volatile__(
 							/* Произведения разных слов */
 							"mov   8*0(%[f]), %%rdx\n\t"

@@ -51,7 +51,7 @@ namespace {
 	 */
 	static constexpr size_t EK = 1184, DK = 2400, CT = 1088, SS = 32, SEED = 64, M = 32, X = 32;
 	/**
-	 * @brief Признак составного механизма
+	 * @brief Функция Признак составного механизма
 	 *
 	 * @param kem механизм
 	 * @return    признак
@@ -62,7 +62,7 @@ namespace {
 		return (kem == nts::noise::kem_t::X25519MLKEM768);
 	}
 	/**
-	 * @brief Признак поддержанного механизма
+	 * @brief Функция Признак поддержанного механизма
 	 *
 	 * @param kem механизм
 	 * @return    признак
@@ -97,15 +97,15 @@ size_t nts::noise::kemlength(const kem_t kem, const part_t part) noexcept {
 		case part_t::PUBLIC: return (EK + extra);
 		// Закрытый ключ
 		case part_t::SECRET: return (DK + extra);
-		// Шифртекст
+		// Часть шифртекста
 		case part_t::CIPHERTEXT: return (CT + extra);
 		// Общий секрет
 		case part_t::SHARED: return (SS + extra);
-		// Зерно
+		// Часть зерна
 		case part_t::SEED: return (SEED + extra);
 		// Случайность упаковки
 		case part_t::COINS: return (M + extra);
-		// Прочее
+		// Прочие части набора
 		default: return 0;
 	}
 }
@@ -157,7 +157,7 @@ bool nts::noise::kemgenerate(const kem_t kem, uint8_t * key, uint8_t * secret) n
 	if(!known(kem))
 		// Выводим отрицательный результат - механизм негоден
 		return false;
-	// Зерно
+	// Зерно набора
 	uint8_t seed[KEM_SEED_MAX];
 	// Берём зерно из энтропии
 	if(!entropy::bytes(seed, kemlength(kem, part_t::SEED)))
@@ -219,7 +219,7 @@ bool nts::noise::encapsulate(const kem_t kem, const view_t & key, uint8_t * ciph
 	if(!known(kem))
 		// Выводим отрицательный результат - механизм негоден
 		return false;
-	// Случайность
+	// Случайность упаковки
 	uint8_t coins[KEM_SHARED_MAX];
 	// Берём случайность из энтропии
 	if(!entropy::bytes(coins, kemlength(kem, part_t::COINS)))

@@ -258,7 +258,7 @@ namespace {
 	static __ANTS_INLINE__ void passSteps(uint32_t & al, uint32_t & bl, uint32_t & cl, uint32_t & dl, uint32_t & el,
 	                                      uint32_t & ar, uint32_t & br, uint32_t & cr, uint32_t & dr, uint32_t & er,
 	                                      const uint32_t * message, const std::index_sequence <STEP...> &) noexcept {
-		// Выполняем шаг обоих потоков для каждого номера шага: потоки независимы и идут вперемежку
+		// Шаг обоих потоков для каждого номера шага: потоки независимы и идут вперемежку
 		((leftStep <STEP> (al, bl, cl, dl, el, message), rightStep <STEP> (ar, br, cr, dr, er, message)), ...);
 	}
 };
@@ -318,7 +318,7 @@ void nts::digest::Ripemd::reset() noexcept {
 	for(size_t i = 0; i < 5; i++)
 		// Переносим очередное начальное значение
 		this->_hash[i] = H[i];
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
 }
 /**
@@ -365,7 +365,7 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 		left -= taken;
 		// Если блок набрался целиком
 		if(this->_size == 64){
-			// Выполняем разбор накопленного блока
+			// Разбор накопленного блока
 			this->compress(this->_block);
 			// Сбрасываем число байтов незавершённого блока
 			this->_size = 0;
@@ -376,7 +376,7 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 	 * Выполняем разбор целых блоков куска прямо из него
 	 */
 	while(left >= 64){
-		// Выполняем разбор очередного блока куска
+		// Разбор очередного блока куска
 		this->compress(cursor);
 		// Сдвигаем позицию чтения куска
 		cursor += 64;
@@ -417,7 +417,7 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 		for(size_t i = this->_size; i < 64; i++)
 			// Записываем очередной нулевой байт
 			this->_block[i] = 0;
-		// Выполняем разбор дополненного блока
+		// Разбор дополненного блока
 		this->compress(this->_block);
 		// Сбрасываем число байтов незавершённого блока
 		this->_size = 0;
@@ -432,7 +432,7 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 	store(static_cast <uint32_t> (bits), this->_block + 56);
 	// Записываем старшую половину длины сообщения от младшего байта
 	store(static_cast <uint32_t> (bits >> 32), this->_block + 60);
-	// Выполняем разбор последнего блока
+	// Разбор последнего блока
 	this->compress(this->_block);
 	/**
 	 * Выполняем запись слов хеша от младшего байта
@@ -440,9 +440,9 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 	for(size_t i = 0; i < 5; i++)
 		// Записываем очередное слово хеша
 		store(this->_hash[i], result + (i * 4));
-	// Выполняем затирание значения хеша
+	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
 	// Сбрасываем число байтов незавершённого блока
 	this->_size = 0;
@@ -456,7 +456,7 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
  *
  */
 nts::digest::Ripemd::Ripemd() noexcept : _finished(true), _size(0), _count(0) {
-	// Выполняем сброс состояния хеширования
+	// Сброс состояния хеширования
 	this->reset();
 }
 /**
@@ -464,9 +464,9 @@ nts::digest::Ripemd::Ripemd() noexcept : _finished(true), _size(0), _count(0) {
  *
  */
 nts::digest::Ripemd::~Ripemd() noexcept {
-	// Выполняем затирание значения хеша
+	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
-	// Выполняем затирание накопителя незавершённого блока
+	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
 }
 

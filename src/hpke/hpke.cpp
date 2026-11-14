@@ -191,7 +191,7 @@ namespace {
 		 * оно годится, для усечённой Keccak-p[1600, 12] TurboSHAKE остаётся переносимая ветвь
 		 */
 		#if(defined(__ANTS_KECCAK_X86_64__) || defined(__ANTS_KECCAK_AARCH64__)) && 0
-			// Выполняем перестановку ядром от конца таблицы констант
+			// Перестановка ядром от конца таблицы констант
 			digest::kernel::keccak(state, KECCAK_IOTA + (KECCAK_ROUNDS - rounds));
 		/**
 		 * Переносимая перестановка
@@ -342,7 +342,7 @@ namespace {
 			while(left > 0){
 				// Если блок заполнен
 				if(filled == rate){
-					// Выполняем перестановку состояния
+					// Перестановка состояния
 					permute(state, rounds);
 					// Сбрасываем счётчик байтов незавершённого блока
 					filled = 0;
@@ -367,7 +367,7 @@ namespace {
 		state[filled / 8] ^= (static_cast <uint64_t> (0x1F) << ((filled % 8) * 8));
 		// Складываем разряд окончания дополнения с последней полосой блока
 		state[(rate - 1) / 8] ^= (static_cast <uint64_t> (0x80) << (((rate - 1) % 8) * 8));
-		// Выполняем перестановку состояния
+		// Перестановка состояния
 		permute(state, rounds);
 		// Число выжатых из блока байтов
 		size_t offset = 0;
@@ -379,7 +379,7 @@ namespace {
 		while(left > 0){
 			// Если блок выжат целиком
 			if(offset == rate){
-				// Выполняем перестановку состояния
+				// Перестановка состояния
 				permute(state, rounds);
 				// Сбрасываем счётчик выжатых из блока байтов
 				offset = 0;
@@ -1094,7 +1094,7 @@ namespace {
 			case static_cast <uint16_t> (kem_t::P256_HKDF_SHA256):
 			case static_cast <uint16_t> (kem_t::P384_HKDF_SHA384):
 			case static_cast <uint16_t> (kem_t::P521_HKDF_SHA512): {
-				// Кривая
+				// Кривая набора
 				curve::curve_t curve;
 				// Если параметры кривой не найдены
 				if(!curve::parameters(curveoid(kem), curve))
@@ -1142,7 +1142,7 @@ namespace {
 					if(order.load(view_t(candidate, size), value) && !order.zero(value)){
 						// Открытый ключ
 						curve::point_t opened;
-						// Выполняем умножение образующей точки на секретный ключ
+						// Умножение образующей точки на секретный ключ
 						curve.product(value, opened);
 						// Координаты открытого ключа старшим байтом вперёд
 						uint8_t first[math::NUMBER_SIZE], second[math::NUMBER_SIZE];
@@ -1196,7 +1196,7 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ bool exchange(const kem_t kem, const view_t & secret, const view_t & peer, uint8_t * result) noexcept {
-		// Кривая
+		// Кривая набора
 		curve::curve_t curve;
 		// Если параметры кривой не найдены либо точка не в несжатом виде
 		if(!curve::parameters(curveoid(kem), curve) || (peer.data == nullptr) || (peer.size != (1 + (2 * curve.size()))) || (peer.data[0] != 0x04))
@@ -1238,7 +1238,7 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ bool publish(const kem_t kem, const view_t & secret, uint8_t * point) noexcept {
-		// Кривая
+		// Кривая набора
 		curve::curve_t curve;
 		// Если параметры кривой не найдены
 		if(!curve::parameters(curveoid(kem), curve))
@@ -1256,7 +1256,7 @@ namespace {
 		if(status){
 			// Открытый ключ
 			curve::point_t opened;
-			// Выполняем умножение образующей точки на секретный ключ
+			// Умножение образующей точки на секретный ключ
 			curve.product(value, opened);
 			// Координаты открытого ключа старшим байтом вперёд
 			uint8_t first[math::NUMBER_SIZE], second[math::NUMBER_SIZE];
@@ -1319,7 +1319,7 @@ namespace {
 	 *
 	 */
 	static __ANTS_INLINE__ bool pick(const kem_t kem, const view_t & seed, uint8_t * result) noexcept {
-		// Кривая
+		// Кривая набора
 		curve::curve_t curve;
 		// Если параметры кривой не найдены
 		if(!curve::parameters(curveoid(kem), curve))
@@ -1831,7 +1831,7 @@ nts::hpke::error_t nts::hpke::Key::generate(const kem_t kem) noexcept {
 		case static_cast <uint16_t> (kem_t::P256_HKDF_SHA256):
 		case static_cast <uint16_t> (kem_t::P384_HKDF_SHA384):
 		case static_cast <uint16_t> (kem_t::P521_HKDF_SHA512): {
-			// Кривая
+			// Кривая набора
 			curve::curve_t curve;
 			// Если параметры кривой не найдены
 			if(!curve::parameters(curveoid(kem), curve))

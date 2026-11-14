@@ -95,7 +95,7 @@ namespace {
 			cipher::expand0(&state, sha2salt, SHA512_SIZE);
 			cipher::expand0(&state, sha2pass, SHA512_SIZE);
 		}
-		// Шифрование
+		// Шифрование массива Экс блока
 		size_t j = 0;
 		/**
 		 * Выполняем перебор слов накопителя шифртекста
@@ -122,7 +122,7 @@ namespace {
 			// Младший байт слова
 			out[4 * i + 0] = cdata[i] & 0xff;
 		}
-		// Затирание
+		// Затирание шифртекста
 		wipe(ciphertext, sizeof(ciphertext));
 		wipe(cdata, sizeof(cdata));
 		wipe(&state, sizeof(state));
@@ -239,7 +239,7 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 		// Вычитаем перенесённые байты из остатка ключа
 		remaining -= i;
 	}
-	// Затирание
+	// Затирание пароля
 	wipe(sha2pass, sizeof(sha2pass));
 	wipe(sha2salt, sizeof(sha2salt));
 	wipe(out, sizeof(out));

@@ -466,7 +466,7 @@ namespace {
 			key.d.assign(privkey.data(), privkey.data() + 32);
 			// Запоминаем открытую часть ключа
 			key.key = pubkey;
-			// Выполняем затирание секрета
+			// Затирание секрета
 			wipe(privkey.data(), privkey.size());
 			// Выводим признак успешности разбора
 			return true;
@@ -512,7 +512,7 @@ namespace {
 			privkey.insert(privkey.end(), key.key.begin(), key.key.end());
 			// Записываем секретный ключ
 			writer.add(privkey);
-			// Выполняем затирание секрета
+			// Затирание секрета
 			wipe(privkey.data(), privkey.size());
 			// Записываем комментарий
 			writer.add(comment);
@@ -660,7 +660,7 @@ bool nts::keys::ssh::knownHostsMatch(const known_host_t & record, const string &
 	for(size_t i = 0; i < width; i++)
 		// Накапливаем расхождение
 		diff |= static_cast <uint8_t> (computed[i] ^ record.hash[i]);
-	// Выполняем затирание вычисленного хеша
+	// Затирание вычисленного хеша
 	::wipe(computed, sizeof(computed));
 	// Хозяин совпадает при нулевом расхождении
 	return (diff == 0);
@@ -817,14 +817,14 @@ bool nts::keys::ssh::knownHosts(const string & host, const key_t & key, const st
 			uint8_t hash[20];
 			// Если хеш вычислить не удалось
 			if(!digest::hmac(digest::hash_t::SHA1, view_t(salt, sizeof(salt)), view_t(reinterpret_cast <const uint8_t *> (host.data()), host.size()), hash, sizeof(hash))){
-				// Выполняем затирание соли
+				// Затирание соли
 				::wipe(salt, sizeof(salt));
 				// Выводим отказ сборки
 				return false;
 			}
 			// Собираем маркер хеширования
 			beginning = ("|1|" + ::base64Encode(salt, sizeof(salt)) + "|" + ::base64Encode(hash, sizeof(hash)));
-			// Выполняем затирание рабочих областей
+			// Затирание рабочих областей
 			::wipe(salt, sizeof(salt));
 			::wipe(hash, sizeof(hash));
 		// Иначе хозяин открытым текстом, запоминаем хозяина
@@ -940,7 +940,7 @@ bool nts::keys::ssh::decode(const view_t & data, const view_t & password, key_t 
 		cipher::aes_t aes;
 		// Если ключ шифру установить не удалось
 		if(!aes.key(view_t(enckey, KEY_SIZE))){
-			// Выполняем затирание ключа
+			// Затирание ключа
 			::wipe(enckey, sizeof(enckey));
 			// Выводим отказ разбора
 			return false;
@@ -957,7 +957,7 @@ bool nts::keys::ssh::decode(const view_t & data, const view_t & password, key_t 
 		for(size_t off = 0; off < privblock.size(); off += IV_SIZE){
 			// Если гамму выработать не удалось
 			if(!aes.encrypt(counter, gamma)){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				::wipe(enckey, sizeof(enckey));
 				// Выводим отказ разбора
 				return false;
@@ -980,7 +980,7 @@ bool nts::keys::ssh::decode(const view_t & data, const view_t & password, key_t 
 					break;
 			}
 		}
-		// Выполняем затирание рабочих областей
+		// Затирание рабочих областей
 		::wipe(enckey, sizeof(enckey));
 		::wipe(counter, sizeof(counter));
 		::wipe(gamma, sizeof(gamma));
@@ -992,7 +992,7 @@ bool nts::keys::ssh::decode(const view_t & data, const view_t & password, key_t 
 	reader_t privreader(privblock.data(), privblock.size());
 	// Разбираем секретный блок
 	const bool result = ::parsePrivate(privreader, key, comment);
-	// Выполняем затирание секретного блока
+	// Затирание секретного блока
 	::wipe(privblock.data(), privblock.size());
 	// Выводим признак успешности разбора
 	return result;
@@ -1083,7 +1083,7 @@ bool nts::keys::ssh::encode(const key_t & key, const string & comment, const vie
 			uint8_t enckey[KEY_SIZE + IV_SIZE];
 			// Если ключ выработать не удалось
 			if(!digest::bcrypt(password, view_t(salt, sizeof(salt)), enckey, sizeof(enckey), DEFAULT_ROUNDS)){
-				// Выполняем затирание секретного блока
+				// Затирание секретного блока
 				::wipe(privblock.data(), privblock.size());
 				// Выводим отказ записи
 				return false;
@@ -1092,9 +1092,9 @@ bool nts::keys::ssh::encode(const key_t & key, const string & comment, const vie
 			cipher::aes_t aes;
 			// Если ключ шифру установить не удалось
 			if(!aes.key(view_t(enckey, KEY_SIZE))){
-				// Выполняем затирание ключа
+				// Затирание ключа
 				::wipe(enckey, sizeof(enckey));
-				// Выполняем затирание секретного блока
+				// Затирание секретного блока
 				::wipe(privblock.data(), privblock.size());
 				// Выводим отказ записи
 				return false;
@@ -1111,9 +1111,9 @@ bool nts::keys::ssh::encode(const key_t & key, const string & comment, const vie
 			for(size_t off = 0; off < privblock.size(); off += IV_SIZE){
 				// Если гамму выработать не удалось
 				if(!aes.encrypt(counter, gamma)){
-					// Выполняем затирание ключа
+					// Затирание ключа
 					::wipe(enckey, sizeof(enckey));
-					// Выполняем затирание секретного блока
+					// Затирание секретного блока
 					::wipe(privblock.data(), privblock.size());
 					// Выводим отказ записи
 					return false;
@@ -1136,14 +1136,14 @@ bool nts::keys::ssh::encode(const key_t & key, const string & comment, const vie
 						break;
 				}
 			}
-			// Выполняем затирание рабочих областей
+			// Затирание рабочих областей
 			::wipe(enckey, sizeof(enckey));
 			::wipe(counter, sizeof(counter));
 			::wipe(gamma, sizeof(gamma));
 		}
 		// Записываем секретный блок
 		writer.add(privblock);
-		// Выполняем затирание секретного блока
+		// Затирание секретного блока
 		::wipe(privblock.data(), privblock.size());
 		// Выводим признак успешности записи
 		return true;

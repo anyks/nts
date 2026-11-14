@@ -86,7 +86,7 @@
 				 *
 				 */
 				static void poly1305avx2(uint64_t * lanes, const uint32_t * accumulator, const uint64_t * table, const uint8_t * data, size_t count) noexcept {
-					// Выполняем сложение четвёрок блоков ядром AVX2
+					// Сложение четвёрок блоков ядром AVX2
 					__asm__ __volatile__(
 						"vmovd 0(%[acc]), %%xmm0\n\t"
 						"vmovd 4(%[acc]), %%xmm1\n\t"

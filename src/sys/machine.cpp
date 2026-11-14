@@ -300,7 +300,7 @@ namespace {
 		#elif defined(_MSC_VER) && defined(_M_X64)
 			// Регистры опроса процессора
 			int regs[4] = {0, 0, 0, 0};
-			// Выполняем опрос первого листа процессора
+			// Опрос первого листа процессора
 			::__cpuid(regs, 1);
 			// Значение ECX первого листа опроса
 			const unsigned int first = static_cast <unsigned int> (regs[2]);
@@ -322,7 +322,7 @@ namespace {
 			if(first & (1U << 22))
 				// Записываем разряд расширения
 				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::MOVBE));
-			// Выполняем опрос седьмого листа процессора
+			// Опрос седьмого листа процессора
 			::__cpuidex(regs, 7, 0);
 			// Значение EBX седьмого листа опроса
 			const unsigned int seventh = static_cast <unsigned int> (regs[1]);

@@ -520,9 +520,9 @@ namespace {
 			 * Выполняем внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
 			 */
 			for(size_t round = 0; (round + 1) < rounds; round++)
-			// Выполняем раунд командами AESE и AESMC
+			// Раунд командами AESE и AESMC
 			state = vaesmcq_u8(vaeseq_u8(state, vld1q_u8(keys + (round * 16))));
-			// Выполняем последний раунд без перемешивания и складываем с последним ключом
+			// Последний раунд без перемешивания и складываем с последним ключом
 			state = veorq_u8(vaeseq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
 			// Записываем зашифрованный блок
 			vst1q_u8(result, state);
@@ -543,9 +543,9 @@ namespace {
 			 * Выполняем внутренние раунды: ключи расшифрования уже пропущены через обратное перемешивание
 			 */
 			for(size_t round = 0; (round + 1) < rounds; round++)
-			// Выполняем раунд командами AESD и AESIMC
+			// Раунд командами AESD и AESIMC
 			state = vaesimcq_u8(vaesdq_u8(state, vld1q_u8(keys + (round * 16))));
-			// Выполняем последний раунд без перемешивания и складываем с последним ключом
+			// Последний раунд без перемешивания и складываем с последним ключом
 			state = veorq_u8(vaesdq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
 			// Записываем расшифрованный блок
 			vst1q_u8(result, state);
@@ -570,9 +570,9 @@ namespace {
 			 * Выполняем внутренние раунды командой AESENC
 			 */
 			for(size_t round = 1; round < rounds; round++)
-			// Выполняем очередной раунд
+			// Очередной раунд
 			state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
-			// Выполняем последний раунд командой AESENCLAST
+			// Последний раунд командой AESENCLAST
 			state = _mm_aesenclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
 			// Записываем зашифрованный блок
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result), state);
@@ -593,9 +593,9 @@ namespace {
 			 * Выполняем внутренние раунды командой AESDEC
 			 */
 			for(size_t round = 1; round < rounds; round++)
-			// Выполняем очередной раунд
+			// Очередной раунд
 			state = _mm_aesdec_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
-			// Выполняем последний раунд командой AESDECLAST
+			// Последний раунд командой AESDECLAST
 			state = _mm_aesdeclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
 			// Записываем расшифрованный блок
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (result), state);
@@ -657,7 +657,7 @@ namespace {
 	#endif
 
 	/**
-	 * @brief Круг шифрования таблицами: четыре слова состояния в четыре новых
+	 * @brief Функция Круг шифрования таблицами: четыре слова состояния в четыре новых
 	 *
 	 * @param s0  первое слово состояния
 	 * @param s1  второе слово состояния
@@ -681,7 +681,7 @@ namespace {
 		t3 = (TABLES.te[0][s3 >> 24] ^ TABLES.te[1][(s0 >> 16) & 0xFF] ^ TABLES.te[2][(s1 >> 8) & 0xFF] ^ TABLES.te[3][s2 & 0xFF] ^ key[3]);
 	}
 	/**
-	 * @brief Последний круг шифрования таблицами: подстановка байтов
+	 * @brief Функция Последний круг шифрования таблицами: подстановка байтов
 	 *
 	 * @param s0  первое слово состояния
 	 * @param s1  второе слово состояния
@@ -705,7 +705,7 @@ namespace {
 		g3 = (((static_cast <word_t> (TABLES.sbox[s3 >> 24]) << 24) | (static_cast <word_t> (TABLES.sbox[(s0 >> 16) & 0xFF]) << 16) | (static_cast <word_t> (TABLES.sbox[(s1 >> 8) & 0xFF]) << 8) | static_cast <word_t> (TABLES.sbox[s2 & 0xFF])) ^ key[3]);
 	}
 	/**
-	 * @brief Круг расшифрования таблицами: четыре слова состояния в четыре новых
+	 * @brief Функция Круг расшифрования таблицами: четыре слова состояния в четыре новых
 	 *
 	 * @param s0  первое слово состояния
 	 * @param s1  второе слово состояния
@@ -729,7 +729,7 @@ namespace {
 		t3 = (TABLES.td[0][s3 >> 24] ^ TABLES.td[1][(s2 >> 16) & 0xFF] ^ TABLES.td[2][(s1 >> 8) & 0xFF] ^ TABLES.td[3][s0 & 0xFF] ^ key[3]);
 	}
 	/**
-	 * @brief Последний круг расшифрования таблицами: обратная подстановка
+	 * @brief Функция Последний круг расшифрования таблицами: обратная подстановка
 	 *
 	 * @param s0  первое слово состояния
 	 * @param s1  второе слово состояния
@@ -774,7 +774,7 @@ namespace {
 		s0 ^= keys[0], s1 ^= keys[1], s2 ^= keys[2], s3 ^= keys[3];
 		// Второе состояние пары кругов
 		word_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
-		// Выполняем полные круги парами от начального состояния
+		// Полные круги парами от начального состояния
 		sealRound(s0, s1, s2, s3, keys + 4, t0, t1, t2, t3);
 		sealRound(t0, t1, t2, t3, keys + 8, s0, s1, s2, s3);
 		sealRound(s0, s1, s2, s3, keys + 12, t0, t1, t2, t3);
@@ -786,13 +786,13 @@ namespace {
 		sealRound(s0, s1, s2, s3, keys + 36, t0, t1, t2, t3);
 		// Если кругов больше десяти (AES-192 и AES-256)
 		if(ROUNDS > 10){
-			// Выполняем круги десять и одиннадцать
+			// Круги десять и одиннадцать
 			sealRound(t0, t1, t2, t3, keys + 40, s0, s1, s2, s3);
 			sealRound(s0, s1, s2, s3, keys + 44, t0, t1, t2, t3);
 		}
 		// Если кругов больше двенадцати (AES-256)
 		if(ROUNDS > 12){
-			// Выполняем круги двенадцать и тринадцать
+			// Круги двенадцать и тринадцать
 			sealRound(t0, t1, t2, t3, keys + 48, s0, s1, s2, s3);
 			sealRound(s0, s1, s2, s3, keys + 52, t0, t1, t2, t3);
 		}
@@ -817,7 +817,7 @@ namespace {
 		s0 ^= keys[0], s1 ^= keys[1], s2 ^= keys[2], s3 ^= keys[3];
 		// Второе состояние пары кругов
 		word_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
-		// Выполняем полные круги парами от начального состояния
+		// Полные круги парами от начального состояния
 		openRound(s0, s1, s2, s3, keys + 4, t0, t1, t2, t3);
 		openRound(t0, t1, t2, t3, keys + 8, s0, s1, s2, s3);
 		openRound(s0, s1, s2, s3, keys + 12, t0, t1, t2, t3);
@@ -829,13 +829,13 @@ namespace {
 		openRound(s0, s1, s2, s3, keys + 36, t0, t1, t2, t3);
 		// Если кругов больше десяти (AES-192 и AES-256)
 		if(ROUNDS > 10){
-			// Выполняем круги десять и одиннадцать
+			// Круги десять и одиннадцать
 			openRound(t0, t1, t2, t3, keys + 40, s0, s1, s2, s3);
 			openRound(s0, s1, s2, s3, keys + 44, t0, t1, t2, t3);
 		}
 		// Если кругов больше двенадцати (AES-256)
 		if(ROUNDS > 12){
-			// Выполняем круги двенадцать и тринадцать
+			// Круги двенадцать и тринадцать
 			openRound(t0, t1, t2, t3, keys + 48, s0, s1, s2, s3);
 			openRound(s0, s1, s2, s3, keys + 52, t0, t1, t2, t3);
 		}
@@ -843,7 +843,7 @@ namespace {
 		openLast(t0, t1, t2, t3, keys + (ROUNDS * 4), s0, s1, s2, s3);
 	}
 	/**
-	 * @brief Круг шифрования таблицами четырёх блоков разом
+	 * @brief Функция Круг шифрования таблицами четырёх блоков разом
 	 *
 	 * @param key ключ круга
 	 * @param a0…a3 слова состояния блока
@@ -891,7 +891,7 @@ namespace {
 		d0 ^= keys[0], d1 ^= keys[1], d2 ^= keys[2], d3 ^= keys[3];
 		// Вторые состояния пары кругов
 		word_t x0 = 0, x1 = 0, x2 = 0, x3 = 0, y0 = 0, y1 = 0, y2 = 0, y3 = 0, z0 = 0, z1 = 0, z2 = 0, z3 = 0, w0 = 0, w1 = 0, w2 = 0, w3 = 0;
-		// Выполняем полные круги парами четырёх блоков
+		// Полные круги парами четырёх блоков
 		sealMany(keys + 4, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3);
 		sealMany(keys + 8, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3);
 		sealMany(keys + 12, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3);
@@ -903,13 +903,13 @@ namespace {
 		sealMany(keys + 36, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3);
 		// Если кругов больше десяти (AES-192 и AES-256)
 		if(ROUNDS > 10){
-			// Выполняем круги десять и одиннадцать четырёх блоков
+			// Круги десять и одиннадцать четырёх блоков
 			sealMany(keys + 40, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3);
 			sealMany(keys + 44, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3);
 		}
 		// Если кругов больше двенадцати (AES-256)
 		if(ROUNDS > 12){
-			// Выполняем круги двенадцать и тринадцать четырёх блоков
+			// Круги двенадцать и тринадцать четырёх блоков
 			sealMany(keys + 48, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3);
 			sealMany(keys + 52, a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3, x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, w0, w1, w2, w3);
 		}
@@ -1009,9 +1009,9 @@ namespace {
 				 * Выполняем внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
 				 */
 				for(size_t round = 0; (round + 1) < rounds; round++)
-				// Выполняем раунд командами AESE и AESMC
+				// Раунд командами AESE и AESMC
 				state = vaesmcq_u8(vaeseq_u8(state, vld1q_u8(keys + (round * 16))));
-				// Выполняем последний раунд без перемешивания и складываем с последним ключом
+				// Последний раунд без перемешивания и складываем с последним ключом
 				state = veorq_u8(vaeseq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
 				// Записываем шифрблок на место итога
 				vst1q_u8(result + (b << 4), state);
@@ -1076,7 +1076,7 @@ namespace {
 				 * Выполняем внутренние круги спаренными командами подстановки и перемешивания
 				 */
 				((state = vaesmcq_u8(vaeseq_u8(state, round[I]))), ...);
-				// Выполняем последний круг без перемешивания и складываем с ключом отбеливания
+				// Последний круг без перемешивания и складываем с ключом отбеливания
 				state = veorq_u8(vaeseq_u8(state, round[ROUNDS - 1]), round[ROUNDS]);
 				// Записываем шифрблок на место итога
 				vst1q_u8(result + (b << 4), state);
@@ -1115,9 +1115,9 @@ namespace {
 				 * Выполняем внутренние раунды командой AESENC
 				 */
 				for(size_t round = 1; round < rounds; round++)
-				// Выполняем очередной раунд
+				// Очередной раунд
 				state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
-				// Выполняем последний раунд командой AESENCLAST
+				// Последний раунд командой AESENCLAST
 				state = _mm_aesenclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
 				// Записываем шифрблок на место итога
 				_mm_storeu_si128(reinterpret_cast <__m128i *> (result + (b << 4)), state);
@@ -1315,21 +1315,21 @@ namespace {
 				for(size_t round = 0; (round + 1) < rounds; round++){
 					// Ключ круга
 					const uint8x16_t key = vld1q_u8(keys + (round * 16));
-					// Выполняем круг для каждого блока
+					// Круг для каждого блока
 					s0 = vaesmcq_u8(vaeseq_u8(s0, key));
-					// Выполняем круг для второго блока
+					// Круг для второго блока
 					s1 = vaesmcq_u8(vaeseq_u8(s1, key));
-					// Выполняем круг для третьего блока
+					// Круг для третьего блока
 					s2 = vaesmcq_u8(vaeseq_u8(s2, key));
-					// Выполняем круг для четвёртого блока
+					// Круг для четвёртого блока
 					s3 = vaesmcq_u8(vaeseq_u8(s3, key));
-					// Выполняем круг для пятого блока
+					// Круг для пятого блока
 					s4 = vaesmcq_u8(vaeseq_u8(s4, key));
-					// Выполняем круг для шестого блока
+					// Круг для шестого блока
 					s5 = vaesmcq_u8(vaeseq_u8(s5, key));
-					// Выполняем круг для седьмого блока
+					// Круг для седьмого блока
 					s6 = vaesmcq_u8(vaeseq_u8(s6, key));
-					// Выполняем круг для восьмого блока
+					// Круг для восьмого блока
 					s7 = vaesmcq_u8(vaeseq_u8(s7, key));
 				}
 				// Ключ последнего круга
@@ -1397,7 +1397,7 @@ namespace {
 				// Уменьшаем число оставшихся блоков
 				left--;
 			}
-			// Выполняем затирание счётчика
+			// Затирание счётчика
 			wipe(current, sizeof(current));
 		}
 	/**
@@ -1508,21 +1508,21 @@ namespace {
 				for(size_t round = 1; round < rounds; round++){
 					// Ключ круга
 					const __m128i key = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16)));
-					// Выполняем круг для каждого блока
+					// Круг для каждого блока
 					s0 = _mm_aesenc_si128(s0, key);
-					// Выполняем круг для второго блока
+					// Круг для второго блока
 					s1 = _mm_aesenc_si128(s1, key);
-					// Выполняем круг для третьего блока
+					// Круг для третьего блока
 					s2 = _mm_aesenc_si128(s2, key);
-					// Выполняем круг для четвёртого блока
+					// Круг для четвёртого блока
 					s3 = _mm_aesenc_si128(s3, key);
-					// Выполняем круг для пятого блока
+					// Круг для пятого блока
 					s4 = _mm_aesenc_si128(s4, key);
-					// Выполняем круг для шестого блока
+					// Круг для шестого блока
 					s5 = _mm_aesenc_si128(s5, key);
-					// Выполняем круг для седьмого блока
+					// Круг для седьмого блока
 					s6 = _mm_aesenc_si128(s6, key);
-					// Выполняем круг для восьмого блока
+					// Круг для восьмого блока
 					s7 = _mm_aesenc_si128(s7, key);
 				}
 				// Если гамма накладывается на исходные данные
@@ -1588,7 +1588,7 @@ namespace {
 				// Уменьшаем число оставшихся блоков
 				left--;
 			}
-			// Выполняем затирание счётчика
+			// Затирание счётчика
 			wipe(current, sizeof(current));
 		}
 	#endif
@@ -1612,7 +1612,7 @@ bool nts::cipher::Aes::ready() const noexcept {
  *
  */
 bool nts::cipher::Aes::key(const view_t & key) noexcept {
-	// Выполняем сброс прежнего ключа
+	// Сброс прежнего ключа
 	this->clear();
 	// Если ключ не передан либо его длина не из дозволенных
 	if((key.data == nullptr) || ((key.size != 16) && (key.size != 24) && (key.size != 32)))
@@ -1691,13 +1691,13 @@ void nts::cipher::Aes::clear() noexcept {
 	this->_ready = false;
 	// Сбрасываем число раундов
 	this->_rounds = 0;
-	// Выполняем затирание ключей зашифрования
+	// Затирание ключей зашифрования
 	wipe(this->_encryption, sizeof(this->_encryption));
-	// Выполняем затирание ключей расшифрования
+	// Затирание ключей расшифрования
 	wipe(this->_decryption, sizeof(this->_decryption));
-	// Выполняем затирание байтовых ключей зашифрования
+	// Затирание байтовых ключей зашифрования
 	wipe(this->_sealing, sizeof(this->_sealing));
-	// Выполняем затирание байтовых ключей расшифрования
+	// Затирание байтовых ключей расшифрования
 	wipe(this->_opening, sizeof(this->_opening));
 }
 /**
@@ -1719,7 +1719,7 @@ bool nts::cipher::Aes::encrypt(const uint8_t * source, uint8_t * result) const n
 	#if defined(__ANTS_AES_ARM__)
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
-			// Выполняем зашифрование командами
+			// Зашифрование командами
 			sealArm(this->_sealing, this->_rounds, source, result);
 			// Выводим успешность зашифрования
 			return true;
@@ -1730,7 +1730,7 @@ bool nts::cipher::Aes::encrypt(const uint8_t * source, uint8_t * result) const n
 	#elif defined(__ANTS_AES_X86__)
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
-			// Выполняем зашифрование командами
+			// Зашифрование командами
 			sealX86(this->_sealing, this->_rounds, source, result);
 			// Выводим успешность зашифрования
 			return true;
@@ -1842,7 +1842,7 @@ bool nts::cipher::Aes::decrypt(const uint8_t * source, uint8_t * result) const n
 	#if defined(__ANTS_AES_ARM__)
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
-			// Выполняем расшифрование командами
+			// Расшифрование командами
 			openArm(this->_opening, this->_rounds, source, result);
 			// Выводим успешность расшифрования
 			return true;
@@ -1853,7 +1853,7 @@ bool nts::cipher::Aes::decrypt(const uint8_t * source, uint8_t * result) const n
 	#elif defined(__ANTS_AES_X86__)
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
-			// Выполняем расшифрование командами
+			// Расшифрование командами
 			openX86(this->_opening, this->_rounds, source, result);
 			// Выводим успешность расшифрования
 			return true;
@@ -1895,7 +1895,7 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, cons
 	#if defined(__ANTS_AES_ARM__)
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
-			// Выполняем выработку гаммы командами
+			// Выработка гаммы командами
 			streamArm(this->_sealing, this->_rounds, counter, blocks, source, result);
 			// Выводим успешность выработки
 			return true;
@@ -1906,7 +1906,7 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, cons
 	#elif defined(__ANTS_AES_X86__)
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
-			// Выполняем выработку гаммы командами
+			// Выработка гаммы командами
 			streamX86(this->_sealing, this->_rounds, counter, blocks, source, result);
 			// Выводим успешность выработки
 			return true;
@@ -1960,21 +1960,21 @@ bool nts::cipher::Aes::chain(uint8_t * record, const uint8_t * source, const siz
 	#if defined(__ANTS_AES_ARM__)
 	// Если машина шифрует командами
 	if(machine::has(machine::feature_t::AES)){
-		// Выполняем выбор вида цепочки по числу кругов
+		// Выбор вида цепочки по числу кругов
 		if(this->_rounds == 10){
-			// Выполняем зашифрование цепочкой AES-128 ключами из регистров
+			// Зашифрование цепочкой AES-128 ключами из регистров
 			chainArmR <10> (this->_sealing, record, source, size, result, std::make_index_sequence <9> ());
-		// Выполняем зашифрование цепочкой AES-192 ключами из регистров
+		// Зашифрование цепочкой AES-192 ключами из регистров
 		} else if(this->_rounds == 12){
-			// Выполняем зашифрование цепочкой ключами из регистров
+			// Зашифрование цепочкой ключами из регистров
 			chainArmR <12> (this->_sealing, record, source, size, result, std::make_index_sequence <11> ());
-		// Выполняем зашифрование цепочкой AES-256 ключами из регистров
+		// Зашифрование цепочкой AES-256 ключами из регистров
 		} else if(this->_rounds == 14){
-			// Выполняем зашифрование цепочкой ключами из регистров
+			// Зашифрование цепочкой ключами из регистров
 			chainArmR <14> (this->_sealing, record, source, size, result, std::make_index_sequence <13> ());
-		// Выполняем зашифрование цепочкой общим циклом кругов при постороннем их числе
+		// Зашифрование цепочкой общим циклом кругов при постороннем их числе
 		} else {
-			// Выполняем зашифрование цепочкой командами
+			// Зашифрование цепочкой командами
 			chainArm(this->_sealing, this->_rounds, record, source, size, result);
 		}
 		// Выводим успешность зашифрования
@@ -1986,7 +1986,7 @@ bool nts::cipher::Aes::chain(uint8_t * record, const uint8_t * source, const siz
 	#elif defined(__ANTS_AES_X86__)
 	// Если машина шифрует командами
 	if(machine::has(machine::feature_t::AES)){
-		// Выполняем зашифрование цепочкой командами
+		// Зашифрование цепочкой командами
 		chainX86(this->_sealing, this->_rounds, record, source, size, result);
 		// Выводим успешность зашифрования
 		return true;
@@ -2029,7 +2029,7 @@ size_t nts::cipher::Aes::rounds() const noexcept {
  *
  */
 nts::cipher::Aes::Aes() noexcept : _ready(false), _rounds(0) {
-	// Выполняем сброс ключа шифрования
+	// Сброс ключа шифрования
 	this->clear();
 }
 /**
@@ -2037,6 +2037,6 @@ nts::cipher::Aes::Aes() noexcept : _ready(false), _rounds(0) {
  *
  */
 nts::cipher::Aes::~Aes() noexcept {
-	// Выполняем сброс ключа шифрования
+	// Сброс ключа шифрования
 	this->clear();
 }

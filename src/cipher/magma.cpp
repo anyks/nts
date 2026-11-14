@@ -109,7 +109,7 @@ namespace {
 				 * Выполняем перебор возможных значений байта
 				 */
 				for(size_t j = 0; j < 256; j++){
-					// Выполняем подстановку обоих полубайтов значения
+					// Подстановка обоих полубайтов значения
 					const uint32_t item = (static_cast <uint32_t> (PI[i * 2][j & 0x0F]) |
 					                       (static_cast <uint32_t> (PI[(i * 2) + 1][(j >> 4) & 0x0F]) << 4));
 					// Ставим подставленный байт на его место в слове
@@ -146,7 +146,7 @@ namespace {
 		 *
 		 */
 		static __ANTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
-			// Выполняем сложение преобразуемого слова с раундовым ключом
+			// Сложение преобразуемого слова с раундовым ключом
 			const uint32_t item = (value + key);
 			// Выводим итог преобразования, собранный из слагаемых по байтам слова
 			return (TABLES.values[0][item & 0xFF] ^ TABLES.values[1][(item >> 8) & 0xFF] ^
@@ -172,7 +172,7 @@ namespace {
 			 * Выполняем перебор полубайтов преобразуемого слова
 			 */
 			for(size_t i = 0; i < 8; i++)
-			// Выполняем подстановку очередного полубайта слова
+			// Подстановка очередного полубайта слова
 			result |= (static_cast <uint32_t> (PI[i][(value >> (i * 4)) & 0x0F]) << (i * 4));
 			// Выводим слово с подставленными полубайтами
 			return result;
@@ -190,7 +190,7 @@ namespace {
 		 *
 		 */
 		static __ANTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
-			// Выполняем подстановку полубайтов суммы слова и раундового ключа
+			// Подстановка полубайтов суммы слова и раундового ключа
 			const uint32_t item = substitute(value + key);
 			// Выводим итог кругового сдвига подставленного слова
 			return ((item << 11) | (item >> 21));
@@ -326,7 +326,7 @@ bool nts::cipher::Magma::ready() const noexcept {
  *
  */
 bool nts::cipher::Magma::key(const view_t & key) noexcept {
-	// Выполняем затирание прежних раундовых ключей
+	// Затирание прежних раундовых ключей
 	this->clear();
 	// Если ключ шифрования не той длины
 	if((key.data == nullptr) || (key.size != MAGMA_KEY))
@@ -360,7 +360,7 @@ bool nts::cipher::Magma::key(const view_t & key) noexcept {
  *
  */
 void nts::cipher::Magma::clear() noexcept {
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 	// Снимаем признак того, что ключ установлен
 	this->_ready = false;
@@ -378,7 +378,7 @@ bool nts::cipher::Magma::encrypt(const uint8_t * source, uint8_t * result) const
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
 		// Выводим отказ зашифрования
 		return false;
-	// Выполняем преобразование блока раундовыми ключами в прямом порядке
+	// Преобразование блока раундовыми ключами в прямом порядке
 	process(this->_keys, source, result);
 	// Выводим успешность зашифрования
 	return true;
@@ -450,9 +450,9 @@ bool nts::cipher::Magma::decrypt(const uint8_t * source, uint8_t * result) const
 	for(size_t i = 0; i < 32; i++)
 		// Переносим очередной раундовый ключ
 		keys[i] = this->_keys[31 - i];
-	// Выполняем преобразование блока раундовыми ключами в обратном порядке
+	// Преобразование блока раундовыми ключами в обратном порядке
 	process(keys, source, result);
-	// Выполняем затирание набора раундовых ключей
+	// Затирание набора раундовых ключей
 	wipe(keys, sizeof(keys));
 	// Выводим успешность расшифрования
 	return true;
@@ -462,7 +462,7 @@ bool nts::cipher::Magma::decrypt(const uint8_t * source, uint8_t * result) const
  *
  */
 nts::cipher::Magma::Magma() noexcept : _ready(false) {
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	wipe(this->_keys, sizeof(this->_keys));
 }
 /**
@@ -470,6 +470,6 @@ nts::cipher::Magma::Magma() noexcept : _ready(false) {
  *
  */
 nts::cipher::Magma::~Magma() noexcept {
-	// Выполняем затирание раундовых ключей
+	// Затирание раундовых ключей
 	this->clear();
 }

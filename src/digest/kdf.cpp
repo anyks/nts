@@ -101,9 +101,9 @@ bool nts::digest::kdf(const view_t & key, const view_t & label, const view_t & s
 	buffer[offset++] = 0x01;
 	// Записываем младший байт длины вырабатываемого ключа в разрядах
 	buffer[offset++] = 0x00;
-	// Выполняем выработку производного ключа
+	// Выработка производного ключа
 	const bool ok = nts::digest::hmac(type_t::SHORT, key, view_t(buffer, offset), result, KDF_KEY);
-	// Выполняем затирание слитной строки выработки ключа
+	// Затирание слитной строки выработки ключа
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки производного ключа
 	return ok;
@@ -153,7 +153,7 @@ bool nts::digest::snmpv3(const hash_t algorithm, const view_t & password, const 
 	uint8_t key[64];
 	// Если ключ Ku снять не удалось
 	if(!hasher.finish(key, width)){
-		// Выполняем затирание буфера
+		// Затирание буфера
 		wipe(buffer, sizeof(buffer));
 		// Выводим отказ выработки ключа
 		return false;
@@ -168,13 +168,13 @@ bool nts::digest::snmpv3(const hash_t algorithm, const view_t & password, const 
 	hasher.update(view_t(key, width));
 	// Если локализованный ключ Kul снять не удалось
 	if(!hasher.finish(result, width)){
-		// Выполняем затирание рабочих областей
+		// Затирание рабочих областей
 		wipe(key, sizeof(key));
 		wipe(buffer, sizeof(buffer));
 		// Выводим отказ выработки ключа
 		return false;
 	}
-	// Выполняем затирание рабочих областей
+	// Затирание рабочих областей
 	wipe(key, sizeof(key));
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки ключа
@@ -215,7 +215,7 @@ bool nts::digest::prfplus(const hash_t algorithm, const view_t & key, const view
 		nts::digest::mac_t mac;
 		// Если ключ имитовставки установить не удалось
 		if(!mac.start(algorithm, key)){
-			// Выполняем затирание звена
+			// Затирание звена
 			wipe(link, sizeof(link));
 			// Выводим отказ выработки ключевого материала
 			return false;
@@ -230,7 +230,7 @@ bool nts::digest::prfplus(const hash_t algorithm, const view_t & key, const view
 		mac.update(view_t(&round, 1));
 		// Если звено цепочки снять не удалось
 		if(!mac.finish(link, width)){
-			// Выполняем затирание звена
+			// Затирание звена
 			wipe(link, sizeof(link));
 			// Выводим отказ выработки ключевого материала
 			return false;
@@ -246,7 +246,7 @@ bool nts::digest::prfplus(const hash_t algorithm, const view_t & key, const view
 		// Наращиваем порядковый номер звена
 		round++;
 	}
-	// Выполняем затирание звена цепочки
+	// Затирание звена цепочки
 	wipe(link, sizeof(link));
 	// Выводим признак успешности выработки ключевого материала
 	return true;

@@ -671,7 +671,7 @@ namespace {
 			 * Выполняем первые пять двойных раундов четвёрок вперемешку с первым скалярным блоком
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Выполняем двойной раунд четвёрок и два двойных раунда скалярного блока
+			// Двойной раунд четвёрок и два двойных раунда скалярного блока
 			roundNeon10(first, second, words, table);
 			// Завершаем первый скалярный блок: блок с восьмым смещением пачки
 			finishWord(state, (state[12] + static_cast <uint32_t> (PACK8)), words, source + (PACK8 * CHACHA_BLOCK), result + (PACK8 * CHACHA_BLOCK));
@@ -681,7 +681,7 @@ namespace {
 			 * Выполняем вторые пять двойных раундов четвёрок вперемешку со вторым скалярным блоком
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Выполняем двойной раунд четвёрок и два двойных раунда скалярного блока
+			// Двойной раунд четвёрок и два двойных раунда скалярного блока
 			roundNeon10(first, second, words, table);
 			// Завершаем второй скалярный блок: блок с девятым смещением пачки
 			finishWord(state, (state[12] + static_cast <uint32_t> (PACK8 + 1)), words, source + ((PACK8 + 1) * CHACHA_BLOCK), result + ((PACK8 + 1) * CHACHA_BLOCK));
@@ -817,13 +817,13 @@ namespace {
 		const __m128i steps = _mm_load_si128(reinterpret_cast <const __m128i *> (STEPS8)); \
 		/* Рабочие слова четырёх блоков */ \
 		__m128i work[16]; \
-		/* Выполняем размножение слов состояния на четыре блока */ \
+		/** Размножение слов состояния на четыре блока */ \
 		for(size_t i = 0; i < 16; i++) \
 			/* Размножаем очередное слово */ \
 			work[i] = _mm_set1_epi32(static_cast <int> (state[i])); \
 		/* Продвигаем счётчики второго, третьего и четвёртого блоков */ \
 		work[12] = _mm_add_epi32(work[12], steps); \
-		/* Выполняем десять двойных раундов: столбцами и диагоналями */ \
+		/** Десять двойных раундов столбцами и диагоналями */ \
 		for(size_t i = 0; i < 10; i++){ \
 			/* Четвертьраунд первого столбца */ \
 			__ANTS_CHACHA_QUARTER_X86__(work[0], work[4], work[8], work[12], r16, r8) \
@@ -842,13 +842,13 @@ namespace {
 			/* Четвертьраунд четвёртой диагонали */ \
 			__ANTS_CHACHA_QUARTER_X86__(work[3], work[4], work[9], work[14], r16, r8) \
 		} \
-		/* Выполняем сложение рабочих слов с исходными, взятыми из состояния заново */ \
+		/** Сложение рабочих слов с исходными из состояния заново */ \
 		for(size_t i = 0; i < 16; i++) \
 			/* Складываем очередное слово */ \
 			work[i] = _mm_add_epi32(work[i], _mm_set1_epi32(static_cast <int> (state[i]))); \
 		/* Складываем счётчики с приращениями второго, третьего и четвёртого блоков */ \
 		work[12] = _mm_add_epi32(work[12], steps); \
-		/* Выполняем перестановку по блокам и наложение гаммы четвёрками слов */ \
+		/** Перестановка по блокам и наложение гаммы четвёрками слов */ \
 		for(size_t i = 0; i < 4; i++){ \
 			/* Чередование младших слов первой пары векторов */ \
 			const __m128i t0 = _mm_unpacklo_epi32(work[i * 4], work[(i * 4) + 1]); \
@@ -929,7 +929,7 @@ namespace {
 		 *
 		 */
 		static __ANTS_CHACHA_SSE2_TARGET__ void streamSse2(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
-			// Выполняем тело покрытия с вращениями парой сдвигов
+			// Тело покрытия с вращениями парой сдвигов
 			__ANTS_CHACHA_STREAM_X86__(state, source, result, rotate16Sse2, rotate8Sse2)
 		}
 		/**
@@ -941,7 +941,7 @@ namespace {
 		 *
 		 */
 		static __ANTS_CHACHA_SSSE3_TARGET__ void streamSsse3(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
-			// Выполняем тело покрытия с вращениями перестановкой байтов
+			// Тело покрытия с вращениями перестановкой байтов
 			__ANTS_CHACHA_STREAM_X86__(state, source, result, rotate16Ssse3, rotate8Ssse3)
 		}
 		/**
@@ -1160,7 +1160,7 @@ void nts::cipher::Chacha::generate(uint8_t * result) const noexcept {
 	for(size_t i = 0; i < 16; i++)
 		// Записываем очередное слово блока гаммы
 		store(work[i] + this->_state[i], result + (i * 4));
-	// Выполняем затирание рабочего состояния
+	// Затирание рабочего состояния
 	wipe(work, sizeof(work));
 }
 /**
@@ -1225,11 +1225,11 @@ void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, siz
 				continue;
 				// Если пачка восьмёрка
 				if(pack == PACK8)
-				// Выполняем покрытие ядром AVX2
+				// Покрытие ядром AVX2
 				kernel::chacha8xavx2(this->_state, frame, cursor, output, count);
 				// Если перестановка байтов есть
 				else if(shuffle)
-				// Выполняем покрытие ядром SSSE3
+				// Покрытие ядром SSSE3
 				kernel::chacha4xssse3(this->_state, frame, cursor, output, count);
 				// Иначе обходимся сдвигами
 				else kernel::chacha4xsse2(this->_state, frame, cursor, output, count);
@@ -1256,7 +1256,7 @@ void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, siz
 			}
 			// Если ядро вызывалось
 			if(used)
-			// Выполняем затирание кадра: в столе лежат слова ключа
+			// Затирание кадра: в столе лежат слова ключа
 			wipe(frame, sizeof(frame));
 		}
 	/**
@@ -1269,7 +1269,7 @@ void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, siz
 			 * Выполняем покрытие пачками по восемь блоков, пока счётчики умещаются
 			 */
 			while(!this->_exhausted && (left >= (PACK8 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK8 - 1)))){
-				// Выполняем покрытие восьми блоков разом
+				// Покрытие восьми блоков разом
 				streamAvx2(this->_state, cursor, output);
 				// Продвигаем счётчик на восемь блоков
 				this->_state[12] += PACK8;
@@ -1297,7 +1297,7 @@ void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, siz
 			 * скалярно вперемешку, пока счётчики умещаются
 			 */
 			while(!this->_exhausted && (left >= (PACK10 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK10 - 1)))){
-				// Выполняем покрытие пачки
+				// Покрытие пачки
 				streamNeon10(this->_state, cursor, output);
 				// Сдвигаем счётчик блоков на пачку
 				this->_state[12] += PACK10;
@@ -1316,7 +1316,7 @@ void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, siz
 			 * Выполняем покрытие пачками по восемь блоков двумя четвёрками вперемешку, пока счётчики умещаются
 			 */
 			while(!this->_exhausted && (left >= (PACK8 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK8 - 1)))){
-				// Выполняем покрытие восьми блоков разом командами NEON
+				// Покрытие восьми блоков разом командами NEON
 				streamNeon8(this->_state, cursor, output);
 				// Продвигаем счётчик на восемь блоков
 				this->_state[12] += PACK8;
@@ -1354,7 +1354,7 @@ void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, siz
 				 * Если есть ветвь команд NEON
 				 */
 				#if defined(__ANTS_CHACHA_NEON__)
-					// Выполняем покрытие четырёх блоков разом командами NEON
+					// Покрытие четырёх блоков разом командами NEON
 					streamNeon(this->_state, cursor, output);
 				/**
 				 * Если есть ветви команд x86-64
@@ -1362,7 +1362,7 @@ void nts::cipher::Chacha::pack(const uint8_t * & cursor, uint8_t * & output, siz
 				#else
 					// Если перестановка байтов есть
 					if(shuffle)
-					// Выполняем покрытие четырёх блоков разом командами SSSE3
+					// Покрытие четырёх блоков разом командами SSSE3
 					streamSsse3(this->_state, cursor, output);
 					// Иначе обходимся сдвигами
 					else streamSse2(this->_state, cursor, output);
@@ -1423,7 +1423,7 @@ uint32_t nts::cipher::Chacha::counter() const noexcept {
  *
  */
 bool nts::cipher::Chacha::start(const view_t & key, const view_t & nonce, const uint32_t counter) noexcept {
-	// Выполняем сброс прежнего состояния
+	// Сброс прежнего состояния
 	this->clear();
 	// Если ключ либо заполнение не той длины либо не переданы
 	if((key.data == nullptr) || (key.size != CHACHA_KEY) || (nonce.data == nullptr) || ((nonce.size != CHACHA_NONCE) && (nonce.size != CHACHA_XNONCE)))
@@ -1431,7 +1431,7 @@ bool nts::cipher::Chacha::start(const view_t & key, const view_t & nonce, const 
 		return false;
 	// Если заполнение в 24 байта: XChaCha20 - подключ HChaCha20 и заполнение из нулей и хвоста
 	if(nonce.size == CHACHA_XNONCE){
-		// Подключ
+		// Подключ шифра потока
 		uint8_t subkey[CHACHA_KEY];
 		// Если подключ вывести не удалось
 		if(!hchacha(key, view_t(nonce.data, HCHACHA_NONCE), subkey))
@@ -1445,7 +1445,7 @@ bool nts::cipher::Chacha::start(const view_t & key, const view_t & nonce, const 
 		::memcpy(shorter + 4, nonce.data + HCHACHA_NONCE, 8);
 		// Запускаем ChaCha20 на подключе
 		const bool started = this->start(view_t(subkey, sizeof(subkey)), view_t(shorter, sizeof(shorter)), counter);
-		// Выполняем затирание подключа
+		// Затирание подключа
 		wipe(subkey, sizeof(subkey));
 		// Выводим итог запуска
 		return started;
@@ -1486,9 +1486,9 @@ void nts::cipher::Chacha::clear() noexcept {
 	this->_exhausted = false;
 	// Сбрасываем остаток блока гаммы
 	this->_rest = 0;
-	// Выполняем затирание состояния
+	// Затирание состояния
 	wipe(this->_state, sizeof(this->_state));
-	// Выполняем затирание остатка блока гаммы
+	// Затирание остатка блока гаммы
 	wipe(this->_gamma, sizeof(this->_gamma));
 }
 /**
@@ -1505,9 +1505,9 @@ bool nts::cipher::Chacha::block(uint8_t * result) noexcept {
 		return false;
 	// Отбрасываем неизрасходованный остаток прежнего блока
 	this->_rest = 0;
-	// Выполняем затирание остатка блока гаммы
+	// Затирание остатка блока гаммы
 	wipe(this->_gamma, sizeof(this->_gamma));
-	// Выполняем выработку блока гаммы
+	// Выработка блока гаммы
 	this->generate(result);
 	// Продвигаем счётчик блока: переполнение закрывает лишь следующий блок
 	this->advance();
@@ -1560,7 +1560,7 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 	}
 	// Если остаток израсходован и впереди хотя бы пачка целых блоков
 	if((this->_rest == 0) && (left >= (PACK4 * CHACHA_BLOCK)))
-		// Выполняем покрытие пачек целых блоков векторными командами
+		// Покрытие пачек целых блоков векторными командами
 		this->pack(cursor, output, left);
 	/**
 	 * Выполняем покрытие данных гаммой по блокам
@@ -1570,7 +1570,7 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 		if(this->_exhausted)
 			// Выводим отказ зашифрования: гаммы больше нет
 			return false;
-		// Выполняем выработку блока гаммы
+		// Выработка блока гаммы
 		this->generate(this->_gamma);
 		// Продвигаем счётчик блока
 		this->advance();
@@ -1611,9 +1611,9 @@ bool nts::cipher::Chacha::decrypt(const view_t & source, uint8_t * result) noexc
  *
  */
 nts::cipher::Chacha::Chacha() noexcept : _ready(false), _exhausted(false), _rest(0) {
-	// Выполняем затирание состояния
+	// Затирание состояния
 	wipe(this->_state, sizeof(this->_state));
-	// Выполняем затирание остатка блока гаммы
+	// Затирание остатка блока гаммы
 	wipe(this->_gamma, sizeof(this->_gamma));
 }
 /**
@@ -1621,7 +1621,7 @@ nts::cipher::Chacha::Chacha() noexcept : _ready(false), _exhausted(false), _rest
  *
  */
 nts::cipher::Chacha::~Chacha() noexcept {
-	// Выполняем сброс шифра
+	// Сброс шифра
 	this->clear();
 }
 
@@ -1645,7 +1645,7 @@ bool nts::cipher::Chacha::hchacha(const view_t & key, const view_t & nonce, uint
 	 * Выполняем заполнение констант
 	 */
 	for(size_t i = 0; i < 4; i++)
-		// Константа
+		// Константы ядра потока
 		work[i] = CONSTANTS[i];
 	/**
 	 * Выполняем заполнение ключа
@@ -1682,7 +1682,7 @@ bool nts::cipher::Chacha::hchacha(const view_t & key, const view_t & nonce, uint
 		// Вторая половина
 		store(work[12 + i], result + 16 + (i * 4));
 	}
-	// Выполняем затирание
+	// Затирание рабочих слов потока
 	wipe(work, sizeof(work));
 	// Сообщаем об успешном выводе подключа
 	return true;

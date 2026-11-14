@@ -74,7 +74,7 @@ namespace {
 	 *
 	 */
 	static bool encryptMagma(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем зашифрование блока шифром «Магма»
+		// Зашифрование блока шифром «Магма»
 		return reinterpret_cast <const magma_t *> (cipher)->encrypt(source, result);
 	}
 	/**
@@ -87,7 +87,7 @@ namespace {
 	 *
 	 */
 	static bool decryptMagma(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем расшифрование блока шифром «Магма»
+		// Расшифрование блока шифром «Магма»
 		return reinterpret_cast <const magma_t *> (cipher)->decrypt(source, result);
 	}
 	/**
@@ -100,7 +100,7 @@ namespace {
 	 *
 	 */
 	static bool encryptKuznyechik(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем зашифрование блока шифром «Кузнечик»
+		// Зашифрование блока шифром «Кузнечик»
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->encrypt(source, result);
 	}
 	/**
@@ -113,7 +113,7 @@ namespace {
 	 *
 	 */
 	static bool decryptKuznyechik(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем расшифрование блока шифром «Кузнечик»
+		// Расшифрование блока шифром «Кузнечик»
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->decrypt(source, result);
 	}
 	/**
@@ -126,7 +126,7 @@ namespace {
 	 *
 	 */
 	static bool encryptAes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем зашифрование блока шифром AES
+		// Зашифрование блока шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->encrypt(source, result);
 	}
 	/**
@@ -139,7 +139,7 @@ namespace {
 	 *
 	 */
 	static bool decryptAes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем расшифрование блока шифром AES
+		// Расшифрование блока шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->decrypt(source, result);
 	}
 	/**
@@ -153,7 +153,7 @@ namespace {
 	 *
 	 */
 	static bool batchMagma(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
-		// Выполняем зашифрование блоков шифром «Магма»
+		// Зашифрование блоков шифром «Магма»
 		return reinterpret_cast <const magma_t *> (cipher)->batch(sources, blocks, results);
 	}
 	/**
@@ -167,7 +167,7 @@ namespace {
 	 *
 	 */
 	static bool batchKuznyechik(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
-		// Выполняем зашифрование блоков шифром «Кузнечик»
+		// Зашифрование блоков шифром «Кузнечик»
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->batch(sources, blocks, results);
 	}
 	/**
@@ -181,7 +181,7 @@ namespace {
 	 *
 	 */
 	static bool batchAes(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
-		// Выполняем зашифрование блоков шифром AES
+		// Зашифрование блоков шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->batch(sources, blocks, results);
 	}
 	/**
@@ -196,7 +196,7 @@ namespace {
 	 *
 	 */
 	static bool streamAes(const void * cipher, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем выработку гаммы шифром AES
+		// Выработка гаммы шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->stream(counter, blocks, source, result);
 	}
 	/**
@@ -211,7 +211,7 @@ namespace {
 	 *
 	 */
 	static bool chainAes(const void * cipher, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
-		// Выполняем зашифрование цепочкой сцепления шифром AES
+		// Зашифрование цепочкой сцепления шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->chain(record, source, size, result);
 	}
 	/**
@@ -224,7 +224,7 @@ namespace {
 	 *
 	 */
 	static bool encryptSm4(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем зашифрование блока шифром SM4
+		// Зашифрование блока шифром SM4
 		return reinterpret_cast <const sm4_t *> (cipher)->encrypt(source, result);
 	}
 	/**
@@ -237,7 +237,7 @@ namespace {
 	 *
 	 */
 	static bool decryptSm4(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем расшифрование блока шифром SM4
+		// Расшифрование блока шифром SM4
 		return reinterpret_cast <const sm4_t *> (cipher)->decrypt(source, result);
 	}
 	/**
@@ -250,7 +250,7 @@ namespace {
 	 *
 	 */
 	static bool encryptDes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем зашифрование блока шифром DES и 3DES
+		// Зашифрование блока шифром DES и 3DES
 		return reinterpret_cast <const des_t *> (cipher)->encrypt(source, result);
 	}
 	/**
@@ -263,7 +263,7 @@ namespace {
 	 *
 	 */
 	static bool decryptDes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
-		// Выполняем расшифрование блока шифром DES и 3DES
+		// Расшифрование блока шифром DES и 3DES
 		return reinterpret_cast <const des_t *> (cipher)->decrypt(source, result);
 	}
 	/**
@@ -318,11 +318,11 @@ namespace {
 		uint32_t left = 0;
 		// Правая половина зашифровываемого блока
 		uint32_t right = 0;
-		// Выполняем разбор зашифровываемого блока на две половины
+		// Разбор зашифровываемого блока на две половины
 		fetchBlowfish(source, &left, &right);
-		// Выполняем зашифрование блока шифром Blowfish
+		// Зашифрование блока шифром Blowfish
 		encipher(reinterpret_cast <const blowfish_t *> (cipher), &left, &right);
-		// Выполняем запись зашифрованного блока байтами
+		// Запись зашифрованного блока байтами
 		storeBlowfish(left, right, result);
 		// Выводим успешность зашифрования
 		return true;
@@ -341,11 +341,11 @@ namespace {
 		uint32_t left = 0;
 		// Правая половина расшифровываемого блока
 		uint32_t right = 0;
-		// Выполняем разбор расшифровываемого блока на две половины
+		// Разбор расшифровываемого блока на две половины
 		fetchBlowfish(source, &left, &right);
-		// Выполняем расшифрование блока шифром Blowfish
+		// Расшифрование блока шифром Blowfish
 		decipher(reinterpret_cast <const blowfish_t *> (cipher), &left, &right);
-		// Выполняем запись расшифрованного блока байтами
+		// Запись расшифрованного блока байтами
 		storeBlowfish(left, right, result);
 		// Выводим успешность расшифрования
 		return true;
@@ -381,7 +381,7 @@ namespace {
 	static void shift(uint8_t * data, const size_t length, const uint8_t * value, const size_t size) noexcept {
 		// Если сдвиг не занимает регистр целиком
 		if(size < length)
-			// Выполняем сдвиг оставшегося заполнения регистра
+			// Сдвиг оставшегося заполнения регистра
 			::memmove(data, data + size, length - size);
 		// Записываем переданное значение в разряды регистра с меньшими номерами
 		::memcpy(data + (length - size), value, size);
@@ -478,7 +478,7 @@ bool nts::cipher::Codebook::ready() const noexcept {
  *
  */
 bool nts::cipher::Codebook::start(const block_t & block) noexcept {
-	// Выполняем сброс прежнего состояния режима работы
+	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
 	if(!suitable(block))
@@ -522,7 +522,7 @@ bool nts::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) noe
 	 * Выполняем перебор блоков зашифровываемого сообщения
 	 */
 	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
-		// Выполняем зашифрование очередного блока сообщения
+		// Зашифрование очередного блока сообщения
 		if(!this->_block.encrypt(this->_block.cipher, source.data + offset, result + offset))
 			// Выводим отказ зашифрования
 			return false;
@@ -551,7 +551,7 @@ bool nts::cipher::Codebook::decrypt(const view_t & source, uint8_t * result) noe
 	 * Выполняем перебор блоков расшифровываемого шифртекста
 	 */
 	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
-		// Выполняем расшифрование очередного блока шифртекста
+		// Расшифрование очередного блока шифртекста
 		if(!this->_block.decrypt(this->_block.cipher, source.data + offset, result + offset))
 			// Выводим отказ расшифрования
 			return false;
@@ -569,7 +569,7 @@ nts::cipher::Codebook::Codebook() noexcept : _ready(false) {}
  *
  */
 nts::cipher::Codebook::~Codebook() noexcept {
-	// Выполняем сброс состояния режима работы
+	// Сброс состояния режима работы
 	this->clear();
 }
 /**
@@ -592,7 +592,7 @@ bool nts::cipher::Counter::ready() const noexcept {
  *
  */
 bool nts::cipher::Counter::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
-	// Выполняем сброс прежнего состояния режима работы
+	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
 	if(!suitable(block))
@@ -627,9 +627,9 @@ bool nts::cipher::Counter::start(const block_t & block, const view_t & iv, const
  *
  */
 void nts::cipher::Counter::clear() noexcept {
-	// Выполняем затирание текущего блока гаммы шифра
+	// Затирание текущего блока гаммы шифра
 	wipe(this->_gamma, sizeof(this->_gamma));
-	// Выполняем затирание текущего значения счётчика
+	// Затирание текущего значения счётчика
 	wipe(this->_counter, sizeof(this->_counter));
 	// Сбрасываем базовый алгоритм блочного шифрования
 	this->_block = block_t();
@@ -696,7 +696,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 			base[15] = static_cast <uint8_t> (previous);
 			// Если наложить гамму ядром не удалось
 			if(!this->_block.stream(this->_block.cipher, base, count, source.data + offset, result + offset)){
-				// Выполняем затирание основания
+				// Затирание основания
 				wipe(base, sizeof(base));
 				// Выводим отказ зашифрования
 				return false;
@@ -717,7 +717,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 			// Увеличиваем количество обработанных байтов сообщения
 			offset += (count * 16);
 		}
-		// Выполняем затирание основания
+		// Затирание основания
 		wipe(base, sizeof(base));
 	}
 	/**
@@ -747,7 +747,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		}
 		// Если зашифровать счётчики не удалось
 		if(!this->_block.batch(this->_block.cipher, counters, 4, buffer)){
-			// Выполняем затирание счётчиков и выходов шифра
+			// Затирание счётчиков и выходов шифра
 			wipe(counters, sizeof(counters));
 			wipe(buffer, sizeof(buffer));
 			// Выводим отказ зашифрования
@@ -769,7 +769,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 			// Сдвигаем количество обработанных байтов
 			offset += this->_size;
 		}
-		// Выполняем затирание счётчиков и выходов шифра
+		// Затирание счётчиков и выходов шифра
 		wipe(counters, sizeof(counters));
 		wipe(buffer, sizeof(buffer));
 	}
@@ -781,13 +781,13 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		if(this->_rest == 0){
 			// Блок, в который помещается выход базового алгоритма блочного шифрования
 			uint8_t buffer[MODE_BLOCK];
-			// Выполняем зашифрование текущего значения счётчика
+			// Зашифрование текущего значения счётчика
 			if(!this->_block.encrypt(this->_block.cipher, this->_counter, buffer))
 				// Выводим отказ зашифрования
 				return false;
-			// Выполняем усечение выхода шифра до размера блока гаммы
+			// Усечение выхода шифра до размера блока гаммы
 			::memcpy(this->_gamma, buffer, this->_size);
-			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			// Затирание выхода базового алгоритма блочного шифрования
 			wipe(buffer, sizeof(buffer));
 			// Восстанавливаем количество неизрасходованных байтов блока гаммы
 			this->_rest = this->_size;
@@ -804,7 +804,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		}
 		// Определяем количество байтов, обрабатываемых текущим блоком гаммы
 		const size_t count = ((source.size - offset) < this->_rest ? (source.size - offset) : this->_rest);
-		// Выполняем сложение куска сообщения с гаммой шифра
+		// Сложение куска сообщения с гаммой шифра
 		add(source.data + offset, this->_gamma + (this->_size - this->_rest), result + offset, count);
 		// Уменьшаем количество неизрасходованных байтов блока гаммы
 		this->_rest -= count;
@@ -831,9 +831,9 @@ bool nts::cipher::Counter::decrypt(const view_t & source, uint8_t * result) noex
  *
  */
 nts::cipher::Counter::Counter() noexcept : _ready(false), _size(0), _rest(0) {
-	// Выполняем затирание текущего значения счётчика
+	// Затирание текущего значения счётчика
 	wipe(this->_counter, sizeof(this->_counter));
-	// Выполняем затирание текущего блока гаммы шифра
+	// Затирание текущего блока гаммы шифра
 	wipe(this->_gamma, sizeof(this->_gamma));
 }
 /**
@@ -841,7 +841,7 @@ nts::cipher::Counter::Counter() noexcept : _ready(false), _size(0), _rest(0) {
  *
  */
 nts::cipher::Counter::~Counter() noexcept {
-	// Выполняем сброс состояния режима работы
+	// Сброс состояния режима работы
 	this->clear();
 }
 /**
@@ -864,7 +864,7 @@ bool nts::cipher::Output::ready() const noexcept {
  *
  */
 bool nts::cipher::Output::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
-	// Выполняем сброс прежнего состояния режима работы
+	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
 	if(!suitable(block))
@@ -898,9 +898,9 @@ bool nts::cipher::Output::start(const block_t & block, const view_t & iv, const 
  *
  */
 void nts::cipher::Output::clear() noexcept {
-	// Выполняем затирание текущего блока гаммы шифра
+	// Затирание текущего блока гаммы шифра
 	wipe(this->_gamma, sizeof(this->_gamma));
-	// Выполняем затирание заполнения регистра сдвига
+	// Затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
 	// Сбрасываем базовый алгоритм блочного шифрования
 	this->_block = block_t();
@@ -936,22 +936,22 @@ bool nts::cipher::Output::encrypt(const view_t & source, uint8_t * result) noexc
 		if(this->_rest == 0){
 			// Блок, в который помещается выход базового алгоритма блочного шифрования
 			uint8_t buffer[MODE_BLOCK];
-			// Выполняем зашифрование старших разрядов регистра сдвига
+			// Зашифрование старших разрядов регистра сдвига
 			if(!this->_block.encrypt(this->_block.cipher, this->_register, buffer))
 				// Выводим отказ зашифрования
 				return false;
-			// Выполняем усечение выхода шифра до размера блока гаммы
+			// Усечение выхода шифра до размера блока гаммы
 			::memcpy(this->_gamma, buffer, this->_size);
 			// Записываем выход шифра в разряды регистра с меньшими номерами
 			shift(this->_register, this->_length, buffer, this->_block.size);
-			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			// Затирание выхода базового алгоритма блочного шифрования
 			wipe(buffer, sizeof(buffer));
 			// Восстанавливаем количество неизрасходованных байтов блока гаммы
 			this->_rest = this->_size;
 		}
 		// Определяем количество байтов, обрабатываемых текущим блоком гаммы
 		const size_t count = ((source.size - offset) < this->_rest ? (source.size - offset) : this->_rest);
-		// Выполняем сложение куска сообщения с гаммой шифра
+		// Сложение куска сообщения с гаммой шифра
 		add(source.data + offset, this->_gamma + (this->_size - this->_rest), result + offset, count);
 		// Уменьшаем количество неизрасходованных байтов блока гаммы
 		this->_rest -= count;
@@ -978,9 +978,9 @@ bool nts::cipher::Output::decrypt(const view_t & source, uint8_t * result) noexc
  *
  */
 nts::cipher::Output::Output() noexcept : _ready(false), _size(0), _rest(0), _length(0) {
-	// Выполняем затирание заполнения регистра сдвига
+	// Затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
-	// Выполняем затирание текущего блока гаммы шифра
+	// Затирание текущего блока гаммы шифра
 	wipe(this->_gamma, sizeof(this->_gamma));
 }
 /**
@@ -988,7 +988,7 @@ nts::cipher::Output::Output() noexcept : _ready(false), _size(0), _rest(0), _len
  *
  */
 nts::cipher::Output::~Output() noexcept {
-	// Выполняем сброс состояния режима работы
+	// Сброс состояния режима работы
 	this->clear();
 }
 /**
@@ -1010,7 +1010,7 @@ bool nts::cipher::Chaining::ready() const noexcept {
  *
  */
 bool nts::cipher::Chaining::start(const block_t & block, const view_t & iv) noexcept {
-	// Выполняем сброс прежнего состояния режима работы
+	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
 	if(!suitable(block))
@@ -1036,7 +1036,7 @@ bool nts::cipher::Chaining::start(const block_t & block, const view_t & iv) noex
  *
  */
 void nts::cipher::Chaining::clear() noexcept {
-	// Выполняем затирание заполнения регистра сдвига
+	// Затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
 	// Сбрасываем базовый алгоритм блочного шифрования
 	this->_block = block_t();
@@ -1074,9 +1074,9 @@ bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noe
 		uint8_t buffer[MODE_BLOCK];
 		// Складываем блок сообщения со старшими разрядами регистра сдвига
 		add(source.data + offset, this->_register, buffer, this->_block.size);
-		// Выполняем зашифрование полученного блока
+		// Зашифрование полученного блока
 		if(!this->_block.encrypt(this->_block.cipher, buffer, buffer)){
-			// Выполняем затирание блока, подаваемого базовому алгоритму
+			// Затирание блока, подаваемого базовому алгоритму
 			wipe(buffer, sizeof(buffer));
 			// Выводим отказ зашифрования
 			return false;
@@ -1085,7 +1085,7 @@ bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noe
 		shift(this->_register, this->_length, buffer, this->_block.size);
 		// Записываем блок шифртекста в место итога
 		::memcpy(result + offset, buffer, this->_block.size);
-		// Выполняем затирание блока, подаваемого базовому алгоритму
+		// Затирание блока, подаваемого базовому алгоритму
 		wipe(buffer, sizeof(buffer));
 	}
 	// Выводим успешность зашифрования
@@ -1121,11 +1121,11 @@ bool nts::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noe
 		 * исходного сообщения, оттого к моменту сдвига регистра его уже не прочесть
 		 */
 		::memcpy(item, source.data + offset, this->_block.size);
-		// Выполняем расшифрование очередного блока шифртекста
+		// Расшифрование очередного блока шифртекста
 		if(!this->_block.decrypt(this->_block.cipher, item, buffer)){
-			// Выполняем затирание блока шифртекста
+			// Затирание блока шифртекста
 			wipe(item, sizeof(item));
-			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			// Затирание выхода базового алгоритма блочного шифрования
 			wipe(buffer, sizeof(buffer));
 			// Выводим отказ расшифрования
 			return false;
@@ -1134,9 +1134,9 @@ bool nts::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noe
 		add(buffer, this->_register, result + offset, this->_block.size);
 		// Записываем блок шифртекста в разряды регистра с меньшими номерами
 		shift(this->_register, this->_length, item, this->_block.size);
-		// Выполняем затирание блока шифртекста
+		// Затирание блока шифртекста
 		wipe(item, sizeof(item));
-		// Выполняем затирание выхода базового алгоритма блочного шифрования
+		// Затирание выхода базового алгоритма блочного шифрования
 		wipe(buffer, sizeof(buffer));
 	}
 	// Выводим успешность расшифрования
@@ -1147,7 +1147,7 @@ bool nts::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noe
  *
  */
 nts::cipher::Chaining::Chaining() noexcept : _ready(false), _length(0) {
-	// Выполняем затирание заполнения регистра сдвига
+	// Затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
 }
 /**
@@ -1155,7 +1155,7 @@ nts::cipher::Chaining::Chaining() noexcept : _ready(false), _length(0) {
  *
  */
 nts::cipher::Chaining::~Chaining() noexcept {
-	// Выполняем сброс состояния режима работы
+	// Сброс состояния режима работы
 	this->clear();
 }
 /**
@@ -1178,7 +1178,7 @@ bool nts::cipher::Feedback::ready() const noexcept {
  *
  */
 bool nts::cipher::Feedback::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
-	// Выполняем сброс прежнего состояния режима работы
+	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
 	if(!suitable(block))
@@ -1212,11 +1212,11 @@ bool nts::cipher::Feedback::start(const block_t & block, const view_t & iv, cons
  *
  */
 void nts::cipher::Feedback::clear() noexcept {
-	// Выполняем затирание накапливаемого блока шифртекста обратной связи
+	// Затирание накапливаемого блока шифртекста обратной связи
 	wipe(this->_feedback, sizeof(this->_feedback));
-	// Выполняем затирание текущего блока гаммы шифра
+	// Затирание текущего блока гаммы шифра
 	wipe(this->_gamma, sizeof(this->_gamma));
-	// Выполняем затирание заполнения регистра сдвига
+	// Затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
 	// Сбрасываем базовый алгоритм блочного шифрования
 	this->_block = block_t();
@@ -1250,13 +1250,13 @@ bool nts::cipher::Feedback::encrypt(const view_t & source, uint8_t * result) noe
 		if(this->_rest == 0){
 			// Блок, в который помещается выход базового алгоритма блочного шифрования
 			uint8_t buffer[MODE_BLOCK];
-			// Выполняем зашифрование старших разрядов регистра сдвига
+			// Зашифрование старших разрядов регистра сдвига
 			if(!this->_block.encrypt(this->_block.cipher, this->_register, buffer))
 				// Выводим отказ зашифрования
 				return false;
-			// Выполняем усечение выхода шифра до размера блока гаммы
+			// Усечение выхода шифра до размера блока гаммы
 			::memcpy(this->_gamma, buffer, this->_size);
-			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			// Затирание выхода базового алгоритма блочного шифрования
 			wipe(buffer, sizeof(buffer));
 			// Восстанавливаем количество неизрасходованных байтов блока гаммы
 			this->_rest = this->_size;
@@ -1300,13 +1300,13 @@ bool nts::cipher::Feedback::decrypt(const view_t & source, uint8_t * result) noe
 		if(this->_rest == 0){
 			// Блок, в который помещается выход базового алгоритма блочного шифрования
 			uint8_t buffer[MODE_BLOCK];
-			// Выполняем зашифрование старших разрядов регистра сдвига
+			// Зашифрование старших разрядов регистра сдвига
 			if(!this->_block.encrypt(this->_block.cipher, this->_register, buffer))
 				// Выводим отказ расшифрования
 				return false;
-			// Выполняем усечение выхода шифра до размера блока гаммы
+			// Усечение выхода шифра до размера блока гаммы
 			::memcpy(this->_gamma, buffer, this->_size);
-			// Выполняем затирание выхода базового алгоритма блочного шифрования
+			// Затирание выхода базового алгоритма блочного шифрования
 			wipe(buffer, sizeof(buffer));
 			// Восстанавливаем количество неизрасходованных байтов блока гаммы
 			this->_rest = this->_size;
@@ -1332,11 +1332,11 @@ bool nts::cipher::Feedback::decrypt(const view_t & source, uint8_t * result) noe
  *
  */
 nts::cipher::Feedback::Feedback() noexcept : _ready(false), _size(0), _rest(0), _length(0) {
-	// Выполняем затирание заполнения регистра сдвига
+	// Затирание заполнения регистра сдвига
 	wipe(this->_register, sizeof(this->_register));
-	// Выполняем затирание текущего блока гаммы шифра
+	// Затирание текущего блока гаммы шифра
 	wipe(this->_gamma, sizeof(this->_gamma));
-	// Выполняем затирание накапливаемого блока шифртекста обратной связи
+	// Затирание накапливаемого блока шифртекста обратной связи
 	wipe(this->_feedback, sizeof(this->_feedback));
 }
 /**
@@ -1344,7 +1344,7 @@ nts::cipher::Feedback::Feedback() noexcept : _ready(false), _size(0), _rest(0), 
  *
  */
 nts::cipher::Feedback::~Feedback() noexcept {
-	// Выполняем сброс состояния режима работы
+	// Сброс состояния режима работы
 	this->clear();
 }
 /**
@@ -1365,7 +1365,7 @@ bool nts::cipher::Imitation::ready() const noexcept {
  *
  */
 bool nts::cipher::Imitation::start(const block_t & block) noexcept {
-	// Выполняем сброс прежнего состояния режима работы
+	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
 	if(!suitable(block))
@@ -1397,11 +1397,11 @@ bool nts::cipher::Imitation::start(const block_t & block) noexcept {
 	}
 	// Промежуточное значение R выработки вспомогательных ключей
 	uint8_t buffer[MODE_BLOCK];
-	// Выполняем затирание промежуточного значения выработки вспомогательных ключей
+	// Затирание промежуточного значения выработки вспомогательных ключей
 	wipe(buffer, sizeof(buffer));
-	// Выполняем зашифрование нулевого блока
+	// Зашифрование нулевого блока
 	if(!block.encrypt(block.cipher, buffer, buffer)){
-		// Выполняем затирание промежуточного значения выработки вспомогательных ключей
+		// Затирание промежуточного значения выработки вспомогательных ключей
 		wipe(buffer, sizeof(buffer));
 		// Выводим отказ запуска режима работы
 		return false;
@@ -1428,7 +1428,7 @@ bool nts::cipher::Imitation::start(const block_t & block) noexcept {
 		// Запоминаем выработанный вспомогательный ключ
 		::memcpy((i == 0 ? this->_first : this->_second), buffer, block.size);
 	}
-	// Выполняем затирание промежуточного значения выработки вспомогательных ключей
+	// Затирание промежуточного значения выработки вспомогательных ключей
 	wipe(buffer, sizeof(buffer));
 	// Запоминаем базовый алгоритм блочного шифрования
 	this->_block = block;
@@ -1442,13 +1442,13 @@ bool nts::cipher::Imitation::start(const block_t & block) noexcept {
  *
  */
 void nts::cipher::Imitation::clear() noexcept {
-	// Выполняем затирание результата зашифрования на предыдущем шаге
+	// Затирание результата зашифрования на предыдущем шаге
 	wipe(this->_state, sizeof(this->_state));
-	// Выполняем затирание накопленного блока сообщения
+	// Затирание накопленного блока сообщения
 	wipe(this->_buffer, sizeof(this->_buffer));
-	// Выполняем затирание второго вспомогательного ключа
+	// Затирание второго вспомогательного ключа
 	wipe(this->_second, sizeof(this->_second));
-	// Выполняем затирание первого вспомогательного ключа
+	// Затирание первого вспомогательного ключа
 	wipe(this->_first, sizeof(this->_first));
 	// Сбрасываем базовый алгоритм блочного шифрования
 	this->_block = block_t();
@@ -1483,7 +1483,7 @@ bool nts::cipher::Imitation::update(const view_t & source) noexcept {
 		if(this->_size == this->_block.size){
 			// Складываем накопленный блок с результатом зашифрования на предыдущем шаге
 			add(this->_buffer, this->_state, this->_buffer, this->_block.size);
-			// Выполняем зашифрование полученного блока
+			// Зашифрование полученного блока
 			if(!this->_block.encrypt(this->_block.cipher, this->_buffer, this->_state))
 				// Выводим отказ добавления куска сообщения
 				return false;
@@ -1533,11 +1533,11 @@ bool nts::cipher::Imitation::finish(uint8_t * result, const size_t size) noexcep
 		add(this->_buffer, this->_first, this->_buffer, this->_block.size);
 	// Складываем последний блок с результатом зашифрования на предыдущем шаге
 	add(this->_buffer, this->_state, this->_buffer, this->_block.size);
-	// Выполняем зашифрование последнего блока сообщения
+	// Зашифрование последнего блока сообщения
 	if(!this->_block.encrypt(this->_block.cipher, this->_buffer, this->_state))
 		// Выводим отказ снятия имитовставки
 		return false;
-	// Выполняем усечение выхода шифра до требуемой длины имитовставки
+	// Усечение выхода шифра до требуемой длины имитовставки
 	::memcpy(result, this->_state, size);
 	// Имитовставка снята: объект закрывается, повторные снятие и подача отвергаются, как у прочих режимов
 	this->clear();
@@ -1549,13 +1549,13 @@ bool nts::cipher::Imitation::finish(uint8_t * result, const size_t size) noexcep
  *
  */
 nts::cipher::Imitation::Imitation() noexcept : _ready(false), _size(0) {
-	// Выполняем затирание первого вспомогательного ключа
+	// Затирание первого вспомогательного ключа
 	wipe(this->_first, sizeof(this->_first));
-	// Выполняем затирание второго вспомогательного ключа
+	// Затирание второго вспомогательного ключа
 	wipe(this->_second, sizeof(this->_second));
-	// Выполняем затирание накопленного блока сообщения
+	// Затирание накопленного блока сообщения
 	wipe(this->_buffer, sizeof(this->_buffer));
-	// Выполняем затирание результата зашифрования на предыдущем шаге
+	// Затирание результата зашифрования на предыдущем шаге
 	wipe(this->_state, sizeof(this->_state));
 }
 /**
@@ -1563,6 +1563,6 @@ nts::cipher::Imitation::Imitation() noexcept : _ready(false), _size(0) {
  *
  */
 nts::cipher::Imitation::~Imitation() noexcept {
-	// Выполняем сброс состояния режима работы
+	// Сброс состояния режима работы
 	this->clear();
 }
