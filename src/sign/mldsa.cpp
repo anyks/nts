@@ -358,7 +358,7 @@ namespace {
 			 * @return      вектор с заполненными местами
 			 *
 			 */
-			static constexpr vec_t broadcast32(const int32_t value) noexcept {
+			static __ANTS_INLINE__ vec_t broadcast32(const int32_t value) noexcept {
 				// Выводим вектор с заполненными местами
 				return _mm_set1_epi32(value);
 			}
@@ -370,7 +370,7 @@ namespace {
 			 * @return       суммы мест
 			 *
 			 */
-			static constexpr vec_t add32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t add32(const vec_t first, const vec_t second) noexcept {
 				// Выводим суммы мест
 				return _mm_add_epi32(first, second);
 			}
@@ -382,7 +382,7 @@ namespace {
 			 * @return       разности мест
 			 *
 			 */
-			static constexpr vec_t subtract32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t subtract32(const vec_t first, const vec_t second) noexcept {
 				// Выводим разности мест
 				return _mm_sub_epi32(first, second);
 			}
@@ -398,7 +398,7 @@ namespace {
 			 * @return       произведения чётных мест в 64-разрядных половинах
 			 *
 			 */
-			static constexpr vec_t multiplyEven64(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t multiplyEven64(const vec_t first, const vec_t second) noexcept {
 				// Нулевой вектор для расширения слов
 				const vec_t zero = _mm_setzero_si128();
 				// Беззнаковые произведения чётных мест
@@ -418,7 +418,7 @@ namespace {
 			 * @return       произведения нечётных мест в 64-разрядных половинах
 			 *
 			 */
-			static constexpr vec_t multiplyOdd64(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t multiplyOdd64(const vec_t first, const vec_t second) noexcept {
 				// Нечётные места на чётных позициях
 				const vec_t low = _mm_shuffle_epi32(first, 0x31);
 				// То же для второго сомножителя
@@ -476,7 +476,7 @@ namespace {
 			 * @return       вектор [a0 a1 b0 b1]
 			 *
 			 */
-			static constexpr vec_t takeLow64(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t takeLow64(const vec_t first, const vec_t second) noexcept {
 				// Выводим младшие половины рядом
 				return _mm_unpacklo_epi64(first, second);
 			}
@@ -488,7 +488,7 @@ namespace {
 			 * @return       вектор [a2 a3 b2 b3]
 			 *
 			 */
-			static constexpr vec_t takeHigh64(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t takeHigh64(const vec_t first, const vec_t second) noexcept {
 				// Выводим старшие половины рядом
 				return _mm_unpackhi_epi64(first, second);
 			}
@@ -500,7 +500,7 @@ namespace {
 			 * @return       вектор [a0 a2 b0 b2]
 			 *
 			 */
-			static constexpr vec_t takeEven32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t takeEven32(const vec_t first, const vec_t second) noexcept {
 				// Выводим чётные места вперёд
 				return takeLow64(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
 			}
@@ -512,7 +512,7 @@ namespace {
 			 * @return       вектор [a1 a3 b1 b3]
 			 *
 			 */
-			static constexpr vec_t takeOdd32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t takeOdd32(const vec_t first, const vec_t second) noexcept {
 				// Выводим нечётные места вперёд
 				return takeHigh64(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
 			}
@@ -524,7 +524,7 @@ namespace {
 			 * @return       вектор [a0 b0 a1 b1]
 			 *
 			 */
-			static constexpr vec_t interleaveLow32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t interleaveLow32(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение младших пар
 				return _mm_unpacklo_epi32(first, second);
 			}
@@ -536,7 +536,7 @@ namespace {
 			 * @return       вектор [a2 b2 a3 b3]
 			 *
 			 */
-			static constexpr vec_t interleaveHigh32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t interleaveHigh32(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение старших пар
 				return _mm_unpackhi_epi32(first, second);
 			}
@@ -578,7 +578,7 @@ namespace {
 			 * @return      вектор с заполненными местами
 			 *
 			 */
-			static constexpr vec_t broadcast32(const int32_t value) noexcept {
+			static __ANTS_INLINE__ vec_t broadcast32(const int32_t value) noexcept {
 				// Выводим вектор с заполненными местами
 				return vdupq_n_s32(value);
 			}
@@ -590,7 +590,7 @@ namespace {
 			 * @return       суммы мест
 			 *
 			 */
-			static constexpr vec_t add32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t add32(const vec_t first, const vec_t second) noexcept {
 				// Выводим суммы мест
 				return vaddq_s32(first, second);
 			}
@@ -602,7 +602,7 @@ namespace {
 			 * @return       разности мест
 			 *
 			 */
-			static constexpr vec_t subtract32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t subtract32(const vec_t first, const vec_t second) noexcept {
 				// Выводим разности мест
 				return vsubq_s32(first, second);
 			}
@@ -646,7 +646,7 @@ namespace {
 			 * @return       вектор [a0 a1 b0 b1]
 			 *
 			 */
-			static constexpr vec_t takeLow64(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t takeLow64(const vec_t first, const vec_t second) noexcept {
 				// Выводим младшие половины рядом
 				return vcombine_s32(vget_low_s32(first), vget_low_s32(second));
 			}
@@ -658,7 +658,7 @@ namespace {
 			 * @return       вектор [a2 a3 b2 b3]
 			 *
 			 */
-			static constexpr vec_t takeHigh64(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t takeHigh64(const vec_t first, const vec_t second) noexcept {
 				// Выводим старшие половины рядом
 				return vcombine_s32(vget_high_s32(first), vget_high_s32(second));
 			}
@@ -670,7 +670,7 @@ namespace {
 			 * @return       вектор [a0 a2 b0 b2]
 			 *
 			 */
-			static constexpr vec_t takeEven32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t takeEven32(const vec_t first, const vec_t second) noexcept {
 				// Выводим чётные места вперёд
 				return vuzp1q_s32(first, second);
 			}
@@ -682,7 +682,7 @@ namespace {
 			 * @return       вектор [a1 a3 b1 b3]
 			 *
 			 */
-			static constexpr vec_t takeOdd32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t takeOdd32(const vec_t first, const vec_t second) noexcept {
 				// Выводим нечётные места вперёд
 				return vuzp2q_s32(first, second);
 			}
@@ -694,7 +694,7 @@ namespace {
 			 * @return       вектор [a0 b0 a1 b1]
 			 *
 			 */
-			static constexpr vec_t interleaveLow32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t interleaveLow32(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение младших пар
 				return vzip1q_s32(first, second);
 			}
@@ -706,7 +706,7 @@ namespace {
 			 * @return       вектор [a2 b2 a3 b3]
 			 *
 			 */
-			static constexpr vec_t interleaveHigh32(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t interleaveHigh32(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение старших пар
 				return vzip2q_s32(first, second);
 			}

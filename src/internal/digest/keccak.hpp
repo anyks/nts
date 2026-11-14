@@ -3893,7 +3893,7 @@ namespace nts {
 				 *       проходят без изменений
 				 *
 				 */
-				__ANTS_KECCAK_X4_TARGET__ static constexpr lane4_t spin4(const lane4_t lane, const int count) noexcept {
+				__ANTS_KECCAK_X4_TARGET__ static inline lane4_t spin4(const lane4_t lane, const int count) noexcept {
 					// Выводим круговой сдвиг полос
 					return ((lane << count) | (lane >> ((64 - count) & 63)));
 				}
@@ -3963,7 +3963,7 @@ namespace nts {
 					 * @param states четыре состояния по 25 полос каждое
 					 *
 					 */
-					__ANTS_KECCAK_X4_TARGET__ static __ANTS_INLINE__ void keccak4(uint64_t states[4][25]) noexcept {
+					__ANTS_KECCAK_X4_TARGET__ static inline void keccak4(uint64_t states[4][25]) noexcept {
 						// Полосы состояний в векторах: место i несёт полосу i каждой губки
 						lane4_t a00 = {states[0][0], states[1][0], states[2][0], states[3][0]}, a01 = {states[0][1], states[1][1], states[2][1], states[3][1]}, a02 = {states[0][2], states[1][2], states[2][2], states[3][2]}, a03 = {states[0][3], states[1][3], states[2][3], states[3][3]}, a04 = {states[0][4], states[1][4], states[2][4], states[3][4]}, a05 = {states[0][5], states[1][5], states[2][5], states[3][5]}, a06 = {states[0][6], states[1][6], states[2][6], states[3][6]}, a07 = {states[0][7], states[1][7], states[2][7], states[3][7]}, a08 = {states[0][8], states[1][8], states[2][8], states[3][8]}, a09 = {states[0][9], states[1][9], states[2][9], states[3][9]}, a10 = {states[0][10], states[1][10], states[2][10], states[3][10]}, a11 = {states[0][11], states[1][11], states[2][11], states[3][11]}, a12 = {states[0][12], states[1][12], states[2][12], states[3][12]}, a13 = {states[0][13], states[1][13], states[2][13], states[3][13]}, a14 = {states[0][14], states[1][14], states[2][14], states[3][14]}, a15 = {states[0][15], states[1][15], states[2][15], states[3][15]}, a16 = {states[0][16], states[1][16], states[2][16], states[3][16]}, a17 = {states[0][17], states[1][17], states[2][17], states[3][17]}, a18 = {states[0][18], states[1][18], states[2][18], states[3][18]}, a19 = {states[0][19], states[1][19], states[2][19], states[3][19]}, a20 = {states[0][20], states[1][20], states[2][20], states[3][20]}, a21 = {states[0][21], states[1][21], states[2][21], states[3][21]}, a22 = {states[0][22], states[1][22], states[2][22], states[3][22]}, a23 = {states[0][23], states[1][23], states[2][23], states[3][23]}, a24 = {states[0][24], states[1][24], states[2][24], states[3][24]};
 						// Полосы после шагов ρ и π

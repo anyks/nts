@@ -26,21 +26,21 @@
  *    коэффициентов держатся в 32 разрядах, переполнения нет. Полная редукция берётся
  *    лишь на произведениях и суммах произведений (до трёх слагаемых ниже 2^25 - в её
  *    границах с двумя поправками), а сумма и разность приведённых коэффициентов ниже
- *    удвоенного модуля приводятся одним условным вычитанием (once): бабочки NTT стоили
+ *    удвоенного модуля приводятся одним условным вычитанием (__ants_once__): бабочки NTT стоили
  *    три редукции на пару, стало по одной, умножение в области NTT - шесть на пару, стало
  *    три (круг 35, 23.09.2026: прямое NTT на M4 1 005 → 584 нс, обратное 465 → 358). Сами
- *    бабочки NTT идут на 16 разрядах умножением Монтгомери (fqmul): степени ζ хранятся в
+ *    бабочки NTT идут на 16 разрядах умножением Монтгомери (__ants_fqmul__): степени ζ хранятся в
  *    таблице умноженными на 2^16, произведение выходит в обычной форме, коэффициенты между
  *    слоями держатся со знаком без приведения (семь слоёв поднимают модуль не выше 8q < 2^15),
  *    и лишь на выходе приводятся к [0, q) редукцией Барретта и знаком. Так устроена эталонная
  *    реализация Kyber; арифметика умещается в 32 разряда без 64-разрядного умножения, и
  *    собиратель кладёт бабочки на векторные команды: прямое NTT M4 584 → 151 нс, FreeBSD
  *    3 866 → 1 300 (щуп nttprobe). Умножение в области NTT идёт на подготовленном втором
- *    сомножителе (prepare, круг 36, 23.09.2026): его коэффициенты переводятся в форму
+ *    сомножителе (__ants_prepare__, круг 36, 23.09.2026): его коэффициенты переводятся в форму
  *    Монтгомери, нечётные места ещё умножаются на ±γ пары, а пары хранятся и местами; тогда
  *    оба коэффициента произведения пар - суммы двух произведений соседних мест, они копятся
  *    в 32-разрядном накопителе по всем слагаемым скалярного произведения (не выше четырёх,
- *    ниже q·2^15) и приводятся один раз редукцией Монтгомери (settle) - вместо трёх редукций
+ *    ниже q·2^15) и приводятся один раз редукцией Монтгомери (__ants_settle__) - вместо трёх редукций
  *    Барретта на пару на каждом слагаемом. На x86-64 накопление - команда pmaddwd, подготовка
  *    и приведение тоже на SSE2 (они есть на всякой x86-64). Скалярное произведение k = 3:
  *    M4 339 → 126 нс, FreeBSD 3 633 → 278; инкапсуляция M4 12,9 → 12,0 мкс, FreeBSD 75,3 → 55,4
@@ -230,7 +230,7 @@ namespace {
 		 * @return     собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t loadVector(const void * data) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_load_vector__(const void * data) noexcept {
 			// Загружаем вектор одним обращением к выровненной памяти
 			return _mm_load_si128(reinterpret_cast <const __m128i *> (data));
 		}
@@ -241,7 +241,7 @@ namespace {
 		 * @param value  передаваемое значение
 		 *
 		 */
-		static __ANTS_INLINE__ void storeVector(void * result, const vec_t value) noexcept {
+		static __ANTS_INLINE__ void __ants_store_vector__(void * result, const vec_t value) noexcept {
 			// Записываем вектор одним обращением к выровненной памяти
 			_mm_store_si128(reinterpret_cast <__m128i *> (result), value);
 		}
@@ -252,7 +252,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t broadcast16(const int16_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_broadcast16__(const int16_t value) noexcept {
 			// Заполняем значением все 16-разрядные места
 			return _mm_set1_epi16(value);
 		}
@@ -263,7 +263,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t broadcast32(const int32_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_broadcast32__(const int32_t value) noexcept {
 			// Заполняем значением все 32-разрядные места
 			return _mm_set1_epi32(value);
 		}
@@ -275,7 +275,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplyLow16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_low16__(const vec_t first, const vec_t second) noexcept {
 			// Умножаем места и берём младшие половины произведений
 			return _mm_mullo_epi16(first, second);
 		}
@@ -287,7 +287,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplyHigh16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_high16__(const vec_t first, const vec_t second) noexcept {
 			// Умножаем места и берём старшие половины произведений
 			return _mm_mulhi_epi16(first, second);
 		}
@@ -299,7 +299,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplySum16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_sum16__(const vec_t first, const vec_t second) noexcept {
 			// Считаем суммы произведений соседних мест в 32 разрядах
 			return _mm_madd_epi16(first, second);
 		}
@@ -311,7 +311,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t add16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_add16__(const vec_t first, const vec_t second) noexcept {
 			// Складываем 16-разрядные места
 			return _mm_add_epi16(first, second);
 		}
@@ -323,7 +323,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t subtract16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_subtract16__(const vec_t first, const vec_t second) noexcept {
 			// Вычитаем 16-разрядные места
 			return _mm_sub_epi16(first, second);
 		}
@@ -335,7 +335,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t add32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_add32__(const vec_t first, const vec_t second) noexcept {
 			// Складываем 32-разрядные места
 			return _mm_add_epi32(first, second);
 		}
@@ -347,7 +347,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t subtract32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_subtract32__(const vec_t first, const vec_t second) noexcept {
 			// Вычитаем 32-разрядные места
 			return _mm_sub_epi32(first, second);
 		}
@@ -359,7 +359,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t shiftRight16(const vec_t value, const int count) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_shift_right16__(const vec_t value, const int count) noexcept {
 			// Сдвигаем 16-разрядные места вправо на заданные разряды
 			return _mm_srai_epi16(value, count);
 		}
@@ -371,7 +371,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t shiftRight32(const vec_t value, const int count) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_shift_right32__(const vec_t value, const int count) noexcept {
 			// Сдвигаем 32-разрядные места вправо на заданные разряды
 			return _mm_srai_epi32(value, count);
 		}
@@ -383,7 +383,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t maskBits(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_mask_bits__(const vec_t first, const vec_t second) noexcept {
 			// Накладываем маску поразрядным умножением
 			return _mm_and_si128(first, second);
 		}
@@ -394,7 +394,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t swapHalves16(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_swap_halves16__(const vec_t value) noexcept {
 			// Меняем местами соседние 16-разрядные слова каждого 32-разрядного места
 			return _mm_shufflehi_epi16(_mm_shufflelo_epi16(value, 0xB1), 0xB1);
 		}
@@ -406,7 +406,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t takeLow64(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_take_low64__(const vec_t first, const vec_t second) noexcept {
 			// Ставим младшие 64-разрядные половины двух векторов рядом
 			return _mm_unpacklo_epi64(first, second);
 		}
@@ -418,7 +418,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t takeHigh64(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_take_high64__(const vec_t first, const vec_t second) noexcept {
 			// Ставим старшие 64-разрядные половины двух векторов рядом
 			return _mm_unpackhi_epi64(first, second);
 		}
@@ -430,7 +430,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleaveLow32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave_low32__(const vec_t first, const vec_t second) noexcept {
 			// Переплетаем младшие пары 32-разрядных мест
 			return _mm_unpacklo_epi32(first, second);
 		}
@@ -442,7 +442,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleaveHigh32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave_high32__(const vec_t first, const vec_t second) noexcept {
 			// Переплетаем старшие пары 32-разрядных мест
 			return _mm_unpackhi_epi32(first, second);
 		}
@@ -453,7 +453,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t evenOdd32(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_even_odd32__(const vec_t value) noexcept {
 			// Ставим чётные 32-разрядные места вперёд, нечётные назад
 			return _mm_shuffle_epi32(value, 0xD8);
 		}
@@ -465,7 +465,7 @@ namespace {
 		 * @return     собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleave16(const vec_t even, const vec_t odd) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave16__(const vec_t even, const vec_t odd) noexcept {
 			// Собираем младшие половины 32-разрядных мест в 16-разрядные слова
 			return _mm_or_si128(even, _mm_slli_epi32(odd, 16));
 		}
@@ -485,7 +485,7 @@ namespace {
 		 * @return     собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t loadVector(const void * data) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_load_vector__(const void * data) noexcept {
 			// Загружаем вектор одним обращением к выровненной памяти
 			return (* reinterpret_cast <const vec_t *> (data));
 		}
@@ -496,7 +496,7 @@ namespace {
 		 * @param value  передаваемое значение
 		 *
 		 */
-		static __ANTS_INLINE__ void storeVector(void * result, const vec_t value) noexcept {
+		static __ANTS_INLINE__ void __ants_store_vector__(void * result, const vec_t value) noexcept {
 			// Записываем вектор одним обращением к выровненной памяти
 			(* reinterpret_cast <vec_t *> (result)) = value;
 		}
@@ -506,7 +506,7 @@ namespace {
 		 * @return собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t packWords(const uint64_t high, const uint64_t low) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_pack_words__(const uint64_t high, const uint64_t low) noexcept {
 			// Вектор из двух 64-разрядных слов: старшее и младшее
 			return __builtin_e2k_qppackdl(high, low);
 		}
@@ -517,11 +517,11 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t broadcast16(const int16_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_broadcast16__(const int16_t value) noexcept {
 			// Раскладываем значение по всем 16-разрядным словам числа
 			const uint64_t word = (static_cast <uint64_t> (static_cast <uint16_t> (value)) * 0x0001000100010001ULL);
 			// Собираем вектор из двух одинаковых слов
-			return packWords(word, word);
+			return ::__ants_pack_words__(word, word);
 		}
 		/**
 		 * @brief Функция заполнения всех 32-разрядных мест вектора одним значением
@@ -530,11 +530,11 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t broadcast32(const int32_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_broadcast32__(const int32_t value) noexcept {
 			// Раскладываем значение по двум 32-разрядным словам числа
 			const uint64_t word = (static_cast <uint64_t> (static_cast <uint32_t> (value)) * 0x0000000100000001ULL);
 			// Собираем вектор из двух одинаковых слов
-			return packWords(word, word);
+			return ::__ants_pack_words__(word, word);
 		}
 		/**
 		 * @brief Функция умножения 16-разрядных мест с младшими половинами произведений
@@ -544,7 +544,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplyLow16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_low16__(const vec_t first, const vec_t second) noexcept {
 			// Умножаем места и берём младшие половины произведений
 			return __builtin_e2k_qpmullh(first, second);
 		}
@@ -556,7 +556,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplyHigh16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_high16__(const vec_t first, const vec_t second) noexcept {
 			// Умножаем места и берём старшие половины произведений
 			return __builtin_e2k_qpmulhh(first, second);
 		}
@@ -568,7 +568,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplySum16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_sum16__(const vec_t first, const vec_t second) noexcept {
 			// Считаем суммы произведений соседних мест в 32 разрядах
 			return __builtin_e2k_qpmaddh(first, second);
 		}
@@ -580,7 +580,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t add16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_add16__(const vec_t first, const vec_t second) noexcept {
 			// Складываем 16-разрядные места
 			return __builtin_e2k_qpaddh(first, second);
 		}
@@ -592,7 +592,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t subtract16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_subtract16__(const vec_t first, const vec_t second) noexcept {
 			// Вычитаем 16-разрядные места
 			return __builtin_e2k_qpsubh(first, second);
 		}
@@ -604,7 +604,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t add32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_add32__(const vec_t first, const vec_t second) noexcept {
 			// Складываем 32-разрядные места
 			return __builtin_e2k_qpaddw(first, second);
 		}
@@ -616,7 +616,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t subtract32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_subtract32__(const vec_t first, const vec_t second) noexcept {
 			// Вычитаем 32-разрядные места
 			return __builtin_e2k_qpsubw(first, second);
 		}
@@ -628,7 +628,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t shiftRight16(const vec_t value, const int count) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_shift_right16__(const vec_t value, const int count) noexcept {
 			// Сдвигаем 16-разрядные места вправо на заданные разряды
 			return __builtin_e2k_qpsrah(value, count);
 		}
@@ -640,7 +640,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t shiftRight32(const vec_t value, const int count) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_shift_right32__(const vec_t value, const int count) noexcept {
 			// Сдвигаем 32-разрядные места вправо на заданные разряды
 			return __builtin_e2k_qpsraw(value, count);
 		}
@@ -652,7 +652,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t maskBits(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_mask_bits__(const vec_t first, const vec_t second) noexcept {
 			// Накладываем маску поразрядным умножением
 			return __builtin_e2k_qpand(first, second);
 		}
@@ -663,9 +663,9 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t swapHalves16(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_swap_halves16__(const vec_t value) noexcept {
 			// Меняем местами соседние 16-разрядные слова каждого 32-разрядного места
-			return __builtin_e2k_qppermb(value, value, packWords(0x0d0c0f0e09080b0aULL, 0x0504070601000302ULL));
+			return __builtin_e2k_qppermb(value, value, ::__ants_pack_words__(0x0d0c0f0e09080b0aULL, 0x0504070601000302ULL));
 		}
 		/**
 		 * @brief Функция сборки младших 64-разрядных половин двух векторов рядом
@@ -675,9 +675,9 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t takeLow64(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_take_low64__(const vec_t first, const vec_t second) noexcept {
 			// Ставим младшие 64-разрядные половины двух векторов рядом
-			return __builtin_e2k_qppermb(second, first, packWords(0x1716151413121110ULL, 0x0706050403020100ULL));
+			return __builtin_e2k_qppermb(second, first, ::__ants_pack_words__(0x1716151413121110ULL, 0x0706050403020100ULL));
 		}
 		/**
 		 * @brief Функция сборки старших 64-разрядных половин двух векторов рядом
@@ -687,9 +687,9 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t takeHigh64(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_take_high64__(const vec_t first, const vec_t second) noexcept {
 			// Ставим старшие 64-разрядные половины двух векторов рядом
-			return __builtin_e2k_qppermb(second, first, packWords(0x1f1e1d1c1b1a1918ULL, 0x0f0e0d0c0b0a0908ULL));
+			return __builtin_e2k_qppermb(second, first, ::__ants_pack_words__(0x1f1e1d1c1b1a1918ULL, 0x0f0e0d0c0b0a0908ULL));
 		}
 		/**
 		 * @brief Функция переплетения младших пар 32-разрядных мест двух векторов
@@ -699,9 +699,9 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleaveLow32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave_low32__(const vec_t first, const vec_t second) noexcept {
 			// Переплетаем младшие пары 32-разрядных мест
-			return __builtin_e2k_qppermb(second, first, packWords(0x1716151407060504ULL, 0x1312111003020100ULL));
+			return __builtin_e2k_qppermb(second, first, ::__ants_pack_words__(0x1716151407060504ULL, 0x1312111003020100ULL));
 		}
 		/**
 		 * @brief Функция переплетения старших пар 32-разрядных мест двух векторов
@@ -711,9 +711,9 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleaveHigh32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave_high32__(const vec_t first, const vec_t second) noexcept {
 			// Переплетаем старшие пары 32-разрядных мест
-			return __builtin_e2k_qppermb(second, first, packWords(0x1f1e1d1c0f0e0d0cULL, 0x1b1a19180b0a0908ULL));
+			return __builtin_e2k_qppermb(second, first, ::__ants_pack_words__(0x1f1e1d1c0f0e0d0cULL, 0x1b1a19180b0a0908ULL));
 		}
 		/**
 		 * @brief Функция перестановки чётных 32-разрядных мест вперёд и нечётных назад
@@ -722,9 +722,9 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t evenOdd32(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_even_odd32__(const vec_t value) noexcept {
 			// Ставим чётные 32-разрядные места вперёд, нечётные назад
-			return __builtin_e2k_qppermb(value, value, packWords(0x0f0e0d0c07060504ULL, 0x0b0a090803020100ULL));
+			return __builtin_e2k_qppermb(value, value, ::__ants_pack_words__(0x0f0e0d0c07060504ULL, 0x0b0a090803020100ULL));
 		}
 		/**
 		 * @brief Функция переплетения младших половин 32-разрядных мест в 16-разрядные слова
@@ -734,9 +734,9 @@ namespace {
 		 * @return     собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleave16(const vec_t even, const vec_t odd) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave16__(const vec_t even, const vec_t odd) noexcept {
 			// Собираем младшие половины 32-разрядных мест в 16-разрядные слова
-			return __builtin_e2k_qppermb(odd, even, packWords(0x1d1c0d0c19180908ULL, 0x1514050411100100ULL));
+			return __builtin_e2k_qppermb(odd, even, ::__ants_pack_words__(0x1d1c0d0c19180908ULL, 0x1514050411100100ULL));
 		}
 	/**
 	 * Ветвь векторной прослойки NEON: те же операции над 128-разрядными векторами,
@@ -755,7 +755,7 @@ namespace {
 		 * @return     собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t loadVector(const void * data) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_load_vector__(const void * data) noexcept {
 			// Загружаем вектор одним обращением к выровненной памяти
 			return vld1q_s16(reinterpret_cast <const int16_t *> (data));
 		}
@@ -766,7 +766,7 @@ namespace {
 		 * @param value  передаваемое значение
 		 *
 		 */
-		static __ANTS_INLINE__ void storeVector(void * result, const vec_t value) noexcept {
+		static __ANTS_INLINE__ void __ants_store_vector__(void * result, const vec_t value) noexcept {
 			// Записываем вектор одним обращением к выровненной памяти
 			vst1q_s16(reinterpret_cast <int16_t *> (result), value);
 		}
@@ -777,7 +777,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t broadcast16(const int16_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_broadcast16__(const int16_t value) noexcept {
 			// Заполняем значением все 16-разрядные места
 			return vdupq_n_s16(value);
 		}
@@ -788,7 +788,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t broadcast32(const int32_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_broadcast32__(const int32_t value) noexcept {
 			// Заполняем значением все 32-разрядные места
 			return vreinterpretq_s16_s32(vdupq_n_s32(value));
 		}
@@ -800,7 +800,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplyLow16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_low16__(const vec_t first, const vec_t second) noexcept {
 			// Умножаем места и берём младшие половины произведений
 			return vmulq_s16(first, second);
 		}
@@ -812,7 +812,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplyHigh16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_high16__(const vec_t first, const vec_t second) noexcept {
 			// Произведения младших половин вектора в 32 разрядах
 			const int32x4_t low = vmull_s16(vget_low_s16(first), vget_low_s16(second));
 			// Произведения старших половин вектора в 32 разрядах
@@ -828,7 +828,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplySum16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_sum16__(const vec_t first, const vec_t second) noexcept {
 			// Произведения младших половин вектора в 32 разрядах
 			const int32x4_t low = vmull_s16(vget_low_s16(first), vget_low_s16(second));
 			// Произведения старших половин вектора в 32 разрядах
@@ -844,7 +844,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t add16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_add16__(const vec_t first, const vec_t second) noexcept {
 			// Складываем 16-разрядные места
 			return vaddq_s16(first, second);
 		}
@@ -856,7 +856,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t subtract16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_subtract16__(const vec_t first, const vec_t second) noexcept {
 			// Вычитаем 16-разрядные места
 			return vsubq_s16(first, second);
 		}
@@ -868,7 +868,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t add32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_add32__(const vec_t first, const vec_t second) noexcept {
 			// Складываем 32-разрядные места
 			return vreinterpretq_s16_s32(vaddq_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second)));
 		}
@@ -880,7 +880,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t subtract32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_subtract32__(const vec_t first, const vec_t second) noexcept {
 			// Вычитаем 32-разрядные места
 			return vreinterpretq_s16_s32(vsubq_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second)));
 		}
@@ -892,7 +892,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t shiftRight16(const vec_t value, const int count) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_shift_right16__(const vec_t value, const int count) noexcept {
 			// Сдвигаем 16-разрядные места вправо на заданные разряды
 			return vshlq_s16(value, vdupq_n_s16(-count));
 		}
@@ -904,7 +904,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t shiftRight32(const vec_t value, const int count) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_shift_right32__(const vec_t value, const int count) noexcept {
 			// Сдвигаем 32-разрядные места вправо на заданные разряды
 			return vreinterpretq_s16_s32(vshlq_s32(vreinterpretq_s32_s16(value), vdupq_n_s32(-count)));
 		}
@@ -916,7 +916,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t maskBits(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_mask_bits__(const vec_t first, const vec_t second) noexcept {
 			// Накладываем маску поразрядным умножением
 			return vandq_s16(first, second);
 		}
@@ -927,7 +927,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t swapHalves16(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_swap_halves16__(const vec_t value) noexcept {
 			// Меняем местами соседние 16-разрядные слова каждого 32-разрядного места
 			return vrev32q_s16(value);
 		}
@@ -939,7 +939,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t takeLow64(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_take_low64__(const vec_t first, const vec_t second) noexcept {
 			// В старшую половину первого ставим младшую половину второго
 			return vreinterpretq_s16_u64(vsetq_lane_u64(vgetq_lane_u64(vreinterpretq_u64_s16(second), 0), vreinterpretq_u64_s16(first), 1));
 		}
@@ -951,7 +951,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t takeHigh64(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_take_high64__(const vec_t first, const vec_t second) noexcept {
 			// В младшую половину второго ставим старшую половину первого
 			return vreinterpretq_s16_u64(vsetq_lane_u64(vgetq_lane_u64(vreinterpretq_u64_s16(first), 1), vreinterpretq_u64_s16(second), 0));
 		}
@@ -963,7 +963,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleaveLow32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave_low32__(const vec_t first, const vec_t second) noexcept {
 			// Переплетаем младшие пары мест командой почленного чередования
 			return vreinterpretq_s16_s32(vzip1q_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second)));
 		}
@@ -975,7 +975,7 @@ namespace {
 		 * @return       собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleaveHigh32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave_high32__(const vec_t first, const vec_t second) noexcept {
 			// Переплетаем старшие пары мест командой почленного чередования
 			return vreinterpretq_s16_s32(vzip2q_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second)));
 		}
@@ -986,7 +986,7 @@ namespace {
 		 * @return      собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t evenOdd32(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_even_odd32__(const vec_t value) noexcept {
 			/**
 			 * Номера байтов мест 0, 2, 1, 3 по порядку: таблица читается загрузкой, потому что
 			 * собиратель Microsoft Visual C++ не принимает инициализацию вектора списком
@@ -1004,7 +1004,7 @@ namespace {
 		 * @return     собранный вектор
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t interleave16(const vec_t even, const vec_t odd) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_interleave16__(const vec_t even, const vec_t odd) noexcept {
 			// Ставим нечётные места сдвигом поверх чётных
 			return vreinterpretq_s16_s32(vorrq_s32(vreinterpretq_s32_s16(even), vshlq_n_s32(vreinterpretq_s32_s16(odd), 16)));
 		}
@@ -1026,13 +1026,13 @@ namespace {
 		 * @return       произведения, делённые на 2^16, по модулю q в (-q, q)
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t multiplyMontgomery(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_multiply_montgomery__(const vec_t first, const vec_t second) noexcept {
 			// Младшие и старшие половины произведений
-			const vec_t low = multiplyLow16(first, second), high = multiplyHigh16(first, second);
+			const vec_t low = ::__ants_multiply_low16__(first, second), high = ::__ants_multiply_high16__(first, second);
 			// Множители, обращающие младшие половины в ноль: q^(-1) mod 2^16 = -3327
-			const vec_t zeroing = multiplyLow16(low, broadcast16(-3327));
+			const vec_t zeroing = ::__ants_multiply_low16__(low, ::__ants_broadcast16__(-3327));
 			// Выводим разность старших половин произведений и множителей на модуль
-			return subtract16(high, multiplyHigh16(zeroing, broadcast16(static_cast <int16_t> (Q))));
+			return ::__ants_subtract16__(high, ::__ants_multiply_high16__(zeroing, ::__ants_broadcast16__(static_cast <int16_t> (Q))));
 		}
 		/**
 		 * @brief Функция редукции Барретта восьми 16-разрядных значений
@@ -1042,14 +1042,14 @@ namespace {
 		 *       дают то же, что одно
 		 *
 		 * @param value приводимые значения
-		 * @return      значения из [-q/2, q/2], те же, что у скалярной barrett
+		 * @return      значения из [-q/2, q/2], те же, что у скалярной __ants_barrett__
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t reduceBarrett(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_reduce_barrett__(const vec_t value) noexcept {
 			// Частное с округлением
-			const vec_t quotient = shiftRight16(add16(multiplyHigh16(value, broadcast16(20159)), broadcast16(512)), 10);
+			const vec_t quotient = ::__ants_shift_right16__(::__ants_add16__(::__ants_multiply_high16__(value, ::__ants_broadcast16__(20159)), ::__ants_broadcast16__(512)), 10);
 			// Выводим остаток
-			return subtract16(value, multiplyLow16(quotient, broadcast16(static_cast <int16_t> (Q))));
+			return ::__ants_subtract16__(value, ::__ants_multiply_low16__(quotient, ::__ants_broadcast16__(static_cast <int16_t> (Q))));
 		}
 		/**
 		 * @brief Функция приведения восьми значений из (-q, q) к [0, q)
@@ -1058,9 +1058,9 @@ namespace {
 		 * @return      значения из [0, q)
 		 *
 		 */
-		static __ANTS_INLINE__ vec_t reduceCanonical(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t __ants_reduce_canonical__(const vec_t value) noexcept {
 			// Прибавляем модуль под маской знака
-			return add16(value, maskBits(shiftRight16(value, 15), broadcast16(static_cast <int16_t> (Q))));
+			return ::__ants_add16__(value, ::__ants_mask_bits__(::__ants_shift_right16__(value, 15), ::__ants_broadcast16__(static_cast <int16_t> (Q))));
 		}
 	#endif
 
@@ -1115,7 +1115,7 @@ namespace {
 	 * @return    описание набора либо описание с нулевой размерностью
 	 *
 	 */
-	static __ANTS_INLINE__ sample_t describe(const agreement::kem_t kem) noexcept {
+	static __ANTS_INLINE__ sample_t __ants_describe__(const agreement::kem_t kem) noexcept {
 		// Описание набора параметров
 		sample_t result = {0, 0, 0, 0, 0};
 		/**
@@ -1148,7 +1148,7 @@ namespace {
 	 * @return      число из диапазона [0, q)
 	 *
 	 */
-	static __ANTS_INLINE__ int16_t reduce(const int32_t value) noexcept {
+	static __ANTS_INLINE__ int16_t __ants_reduce__(const int32_t value) noexcept {
 		// Частное по Барретту: 2^26 / q округлённо
 		const int32_t quotient = static_cast <int32_t> ((static_cast <int64_t> (value) * 20159) >> 26);
 		// Остаток после вычитания произведения частного
@@ -1168,9 +1168,9 @@ namespace {
 	 * @return       произведение из диапазона [0, q)
 	 *
 	 */
-	static __ANTS_INLINE__ int16_t product(const int32_t first, const int32_t second) noexcept {
+	static __ANTS_INLINE__ int16_t __ants_product__(const int32_t first, const int32_t second) noexcept {
 		// Выводим приведённое произведение
-		return reduce(first * second);
+		return ::__ants_reduce__(first * second);
 	}
 	/**
 	 * @brief Функция условного вычитания модуля из значения ниже удвоенного модуля
@@ -1183,7 +1183,7 @@ namespace {
 	 * @return      значение из [0, q)
 	 *
 	 */
-	static __ANTS_INLINE__ int16_t once(const int32_t value) noexcept {
+	static __ANTS_INLINE__ int16_t __ants_once__(const int32_t value) noexcept {
 		// Разность с модулем
 		const int32_t difference = (value - Q);
 		// Выводим разность, если она не отрицательна, иначе само значение
@@ -1196,7 +1196,7 @@ namespace {
 	 * @return      значение в 16 разрядах со знаком
 	 *
 	 */
-	static __ANTS_INLINE__ int16_t centered(const int32_t value) noexcept {
+	static __ANTS_INLINE__ int16_t __ants_centered__(const int32_t value) noexcept {
 		// Выводим значение, уменьшенное на модуль, если оно выше половины модуля
 		return static_cast <int16_t> ((value > (Q / 2)) ? (value - Q) : value);
 	}
@@ -1211,13 +1211,13 @@ namespace {
 		 * @note Множитель -3327 обращает младшие 16 разрядов в ноль: q·3327 = 169·2^16 - 1,
 		 *       оттого разность wide - factor·q делится на 2^16 нацело, а её старшие разряды
 		 *       и есть итог. Тем же приведением снимается множитель 2^16 с накопителя
-		 *       произведений в области NTT (settle)
+		 *       произведений в области NTT (__ants_settle__)
 		 *
 		 * @param wide приводимое значение, |wide| < q·2^15
 		 * @return     wide·2^(-16) mod q в полуинтервале (-q, q)
 		 *
 		 */
-		static __ANTS_INLINE__ int16_t montgomery(const int32_t wide) noexcept {
+		static __ANTS_INLINE__ int16_t __ants_montgomery__(const int32_t wide) noexcept {
 			// Множитель, обращающий младшие 16 разрядов значения в ноль: q^(-1) mod 2^16 = -3327
 			const int16_t factor = static_cast <int16_t> (static_cast <uint16_t> (static_cast <int32_t> (static_cast <int16_t> (static_cast <uint16_t> (wide))) * -3327));
 			// Выводим старшие 16 разрядов разности значения и произведения множителя на модуль
@@ -1237,9 +1237,9 @@ namespace {
 		 * @return       first·second·2^(-16) mod q в полуинтервале (-q, q)
 		 *
 		 */
-		static __ANTS_INLINE__ int16_t fqmul(const int16_t first, const int16_t second) noexcept {
+		static __ANTS_INLINE__ int16_t __ants_fqmul__(const int16_t first, const int16_t second) noexcept {
 			// Выводим редукцию Монтгомери полного произведения
-			return montgomery(static_cast <int32_t> (first) * second);
+			return ::__ants_montgomery__(static_cast <int32_t> (first) * second);
 		}
 		/**
 		 * @brief Функция редукции Барретта на 16 разрядах
@@ -1248,7 +1248,7 @@ namespace {
 		 * @return      значение, сравнимое с исходным по модулю q, из [-q/2, q/2]
 		 *
 		 */
-		static __ANTS_INLINE__ int16_t barrett(const int16_t value) noexcept {
+		static __ANTS_INLINE__ int16_t __ants_barrett__(const int16_t value) noexcept {
 			// Частное с округлением: 2^26 / q = 20159
 			const int16_t quotient = static_cast <int16_t> (((static_cast <int32_t> (value) * 20159) + (1 << 25)) >> 26);
 			// Выводим остаток
@@ -1261,7 +1261,7 @@ namespace {
 		 * @return      значение из [0, q)
 		 *
 		 */
-		static __ANTS_INLINE__ int16_t canonical(const int16_t value) noexcept {
+		static __ANTS_INLINE__ int16_t __ants_canonical__(const int16_t value) noexcept {
 			// Прибавляем модуль под маской знака
 			return static_cast <int16_t> (value + (Q & (value >> 15)));
 		}
@@ -1271,7 +1271,7 @@ namespace {
 	 *
 	 */
 	typedef struct Tables {
-		// 2^32 mod q: множитель перевода коэффициента в форму Монтгомери умножением fqmul
+		// 2^32 mod q: множитель перевода коэффициента в форму Монтгомери умножением __ants_fqmul__
 		int16_t square;
 		// Обратное к 128 в форме Монтгомери: 128^(-1)·2^16 mod q
 		int16_t inverse;
@@ -1313,15 +1313,15 @@ namespace {
 				 */
 				for(size_t j = 0; j < reversed; j++)
 					// Умножаем на ζ = 17
-					power = product(power, 17);
+					power = ::__ants_product__(power, 17);
 				// Записываем степень бабочки
 				this->zetas[i] = static_cast <int16_t> (power);
 				// Та же степень в форме Монтгомери
-				this->montgomery[i] = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (power) << 16) % Q)));
+				this->montgomery[i] = ::__ants_centered__(::__ants_reduce__(static_cast <int32_t> ((static_cast <int64_t> (power) << 16) % Q)));
 				// Если место в пределах таблицы скруток пар
 				if(i < 64){
 					// Степень пары ζ^(2·BitRev7(2i)+1) = ζ^(BitRev7(i)+1), умноженная на 2^32
-					const int16_t twist = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (product(power, 17)) << 32) % Q)));
+					const int16_t twist = ::__ants_centered__(::__ants_reduce__(static_cast <int32_t> ((static_cast <int64_t> (::__ants_product__(power, 17)) << 32) % Q)));
 					// Записываем скрутку чётной пары группы
 					this->twists[2 * i] = twist;
 					// Записываем скрутку нечётной пары группы: степень противоположная
@@ -1329,9 +1329,9 @@ namespace {
 				}
 			}
 			// Обратное к 128 в форме Монтгомери
-			this->inverse = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (INVERSE) << 16) % Q)));
+			this->inverse = ::__ants_centered__(::__ants_reduce__(static_cast <int32_t> ((static_cast <int64_t> (INVERSE) << 16) % Q)));
 			// Множитель перевода в форму Монтгомери
-			this->square = centered(reduce(static_cast <int32_t> ((static_cast <int64_t> (1) << 32) % Q)));
+			this->square = ::__ants_centered__(::__ants_reduce__(static_cast <int32_t> ((static_cast <int64_t> (1) << 32) % Q)));
 			/**
 			 * Перебираем пары коэффициентов
 			 */
@@ -1380,7 +1380,7 @@ namespace {
 	 * @param poly преобразуемый многочлен
 	 *
 	 */
-	static void forward(poly_t & poly) noexcept {
+	static void __ants_forward__(poly_t & poly) noexcept {
 		/**
 		 * Векторный путь: слои с длиной от 128 до 8 идут целыми векторами, слои длины 4 и 2 -
 		 * шестнадцатью коэффициентами за шаг с перестановками половин и пар двойных слов
@@ -1401,19 +1401,19 @@ namespace {
 				 */
 				for(size_t start = 0; start < N; start += (2 * length)){
 					// Степень ζ участка по всем местам
-					const vec_t zeta = broadcast16(table.montgomery[index++]);
+					const vec_t zeta = ::__ants_broadcast16__(table.montgomery[index++]);
 					/**
 					 * Перебираем восьмёрки пар участка
 					 */
 					for(size_t j = start; j < (start + length); j += 8){
 						// Произведение степени ζ на вторые коэффициенты пар
-						const vec_t product = multiplyMontgomery(loadVector(values + j + length), zeta);
+						const vec_t zetaProduct = ::__ants_multiply_montgomery__(::__ants_load_vector__(values + j + length), zeta);
 						// Первые коэффициенты пар
-						const vec_t first = loadVector(values + j);
+						const vec_t first = ::__ants_load_vector__(values + j);
 						// Разности пар уходят на вторые половины участков
-						storeVector(values + j + length, subtract16(first, product));
+						::__ants_store_vector__(values + j + length, ::__ants_subtract16__(first, zetaProduct));
 						// Суммы пар остаются на первых половинах
-						storeVector(values + j, add16(first, product));
+						::__ants_store_vector__(values + j, ::__ants_add16__(first, zetaProduct));
 					}
 				}
 			}
@@ -1422,30 +1422,30 @@ namespace {
 			 */
 			for(size_t i = 0, m = 0; i < N; i += 16, m += 8){
 				// Младший и старший векторы по восемь коэффициентов
-				const vec_t lower = loadVector(values + i), upper = loadVector(values + i + 8);
+				const vec_t lower = ::__ants_load_vector__(values + i), upper = ::__ants_load_vector__(values + i + 8);
 				// Слой длины 4: младшие четвёрки обоих векторов против старших
-				vec_t low = takeLow64(lower, upper), high = takeHigh64(lower, upper);
+				vec_t low = ::__ants_take_low64__(lower, upper), high = ::__ants_take_high64__(lower, upper);
 				// Произведения степеней и старших четвёрок
-				vec_t product = multiplyMontgomery(high, loadVector(table.forward4 + m));
+				vec_t zetaProduct = ::__ants_multiply_montgomery__(high, ::__ants_load_vector__(table.forward4 + m));
 				// Разности пар - в старшие четвёрки
-				high = subtract16(low, product);
+				high = ::__ants_subtract16__(low, zetaProduct);
 				// Суммы пар - в младшие четвёрки
-				low = add16(low, product);
+				low = ::__ants_add16__(low, zetaProduct);
 				// Обратно в порядок коэффициентов, затем чётные пары двойных слов вперёд
-				const vec_t swappedLow = evenOdd32(takeLow64(low, high)), swappedHigh = evenOdd32(takeHigh64(low, high));
+				const vec_t swappedLow = ::__ants_even_odd32__(::__ants_take_low64__(low, high)), swappedHigh = ::__ants_even_odd32__(::__ants_take_high64__(low, high));
 				// Слой длины 2: первые пары четвёрок против вторых
-				low = takeLow64(swappedLow, swappedHigh);
+				low = ::__ants_take_low64__(swappedLow, swappedHigh);
 				// Старшие четвёрки - во второй вектор
-				high = takeHigh64(swappedLow, swappedHigh);
+				high = ::__ants_take_high64__(swappedLow, swappedHigh);
 				// Произведения степеней и вторых пар
-				product = multiplyMontgomery(high, loadVector(table.forward2 + m));
+				zetaProduct = ::__ants_multiply_montgomery__(high, ::__ants_load_vector__(table.forward2 + m));
 				// Разности пар - в старшие четвёрки
-				high = subtract16(low, product);
+				high = ::__ants_subtract16__(low, zetaProduct);
 				// Суммы пар - в младшие четвёрки
-				low = add16(low, product);
+				low = ::__ants_add16__(low, zetaProduct);
 				// Обратно в порядок коэффициентов с приведением к [0, q)
-				storeVector(values + i, reduceCanonical(reduceBarrett(interleaveLow32(low, high))));
-				storeVector(values + i + 8, reduceCanonical(reduceBarrett(interleaveHigh32(low, high))));
+				::__ants_store_vector__(values + i, ::__ants_reduce_canonical__(::__ants_reduce_barrett__(::__ants_interleave_low32__(low, high))));
+				::__ants_store_vector__(values + i + 8, ::__ants_reduce_canonical__(::__ants_reduce_barrett__(::__ants_interleave_high32__(low, high))));
 			}
 		/**
 		 * Переносимый путь
@@ -1473,11 +1473,11 @@ namespace {
 					 */
 					for(size_t j = start; j < (start + length); j++){
 						// Произведение степени и второго коэффициента пары
-						const int16_t product = fqmul(zeta, values[j + length]);
+						const int16_t zetaProduct = ::__ants_fqmul__(zeta, values[j + length]);
 						// Разность пары
-						values[j + length] = static_cast <int16_t> (values[j] - product);
+						values[j + length] = static_cast <int16_t> (values[j] - zetaProduct);
 						// Сумма пары
-						values[j] = static_cast <int16_t> (values[j] + product);
+						values[j] = static_cast <int16_t> (values[j] + zetaProduct);
 					}
 				}
 			}
@@ -1486,7 +1486,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < N; i++)
 				// Приводим коэффициент редукцией Барретта и знаком
-				values[i] = canonical(barrett(values[i]));
+				values[i] = ::__ants_canonical__(::__ants_barrett__(values[i]));
 		#endif
 	}
 	/**
@@ -1495,7 +1495,7 @@ namespace {
 	 * @param poly преобразуемый многочлен
 	 *
 	 */
-	static void inverse(poly_t & poly) noexcept {
+	static void __ants_inverse__(poly_t & poly) noexcept {
 		/**
 		 * Векторный путь: слои длины 2 и 4 шестнадцатью коэффициентами за шаг с перестановками,
 		 * слои с длиной от 8 до 128 целыми векторами
@@ -1510,30 +1510,30 @@ namespace {
 			 */
 			for(size_t i = 0, m = 0; i < N; i += 16, m += 8){
 				// Два вектора по восемь коэффициентов, чётные пары двойных слов вперёд
-				const vec_t swappedLower = evenOdd32(loadVector(values + i)), swappedUpper = evenOdd32(loadVector(values + i + 8));
+				const vec_t swappedLower = ::__ants_even_odd32__(::__ants_load_vector__(values + i)), swappedUpper = ::__ants_even_odd32__(::__ants_load_vector__(values + i + 8));
 				// Слой длины 2: первые пары четвёрок против вторых
-				vec_t low = takeLow64(swappedLower, swappedUpper), high = takeHigh64(swappedLower, swappedUpper);
+				vec_t low = ::__ants_take_low64__(swappedLower, swappedUpper), high = ::__ants_take_high64__(swappedLower, swappedUpper);
 				// Первые коэффициенты пар
 				vec_t first = low;
 				// Сумма пар с редукцией Барретта
-				low = reduceBarrett(add16(first, high));
+				low = ::__ants_reduce_barrett__(::__ants_add16__(first, high));
 				// Произведения степеней и разностей пар
-				high = multiplyMontgomery(subtract16(high, first), loadVector(table.inverse2 + m));
+				high = ::__ants_multiply_montgomery__(::__ants_subtract16__(high, first), ::__ants_load_vector__(table.inverse2 + m));
 				// Обратно в порядок коэффициентов переплетением половин
-				const vec_t interleavedLow = interleaveLow32(low, high), interleavedHigh = interleaveHigh32(low, high);
+				const vec_t interleavedLow = ::__ants_interleave_low32__(low, high), interleavedHigh = ::__ants_interleave_high32__(low, high);
 				// Слой длины 4: младшие четвёрки против старших
-				low = takeLow64(interleavedLow, interleavedHigh);
+				low = ::__ants_take_low64__(interleavedLow, interleavedHigh);
 				// Старшие четвёрки против младших
-				high = takeHigh64(interleavedLow, interleavedHigh);
+				high = ::__ants_take_high64__(interleavedLow, interleavedHigh);
 				// Первые коэффициенты пар
 				first = low;
 				// Сумма пар с редукцией Барретта
-				low = reduceBarrett(add16(first, high));
+				low = ::__ants_reduce_barrett__(::__ants_add16__(first, high));
 				// Произведения степеней и разностей пар
-				high = multiplyMontgomery(subtract16(high, first), loadVector(table.inverse4 + m));
+				high = ::__ants_multiply_montgomery__(::__ants_subtract16__(high, first), ::__ants_load_vector__(table.inverse4 + m));
 				// Раскладываем половины на места коэффициентов
-				storeVector(values + i, takeLow64(low, high));
-				storeVector(values + i + 8, takeHigh64(low, high));
+				::__ants_store_vector__(values + i, ::__ants_take_low64__(low, high));
+				::__ants_store_vector__(values + i + 8, ::__ants_take_high64__(low, high));
 			}
 			// Место в таблице степеней после слоёв длины 2 и 4
 			size_t index = 31;
@@ -1546,28 +1546,28 @@ namespace {
 				 */
 				for(size_t start = 0; start < N; start += (2 * length)){
 					// Степень ζ участка по всем местам
-					const vec_t zeta = broadcast16(table.montgomery[index--]);
+					const vec_t zeta = ::__ants_broadcast16__(table.montgomery[index--]);
 					/**
 					 * Перебираем восьмёрки пар участка
 					 */
 					for(size_t j = start; j < (start + length); j += 8){
 						// Первые и вторые коэффициенты пар
-						const vec_t first = loadVector(values + j), second = loadVector(values + j + length);
+						const vec_t first = ::__ants_load_vector__(values + j), second = ::__ants_load_vector__(values + j + length);
 						// Суммы пар с редукцией
-						storeVector(values + j, reduceBarrett(add16(first, second)));
+						::__ants_store_vector__(values + j, ::__ants_reduce_barrett__(::__ants_add16__(first, second)));
 						// Произведения степени и разностей пар
-						storeVector(values + j + length, multiplyMontgomery(subtract16(second, first), zeta));
+						::__ants_store_vector__(values + j + length, ::__ants_multiply_montgomery__(::__ants_subtract16__(second, first), zeta));
 					}
 				}
 			}
 			// Обратное к 128 в форме Монтгомери по всем местам
-			const vec_t scale = broadcast16(table.inverse);
+			const vec_t scale = ::__ants_broadcast16__(table.inverse);
 			/**
 			 * Перебираем восьмёрки коэффициентов
 			 */
 			for(size_t i = 0; i < N; i += 8)
 				// Умножаем на обратное к 128 и приводим к [0, q)
-				storeVector(values + i, reduceCanonical(multiplyMontgomery(loadVector(values + i), scale)));
+				::__ants_store_vector__(values + i, ::__ants_reduce_canonical__(::__ants_multiply_montgomery__(::__ants_load_vector__(values + i), scale)));
 		/**
 		 * Переносимый путь
 		 */
@@ -1596,9 +1596,9 @@ namespace {
 						// Первый коэффициент пары
 						const int16_t first = values[j];
 						// Сумма пары
-						values[j] = barrett(static_cast <int16_t> (first + values[j + length]));
+						values[j] = ::__ants_barrett__(static_cast <int16_t> (first + values[j + length]));
 						// Произведение степени и разности пары
-						values[j + length] = fqmul(zeta, static_cast <int16_t> (values[j + length] - first));
+						values[j + length] = ::__ants_fqmul__(zeta, static_cast <int16_t> (values[j + length] - first));
 					}
 				}
 			}
@@ -1607,7 +1607,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < N; i++)
 			// Умножаем на обратное к 128 в форме Монтгомери и приводим к [0, q)
-			values[i] = canonical(fqmul(values[i], table.inverse));
+			values[i] = ::__ants_canonical__(::__ants_fqmul__(values[i], table.inverse));
 		#endif
 	}
 
@@ -1633,8 +1633,8 @@ namespace {
 	/**
 	 * @brief Структура накопителя произведений в области NTT: 32 разряда на коэффициент
 	 *
-	 * @note Порядок коэффициентов внутри накопителя принадлежит паре методов multiply и
-	 *       settle: у векторного пути в каждой восьмёрке сперва идут четыре чётных
+	 * @note Порядок коэффициентов внутри накопителя принадлежит паре методов __ants_multiply__ и
+	 *       __ants_settle__: у векторного пути в каждой восьмёрке сперва идут четыре чётных
 	 *       коэффициента, затем четыре нечётных
 	 *
 	 */
@@ -1650,7 +1650,7 @@ namespace {
 	 * @param result место, в которое помещается подготовленный сомножитель
 	 *
 	 */
-	static void prepare(const poly_t & poly, twisted_t & result) noexcept {
+	static void __ants_prepare__(const poly_t & poly, twisted_t & result) noexcept {
 		// Таблицы степеней
 		const tables_t & table = tables();
 		/**
@@ -1658,17 +1658,17 @@ namespace {
 		 */
 		#if defined(__ANTS_MLKEM_VECTOR__)
 			// Множитель перевода в форму Монтгомери по местам
-			const vec_t square = broadcast16(table.square);
+			const vec_t square = ::__ants_broadcast16__(table.square);
 			/**
 			 * Перебираем восьмёрки коэффициентов
 			 */
 			for(size_t i = 0; i < N; i += 8){
 				// Коэффициенты многочлена
-				const vec_t values = loadVector(poly.values + i);
+				const vec_t values = ::__ants_load_vector__(poly.values + i);
 				// Скрученные коэффициенты: множители по местам
-				storeVector(result.twisted + i, multiplyMontgomery(values, loadVector(table.lanes + i)));
+				::__ants_store_vector__(result.twisted + i, ::__ants_multiply_montgomery__(values, ::__ants_load_vector__(table.lanes + i)));
 				// Коэффициенты пар местами в форме Монтгомери
-				storeVector(result.swapped + i, multiplyMontgomery(swapHalves16(values), square));
+				::__ants_store_vector__(result.swapped + i, ::__ants_multiply_montgomery__(::__ants_swap_halves16__(values), square));
 			}
 		/**
 		 * Переносимый путь
@@ -1679,11 +1679,11 @@ namespace {
 			 */
 			for(size_t i = 0; i < N; i += 2){
 				// Чётный и нечётный коэффициенты пары в форме Монтгомери
-				const int16_t even = fqmul(poly.values[i], table.square), odd = fqmul(poly.values[i + 1], table.square);
+				const int16_t even = ::__ants_fqmul__(poly.values[i], table.square), odd = ::__ants_fqmul__(poly.values[i + 1], table.square);
 				// Чётное место скрученного массива: коэффициент как есть
 				result.twisted[i] = even;
 				// Нечётное место скрученного массива: коэффициент, умноженный на степень пары
-				result.twisted[i + 1] = fqmul(poly.values[i + 1], table.twists[i / 2]);
+				result.twisted[i + 1] = ::__ants_fqmul__(poly.values[i + 1], table.twists[i / 2]);
 				// Переставленные коэффициенты пары
 				result.swapped[i] = odd;
 				// Чётное место переставленной пары
@@ -1703,7 +1703,7 @@ namespace {
 	 * @param result накопитель произведений
 	 *
 	 */
-	static void multiply(const poly_t & first, const twisted_t & second, wide_t & result) noexcept {
+	static void __ants_multiply__(const poly_t & first, const twisted_t & second, wide_t & result) noexcept {
 		/**
 		 * Векторный путь: восемь коэффициентов за шаг, суммы произведений соседних мест одной командой (pmaddwd, qpmaddh)
 		 */
@@ -1713,12 +1713,12 @@ namespace {
 			 */
 			for(size_t i = 0; i < N; i += 8){
 				// Коэффициенты первого сомножителя
-				const vec_t factor = loadVector(first.values + i);
+				const vec_t factor = ::__ants_load_vector__(first.values + i);
 				// Накопители чётных и нечётных коэффициентов восьмёрки
 				int32_t * even = (result.values + i), * odd = (result.values + i + 4);
 				// Складываем суммы произведений соседних мест с накопителями
-				storeVector(even, add32(loadVector(even), multiplySum16(factor, loadVector(second.twisted + i))));
-				storeVector(odd, add32(loadVector(odd), multiplySum16(factor, loadVector(second.swapped + i))));
+				::__ants_store_vector__(even, ::__ants_add32__(::__ants_load_vector__(even), ::__ants_multiply_sum16__(factor, ::__ants_load_vector__(second.twisted + i))));
+				::__ants_store_vector__(odd, ::__ants_add32__(::__ants_load_vector__(odd), ::__ants_multiply_sum16__(factor, ::__ants_load_vector__(second.swapped + i))));
 			}
 		/**
 		 * Переносимый путь
@@ -1744,15 +1744,15 @@ namespace {
 	 * @param result место, в которое помещается многочлен с коэффициентами из [0, q)
 	 *
 	 */
-	static void settle(const wide_t & wide, poly_t & result) noexcept {
+	static void __ants_settle__(const wide_t & wide, poly_t & result) noexcept {
 		/**
 		 * Векторный путь: редукция Монтгомери четырёх 32-разрядных значений за шаг
 		 */
 		#if defined(__ANTS_MLKEM_VECTOR__)
 			// Множитель q^(-1) mod 2^16 = -3327 в младших половинах 32-разрядных мест, старшие половины нули
-			const vec_t factor = broadcast32(0x0000F301);
+			const vec_t factor = ::__ants_broadcast32__(0x0000F301);
 			// Модуль в младших половинах мест
-			const vec_t modulus = broadcast32(Q);
+			const vec_t modulus = ::__ants_broadcast32__(Q);
 			/**
 			 * @brief Редукция Монтгомери четырёх значений с приведением к [0, q)
 			 *
@@ -1760,13 +1760,13 @@ namespace {
 			 * @return      четыре значения из [0, q) в 32-разрядных местах
 			 *
 			 */
-			auto reduce = [&factor, &modulus](const vec_t value) noexcept -> vec_t {
+			auto reduceWide = [&factor, &modulus](const vec_t value) noexcept -> vec_t {
 				// Младшие 16 разрядов значения на множитель: старшие половины мест обнуляются нулём множителя
-				const vec_t low = multiplyLow16(value, factor);
+				const vec_t low = ::__ants_multiply_low16__(value, factor);
 				// Разность значения и произведения множителя на модуль, делённая на 2^16
-				vec_t reduced = shiftRight32(subtract32(value, multiplySum16(low, modulus)), 16);
+				vec_t reduced = ::__ants_shift_right32__(::__ants_subtract32__(value, ::__ants_multiply_sum16__(low, modulus)), 16);
 				// Прибавляем модуль под маской знака
-				reduced = add32(reduced, maskBits(shiftRight32(reduced, 31), modulus));
+				reduced = ::__ants_add32__(reduced, ::__ants_mask_bits__(::__ants_shift_right32__(reduced, 31), modulus));
 				// Выводим приведённые значения
 				return reduced;
 			};
@@ -1775,9 +1775,9 @@ namespace {
 			 */
 			for(size_t i = 0; i < N; i += 8){
 				// Приведённые чётные и нечётные коэффициенты восьмёрки
-				const vec_t even = reduce(loadVector(wide.values + i)), odd = reduce(loadVector(wide.values + i + 4));
+				const vec_t even = reduceWide(::__ants_load_vector__(wide.values + i)), odd = reduceWide(::__ants_load_vector__(wide.values + i + 4));
 				// Переплетаем чётные и нечётные в 16-разрядные места
-				storeVector(result.values + i, interleave16(even, odd));
+				::__ants_store_vector__(result.values + i, ::__ants_interleave16__(even, odd));
 			}
 		/**
 		 * Переносимый путь
@@ -1788,7 +1788,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < N; i++)
 				// Приводим накопленное значение редукцией Монтгомери и знаком
-				result.values[i] = canonical(montgomery(wide.values[i]));
+				result.values[i] = ::__ants_canonical__(::__ants_montgomery__(wide.values[i]));
 		#endif
 	}
 	/**
@@ -1798,7 +1798,7 @@ namespace {
 	 * @param result место, в которое помещаются 384 байта записи
 	 *
 	 */
-	static void encode(const poly_t & poly, uint8_t * result) noexcept {
+	static void __ants_encode__(const poly_t & poly, uint8_t * result) noexcept {
 		/**
 		 * Перебираем пары коэффициентов
 		 */
@@ -1823,7 +1823,7 @@ namespace {
 	 * @return     признак того, что всякий коэффициент лежит в диапазоне модуля
 	 *
 	 */
-	static bool decode(const uint8_t * data, poly_t & poly) noexcept {
+	static bool __ants_decode__(const uint8_t * data, poly_t & poly) noexcept {
 		// Накопитель признака выхода за модуль
 		uint16_t overflow = 0;
 		/**
@@ -1852,7 +1852,7 @@ namespace {
 	 * @return      сжатое значение из диапазона [0, 2^bits)
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t compress(const int32_t value, const size_t bits) noexcept {
+	static __ANTS_INLINE__ uint32_t __ants_compress__(const int32_t value, const size_t bits) noexcept {
 		// Числитель округлённого частного value·2^bits + q/2: ниже 2^23 при bits ≤ 11
 		const uint32_t numerator = ((static_cast <uint32_t> (value) << bits) + (static_cast <uint32_t> (Q) / 2));
 		/**
@@ -1870,7 +1870,7 @@ namespace {
 	 * @return      коэффициент из диапазона [0, q)
 	 *
 	 */
-	static __ANTS_INLINE__ int16_t decompress(const uint32_t value, const size_t bits) noexcept {
+	static __ANTS_INLINE__ int16_t __ants_decompress__(const uint32_t value, const size_t bits) noexcept {
 		// Округлённое частное (value · q + 2^(bits-1)) / 2^bits
 		return static_cast <int16_t> (((value * static_cast <uint32_t> (Q)) + (1u << (bits - 1))) >> bits);
 	}
@@ -1887,7 +1887,7 @@ namespace {
 	 * @param result место, в которое помещаются 32·bits байтов записи
 	 *
 	 */
-	static void pack(const poly_t & poly, const size_t bits, uint8_t * result) noexcept {
+	static void __ants_pack__(const poly_t & poly, const size_t bits, uint8_t * result) noexcept {
 		// Сжатые коэффициенты
 		uint16_t values[N];
 		/**
@@ -1895,7 +1895,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < N; i++)
 			// Сжимаем коэффициент
-			values[i] = static_cast <uint16_t> (compress(poly.values[i], bits));
+			values[i] = static_cast <uint16_t> (::__ants_compress__(poly.values[i], bits));
 		/**
 		 * Определяем разрядность сжатия
 		 */
@@ -2022,7 +2022,7 @@ namespace {
 	 * @param poly место, в которое помещается многочлен
 	 *
 	 */
-	static void unpack(const uint8_t * data, const size_t bits, poly_t & poly) noexcept {
+	static void __ants_unpack__(const uint8_t * data, const size_t bits, poly_t & poly) noexcept {
 		// Сжатые коэффициенты
 		uint16_t values[N];
 		/**
@@ -2146,7 +2146,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < N; i++)
 			// Расширяем сжатое значение до коэффициента
-			poly.values[i] = decompress(values[i], bits);
+			poly.values[i] = ::__ants_decompress__(values[i], bits);
 	}
 	/**
 	 * Опрос готовности параллельного ядра Keccak-x4
@@ -2159,7 +2159,7 @@ namespace {
 		 * @return     слово
 		 *
 		 */
-		static __ANTS_INLINE__ uint64_t wordLoad(const uint8_t * data) noexcept {
+		static __ANTS_INLINE__ uint64_t __ants_word_load__(const uint8_t * data) noexcept {
 			// Слово из восьми байтов
 			uint64_t word = 0;
 			/**
@@ -2178,7 +2178,7 @@ namespace {
 		 * @param result место, в которое помещаются байты слова
 		 *
 		 */
-		static __ANTS_INLINE__ void wordStore(const uint64_t word, uint8_t * result) noexcept {
+		static __ANTS_INLINE__ void __ants_word_store__(const uint64_t word, uint8_t * result) noexcept {
 			/**
 			 * Перебираем байты слова
 			 */
@@ -2195,7 +2195,7 @@ namespace {
 		 * @return признак готовности ядра четырёх состояний
 		 *
 		 */
-		static __ANTS_INLINE__ bool sponges4() noexcept {
+		static __ANTS_INLINE__ bool __ants_sponges4__() noexcept {
 			/**
 			 * Если архитектура x86-64
 			 */
@@ -2221,7 +2221,7 @@ namespace {
 	 * @param poly   место, в которое помещается выбранный многочлен
 	 *
 	 */
-	static void sampling(const uint8_t * rho, const uint8_t row, const uint8_t column, poly_t & poly) noexcept {
+	static void __ants_sampling__(const uint8_t * rho, const uint8_t row, const uint8_t column, poly_t & poly) noexcept {
 		// Поток SHAKE128 над ρ || столбец || строка
 		digest::keccak_t xof(digest::sha3_t::SHAKE128);
 		// Поглощаем зерно
@@ -2279,7 +2279,7 @@ namespace {
 		 * @param polys   место, в которое помещаются многочлены
 		 *
 		 */
-		static void sampling4(const uint8_t * rho, const uint8_t indices[4][2], poly_t * polys) noexcept {
+		static void __ants_sampling4__(const uint8_t * rho, const uint8_t indices[4][2], poly_t * polys) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -2293,7 +2293,7 @@ namespace {
 				 */
 				for(size_t i = 0; i < (SEED / 8); i++)
 					// Складываем очередное слово зерна
-					states[k][i] ^= wordLoad(rho + (i * 8));
+					states[k][i] ^= ::__ants_word_load__(rho + (i * 8));
 				// Складываем пару индексов матрицы
 				states[k][SEED / 8] ^= (indices[k][0] | (static_cast <uint64_t> (indices[k][1]) << 8));
 			}
@@ -2325,7 +2325,7 @@ namespace {
 					 */
 					for(size_t i = 0; i < (168 / 8); i++)
 						// Записываем очередное слово блока
-						wordStore(states[k][i], blocks[k] + (i * 8));
+						::__ants_word_store__(states[k][i], blocks[k] + (i * 8));
 				// Переставляем четыре состояния губок
 				digest::kernel::keccak4(states);
 				/**
@@ -2366,7 +2366,7 @@ namespace {
 	 * @param poly   место, в которое помещается многочлен
 	 *
 	 */
-	static void binomialParse(const uint8_t * stream, const size_t eta, poly_t & poly) noexcept {
+	static void __ants_binomial_parse__(const uint8_t * stream, const size_t eta, poly_t & poly) noexcept {
 		// Если η равно двум
 		if(eta == 2){
 			/**
@@ -2380,9 +2380,9 @@ namespace {
 				// Суммы соседних разрядов по парам: по два разряда на пару
 				const uint32_t sums = ((byte & 0x55) + ((byte >> 1) & 0x55));
 				// Первый коэффициент: разность сумм первой и второй пары
-				poly.values[2 * i] = once(static_cast <int32_t> (sums & 3) - static_cast <int32_t> ((sums >> 2) & 3) + Q);
+				poly.values[2 * i] = ::__ants_once__(static_cast <int32_t> (sums & 3) - static_cast <int32_t> ((sums >> 2) & 3) + Q);
 				// Второй коэффициент: разность сумм третьей и четвёртой пары
-				poly.values[(2 * i) + 1] = once(static_cast <int32_t> ((sums >> 4) & 3) - static_cast <int32_t> ((sums >> 6) & 3) + Q);
+				poly.values[(2 * i) + 1] = ::__ants_once__(static_cast <int32_t> ((sums >> 4) & 3) - static_cast <int32_t> ((sums >> 6) & 3) + Q);
 			}
 		// Если η равно трём: три байта дают четыре коэффициента
 		} else {
@@ -2404,7 +2404,7 @@ namespace {
 					// Сумма второй тройки разрядов
 					const int32_t second = static_cast <int32_t> ((sums >> ((6 * j) + 3)) & 7);
 					// Коэффициент: разность сумм
-					poly.values[(4 * i) + j] = once((first - second) + Q);
+					poly.values[(4 * i) + j] = ::__ants_once__((first - second) + Q);
 				}
 			}
 		}
@@ -2418,7 +2418,7 @@ namespace {
 	 * @param poly  место, в которое помещается многочлен
 	 *
 	 */
-	static __ANTS_INLINE__ void binomial(const uint8_t * sigma, const uint8_t nonce, const size_t eta, poly_t & poly) noexcept {
+	static __ANTS_INLINE__ void __ants_binomial__(const uint8_t * sigma, const uint8_t nonce, const size_t eta, poly_t & poly) noexcept {
 		// Байты псевдослучайного потока: 64·η байтов
 		uint8_t stream[64 * 3];
 		// Функция переменного выхода потока
@@ -2430,7 +2430,7 @@ namespace {
 		// Выжимаем поток
 		prf.squeeze(stream, 64 * eta);
 		// Разбираем поток в многочлен
-		binomialParse(stream, eta, poly);
+		::__ants_binomial_parse__(stream, eta, poly);
 		// Затираем байты потока выборки
 		wipe(stream, sizeof(stream));
 	}
@@ -2451,7 +2451,7 @@ namespace {
 		 * @param polys  место, в которое помещаются многочлены
 		 *
 		 */
-		static void binomial4(const uint8_t * sigma, const uint8_t * nonces, const size_t eta, poly_t * polys) noexcept {
+		static void __ants_binomial4__(const uint8_t * sigma, const uint8_t * nonces, const size_t eta, poly_t * polys) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -2465,7 +2465,7 @@ namespace {
 				 */
 				for(size_t i = 0; i < (SEED / 8); i++)
 					// Складываем очередное слово зерна
-					states[k][i] ^= wordLoad(sigma + (i * 8));
+					states[k][i] ^= ::__ants_word_load__(sigma + (i * 8));
 				// Складываем номер выборки
 				states[k][SEED / 8] ^= nonces[k];
 			}
@@ -2491,7 +2491,7 @@ namespace {
 				 */
 				for(size_t i = 0; i < (136 / 8); i++)
 					// Записываем очередное слово блока
-					wordStore(states[k][i], streams[k] + (i * 8));
+					::__ants_word_store__(states[k][i], streams[k] + (i * 8));
 			// Если η равно трём: поток длиннее блока, дожимаем хвосты
 			if(eta == 3){
 				// Переставляем четыре состояния губок
@@ -2505,14 +2505,14 @@ namespace {
 					 */
 					for(size_t i = 0; i < 7; i++)
 						// Записываем очередное слово хвоста
-						wordStore(states[k][i], streams[k] + 136 + (i * 8));
+						::__ants_word_store__(states[k][i], streams[k] + 136 + (i * 8));
 			}
 			/**
 			 * Разбираем потоки в многочлены
 			 */
 			for(size_t k = 0; k < 4; k++)
 				// Разбираем поток губки
-				binomialParse(streams[k], eta, polys[k]);
+				::__ants_binomial_parse__(streams[k], eta, polys[k]);
 			// Затираем состояния губок
 			wipe(states, sizeof(states));
 			// Затираем потоки выборки
@@ -2528,7 +2528,7 @@ namespace {
 	 * @param result место, в которое помещаются 64 байта итога
 	 *
 	 */
-	static __ANTS_INLINE__ void widely(const view_t & first, const view_t & second, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void __ants_widely__(const view_t & first, const view_t & second, uint8_t * result) noexcept {
 		// Хеш SHA3-512
 		digest::keccak_t hash(digest::sha3_t::SHA3_512);
 		// Поглощаем первую часть
@@ -2563,7 +2563,7 @@ namespace {
 		 */
 		#if defined(__ANTS_KECCAK_X4__)
 			// Если параллельное ядро губок готово
-			if(sponges4()){
+			if(::__ants_sponges4__()){
 				/**
 				 * Разворачиваем строки матрицы
 				 */
@@ -2580,7 +2580,7 @@ namespace {
 						indices[y][1] = static_cast <uint8_t> (x);
 					}
 					// Выбираем строку из четырёх многочленов разом
-					sampling4(rho, indices, cache.items + (x * K));
+					::__ants_sampling4__(rho, indices, cache.items + (x * K));
 				}
 				// Запоминаем зерно развёрнутой матрицы
 				::memcpy(cache.seed, rho, SEED);
@@ -2599,7 +2599,7 @@ namespace {
 			 */
 			for(size_t y = 0; y < sample.dimension; y++)
 				// Выбираем элемент матрицы
-				sampling(rho, static_cast <uint8_t> (x), static_cast <uint8_t> (y), cache.items[(x * K) + y]);
+				::__ants_sampling__(rho, static_cast <uint8_t> (x), static_cast <uint8_t> (y), cache.items[(x * K) + y]);
 		}
 		// Запоминаем зерно развёрнутой матрицы
 		::memcpy(cache.seed, rho, SEED);
@@ -2618,7 +2618,7 @@ namespace {
 	 * @param cipher  место, в которое помещается шифртекст
 	 *
 	 */
-	static void encrypt(const sample_t & sample, const uint8_t * key, const uint8_t * message, const uint8_t * seed, uint8_t * cipher) noexcept {
+	static void __ants_encrypt__(const sample_t & sample, const uint8_t * key, const uint8_t * message, const uint8_t * seed, uint8_t * cipher) noexcept {
 		// Вектор t в области NTT
 		poly_t t[K];
 		/**
@@ -2626,7 +2626,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < sample.dimension; i++)
 			// Разбираем многочлен
-			decode(key + (i * POLY), t[i]);
+			::__ants_decode__(key + (i * POLY), t[i]);
 		// Зерно матрицы
 		const uint8_t * rho = (key + (sample.dimension * POLY));
 		// Вектор r в области NTT, подготовленный к умножению
@@ -2638,11 +2638,11 @@ namespace {
 		 */
 		#if defined(__ANTS_KECCAK_X4__)
 			// Если параллельное ядро губок готово: четыре многочлена выбираются разом, лишние у неполной четвёрки отбрасываются
-			if(::sponges4()){
+			if(::__ants_sponges4__()){
 				// Номера выборок вектора
 				const uint8_t nonces[K] = {0, 1, 2, 3};
 				// Выбираем четыре многочлена разом
-				::binomial4(seed, nonces, sample.eta1, random);
+				::__ants_binomial4__(seed, nonces, sample.eta1, random);
 			// Иначе многочлены вектора r выбираются по одному губкой
 			} else {
 		#endif
@@ -2651,7 +2651,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < sample.dimension; i++)
 				// Выбираем многочлен
-				::binomial(seed, static_cast <uint8_t> (i), sample.eta1, random[i]);
+				::__ants_binomial__(seed, static_cast <uint8_t> (i), sample.eta1, random[i]);
 		/**
 		 * Замыкаем ветвь параллельного выбора
 		 */
@@ -2663,9 +2663,9 @@ namespace {
 		 */
 		for(size_t i = 0; i < sample.dimension; i++){
 			// Переводим в область NTT
-			::forward(random[i]);
+			::__ants_forward__(random[i]);
 			// Готовим к умножению
-			::prepare(random[i], r[i]);
+			::__ants_prepare__(random[i], r[i]);
 			// Затираем многочлен
 			wipe(random[i].values, sizeof(random[i].values));
 		}
@@ -2676,11 +2676,11 @@ namespace {
 		 */
 		#if defined(__ANTS_KECCAK_X4__)
 			// Если параллельное ядро губок готово: четыре многочлена выбираются разом, лишние у неполной четвёрки отбрасываются
-			if(::sponges4()){
+			if(::__ants_sponges4__()){
 				// Номера выборок шума
 				const uint8_t nonces[K] = {static_cast <uint8_t> (sample.dimension), static_cast <uint8_t> (sample.dimension + 1), static_cast <uint8_t> (sample.dimension + 2), static_cast <uint8_t> (sample.dimension + 3)};
 				// Выбираем четыре многочлена разом
-				::binomial4(seed, nonces, sample.eta2, noise);
+				::__ants_binomial4__(seed, nonces, sample.eta2, noise);
 			// Иначе шумы e1 выбираются по одному губкой
 			} else {
 		#endif
@@ -2689,7 +2689,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < sample.dimension; i++)
 				// Выбираем шум
-				::binomial(seed, static_cast <uint8_t> (sample.dimension + i), sample.eta2, noise[i]);
+				::__ants_binomial__(seed, static_cast <uint8_t> (sample.dimension + i), sample.eta2, noise[i]);
 		/**
 		 * Замыкаем ветвь параллельного выбора
 		 */
@@ -2713,17 +2713,17 @@ namespace {
 			 */
 			for(size_t j = 0; j < sample.dimension; j++)
 				// Накапливаем произведение элемента A[j][i] на r[j]
-				multiply(matrix[(j * K) + i], r[j], wide);
+				::__ants_multiply__(matrix[(j * K) + i], r[j], wide);
 			// Приводим накопитель
-			settle(wide, u[i]);
+			::__ants_settle__(wide, u[i]);
 			// Переводим из области NTT
-			inverse(u[i]);
+			::__ants_inverse__(u[i]);
 			/**
 			 * Складываем с шумом
 			 */
 			for(size_t c = 0; c < N; c++)
 				// Складываем коэффициенты
-				u[i].values[c] = once(u[i].values[c] + noise[i].values[c]);
+				u[i].values[c] = ::__ants_once__(u[i].values[c] + noise[i].values[c]);
 			// Затираем шум: вместе с u и матрицей он раскрывает r
 			wipe(noise[i].values, sizeof(noise[i].values));
 		}
@@ -2736,34 +2736,34 @@ namespace {
 		 */
 		for(size_t i = 0; i < sample.dimension; i++)
 			// Накапливаем произведение
-			multiply(t[i], r[i], wide);
+			::__ants_multiply__(t[i], r[i], wide);
 		// Многочлен shared
 		poly_t shared;
 		// Приводим накопитель
-		settle(wide, shared);
+		::__ants_settle__(wide, shared);
 		// Переводим из области NTT
-		inverse(shared);
+		::__ants_inverse__(shared);
 		// Шум e2
 		poly_t error;
 		// Выбираем шум
-		binomial(seed, static_cast <uint8_t> (2 * sample.dimension), sample.eta2, error);
+		::__ants_binomial__(seed, static_cast <uint8_t> (2 * sample.dimension), sample.eta2, error);
 		/**
 		 * Складываем с шумом и сообщением
 		 */
 		for(size_t c = 0; c < N; c++){
 			// Разряд сообщения, расширенный до коэффициента
-			const int32_t bit = decompress((message[c / 8] >> (c % 8)) & 1, 1);
+			const int32_t bit = ::__ants_decompress__((message[c / 8] >> (c % 8)) & 1, 1);
 			// Складываем коэффициенты
-			shared.values[c] = reduce(shared.values[c] + error.values[c] + bit);
+			shared.values[c] = ::__ants_reduce__(shared.values[c] + error.values[c] + bit);
 		}
 		/**
 		 * Записываем вектор u со сжатием
 		 */
 		for(size_t i = 0; i < sample.dimension; i++)
 			// Записываем многочлен
-			pack(u[i], sample.compressU, cipher + (i * 32 * sample.compressU));
+			::__ants_pack__(u[i], sample.compressU, cipher + (i * 32 * sample.compressU));
 		// Записываем многочлен shared со сжатием
-		pack(shared, sample.compressV, cipher + (sample.dimension * 32 * sample.compressU));
+		::__ants_pack__(shared, sample.compressV, cipher + (sample.dimension * 32 * sample.compressU));
 		// Затираем секретные промежуточные значения
 		wipe(r, sizeof(r));
 		// Затираем вектор u
@@ -2782,7 +2782,7 @@ namespace {
 	 * @param message место, в которое помещаются 32 байта сообщения
 	 *
 	 */
-	static void decrypt(const sample_t & sample, const uint8_t * secret, const uint8_t * cipher, uint8_t * message) noexcept {
+	static void __ants_decrypt__(const sample_t & sample, const uint8_t * secret, const uint8_t * cipher, uint8_t * message) noexcept {
 		// Накопитель произведений s^T NTT(u)
 		wide_t wide;
 		// Обнуляем накопитель
@@ -2794,34 +2794,34 @@ namespace {
 			// Многочлен u_i
 			poly_t decoded;
 			// Разбираем многочлен с расширением
-			unpack(cipher + (i * 32 * sample.compressU), sample.compressU, decoded);
+			::__ants_unpack__(cipher + (i * 32 * sample.compressU), sample.compressU, decoded);
 			// Переводим в область NTT
-			forward(decoded);
+			::__ants_forward__(decoded);
 			// Открытый многочлен u_i, подготовленный к умножению
 			twisted_t prepared;
 			// Готовим к умножению
-			prepare(decoded, prepared);
+			::__ants_prepare__(decoded, prepared);
 			// Многочлен s_i
 			poly_t secretPoly;
 			// Разбираем многочлен
-			decode(secret + (i * POLY), secretPoly);
+			::__ants_decode__(secret + (i * POLY), secretPoly);
 			// Накапливаем произведение
-			multiply(secretPoly, prepared, wide);
+			::__ants_multiply__(secretPoly, prepared, wide);
 			// Затираем секретный многочлен secretPoly
 			wipe(secretPoly.values, sizeof(secretPoly.values));
 		}
 		// Многочлен разности shared и s^T NTT(u)
 		poly_t candidate;
 		// Приводим накопитель
-		settle(wide, candidate);
+		::__ants_settle__(wide, candidate);
 		// Переводим из области NTT
-		inverse(candidate);
+		::__ants_inverse__(candidate);
 		// Затираем накопитель: он раскрывает секрет
 		wipe(wide.values, sizeof(wide.values));
 		// Многочлен shared
 		poly_t shared;
 		// Разбираем многочлен с расширением
-		unpack(cipher + (sample.dimension * 32 * sample.compressU), sample.compressV, shared);
+		::__ants_unpack__(cipher + (sample.dimension * 32 * sample.compressU), sample.compressV, shared);
 		// Обнуляем сообщение
 		::memset(message, 0, 32);
 		/**
@@ -2829,7 +2829,7 @@ namespace {
 		 */
 		for(size_t c = 0; c < N; c++){
 			// Разряд сообщения
-			const uint32_t bit = compress(reduce(shared.values[c] - candidate.values[c]), 1);
+			const uint32_t bit = ::__ants_compress__(::__ants_reduce__(shared.values[c] - candidate.values[c]), 1);
 			// Записываем разряд
 			message[c / 8] |= static_cast <uint8_t> (bit << (c % 8));
 		}
@@ -2847,7 +2847,7 @@ namespace {
  */
 size_t nts::agreement::encapsulation(const kem_t kem) noexcept {
 	// Описание набора параметров
-	const sample_t sample = ::describe(kem);
+	const sample_t sample = ::__ants_describe__(kem);
 	// Выводим длину: k многочленов и зерно ρ
 	return ((sample.dimension == 0) ? 0 : ((sample.dimension * POLY) + SEED));
 }
@@ -2860,7 +2860,7 @@ size_t nts::agreement::encapsulation(const kem_t kem) noexcept {
  */
 size_t nts::agreement::decapsulation(const kem_t kem) noexcept {
 	// Описание набора параметров
-	const sample_t sample = ::describe(kem);
+	const sample_t sample = ::__ants_describe__(kem);
 	// Выводим длину: k многочленов секрета, ключ инкапсуляции, его хеш и z
 	return ((sample.dimension == 0) ? 0 : ((sample.dimension * POLY) + encapsulation(kem) + SEED + SEED));
 }
@@ -2873,7 +2873,7 @@ size_t nts::agreement::decapsulation(const kem_t kem) noexcept {
  */
 size_t nts::agreement::ciphertext(const kem_t kem) noexcept {
 	// Описание набора параметров
-	const sample_t sample = ::describe(kem);
+	const sample_t sample = ::__ants_describe__(kem);
 	// Выводим длину: k сжатых многочленов u и сжатый многочлен v
 	return ((sample.dimension == 0) ? 0 : ((sample.dimension * 32 * sample.compressU) + (32 * sample.compressV)));
 }
@@ -2887,7 +2887,7 @@ size_t nts::agreement::ciphertext(const kem_t kem) noexcept {
  */
 bool nts::agreement::validate(const kem_t kem, const view_t & key) noexcept {
 	// Описание набора параметров
-	const sample_t sample = ::describe(kem);
+	const sample_t sample = ::__ants_describe__(kem);
 	// Если набор не установлен либо длина ключа не сходится
 	if((sample.dimension == 0) || (key.data == nullptr) || (key.size != encapsulation(kem)))
 		// Выводим отказ проверки
@@ -2901,7 +2901,7 @@ bool nts::agreement::validate(const kem_t kem, const view_t & key) noexcept {
 		// Многочлен ключа
 		poly_t poly;
 		// Проверяем коэффициенты многочлена на выход за модуль
-		ok = (::decode(key.data + (i * POLY), poly) && ok);
+		ok = (::__ants_decode__(key.data + (i * POLY), poly) && ok);
 	}
 	// Выводим признак годности ключа
 	return ok;
@@ -2918,7 +2918,7 @@ bool nts::agreement::validate(const kem_t kem, const view_t & key) noexcept {
  */
 bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept {
 	// Описание набора параметров
-	const sample_t sample = ::describe(kem);
+	const sample_t sample = ::__ants_describe__(kem);
 	// Если набор не установлен, зерно не той длины либо места не переданы
 	if((sample.dimension == 0) || (seed.data == nullptr) || (seed.size != MLKEM_SEED) || (key == nullptr) || (secret == nullptr))
 		// Выводим отказ выработки
@@ -2928,7 +2928,7 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	// Зёрна ρ и σ: G(d || k)
 	uint8_t seeds[64];
 	// Вычисляем зёрна
-	::widely(view_t(seed.data, SEED), view_t(&rank, 1), seeds);
+	::__ants_widely__(view_t(seed.data, SEED), view_t(&rank, 1), seeds);
 	// Зерно матрицы ρ
 	const uint8_t * rho = seeds;
 	// Зерно выборки σ
@@ -2942,11 +2942,11 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	 */
 	#if defined(__ANTS_KECCAK_X4__)
 		// Если параллельное ядро губок готово: четыре многочлена выбираются разом, лишние у неполной четвёрки отбрасываются
-		if(::sponges4()){
+		if(::__ants_sponges4__()){
 			// Номера выборок секрета
 			const uint8_t nonces[K] = {0, 1, 2, 3};
 			// Выбираем четыре многочлена разом
-			::binomial4(sigma, nonces, sample.eta1, s);
+			::__ants_binomial4__(sigma, nonces, sample.eta1, s);
 		// Иначе многочлены секрета выбираются по одному губкой
 		} else {
 	#endif
@@ -2955,7 +2955,7 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		 */
 		for(size_t i = 0; i < sample.dimension; i++)
 			// Выбираем многочлен
-			::binomial(sigma, static_cast <uint8_t> (i), sample.eta1, s[i]);
+			::__ants_binomial__(sigma, static_cast <uint8_t> (i), sample.eta1, s[i]);
 	/**
 	 * Замыкаем ветвь параллельного выбора
 	 */
@@ -2967,9 +2967,9 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	 */
 	for(size_t i = 0; i < sample.dimension; i++){
 		// Переводим в область NTT
-		::forward(s[i]);
+		::__ants_forward__(s[i]);
 		// Готовим к умножению
-		::prepare(s[i], prepared[i]);
+		::__ants_prepare__(s[i], prepared[i]);
 	}
 	// Вектор шума e
 	poly_t noises[K];
@@ -2978,11 +2978,11 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	 */
 	#if defined(__ANTS_KECCAK_X4__)
 		// Если параллельное ядро губок готово: четыре многочлена выбираются разом, лишние у неполной четвёрки отбрасываются
-		if(::sponges4()){
+		if(::__ants_sponges4__()){
 			// Номера выборок шума
 			const uint8_t nonces[K] = {static_cast <uint8_t> (sample.dimension), static_cast <uint8_t> (sample.dimension + 1), static_cast <uint8_t> (sample.dimension + 2), static_cast <uint8_t> (sample.dimension + 3)};
 			// Выбираем четыре многочлена разом
-			::binomial4(sigma, nonces, sample.eta1, noises);
+			::__ants_binomial4__(sigma, nonces, sample.eta1, noises);
 		// Иначе шумы выбираются по одному губкой
 		} else {
 	#endif
@@ -2991,7 +2991,7 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		 */
 		for(size_t i = 0; i < sample.dimension; i++)
 			// Выбираем шум
-			::binomial(sigma, static_cast <uint8_t> (sample.dimension + i), sample.eta1, noises[i]);
+			::__ants_binomial__(sigma, static_cast <uint8_t> (sample.dimension + i), sample.eta1, noises[i]);
 	/**
 	 * Замыкаем ветвь параллельного выбора
 	 */
@@ -3009,7 +3009,7 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		// Многочлен t_i: шум e_i в области NTT
 		poly_t noise = noises[i];
 		// Переводим шум в область NTT
-		::forward(noise);
+		::__ants_forward__(noise);
 		// Накопитель произведений строки
 		wide_t wide;
 		// Обнуляем накопитель
@@ -3019,21 +3019,21 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 		 */
 		for(size_t j = 0; j < sample.dimension; j++)
 			// Накапливаем произведение элемента A[i][j] на s[j]
-			::multiply(matrix[(i * K) + j], prepared[j], wide);
+			::__ants_multiply__(matrix[(i * K) + j], prepared[j], wide);
 		// Произведение строки на секрет
-		poly_t product;
+		poly_t productPoly;
 		// Приводим накопитель
-		::settle(wide, product);
+		::__ants_settle__(wide, productPoly);
 		/**
 		 * Складываем произведение с шумом
 		 */
 		for(size_t c = 0; c < N; c++)
 			// Складываем коэффициенты
-			noise.values[c] = ::once(noise.values[c] + product.values[c]);
+			noise.values[c] = ::__ants_once__(noise.values[c] + productPoly.values[c]);
 		// Записываем многочлен t_i в ключ инкапсуляции
-		::encode(noise, key + (i * POLY));
+		::__ants_encode__(noise, key + (i * POLY));
 		// Записываем многочлен s_i в ключ декапсуляции
-		::encode(s[i], secret + (i * POLY));
+		::__ants_encode__(s[i], secret + (i * POLY));
 		// Затираем многочлен шума
 		::wipe(noises[i].values, sizeof(noises[i].values));
 	}
@@ -3090,7 +3090,7 @@ bool nts::agreement::generate(const kem_t kem, uint8_t * key, uint8_t * secret) 
  */
 bool nts::agreement::encapsulate(const kem_t kem, const view_t & key, const view_t & message, uint8_t * cipher, uint8_t * shared) noexcept {
 	// Описание набора параметров
-	const sample_t sample = ::describe(kem);
+	const sample_t sample = ::__ants_describe__(kem);
 	// Если набор не установлен, сообщение не той длины, места не переданы либо ключ негоден
 	if((sample.dimension == 0) || (message.data == nullptr) || (message.size != MLKEM_MESSAGE) || (cipher == nullptr) || (shared == nullptr) || !validate(kem, key))
 		// Выводим отказ инкапсуляции
@@ -3102,9 +3102,9 @@ bool nts::agreement::encapsulate(const kem_t kem, const view_t & key, const view
 	// Секрет и зерно шифрования: G(m || H(ek))
 	uint8_t derived[64];
 	// Вычисляем секрет и зерно
-	::widely(message, view_t(hash, SEED), derived);
+	::__ants_widely__(message, view_t(hash, SEED), derived);
 	// Шифруем сообщение
-	::encrypt(sample, key.data, message.data, derived + SEED, cipher);
+	::__ants_encrypt__(sample, key.data, message.data, derived + SEED, cipher);
 	// Выдаём общий секрет
 	::memcpy(shared, derived, MLKEM_SHARED);
 	// Затираем секрет и зерно
@@ -3148,7 +3148,7 @@ bool nts::agreement::encapsulate(const kem_t kem, const view_t & key, uint8_t * 
  */
 bool nts::agreement::decapsulate(const kem_t kem, const view_t & secret, const view_t & cipher, uint8_t * shared) noexcept {
 	// Описание набора параметров
-	const sample_t sample = ::describe(kem);
+	const sample_t sample = ::__ants_describe__(kem);
 	// Если набор не установлен, длины не сходятся либо место не передано
 	if((sample.dimension == 0) || (secret.data == nullptr) || (secret.size != decapsulation(kem)) ||
 	   (cipher.data == nullptr) || (cipher.size != ciphertext(kem)) || (shared == nullptr))
@@ -3187,7 +3187,7 @@ bool nts::agreement::decapsulate(const kem_t kem, const view_t & secret, const v
 		// Многочлен секрета
 		poly_t poly;
 		// Проверяем коэффициенты
-		ok = (::decode(secret.data + (i * POLY), poly) && ok);
+		ok = (::__ants_decode__(secret.data + (i * POLY), poly) && ok);
 		// Затираем многочлен
 		::wipe(poly.values, sizeof(poly.values));
 	}
@@ -3198,11 +3198,11 @@ bool nts::agreement::decapsulate(const kem_t kem, const view_t & secret, const v
 	// Расшифрованное сообщение
 	uint8_t message[MLKEM_MESSAGE];
 	// Расшифровываем шифртекст в сообщение
-	::decrypt(sample, secret.data, cipher.data, message);
+	::__ants_decrypt__(sample, secret.data, cipher.data, message);
 	// Секрет и зерно шифрования: G(m' || h)
 	uint8_t derived[64];
 	// Вычисляем секрет и зерно
-	::widely(view_t(message, sizeof(message)), view_t(hash, SEED), derived);
+	::__ants_widely__(view_t(message, sizeof(message)), view_t(hash, SEED), derived);
 	// Неявно отвергнутый секрет: J(z || c)
 	uint8_t rejected[MLKEM_SHARED];
 	// Поток SHAKE256
@@ -3216,7 +3216,7 @@ bool nts::agreement::decapsulate(const kem_t kem, const view_t & secret, const v
 	// Пересчитанный шифртекст
 	uint8_t recrypted[1568];
 	// Шифруем повторно для сличения шифртекстов
-	::encrypt(sample, key, message, derived + SEED, recrypted);
+	::__ants_encrypt__(sample, key, message, derived + SEED, recrypted);
 	// Накопитель расхождения шифртекстов
 	uint8_t differ = 0;
 	/**
