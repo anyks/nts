@@ -192,7 +192,7 @@ namespace {
 	 * @return        остаток
 	 *
 	 */
-	static constexpr uint16_t __ants_uint32_mod_uint14__(const uint32_t value, const uint16_t modulus) noexcept {
+	static __ANTS_INLINE__ uint16_t __ants_uint32_mod_uint14__(const uint32_t value, const uint16_t modulus) noexcept {
 		// Место под частное
 		uint32_t quotient = 0;
 		// Место под остаток
@@ -210,7 +210,7 @@ namespace {
 	 * @return        остаток
 	 *
 	 */
-	static constexpr uint16_t __ants_int32_mod_uint14__(const int32_t value, const uint16_t modulus) noexcept {
+	static __ANTS_INLINE__ uint16_t __ants_int32_mod_uint14__(const int32_t value, const uint16_t modulus) noexcept {
 		// Приводим знаковое число к беззнаковому виду
 		uint32_t magnitude = static_cast <uint32_t> (value);
 		// Для отрицательного входа берём его модуль
@@ -233,7 +233,7 @@ namespace {
 	 * @return      число в {-1, 0, 1}
 	 *
 	 */
-	static constexpr small_t __ants_freeze3__(const int16_t value) noexcept {
+	static __ANTS_INLINE__ small_t __ants_freeze3__(const int16_t value) noexcept {
 		// Приводим число по модулю 3 к представителю в диапазоне от минус единицы до единицы
 		return static_cast <small_t> (::__ants_int32_mod_uint14__(value + 1, 3) - 1);
 	}
@@ -244,7 +244,7 @@ namespace {
 	 * @return      число в [-q12, q12]
 	 *
 	 */
-	static constexpr fq_t __ants_freeze_q__(const int32_t value) noexcept {
+	static __ANTS_INLINE__ fq_t __ants_freeze_q__(const int32_t value) noexcept {
 		// Приводим число к симметричному представителю по модулю q
 		return static_cast <fq_t> (::__ants_int32_mod_uint14__(value + Q12, Q) - Q12);
 	}
