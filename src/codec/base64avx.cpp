@@ -36,25 +36,28 @@
  * машины ядра не зовут вовсе
  */
 #if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
-#include <immintrin.h>
-/**
- * Если собиратель Microsoft Visual C++: внутренние функции команд AVX2 доступны ему без ключей
- */
-#if defined(_MSC_VER)
-/**
- * Атрибута цели у собирателя нет, и он не нужен
- */
-#define __ANTS_BASE64_TARGET__
-/**
- * Иначе векторные команды разрешает атрибут цели
- */
-#else
-/**
- * Разрешаем векторные команды одной функции: чек ключа -mavx2 утилитой сторонней
- * сборки может не пройти, и атрибут держит команды при функции сам
- */
-#define __ANTS_BASE64_TARGET__ __attribute__((target("avx2")))
-#endif
+	/**
+	 * Системный заголовочный файл
+	 */
+	#include <immintrin.h>
+	/**
+	 * Если собиратель Microsoft Visual C++: внутренние функции команд AVX2 доступны ему без ключей
+	 */
+	#if defined(_MSC_VER)
+		/**
+		 * Атрибута цели у собирателя нет, и он не нужен
+		 */
+		#define __ANTS_BASE64_TARGET__
+	/**
+	 * Иначе векторные команды разрешает атрибут цели
+	 */
+	#else
+		/**
+		 * Разрешаем векторные команды одной функции: чек ключа -mavx2 утилитой сторонней
+		 * сборки может не пройти, и атрибут держит команды при функции сам
+		 */
+		#define __ANTS_BASE64_TARGET__ __attribute__((target("avx2")))
+	#endif
 
 /**
  * @brief Пространство имён помощников векторного ядра основания 64
@@ -68,13 +71,13 @@ namespace {
 	 *          загрузкой и восемь второй, чтение за границей входа не нужно.
 	 *          Перестановка слов кладёт в каждую полосу свои двенадцать байтов,
 	 *          поканальная перестановка собирает из них слова по старшим трём
-	 *          байтам троек
+	 *          байтам троек.
 	 *
 	 * @param data кодируемые двадцать четыре байта
 	 * @return     слова троек, готовые к разбору на шестёрки
 	 *
 	 */
-	__ANTS_BASE64_TARGET__ static inline __m256i gather(const uint8_t * data) noexcept {
+	__ANTS_BASE64_TARGET__ static __ANTS_INLINE__ __m256i gather(const uint8_t * data) noexcept {
 		// Младшие шестнадцать байтов блока
 		const __m128i low = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data));
 		// Старшие восемь байтов блока
@@ -96,7 +99,7 @@ namespace {
 	 * @return         шестёрки разрядов по одному значению на байт
 	 *
 	 */
-	__ANTS_BASE64_TARGET__ static inline __m256i split(const __m256i shuffled) noexcept {
+	__ANTS_BASE64_TARGET__ static __ANTS_INLINE__ __m256i split(const __m256i shuffled) noexcept {
 		// Старшие шестёрки каждой пары слов: старшие произведения без переносов
 		const __m256i upper = _mm256_mulhi_epu16(_mm256_and_si256(shuffled, _mm256_set1_epi32(0x0fc0fc00)), _mm256_set1_epi32(0x04000040));
 		// Младшие шестёрки каждой пары слов: младшие произведения
@@ -113,14 +116,14 @@ namespace {
 	 *          считается насыщающим вычетом пятидесяти одного и признаком
 	 *          значения от двадцати шести, добавка читается перестановкой по
 	 *          номеру. Основание URL отличается лишь добавками хвоста, потому
-	 *          своя таблица снимает правку знаков после перевода
+	 *          своя таблица снимает правку знаков после перевода.
 	 *
 	 * @param groups   шестёрки разрядов от нуля до шестидесяти трёх
 	 * @param alphabet алфавит записи
 	 * @return         знаки основания 64
 	 *
 	 */
-	__ANTS_BASE64_TARGET__ static inline __m256i convert(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
+	__ANTS_BASE64_TARGET__ static __ANTS_INLINE__ __m256i convert(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
 		// Таблица добавок своего алфавита разводится по обеим полосам
 		const __m256i table = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast <const __m128i *> ((alphabet == nts::codec::alphabet_t::URL) ? nts::codec::kernel::OFFSETS_URL : nts::codec::kernel::OFFSETS)));
 		// Номер хвостового диапазона: нуль до пятидесяти одного, далее единица..двенадцать
@@ -140,7 +143,7 @@ namespace {
  * @details Блоки идут парами вперемежку: сборка и разбор двух векторов не ждут
  *          друг друга, а таблицы и постоянные маски держатся в регистрах на всю
  *          очередь. Непарный остаток очереди кодируется тем же ходом одним
- *          вектором
+ *          вектором.
  *
  * @param data     кодируемые байты, по двадцать четыре на блок
  * @param result   место, в которое помещаются знаки, по тридцать два на блок

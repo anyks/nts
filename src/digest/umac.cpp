@@ -26,18 +26,22 @@
  */
 
 /**
- * Подключаем заголовочные файлы проекта
- */
-#include <digest/umac.hpp>
-#include <cipher/aes.hpp>
-#include <math/wide.hpp>
-#include <sys/wipe.hpp>
-
-/**
  * Стандартные заголовочные файлы
  */
 #include <new>
 #include <cstring>
+
+/**
+ * Подключаем заголовочные файлы проекта
+ */
+#include <sys/wipe.hpp>
+#include <math/wide.hpp>
+#include <cipher/aes.hpp>
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include <digest/umac.hpp>
 
 /**
  * Если сборка ведётся под x86-64: слой NH идёт SSE2 (базовый на архитектуре)
@@ -71,6 +75,10 @@
  */
 namespace {
 	/**
+	 * Подписываемся на представление данных
+	 */
+	using nts::view_t;
+	/**
 	 * Подписываемся на метод затирания памяти
 	 */
 	using nts::sys::wipe;
@@ -83,17 +91,18 @@ namespace {
 	 */
 	using nts::math::wide_t;
 	/**
-	 * Подписываемся на представление данных
+	 * Подписываемся на длину итога в восемь байтов
 	 */
-	using nts::view_t;
+	using nts::digest::UMAC_64;
+	/**
+	 * Подписываемся на длину итога в шестнадцать байтов
+	 */
+	using nts::digest::UMAC_128;
 	/**
 	 * Подписываемся на константы модуля
 	 */
 	using nts::digest::UMAC_KEY;
-	// Подписываемся на длину итога в восемь байтов
-	using nts::digest::UMAC_64;
-	// Подписываемся на длину итога в шестнадцать байтов
-	using nts::digest::UMAC_128;
+
 	/**
 	 * @brief Размер блока AES в байтах
 	 *
@@ -104,6 +113,7 @@ namespace {
 	 *
 	 */
 	constexpr size_t L1_BLOCK = 1024;
+
 	/**
 	 * @brief Функция записи числа старшим байтом вперёд
 	 *
@@ -112,7 +122,7 @@ namespace {
 	 * @param size   число байтов записи
 	 *
 	 */
-	static inline void store(const uint64_t value, uint8_t * result, const size_t size) noexcept {
+	static __ANTS_INLINE__ void store(const uint64_t value, uint8_t * result, const size_t size) noexcept {
 		/**
 		 * Выполняем запись байтов от старшего к младшему
 		 */
@@ -128,7 +138,7 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static inline uint64_t fetch(const uint8_t * data, const size_t size) noexcept {
+	static __ANTS_INLINE__ uint64_t fetch(const uint8_t * data, const size_t size) noexcept {
 		// Прочитанное число
 		uint64_t result = 0;
 		/**
@@ -145,7 +155,7 @@ namespace {
 	 *
 	 * @details Блок шифруется счётчиком: первые восемь байтов несут опознаватель
 	 *          выводимого ключа, последние восемь - номер блока, оба старшим байтом
-	 *          вперёд
+	 *          вперёд.
 	 *
 	 * @param aes    шифр с установленным ключом связи
 	 * @param index  опознаватель выводимого ключа
@@ -178,19 +188,6 @@ namespace {
 		wipe(output, sizeof(output));
 	}
 	/**
-	 * @brief Функция слоя NH: умножение пар слов сообщения и ключа (раздел 5.2.2 RFC 4418)
-	 *
-	 * @details Блок сообщения разворачивается по четырём байтам (ENDIAN-SWAP), после
-	 *          чего пары слов через четыре позиции множатся: к словам сообщения и ключа
-	 *          прибавляются по модулю 2^32, произведения складываются по модулю 2^64
-	 *
-	 * @param key    ключ слоя NH (1024 байта)
-	 * @param data   блок сообщения (кратно 32 байтам, не длиннее ключа)
-	 * @param size   длина блока сообщения в байтах
-	 * @return       накопленное значение слоя
-	 *
-	 */
-	/**
 	 * Если есть векторный путь SSE2: разворот байтов в каждом слове чисто сдвигами
 	 * (SSE2, без SSSE3, чтобы путь собирался и на базовом x86-64)
 	 */
@@ -202,14 +199,26 @@ namespace {
 		 * @return      вектор слов старшим байтом вперёд
 		 *
 		 */
-		static inline __m128i bswap32(const __m128i value) noexcept {
+		static __ANTS_INLINE__ __m128i reverse32(const __m128i value) noexcept {
 			// Обмен соседних байтов в каждой 16-разрядной половине
 			const __m128i swapped = _mm_or_si128(_mm_slli_epi16(value, 8), _mm_srli_epi16(value, 8));
 			// Обмен двух 16-разрядных половин в каждом 32-разрядном слове
 			return _mm_or_si128(_mm_slli_epi32(swapped, 16), _mm_srli_epi32(swapped, 16));
 		}
 	#endif
-
+	/**
+	 * @brief Функция слоя NH: умножение пар слов сообщения и ключа (раздел 5.2.2 RFC 4418)
+	 *
+	 * @details Блок сообщения разворачивается по четырём байтам (ENDIAN-SWAP), после
+	 *          чего пары слов через четыре позиции множатся: к словам сообщения и ключа
+	 *          прибавляются по модулю 2^32, произведения складываются по модулю 2^64.
+	 *
+	 * @param key    ключ слоя NH (1024 байта)
+	 * @param data   блок сообщения (кратно 32 байтам, не длиннее ключа)
+	 * @param size   длина блока сообщения в байтах
+	 * @return       накопленное значение слоя
+	 *
+	 */
 	static uint64_t nh(const uint8_t * key, const uint8_t * data, const size_t size) noexcept {
 		/**
 		 * Если есть векторный путь SSE2: разворот четвёрок и произведения сумм идут
@@ -225,15 +234,15 @@ namespace {
 				// Первые четыре слова сообщения (младшим байтом вперёд) и ключа (старшим вперёд)
 				const __m128i m1 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data + i));
 				// Ключ первой пары, развёрнутый старшим байтом вперёд
-			const __m128i k1 = bswap32(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i)));
+				const __m128i k1 = reverse32(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i)));
 				// Вторые четыре слова сообщения и ключа (через четыре позиции)
 				const __m128i m2 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data + i + 16));
 				// Ключ второй пары, развёрнутый старшим байтом вперёд
-			const __m128i k2 = bswap32(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i + 16)));
+				const __m128i k2 = reverse32(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i + 16)));
 				// Суммы слов по модулю 2^32
 				const __m128i a = _mm_add_epi32(m1, k1);
 				// Суммы вторых пар слов по модулю 2^32
-			const __m128i b = _mm_add_epi32(m2, k2);
+				const __m128i b = _mm_add_epi32(m2, k2);
 				// Произведения чётных пар (слова 0 и 2) по модулю 2^64
 				const __m128i pe = _mm_mul_epu32(a, b);
 				// Произведения нечётных пар (слова 1 и 3)
@@ -256,19 +265,19 @@ namespace {
 				// Первые четыре слова сообщения (младшим байтом вперёд) и ключа (старшим вперёд)
 				const uint32x4_t m1 = vreinterpretq_u32_u8(vld1q_u8(data + i));
 				// Ключ первой пары, развёрнутый старшим байтом вперёд
-			const uint32x4_t k1 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(key + i)));
+				const uint32x4_t k1 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(key + i)));
 				// Вторые четыре слова сообщения и ключа
 				const uint32x4_t m2 = vreinterpretq_u32_u8(vld1q_u8(data + i + 16));
 				// Ключ второй пары, развёрнутый старшим байтом вперёд
-			const uint32x4_t k2 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(key + i + 16)));
+				const uint32x4_t k2 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(key + i + 16)));
 				// Суммы слов по модулю 2^32
 				const uint32x4_t a = vaddq_u32(m1, k1);
 				// Суммы вторых пар слов по модулю 2^32
-			const uint32x4_t b = vaddq_u32(m2, k2);
+				const uint32x4_t b = vaddq_u32(m2, k2);
 				// Произведения младших и старших пар слов по модулю 2^64
 				const uint64x2_t p0 = vmull_u32(vget_low_u32(a), vget_low_u32(b));
 				// Произведения старших пар слов (слова 2 и 3)
-			const uint64x2_t p1 = vmull_high_u32(a, b);
+				const uint64x2_t p1 = vmull_high_u32(a, b);
 				// Накапливаем произведения
 				acc = vaddq_u64(acc, vaddq_u64(p0, p1));
 			}
@@ -326,7 +335,7 @@ namespace {
 	 *
 	 * @details Сообщение разбивается на блоки по 1024 байта; значение каждого блока
 	 *          (NH с прибавленной длиной блока в битах) записывается старшим байтом
-	 *          вперёд, и вывод слоя - их слитная строка по восемь байтов на блок
+	 *          вперёд, и вывод слоя - их слитная строка по восемь байтов на блок.
 	 *
 	 * @param key    ключ слоя (1024 байта)
 	 * @param data   сообщение любой длины
@@ -334,7 +343,7 @@ namespace {
 	 * @return       длина вывода слоя в байтах
 	 *
 	 */
-	static size_t l1hash(const uint8_t * key, const view_t & data, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ size_t l1hash(const uint8_t * key, const view_t & data, uint8_t * result) noexcept {
 		// Смещение пройденной части сообщения и длина вывода
 		size_t offset = 0, length = 0;
 		/**
@@ -372,7 +381,7 @@ namespace {
 	 *
 	 * @details Произведение k·y - в 128 разрядов; по модулю 2^64 - 59 старшее слово
 	 *          заменяется умножением на 59 (2^64 сравнимо с 59), итог приводится
-	 *          вычитанием модуля
+	 *          вычитанием модуля.
 	 *
 	 * @param k ключ полинома
 	 * @param y накопленное значение полинома
@@ -380,7 +389,7 @@ namespace {
 	 * @return  новое значение полинома по модулю
 	 *
 	 */
-	static inline uint64_t poly64step(const uint64_t k, const uint64_t y, const uint64_t m) noexcept {
+	static __ANTS_INLINE__ uint64_t poly64step(const uint64_t k, const uint64_t y, const uint64_t m) noexcept {
 		// Простой модуль 2^64 - 59
 		const uint64_t p = (~static_cast <uint64_t> (0)) - 58;
 		// Произведение ключа на значение в 128 разрядов
@@ -412,7 +421,7 @@ namespace {
 	 * @return     значение полинома по модулю
 	 *
 	 */
-	static uint64_t poly64(const uint64_t key, const view_t & data) noexcept {
+	static __ANTS_INLINE__ uint64_t poly64(const uint64_t key, const view_t & data) noexcept {
 		// Дополнение модуля до 2^64 (2^64 - p)
 		const uint64_t offset = 59;
 		// Метка модуля (p - 1)
@@ -449,7 +458,7 @@ namespace {
 	 *
 	 * @details Восемь двухбайтовых слов значения множатся на восьмибайтовые слова
 	 *          ключа по модулю 2^36 - 5, сумма усечением до 2^32 складывается с ключом
-	 *          по модулю два
+	 *          по модулю два.
 	 *
 	 * @param k1    первый ключ слоя (64 байта)
 	 * @param k2    второй ключ слоя (4 байта)
@@ -457,7 +466,7 @@ namespace {
 	 * @return      итог слоя (четыре байта)
 	 *
 	 */
-	static uint32_t l3hash(const uint8_t * k1, const uint8_t * k2, const uint8_t * value) noexcept {
+	static __ANTS_INLINE__ uint32_t l3hash(const uint8_t * k1, const uint8_t * k2, const uint8_t * value) noexcept {
 		// Простой модуль 2^36 - 5
 		const uint64_t p = ((static_cast <uint64_t> (1) << 36) - 5);
 		// Накопленная сумма произведений
@@ -485,7 +494,7 @@ namespace {
 	 *
 	 * @details Одноразовое число складывается по модулю два с его индексом подстроки
 	 *          блока, добивается нулями до блока и шифруется ключом, выведенным из ключа
-	 *          связи опознавателем ноль; подложка - подстрока образа по индексу
+	 *          связи опознавателем ноль; подложка - подстрока образа по индексу.
 	 *
 	 * @param aes    шифр с установленным ключом связи
 	 * @param nonce  одноразовое число
@@ -493,7 +502,7 @@ namespace {
 	 * @param size   длина подложки в байтах (8 или 16)
 	 *
 	 */
-	static void pdf(Aes & aes, const view_t & nonce, uint8_t * result, const size_t size) noexcept {
+	static __ANTS_INLINE__ void pdf(Aes & aes, const view_t & nonce, uint8_t * result, const size_t size) noexcept {
 		// Ключ подложки, выводимый из ключа связи
 		uint8_t subkey[UMAC_KEY];
 		// Выводим ключ подложки опознавателем ноль

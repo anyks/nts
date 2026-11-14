@@ -575,7 +575,7 @@ namespace {
 		 * @return      слово с байтами в обратном порядке
 		 *
 		 */
-		static inline uint64_t reverse64(const uint64_t value) noexcept {
+		static constexpr uint64_t reverse64(const uint64_t value) noexcept {
 			/**
 			 * Для MSVC берём библиотечную перестановку байтов
 			 */
@@ -951,7 +951,7 @@ namespace {
 		 *       23 950 → 21 000 при 21 950; квадрат на mulq этим циклом не идёт (square8xMulq)
 		 *
 		 */
-		static inline void columns(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t low, const uint64_t high, const uint64_t reducer1, const uint64_t reducer2, uint64_t & carry1, uint64_t & lift1, uint64_t & carry2, uint64_t & lift2, size_t left) noexcept {
+		static __ANTS_INLINE__ void columns(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t low, const uint64_t high, const uint64_t reducer1, const uint64_t reducer2, uint64_t & carry1, uint64_t & lift1, uint64_t & carry2, uint64_t & lift2, size_t left) noexcept {
 			// Временное слово
 			uint64_t passed = 0;
 			// Переносы в регистрах
@@ -1459,7 +1459,7 @@ namespace {
 		 *       две с половиной флаговые команды вместо четырёх у рядов на C
 		 *
 		 */
-		static inline void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
+		static __ANTS_INLINE__ void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
 			// Выполняем ряд полосами по четыре слова на ассемблере
 			__asm__ __volatile__(
 			"mov   x24, %[buffer]\n\t"
@@ -4429,7 +4429,7 @@ namespace {
 		 * @return     та же маска
 		 *
 		 */
-		static inline int64_t hide(int64_t mask) noexcept {
+		static __ANTS_INLINE__ int64_t hide(int64_t mask) noexcept {
 			// Прячем маску от собирателя пустой вставкой
 			__asm__ __volatile__("" : "+r"(mask));
 			// Выводим ту же маску

@@ -102,7 +102,7 @@ namespace {
 		 * @return      сдвинутая полоса
 		 *
 		 */
-		static inline uint64_t spin(const uint64_t lane, const size_t count) noexcept {
+		static constexpr uint64_t spin(const uint64_t lane, const size_t count) noexcept {
 			// Выводим круговой сдвиг полосы
 			return ((lane << count) | (lane >> (64 - count)));
 		}
@@ -117,7 +117,7 @@ namespace {
 	 *       байтом вперёд; на прочих запись верна по определению раздела 3.1.2 FIPS 202
 	 *
 	 */
-	static inline uint64_t word(const uint8_t * data) noexcept {
+	static __ANTS_INLINE__ uint64_t word(const uint8_t * data) noexcept {
 		/**
 		 * На машинах с младшим байтом вперёд полоса лежит в памяти как есть, и копия
 		 * восьми байтов обращается в одну загрузку у clang и gcc. У lcc на Эльбрусе memcpy
@@ -151,7 +151,7 @@ namespace {
 	 * @param result место, в которое помещаются байты
 	 *
 	 */
-	static inline void bytes(const uint64_t lane, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void bytes(const uint64_t lane, uint8_t * result) noexcept {
 		/**
 			 * На машинах с младшим байтом вперёд полоса пишется в память как есть
 			 */

@@ -270,10 +270,12 @@ namespace {
 	 * @return      блок после начальной перестановки
 	 *
 	 */
-	static inline uint64_t entering(const uint64_t block) noexcept {
+	static constexpr uint64_t entering(const uint64_t block) noexcept {
 		// Выводим сумму наложений таблиц байтов
-		return (SHEETS.enter[0][block >> 56] | SHEETS.enter[1][(block >> 48) & 255] | SHEETS.enter[2][(block >> 40) & 255] | SHEETS.enter[3][(block >> 32) & 255] |
-		        SHEETS.enter[4][(block >> 24) & 255] | SHEETS.enter[5][(block >> 16) & 255] | SHEETS.enter[6][(block >> 8) & 255] | SHEETS.enter[7][block & 255]);
+		return (
+			SHEETS.enter[0][block >> 56] | SHEETS.enter[1][(block >> 48) & 255] | SHEETS.enter[2][(block >> 40) & 255] | SHEETS.enter[3][(block >> 32) & 255] |
+		    SHEETS.enter[4][(block >> 24) & 255] | SHEETS.enter[5][(block >> 16) & 255] | SHEETS.enter[6][(block >> 8) & 255] | SHEETS.enter[7][block & 255]
+		);
 	}
 	/**
 	 * @brief Функция конечной перестановки блока наложением таблиц байтов
@@ -282,10 +284,12 @@ namespace {
 	 * @return      блок после конечной перестановки
 	 *
 	 */
-	static inline uint64_t leaving(const uint64_t block) noexcept {
+	static constexpr uint64_t leaving(const uint64_t block) noexcept {
 		// Выводим сумму наложений таблиц байтов
-		return (SHEETS.leave[0][block >> 56] | SHEETS.leave[1][(block >> 48) & 255] | SHEETS.leave[2][(block >> 40) & 255] | SHEETS.leave[3][(block >> 32) & 255] |
-		        SHEETS.leave[4][(block >> 24) & 255] | SHEETS.leave[5][(block >> 16) & 255] | SHEETS.leave[6][(block >> 8) & 255] | SHEETS.leave[7][block & 255]);
+		return (
+			SHEETS.leave[0][block >> 56] | SHEETS.leave[1][(block >> 48) & 255] | SHEETS.leave[2][(block >> 40) & 255] | SHEETS.leave[3][(block >> 32) & 255] |
+		    SHEETS.leave[4][(block >> 24) & 255] | SHEETS.leave[5][(block >> 16) & 255] | SHEETS.leave[6][(block >> 8) & 255] | SHEETS.leave[7][block & 255]
+		);
 	}
 	/**
 	 * @brief Перестановка выбора ключа PC-1 (56 разрядов из 64)
@@ -314,6 +318,7 @@ namespace {
 	 *
 	 */
 	constexpr uint8_t SHIFTS[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
+
 	/**
 	 * @brief Функция перестановки блока таблицей
 	 *
@@ -324,7 +329,7 @@ namespace {
 	 * @return       переставленное значение
 	 *
 	 */
-	static uint64_t permute(const uint64_t value, const uint8_t * table, const size_t output, const size_t input) noexcept {
+	static __ANTS_INLINE__ uint64_t permute(const uint64_t value, const uint8_t * table, const size_t output, const size_t input) noexcept {
 		// Результат перестановки
 		uint64_t result = 0;
 		/**
@@ -347,14 +352,14 @@ namespace {
 	 *          в четыре разряда, крайние окна заходят кругом. Входы S-блоков суть
 	 *          разрезы, сложенные с разрезами раундового ключа, а вклады выходов
 	 *          берутся таблицами с внесённой перестановкой P и складываются в
-	 *          значение функции - поразрядных перестановок в круге нет вовсе
+	 *          значение функции - поразрядных перестановок в круге нет вовсе.
 	 *
 	 * @param right правая половина блока (32 разряда)
 	 * @param key   раундовый ключ (48 разрядов)
 	 * @return      значение функции Фейстеля
 	 *
 	 */
-	static uint32_t feistel(const uint32_t right, const uint64_t key) noexcept {
+	static constexpr uint32_t feistel(const uint32_t right, const uint64_t key) noexcept {
 		// Вход первого S-блока: крайнее окно заходит кругом младшим разрядом вперёд
 		const uint32_t first = (((((right & 1) << 5) | ((right >> 27) & 0x1F)) ^ static_cast <uint32_t> ((key >> 42) & 63)));
 		// Вход второго S-блока
@@ -381,7 +386,7 @@ namespace {
 	 * @param rounds место, в которое помещаются шестнадцать раундовых ключей
 	 *
 	 */
-	static void schedule(const uint8_t * key, uint64_t * rounds) noexcept {
+	static __ANTS_INLINE__ void schedule(const uint8_t * key, uint64_t * rounds) noexcept {
 		// Ключ числом старшим байтом вперёд
 		uint64_t whole = 0;
 		/**
@@ -417,7 +422,7 @@ namespace {
 	 * @param invert признак обращения порядка раундовых ключей (расшифрование)
 	 *
 	 */
-	static void circles(uint32_t & left, uint32_t & right, const uint64_t * rounds, const bool invert) noexcept {
+	static __ANTS_INLINE__ void circles(uint32_t & left, uint32_t & right, const uint64_t * rounds, const bool invert) noexcept {
 		/**
 		 * Выполняем перебор кругов Фейстеля
 		 */
@@ -441,7 +446,7 @@ namespace {
 	 * @return       преобразованный блок
 	 *
 	 */
-	static uint64_t transform(const uint64_t block, const uint64_t * rounds, const bool invert) noexcept {
+	static __ANTS_INLINE__ uint64_t transform(const uint64_t block, const uint64_t * rounds, const bool invert) noexcept {
 		// Блок после начальной перестановки
 		const uint64_t permuted = entering(block);
 		// Левая и правая половины блока
@@ -460,7 +465,7 @@ namespace {
 	 * @return     блок числом
 	 *
 	 */
-	static inline uint64_t fetch(const uint8_t * data) noexcept {
+	static __ANTS_INLINE__ uint64_t fetch(const uint8_t * data) noexcept {
 		// Прочитанный блок
 		uint64_t result = 0;
 		/**
@@ -479,7 +484,7 @@ namespace {
 	 * @param result место, в которое помещаются байты
 	 *
 	 */
-	static inline void store(const uint64_t value, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void store(const uint64_t value, uint8_t * result) noexcept {
 		/**
 		 * Выполняем запись байтов блока
 		 */

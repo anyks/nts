@@ -53,10 +53,11 @@ namespace {
 	 * Подписываемся на метод затирания памяти
 	 */
 	using nts::sys::wipe;
+
 	/**
 	 * Начальные значения BLAKE2b
 	 */
-	static const uint64_t IV64[8] = {
+	static constexpr uint64_t IV64[8] = {
 		// Первые четыре слова вектора инициализации SHA-512
 		0x6A09E667F3BCC908ULL, 0xBB67AE8584CAA73BULL, 0x3C6EF372FE94F82BULL, 0xA54FF53A5F1D36F1ULL,
 		0x510E527FADE682D1ULL, 0x9B05688C2B3E6C1FULL, 0x1F83D9ABFB41BD6BULL, 0x5BE0CD19137E2179ULL
@@ -64,14 +65,14 @@ namespace {
 	/**
 	 * Начальные значения BLAKE2s
 	 */
-	static const uint32_t IV32[8] = {
+	static constexpr uint32_t IV32[8] = {
 		// Слова вектора инициализации SHA-256
 		0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19
 	};
 	/**
 	 * Перестановки слов сообщения по кругам
 	 */
-	static const uint8_t SIGMA[12][16] = {
+	static constexpr uint8_t SIGMA[12][16] = {
 		// Круг 0: тождественная перестановка
 		{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		{14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
@@ -86,6 +87,7 @@ namespace {
 		{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		{14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3}
 	};
+
 	/**
 	 * @brief Функция кругового сдвига слова вправо в заданной ширине
 	 *
@@ -95,7 +97,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static inline uint64_t spin(const uint64_t word, const size_t count, const bool wide) noexcept {
+	static constexpr uint64_t spin(const uint64_t word, const size_t count, const bool wide) noexcept {
 		// Если слово широкое
 		if(wide)
 			// Выводим сдвиг в 64 разрядах
@@ -113,7 +115,7 @@ namespace {
 	 * @return     слово
 	 *
 	 */
-	static inline uint64_t fetch(const uint8_t * data, const bool wide) noexcept {
+	static __ANTS_INLINE__ uint64_t fetch(const uint8_t * data, const bool wide) noexcept {
 		// Собираемое слово
 		uint64_t result = 0;
 		/**
@@ -138,7 +140,7 @@ namespace {
 	 * @param wide признак ширины в 64 разряда
 	 *
 	 */
-	static inline void mix(uint64_t * v, const size_t a, const size_t b, const size_t c, const size_t d, const uint64_t x, const uint64_t y, const bool wide) noexcept {
+	static __ANTS_INLINE__ void mix(uint64_t * v, const size_t a, const size_t b, const size_t c, const size_t d, const uint64_t x, const uint64_t y, const bool wide) noexcept {
 		// Маска ширины слова
 		const uint64_t mask = (wide ? 0xFFFFFFFFFFFFFFFFULL : 0xFFFFFFFFULL);
 		// Сдвиги разновидности
@@ -416,6 +418,7 @@ nts::digest::Blake2::~Blake2() noexcept {
 	// Выполняем затирание накопителя
 	wipe(this->_block, sizeof(this->_block));
 }
+
 /**
  * @brief Функция хеширования сообщения за один вызов
  *

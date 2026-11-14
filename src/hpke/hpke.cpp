@@ -148,7 +148,7 @@ namespace {
 	/**
 	 * Константы шага ι по кругам перестановки Keccak-f[1600]
 	 */
-	static const uint64_t KECCAK_IOTA[KECCAK_ROUNDS] = {
+	static constexpr uint64_t KECCAK_IOTA[KECCAK_ROUNDS] = {
 		// Начинаем таблицу констант шага ι
 		0x0000000000000001ULL, 0x0000000000008082ULL, 0x800000000000808AULL, 0x8000000080008000ULL,
 		0x000000000000808BULL, 0x0000000080000001ULL, 0x8000000080008081ULL, 0x8000000000008009ULL,
@@ -169,7 +169,7 @@ namespace {
 		 * @return      сдвинутая полоса
 		 *
 		 */
-		static inline uint64_t spin(const uint64_t lane, const size_t count) noexcept {
+		static constexpr uint64_t spin(const uint64_t lane, const size_t count) noexcept {
 			// Выводим круговой сдвиг полосы
 			return ((lane << count) | (lane >> (64 - count)));
 		}
@@ -184,7 +184,7 @@ namespace {
 	 *          кругов TurboSHAKE - это последние двенадцать кругов Keccak-f[1600]
 	 *
 	 */
-	static void permute(uint64_t * state, const size_t rounds) noexcept {
+	static __ANTS_INLINE__ void permute(uint64_t * state, const size_t rounds) noexcept {
 		/**
 		 * Ядро на ассемблере x86-64 либо на командах SHA-3 AArch64 делает ровно двадцать
 		 * четыре круга от переданной таблицы констант: для полной перестановки Keccak-f[1600]
@@ -302,18 +302,18 @@ namespace {
 	/**
 	 * @brief Функция выработки функцией семейства SHAKE с заданным числом кругов
 	 *
+	 * @details Функция Derive раздела 5 draft-ietf-hpke-pq: SHAKE(ikm) с выжиманием L
+	 *          байтов; у TurboSHAKE перестановка Keccak-p[1600, 12] по RFC 9861, байт
+	 *          дополнения у обеих 0x1F.
+	 *
 	 * @param kdf      функция выработки ключа
 	 * @param pieces   просмотры кусков сообщения по порядку
 	 * @param count    число кусков
 	 * @param result   место под материал
 	 * @param size     длина материала в байтах
 	 *
-	 * @details Функция Derive раздела 5 draft-ietf-hpke-pq: SHAKE(ikm) с выжиманием L
-	 *          байтов; у TurboSHAKE перестановка Keccak-p[1600, 12] по RFC 9861, байт
-	 *          дополнения у обеих 0x1F
-	 *
 	 */
-	static void xof(const kdf_t kdf, const view_t * pieces, const size_t count, uint8_t * result, const size_t size) noexcept {
+	static __ANTS_INLINE__ void xof(const kdf_t kdf, const view_t * pieces, const size_t count, uint8_t * result, const size_t size) noexcept {
 		// Скорость губки: 168 байтов у SHAKE128, 136 у SHAKE256
 		const size_t rate = (((kdf == kdf_t::SHAKE128) || (kdf == kdf_t::TURBOSHAKE128)) ? 168 : 136);
 		// Число кругов перестановки: 24 у SHAKE, 12 у TurboSHAKE
@@ -402,7 +402,6 @@ namespace {
 		// Стираем состояние губки
 		wipe(state, sizeof(state));
 	}
-
 	/**
 	 * @brief Функция выбора алгоритма хеширования функции выработки ключа
 	 *
@@ -410,7 +409,7 @@ namespace {
 	 * @return    алгоритм хеширования либо NONE
 	 *
 	 */
-	static digest::hash_t hashing(const kdf_t kdf) noexcept {
+	static __ANTS_INLINE__ digest::hash_t hashing(const kdf_t kdf) noexcept {
 		/**
 		 * Определяем функцию выработки ключа
 		 */
@@ -438,7 +437,7 @@ namespace {
 	 * @return    признак того, что функция одноступенчатая (раздел 5 draft-ietf-hpke-pq)
 	 *
 	 */
-	static bool onestage(const kdf_t kdf) noexcept {
+	static __ANTS_INLINE__ bool onestage(const kdf_t kdf) noexcept {
 		// Выводим признак одноступенчатых функций SHAKE и TurboSHAKE
 		return ((kdf == kdf_t::SHAKE128) || (kdf == kdf_t::SHAKE256) || (kdf == kdf_t::TURBOSHAKE128) || (kdf == kdf_t::TURBOSHAKE256));
 	}
@@ -449,7 +448,7 @@ namespace {
 	 * @param result место под два байта
 	 *
 	 */
-	static void inscribe(const uint16_t value, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void inscribe(const uint16_t value, uint8_t * result) noexcept {
 		// Записываем старший байт
 		result[0] = static_cast <uint8_t> (value >> 8);
 		// Записываем младший байт
@@ -464,7 +463,7 @@ namespace {
 	 * @details Значение suite_id раздела 4.1 RFC 9180 для функций способа инкапсуляции
 	 *
 	 */
-	static void stamp(const kem_t kem, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void stamp(const kem_t kem, uint8_t * result) noexcept {
 		// Записываем метку «KEM»
 		::memcpy(result, "KEM", 3);
 		// Записываем номер способа
@@ -479,7 +478,7 @@ namespace {
 	 * @details Значение suite_id раздела 5.1 RFC 9180 для расписания ключей
 	 *
 	 */
-	static void stamp(const suite_t & suite, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void stamp(const suite_t & suite, uint8_t * result) noexcept {
 		// Записываем метку «HPKE»
 		::memcpy(result, "HPKE", 4);
 		// Записываем номер способа инкапсуляции
@@ -503,7 +502,7 @@ namespace {
 	 * @details Функция LabeledExtract раздела 4 RFC 9180: Extract(salt, «HPKE-v1» || suite_id || label || ikm)
 	 *
 	 */
-	static bool absorb(const digest::hash_t hash, const view_t & salt, const view_t & suite, const char * label, const view_t & material, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ bool absorb(const digest::hash_t hash, const view_t & salt, const view_t & suite, const char * label, const view_t & material, uint8_t * result) noexcept {
 		// Длина хеша
 		const size_t length = digest::length(hash);
 		// Нулевая соль в длину хеша: раздел 2.2 RFC 5869
@@ -683,7 +682,7 @@ namespace {
 	 * @param size   размер области в байтах
 	 *
 	 */
-	static void reverse(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
+	static __ANTS_INLINE__ void reverse(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
 		/**
 		 * Выполняем перебор байтов переносимой области
 		 */
@@ -694,15 +693,15 @@ namespace {
 	/**
 	 * @brief Функция извлечения функции выработки ключа способа инкапсуляции
 	 *
+	 * @details У способов Диффи-Хеллмана функция своя у каждого способа (раздел 7.1
+	 *          RFC 9180); у чистого ML-KEM и гибридов выработка ключей идёт SHAKE256
+	 *          (разделы 3 и 4 draft-ietf-hpke-pq), а общее значение готово само по себе.
+	 *
 	 * @param kem способ инкапсуляции ключа
 	 * @return    функция выработки ключа либо NONE
 	 *
-	 * @details У способов Диффи-Хеллмана функция своя у каждого способа (раздел 7.1
-	 *          RFC 9180); у чистого ML-KEM и гибридов выработка ключей идёт SHAKE256
-	 *          (разделы 3 и 4 draft-ietf-hpke-pq), а общее значение готово само по себе
-	 *
 	 */
-	static kdf_t derivation(const kem_t kem) noexcept {
+	static constexpr kdf_t derivation(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -747,7 +746,7 @@ namespace {
 	 * @return    опознаватель набора параметров кривой либо nullptr
 	 *
 	 */
-	static const char * curveoid(const kem_t kem) noexcept {
+	static constexpr const char * curveoid(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -777,7 +776,7 @@ namespace {
 	 * @return    набор параметров ML-KEM либо NONE
 	 *
 	 */
-	static agreement::kem_t mlkemset(const kem_t kem) noexcept {
+	static constexpr agreement::kem_t mlkemset(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -804,14 +803,14 @@ namespace {
 	/**
 	 * @brief Функция извлечения длины зерна традиционной составляющей гибрида
 	 *
+	 * @details Значения Nseed групп раздела 3.1 draft-irtf-cfrg-concrete-hybrid-kems:
+	 *          128 у P-256 (четыре куска отбора по 32 байта), 48 у P-384, 32 у Curve25519.
+	 *
 	 * @param kem способ инкапсуляции ключа
 	 * @return    длина зерна в байтах либо ноль у негибридного способа
 	 *
-	 * @details Значения Nseed групп раздела 3.1 draft-irtf-cfrg-concrete-hybrid-kems:
-	 *          128 у P-256 (четыре куска отбора по 32 байта), 48 у P-384, 32 у Curve25519
-	 *
 	 */
-	static size_t tradition(const kem_t kem) noexcept {
+	static constexpr size_t tradition(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -835,14 +834,14 @@ namespace {
 	/**
 	 * @brief Функция извлечения метки гибридного способа
 	 *
-	 * @param kem способ инкапсуляции ключа
-	 * @return    метка способа для сочетателя C2PRI
-	 *
 	 * @details Метки раздела 4 draft-irtf-cfrg-concrete-hybrid-kems: у X-Wing метка
 	 *          «\.//^\» (hex 5C2E2F2F5E5C)
 	 *
+	 * @param kem способ инкапсуляции ключа
+	 * @return    метка способа для сочетателя C2PRI
+	 *
 	 */
-	static const uint8_t * hybridlabel(const kem_t kem) noexcept {
+	static __ANTS_INLINE__ const uint8_t * hybridlabel(const kem_t kem) noexcept {
 		// Метка гибрида ML-KEM-768 и P-256
 		static const uint8_t LABEL_P256[] = "MLKEM768-P256";
 		// Метка гибрида ML-KEM-1024 и P-384
@@ -876,7 +875,7 @@ namespace {
 	 * @return    длина метки в байтах
 	 *
 	 */
-	static size_t hybridmark(const kem_t kem) noexcept {
+	static constexpr size_t hybridmark(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -897,7 +896,6 @@ namespace {
 		// Выводим пустую длину
 		return 0;
 	}
-
 	/**
 	 * @brief Функция проверки признака способа Диффи-Хеллмана
 	 *
@@ -905,7 +903,7 @@ namespace {
 	 * @return    признак того, что способ есть DHKEM
 	 *
 	 */
-	static bool diffie(const kem_t kem) noexcept {
+	static constexpr bool diffie(const kem_t kem) noexcept {
 		// Выводим признак способов Диффи-Хеллмана
 		return ((kem == kem_t::P256_HKDF_SHA256) || (kem == kem_t::P384_HKDF_SHA384) || (kem == kem_t::P521_HKDF_SHA512) || (kem == kem_t::X25519_HKDF_SHA256) || (kem == kem_t::X448_HKDF_SHA512));
 	}
@@ -916,7 +914,7 @@ namespace {
 	 * @return    признак того, что способ есть чистый ML-KEM
 	 *
 	 */
-	static bool puremlkem(const kem_t kem) noexcept {
+	static constexpr bool puremlkem(const kem_t kem) noexcept {
 		// Выводим признак чистого ML-KEM
 		return ((kem == kem_t::MLKEM512) || (kem == kem_t::MLKEM768) || (kem == kem_t::MLKEM1024));
 	}
@@ -927,21 +925,21 @@ namespace {
 	 * @return    признак того, что способ есть гибрид ML-KEM и группы
 	 *
 	 */
-	static bool hybrid(const kem_t kem) noexcept {
+	static constexpr bool hybrid(const kem_t kem) noexcept {
 		// Выводим признак гибридного способа
 		return ((kem == kem_t::MLKEM768_P256) || (kem == kem_t::MLKEM1024_P384) || (kem == kem_t::MLKEM768_X25519));
 	}
 	/**
 	 * @brief Функция извлечения длины общего значения способа инкапсуляции
 	 *
-	 * @param kem способ инкапсуляции ключа
-	 * @return    длина общего значения в байтах (Nsecret)
-	 *
 	 * @details У способов Диффи-Хеллмана общее значение длиной в размер кривой, у чистого
 	 *          ML-KEM и гибридов - тридцать два байта (таблицы 2 и 3 draft-ietf-hpke-pq)
 	 *
+	 * @param kem способ инкапсуляции ключа
+	 * @return    длина общего значения в байтах (Nsecret)
+	 *
 	 */
-	static size_t nsecret(const kem_t kem) noexcept {
+	static constexpr size_t nsecret(const kem_t kem) noexcept {
 		// У чистого ML-KEM и гибридов общее значение в тридцать два байта
 		if(puremlkem(kem) || hybrid(kem))
 			// Выводим длину общего значения
@@ -957,10 +955,13 @@ namespace {
 		// У прочих способов Диффи-Хеллмана общее значение длиной в размер кривой
 		return secret(kem);
 	}
-
-
 	/**
 	 * @brief Функция выработки общего значения способа Диффи-Хеллмана
+	 *
+	 * @details Функция ExtractAndExpand раздела 4.5 draft-ietf-hpke-hpke для способа:
+	 *          у двухступенчатой функции способа - eae_prk = LabeledExtract("", "eae_prk", dh),
+	 *          shared_secret = LabeledExpand(eae_prk, "shared_secret", kem_context, Nsecret);
+	 *          у одноступенчатой - LabeledDerive(dh, "shared_secret", kem_context, Nsecret).
 	 *
 	 * @param kem     способ инкапсуляции ключа
 	 * @param dh      просмотр общих значений Диффи-Хеллмана: одно либо два
@@ -968,13 +969,8 @@ namespace {
 	 * @param result  место под общее значение длиной Nsecret способа
 	 * @return        признак успешности выработки
 	 *
-	 * @details Функция ExtractAndExpand раздела 4.5 draft-ietf-hpke-hpke для способа:
-	 *          у двухступенчатой функции способа - eae_prk = LabeledExtract("", "eae_prk", dh),
-	 *          shared_secret = LabeledExpand(eae_prk, "shared_secret", kem_context, Nsecret);
-	 *          у одноступенчатой - LabeledDerive(dh, "shared_secret", kem_context, Nsecret)
-	 *
 	 */
-	static bool combine(const kem_t kem, const view_t & dh, const view_t & binding, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ bool combine(const kem_t kem, const view_t & dh, const view_t & binding, uint8_t * result) noexcept {
 		// Опознаватель способа инкапсуляции
 		uint8_t suite[KEM_STAMP];
 		// Составляем опознаватель способа
@@ -1008,18 +1004,18 @@ namespace {
 	/**
 	 * @brief Функция выработки пары ключей способа Диффи-Хеллмана из исходного материала
 	 *
+	 * @details Функция DeriveKeyPair раздела 7.1.3 draft-ietf-hpke-hpke: у кривых NIST -
+	 *          отбор кандидатов LabeledDerive/LabeledExpand(ikm, "candidate", I2OSP(counter, 1),
+	 *          Nsk) до 0 < sk < order; у X25519 и X448 - вывод ключа меткой «sk».
+	 *
 	 * @param kem      способ инкапсуляции ключа
 	 * @param material исходный ключевой материал
 	 * @param secret   место под секретный ключ длиной secret(kem)
 	 * @param point    место под открытый ключ длиной length(kem)
 	 * @return         признак успешности выработки
 	 *
-	 * @details Функция DeriveKeyPair раздела 7.1.3 draft-ietf-hpke-hpke: у кривых NIST -
-	 *          отбор кандидатов LabeledDerive/LabeledExpand(ikm, "candidate", I2OSP(counter, 1),
-	 *          Nsk) до 0 < sk < order; у X25519 и X448 - вывод ключа меткой «sk»
-	 *
 	 */
-	static bool expand(const kem_t kem, const view_t & material, uint8_t * secret, uint8_t * point) noexcept {
+	static __ANTS_INLINE__ bool expand(const kem_t kem, const view_t & material, uint8_t * secret, uint8_t * point) noexcept {
 		// Опознаватель способа инкапсуляции
 		uint8_t suite[KEM_STAMP];
 		// Составляем опознаватель способа
@@ -1189,17 +1185,17 @@ namespace {
 	/**
 	 * @brief Функция выработки общего значения Диффи-Хеллмана кривой NIST
 	 *
+	 * @details Открытый ключ проверяется на принадлежность кривой разбором точки, а
+	 *          кратная точка — на обращение в ноль: обе проверки выполняет `agreement::ecdhe`.
+	 *
 	 * @param kem    способ инкапсуляции ключа
 	 * @param secret секретный ключ своей стороны старшим байтом вперёд
 	 * @param peer   открытый ключ встречной стороны в несжатом виде
 	 * @param result место под общее значение длиной в размер кривой
 	 * @return       признак успешности выработки
 	 *
-	 * @details Открытый ключ проверяется на принадлежность кривой разбором точки, а
-	 *          кратная точка — на обращение в ноль: обе проверки выполняет `agreement::ecdhe`
-	 *
 	 */
-	static bool exchange(const kem_t kem, const view_t & secret, const view_t & peer, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ bool exchange(const kem_t kem, const view_t & secret, const view_t & peer, uint8_t * result) noexcept {
 		// Кривая
 		curve::curve_t curve;
 		// Если параметры кривой не найдены либо точка не в несжатом виде
@@ -1241,7 +1237,7 @@ namespace {
 	 * @return       признак успешности выработки
 	 *
 	 */
-	static bool publish(const kem_t kem, const view_t & secret, uint8_t * point) noexcept {
+	static __ANTS_INLINE__ bool publish(const kem_t kem, const view_t & secret, uint8_t * point) noexcept {
 		// Кривая
 		curve::curve_t curve;
 		// Если параметры кривой не найдены
@@ -1289,16 +1285,16 @@ namespace {
 	/**
 	 * @brief Функция выработки пары ключей чистого ML-KEM из зерна
 	 *
+	 * @details Функция expandDecapsKey раздела 3 draft-ietf-hpke-pq: KeyGen_internal(d, z)
+	 *          FIPS 203; секретным ключом способа служит само зерно.
+	 *
 	 * @param kem    способ инкапсуляции ключа
 	 * @param seed   зерно в шестьдесят четыре байта
 	 * @param point  место под ключ инкапсуляции
 	 * @return       признак успешности выработки
 	 *
-	 * @details Функция expandDecapsKey раздела 3 draft-ietf-hpke-pq: KeyGen_internal(d, z)
-	 *          FIPS 203; секретным ключом способа служит само зерно
-	 *
 	 */
-	static bool expandmlkem(const kem_t kem, const view_t & seed, uint8_t * point) noexcept {
+	static __ANTS_INLINE__ bool expandmlkem(const kem_t kem, const view_t & seed, uint8_t * point) noexcept {
 		// Набор параметров ML-KEM
 		const agreement::kem_t set = mlkemset(kem);
 		// Ключ декапсуляции полной записью стандарта: dk_PKE ‖ ek ‖ H(ek) ‖ z
@@ -1313,16 +1309,16 @@ namespace {
 	/**
 	 * @brief Функция отбора скаляра кривой NIST из зерна
 	 *
+	 * @details Функция RandomScalar раздела 3.1.1 draft-irtf-cfrg-concrete-hybrid-kems:
+	 *          отбор кусков зерна по Nscalar байтов до 0 < sk < order.
+	 *
 	 * @param kem    способ инкапсуляции ключа
 	 * @param seed   зерно отбора длиной Nseed группы
 	 * @param result место под скаляр длиной в размер кривой старшим байтом вперёд
 	 * @return       признак успешности отбора
 	 *
-	 * @details Функция RandomScalar раздела 3.1.1 draft-irtf-cfrg-concrete-hybrid-kems:
-	 *          отбор кусков зерна по Nscalar байтов до 0 < sk < order
-	 *
 	 */
-	static bool pick(const kem_t kem, const view_t & seed, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ bool pick(const kem_t kem, const view_t & seed, uint8_t * result) noexcept {
 		// Кривая
 		curve::curve_t curve;
 		// Если параметры кривой не найдены
@@ -1354,18 +1350,18 @@ namespace {
 	/**
 	 * @brief Функция выработки составляющих гибридного способа из зерна
 	 *
+	 * @details Функция expandDecapsKeyG раздела 5.1.1 draft-irtf-cfrg-hybrid-kems:
+	 *          seed_full = SHAKE256(seed, 64 + Nseed группы), разрез на зерно ML-KEM
+	 *          и зерно группы.
+	 *
 	 * @param kem    способ инкапсуляции ключа
 	 * @param seed   зерно в тридцать два байта
 	 * @param pq     место под зерно ML-KEM в шестьдесят четыре байта
 	 * @param trad   место под зерно традиционной составляющей
 	 * @return       признак успешности выработки
 	 *
-	 * @details Функция expandDecapsKeyG раздела 5.1.1 draft-irtf-cfrg-hybrid-kems:
-	 *          seed_full = SHAKE256(seed, 64 + Nseed группы), разрез на зерно ML-KEM
-	 *          и зерно группы
-	 *
 	 */
-	static bool spread(const kem_t kem, const view_t & seed, uint8_t * pq, uint8_t * trad) noexcept {
+	static __ANTS_INLINE__ bool spread(const kem_t kem, const view_t & seed, uint8_t * pq, uint8_t * trad) noexcept {
 		// Длина зерна традиционной составляющей
 		const size_t size = tradition(kem);
 		// Зерно целиком
@@ -1384,6 +1380,9 @@ namespace {
 	/**
 	 * @brief Функция выработки общего значения гибридного способа
 	 *
+	 * @details Функция C2PRICombiner раздела 5.1.3 draft-irtf-cfrg-hybrid-kems:
+	 *          SHA3-256(ss_PQ ‖ ss_T ‖ ct_T ‖ ek_T ‖ Label).
+	 *
 	 * @param kem    способ инкапсуляции ключа
 	 * @param ssPQ   общее значение ML-KEM
 	 * @param ssT    общее значение традиционной составляющей
@@ -1391,11 +1390,8 @@ namespace {
 	 * @param ekT    открытый ключ традиционной составляющей получателя
 	 * @param result место под общее значение в тридцать два байта
 	 *
-	 * @details Функция C2PRICombiner раздела 5.1.3 draft-irtf-cfrg-hybrid-kems:
-	 *          SHA3-256(ss_PQ ‖ ss_T ‖ ct_T ‖ ek_T ‖ Label)
-	 *
 	 */
-	static void fuse(const kem_t kem, const view_t & ssPQ, const view_t & ssT, const view_t & ctT, const view_t & ekT, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void fuse(const kem_t kem, const view_t & ssPQ, const view_t & ssT, const view_t & ctT, const view_t & ekT, uint8_t * result) noexcept {
 		// Объект губки
 		digest::keccak_t hash(digest::sha3_t::SHA3_256);
 		// Подаём общее значение ML-KEM
@@ -1418,7 +1414,7 @@ namespace {
 	 * @return     признак того, что режим известен
 	 *
 	 */
-	static bool admissible(const regime_t mode) noexcept {
+	static constexpr bool admissible(const regime_t mode) noexcept {
 		/**
 		 * Определяем режим работы
 		 */
@@ -1441,7 +1437,7 @@ namespace {
 	 * @return     признак того, что режим требует ключ отправителя
 	 *
 	 */
-	static bool demanding(const regime_t mode) noexcept {
+	static constexpr bool demanding(const regime_t mode) noexcept {
 		// Выводим признак режимов AUTH и AUTH_PSK
 		return ((mode == regime_t::AUTH) || (mode == regime_t::AUTH_PSK));
 	}
@@ -1452,11 +1448,11 @@ namespace {
 	 * @return     признак того, что режим требует заранее разделённый ключ
 	 *
 	 */
-	static bool preshared(const regime_t mode) noexcept {
+	static constexpr bool preshared(const regime_t mode) noexcept {
 		// Выводим признак режимов PSK и AUTH_PSK
 		return ((mode == regime_t::PSK) || (mode == regime_t::AUTH_PSK));
 	}
-}
+};
 
 /**
  * @brief Конструктор пустого набора

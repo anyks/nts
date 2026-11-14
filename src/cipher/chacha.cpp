@@ -173,7 +173,10 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
 	/**
 	 * Пространство имён модуля
 	 */
@@ -185,8 +188,6 @@ namespace {
 	 */
 	static constexpr uint32_t CONSTANTS[4] = {0x61707865, 0x3320646E, 0x79622D32, 0x6B206574};
 
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * @brief Функция чтения слова в 32 разряда от младшего байта
 	 *
@@ -194,7 +195,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static inline uint32_t load(const uint8_t * data) noexcept {
+	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
 		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) | (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
 	}
@@ -205,7 +206,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static inline void store(const uint32_t value, uint8_t * data) noexcept {
+	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем младший байт
 		data[0] = static_cast <uint8_t> (value);
 		// Записываем второй байт
@@ -223,7 +224,7 @@ namespace {
 	 * @return      вращённое слово
 	 *
 	 */
-	static inline uint32_t rotate(const uint32_t value, const unsigned count) noexcept {
+	static constexpr uint32_t rotate(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, вращённое влево
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -816,12 +817,14 @@ namespace {
 		const __m128i steps = _mm_load_si128(reinterpret_cast <const __m128i *> (STEPS8)); \
 		/* Рабочие слова четырёх блоков */ \
 		__m128i work[16]; \
-		/* Выполняем размножение слов состояния на четыре блока */ for(size_t i = 0; i < 16; i++) \
+		/* Выполняем размножение слов состояния на четыре блока */ \
+		for(size_t i = 0; i < 16; i++) \
 			/* Размножаем очередное слово */ \
 			work[i] = _mm_set1_epi32(static_cast <int> (state[i])); \
 		/* Продвигаем счётчики второго, третьего и четвёртого блоков */ \
 		work[12] = _mm_add_epi32(work[12], steps); \
-		/* Выполняем десять двойных раундов: столбцами и диагоналями */ for(size_t i = 0; i < 10; i++){ \
+		/* Выполняем десять двойных раундов: столбцами и диагоналями */ \
+		for(size_t i = 0; i < 10; i++){ \
 			/* Четвертьраунд первого столбца */ \
 			__ANTS_CHACHA_QUARTER_X86__(work[0], work[4], work[8], work[12], r16, r8) \
 			/* Четвертьраунд второго столбца */ \
@@ -839,12 +842,14 @@ namespace {
 			/* Четвертьраунд четвёртой диагонали */ \
 			__ANTS_CHACHA_QUARTER_X86__(work[3], work[4], work[9], work[14], r16, r8) \
 		} \
-		/* Выполняем сложение рабочих слов с исходными, взятыми из состояния заново */ for(size_t i = 0; i < 16; i++) \
+		/* Выполняем сложение рабочих слов с исходными, взятыми из состояния заново */ \
+		for(size_t i = 0; i < 16; i++) \
 			/* Складываем очередное слово */ \
 			work[i] = _mm_add_epi32(work[i], _mm_set1_epi32(static_cast <int> (state[i]))); \
 		/* Складываем счётчики с приращениями второго, третьего и четвёртого блоков */ \
 		work[12] = _mm_add_epi32(work[12], steps); \
-		/* Выполняем перестановку по блокам и наложение гаммы четвёрками слов */ for(size_t i = 0; i < 4; i++){ \
+		/* Выполняем перестановку по блокам и наложение гаммы четвёрками слов */ \
+		for(size_t i = 0; i < 4; i++){ \
 			/* Чередование младших слов первой пары векторов */ \
 			const __m128i t0 = _mm_unpacklo_epi32(work[i * 4], work[(i * 4) + 1]); \
 			/* Чередование младших слов второй пары векторов */ \

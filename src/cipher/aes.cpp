@@ -928,7 +928,7 @@ namespace {
 	 *
 	 */
 	template <size_t ROUNDS>
-	static void sealTables(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void sealTables(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Слова блока от старшего байта
 		word_t s0 = load(source), s1 = load(source + 4), s2 = load(source + 8), s3 = load(source + 12);
 		// Шифруем блок прямой линией кругов
@@ -945,7 +945,7 @@ namespace {
 	 *
 	 */
 	template <size_t ROUNDS>
-	static void openTables(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void openTables(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Слова блока от старшего байта
 		word_t s0 = load(source), s1 = load(source + 4), s2 = load(source + 8), s3 = load(source + 12);
 		// Расшифровываем блок прямой линией кругов
@@ -962,7 +962,7 @@ namespace {
 	 *
 	 */
 	template <size_t ROUNDS>
-	static void sealFour(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void sealFour(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Слова блоков от старшего байта
 		word_t a0 = load(source + 0), a1 = load(source + 4), a2 = load(source + 8), a3 = load(source + 12);
 		// Слова второго блока от старшего байта
@@ -1030,7 +1030,7 @@ namespace {
 		 * @return     прочитанный вектор ключа
 		 *
 		 */
-		static inline uint8x16_t loadArm(const uint8_t * keys) noexcept {
+		static __ANTS_INLINE__ uint8x16_t loadArm(const uint8_t * keys) noexcept {
 			// Выводим прочитанный вектор ключа
 			return vld1q_u8(keys);
 		}
@@ -1056,9 +1056,11 @@ namespace {
 		 */
 		template <size_t ROUNDS, size_t... I>
 		static __ANTS_AES_TARGET__ void chainArmR(const uint8_t * keys, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result, const std::index_sequence <I...> &) noexcept {
-			// Раундовые ключи в именованных значениях на весь проход: внутренних кругов
-			// на единицу меньше числа кругов, ключ предпоследнего круга идёт последним
-			// AESE без перемешивания, а ключ последнего круга отбеливает итог
+			/**
+			 * Раундовые ключи в именованных значениях на весь проход: внутренних кругов
+			 * на единицу меньше числа кругов, ключ предпоследнего круга идёт последним
+			 * AESE без перемешивания, а ключ последнего круга отбеливает итог
+			 */
 			const uint8x16_t round[ROUNDS + 1] = {loadArm(keys + (I * 16))..., loadArm(keys + ((ROUNDS - 1) * 16)), loadArm(keys + (ROUNDS * 16))};
 			// Регистр сцепления держится вектором на весь проход
 			uint8x16_t state = vld1q_u8(record);
@@ -1130,7 +1132,7 @@ namespace {
 	 * @details Счётчики собираются словами, а гамма накладывается на слова исходных данных
 	 *          в порядке машины: буферов на стеке нет, и затирать нечего. Байтовые
 	 *          записи гаммы с последующим чтением словами стопорили конвейер памяти Эльбруса
-	 *          (круг 51, 29.09.2026). Ядро продвигает лишь младшие четыре байта счётчика по кругу
+	 *          (круг 51, 29.09.2026). Ядро продвигает лишь младшие четыре байта счётчика по кругу.
 	 *
 	 * @param keys    развёрнутое расписание ключей шифрования
 	 * @param counter начальное значение счётчика: ядро начинает с приращения
@@ -1398,9 +1400,9 @@ namespace {
 			// Выполняем затирание счётчика
 			wipe(current, sizeof(current));
 		}
-		/**
-		 * Иначе если есть ветвь команд AES-NI
-		 */
+	/**
+	 * Иначе если есть ветвь команд AES-NI
+	 */
 	#elif defined(__ANTS_AES_X86__)
 		/**
 		 * @brief Функция выработки гаммы счётчика командами по четыре блока разом

@@ -184,7 +184,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -217,6 +216,7 @@ namespace {
 			static constexpr size_t POWERS = 8;
 		#endif
 	#endif
+
 	/**
 	 * @brief Функция чтения слова в 32 разряда от младшего байта
 	 *
@@ -224,7 +224,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static inline uint32_t load(const uint8_t * data) noexcept {
+	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
 		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) | (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
 	}
@@ -235,7 +235,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static inline void store(const uint32_t value, uint8_t * data) noexcept {
+	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем младший байт
 		data[0] = static_cast <uint8_t> (value);
 		// Записываем второй байт
@@ -245,6 +245,7 @@ namespace {
 		// Записываем старший байт
 		data[3] = static_cast <uint8_t> (value >> 24);
 	}
+
 	/**
 	 * Если переносимый путь либо векторные ветви нуждаются в арифметике по 26 разрядов
 	 */
@@ -263,7 +264,7 @@ namespace {
 		 * @param product конечности произведения, к которым прибавляется итог
 		 *
 		 */
-		static inline void multiply(const uint32_t * limbs, const uint32_t * r, const uint32_t * s, uint64_t * product) noexcept {
+		static __ANTS_INLINE__ void multiply(const uint32_t * limbs, const uint32_t * r, const uint32_t * s, uint64_t * product) noexcept {
 			// Первая конечность произведения
 			product[0] += ((static_cast <uint64_t> (limbs[0]) * r[0]) + (static_cast <uint64_t> (limbs[1]) * s[4]) + (static_cast <uint64_t> (limbs[2]) * s[3]) + (static_cast <uint64_t> (limbs[3]) * s[2]) + (static_cast <uint64_t> (limbs[4]) * s[1]));
 			// Вторая конечность произведения
@@ -286,7 +287,7 @@ namespace {
 		 * @param limbs   место под приведённые конечности
 		 *
 		 */
-		static inline void reduce(uint64_t * product, uint32_t * limbs) noexcept {
+		static __ANTS_INLINE__ void reduce(uint64_t * product, uint32_t * limbs) noexcept {
 			// Перенос из первой конечности
 			uint32_t carry = static_cast <uint32_t> (product[0] >> 26);
 			// Первая конечность
@@ -334,7 +335,7 @@ namespace {
 		 * @param limbs место под пять конечностей
 		 *
 		 */
-		static inline void clamp(const uint8_t * key, uint32_t * limbs) noexcept {
+		static __ANTS_INLINE__ void clamp(const uint8_t * key, uint32_t * limbs) noexcept {
 			// Первая конечность r: обрезка по стандарту
 			limbs[0] = (load(key) & 0x3FFFFFF);
 			// Вторая конечность r: обрезка старших двух разрядов байтов 4 и 7
@@ -354,7 +355,7 @@ namespace {
 		 * @param result место под конечности следующей степени
 		 *
 		 */
-		static inline void raise(const uint32_t * power, const uint32_t * r, uint32_t * result) noexcept {
+		static __ANTS_INLINE__ void raise(const uint32_t * power, const uint32_t * r, uint32_t * result) noexcept {
 			// Конечности множителя, умноженные на пять
 			const uint32_t s[5] = {0, (r[1] * 5), (r[2] * 5), (r[3] * 5), (r[4] * 5)};
 			// Конечности произведения
@@ -365,6 +366,7 @@ namespace {
 			reduce(product, result);
 		}
 	#endif
+
 	/**
 	 * Если переносимый путь
 	 */
@@ -377,7 +379,7 @@ namespace {
 		 * @param limbs место под пять конечностей
 		 *
 		 */
-		static inline void split(const uint8_t * block, const uint32_t hibit, uint32_t * limbs) noexcept {
+		static __ANTS_INLINE__ void split(const uint8_t * block, const uint32_t hibit, uint32_t * limbs) noexcept {
 			// Первая конечность блока
 			limbs[0] = (load(block) & 0x3FFFFFF);
 			// Вторая конечность блока
@@ -410,11 +412,12 @@ namespace {
 		 * @return     прочитанное слово
 		 *
 		 */
-		static inline uint64_t load64(const uint8_t * data) noexcept {
+		static __ANTS_INLINE__ uint64_t load64(const uint8_t * data) noexcept {
 			// Выводим слово, собранное из двух половин от младшего байта
 			return (static_cast <uint64_t> (load(data)) | (static_cast <uint64_t> (load(data + 4)) << 32));
 		}
 	#endif
+
 	/**
 	 * Если есть ядро блоков на ассемблере x86-64
 	 */
@@ -499,6 +502,7 @@ namespace {
 			h[2] = h2;
 		}
 	#endif
+
 	/**
 	 * Если есть векторные ветви
 	 */
@@ -512,7 +516,7 @@ namespace {
 		 * @param limbs место под пять конечностей
 		 *
 		 */
-		static inline void widen(const uint64_t h0, const uint64_t h1, const uint64_t h2, uint32_t * limbs) noexcept {
+		static __ANTS_INLINE__ void widen(const uint64_t h0, const uint64_t h1, const uint64_t h2, uint32_t * limbs) noexcept {
 			// Первая конечность
 			limbs[0] = static_cast <uint32_t> (h0 & 0x3FFFFFF);
 			// Вторая конечность
@@ -536,7 +540,7 @@ namespace {
 		 * @param h2    место под старшую конечность накопителя
 		 *
 		 */
-		static inline void narrow(uint64_t * limbs, uint64_t & h0, uint64_t & h1, uint64_t & h2) noexcept {
+		static __ANTS_INLINE__ void narrow(uint64_t * limbs, uint64_t & h0, uint64_t & h1, uint64_t & h2) noexcept {
 			// Перенос из первой конечности
 			uint64_t carry = (limbs[0] >> 26);
 			// Первая конечность
@@ -579,6 +583,7 @@ namespace {
 			h2 = ((limbs[4] >> 24) + static_cast <uint64_t> (high >> 64));
 		}
 	#endif
+
 	/**
 	 * Если есть ветвь команд NEON
 	 */
@@ -904,6 +909,7 @@ namespace {
 			narrow(total, h0, h1, h2);
 		}
 	#endif
+
 	/**
 	 * Если есть ветвь команд AVX2
 	 */
@@ -1109,6 +1115,7 @@ namespace {
 			narrow(total, h0, h1, h2);
 		}
 	#endif
+
 	/**
 	 * Если есть ядро AVX2 на ассемблере
 	 */

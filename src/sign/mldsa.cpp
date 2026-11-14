@@ -107,26 +107,25 @@
 #endif
 
 /**
+ * Пространство имён библиотеки
+ */
+using namespace nts;
+
+/**
  * @brief Служебные объекты модуля
  *
  */
 namespace {
 	/**
-	 * Пространство имён библиотеки
+	 * @brief Число коэффициентов многочлена кольца
+	 *
 	 */
-	using namespace nts;
-
+	static constexpr size_t N = 256;
 	/**
 	 * @brief Модуль кольца: q = 2^23 − 2^13 + 1
 	 *
 	 */
 	static constexpr uint32_t Q = 8380417;
-
-	/**
-	 * @brief Число коэффициентов многочлена кольца
-	 *
-	 */
-	static constexpr size_t N = 256;
 
 	/**
 	 * @brief Вычисление обратного по модулю 2^32 шагами Ньютона при сборке
@@ -167,32 +166,30 @@ namespace {
 	static_assert((static_cast <uint64_t> (Q) * QINV) % (static_cast <uint64_t> (1) << 32) == 1, "QINV должен быть обратным к q по модулю 2^32");
 
 	/**
-		 * @brief Функция приведения Монтгомери
-		 *
-		 * @param value значение меньше q · 2^32
-		 * @return      приведённое value · 2⁻³² mod q в [−q, q]
-		 *
-		 */
-		static inline int32_t reduce(const int64_t value) noexcept {
-			// Младшие 32 разряда произведения на q⁻¹ mod 2^32 обращают значение в кратное q
-			const int64_t word = static_cast <int32_t> (static_cast <uint32_t> (static_cast <uint64_t> (value) * QINV));
-			// Выводим приведённое значение: вычитаем кратное q и снимаем масштаб 2^32
-			return static_cast <int32_t> ((value - (word * static_cast <int64_t> (Q))) >> 32);
-		}
-
-		/**
-		 * @brief Функция умножения коэффициентов по модулю с приведением Монтгомери
-		 *
-		 * @param first  первый сомножитель
-		 * @param second второй сомножитель
-		 * @return       произведение по модулю в форме Монтгомери при second в ней
-		 *
-		 */
-	static inline int32_t multiply(const int32_t first, const int32_t second) noexcept {
+	 * @brief Функция приведения Монтгомери
+	 *
+	 * @param value значение меньше q · 2^32
+	 * @return      приведённое value · 2⁻³² mod q в [−q, q]
+	 *
+	 */
+	static constexpr int32_t reduce(const int64_t value) noexcept {
+		// Младшие 32 разряда произведения на q⁻¹ mod 2^32 обращают значение в кратное q
+		const int64_t word = static_cast <int32_t> (static_cast <uint32_t> (static_cast <uint64_t> (value) * QINV));
+		// Выводим приведённое значение: вычитаем кратное q и снимаем масштаб 2^32
+		return static_cast <int32_t> ((value - (word * static_cast <int64_t> (Q))) >> 32);
+	}
+	/**
+	 * @brief Функция умножения коэффициентов по модулю с приведением Монтгомери
+	 *
+	 * @param first  первый сомножитель
+	 * @param second второй сомножитель
+	 * @return       произведение по модулю в форме Монтгомери при second в ней
+	 *
+	 */
+	static constexpr int32_t multiply(const int32_t first, const int32_t second) noexcept {
 		// Выводим произведение с приведением Монтгомери
 		return reduce(static_cast <int64_t> (first) * second);
 	}
-
 	/**
 	 * @brief Вычисление обратного по простому модулю q возведением в степень при сборке
 	 *
@@ -205,9 +202,6 @@ namespace {
 		uint64_t result = 1, base = value;
 		// Показатель q − 2 из малой теоремы Ферма
 		uint64_t power = (Q - 2);
-		/**
-		 * Выполняем перебор
-		 */
 		/**
 		 * Разбираем показатель по разрядам справа налево
 		 */
@@ -342,7 +336,7 @@ namespace {
 			 * @return    вектор четырёх коэффициентов
 			 *
 			 */
-			static inline vec_t vload(const void * data) noexcept {
+			static __ANTS_INLINE__ vec_t vload(const void * data) noexcept {
 				// Выводим вектор четырёх коэффициентов
 				return _mm_loadu_si128(reinterpret_cast <const __m128i *> (data));
 			}
@@ -353,7 +347,7 @@ namespace {
 			 * @param value  записываемый вектор
 			 *
 			 */
-			static inline void vstore(void * result, const vec_t value) noexcept {
+			static __ANTS_INLINE__ void vstore(void * result, const vec_t value) noexcept {
 				// Записываем вектор четырёх коэффициентов
 				_mm_storeu_si128(reinterpret_cast <__m128i *> (result), value);
 			}
@@ -364,7 +358,7 @@ namespace {
 			 * @return    вектор с заполненными местами
 			 *
 			 */
-			static inline vec_t vset32(const int32_t value) noexcept {
+			static constexpr vec_t vset32(const int32_t value) noexcept {
 				// Выводим вектор с заполненными местами
 				return _mm_set1_epi32(value);
 			}
@@ -376,7 +370,7 @@ namespace {
 			 * @return      суммы мест
 			 *
 			 */
-			static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vadd32(const vec_t first, const vec_t second) noexcept {
 				// Выводим суммы мест
 				return _mm_add_epi32(first, second);
 			}
@@ -388,7 +382,7 @@ namespace {
 			 * @return      разности мест
 			 *
 			 */
-			static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vsub32(const vec_t first, const vec_t second) noexcept {
 				// Выводим разности мест
 				return _mm_sub_epi32(first, second);
 			}
@@ -409,14 +403,14 @@ namespace {
 			 *
 			 * @details SSE2 умеет умножать беззнаковые чётные места в 64 разряда: знаковое
 			 *          произведение выходит вычитанием поправки 2³²·(sₐ·uᵦ + sᵦ·uₐ), где
-			 *          s - знаковый разряд, а u - беззнаковый вид места
+			 *          s - знаковый разряд, а u - беззнаковый вид места.
 			 *
 			 * @param first  первый сомножитель
 			 * @param second второй сомножитель
 			 * @return      произведения чётных мест в 64-разрядных половинах
 			 *
 			 */
-			static inline vec_t vmuls(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vmuls(const vec_t first, const vec_t second) noexcept {
 				// Нулевой вектор для расширения слов
 				const vec_t zero = _mm_setzero_si128();
 				// Беззнаковые произведения чётных мест
@@ -436,7 +430,7 @@ namespace {
 			 * @return      произведения нечётных мест в 64-разрядных половинах
 			 *
 			 */
-			static inline vec_t vmulh(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vmulh(const vec_t first, const vec_t second) noexcept {
 				// Нечётные места на чётных позициях
 				const vec_t low = _mm_shuffle_epi32(first, 0x31);
 				// То же для второго сомножителя
@@ -451,14 +445,14 @@ namespace {
 			 *          слово произведения в кратное q, старшее слово разности произведения
 			 *          с этим кратным и есть итог в [−q, q]. Младшие слова и множители
 			 *          перелагаются на чётные позиции перестановками 0x08 и 0x10 - их и
-			 *          берут произведения vmuls
+			 *          берут произведения vmuls.
 			 *
 			 * @param first  первый сомножитель
 			 * @param second второй сомножитель
 			 * @return      произведения мест с приведением Монтгомери
 			 *
 			 */
-			static inline vec_t vmultiply(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t vmultiply(const vec_t first, const vec_t second) noexcept {
 				// Произведения чётных мест
 				const vec_t t0 = vmuls(first, second);
 				// Произведения нечётных мест
@@ -494,7 +488,7 @@ namespace {
 			 * @return      вектор [a0 a1 b0 b1]
 			 *
 			 */
-			static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vlow64(const vec_t first, const vec_t second) noexcept {
 				// Выводим младшие половины рядом
 				return _mm_unpacklo_epi64(first, second);
 			}
@@ -506,7 +500,7 @@ namespace {
 			 * @return      вектор [a2 a3 b2 b3]
 			 *
 			 */
-			static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
 				// Выводим старшие половины рядом
 				return _mm_unpackhi_epi64(first, second);
 			}
@@ -518,7 +512,7 @@ namespace {
 			 * @return      вектор [a0 a2 b0 b2]
 			 *
 			 */
-			static inline vec_t vunzip32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vunzip32(const vec_t first, const vec_t second) noexcept {
 				// Выводим чётные места вперёд
 				return vlow64(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
 			}
@@ -530,7 +524,7 @@ namespace {
 			 * @return      вектор [a1 a3 b1 b3]
 			 *
 			 */
-			static inline vec_t vunzipOdd32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vunzipOdd32(const vec_t first, const vec_t second) noexcept {
 				// Выводим нечётные места вперёд
 				return vhigh64(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
 			}
@@ -542,7 +536,7 @@ namespace {
 			 * @return      вектор [a0 b0 a1 b1]
 			 *
 			 */
-			static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vlow32(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение младших пар
 				return _mm_unpacklo_epi32(first, second);
 			}
@@ -554,7 +548,7 @@ namespace {
 			 * @return      вектор [a2 b2 a3 b3]
 			 *
 			 */
-			static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение старших пар
 				return _mm_unpackhi_epi32(first, second);
 			}
@@ -574,7 +568,7 @@ namespace {
 			 * @return    вектор четырёх коэффициентов
 			 *
 			 */
-			static inline vec_t vload(const void * data) noexcept {
+			static __ANTS_INLINE__ vec_t vload(const void * data) noexcept {
 				// Выводим вектор четырёх коэффициентов
 				return vld1q_s32(static_cast <const int32_t *> (data));
 			}
@@ -585,7 +579,7 @@ namespace {
 			 * @param value  записываемый вектор
 			 *
 			 */
-			static inline void vstore(void * result, const vec_t value) noexcept {
+			static __ANTS_INLINE__ void vstore(void * result, const vec_t value) noexcept {
 				// Записываем вектор четырёх коэффициентов
 				vst1q_s32(static_cast <int32_t *> (result), value);
 			}
@@ -596,7 +590,7 @@ namespace {
 			 * @return    вектор с заполненными местами
 			 *
 			 */
-			static inline vec_t vset32(const int32_t value) noexcept {
+			static constexpr vec_t vset32(const int32_t value) noexcept {
 				// Выводим вектор с заполненными местами
 				return vdupq_n_s32(value);
 			}
@@ -608,7 +602,7 @@ namespace {
 			 * @return      суммы мест
 			 *
 			 */
-			static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vadd32(const vec_t first, const vec_t second) noexcept {
 				// Выводим суммы мест
 				return vaddq_s32(first, second);
 			}
@@ -620,7 +614,7 @@ namespace {
 			 * @return      разности мест
 			 *
 			 */
-			static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vsub32(const vec_t first, const vec_t second) noexcept {
 				// Выводим разности мест
 				return vsubq_s32(first, second);
 			}
@@ -629,14 +623,14 @@ namespace {
 			 *
 			 * @details Произведение мест - 64 разряда, множитель q⁻¹ mod 2³² обращает младшее
 			 *          слово произведения в кратное q, старшее слово разности произведения
-			 *          с этим кратным и есть итог в [−q, q]
+			 *          с этим кратным и есть итог в [−q, q].
 			 *
 			 * @param first  первый сомножитель
 			 * @param second второй сомножитель
 			 * @return      произведения мест с приведением Монтгомери
 			 *
 			 */
-			static inline vec_t vmultiply(const vec_t first, const vec_t second) noexcept {
+			static __ANTS_INLINE__ vec_t vmultiply(const vec_t first, const vec_t second) noexcept {
 				// Произведения чётных мест
 				const int64x2_t t0 = vmull_s32(vget_low_s32(first), vget_low_s32(second));
 				// Произведения нечётных мест
@@ -664,7 +658,7 @@ namespace {
 			 * @return      вектор [a0 a1 b0 b1]
 			 *
 			 */
-			static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vlow64(const vec_t first, const vec_t second) noexcept {
 				// Выводим младшие половины рядом
 				return vcombine_s32(vget_low_s32(first), vget_low_s32(second));
 			}
@@ -676,7 +670,7 @@ namespace {
 			 * @return      вектор [a2 a3 b2 b3]
 			 *
 			 */
-			static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
 				// Выводим старшие половины рядом
 				return vcombine_s32(vget_high_s32(first), vget_high_s32(second));
 			}
@@ -688,7 +682,7 @@ namespace {
 			 * @return      вектор [a0 a2 b0 b2]
 			 *
 			 */
-			static inline vec_t vunzip32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vunzip32(const vec_t first, const vec_t second) noexcept {
 				// Выводим чётные места вперёд
 				return vuzp1q_s32(first, second);
 			}
@@ -700,7 +694,7 @@ namespace {
 			 * @return      вектор [a1 a3 b1 b3]
 			 *
 			 */
-			static inline vec_t vunzipOdd32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vunzipOdd32(const vec_t first, const vec_t second) noexcept {
 				// Выводим нечётные места вперёд
 				return vuzp2q_s32(first, second);
 			}
@@ -712,7 +706,7 @@ namespace {
 			 * @return      вектор [a0 b0 a1 b1]
 			 *
 			 */
-			static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vlow32(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение младших пар
 				return vzip1q_s32(first, second);
 			}
@@ -724,7 +718,7 @@ namespace {
 			 * @return      вектор [a2 b2 a3 b3]
 			 *
 			 */
-			static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
+			static constexpr vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение старших пар
 				return vzip2q_s32(first, second);
 			}
@@ -740,7 +734,7 @@ namespace {
 	 *          команда стоит одинаково дорого, и слои проигрывают переносимым -
 	 *          эмулируемые машины уходят на переносимый путь по отсутствию заявки AVX,
 	 *          которой умолчательная модель QEMU не несёт, а всякое настоящее железо
-	 *          x86-64 несёт с 2011 года; прочие ветви векторного пути вечно готовы
+	 *          x86-64 несёт с 2011 года; прочие ветви векторного пути вечно готовы.
 	 *
 	 */
 	static bool vectors() noexcept {
@@ -768,7 +762,7 @@ namespace {
 		 *
 		 * @details Слои длины от 128 до 4 идут целыми векторами внутри участков, слои
 		 *          длины 2 и 1 - одним сплавленным проходом по восьмёркам коэффициентов
-		 *          с перестановками половин и чётных мест
+		 *          с перестановками половин и чётных мест.
 		 *
 		 * @param poly многочлен, переводится в область NTT на месте
 		 *
@@ -847,7 +841,7 @@ namespace {
 	 * @param poly многочлен, переводится в область NTT на месте
 	 *
 	 */
-	static void forwardPortable(int32_t * poly) noexcept {
+	static __ANTS_INLINE__ void forwardPortable(int32_t * poly) noexcept {
 		// Позиция степени в таблице
 		size_t index = 0;
 		/**
@@ -884,13 +878,7 @@ namespace {
 	 *          слои проигрывают переносимым
 	 *
 	 */
-	static void forward(int32_t * poly) noexcept {
-		/**
-		 * Векторные слои идут лишь готовой машине
-		 */
-		/**
-		 * Векторные слои идут лишь готовой машине
-		 */
+	static __ANTS_INLINE__ void forward(int32_t * poly) noexcept {
 		/**
 		 * Векторные слои идут лишь готовой машине
 		 */
@@ -1000,12 +988,12 @@ namespace {
 	 *
 	 * @details Прямая таблица степеней читается задом наперёд: степень 1753^(256−k)
 	 *          есть −1753^(−k), и знак обращает разность бабочки; множитель 2^56
-	 *          снимает масштаб 256 обратного NTT и перевод 2⁻³² произведений
+	 *          снимает масштаб 256 обратного NTT и перевод 2⁻³² произведений.
 	 *
 	 * @param poly многочлен из области NTT, переводится в обычную форму на месте
 	 *
 	 */
-	static void backwardPortable(int32_t * poly) noexcept {
+	static __ANTS_INLINE__ void backwardPortable(int32_t * poly) noexcept {
 		// Позиция степени в таблице
 		size_t index = N;
 		/**
@@ -1043,14 +1031,14 @@ namespace {
 	/**
 	 * @brief Функция обратного NTT многочлена
 	 *
-	 * @param poly многочлен из области NTT, переводится в обычную форму на месте
-	 *
 	 * @details Векторные слои идут, когда машина исполняет их честно: под чистой
 	 *          эмуляцией CPU векторные команды стоят как скалярные, и многословные
-	 *          слои проигрывают переносимым
+	 *          слои проигрывают переносимым.
+	 *
+	 * @param poly многочлен из области NTT, переводится в обычную форму на месте
 	 *
 	 */
-	static void backward(int32_t * poly) noexcept {
+	static __ANTS_INLINE__ void backward(int32_t * poly) noexcept {
 		/**
 		 * Векторные слои идут лишь готовой машине
 		 */
@@ -1068,14 +1056,6 @@ namespace {
 	}
 
 	/**
-	 * @brief Функция произведения многочленов в области NTT по коэффициентам
-	 *
-	 * @param first  первый сомножитель в области
-	 * @param second второй сомножитель в области
-	 * @param result произведение в области
-	 *
-	 */
-	/**
 	 * Векторное тело существует лишь на векторном пути
 	 */
 	#if defined(__ANTS_MLDSA_VECTOR__)
@@ -1087,7 +1067,7 @@ namespace {
 		 * @param result произведение в области
 		 *
 		 */
-		static void pointwiseVector(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+		static __ANTS_INLINE__ void pointwiseVector(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 			/**
 			 * Выполняем перебор четвёрок коэффициентов
 			 */
@@ -1096,6 +1076,7 @@ namespace {
 				vstore(result + i, vmultiply(vload(first + i), vload(second + i)));
 		}
 	#endif
+
 	/**
 	 * @brief Функция произведения многочленов переносимыми слоями
 	 *
@@ -1104,7 +1085,7 @@ namespace {
 	 * @param result произведение в области
 	 *
 	 */
-	static void pointwisePortable(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+	static __ANTS_INLINE__ void pointwisePortable(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
 		 * Выполняем перебор коэффициентов
 		 */
@@ -1115,16 +1096,16 @@ namespace {
 	/**
 	 * @brief Функция произведения многочленов в области NTT по коэффициентам
 	 *
+	 * @details Векторные слои идут, когда машина исполняет их честно: под чистой
+	 *          эмуляцией CPU векторные команды стоят как скалярные, и многословные
+	 *          слои проигрывают переносимым.
+	 *
 	 * @param first  первый сомножитель в области
 	 * @param second второй сомножитель в области
 	 * @param result произведение в области
 	 *
-	 * @details Векторные слои идут, когда машина исполняет их честно: под чистой
-	 *          эмуляцией CPU векторные команды стоят как скалярные, и многословные
-	 *          слои проигрывают переносимым
-	 *
 	 */
-	static void pointwise(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+	static __ANTS_INLINE__ void pointwise(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
 		 * Векторные слои идут лишь готовой машине
 		 */
@@ -1144,13 +1125,13 @@ namespace {
 	/**
 	 * @brief Функция нормализации коэффициентов многочлена к [0, q)
 	 *
+	 * @details Выход обратного NTT уже в обычной форме: дополнительное приведение
+	 *          Монтгомери здесь неуместно, оно масштабировало бы значения на 2⁻³².
+	 *
 	 * @param poly многочлен, нормализуется на месте
 	 *
-	 * @details Выход обратного NTT уже в обычной форме: дополнительное приведение
-	 *          Монтгомери здесь неуместно, оно масштабировало бы значения на 2⁻³²
-	 *
 	 */
-	static void reduceAll(int32_t * poly) noexcept {
+	static __ANTS_INLINE__ void reduceAll(int32_t * poly) noexcept {
 		/**
 		 * Выполняем перебор
 		 */
@@ -1161,7 +1142,6 @@ namespace {
 			poly[i] = (value + ((value >> 31) & static_cast <int32_t> (Q)));
 		}
 	}
-
 	/**
 	 * @brief Функция суммы многочленов по коэффициентам
 	 *
@@ -1170,7 +1150,7 @@ namespace {
 	 * @param result сумма
 	 *
 	 */
-	static void add(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+	static __ANTS_INLINE__ void add(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
 		 * Выполняем перебор
 		 */
@@ -1178,7 +1158,6 @@ namespace {
 			// Сумма коэффициентов
 			result[i] = (first[i] + second[i]);
 	}
-
 	/**
 	 * @brief Функция разности многочленов по коэффициентам
 	 *
@@ -1187,7 +1166,7 @@ namespace {
 	 * @param result разность
 	 *
 	 */
-	static void subtract(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+	static __ANTS_INLINE__ void subtract(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
 		 * Выполняем перебор
 		 */
@@ -1202,23 +1181,23 @@ namespace {
 	 */
 	struct Params {
 		// Размерность матрицы: строки k
-		uint8_t k;
+		uint8_t k = 0;
 		// Размерность матрицы: столбцы l
-		uint8_t l;
+		uint8_t l = 0;
 		// Граница коэффициентов секрета η
-		uint8_t eta;
+		uint8_t eta = 0;
 		// Число единиц вызова τ
-		uint8_t tau;
+		uint8_t tau = 0;
 		// Порог отклонения β = τ · η
-		uint16_t beta;
+		uint16_t beta = 0;
 		// Граница маски γ1
-		uint32_t gamma1;
+		uint32_t gamma1 = 0;
 		// Граница младших частей γ2
-		uint32_t gamma2;
+		uint32_t gamma2 = 0;
 		// Верхний вес подсказки ω
-		uint8_t omega;
+		uint8_t omega = 0;
 		// Размер зерна вызова c~ в байтах (λ/4)
-		uint8_t challenge;
+		uint8_t challenge = 0;
 	};
 
 	/**
@@ -1228,7 +1207,7 @@ namespace {
 	 * @return    параметры набора, нули у несуществующего набора
 	 *
 	 */
-	static Params params(const sign::Mldsa::set_t set) noexcept {
+	static constexpr Params params(const sign::Mldsa::set_t set) noexcept {
 		/**
 		 * Выполняем перебор
 		 */
@@ -1255,7 +1234,7 @@ namespace {
 		 * @return     полоса из восьми байтов
 		 *
 		 */
-		static inline uint64_t laneLoad(const uint8_t * data) noexcept {
+		static __ANTS_INLINE__ uint64_t laneLoad(const uint8_t * data) noexcept {
 			// Полоса из восьми байтов
 			uint64_t lane = 0;
 			/**
@@ -1274,7 +1253,7 @@ namespace {
 		 * @param result место, в которое помещаются байты полосы
 		 *
 		 */
-		static inline void laneStore(const uint64_t lane, uint8_t * result) noexcept {
+		static __ANTS_INLINE__ void laneStore(const uint64_t lane, uint8_t * result) noexcept {
 			/**
 			 * Выполняем перебор байтов полосы
 			 */
@@ -1283,17 +1262,18 @@ namespace {
 				result[i] = static_cast <uint8_t> (lane >> (i * 8));
 		}
 	#endif
-	/**
-	 * @brief Функция проверки готовности параллельного ядра губок
-	 *
-	 * @return признак готовности ядра четырёх состояний
-	 *
-	 * @note Ядро несёт векторные команды: на ARM64 они входят в архитектуру, на x86-64
-	 *       спрашивается AVX2 у машины на исполнении
-	 *
-	 */
+	
 	#if defined(__ANTS_KECCAK_X4__)
-		static bool sponges4() noexcept {
+		/**
+		 * @brief Функция проверки готовности параллельного ядра губок
+		 *
+		 * @return признак готовности ядра четырёх состояний
+		 *
+		 * @note Ядро несёт векторные команды: на ARM64 они входят в архитектуру, на x86-64
+		 *       спрашивается AVX2 у машины на исполнении
+		 *
+		 */
+		static __ANTS_INLINE__ bool sponges4() noexcept {
 			// Если архитектура x86-64
 			#if defined(__x86_64__)
 				// Выводим признак команд AVX2 машины
@@ -1317,7 +1297,7 @@ namespace {
 		 *          не наберёт 256 коэффициентов - закончившие раньше читают лишние блоки в никуда,
 		 *          чтобы перестановки шли общие (та же дисциплина, что у выборки матрицы ML-KEM).
 		 *          Перестановка к следующему блоку выполняется лишь когда блок понадобился:
-		 *          после последней выжимки губки лишней перестановки нет
+		 *          после последней выжимки губки лишней перестановки нет.
 		 *
 		 * @param rho     зерно матрицы ρ
 		 * @param indices пары индексов четырёх губок: ρ ‖ столбец ‖ строка
@@ -1452,7 +1432,6 @@ namespace {
 		// Счёт набранных коэффициентов не выводится наружу
 		(void) count;
 	}
-
 	/**
 	 * @brief Функция выборки матрицы целиком: четыре губки параллельным ядром, хвост по одной
 	 *
@@ -1464,6 +1443,7 @@ namespace {
 	 *
 	 */
 	static void matrixExpand(const uint8_t * rho, const size_t rows, const size_t columns, const size_t stride, int32_t * const matrix) noexcept {
+		
 		#if defined(__ANTS_KECCAK_X4__)
 			// Если параллельное ядро губок готово
 			if(sponges4()){
@@ -1814,7 +1794,6 @@ namespace {
 			// Многочлен секрета s2 из зерна ρ′
 			expandS(rhoprime, static_cast <uint16_t> (l + i), eta, s2[i]);
 	}
-
 	/**
 	 * @brief Функция выборки маски подписи с коэффициентами из (−γ1, γ1]
 	 *
@@ -1898,7 +1877,6 @@ namespace {
 		// Счёт набранных коэффициентов не выводится наружу
 		(void) count;
 	}
-
 	/**
 	 * @brief Функция выборки вызова из шара с τ единицами
 	 *
@@ -1966,12 +1944,10 @@ namespace {
 			}
 		}
 		// Затираем рабочие значения выбора
-		// Затираем байты знаков
 		sys::wipe(signs, sizeof(signs));
 		// Затираем буфер дочитки
 		sys::wipe(buffer, sizeof(buffer));
 	}
-
 	/**
 	 * @brief Функция разложения коэффициента на старшую и младшую части
 	 *
@@ -2006,7 +1982,6 @@ namespace {
 		// Выводим старшую часть
 		return high;
 	}
-
 	/**
 	 * @brief Функция округления коэффициента на два разряда: t1 = (t + 2^12) >> 13, t0 = t − t1 · 2^13
 	 *
@@ -2015,7 +1990,7 @@ namespace {
 	 * @return      старшая часть t1 из [0, 2^10)
 	 *
 	 */
-	static int32_t power2round(const int32_t value, int32_t & low) noexcept {
+	static __ANTS_INLINE__ int32_t power2round(const int32_t value, int32_t & low) noexcept {
 		// Старшая часть округлением вверх к 2^13
 		const int32_t high = ((value + ((1 << 12) - 1)) >> 13);
 		// Младшая часть вычитанием старшей
@@ -2023,7 +1998,6 @@ namespace {
 		// Выводим старшую часть
 		return high;
 	}
-
 	/**
 	 * @brief Функция применения подсказки к коэффициенту
 	 *
@@ -2032,7 +2006,7 @@ namespace {
 	 * @return      скорректированная старшая часть из [0, (q − 1)/(2γ2) − 1]
 	 *
 	 */
-	static int32_t useHint(const int32_t value, const uint32_t hint, const uint32_t gamma2) noexcept {
+	static __ANTS_INLINE__ int32_t useHint(const int32_t value, const uint32_t hint, const uint32_t gamma2) noexcept {
 		// Младшая часть разложения
 		int32_t low = 0;
 		// Разложение коэффициента на части
@@ -2048,7 +2022,6 @@ namespace {
 		// Подсказка сдвигает старшую часть по знаку младшей, кольцо из 44
 		return ((low > 0) ? ((high == 43) ? 0 : (high + 1)) : ((high == 0) ? 43 : (high - 1)));
 	}
-
 	/**
 	 * @brief Функция записи многочлена разрядностью bits на коэффициент
 	 *
@@ -2057,7 +2030,7 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static void bitpack(const uint32_t * poly, const size_t bits, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void bitpack(const uint32_t * poly, const size_t bits, uint8_t * result) noexcept {
 		// Накопитель разрядов
 		uint64_t window = 0;
 		// Число занятых разрядов окна
@@ -2083,7 +2056,6 @@ namespace {
 			}
 		}
 	}
-
 	/**
 	 * @brief Функция чтения многочлена разрядностью bits на коэффициент
 	 *
@@ -2092,7 +2064,7 @@ namespace {
 	 * @param poly многочлен со значениями из [0, 2^bits)
 	 *
 	 */
-	static void bitunpack(const uint8_t * data, const size_t bits, uint32_t * poly) noexcept {
+	static __ANTS_INLINE__ void bitunpack(const uint8_t * data, const size_t bits, uint32_t * poly) noexcept {
 		// Накопитель разрядов окна
 		uint64_t window = 0;
 		// Число разрядов в окне
@@ -2118,7 +2090,6 @@ namespace {
 			used -= bits;
 		}
 	}
-
 	/**
 	 * @brief Функция записи многочлена t1 разрядностью 10 на коэффициент
 	 *
@@ -2126,7 +2097,7 @@ namespace {
 	 * @param result место записи, 320 байтов
 	 *
 	 */
-	static void packT1(const int32_t * poly, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void packT1(const int32_t * poly, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2140,7 +2111,6 @@ namespace {
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
-
 	/**
 	 * @brief Функция чтения многочлена t1 разрядностью 10 на коэффициент
 	 *
@@ -2148,7 +2118,7 @@ namespace {
 	 * @param poly многочлен t1
 	 *
 	 */
-	static void unpackT1(const uint8_t * data, int32_t * poly) noexcept {
+	static __ANTS_INLINE__ void unpackT1(const uint8_t * data, int32_t * poly) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		// Читаем по 10 разрядов на коэффициент
@@ -2162,7 +2132,6 @@ namespace {
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
-
 	/**
 	 * @brief Функция записи многочлена t0 разрядностью 13 на коэффициент
 	 *
@@ -2170,7 +2139,7 @@ namespace {
 	 * @param result место записи, 416 байтов
 	 *
 	 */
-	static void packT0(const int32_t * poly, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void packT0(const int32_t * poly, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2184,7 +2153,6 @@ namespace {
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
-
 	/**
 	 * @brief Функция чтения многочлена t0 разрядностью 13 на коэффициент
 	 *
@@ -2192,7 +2160,7 @@ namespace {
 	 * @param poly многочлен t0
 	 *
 	 */
-	static void unpackT0(const uint8_t * data, int32_t * poly) noexcept {
+	static __ANTS_INLINE__ void unpackT0(const uint8_t * data, int32_t * poly) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		// Читаем по 13 разрядов на коэффициент
@@ -2206,7 +2174,6 @@ namespace {
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
-
 	/**
 	 * @brief Функция записи многочлена секрета разрядностью 3 либо 4 на коэффициент
 	 *
@@ -2215,7 +2182,7 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static void packS(const int32_t * poly, const uint8_t eta, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void packS(const int32_t * poly, const uint8_t eta, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2229,7 +2196,6 @@ namespace {
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
-
 	/**
 	 * @brief Функция чтения многочлена секрета
 	 *
@@ -2239,7 +2205,7 @@ namespace {
 	 * @return     признак кода записи за границей 2η (гнилая запись ключа)
 	 *
 	 */
-	static uint32_t unpackS(const uint8_t * data, const uint8_t eta, int32_t * poly) noexcept {
+	static __ANTS_INLINE__ uint32_t unpackS(const uint8_t * data, const uint8_t eta, int32_t * poly) noexcept {
 		// Признак гнилой записи: коды выше 2η из выборки стандарта не выходят
 		uint32_t reject = 0;
 		// Рабочий многочлен беззнаковых коэффициентов
@@ -2260,7 +2226,6 @@ namespace {
 		// Выводим признак гнилой записи
 		return reject;
 	}
-
 	/**
 	 * @brief Функция записи многочлена ответа z
 	 *
@@ -2269,7 +2234,7 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static void packZ(const int32_t * poly, const uint32_t gamma1, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void packZ(const int32_t * poly, const uint32_t gamma1, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2283,7 +2248,6 @@ namespace {
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
-
 	/**
 	 * @brief Функция чтения многочлена ответа z
 	 *
@@ -2292,7 +2256,7 @@ namespace {
 	 * @param poly   многочлен ответа
 	 *
 	 */
-	static void unpackZ(const uint8_t * data, const uint32_t gamma1, int32_t * poly) noexcept {
+	static __ANTS_INLINE__ void unpackZ(const uint8_t * data, const uint32_t gamma1, int32_t * poly) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		// Читаем по 18 либо 20 разрядов на коэффициент
@@ -2306,7 +2270,6 @@ namespace {
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
-
 	/**
 	 * @brief Функция кодировки старших частей w1 для зерна вызова
 	 *
@@ -2315,7 +2278,7 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static void encodeW1(const int32_t * poly, const uint32_t gamma2, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void encodeW1(const int32_t * poly, const uint32_t gamma2, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2329,7 +2292,6 @@ namespace {
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
-
 	/**
 	 * @brief Функция проверки границы коэффициентов многочлена
 	 *
@@ -2338,7 +2300,7 @@ namespace {
 	 * @return      ненольное значение, если модуль какого-то коэффициента не меньше границы
 	 *
 	 */
-	static uint32_t overflow(const int32_t * poly, const int32_t bound) noexcept {
+	static __ANTS_INLINE__ uint32_t overflow(const int32_t * poly, const int32_t bound) noexcept {
 		// Накопитель признака превышения
 		uint32_t result = 0;
 		/**
@@ -2355,7 +2317,6 @@ namespace {
 		// Выводим признак превышения
 		return (result & 1);
 	}
-
 	/**
 	 * @brief Функция сложения вектора многочленов матрицы с вектором в области NTT
 	 *
@@ -2366,7 +2327,7 @@ namespace {
 	 * @param result вектор из k многочленов в области NTT
 	 *
 	 */
-	static void matrixVector(const int32_t * matrix, const int32_t * vector, const uint8_t k, const uint8_t l, int32_t * result) noexcept {
+	static __ANTS_INLINE__ void matrixVector(const int32_t * matrix, const int32_t * vector, const uint8_t k, const uint8_t l, int32_t * result) noexcept {
 		/**
 		 * Выполняем перебор
 		 */
@@ -2388,7 +2349,6 @@ namespace {
 			}
 		}
 	}
-
 	/**
 	 * @brief Функция выработки ключа из зерна ξ (раздел 6.1 FIPS 204)
 	 *
@@ -2921,7 +2881,6 @@ namespace {
 		// Затираем матрицу
 		sys::wipe(matrix, sizeof(matrix));
 	}
-
 	/**
 	 * @brief Функция проверки подписи (раздел 6.3 FIPS 204)
 	 *
@@ -3157,18 +3116,17 @@ namespace {
 		// Подпись сошлась при отсутствии отказа и расхождения
 		return ((reject == 0) && (difference == 0));
 	}
-
 	/**
 	 * @brief Функция проверки подлинности записи ключа подписи и вывода ключа проверки
+	 *
+	 * @details Раздел 6.1 FIPS 204 вычисляется из ρ и распакованных s1, s2:
+	 *          t = NTT⁻¹(A ∘ NTT(s1)) + s2, далее t1 = Power2Round(t) и
+	 *          tr′ = H(ρ ‖ t1) сличается с записанной трассировкой.
 	 *
 	 * @param p      параметры набора
 	 * @param secret запись ключа подписи ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ t0
 	 * @param key    место для записи ключа проверки ρ ‖ t1 (при подлинной записи)
 	 * @return       признак того, что трассировка tr сошлась с пересчитанной из частей записи
-	 *
-	 * @details Раздел 6.1 FIPS 204 вычисляется из ρ и распакованных s1, s2:
-	 *          t = NTT⁻¹(A ∘ NTT(s1)) + s2, далее t1 = Power2Round(t) и
-	 *          tr′ = H(ρ ‖ t1) сличается с записанной трассировкой
 	 *
 	 */
 	static bool consistent(const Params & p, const uint8_t * secret, uint8_t * key) noexcept {
@@ -3296,11 +3254,6 @@ namespace {
 };
 
 /**
- * Пространство имён библиотеки
- */
-using namespace nts;
-
-/**
  * @brief Метод получения набора параметров ключа
  *
  * @return набор параметров ключа, NONE без ключа
@@ -3331,7 +3284,6 @@ size_t sign::Mldsa::size() const noexcept {
 	// Выводим размер подписи набора
 	return signatureSize(this->_set);
 }
-
 /**
  * @brief Метод получения верхнего предела длины подписи в записанном виде
  *
@@ -3347,7 +3299,6 @@ size_t sign::Mldsa::limit() const noexcept {
 	// Выводим предел длины подписи набора
 	return signatureSize(this->_set);
 }
-
 /**
  * @brief Метод сброса состояния модуля
  *
@@ -3365,7 +3316,6 @@ void sign::Mldsa::clear() noexcept {
 	// Набор параметров сброшен
 	this->_set = set_t::NONE;
 }
-
 /**
  * @brief Метод получения размера ключа подписи набора в байтах
  *
@@ -3388,7 +3338,6 @@ size_t sign::Mldsa::secretSize(const set_t set) noexcept {
 		default: return 0;
 	}
 }
-
 /**
  * @brief Метод получения размера ключа проверки набора в байтах
  *
@@ -3411,7 +3360,6 @@ size_t sign::Mldsa::publicSize(const set_t set) noexcept {
 		default: return 0;
 	}
 }
-
 /**
  * @brief Метод получения размера подписи набора в байтах
  *
@@ -3434,7 +3382,6 @@ size_t sign::Mldsa::signatureSize(const set_t set) noexcept {
 		default: return 0;
 	}
 }
-
 /**
  * @brief Метод порождения долговременного ключа подписи из зерна
  *
@@ -3471,7 +3418,6 @@ bool sign::Mldsa::generate(const set_t set, const view_t & seed, uint8_t * key, 
 	// Выводим признак успешности
 	return result;
 }
-
 /**
  * @brief Метод порождения долговременного ключа подписи из источника случайности
  *
@@ -3515,7 +3461,6 @@ bool sign::Mldsa::generate(const set_t set, uint8_t * key, uint8_t * secret) noe
 	// Выводим признак успешности
 	return result;
 }
-
 /**
  * @brief Метод установки ключа подписи
  *
@@ -3554,7 +3499,6 @@ bool sign::Mldsa::secret(const set_t set, const view_t & secret) noexcept {
 	// Выводим признак успешности
 	return result;
 }
-
 /**
  * @brief Метод установки ключа проверки подписи
  *
@@ -3588,7 +3532,6 @@ bool sign::Mldsa::key(const set_t set, const view_t & key) noexcept {
 	// Выводим признак успешности
 	return result;
 }
-
 /**
  * @brief Метод получения ключа проверки подписи
  *
@@ -3611,7 +3554,6 @@ bool sign::Mldsa::key(uint8_t * result, const size_t size) const noexcept {
 	// Выводим признак успешности
 	return outcome;
 }
-
 /**
  * @brief Метод выработки подписи со случайностью от источника
  *
@@ -3642,7 +3584,6 @@ bool sign::Mldsa::make(const view_t & message, const view_t & context, uint8_t *
 	// Выводим признак успешности
 	return outcome;
 }
-
 /**
  * @brief Метод выработки подписи с заданной случайностью
  *
@@ -3667,7 +3608,6 @@ bool sign::Mldsa::make(const view_t & rnd, const view_t & message, const view_t 
 	// Выводим признак успешности
 	return outcome;
 }
-
 /**
  * @brief Метод проверки подписи
  *

@@ -91,7 +91,7 @@ namespace {
 	 * @param out   место записи
 	 *
 	 */
-	static inline void quartet(const uint32_t value, uint8_t * out) noexcept {
+	static __ANTS_INLINE__ void quartet(const uint32_t value, uint8_t * out) noexcept {
 		// Записываем байты от младшего
 		out[0] = static_cast <uint8_t> (value);
 		// Второй байт
@@ -109,7 +109,7 @@ namespace {
 	 * @return       признак успешности подачи
 	 *
 	 */
-	static bool feed(digest::blake2_t & hasher, const view_t & data) noexcept {
+	static __ANTS_INLINE__ bool feed(digest::blake2_t & hasher, const view_t & data) noexcept {
 		// Длина от младшего байта
 		uint8_t length[4];
 		// Записываем длину
@@ -189,7 +189,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static inline uint64_t spin(const uint64_t word, const size_t count) noexcept {
+	static constexpr uint64_t spin(const uint64_t word, const size_t count) noexcept {
 		// Выводим сдвиг
 		return ((word >> count) | (word << (64 - count)));
 	}
@@ -202,7 +202,7 @@ namespace {
 	 * @param d четвёртое слово
 	 *
 	 */
-	static inline void blend(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d) noexcept {
+	static __ANTS_INLINE__ void blend(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d) noexcept {
 		// Маска младших 32 разрядов
 		static constexpr uint64_t LOW = 0xFFFFFFFFULL;
 		// Складываем первые два слова с удвоенным произведением младших половин
@@ -228,7 +228,7 @@ namespace {
 	 * @param v указатели на шестнадцать слов
 	 *
 	 */
-	static inline void permute(uint64_t ** v) noexcept {
+	static __ANTS_INLINE__ void permute(uint64_t ** v) noexcept {
 		// Переставляем слова по строкам и затем по столбцам
 		blend(*v[0], *v[4], *v[8], *v[12]);
 		blend(*v[1], *v[5], *v[9], *v[13]);
@@ -309,7 +309,7 @@ namespace {
 	 * @return     слово
 	 *
 	 */
-	static inline uint64_t octet(const uint8_t * data) noexcept {
+	static __ANTS_INLINE__ uint64_t octet(const uint8_t * data) noexcept {
 		// Накопитель слова
 		uint64_t result = 0;
 		/**
@@ -328,7 +328,7 @@ namespace {
 	 * @param out   1024 байта
 	 *
 	 */
-	static void store(const block_t & block, uint8_t * out) noexcept {
+	static __ANTS_INLINE__ void store(const block_t & block, uint8_t * out) noexcept {
 		/**
 		 * Перебираем слова блока
 		 */
@@ -347,7 +347,7 @@ namespace {
 	 * @param block блок
 	 *
 	 */
-	static void load(const uint8_t * data, block_t & block) noexcept {
+	static __ANTS_INLINE__ void load(const uint8_t * data, block_t & block) noexcept {
 		/**
 		 * Перебираем слова блока
 		 */
@@ -362,7 +362,7 @@ namespace {
 	 * @param result строка
 	 *
 	 */
-	static void enbase(const vector <uint8_t> & data, string & result) {
+	static __ANTS_INLINE__ void enbase(const vector <uint8_t> & data, string & result) {
 		// Знаки кода во временной строке: кодек очищает место, а строка PHC собирается дописыванием
 		string encoded;
 		// Выполняем кодирование кодеком с пробросом нехватки памяти вызывающему
@@ -378,7 +378,7 @@ namespace {
 	 * @return       признак успешности разбора
 	 *
 	 */
-	static bool debase(const string & text, vector <uint8_t> & result) {
+	static __ANTS_INLINE__ bool debase(const string & text, vector <uint8_t> & result) {
 		// Выводим итог разбора кодеком с пробросом нехватки памяти вызывающему
 		return codec::rawDecode(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), result, codec::alphabet_t::STANDARD, false, false);
 	}
@@ -390,7 +390,7 @@ namespace {
 	 * @return       признак успешности
 	 *
 	 */
-	static bool decimal(const string & text, uint32_t & result) noexcept {
+	static __ANTS_INLINE__ bool decimal(const string & text, uint32_t & result) noexcept {
 		// Если строка пуста, длиннее десяти знаков либо ведущий нуль у ненулевого
 		if(text.empty() || (text.size() > 10) || ((text.size() > 1) && (text[0] == '0')))
 			// Отвергаем строку
@@ -601,21 +601,25 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 					size_t area = 0;
 					// Если первый проход
 					if(pass == 0){
+						// Если это первый срез прохода
 						if(slice == 0)
 							// Своя дорожка первого среза: всё до текущего блока
 							area = (index - 1);
+						// Если признак сетевой поддержки обнаружен
 						else if(same)
 							// Своя дорожка: всё до текущего блока
 							area = ((slice * segment) + index - 1);
+						// Если признак сетевой поддержки не обнаружен
 						else
 							area = ((slice * segment) + ((index == 0) ? static_cast <size_t> (-1) : 0));
+					// Если это следующий проход
 					} else {
 						// Если проход не первый
 						if(same)
 							// Своя дорожка: весь хвост до текущего блока
 							area = (lane - segment + index - 1);
-						else
-							area = (lane - segment + ((index == 0) ? static_cast <size_t> (-1) : 0));
+						// Если проход первый
+						else area = (lane - segment + ((index == 0) ? static_cast <size_t> (-1) : 0));
 					}
 					// x = J1^2 / 2^32, y = area·x / 2^32, z = area − 1 − y
 					const uint64_t x = ((j1 * j1) >> 32);
@@ -711,10 +715,19 @@ bool nts::digest::phc(const string & text, argon_record_t & result) noexcept {
 		if((fields.size() < 5) || (fields.size() > 6) || !fields[0].empty())
 			// Отвергаем строку
 			return false;
-		// Вариант
-		if(fields[1] == "argon2d") result.params.type = argon_t::ARGON2D;
-		else if(fields[1] == "argon2i") result.params.type = argon_t::ARGON2I;
-		else if(fields[1] == "argon2id") result.params.type = argon_t::ARGON2ID;
+		// Если обнаружен вариант Аргона 2d
+		if(fields[1] == "argon2d")
+			// Устанавливаем тип Аргона
+			result.params.type = argon_t::ARGON2D;
+		// Если обнаружен вариант Аргона 2i
+		else if(fields[1] == "argon2i")
+			// Устанавливаем тип Аргона
+			result.params.type = argon_t::ARGON2I;
+		// Если обнаружен вариант Аргона 2id
+		else if(fields[1] == "argon2id")
+			// Устанавливаем тип Аргона
+			result.params.type = argon_t::ARGON2ID;
+		// Если вариант Аргона не обнаружен
 		else return false;
 		// Издание: лишь v=19
 		if(fields[2] != "v=19")
@@ -816,7 +829,8 @@ bool nts::digest::phc(const argon_record_t & record, string & result) noexcept {
  * @brief Конструктор: Argon2id, 64 МиБ, три прохода, четыре дорожки (второй набор раздела 4 RFC 9106)
  *
  */
-nts::digest::Argon::Argon() noexcept : type(argon_t::ARGON2ID), memory(65536), passes(3), lanes(4) {}
+nts::digest::Argon::Argon() noexcept :
+ type(argon_t::ARGON2ID), memory(65536), passes(3), lanes(4) {}
 
 /**
  * @brief Конструктор
@@ -827,4 +841,5 @@ nts::digest::Argon::Argon() noexcept : type(argon_t::ARGON2ID), memory(65536), p
  * @param lanes  число дорожек
  *
  */
-nts::digest::Argon::Argon(const argon_t type, const uint32_t memory, const uint32_t passes, const uint32_t lanes) noexcept : type(type), memory(memory), passes(passes), lanes(lanes) {}
+nts::digest::Argon::Argon(const argon_t type, const uint32_t memory, const uint32_t passes, const uint32_t lanes) noexcept :
+ type(type), memory(memory), passes(passes), lanes(lanes) {}

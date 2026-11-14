@@ -202,47 +202,47 @@ namespace {
 		 */
 		typedef __m128i vec_t;
 		// Загрузка и запись выровненного вектора
-		static inline vec_t vload(const void * data) noexcept { return _mm_load_si128(reinterpret_cast <const __m128i *> (data)); }
+		static __ANTS_INLINE__ vec_t vload(const void * data) noexcept { return _mm_load_si128(reinterpret_cast <const __m128i *> (data)); }
 		// Записываем выровненный вектор
-		static inline void vstore(void * result, const vec_t value) noexcept { _mm_store_si128(reinterpret_cast <__m128i *> (result), value); }
+		static __ANTS_INLINE__ void vstore(void * result, const vec_t value) noexcept { _mm_store_si128(reinterpret_cast <__m128i *> (result), value); }
 		// Заполнение всех мест одним значением
-		static inline vec_t vset16(const int16_t value) noexcept { return _mm_set1_epi16(value); }
+		static __ANTS_INLINE__ vec_t vset16(const int16_t value) noexcept { return _mm_set1_epi16(value); }
 		// Заполняем все 32-разрядные места одним значением
-		static inline vec_t vset32(const int32_t value) noexcept { return _mm_set1_epi32(value); }
+		static __ANTS_INLINE__ vec_t vset32(const int32_t value) noexcept { return _mm_set1_epi32(value); }
 		// Произведения 16-разрядных мест: младшие и старшие половины, суммы соседних произведений в 32 разрядах
-		static inline vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return _mm_mullo_epi16(first, second); }
+		static __ANTS_INLINE__ vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return _mm_mullo_epi16(first, second); }
 		// Старшие половины произведений 16-разрядных мест
-		static inline vec_t vmulhi16(const vec_t first, const vec_t second) noexcept { return _mm_mulhi_epi16(first, second); }
+		static __ANTS_INLINE__ vec_t vmulhi16(const vec_t first, const vec_t second) noexcept { return _mm_mulhi_epi16(first, second); }
 		// Суммы произведений соседних мест в 32 разрядах
-		static inline vec_t vmadd16(const vec_t first, const vec_t second) noexcept { return _mm_madd_epi16(first, second); }
+		static __ANTS_INLINE__ vec_t vmadd16(const vec_t first, const vec_t second) noexcept { return _mm_madd_epi16(first, second); }
 		// Суммы и разности
-		static inline vec_t vadd16(const vec_t first, const vec_t second) noexcept { return _mm_add_epi16(first, second); }
+		static __ANTS_INLINE__ vec_t vadd16(const vec_t first, const vec_t second) noexcept { return _mm_add_epi16(first, second); }
 		// Разности 16-разрядных мест
-		static inline vec_t vsub16(const vec_t first, const vec_t second) noexcept { return _mm_sub_epi16(first, second); }
+		static __ANTS_INLINE__ vec_t vsub16(const vec_t first, const vec_t second) noexcept { return _mm_sub_epi16(first, second); }
 		// Суммы 32-разрядных мест
-		static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept { return _mm_add_epi32(first, second); }
+		static __ANTS_INLINE__ vec_t vadd32(const vec_t first, const vec_t second) noexcept { return _mm_add_epi32(first, second); }
 		// Разности 32-разрядных мест
-		static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept { return _mm_sub_epi32(first, second); }
+		static __ANTS_INLINE__ vec_t vsub32(const vec_t first, const vec_t second) noexcept { return _mm_sub_epi32(first, second); }
 		// Арифметические сдвиги вправо
-		static inline vec_t vsra16(const vec_t value, const int count) noexcept { return _mm_srai_epi16(value, count); }
+		static __ANTS_INLINE__ vec_t vsra16(const vec_t value, const int count) noexcept { return _mm_srai_epi16(value, count); }
 		// Арифметические сдвиги 32-разрядных мест вправо
-		static inline vec_t vsra32(const vec_t value, const int count) noexcept { return _mm_srai_epi32(value, count); }
+		static __ANTS_INLINE__ vec_t vsra32(const vec_t value, const int count) noexcept { return _mm_srai_epi32(value, count); }
 		// Поразрядные операции
-		static inline vec_t vand(const vec_t first, const vec_t second) noexcept { return _mm_and_si128(first, second); }
+		static __ANTS_INLINE__ vec_t vand(const vec_t first, const vec_t second) noexcept { return _mm_and_si128(first, second); }
 		// Перестановка соседних 16-разрядных мест
-		static inline vec_t vswap16(const vec_t value) noexcept { return _mm_shufflehi_epi16(_mm_shufflelo_epi16(value, 0xB1), 0xB1); }
+		static __ANTS_INLINE__ vec_t vswap16(const vec_t value) noexcept { return _mm_shufflehi_epi16(_mm_shufflelo_epi16(value, 0xB1), 0xB1); }
 		// Младшие и старшие 64-разрядные половины двух векторов рядом
-		static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept { return _mm_unpacklo_epi64(first, second); }
+		static __ANTS_INLINE__ vec_t vlow64(const vec_t first, const vec_t second) noexcept { return _mm_unpacklo_epi64(first, second); }
 		// Старшие 64-разрядные половины двух векторов рядом
-		static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept { return _mm_unpackhi_epi64(first, second); }
+		static __ANTS_INLINE__ vec_t vhigh64(const vec_t first, const vec_t second) noexcept { return _mm_unpackhi_epi64(first, second); }
 		// Переплетение младших и старших пар 32-разрядных мест двух векторов
-		static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept { return _mm_unpacklo_epi32(first, second); }
+		static __ANTS_INLINE__ vec_t vlow32(const vec_t first, const vec_t second) noexcept { return _mm_unpacklo_epi32(first, second); }
 		// Переплетение старших пар 32-разрядных мест двух векторов
-		static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept { return _mm_unpackhi_epi32(first, second); }
+		static __ANTS_INLINE__ vec_t vhigh32(const vec_t first, const vec_t second) noexcept { return _mm_unpackhi_epi32(first, second); }
 		// Чётные 32-разрядные места вперёд, нечётные назад
-		static inline vec_t vevenodd32(const vec_t value) noexcept { return _mm_shuffle_epi32(value, 0xD8); }
+		static __ANTS_INLINE__ vec_t vevenodd32(const vec_t value) noexcept { return _mm_shuffle_epi32(value, 0xD8); }
 		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места: старшие половины мест пусты
-		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return _mm_or_si128(even, _mm_slli_epi32(odd, 16)); }
+		static __ANTS_INLINE__ vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return _mm_or_si128(even, _mm_slli_epi32(odd, 16)); }
 	/**
 	 * Ветвь векторной прослойки Эльбруса: тот же тип вектора и пакетные команды
 	 */
@@ -252,52 +252,52 @@ namespace {
 		 */
 		typedef long long vec_t __attribute__ ((__vector_size__ (16)));
 		// Загрузка и запись выровненного вектора
-		static inline vec_t vload(const void * data) noexcept { return (* reinterpret_cast <const vec_t *> (data)); }
+		static __ANTS_INLINE__ vec_t vload(const void * data) noexcept { return (* reinterpret_cast <const vec_t *> (data)); }
 		// Записываем выровненный вектор
-		static inline void vstore(void * result, const vec_t value) noexcept { (* reinterpret_cast <vec_t *> (result)) = value; }
+		static __ANTS_INLINE__ void vstore(void * result, const vec_t value) noexcept { (* reinterpret_cast <vec_t *> (result)) = value; }
 		// Вектор из двух 64-разрядных слов: старшее и младшее
-		static inline vec_t vwords(const uint64_t high, const uint64_t low) noexcept { return __builtin_e2k_qppackdl(high, low); }
+		static __ANTS_INLINE__ vec_t vwords(const uint64_t high, const uint64_t low) noexcept { return __builtin_e2k_qppackdl(high, low); }
 		// Заполнение всех мест одним значением
-		static inline vec_t vset16(const int16_t value) noexcept { const uint64_t word = (static_cast <uint64_t> (static_cast <uint16_t> (value)) * 0x0001000100010001ULL); return vwords(word, word); }
+		static __ANTS_INLINE__ vec_t vset16(const int16_t value) noexcept { const uint64_t word = (static_cast <uint64_t> (static_cast <uint16_t> (value)) * 0x0001000100010001ULL); return vwords(word, word); }
 		// Заполняем все 32-разрядные места одним значением
-		static inline vec_t vset32(const int32_t value) noexcept { const uint64_t word = (static_cast <uint64_t> (static_cast <uint32_t> (value)) * 0x0000000100000001ULL); return vwords(word, word); }
+		static __ANTS_INLINE__ vec_t vset32(const int32_t value) noexcept { const uint64_t word = (static_cast <uint64_t> (static_cast <uint32_t> (value)) * 0x0000000100000001ULL); return vwords(word, word); }
 		// Произведения 16-разрядных мест
-		static inline vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmullh(first, second); }
+		static __ANTS_INLINE__ vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmullh(first, second); }
 		// Старшие половины произведений 16-разрядных мест
-		static inline vec_t vmulhi16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmulhh(first, second); }
+		static __ANTS_INLINE__ vec_t vmulhi16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmulhh(first, second); }
 		// Суммы произведений соседних мест в 32 разрядах
-		static inline vec_t vmadd16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmaddh(first, second); }
+		static __ANTS_INLINE__ vec_t vmadd16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpmaddh(first, second); }
 		// Суммы и разности
-		static inline vec_t vadd16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpaddh(first, second); }
+		static __ANTS_INLINE__ vec_t vadd16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpaddh(first, second); }
 		// Разности 16-разрядных мест
-		static inline vec_t vsub16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpsubh(first, second); }
+		static __ANTS_INLINE__ vec_t vsub16(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpsubh(first, second); }
 		// Суммы 32-разрядных мест
-		static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpaddw(first, second); }
+		static __ANTS_INLINE__ vec_t vadd32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpaddw(first, second); }
 		// Разности 32-разрядных мест
-		static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpsubw(first, second); }
+		static __ANTS_INLINE__ vec_t vsub32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpsubw(first, second); }
 		// Арифметические сдвиги вправо
-		static inline vec_t vsra16(const vec_t value, const int count) noexcept { return __builtin_e2k_qpsrah(value, count); }
+		static __ANTS_INLINE__ vec_t vsra16(const vec_t value, const int count) noexcept { return __builtin_e2k_qpsrah(value, count); }
 		// Арифметические сдвиги 32-разрядных мест вправо
-		static inline vec_t vsra32(const vec_t value, const int count) noexcept { return __builtin_e2k_qpsraw(value, count); }
+		static __ANTS_INLINE__ vec_t vsra32(const vec_t value, const int count) noexcept { return __builtin_e2k_qpsraw(value, count); }
 		// Поразрядные операции
-		static inline vec_t vand(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpand(first, second); }
+		static __ANTS_INLINE__ vec_t vand(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qpand(first, second); }
 		/**
 		 * Перестановки байтов: места 0…15 маски берут байты второго довода qppermb, 16…31 - первого
 		 * (так устроен перенос ChaCha OpenSSL под Эльбрус: crypto/chacha/chacha_e2k.c)
 		 */
-		static inline vec_t vswap16(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0d0c0f0e09080b0aULL, 0x0504070601000302ULL)); }
+		static __ANTS_INLINE__ vec_t vswap16(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0d0c0f0e09080b0aULL, 0x0504070601000302ULL)); }
 		// Младшие 64-разрядные половины двух векторов рядом
-		static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1716151413121110ULL, 0x0706050403020100ULL)); }
+		static __ANTS_INLINE__ vec_t vlow64(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1716151413121110ULL, 0x0706050403020100ULL)); }
 		// Старшие 64-разрядные половины двух векторов рядом
-		static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1f1e1d1c1b1a1918ULL, 0x0f0e0d0c0b0a0908ULL)); }
+		static __ANTS_INLINE__ vec_t vhigh64(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1f1e1d1c1b1a1918ULL, 0x0f0e0d0c0b0a0908ULL)); }
 		// Переплетение младших пар 32-разрядных мест двух векторов
-		static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1716151407060504ULL, 0x1312111003020100ULL)); }
+		static __ANTS_INLINE__ vec_t vlow32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1716151407060504ULL, 0x1312111003020100ULL)); }
 		// Переплетение старших пар 32-разрядных мест двух векторов
-		static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1f1e1d1c0f0e0d0cULL, 0x1b1a19180b0a0908ULL)); }
+		static __ANTS_INLINE__ vec_t vhigh32(const vec_t first, const vec_t second) noexcept { return __builtin_e2k_qppermb(second, first, vwords(0x1f1e1d1c0f0e0d0cULL, 0x1b1a19180b0a0908ULL)); }
 		// Чётные 32-разрядные места вперёд, нечётные назад
-		static inline vec_t vevenodd32(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0f0e0d0c07060504ULL, 0x0b0a090803020100ULL)); }
+		static __ANTS_INLINE__ vec_t vevenodd32(const vec_t value) noexcept { return __builtin_e2k_qppermb(value, value, vwords(0x0f0e0d0c07060504ULL, 0x0b0a090803020100ULL)); }
 		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места
-		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return __builtin_e2k_qppermb(odd, even, vwords(0x1d1c0d0c19180908ULL, 0x1514050411100100ULL)); }
+		static __ANTS_INLINE__ vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept { return __builtin_e2k_qppermb(odd, even, vwords(0x1d1c0d0c19180908ULL, 0x1514050411100100ULL)); }
 	/**
 	 * Ветвь векторной прослойки NEON: те же операции над 128-разрядными векторами,
 	 * результат каждой сводится к раскладке SSE2 по местам
@@ -308,17 +308,17 @@ namespace {
 		 */
 		typedef int16x8_t vec_t;
 		// Загрузка вектора
-		static inline vec_t vload(const void * data) noexcept { return vld1q_s16(reinterpret_cast <const int16_t *> (data)); }
+		static __ANTS_INLINE__ vec_t vload(const void * data) noexcept { return vld1q_s16(reinterpret_cast <const int16_t *> (data)); }
 		// Записываем вектор
-		static inline void vstore(void * result, const vec_t value) noexcept { vst1q_s16(reinterpret_cast <int16_t *> (result), value); }
+		static __ANTS_INLINE__ void vstore(void * result, const vec_t value) noexcept { vst1q_s16(reinterpret_cast <int16_t *> (result), value); }
 		// Заполнение всех мест одним значением
-		static inline vec_t vset16(const int16_t value) noexcept { return vdupq_n_s16(value); }
+		static __ANTS_INLINE__ vec_t vset16(const int16_t value) noexcept { return vdupq_n_s16(value); }
 		// Заполняем все 32-разрядные места одним значением
-		static inline vec_t vset32(const int32_t value) noexcept { return vreinterpretq_s16_s32(vdupq_n_s32(value)); }
+		static __ANTS_INLINE__ vec_t vset32(const int32_t value) noexcept { return vreinterpretq_s16_s32(vdupq_n_s32(value)); }
 		// Произведения 16-разрядных мест: младшие половины
-		static inline vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return vmulq_s16(first, second); }
+		static __ANTS_INLINE__ vec_t vmullo16(const vec_t first, const vec_t second) noexcept { return vmulq_s16(first, second); }
 		// Старшие половины произведений 16-разрядных мест
-		static inline vec_t vmulhi16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t vmulhi16(const vec_t first, const vec_t second) noexcept {
 			// Полные произведения половин вектора в 32 разрядах
 			const int32x4_t low = vmull_s16(vget_low_s16(first), vget_low_s16(second));
 			const int32x4_t high = vmull_s16(vget_high_s16(first), vget_high_s16(second));
@@ -326,7 +326,7 @@ namespace {
 			return vcombine_s16(vshrn_n_s32(low, 16), vshrn_n_s32(high, 16));
 		}
 		// Суммы произведений соседних мест в 32 разрядах
-		static inline vec_t vmadd16(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t vmadd16(const vec_t first, const vec_t second) noexcept {
 			// Полные произведения половин вектора в 32 разрядах
 			const int32x4_t low = vmull_s16(vget_low_s16(first), vget_low_s16(second));
 			const int32x4_t high = vmull_s16(vget_high_s16(first), vget_high_s16(second));
@@ -334,41 +334,41 @@ namespace {
 			return vreinterpretq_s16_s32(vcombine_s32(vpadd_s32(vget_low_s32(low), vget_high_s32(low)), vpadd_s32(vget_low_s32(high), vget_high_s32(high))));
 		}
 		// Суммы 16-разрядных мест
-		static inline vec_t vadd16(const vec_t first, const vec_t second) noexcept { return vaddq_s16(first, second); }
+		static __ANTS_INLINE__ vec_t vadd16(const vec_t first, const vec_t second) noexcept { return vaddq_s16(first, second); }
 		// Разности 16-разрядных мест
-		static inline vec_t vsub16(const vec_t first, const vec_t second) noexcept { return vsubq_s16(first, second); }
+		static __ANTS_INLINE__ vec_t vsub16(const vec_t first, const vec_t second) noexcept { return vsubq_s16(first, second); }
 		// Суммы 32-разрядных мест
-		static inline vec_t vadd32(const vec_t first, const vec_t second) noexcept { return vreinterpretq_s16_s32(vaddq_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second))); }
+		static __ANTS_INLINE__ vec_t vadd32(const vec_t first, const vec_t second) noexcept { return vreinterpretq_s16_s32(vaddq_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second))); }
 		// Разности 32-разрядных мест
-		static inline vec_t vsub32(const vec_t first, const vec_t second) noexcept { return vreinterpretq_s16_s32(vsubq_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second))); }
+		static __ANTS_INLINE__ vec_t vsub32(const vec_t first, const vec_t second) noexcept { return vreinterpretq_s16_s32(vsubq_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second))); }
 		// Арифметические сдвиги 16-разрядных мест вправо
-		static inline vec_t vsra16(const vec_t value, const int count) noexcept { return vshlq_s16(value, vdupq_n_s16(-count)); }
+		static __ANTS_INLINE__ vec_t vsra16(const vec_t value, const int count) noexcept { return vshlq_s16(value, vdupq_n_s16(-count)); }
 		// Арифметические сдвиги 32-разрядных мест вправо
-		static inline vec_t vsra32(const vec_t value, const int count) noexcept { return vreinterpretq_s16_s32(vshlq_s32(vreinterpretq_s32_s16(value), vdupq_n_s32(-count))); }
+		static __ANTS_INLINE__ vec_t vsra32(const vec_t value, const int count) noexcept { return vreinterpretq_s16_s32(vshlq_s32(vreinterpretq_s32_s16(value), vdupq_n_s32(-count))); }
 		// Поразрядные операции
-		static inline vec_t vand(const vec_t first, const vec_t second) noexcept { return vandq_s16(first, second); }
+		static __ANTS_INLINE__ vec_t vand(const vec_t first, const vec_t second) noexcept { return vandq_s16(first, second); }
 		// Перестановка соседних 16-разрядных мест: смена порядка слов внутри 32-разрядных мест
-		static inline vec_t vswap16(const vec_t value) noexcept { return vrev32q_s16(value); }
+		static __ANTS_INLINE__ vec_t vswap16(const vec_t value) noexcept { return vrev32q_s16(value); }
 		// Младшие 64-разрядные половины двух векторов рядом
-		static inline vec_t vlow64(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t vlow64(const vec_t first, const vec_t second) noexcept {
 			// В старшую половину первого ставим младшую половину второго
 			return vreinterpretq_s16_u64(vsetq_lane_u64(vgetq_lane_u64(vreinterpretq_u64_s16(second), 0), vreinterpretq_u64_s16(first), 1));
 		}
 		// Старшие 64-разрядные половины двух векторов рядом
-		static inline vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t vhigh64(const vec_t first, const vec_t second) noexcept {
 			// В младшую половину второго ставим старшую половину первого
 			return vreinterpretq_s16_u64(vsetq_lane_u64(vgetq_lane_u64(vreinterpretq_u64_s16(first), 1), vreinterpretq_u64_s16(second), 0));
 		}
 		// Переплетение младших пар 32-разрядных мест двух векторов
-		static inline vec_t vlow32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t vlow32(const vec_t first, const vec_t second) noexcept {
 			return vreinterpretq_s16_s32(vzip1q_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second)));
 		}
 		// Переплетение старших пар 32-разрядных мест двух векторов
-		static inline vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t vhigh32(const vec_t first, const vec_t second) noexcept {
 			return vreinterpretq_s16_s32(vzip2q_s32(vreinterpretq_s32_s16(first), vreinterpretq_s32_s16(second)));
 		}
 		// Чётные 32-разрядные места вперёд, нечётные назад
-		static inline vec_t vevenodd32(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t vevenodd32(const vec_t value) noexcept {
 			/**
 			 * Номера байтов мест 0, 2, 1, 3 по порядку: таблица читается загрузкой, потому что
 			 * собиратель Microsoft Visual C++ не принимает инициализацию вектора списком
@@ -378,7 +378,7 @@ namespace {
 			return vreinterpretq_s16_u8(vqtbl1q_u8(vreinterpretq_u8_s16(value), vld1q_u8(INDICES)));
 		}
 		// Переплетение младших половин 32-разрядных мест двух векторов в 16-разрядные места: старшие половины мест пусты
-		static inline vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept {
+		static __ANTS_INLINE__ vec_t vinterleave16(const vec_t even, const vec_t odd) noexcept {
 			return vreinterpretq_s16_s32(vorrq_s32(vreinterpretq_s32_s16(even), vshlq_n_s32(vreinterpretq_s32_s16(odd), 16)));
 		}
 	#endif
@@ -398,7 +398,7 @@ namespace {
 		 *       реализации Kyber на AVX2)
 		 *
 		 */
-		static inline vec_t vfqmul(const vec_t first, const vec_t second) noexcept {
+		static __ANTS_INLINE__ vec_t vfqmul(const vec_t first, const vec_t second) noexcept {
 			// Младшие и старшие половины произведений
 			const vec_t low = vmullo16(first, second), high = vmulhi16(first, second);
 			// Множители, обращающие младшие половины в ноль: q^(-1) mod 2^16 = -3327
@@ -417,7 +417,7 @@ namespace {
 		 *       дают то же, что одно
 		 *
 		 */
-		static inline vec_t vbarrett(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t vbarrett(const vec_t value) noexcept {
 			// Частное с округлением
 			const vec_t quotient = vsra16(vadd16(vmulhi16(value, vset16(20159)), vset16(512)), 10);
 			// Выводим остаток
@@ -430,7 +430,7 @@ namespace {
 		 * @return      значения из [0, q)
 		 *
 		 */
-		static inline vec_t vcanonical(const vec_t value) noexcept {
+		static __ANTS_INLINE__ vec_t vcanonical(const vec_t value) noexcept {
 			// Прибавляем модуль под маской знака
 			return vadd16(value, vand(vsra16(value, 15), vset16(static_cast <int16_t> (Q))));
 		}
@@ -518,7 +518,7 @@ namespace {
 	 * @return      число из диапазона [0, q)
 	 *
 	 */
-	static inline int16_t reduce(const int32_t value) noexcept {
+	static __ANTS_INLINE__ int16_t reduce(const int32_t value) noexcept {
 		// Частное по Барретту: 2^26 / q округлённо
 		const int32_t quotient = static_cast <int32_t> ((static_cast <int64_t> (value) * 20159) >> 26);
 		// Остаток после вычитания произведения частного
@@ -538,7 +538,7 @@ namespace {
 	 * @return       произведение из диапазона [0, q)
 	 *
 	 */
-	static inline int16_t product(const int32_t first, const int32_t second) noexcept {
+	static __ANTS_INLINE__ int16_t product(const int32_t first, const int32_t second) noexcept {
 		// Выводим приведённое произведение
 		return reduce(first * second);
 	}
@@ -553,7 +553,7 @@ namespace {
 	 *       пару коэффициентов, стало по одной на произведение (круг 35, 23.09.2026)
 	 *
 	 */
-	static inline int16_t once(const int32_t value) noexcept {
+	static __ANTS_INLINE__ int16_t once(const int32_t value) noexcept {
 		// Разность с модулем
 		const int32_t difference = (value - Q);
 		// Выводим разность, если она не отрицательна, иначе само значение
@@ -570,7 +570,7 @@ namespace {
 	 * @return      значение в 16 разрядах со знаком
 	 *
 	 */
-	static inline int16_t centered(const int32_t value) noexcept {
+	static __ANTS_INLINE__ int16_t centered(const int32_t value) noexcept {
 		// Выводим значение, уменьшенное на модуль, если оно выше половины модуля
 		return static_cast <int16_t> ((value > (Q / 2)) ? (value - Q) : value);
 	}
@@ -590,7 +590,7 @@ namespace {
 		 *       произведений в области NTT (settle)
 		 *
 		 */
-		static inline int16_t montgomery(const int32_t wide) noexcept {
+		static __ANTS_INLINE__ int16_t montgomery(const int32_t wide) noexcept {
 			// Множитель, обращающий младшие 16 разрядов значения в ноль: q^(-1) mod 2^16 = -3327
 			const int16_t factor = static_cast <int16_t> (static_cast <uint16_t> (static_cast <int32_t> (static_cast <int16_t> (static_cast <uint16_t> (wide))) * -3327));
 			// Выводим старшие 16 разрядов разности значения и произведения множителя на модуль
@@ -610,7 +610,7 @@ namespace {
 		 *       круга 35 (23.09.2026): прямое NTT M4 582 → 150 нс, FreeBSD 3 866 → 1 300
 		 *
 		 */
-		static inline int16_t fqmul(const int16_t first, const int16_t second) noexcept {
+		static __ANTS_INLINE__ int16_t fqmul(const int16_t first, const int16_t second) noexcept {
 			// Выводим редукцию Монтгомери полного произведения
 			return montgomery(static_cast <int32_t> (first) * second);
 		}
@@ -621,7 +621,7 @@ namespace {
 		 * @return      значение, сравнимое с исходным по модулю q, из [-q/2, q/2]
 		 *
 		 */
-		static inline int16_t barrett(const int16_t value) noexcept {
+		static __ANTS_INLINE__ int16_t barrett(const int16_t value) noexcept {
 			// Частное с округлением: 2^26 / q = 20159
 			const int16_t quotient = static_cast <int16_t> (((static_cast <int32_t> (value) * 20159) + (1 << 25)) >> 26);
 			// Выводим остаток
@@ -634,7 +634,7 @@ namespace {
 		 * @return      значение из [0, q)
 		 *
 		 */
-		static inline int16_t canonical(const int16_t value) noexcept {
+		static __ANTS_INLINE__ int16_t canonical(const int16_t value) noexcept {
 			// Прибавляем модуль под маской знака
 			return static_cast <int16_t> (value + (Q & (value >> 15)));
 		}
@@ -1218,7 +1218,7 @@ namespace {
 	 * @return      сжатое значение из диапазона [0, 2^bits)
 	 *
 	 */
-	static inline uint32_t compress(const int32_t value, const size_t bits) noexcept {
+	static __ANTS_INLINE__ uint32_t compress(const int32_t value, const size_t bits) noexcept {
 		// Числитель округлённого частного value·2^bits + q/2: ниже 2^23 при bits ≤ 11
 		const uint32_t numerator = ((static_cast <uint32_t> (value) << bits) + (static_cast <uint32_t> (Q) / 2));
 		/**
@@ -1236,7 +1236,7 @@ namespace {
 	 * @return      коэффициент из диапазона [0, q)
 	 *
 	 */
-	static inline int16_t decompress(const uint32_t value, const size_t bits) noexcept {
+	static __ANTS_INLINE__ int16_t decompress(const uint32_t value, const size_t bits) noexcept {
 		// Округлённое частное (value · q + 2^(bits-1)) / 2^bits
 		return static_cast <int16_t> (((value * static_cast <uint32_t> (Q)) + (1u << (bits - 1))) >> bits);
 	}
@@ -1530,7 +1530,7 @@ namespace {
 	 * @return     полоса
 	 *
 	 */
-	static inline uint64_t laneLoad(const uint8_t * data) noexcept {
+	static __ANTS_INLINE__ uint64_t laneLoad(const uint8_t * data) noexcept {
 		// Полоса из восьми байтов
 		uint64_t lane = 0;
 		/**
@@ -1549,7 +1549,7 @@ namespace {
 	 * @param result место, в которое помещаются байты полосы
 	 *
 	 */
-	static inline void laneStore(const uint64_t lane, uint8_t * result) noexcept {
+	static __ANTS_INLINE__ void laneStore(const uint64_t lane, uint8_t * result) noexcept {
 		/**
 		 * Выполняем перебор байтов полосы
 		 */

@@ -4324,12 +4324,14 @@ namespace nts {
 							result[3] = w3 ^ (mask & (w3 ^ u3));
 						}
 						/**
-						 * @brief Функция сложения по модулю вида 2^256 - c на интринсиках MSVC
+						 * @brief Функция сложения по модулю из слов указателя на интринсиках MSVC
 						 *
 						 * @details Цепное сложение на _addcarry_u64, вычитание слов модуля на
 						 *          _subborrow_u64 и выбор наложением маски, как у переносимого
-						 *          сложения. Развёрнутое тело: 20 → 5 нс на стенде .177
-						 *          (QEMU x86-64), вровень с ассемблерным ядром GCC
+						 *          сложения; слова модуля читаются из указателя, отчего ядро
+						 *          годится всякому виду модуля на четыре слова. Развёрнутое
+						 *          тело: 20 → 5 нс на стенде .177 (QEMU x86-64), вровень
+						 *          с ассемблерным ядром GCC
 						 *
 						 * @param first   первое слагаемое
 						 * @param second  второе слагаемое
@@ -4337,7 +4339,7 @@ namespace nts {
 						 * @param result  место, в которое помещается сумма
 						 *
 						 */
-						static __ANTS_INLINE__ void addminus4msvc(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+						static __ANTS_INLINE__ void addmod4msvc(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 							// Слова первого слагаемого, снятые в регистры
 							const uint64_t f0 = first[0], f1 = first[1], f2 = first[2], f3 = first[3];
 							// Слова второго слагаемого, снятые в регистры
@@ -4380,12 +4382,13 @@ namespace nts {
 							result[3] = sum3 ^ (mask & (sum3 ^ buffer3));
 						}
 						/**
-						 * @brief Функция вычитания по модулю вида 2^256 - c на интринсиках MSVC
+						 * @brief Функция вычитания по модулю из слов указателя на интринсиках MSVC
 						 *
 						 * @details Разность считается цепью на _subborrow_u64, заём возвращает
-						 *          прибавление слов модуля и выбор идёт наложением маски заёма.
-						 *          Развёрнутое тело: 24 → 5 нс на стенде .177 (QEMU x86-64),
-						 *          вровень с ассемблерным ядром GCC
+						 *          прибавление слов модуля из указателя и выбор идёт наложением
+						 *          маски заёма; ядро годится всякому виду модуля на четыре
+						 *          слова. Развёрнутое тело: 24 → 5 нс на стенде .177
+						 *          (QEMU x86-64), вровень с ассемблерным ядром GCC
 						 *
 						 * @param first   уменьшаемое
 						 * @param second  вычитаемое
@@ -4393,7 +4396,7 @@ namespace nts {
 						 * @param result  место, в которое помещается разность
 						 *
 						 */
-						static __ANTS_INLINE__ void subtractminus4msvc(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+						static __ANTS_INLINE__ void subtractmod4msvc(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 							// Слова уменьшаемого, снятые в регистры
 							const uint64_t f0 = first[0], f1 = first[1], f2 = first[2], f3 = first[3];
 							// Слова вычитаемого, снятые в регистры
@@ -4843,22 +4846,19 @@ namespace nts {
 				 * Экранируем путь сложения четырёх слов ядром на интринсиках MSVC
 				 */
 				#if defined(__ANTS_MSVC_X64__)
-					// Модуль вида 2^256 минус хвост идёт ядром на интринсиках MSVC
+					// Всякий модуль на четыре слова идёт ядрами на интринсиках MSVC
 					if constexpr (WORDS == 4){
-						// Проверяем модуль вида 2^256 минус хвост
-						if(layout.form == Modulus::form_t::MINUS){
-							// Выполняем сложение ядром на интринсиках по модулю такого вида
-							addminus4msvc(first, second, layout.modulus, result);
-							// Выводим результат
-							return;
-						}
-						// У простого P-256 сложение идёт ядром на интринсиках MSVC
+						// У простого P-256 сложение идёт своим ядром с заложенными словами
 						if(layout.form == Modulus::form_t::NIST){
 							// Выполняем сложение ядром на интринсиках по пути простого числа кривой
 							addnist4msvc(first, second, result);
 							// Выводим результат
 							return;
 						}
+						// Выполняем сложение ядром на интринсиках по словам модуля из указателя
+						addmod4msvc(first, second, layout.modulus, result);
+						// Выводим результат
+						return;
 					}
 				#endif
 				// Выполняем сложение развёрнутым ядром
@@ -4901,22 +4901,19 @@ namespace nts {
 				 * Экранируем путь вычитания четырёх слов ядром на интринсиках MSVC
 				 */
 				#if defined(__ANTS_MSVC_X64__)
-					// Модуль вида 2^256 минус хвост идёт ядром на интринсиках MSVC
+					// Всякий модуль на четыре слова идёт ядрами на интринсиках MSVC
 					if constexpr (WORDS == 4){
-						// Проверяем модуль вида 2^256 минус хвост
-						if(layout.form == Modulus::form_t::MINUS){
-							// Выполняем вычитание ядром на интринсиках по модулю такого вида
-							subtractminus4msvc(first, second, layout.modulus, result);
-							// Выводим результат
-							return;
-						}
-						// У простого P-256 вычитание идёт ядром на интринсиках MSVC
+						// У простого P-256 вычитание идёт своим ядром с заложенными словами
 						if(layout.form == Modulus::form_t::NIST){
 							// Выполняем вычитание ядром на интринсиках по пути простого числа кривой
 							subtractnist4msvc(first, second, result);
 							// Выводим результат
 							return;
 						}
+						// Выполняем вычитание ядром на интринсиках по словам модуля из указателя
+						subtractmod4msvc(first, second, layout.modulus, result);
+						// Выводим результат
+						return;
 					}
 				#endif
 				// Выполняем вычитание развёрнутым ядром

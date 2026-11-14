@@ -245,7 +245,7 @@ namespace nts {
 	 */
 	namespace math {
 		/**
-		 * @brief Сложение слов с переносом
+		 * @brief Функция сложения слов с переносом
 		 *
 		 * @details Собиратель сводит это к команде сложения с переносом; сложение через
 		 *          число двойной разрядности стоило вдвое дороже на всякое слово
@@ -257,7 +257,7 @@ namespace nts {
 		 * @return       перенос в старшее слово, ноль либо единица
 		 *
 		 */
-		static inline uint64_t adc(const uint64_t first, const uint64_t second, const uint64_t carry, uint64_t & result) noexcept {
+		static constexpr uint64_t adc(const uint64_t first, const uint64_t second, const uint64_t carry, uint64_t & result) noexcept {
 			/**
 			 * Для собирателя Microsoft Visual C++
 			 */
@@ -283,7 +283,7 @@ namespace nts {
 			#endif
 		}
 		/**
-		 * @brief Вычитание слов с заёмом
+		 * @brief Функция вычитания слов с заёмом
 		 *
 		 * @param first  уменьшаемое
 		 * @param second вычитаемое
@@ -292,7 +292,7 @@ namespace nts {
 		 * @return       заём из старшего слова, ноль либо единица
 		 *
 		 */
-		static inline uint64_t sbb(const uint64_t first, const uint64_t second, const uint64_t borrow, uint64_t & result) noexcept {
+		static constexpr uint64_t sbb(const uint64_t first, const uint64_t second, const uint64_t borrow, uint64_t & result) noexcept {
 			/**
 			 * Для собирателя Microsoft Visual C++
 			 */

@@ -131,7 +131,7 @@
 				 *       собиратель вправе использовать повторно, второй читается самой командой
 				 *
 				 */
-				__attribute__((target("avx2"), always_inline)) static inline __m256i term29Avx2(const __m256i first, const uint64_t * second) noexcept {
+				__attribute__((target("avx2"), always_inline)) static __ANTS_INLINE__ __m256i term29Avx2(const __m256i first, const uint64_t * second) noexcept {
 					// Место четырёх произведений
 					__m256i result;
 					// Читаем четыре слова без промежуточного вектора в кадре стека
