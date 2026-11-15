@@ -20,7 +20,7 @@
  *          ARM64), сложение и вычитание слова с переносом и заёмом, сложение двух
  *          чисел, сдвиги, маска, остаток от деления на слово (_udiv128 у x64, деление
  *          столбиком у ARM64) и усечение к младшему слову. Иных действий нет намеренно:
- *          всякое новое действие обязано прийти сюда с проверкой против __uint128_t
+ *          всякое новое действие обязано прийти сюда с проверкой против __uint128_t.
  *
  * @note Внутренний заголовок: подключается только из исходников src/math
  *
@@ -37,6 +37,7 @@
 /**
  * Стандартные заголовочные файлы
  */
+#include <tuple>
 #include <cstdint>
 #include <cstddef>
 
@@ -71,9 +72,9 @@
 				 *
 				 */
 				explicit operator uint64_t() const noexcept {
-						// Отдаём младшее слово произведения
-						return this->lo;
-					}
+					// Отдаём младшее слово произведения
+					return this->lo;
+				}
 				/**
 				 * @brief Умножение на слово: старшее слово произведения из внутренней функции
 				 *
@@ -158,16 +159,24 @@
 				 * @brief Маска и объединение по младшему слову
 				 *
 				 */
-				// Маска по младшему слову
-				Wide operator & (const uint64_t mask) const noexcept { return Wide(this->lo & mask, 0); }
-				// Объединение по младнему слову
-				Wide operator | (const uint64_t bits) const noexcept { return Wide(this->lo | bits, this->hi); }
+				Wide operator & (const uint64_t mask) const noexcept {
+					return Wide(this->lo & mask, 0);
+				}
+				/**
+				 * @brief Объединение по младнему слову
+				 * 
+				 * @param bits 
+				 * @return Wide 
+				 */
+				Wide operator | (const uint64_t bits) const noexcept {
+					return Wide(this->lo | bits, this->hi);
+				}
 				/**
 				 * @brief Остаток от деления на слово
 				 *
 				 * @details Зовётся лишь при старшем слове меньше делителя (остаток вдвигает
 				 *          слово за словом), потому у x64 довольно _udiv128; у ARM64 внутренней
-				 *          функции нет, и остаток берётся делением столбиком по разрядам
+				 *          функции нет, и остаток берётся делением столбиком по разрядам.
 				 *
 				 */
 				Wide operator % (const uint64_t divisor) const noexcept {
@@ -206,11 +215,24 @@
 					#endif
 				}
 				/**
-				 * @brief Конструкторы
+				 * @brief Конструктор
 				 *
 				 */
 				Wide() noexcept : lo(0), hi(0) {}
+				/**
+				 * @brief Конструктор
+				 *
+				 * @param value
+				 *
+				 */
 				Wide(const uint64_t value) noexcept : lo(value), hi(0) {}
+				/**
+				 * @brief Конструктор
+				 *
+				 * @param lo
+				 * @param hi
+				 *
+				 */
 				Wide(const uint64_t lo, const uint64_t hi) noexcept : lo(lo), hi(hi) {}
 			} wide_t;
 		};
@@ -251,7 +273,7 @@ namespace nts {
 		 * @brief Функция сложения слов с переносом
 		 *
 		 * @details Собиратель сводит это к команде сложения с переносом; сложение через
-		 *          число двойной разрядности стоило вдвое дороже на всякое слово
+		 *          число двойной разрядности стоило вдвое дороже на всякое слово.
 		 *
 		 * @param first  первое слагаемое
 		 * @param second второе слагаемое

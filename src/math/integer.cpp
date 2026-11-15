@@ -455,7 +455,7 @@ namespace {
 	 * @param first  слова первого слагаемого
 	 * @param second слова второго слагаемого
 	 * @param result место, в которое помещаются слова суммы
-	 * @param count  число слов
+	 * @param count  количество слов
 	 * @return       перенос из старшего слова
 	 *
 	 */
@@ -482,7 +482,7 @@ namespace {
 	 * @param first  слова уменьшаемого
 	 * @param second слова вычитаемого
 	 * @param result место, в которое помещаются слова разности
-	 * @param count  число слов
+	 * @param count  количество слов
 	 * @return       заём из старшего слова
 	 *
 	 */
@@ -508,7 +508,7 @@ namespace {
 	 *
 	 * @param source откуда копируются слова
 	 * @param target куда копируются слова
-	 * @param count  число слов
+	 * @param count  количество слов
 	 *
 	 */
 	static __NTS_INLINE__ void __nts_transfer__(const uint64_t * source, uint64_t * target, const size_t count) noexcept {
@@ -523,7 +523,7 @@ namespace {
 	 * @brief Функция обнуления слов
 	 *
 	 * @param data  обнуляемые слова
-	 * @param count число слов
+	 * @param count количество слов
 	 *
 	 */
 	static __NTS_INLINE__ void __nts_clean__(uint64_t * data, const size_t count) noexcept {
@@ -540,8 +540,8 @@ namespace {
 	 * @note Время работы переменное: метод зовётся для модулей и делителей
 	 *
 	 * @param data  слова числа
-	 * @param count число слов
-	 * @return      число слов до старшего ненулевого включительно
+	 * @param count количество слов
+	 * @return      количество слов до старшего ненулевого включительно
 	 *
 	 */
 	static __NTS_INLINE__ size_t __nts_top__(const uint64_t * data, const size_t count) noexcept {
@@ -574,11 +574,11 @@ namespace {
 		/**
 		 * @brief Функция перестановки байтов слова
 		 *
-		 * @param value слово
+		 * @param value слово для перестановки байт
 		 * @return      слово с байтами в обратном порядке
 		 *
 		 */
-		static constexpr uint64_t __nts_reverse64__(const uint64_t value) noexcept {
+		static __NTS_INLINE__ uint64_t __nts_reverse64__(const uint64_t value) noexcept {
 			/**
 			 * Для MSVC берём библиотечную перестановку байтов
 			 */
@@ -599,7 +599,7 @@ namespace {
 	 * @brief Функция получения числа значимых разрядов
 	 *
 	 * @param data  слова числа
-	 * @param count число слов
+	 * @param count количество слов
 	 * @return      число разрядов до старшего единичного включительно
 	 *
 	 */
@@ -630,7 +630,7 @@ namespace {
 	 * @brief Функция сдвига слов влево на один разряд
 	 *
 	 * @param data  сдвигаемые слова
-	 * @param count число слов
+	 * @param count количество слов
 	 * @param low   разряд, вдвигаемый снизу
 	 * @return      разряд, вышедший сверху
 	 *
@@ -657,7 +657,7 @@ namespace {
 	 *
 	 * @param first  слова первого числа
 	 * @param second слова второго числа
-	 * @param count  число слов
+	 * @param count  количество слов
 	 * @return       отрицательное значение, если первое меньше, ноль при равенстве, положительное, если больше
 	 *
 	 */
@@ -678,9 +678,9 @@ namespace {
 	 * @brief Функция школьного умножения слов
 	 *
 	 * @param first  слова первого сомножителя
-	 * @param count1 число слов первого сомножителя
+	 * @param count1 количество слов первого сомножителя
 	 * @param second слова второго сомножителя
-	 * @param count2 число слов второго сомножителя
+	 * @param count2 количество слов второго сомножителя
 	 * @param result место, в которое помещается произведение: count1 + count2 слов
 	 *
 	 */
@@ -715,7 +715,7 @@ namespace {
 	 *       от старшего к младшему; время работы переменное
 	 *
 	 * @param dividend  слова делимого
-	 * @param count     число слов делимого
+	 * @param count     количество слов делимого
 	 * @param divisor   слова ненулевого делителя
 	 * @param words     число значимых слов делителя
 	 * @param quotient  место, в которое помещается частное: count слов, либо nullptr
@@ -764,7 +764,7 @@ namespace {
 	 *       его длину временем работы
 	 *
 	 * @param data  слова числа
-	 * @param count число слов
+	 * @param count количество слов
 	 * @param bits  граница: номер первого разряда, который обязан быть нулевым
 	 * @return      ноль, если разрядов выше границы нет, иначе ненулевое значение
 	 *
@@ -797,10 +797,10 @@ namespace {
 	 *       числу слов модуля: итог меньше числа / R + модуль. Ни ветвления, ни адреса
 	 *       обращений от слов числа не зависят
 	 *
-	 * @param buffer  слова приводимого числа с запасом в число слов модуля и ещё одно
+	 * @param buffer  слова приводимого числа с запасом в количество слов модуля и ещё одно
 	 * @param length  число значимых слов приводимого числа
 	 * @param modulus слова нечётного модуля
-	 * @param count   число слов модуля
+	 * @param count   количество слов модуля
 	 * @param inverse множитель приведения по модулю
 	 *
 	 */
@@ -881,7 +881,7 @@ namespace {
 	 * @param modulus слова нечётного модуля
 	 * @param word    слово второго сомножителя
 	 * @param inverse множитель приведения по модулю
-	 * @param count   число слов модуля
+	 * @param count   количество слов модуля
 	 *
 	 */
 	static __NTS_INLINE__ void __nts_row__(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
@@ -1013,7 +1013,7 @@ namespace {
 		 * @param first   слова первого сомножителя, меньшего модуля
 		 * @param second  слова второго сомножителя, меньшего модуля
 		 * @param modulus слова нечётного модуля
-		 * @param count   число слов модуля, кратное четырём и не меньшее восьми
+		 * @param count   количество слов модуля, кратное четырём и не меньшее восьми
 		 * @param inverse множитель приведения по модулю
 		 * @param result  место, в которое помещается произведение, меньшее модуля: вправе совпадать с сомножителем
 		 *
@@ -1354,7 +1354,7 @@ namespace {
 	 * @param low     слово второго сомножителя первого ряда
 	 * @param high    слово второго сомножителя второго ряда
 	 * @param inverse множитель приведения по модулю
-	 * @param count   число слов модуля, не меньше двух
+	 * @param count   количество слов модуля, не меньше двух
 	 *
 	 */
 	static __NTS_INLINE__ void __nts_rows__(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t low, const uint64_t high, const uint64_t inverse, const size_t count) noexcept {
@@ -1463,7 +1463,7 @@ namespace {
 		 * @param modulus слова нечётного модуля
 		 * @param word    слово второго сомножителя
 		 * @param inverse множитель приведения по модулю
-		 * @param count   число слов модуля, кратное четырём и не меньшее четырёх
+		 * @param count   количество слов модуля, кратное четырём и не меньшее четырёх
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_stripes__(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
@@ -1609,7 +1609,7 @@ namespace {
 		 * @param first   слова первого сомножителя, меньшего модуля
 		 * @param second  слова второго сомножителя, меньшего модуля
 		 * @param modulus слова нечётного модуля
-		 * @param count   число слов модуля, кратное четырём и не меньшее восьми
+		 * @param count   количество слов модуля, кратное четырём и не меньшее восьми
 		 * @param inverse множитель приведения по модулю
 		 *
 		 */
@@ -1863,12 +1863,12 @@ namespace {
 		 * @param buffer  накопитель в 2 · count + 2 слов: на выходе слова count … 2 · count - значение, меньшее удвоенного модуля, младшие count слов - отложенные множители приведения
 		 * @param value   слова числа, меньшего модуля
 		 * @param modulus слова нечётного модуля
-		 * @param count   число слов модуля, кратное восьми и не меньшее восьми
+		 * @param count   количество слов модуля, кратное восьми и не меньшее восьми
 		 * @param inverse множитель приведения по модулю
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_square_8x__(uint64_t * buffer, const uint64_t * value, const uint64_t * modulus, const size_t count, const uint64_t inverse) noexcept {
-			// Доводы ядра одним указателем: накопитель, число, модуль, число слов, множитель приведения, перенос между блоками
+			// Доводы ядра одним указателем: накопитель, число, модуль, количество слов, множитель приведения, перенос между блоками
 			struct {
 				// Накопитель квадрата
 				uint64_t * buffer;
@@ -1885,7 +1885,7 @@ namespace {
 			} args = {buffer, value, modulus, count, inverse, 0};
 			// Квадрат полосами по восемь слов на ассемблере
 			__asm__ __volatile__(
-			/* Указатели накопителя и числа, число слов; обнуление удвоенной ширины накопителя */
+			/* Указатели накопителя и числа, количество слов; обнуление удвоенной ширины накопителя */
 			"ldp   x26, x27, [%[p]]\n\t"
 			"ldr   x0, [%[p], #24]\n\t"
 			"mov   x1, x26\n\t"
@@ -2328,7 +2328,7 @@ namespace {
 		 * @param buffer  накопитель в 2 · count + 2 слов: на выходе слова count … 2 · count - 1 - значение, меньшее удвоенного модуля, слово 2 · count - перенос
 		 * @param value   слова числа, меньшего модуля
 		 * @param modulus слова нечётного модуля
-		 * @param count   число слов модуля, кратное восьми и не меньшее восьми
+		 * @param count   количество слов модуля, кратное восьми и не меньшее восьми
 		 * @param inverse множитель приведения по модулю
 		 *
 		 */
@@ -2859,7 +2859,7 @@ namespace {
 	 *
 	 * @param buffer  накопитель в count + 1 слов со значением, меньшим удвоенного модуля
 	 * @param modulus слова нечётного модуля
-	 * @param count   число слов модуля
+	 * @param count   количество слов модуля
 	 * @param result  место, в которое помещается итог
 	 *
 	 */
@@ -3069,7 +3069,7 @@ namespace {
 		 * @brief Функция перекладки таблицы окна столбцами
 		 *
 		 * @param table   таблица степеней окна строками
-		 * @param words   число слов записи
+		 * @param words   количество слов записи
 		 * @param columns место столбцов: слово k всех записей подряд
 		 *
 		 */
@@ -3094,7 +3094,7 @@ namespace {
 		 *
 		 * @param columns таблица степеней окна столбцами
 		 * @param index   номер выбираемой записи
-		 * @param words   число слов записи
+		 * @param words   количество слов записи
 		 * @param chosen  место, в которое помещается выбранная запись
 		 *
 		 */
@@ -3149,7 +3149,7 @@ namespace {
 		 *
 		 * @param columns таблица степеней окна столбцами
 		 * @param index   номер выбираемой записи
-		 * @param words   число слов записи
+		 * @param words   количество слов записи
 		 * @param chosen  место, в которое помещается выбранная запись
 		 * @param avx2    признак AVX2 у машины, снятый вызывающим один раз на степень
 		 *
@@ -3219,7 +3219,7 @@ namespace {
 		 *
 		 * @param table  таблица степеней окна
 		 * @param index  номер выбираемой записи
-		 * @param words  число слов записи
+		 * @param words  количество слов записи
 		 * @param chosen место, в которое помещается выбранная запись
 		 *
 		 */
@@ -3384,7 +3384,7 @@ namespace {
 		 *
 		 * @param square накопитель произведения в 2 · count + 2 слов
 		 * @param value  слова числа
-		 * @param count  число слов
+		 * @param count  количество слов
 		 * @param index  номер первого ряда: ряды index и index + 1, у второго есть хоть один столбец (index + 2 < count)
 		 *
 		 */
@@ -3437,7 +3437,7 @@ namespace {
 		 *
 		 * @param square накопитель произведения
 		 * @param value  слова числа
-		 * @param count  число слов
+		 * @param count  количество слов
 		 * @param index  номер ряда
 		 *
 		 */
@@ -3465,7 +3465,7 @@ namespace {
 		 *
 		 * @param square накопитель произведения: на входе сумма value[i] · value[j] при i < j, на выходе полный квадрат
 		 * @param value  слова числа
-		 * @param count  число слов
+		 * @param count  количество слов
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_diagonal__(uint64_t * square, const uint64_t * value, const size_t count) noexcept {
@@ -3512,7 +3512,7 @@ namespace {
 		 * @param buffer  накопитель в count + 1 слов: (buffer + q · modulus) / 2^64 по каждому ряду
 		 * @param modulus слова нечётного модуля
 		 * @param inverse множитель приведения по модулю
-		 * @param count   число слов модуля, не меньше четырёх
+		 * @param count   количество слов модуля, не меньше четырёх
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_shrink4__(uint64_t * buffer, const uint64_t * modulus, const uint64_t inverse, const size_t count) noexcept {
@@ -3604,7 +3604,7 @@ namespace {
 		 * @param buffer  накопитель в count + 1 слов
 		 * @param modulus слова нечётного модуля
 		 * @param inverse множитель приведения по модулю
-		 * @param count   число слов модуля
+		 * @param count   количество слов модуля
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_shrink1__(uint64_t * buffer, const uint64_t * modulus, const uint64_t inverse, const size_t count) noexcept {
@@ -3642,7 +3642,7 @@ namespace {
 		 *
 		 * @param value   слова числа, меньшего модуля
 		 * @param modulus слова нечётного модуля
-		 * @param count   число слов модуля
+		 * @param count   количество слов модуля
 		 * @param inverse множитель приведения по модулю
 		 * @param result  место, в которое помещается квадрат, меньший модуля
 		 *
@@ -3748,7 +3748,7 @@ namespace {
 	 * @param first   слова первого сомножителя, меньшего модуля
 	 * @param second  слова второго сомножителя, меньшего модуля
 	 * @param modulus слова нечётного модуля
-	 * @param count   число слов модуля
+	 * @param count   количество слов модуля
 	 * @param inverse множитель приведения по модулю
 	 * @param result  место, в которое помещается произведение, меньшее модуля
 	 * @param scratch буфер ядра в 2 · count + 2 слов: не затирается, за него отвечает вызывающий
@@ -3916,7 +3916,7 @@ namespace {
 	 * @param first   слова первого сомножителя, меньшего модуля
 	 * @param second  слова второго сомножителя, меньшего модуля
 	 * @param modulus слова нечётного модуля
-	 * @param count   число слов модуля
+	 * @param count   количество слов модуля
 	 * @param inverse множитель приведения по модулю
 	 * @param result  место, в которое помещается произведение, меньшее модуля
 	 * @param scratch буфер ядра в 2 · count + 2 слов: не затирается, за него отвечает вызывающий
@@ -3935,7 +3935,7 @@ namespace {
 	 * @param first   слова первого сомножителя, меньшего модуля
 	 * @param second  слова второго сомножителя, меньшего модуля
 	 * @param modulus слова нечётного модуля
-	 * @param count   число слов модуля
+	 * @param count   количество слов модуля
 	 * @param inverse множитель приведения по модулю
 	 * @param result  место, в которое помещается произведение, меньшее модуля
 	 *
@@ -3953,7 +3953,7 @@ namespace {
 	 *
 	 * @param value   слова удваиваемого числа, меньшего модуля
 	 * @param modulus слова модуля
-	 * @param count   число слов модуля
+	 * @param count   количество слов модуля
 	 *
 	 */
 	static __NTS_NOINLINE__ void __nts_twice__(uint64_t * value, const uint64_t * modulus, const size_t count) noexcept {
@@ -3987,7 +3987,7 @@ namespace {
 	 *       слов и идёт за постоянное время
 	 *
 	 * @param modulus слова модуля
-	 * @param count   число слов модуля
+	 * @param count   количество слов модуля
 	 * @param base    место, в которое помещается основание области по модулю
 	 * @param square  место, в которое помещается квадрат основания по модулю
 	 *
@@ -4061,7 +4061,7 @@ namespace {
 	 * @brief Функция получения остатка от деления слов на одно слово
 	 *
 	 * @param data    слова делимого
-	 * @param count   число слов делимого
+	 * @param count   количество слов делимого
 	 * @param divisor ненулевой делитель
 	 * @return        остаток от деления
 	 *
@@ -4377,7 +4377,7 @@ namespace {
 	 *
 	 * @param first  первое число
 	 * @param second второе число
-	 * @param count  число слов
+	 * @param count  количество слов
 	 * @return       признак того, что первое число меньше второго
 	 *
 	 */
@@ -4674,7 +4674,7 @@ namespace {
 		 * @brief Функция разложения слов числа на конечности
 		 *
 		 * @param words  слова числа
-		 * @param count  число слов
+		 * @param count  количество слов
 		 * @param result место, в которое помещаются конечности
 		 * @param limbs  число конечностей
 		 *
@@ -4702,7 +4702,7 @@ namespace {
 		 * @param value  конечности приведённого числа
 		 * @param limbs  число конечностей
 		 * @param result место, в которое помещаются слова
-		 * @param count  число слов
+		 * @param count  количество слов
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_gather__(const int64_t * value, const size_t limbs, uint64_t * result, const size_t count) noexcept {
@@ -4732,7 +4732,7 @@ namespace {
 		 * @brief Функция обращения по нечётному модулю за постоянное время
 		 *
 		 * @param modulus слова модуля
-		 * @param words   число слов модуля
+		 * @param words   количество слов модуля
 		 * @param factor  множитель приведения Монтгомери младшего слова модуля
 		 * @param value   слова обращаемого числа, меньшего модуля
 		 * @param result  место, в которое помещаются слова обратного числа
@@ -5963,11 +5963,11 @@ bool nts::math::Montgomery::ready() const noexcept {
 /**
  * @brief Метод получения числа слов модуля
  *
- * @return число слов модуля до старшего ненулевого включительно
+ * @return количество слов модуля до старшего ненулевого включительно
  *
  */
 size_t nts::math::Montgomery::words() const noexcept {
-	// Выводим число слов
+	// Выводим количество слов
 	return this->_words;
 }
 /**
@@ -5986,7 +5986,7 @@ bool nts::math::Montgomery::start(const integer_t & modulus) noexcept {
 	if((words == 0) || ((modulus._words[0] & 1) == 0))
 		// Выходим отказом
 		return false;
-	// Запоминаем число слов модуля
+	// Запоминаем количество слов модуля
 	this->_words = words;
 	// Запоминаем слова модуля
 	::__nts_transfer__(modulus._words, this->_modulus, words);
@@ -6006,7 +6006,7 @@ bool nts::math::Montgomery::start(const integer_t & modulus) noexcept {
 void nts::math::Montgomery::clear() noexcept {
 	// Сбрасываем признак готовности
 	this->_ready = false;
-	// Сбрасываем число слов модуля
+	// Сбрасываем количество слов модуля
 	this->_words = 0;
 	// Сбрасываем множитель приведения
 	this->_inverse = 0;
