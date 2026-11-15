@@ -333,7 +333,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Header {
+		typedef struct __NTS_SHARED_EXPORT__ Header {
 			// Вид содержимого записи
 			type_t type;
 			// Версия протокола, указанная в записи
@@ -376,7 +376,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи заголовка записи
@@ -398,7 +398,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки известности вида содержимого записи
@@ -414,7 +414,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool known(const type_t type) noexcept;
+		__NTS_SHARED_EXPORT__ bool known(const type_t type) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки допустимости пустого содержимого записи
@@ -438,7 +438,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool empty(const type_t type) noexcept;
+		__NTS_SHARED_EXPORT__ bool empty(const type_t type) noexcept;
 		/**
 		 * \~russian
 		 * @brief Сборщик входящих записей протокола TLS
@@ -456,7 +456,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Reader {
+		typedef class __NTS_SHARED_EXPORT__ Reader {
 			private:
 				// Смещение начала неразобранных данных в накопителе
 				size_t _offset;
@@ -617,7 +617,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Writer {
+		typedef class __NTS_SHARED_EXPORT__ Writer {
 			private:
 				// Смещение начала ещё не снятых записей в накопителе
 				size_t _offset;

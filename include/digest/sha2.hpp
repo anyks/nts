@@ -127,7 +127,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Sha2 {
+		typedef class __NTS_SHARED_EXPORT__ Sha2 {
 			private:
 				// Разновидность вырабатываемого хеша
 				sha_t _type;
@@ -289,7 +289,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool sha2(const sha_t type, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool sha2(const sha_t type, const view_t & data, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

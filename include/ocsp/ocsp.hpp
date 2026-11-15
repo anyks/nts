@@ -222,7 +222,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Identifier {
+		typedef struct __NTS_SHARED_EXPORT__ Identifier {
 			// Опознаватель алгоритма хеша
 			string algorithm;
 			// Просмотр хеша имени издателя
@@ -246,7 +246,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Single {
+		typedef struct __NTS_SHARED_EXPORT__ Single {
 			// Опознаватель сертификата
 			identifier_t identifier;
 			// Состояние сертификата
@@ -290,7 +290,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Response {
+		typedef class __NTS_SHARED_EXPORT__ Response {
 			private:
 				// Причина последнего отказа
 				error_t _error;
@@ -622,7 +622,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t nonce(const vector <x509::extension_t> & extensions, view_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t nonce(const vector <x509::extension_t> & extensions, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки ответа против сертификата и его издателя
@@ -676,7 +676,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const response_t & response, const view_t & certificate, const view_t & issuer, const int64_t moment, const int64_t leeway, const view_t & nonce, status_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const response_t & response, const view_t & certificate, const view_t & issuer, const int64_t moment, const int64_t leeway, const view_t & nonce, status_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки ответов о состоянии сертификатов цепочки по местам
@@ -730,7 +730,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const vector <uint8_t> & status, const vector <vector <uint8_t>> & statuses, const vector <vector <uint8_t>> & anchors, const int64_t moment, const int64_t leeway, vector <status_t> & results) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const vector <uint8_t> & status, const vector <vector <uint8_t>> & statuses, const vector <vector <uint8_t>> & anchors, const int64_t moment, const int64_t leeway, vector <status_t> & results) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления запроса состояния сертификата
@@ -760,7 +760,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t request(const view_t & certificate, const view_t & issuer, const digest::hash_t algorithm, const view_t & nonce, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t request(const view_t & certificate, const view_t & issuer, const digest::hash_t algorithm, const view_t & nonce, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения адреса ответчика из сертификата
@@ -788,7 +788,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t responder(const view_t & certificate, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t responder(const view_t & certificate, string & result) noexcept;
 	};
 };
 

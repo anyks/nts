@@ -24,11 +24,11 @@
  *
  */
 
-#ifndef __ANTS_INTERNAL_SIGN_EDWARDS__
+#ifndef __NTS_INTERNAL_SIGN_EDWARDS__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __ANTS_INTERNAL_SIGN_EDWARDS__
+#define __NTS_INTERNAL_SIGN_EDWARDS__
 
 /**
  * Стандартные заголовочные файлы
@@ -127,7 +127,7 @@ namespace nts {
 			 * @param result место, в которое помещается нейтральная точка
 			 *
 			 */
-			static __ANTS_INLINE__ void neutral(point_t & result) noexcept {
+			static __NTS_INLINE__ void neutral(point_t & result) noexcept {
 				// Первая координата нейтральной точки - ноль
 				zero(result.x);
 				// Вторая координата нейтральной точки - единица
@@ -143,7 +143,7 @@ namespace nts {
 			 * @param result место, в которое помещается точка основания
 			 *
 			 */
-			static __ANTS_INLINE__ void base(point_t & result) noexcept {
+			static __NTS_INLINE__ void base(point_t & result) noexcept {
 				// Разбор первой координаты точки основания
 				load(BASE_X, result.x);
 				// Разбор второй координаты точки основания
@@ -167,7 +167,7 @@ namespace nts {
 			 * @param result место, в которое помещается сумма
 			 *
 			 */
-			static __ANTS_INLINE__ void add(const point_t & first, const point_t & second, point_t & result) noexcept {
+			static __NTS_INLINE__ void add(const point_t & first, const point_t & second, point_t & result) noexcept {
 				// Промежуточные значения сложения
 				element_t a, b, c, d, e, f, g, h, item;
 				// Вырабатываем разность координат первого слагаемого
@@ -222,7 +222,7 @@ namespace nts {
 			 * @param result место, в которое помещается удвоенная точка
 			 *
 			 */
-			static __ANTS_INLINE__ void twice(const point_t & value, point_t & result) noexcept {
+			static __NTS_INLINE__ void twice(const point_t & value, point_t & result) noexcept {
 				// Промежуточные значения удвоения
 				element_t a, b, c, e, f, g, h;
 				// Вырабатываем квадрат первой координаты
@@ -263,7 +263,7 @@ namespace nts {
 			 * @param value отрицаемая точка
 			 *
 			 */
-			static __ANTS_INLINE__ void opposite(point_t & value) noexcept {
+			static __NTS_INLINE__ void opposite(point_t & value) noexcept {
 				// Нулевое значение для вычитания координат
 				element_t item;
 				// Вычитаем первую координату точки из нуля

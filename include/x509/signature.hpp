@@ -117,7 +117,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const certificate_t & certificate, const key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const certificate_t & certificate, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки подписи записи
@@ -147,7 +147,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const view_t & body, const view_t & signature, const string & algorithm, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки голой подписи RSA PKCS #1 v1.5 над готовым хешем (TLS 1.1)
@@ -171,7 +171,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const view_t & digest, const view_t & signature, const key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const view_t & digest, const view_t & signature, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки подписи записи с настройками алгоритма подписи
@@ -209,7 +209,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const view_t & body, const view_t & signature, const string & algorithm, const view_t & parameters, const key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const view_t & body, const view_t & signature, const string & algorithm, const view_t & parameters, const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения опознавателя набора параметров кривой ключа
@@ -229,7 +229,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t identifier(const key_t & key, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t identifier(const key_t & key, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция заведения кривой открытого ключа
@@ -255,7 +255,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parameters(const key_t & key, curve::curve_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parameters(const key_t & key, curve::curve_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки подписи содержимого открытым ключом
@@ -293,7 +293,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t check(const key_t & key, const view_t & content, const view_t & signature) noexcept;
+		__NTS_SHARED_EXPORT__ error_t check(const key_t & key, const view_t & content, const view_t & signature) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки подписи содержимого открытым ключом с заданным хешем
@@ -333,7 +333,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t check(const key_t & key, const digest::hash_t algorithm, const view_t & content, const view_t & signature) noexcept;
+		__NTS_SHARED_EXPORT__ error_t check(const key_t & key, const digest::hash_t algorithm, const view_t & content, const view_t & signature) noexcept;
 	};
 };
 

@@ -126,7 +126,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Block {
+		typedef struct __NTS_SHARED_EXPORT__ Block {
 			// Размер блока базового алгоритма блочного шифрования
 			size_t size;
 			// Объект базового алгоритма блочного шифрования
@@ -272,7 +272,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Codebook {
+		typedef class __NTS_SHARED_EXPORT__ Codebook {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -430,7 +430,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Counter {
+		typedef class __NTS_SHARED_EXPORT__ Counter {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -592,7 +592,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Output {
+		typedef class __NTS_SHARED_EXPORT__ Output {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -753,7 +753,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Chaining {
+		typedef class __NTS_SHARED_EXPORT__ Chaining {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -908,7 +908,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Feedback {
+		typedef class __NTS_SHARED_EXPORT__ Feedback {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;
@@ -1067,7 +1067,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Imitation {
+		typedef class __NTS_SHARED_EXPORT__ Imitation {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;

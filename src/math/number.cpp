@@ -962,7 +962,7 @@ namespace {
 		 * @return     та же маска, о значении которой собиратель ничего не знает
 		 *
 		 */
-		static __ANTS_INLINE__ int64_t hide(int64_t mask) noexcept {
+		static __NTS_INLINE__ int64_t hide(int64_t mask) noexcept {
 			// Пустая вставка с маской на входе и выходе
 			__asm__ __volatile__("" : "+r"(mask));
 			// Выводим маску

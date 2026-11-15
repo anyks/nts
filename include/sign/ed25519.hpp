@@ -98,7 +98,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Ed25519 {
+		typedef class __NTS_SHARED_EXPORT__ Ed25519 {
 			public:
 				/**
 				 * \~russian

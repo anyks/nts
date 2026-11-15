@@ -99,7 +99,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Gost {
+		typedef class __NTS_SHARED_EXPORT__ Gost {
 			private:
 				// Признак того, что ключ подписи установлен
 				bool _secret;

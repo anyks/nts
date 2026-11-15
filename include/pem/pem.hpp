@@ -182,7 +182,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Block {
+		typedef struct __NTS_SHARED_EXPORT__ Block {
 			// Метка вида записи
 			string label;
 			// Тело записи в кодировке DER
@@ -212,7 +212,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decode(const string & text, vector <block_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decode(const string & text, vector <block_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записей заданного вида
@@ -237,7 +237,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decode(const string & text, const string & label, vector <vector <uint8_t>> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decode(const string & text, const string & label, vector <vector <uint8_t>> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи одной записи
@@ -255,7 +255,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encode(const block_t & block, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encode(const block_t & block, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи набора записей
@@ -277,7 +277,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encode(const vector <block_t> & blocks, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encode(const vector <block_t> & blocks, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения цепочки сертификатов
@@ -303,7 +303,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t certificates(const string & text, vector <vector <uint8_t>> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t certificates(const string & text, vector <vector <uint8_t>> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения секретного ключа
@@ -352,7 +352,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t secret(const string & text, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t secret(const string & text, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения названия отказа
@@ -368,7 +368,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const char * name(const error_t error) noexcept;
+		__NTS_SHARED_EXPORT__ const char * name(const error_t error) noexcept;
 	};
 };
 

@@ -46,6 +46,7 @@
  * Стандартные заголовочные файлы
  */
 #include <new>
+#include <tuple>
 #include <vector>
 #include <cstring>
 
@@ -171,7 +172,7 @@ namespace {
 	 * @return      сдвинутая полоса
 	 *
 	 */
-	static constexpr uint64_t spin(const uint64_t lane, const size_t count) noexcept {
+	static constexpr uint64_t __nts_spin__(const uint64_t lane, const size_t count) noexcept {
 		// Выводим круговой сдвиг полосы
 		return ((lane << count) | (lane >> (64 - count)));
 	}
@@ -185,13 +186,13 @@ namespace {
 	 * @param rounds число кругов: 24 у Keccak-f[1600], 12 у Keccak-p[1600, 12] TurboSHAKE
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_permute__(uint64_t * state, const size_t rounds) noexcept {
+	static __NTS_INLINE__ void __nts_permute__(uint64_t * state, const size_t rounds) noexcept {
 		/**
 		 * Ядро на ассемблере x86-64 либо на командах SHA-3 AArch64 делает ровно двадцать
 		 * четыре круга от переданной таблицы констант: для полной перестановки Keccak-f[1600]
 		 * оно годится, для усечённой Keccak-p[1600, 12] TurboSHAKE остаётся переносимая ветвь
 		 */
-		#if(defined(__ANTS_KECCAK_X86_64__) || defined(__ANTS_KECCAK_AARCH64__)) && 0
+		#if(defined(__NTS_KECCAK_X86_64__) || defined(__NTS_KECCAK_AARCH64__)) && 0
 			// Перестановка ядром от конца таблицы констант
 			digest::kernel::keccak(state, KECCAK_IOTA + (KECCAK_ROUNDS - rounds));
 		/**
@@ -218,11 +219,11 @@ namespace {
 				               parity3 = (a03 ^ a08 ^ a13 ^ a18 ^ a23),
 				               parity4 = (a04 ^ a09 ^ a14 ^ a19 ^ a24);
 				// Шаг θ: слагаемое столбца из чётностей соседей
-				const uint64_t term0 = (parity4 ^ spin(parity1, 1)),
-				               term1 = (parity0 ^ spin(parity2, 1)),
-				               term2 = (parity1 ^ spin(parity3, 1)),
-				               term3 = (parity2 ^ spin(parity4, 1)),
-				               term4 = (parity3 ^ spin(parity0, 1));
+				const uint64_t term0 = (parity4 ^ ::__nts_spin__(parity1, 1)),
+				               term1 = (parity0 ^ ::__nts_spin__(parity2, 1)),
+				               term2 = (parity1 ^ ::__nts_spin__(parity3, 1)),
+				               term3 = (parity2 ^ ::__nts_spin__(parity4, 1)),
+				               term4 = (parity3 ^ ::__nts_spin__(parity0, 1));
 				// Шаг θ: сложение слагаемого с каждой полосой столбца
 				a00 ^= term0; a05 ^= term0; a10 ^= term0; a15 ^= term0; a20 ^= term0;
 				// Шаг θ: то же сложение для второго столбца
@@ -237,15 +238,15 @@ namespace {
 				 * Шаги ρ и π: полоса (x, y) сдвигается на своё число разрядов и переносится на
 				 * место (y, 2x + 3y mod 5) - подстановка выписана по разделам 3.2.2 и 3.2.3
 				 */
-				b00 = a00; b10 = spin(a01, 1); b20 = spin(a02, 62); b05 = spin(a03, 28); b15 = spin(a04, 27);
+				b00 = a00; b10 = ::__nts_spin__(a01, 1); b20 = ::__nts_spin__(a02, 62); b05 = ::__nts_spin__(a03, 28); b15 = ::__nts_spin__(a04, 27);
 				// Шаги ρ и π: сдвиг и перенос второй группы полос
-				b16 = spin(a05, 36); b01 = spin(a06, 44); b11 = spin(a07, 6); b21 = spin(a08, 55); b06 = spin(a09, 20);
+				b16 = ::__nts_spin__(a05, 36); b01 = ::__nts_spin__(a06, 44); b11 = ::__nts_spin__(a07, 6); b21 = ::__nts_spin__(a08, 55); b06 = ::__nts_spin__(a09, 20);
 				// Шаги ρ и π: сдвиг и перенос третьей группы полос
-				b07 = spin(a10, 3); b17 = spin(a11, 10); b02 = spin(a12, 43); b12 = spin(a13, 25); b22 = spin(a14, 39);
+				b07 = ::__nts_spin__(a10, 3); b17 = ::__nts_spin__(a11, 10); b02 = ::__nts_spin__(a12, 43); b12 = ::__nts_spin__(a13, 25); b22 = ::__nts_spin__(a14, 39);
 				// Шаги ρ и π: сдвиг и перенос четвёртой группы полос
-				b23 = spin(a15, 41); b08 = spin(a16, 45); b18 = spin(a17, 15); b03 = spin(a18, 21); b13 = spin(a19, 8);
+				b23 = ::__nts_spin__(a15, 41); b08 = ::__nts_spin__(a16, 45); b18 = ::__nts_spin__(a17, 15); b03 = ::__nts_spin__(a18, 21); b13 = ::__nts_spin__(a19, 8);
 				// Шаги ρ и π: сдвиг и перенос пятой группы полос
-				b14 = spin(a20, 18); b24 = spin(a21, 2); b09 = spin(a22, 61); b19 = spin(a23, 56); b04 = spin(a24, 14);
+				b14 = ::__nts_spin__(a20, 18); b24 = ::__nts_spin__(a21, 2); b09 = ::__nts_spin__(a22, 61); b19 = ::__nts_spin__(a23, 56); b04 = ::__nts_spin__(a24, 14);
 				// Шаг χ: нелинейное смешение полос каждой строки с двумя соседями по строке
 				a00 = (b00 ^ ((~b01) & b02)); a01 = (b01 ^ ((~b02) & b03)); a02 = (b02 ^ ((~b03) & b04)); a03 = (b03 ^ ((~b04) & b00)); a04 = (b04 ^ ((~b00) & b01));
 				// Шаг χ: нелинейное смешение второй строки
@@ -327,7 +328,7 @@ namespace {
 	 * @param size     длина материала в байтах
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_xof__(const kdf_t kdf, const view_t * pieces, const size_t count, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_xof__(const kdf_t kdf, const view_t * pieces, const size_t count, uint8_t * result, const size_t size) noexcept {
 		// Число байтов незавершённого блока
 		size_t filled = 0;
 		// Состояние губки: двадцать пять полос по 64 разряда
@@ -359,7 +360,7 @@ namespace {
 					// Сбрасываем счётчик байтов незавершённого блока
 					filled = 0;
 					// Перестановка состояния
-					::__ants_permute__(state, rounds);
+					::__nts_permute__(state, rounds);
 				}
 				// Длина поглощаемой части
 				const size_t part = (((rate - filled) < left) ? (rate - filled) : left);
@@ -386,7 +387,7 @@ namespace {
 		// Складываем разряд окончания дополнения с последней полосой блока
 		state[(rate - 1) / 8] ^= (static_cast <uint64_t> (0x80) << (((rate - 1) % 8) * 8));
 		// Перестановка состояния
-		::__ants_permute__(state, rounds);
+		::__nts_permute__(state, rounds);
 		/**
 		 * Выжимаем итог из блоков губки, переставляя заполненные блоки
 		 */
@@ -394,7 +395,7 @@ namespace {
 			// Если блок выжат целиком
 			if(offset == rate){
 				// Перестановка состояния
-				::__ants_permute__(state, rounds);
+				::__nts_permute__(state, rounds);
 				// Сбрасываем счётчик выжатых из блока байтов
 				offset = 0;
 			}
@@ -423,7 +424,7 @@ namespace {
 	 * @return    алгоритм хеширования либо NONE
 	 *
 	 */
-	static constexpr digest::hash_t __ants_hashing__(const kdf_t kdf) noexcept {
+	static constexpr digest::hash_t __nts_hashing__(const kdf_t kdf) noexcept {
 		/**
 		 * Определяем функцию выработки ключа
 		 */
@@ -451,7 +452,7 @@ namespace {
 	 * @return    признак того, что функция одноступенчатая (раздел 5 draft-ietf-hpke-pq)
 	 *
 	 */
-	static constexpr bool __ants_onestage__(const kdf_t kdf) noexcept {
+	static constexpr bool __nts_onestage__(const kdf_t kdf) noexcept {
 		// Выводим признак одноступенчатых функций SHAKE и TurboSHAKE
 		return (
 			(kdf == kdf_t::SHAKE128) || (kdf == kdf_t::SHAKE256) ||
@@ -465,7 +466,7 @@ namespace {
 	 * @param result место под два байта
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_inscribe__(const uint16_t value, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_inscribe__(const uint16_t value, uint8_t * result) noexcept {
 		// Записываем старший байт
 		result[0] = static_cast <uint8_t> (value >> 8);
 		// Записываем младший байт
@@ -480,11 +481,11 @@ namespace {
 	 * @param result место под опознаватель длиной KEM_STAMP
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_stamp__(const kem_t kem, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_stamp__(const kem_t kem, uint8_t * result) noexcept {
 		// Записываем метку «KEM»
 		::memcpy(result, "KEM", 3);
 		// Записываем номер способа
-		::__ants_inscribe__(static_cast <uint16_t> (kem), result + 3);
+		::__nts_inscribe__(static_cast <uint16_t> (kem), result + 3);
 	}
 	/**
 	 * @brief Функция составления опознавателя набора алгоритмов
@@ -495,15 +496,15 @@ namespace {
 	 * @param result место под опознаватель длиной SUITE_STAMP
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_stamp__(const suite_t & suite, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_stamp__(const suite_t & suite, uint8_t * result) noexcept {
 		// Записываем метку «HPKE»
 		::memcpy(result, "HPKE", 4);
 		// Записываем номер способа инкапсуляции
-		::__ants_inscribe__(static_cast <uint16_t> (suite.kem), result + 4);
+		::__nts_inscribe__(static_cast <uint16_t> (suite.kem), result + 4);
 		// Записываем номер функции выработки ключа
-		::__ants_inscribe__(static_cast <uint16_t> (suite.kdf), result + 6);
+		::__nts_inscribe__(static_cast <uint16_t> (suite.kdf), result + 6);
 		// Записываем номер шифра
-		::__ants_inscribe__(static_cast <uint16_t> (suite.aead), result + 8);
+		::__nts_inscribe__(static_cast <uint16_t> (suite.aead), result + 8);
 	}
 	/**
 	 * @brief Функция меченого извлечения ключа
@@ -519,7 +520,7 @@ namespace {
 	 * @return         признак успешности извлечения
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_absorb__(const digest::hash_t hash, const view_t & salt, const view_t & suite, const char * label, const view_t & material, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_absorb__(const digest::hash_t hash, const view_t & salt, const view_t & suite, const char * label, const view_t & material, uint8_t * result) noexcept {
 		// Длина хеша
 		const size_t length = digest::length(hash);
 		// Нулевая соль в длину хеша: раздел 2.2 RFC 5869
@@ -562,7 +563,7 @@ namespace {
 	 * @return       признак успешности растяжения
 	 *
 	 */
-	static bool __ants_unfold__(const digest::hash_t hash, const view_t & key, const view_t & suite, const char * label, const view_t & info, uint8_t * result, const size_t size) noexcept {
+	static bool __nts_unfold__(const digest::hash_t hash, const view_t & key, const view_t & suite, const char * label, const view_t & info, uint8_t * result, const size_t size) noexcept {
 		// Длина хеша
 		const size_t length = digest::length(hash);
 		// Если длина материала недопустима
@@ -572,7 +573,7 @@ namespace {
 		// Двухбайтовая запись длины материала
 		uint8_t width[2];
 		// Записываем длину материала
-		::__ants_inscribe__(static_cast <uint16_t> (size), width);
+		::__nts_inscribe__(static_cast <uint16_t> (size), width);
 		// Предыдущий блок растяжения
 		uint8_t previous[HASH_SIZE];
 		// Число выданных байтов
@@ -656,9 +657,9 @@ namespace {
 	 * @return         признак успешности выработки
 	 *
 	 */
-	static bool __ants_labeled__(const kdf_t kdf, const view_t & suite, const char * label, const view_t & context, const view_t & material, uint8_t * result, const size_t size) noexcept {
+	static bool __nts_labeled__(const kdf_t kdf, const view_t & suite, const char * label, const view_t & context, const view_t & material, uint8_t * result, const size_t size) noexcept {
 		// Если функция не одноступенчатая либо места под итог нет
-		if(!::__ants_onestage__(kdf) || ((result == nullptr) && (size > 0)))
+		if(!::__nts_onestage__(kdf) || ((result == nullptr) && (size > 0)))
 			// Выводим отказ выработки
 			return false;
 		// Число кусков
@@ -677,19 +678,19 @@ namespace {
 		// Подаём опознаватель набора
 		pieces[count++] = suite;
 		// Записываем длину метки
-		::__ants_inscribe__(static_cast <uint16_t> (::strlen(label)), width);
+		::__nts_inscribe__(static_cast <uint16_t> (::strlen(label)), width);
 		// Подаём длину метки
 		pieces[count++] = view_t(width, sizeof(width));
 		// Подаём метку выработки
 		pieces[count++] = view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label));
 		// Записываем длину материала
-		::__ants_inscribe__(static_cast <uint16_t> (size), extent);
+		::__nts_inscribe__(static_cast <uint16_t> (size), extent);
 		// Подаём длину материала
 		pieces[count++] = view_t(extent, sizeof(extent));
 		// Подаём привязку
 		pieces[count++] = context;
 		// Выжимаем материал
-		::__ants_xof__(kdf, pieces, count, result, size);
+		::__nts_xof__(kdf, pieces, count, result, size);
 		// Выводим успех выработки
 		return true;
 	}
@@ -701,7 +702,7 @@ namespace {
 	 * @param size   размер области в байтах
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_reverse__(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_reverse__(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
 		/**
 		 * Переносим байты области с конца в начало приёмника
 		 */
@@ -720,7 +721,7 @@ namespace {
 	 * @return    функция выработки ключа либо NONE
 	 *
 	 */
-	static constexpr kdf_t __ants_derivation__(const kem_t kem) noexcept {
+	static constexpr kdf_t __nts_derivation__(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -765,7 +766,7 @@ namespace {
 	 * @return    опознаватель набора параметров кривой либо nullptr
 	 *
 	 */
-	static constexpr const char * __ants_curveoid__(const kem_t kem) noexcept {
+	static constexpr const char * __nts_curveoid__(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -795,7 +796,7 @@ namespace {
 	 * @return    набор параметров ML-KEM либо NONE
 	 *
 	 */
-	static constexpr agreement::kem_t __ants_mlkemset__(const kem_t kem) noexcept {
+	static constexpr agreement::kem_t __nts_mlkemset__(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -829,7 +830,7 @@ namespace {
 	 * @return    длина зерна в байтах либо ноль у негибридного способа
 	 *
 	 */
-	static constexpr size_t __ants_tradition__(const kem_t kem) noexcept {
+	static constexpr size_t __nts_tradition__(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -860,7 +861,7 @@ namespace {
 	 * @return    метка способа для сочетателя C2PRI
 	 *
 	 */
-	static __ANTS_INLINE__ const uint8_t * __ants_hybridlabel__(const kem_t kem) noexcept {
+	static __NTS_INLINE__ const uint8_t * __nts_hybridlabel__(const kem_t kem) noexcept {
 		/**
 		 * Метка гибрида ML-KEM-768 и X25519 (X-Wing)
 		 */
@@ -900,7 +901,7 @@ namespace {
 	 * @return    длина метки в байтах
 	 *
 	 */
-	static constexpr size_t __ants_hybridmark__(const kem_t kem) noexcept {
+	static constexpr size_t __nts_hybridmark__(const kem_t kem) noexcept {
 		/**
 		 * Определяем способ инкапсуляции
 		 */
@@ -928,7 +929,7 @@ namespace {
 	 * @return    признак того, что способ есть DHKEM
 	 *
 	 */
-	static constexpr bool __ants_diffie__(const kem_t kem) noexcept {
+	static constexpr bool __nts_diffie__(const kem_t kem) noexcept {
 		// Выводим признак способов Диффи-Хеллмана
 		return (
 			(kem == kem_t::P256_HKDF_SHA256) || (kem == kem_t::P384_HKDF_SHA384) ||
@@ -942,7 +943,7 @@ namespace {
 	 * @return    признак того, что способ есть чистый ML-KEM
 	 *
 	 */
-	static constexpr bool __ants_puremlkem__(const kem_t kem) noexcept {
+	static constexpr bool __nts_puremlkem__(const kem_t kem) noexcept {
 		// Выводим признак чистого ML-KEM
 		return ((kem == kem_t::MLKEM512) || (kem == kem_t::MLKEM768) || (kem == kem_t::MLKEM1024));
 	}
@@ -953,7 +954,7 @@ namespace {
 	 * @return    признак того, что способ есть гибрид ML-KEM и группы
 	 *
 	 */
-	static constexpr bool __ants_hybrid__(const kem_t kem) noexcept {
+	static constexpr bool __nts_hybrid__(const kem_t kem) noexcept {
 		// Выводим признак гибридного способа
 		return ((kem == kem_t::MLKEM768_P256) || (kem == kem_t::MLKEM1024_P384) || (kem == kem_t::MLKEM768_X25519));
 	}
@@ -967,9 +968,9 @@ namespace {
 	 * @return    длина общего значения в байтах (Nsecret)
 	 *
 	 */
-	static constexpr size_t __ants_nsecret__(const kem_t kem) noexcept {
+	static constexpr size_t __nts_nsecret__(const kem_t kem) noexcept {
 		// У чистого ML-KEM и гибридов общее значение в тридцать два байта
-		if(::__ants_puremlkem__(kem) || ::__ants_hybrid__(kem))
+		if(::__nts_puremlkem__(kem) || ::__nts_hybrid__(kem))
 			// Выводим длину общего значения
 			return 32;
 		// У DHKEM(X448, HKDF-SHA512) общее значение в шестьдесят четыре байта
@@ -998,32 +999,32 @@ namespace {
 	 * @return        признак успешности выработки
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_combine__(const kem_t kem, const view_t & shared, const view_t & binding, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_combine__(const kem_t kem, const view_t & shared, const view_t & binding, uint8_t * result) noexcept {
 		// Опознаватель способа инкапсуляции
 		uint8_t suite[KEM_STAMP];
 		// Составляем опознаватель способа
-		::__ants_stamp__(kem, suite);
+		::__nts_stamp__(kem, suite);
 		// Функция выработки ключа способа
-		const kdf_t kdf = ::__ants_derivation__(kem);
+		const kdf_t kdf = ::__nts_derivation__(kem);
 		// Длина общего значения способа
-		const size_t size = ::__ants_nsecret__(kem);
+		const size_t size = ::__nts_nsecret__(kem);
 		// Если функция одноступенчатая
-		if(::__ants_onestage__(kdf))
+		if(::__nts_onestage__(kdf))
 			// Вырабатываем общее значение выжиманием
-			return ::__ants_labeled__(kdf, view_t(suite, sizeof(suite)), "shared_secret", binding, shared, result, size);
+			return ::__nts_labeled__(kdf, view_t(suite, sizeof(suite)), "shared_secret", binding, shared, result, size);
 		// Алгоритм хеширования функции способа
-		const digest::hash_t hash = ::__ants_hashing__(kdf);
+		const digest::hash_t hash = ::__nts_hashing__(kdf);
 		// Псевдослучайный ключ извлечения
 		uint8_t prk[HASH_SIZE];
 		// Извлекаем ключ из общих значений
-		if(!::__ants_absorb__(hash, view_t(), view_t(suite, sizeof(suite)), "eae_prk", shared, prk)){
+		if(!::__nts_absorb__(hash, view_t(), view_t(suite, sizeof(suite)), "eae_prk", shared, prk)){
 			// Стираем ключ извлечения
 			wipe(prk, sizeof(prk));
 			// Выводим отказ выработки
 			return false;
 		}
 		// Растягиваем ключ в общее значение
-		const bool status = ::__ants_unfold__(hash, view_t(prk, digest::length(hash)), view_t(suite, sizeof(suite)), "shared_secret", binding, result, size);
+		const bool status = ::__nts_unfold__(hash, view_t(prk, digest::length(hash)), view_t(suite, sizeof(suite)), "shared_secret", binding, result, size);
 		// Стираем ключ извлечения
 		wipe(prk, sizeof(prk));
 		// Выводим итог выработки
@@ -1043,13 +1044,13 @@ namespace {
 	 * @return         признак успешности выработки
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_expand__(const kem_t kem, const view_t & material, uint8_t * secret, uint8_t * point) noexcept {
+	static __NTS_INLINE__ bool __nts_expand__(const kem_t kem, const view_t & material, uint8_t * secret, uint8_t * point) noexcept {
 		// Опознаватель способа инкапсуляции
 		uint8_t suite[KEM_STAMP];
 		// Составляем опознаватель способа
-		::__ants_stamp__(kem, suite);
+		::__nts_stamp__(kem, suite);
 		// Функция выработки ключа способа
-		const kdf_t kdf = ::__ants_derivation__(kem);
+		const kdf_t kdf = ::__nts_derivation__(kem);
 		// Длина секретного ключа способа
 		const size_t size = nts::hpke::secret(kem);
 		/**
@@ -1063,17 +1064,17 @@ namespace {
 				// Признак успешности выработки
 				bool status = false;
 				// Если функция одноступенчатая
-				if(::__ants_onestage__(kdf))
+				if(::__nts_onestage__(kdf))
 					// Вырабатываем ключ выжиманием
-					status = ::__ants_labeled__(kdf, view_t(suite, sizeof(suite)), "sk", view_t(), material, key, sizeof(key));
+					status = ::__nts_labeled__(kdf, view_t(suite, sizeof(suite)), "sk", view_t(), material, key, sizeof(key));
 				// Если функция многоступенчатая
 				else {
 					// Псевдослучайный ключ извлечения
 					uint8_t prk[HASH_SIZE];
 					// Извлекаем ключ из материала
-					status = ::__ants_absorb__(digest::hash_t::SHA256, view_t(), view_t(suite, sizeof(suite)), "dkp_prk", material, prk);
+					status = ::__nts_absorb__(digest::hash_t::SHA256, view_t(), view_t(suite, sizeof(suite)), "dkp_prk", material, prk);
 					// Растягиваем ключ в секретный ключ
-					status = (status && ::__ants_unfold__(digest::hash_t::SHA256, view_t(prk, digest::length(digest::hash_t::SHA256)), view_t(suite, sizeof(suite)), "sk", view_t(), key, sizeof(key)));
+					status = (status && ::__nts_unfold__(digest::hash_t::SHA256, view_t(prk, digest::length(digest::hash_t::SHA256)), view_t(suite, sizeof(suite)), "sk", view_t(), key, sizeof(key)));
 					// Стираем ключ извлечения
 					wipe(prk, sizeof(prk));
 				}
@@ -1095,17 +1096,17 @@ namespace {
 				// Признак успешности выработки
 				bool status = false;
 				// Если функция одноступенчатая
-				if(::__ants_onestage__(kdf))
+				if(::__nts_onestage__(kdf))
 					// Вырабатываем ключ выжиманием
-					status = ::__ants_labeled__(kdf, view_t(suite, sizeof(suite)), "sk", view_t(), material, key, sizeof(key));
+					status = ::__nts_labeled__(kdf, view_t(suite, sizeof(suite)), "sk", view_t(), material, key, sizeof(key));
 				// Если функция многоступенчатая
 				else {
 					// Псевдослучайный ключ извлечения
 					uint8_t prk[HASH_SIZE];
 					// Извлекаем ключ из материала
-					status = ::__ants_absorb__(digest::hash_t::SHA512, view_t(), view_t(suite, sizeof(suite)), "dkp_prk", material, prk);
+					status = ::__nts_absorb__(digest::hash_t::SHA512, view_t(), view_t(suite, sizeof(suite)), "dkp_prk", material, prk);
 					// Растягиваем ключ в секретный ключ
-					status = (status && ::__ants_unfold__(digest::hash_t::SHA512, view_t(prk, digest::length(digest::hash_t::SHA512)), view_t(suite, sizeof(suite)), "sk", view_t(), key, sizeof(key)));
+					status = (status && ::__nts_unfold__(digest::hash_t::SHA512, view_t(prk, digest::length(digest::hash_t::SHA512)), view_t(suite, sizeof(suite)), "sk", view_t(), key, sizeof(key)));
 					// Стираем ключ извлечения
 					wipe(prk, sizeof(prk));
 				}
@@ -1127,7 +1128,7 @@ namespace {
 				// Кривая набора
 				curve::curve_t curve;
 				// Если параметры кривой не найдены
-				if(!curve::parameters(::__ants_curveoid__(kem), curve))
+				if(!curve::parameters(::__nts_curveoid__(kem), curve))
 					// Выводим отказ выработки
 					return false;
 				// Арифметика порядка подгруппы точек кривой
@@ -1143,9 +1144,9 @@ namespace {
 				// Признак извлечения ключа
 				bool keyed = false;
 				// Если функция двухступенчатая: извлекаем ключ из материала один раз
-				if(!::__ants_onestage__(kdf))
+				if(!::__nts_onestage__(kdf))
 					// Извлекаем ключ из материала
-					keyed = ::__ants_absorb__(::__ants_hashing__(kdf), view_t(), view_t(suite, sizeof(suite)), "dkp_prk", material, prk);
+					keyed = ::__nts_absorb__(::__nts_hashing__(kdf), view_t(), view_t(suite, sizeof(suite)), "dkp_prk", material, prk);
 				/**
 				 * Отбираем кандидатов в секретный ключ до годного значения скаляра
 				 */
@@ -1153,13 +1154,13 @@ namespace {
 					// Номер кандидата
 					const uint8_t number = static_cast <uint8_t> (counter);
 					// Если функция одноступенчатая
-					if(::__ants_onestage__(kdf))
+					if(::__nts_onestage__(kdf))
 						// Вырабатываем кандидата выжиманием
-						status = ::__ants_labeled__(kdf, view_t(suite, sizeof(suite)), "candidate", view_t(&number, sizeof(number)), material, candidate, size);
+						status = ::__nts_labeled__(kdf, view_t(suite, sizeof(suite)), "candidate", view_t(&number, sizeof(number)), material, candidate, size);
 					// Иначе растягиваем кандидата из извлечённого ключа
 					else
 						// Вырабатываем кандидата растяжением
-						status = (keyed && ::__ants_unfold__(::__ants_hashing__(kdf), view_t(prk, digest::length(::__ants_hashing__(kdf))), view_t(suite, sizeof(suite)), "candidate", view_t(&number, sizeof(number)), candidate, size));
+						status = (keyed && ::__nts_unfold__(::__nts_hashing__(kdf), view_t(prk, digest::length(::__nts_hashing__(kdf))), view_t(suite, sizeof(suite)), "candidate", view_t(&number, sizeof(number)), candidate, size));
 					// Если кандидат не выработан
 					if(!status)
 						// Прерываем отбор
@@ -1225,11 +1226,11 @@ namespace {
 	 * @return       признак успешности выработки
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_exchange__(const kem_t kem, const view_t & secret, const view_t & peer, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_exchange__(const kem_t kem, const view_t & secret, const view_t & peer, uint8_t * result) noexcept {
 		// Кривая набора
 		curve::curve_t curve;
 		// Если параметры кривой не найдены либо точка не в несжатом виде
-		if(!curve::parameters(::__ants_curveoid__(kem), curve) || (peer.data == nullptr) || (peer.size != (1 + (2 * curve.size()))) || (peer.data[0] != 0x04))
+		if(!curve::parameters(::__nts_curveoid__(kem), curve) || (peer.data == nullptr) || (peer.size != (1 + (2 * curve.size()))) || (peer.data[0] != 0x04))
 			// Выводим отказ выработки
 			return false;
 		// Размер записи координаты кривой
@@ -1237,12 +1238,12 @@ namespace {
 		// Секретный ключ младшим байтом вперёд
 		uint8_t scalar[SCALAR_SIZE];
 		// Переводим секретный ключ в запись младшим байтом вперёд
-		::__ants_reverse__(secret.data, scalar, size);
+		::__nts_reverse__(secret.data, scalar, size);
 		// Точка младшим байтом вперёд
 		uint8_t raw[math::NUMBER_SIZE * 2];
 		// Переводим координаты точки в запись младшим байтом вперёд
-		::__ants_reverse__(peer.data + 1, raw, size);
-		::__ants_reverse__(peer.data + 1 + size, raw + size, size);
+		::__nts_reverse__(peer.data + 1, raw, size);
+		::__nts_reverse__(peer.data + 1 + size, raw + size, size);
 		// Общее значение младшим байтом вперёд
 		uint8_t little[math::NUMBER_SIZE];
 		// Вырабатываем общее значение
@@ -1250,10 +1251,12 @@ namespace {
 		// Переводим общее значение в запись старшим байтом вперёд
 		if(status)
 			// Переводим запись
-			::__ants_reverse__(little, result, size);
-		// Стираем записи
-		wipe(scalar, sizeof(scalar));
+			::__nts_reverse__(little, result, size);
+		/**
+		 * Стираем записи
+		 */
 		wipe(raw, sizeof(raw));
+		wipe(scalar, sizeof(scalar));
 		wipe(little, sizeof(little));
 		// Выводим итог выработки
 		return status;
@@ -1267,11 +1270,11 @@ namespace {
 	 * @return       признак успешности выработки
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_publish__(const kem_t kem, const view_t & secret, uint8_t * point) noexcept {
+	static __NTS_INLINE__ bool __nts_publish__(const kem_t kem, const view_t & secret, uint8_t * point) noexcept {
 		// Кривая набора
 		curve::curve_t curve;
 		// Если параметры кривой не найдены
-		if(!curve::parameters(::__ants_curveoid__(kem), curve))
+		if(!curve::parameters(::__nts_curveoid__(kem), curve))
 			// Выводим отказ выработки
 			return false;
 		// Число секретного ключа
@@ -1324,9 +1327,9 @@ namespace {
 	 * @return       признак успешности выработки
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_expandmlkem__(const kem_t kem, const view_t & seed, uint8_t * point) noexcept {
+	static __NTS_INLINE__ bool __nts_expandmlkem__(const kem_t kem, const view_t & seed, uint8_t * point) noexcept {
 		// Набор параметров ML-KEM
-		const agreement::kem_t set = ::__ants_mlkemset__(kem);
+		const agreement::kem_t set = ::__nts_mlkemset__(kem);
 		// Ключ декапсуляции полной записью стандарта: dk_PKE ‖ ek ‖ H(ek) ‖ z
 		uint8_t expanded[3168];
 		// Вырабатываем пару ключей из зерна
@@ -1348,11 +1351,11 @@ namespace {
 	 * @return       признак успешности отбора
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_pick__(const kem_t kem, const view_t & seed, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_pick__(const kem_t kem, const view_t & seed, uint8_t * result) noexcept {
 		// Кривая набора
 		curve::curve_t curve;
 		// Если параметры кривой не найдены
-		if(!curve::parameters(::__ants_curveoid__(kem), curve))
+		if(!curve::parameters(::__nts_curveoid__(kem), curve))
 			// Выводим отказ отбора
 			return false;
 		// Признак успешности отбора
@@ -1391,13 +1394,13 @@ namespace {
 	 * @return        признак успешности выработки
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_spread__(const kem_t kem, const view_t & seed, uint8_t * kemSeed, uint8_t * trad) noexcept {
+	static __NTS_INLINE__ bool __nts_spread__(const kem_t kem, const view_t & seed, uint8_t * kemSeed, uint8_t * trad) noexcept {
 		// Длина зерна традиционной составляющей
-		const size_t size = ::__ants_tradition__(kem);
+		const size_t size = ::__nts_tradition__(kem);
 		// Зерно целиком
 		uint8_t full[SEED_FULL];
 		// Вырабатываем зерно выжиманием SHAKE256
-		::__ants_xof__(kdf_t::SHAKE256, &seed, 1, full, MLKEM_SEED_SIZE + size);
+		::__nts_xof__(kdf_t::SHAKE256, &seed, 1, full, MLKEM_SEED_SIZE + size);
 		// Разрезаем зерно: впереди зерно ML-KEM
 		::memcpy(kemSeed, full, MLKEM_SEED_SIZE);
 		// Затем зерно группы
@@ -1421,7 +1424,7 @@ namespace {
 	 * @param result место под общее значение в тридцать два байта
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_fuse__(const kem_t kem, const view_t & ssPQ, const view_t & ssT, const view_t & ctT, const view_t & ekT, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_fuse__(const kem_t kem, const view_t & ssPQ, const view_t & ssT, const view_t & ctT, const view_t & ekT, uint8_t * result) noexcept {
 		// Объект губки
 		digest::keccak_t hash(digest::sha3_t::SHA3_256);
 		// Подаём общее значение ML-KEM
@@ -1433,7 +1436,7 @@ namespace {
 		// Подаём открытый ключ традиционной составляющей получателя
 		hash.update(ekT);
 		// Подаём метку способа
-		hash.update(view_t(::__ants_hybridlabel__(kem), ::__ants_hybridmark__(kem)));
+		hash.update(view_t(::__nts_hybridlabel__(kem), ::__nts_hybridmark__(kem)));
 		// Снимаем итог
 		std::ignore = hash.finish(result, MLKEM_SHARED_SIZE);
 	}
@@ -1444,7 +1447,7 @@ namespace {
 	 * @return     признак того, что режим известен
 	 *
 	 */
-	static constexpr bool __ants_admissible__(const regime_t mode) noexcept {
+	static constexpr bool __nts_admissible__(const regime_t mode) noexcept {
 		/**
 		 * Определяем режим работы
 		 */
@@ -1467,7 +1470,7 @@ namespace {
 	 * @return     признак того, что режим требует ключ отправителя
 	 *
 	 */
-	static constexpr bool __ants_demanding__(const regime_t mode) noexcept {
+	static constexpr bool __nts_demanding__(const regime_t mode) noexcept {
 		// Выводим признак режимов AUTH и AUTH_PSK
 		return ((mode == regime_t::AUTH) || (mode == regime_t::AUTH_PSK));
 	}
@@ -1478,7 +1481,7 @@ namespace {
 	 * @return     признак того, что режим требует заранее разделённый ключ
 	 *
 	 */
-	static constexpr bool __ants_preshared__(const regime_t mode) noexcept {
+	static constexpr bool __nts_preshared__(const regime_t mode) noexcept {
 		// Выводим признак режимов PSK и AUTH_PSK
 		return ((mode == regime_t::PSK) || (mode == regime_t::AUTH_PSK));
 	}
@@ -1532,11 +1535,11 @@ nts::hpke::Shared::Shared(const view_t & key, const view_t & identity) noexcept 
  */
 size_t nts::hpke::length(const kdf_t kdf) noexcept {
 	// Если функция одноступенчатая: Nh таблицы 1 draft-ietf-hpke-pq
-	if(::__ants_onestage__(kdf))
+	if(::__nts_onestage__(kdf))
 		// Выводим длину: 32 у SHAKE128 и TurboSHAKE128, 64 у SHAKE256 и TurboSHAKE256
 		return (((kdf == kdf_t::SHAKE128) || (kdf == kdf_t::TURBOSHAKE128)) ? 32 : 64);
 	// Выводим длину хеша алгоритма функции
-	return digest::length(::__ants_hashing__(kdf));
+	return digest::length(::__nts_hashing__(kdf));
 }
 /**
  * @brief Функция извлечения длины открытого ключа способа инкапсуляции
@@ -1703,11 +1706,11 @@ size_t nts::hpke::overhead(const kem_t kem) noexcept {
  */
 size_t nts::hpke::material(const kem_t kem) noexcept {
 	// У чистого ML-KEM материал - зерно в шестьдесят четыре байта
-	if(::__ants_puremlkem__(kem))
+	if(::__nts_puremlkem__(kem))
 		// Выводим длину зерна
 		return MLKEM_SEED_SIZE;
 	// У гибридов материал - зерно в тридцать два байта
-	if(::__ants_hybrid__(kem))
+	if(::__nts_hybrid__(kem))
 		// Выводим длину зерна
 		return HYBRID_SEED_SIZE;
 	// У способов Диффи-Хеллмана материал не короче секретного ключа (раздел 7.1.3 RFC 9180)
@@ -1722,7 +1725,7 @@ size_t nts::hpke::material(const kem_t kem) noexcept {
  */
 bool nts::hpke::authenticated(const kem_t kem) noexcept {
 	// Выводим признак способов Диффи-Хеллмана: раздел 7.2 draft-ietf-hpke-pq
-	return ::__ants_diffie__(kem);
+	return ::__nts_diffie__(kem);
 }
 /**
  * @brief Функция извлечения длины ключа шифра
@@ -1784,7 +1787,7 @@ bool nts::hpke::supported(const suite_t & suite) noexcept {
 		// Выводим отсутствие поддержки
 		return false;
 	// Если функция выработки ключа не поддерживается
-	if((::__ants_hashing__(suite.kdf) == digest::hash_t::NONE) && !::__ants_onestage__(suite.kdf))
+	if((::__nts_hashing__(suite.kdf) == digest::hash_t::NONE) && !::__nts_onestage__(suite.kdf))
 		// Выводим отсутствие поддержки
 		return false;
 	// Выводим признак поддержки шифра
@@ -1871,7 +1874,7 @@ nts::hpke::error_t nts::hpke::Key::generate(const kem_t kem) noexcept {
 			// Кривая набора
 			curve::curve_t curve;
 			// Если параметры кривой не найдены
-			if(!curve::parameters(::__ants_curveoid__(kem), curve))
+			if(!curve::parameters(::__nts_curveoid__(kem), curve))
 				// Выходим из условия
 				break;
 			// Секретный ключ и точка младшим байтом вперёд
@@ -1881,12 +1884,12 @@ nts::hpke::error_t nts::hpke::Key::generate(const kem_t kem) noexcept {
 			// Переводим ключи в запись старшим байтом вперёд
 			if(status){
 				// Переводим секретный ключ
-				::__ants_reverse__(scalar, this->_secret, size);
+				::__nts_reverse__(scalar, this->_secret, size);
 				// Складываем открытый ключ в несжатом виде
 				this->_point[0] = 0x04;
 				// Переводим точку в запись старшим байтом вперёд
-				::__ants_reverse__(raw, this->_point + 1, size);
-				::__ants_reverse__(raw + size, this->_point + 1 + size, size);
+				::__nts_reverse__(raw, this->_point + 1, size);
+				::__nts_reverse__(raw + size, this->_point + 1 + size, size);
 			}
 			// Стираем запись точки младшего байта вперёд
 			wipe(raw, sizeof(raw));
@@ -1898,7 +1901,7 @@ nts::hpke::error_t nts::hpke::Key::generate(const kem_t kem) noexcept {
 		case static_cast <uint16_t> (kem_t::MLKEM768):
 		case static_cast <uint16_t> (kem_t::MLKEM1024): {
 			// Вырабатываем зерно из случайных байтов и пару ключей из зерна
-			status = (entropy::bytes(seed, MLKEM_SEED_SIZE) && ::__ants_expandmlkem__(kem, view_t(seed, MLKEM_SEED_SIZE), this->_point));
+			status = (entropy::bytes(seed, MLKEM_SEED_SIZE) && ::__nts_expandmlkem__(kem, view_t(seed, MLKEM_SEED_SIZE), this->_point));
 			// Переносим зерно в секретный ключ
 			if(status)
 				// Копируем зерно
@@ -1958,21 +1961,21 @@ nts::hpke::error_t nts::hpke::Key::derive(const kem_t kem, const view_t & materi
 	// Признак успешности выработки
 	bool status = false;
 	// Если способ Диффи-Хеллмана
-	if(::__ants_diffie__(kem))
+	if(::__nts_diffie__(kem))
 		// Вырабатываем пару ключей способа из материала
-		status = ::__ants_expand__(kem, material, this->_secret, this->_point);
+		status = ::__nts_expand__(kem, material, this->_secret, this->_point);
 	// Если способ чистый ML-KEM
-	else if(::__ants_puremlkem__(kem)) {
+	else if(::__nts_puremlkem__(kem)) {
 		// Опознаватель способа инкапсуляции
 		uint8_t suite[KEM_STAMP];
 		// Зерно выработки пары ключей
 		uint8_t seed[MLKEM_SEED_SIZE];
 		// Составляем опознаватель способа
-		::__ants_stamp__(kem, suite);
+		::__nts_stamp__(kem, suite);
 		// Вырабатываем зерно меченой выработкой
-		status = ::__ants_labeled__(::__ants_derivation__(kem), view_t(suite, sizeof(suite)), "DeriveKeyPair", view_t(), material, seed, sizeof(seed));
+		status = ::__nts_labeled__(::__nts_derivation__(kem), view_t(suite, sizeof(suite)), "DeriveKeyPair", view_t(), material, seed, sizeof(seed));
 		// Вырабатываем пару ключей из зерна
-		status = (status && ::__ants_expandmlkem__(kem, view_t(seed, sizeof(seed)), this->_point));
+		status = (status && ::__nts_expandmlkem__(kem, view_t(seed, sizeof(seed)), this->_point));
 		// Переносим зерно в секретный ключ
 		if(status)
 			// Копируем зерно
@@ -1980,15 +1983,15 @@ nts::hpke::error_t nts::hpke::Key::derive(const kem_t kem, const view_t & materi
 		// Стираем зерно
 		wipe(seed, sizeof(seed));
 	// Если способ гибридный
-	} else if(::__ants_hybrid__(kem)) {
+	} else if(::__nts_hybrid__(kem)) {
 		// Опознаватель способа инкапсуляции
 		uint8_t suite[KEM_STAMP];
 		// Зерно выработки пары ключей
 		uint8_t seed[HYBRID_SEED_SIZE];
 		// Составляем опознаватель способа
-		::__ants_stamp__(kem, suite);
+		::__nts_stamp__(kem, suite);
 		// Вырабатываем зерно меченой выработкой
-		status = ::__ants_labeled__(::__ants_derivation__(kem), view_t(suite, sizeof(suite)), "DeriveKeyPair", view_t(), material, seed, sizeof(seed));
+		status = ::__nts_labeled__(::__nts_derivation__(kem), view_t(suite, sizeof(suite)), "DeriveKeyPair", view_t(), material, seed, sizeof(seed));
 		// Вырабатываем пару ключей из зерна
 		status = (status && this->grown(kem, view_t(seed, sizeof(seed))));
 		// Переносим зерно в секретный ключ
@@ -2056,14 +2059,14 @@ nts::hpke::error_t nts::hpke::Key::set(const kem_t kem, const view_t & secret) n
 		case static_cast <uint16_t> (kem_t::P384_HKDF_SHA384):
 		case static_cast <uint16_t> (kem_t::P521_HKDF_SHA512):
 			// Вычисляем открытый ключ с проверкой скаляра
-			status = ::__ants_publish__(kem, secret, this->_point);
+			status = ::__nts_publish__(kem, secret, this->_point);
 		break;
 		// Чистый ML-KEM
 		case static_cast <uint16_t> (kem_t::MLKEM512):
 		case static_cast <uint16_t> (kem_t::MLKEM768):
 		case static_cast <uint16_t> (kem_t::MLKEM1024):
 			// Вырабатываем открытый ключ из зерна
-			status = ::__ants_expandmlkem__(kem, secret, this->_point);
+			status = ::__nts_expandmlkem__(kem, secret, this->_point);
 		break;
 		// Гибридные способы
 		case static_cast <uint16_t> (kem_t::MLKEM768_P256):
@@ -2103,13 +2106,13 @@ bool nts::hpke::Key::grown(const kem_t kem, const view_t & seed) noexcept {
 	// Зёрна составляющих: ML-KEM и группы
 	uint8_t kemSeed[MLKEM_SEED_SIZE], trad[128];
 	// Растягиваем зерно в зёрна составляющих
-	bool status = ::__ants_spread__(kem, seed, kemSeed, trad);
+	bool status = ::__nts_spread__(kem, seed, kemSeed, trad);
 	// Если зёрна выработаны
 	if(status){
 		// Набор параметров ML-KEM
-		const agreement::kem_t set = ::__ants_mlkemset__(kem);
+		const agreement::kem_t set = ::__nts_mlkemset__(kem);
 		// Вырабатываем открытый ключ ML-KEM из зерна
-		status = ::__ants_expandmlkem__(kem, view_t(kemSeed, sizeof(kemSeed)), this->_point);
+		status = ::__nts_expandmlkem__(kem, view_t(kemSeed, sizeof(kemSeed)), this->_point);
 		// Если способ с группой Curve25519
 		if(status && (kem == kem_t::MLKEM768_X25519))
 			// Вычисляем открытый ключ X25519 из зерна как скаляра
@@ -2119,9 +2122,9 @@ bool nts::hpke::Key::grown(const kem_t kem, const view_t & seed) noexcept {
 			// Скаляр группы
 			uint8_t scalar[SCALAR_SIZE];
 			// Отбираем скаляр из зерна
-			status = ::__ants_pick__(kem, view_t(trad, ::__ants_tradition__(kem)), scalar);
+			status = ::__nts_pick__(kem, view_t(trad, ::__nts_tradition__(kem)), scalar);
 			// Вычисляем открытый ключ по скаляру
-			status = (status && ::__ants_publish__(kem, view_t(scalar, ((kem == kem_t::MLKEM768_P256) ? 32 : 48)), this->_point + agreement::encapsulation(set)));
+			status = (status && ::__nts_publish__(kem, view_t(scalar, ((kem == kem_t::MLKEM768_P256) ? 32 : 48)), this->_point + agreement::encapsulation(set)));
 			// Стираем скаляр
 			wipe(scalar, sizeof(scalar));
 		}
@@ -2145,10 +2148,10 @@ void nts::hpke::Key::clear() noexcept {
 	this->_secretSize = 0;
 	// Сбрасываем способ инкапсуляции
 	this->_kem = kem_t::NONE;
-	// Стираем секретный ключ
-	wipe(this->_secret, sizeof(this->_secret));
 	// Стираем открытый ключ
 	wipe(this->_point, sizeof(this->_point));
+	// Стираем секретный ключ
+	wipe(this->_secret, sizeof(this->_secret));
 }
 /**
  * @brief Конструктор пустой пары ключей
@@ -2191,7 +2194,7 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 		// Выводим отказ набора
 		return error_t::SUITE;
 	// Если режим неизвестен
-	if(!::__ants_admissible__(mode))
+	if(!::__nts_admissible__(mode))
 		// Выводим отказ режима
 		return error_t::MODE;
 	// Признак заданного ключа
@@ -2203,7 +2206,7 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 		// Выводим отказ ключа
 		return error_t::PSK;
 	// Если наличие ключа не отвечает режиму: раздел 5.1 RFC 9180
-	if(keyed != ::__ants_preshared__(mode))
+	if(keyed != ::__nts_preshared__(mode))
 		// Выводим отказ ключа
 		return error_t::PSK;
 	// Если просмотры заданы длиной без места
@@ -2217,13 +2220,13 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 	// Опознаватель набора
 	uint8_t identifier[SUITE_STAMP];
 	// Составляем опознаватель набора
-	::__ants_stamp__(suite, identifier);
+	::__nts_stamp__(suite, identifier);
 	// Просмотр опознавателя набора
 	const view_t label(identifier, sizeof(identifier));
 	// Признак успешности выработки
 	bool status = true;
 	// Если функция выработки ключа одноступенчатая
-	if(::__ants_onestage__(suite.kdf)){
+	if(::__nts_onestage__(suite.kdf)){
 		/**
 		 * @brief Длина хеша функции выработки ключа
 		 *
@@ -2243,7 +2246,7 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 		// Куски секретов: длина ключа, ключ, длина общего значения, общее значение
 		view_t secrets[4];
 		// Записываем длину заранее разделённого ключа
-		::__ants_inscribe__(static_cast <uint16_t> (psk.key.size), span);
+		::__nts_inscribe__(static_cast <uint16_t> (psk.key.size), span);
 		// Подаём длину ключа
 		secrets[0] = view_t(span, sizeof(span));
 		// Подаём ключ
@@ -2257,7 +2260,7 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 		// Двухбайтовая запись длины общего значения
 		uint8_t span2[2];
 		// Записываем длину общего значения
-		::__ants_inscribe__(static_cast <uint16_t> (shared.size), span2);
+		::__nts_inscribe__(static_cast <uint16_t> (shared.size), span2);
 		// Подаём длину общего значения
 		secrets[2] = view_t(span2, sizeof(span2));
 		// Подаём общее значение
@@ -2265,7 +2268,7 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 		// Двухбайтовая запись длины опознавателя
 		uint8_t span3[2];
 		// Записываем длину опознавателя
-		::__ants_inscribe__(static_cast <uint16_t> (psk.identity.size), span3);
+		::__nts_inscribe__(static_cast <uint16_t> (psk.identity.size), span3);
 		// Подаём длину опознавателя
 		binding[1] = view_t(span3, sizeof(span3));
 		// Подаём опознаватель
@@ -2273,7 +2276,7 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 		// Двухбайтовая запись длины привязки к применению
 		uint8_t span4[2];
 		// Записываем длину привязки к применению
-		::__ants_inscribe__(static_cast <uint16_t> (info.size), span4);
+		::__nts_inscribe__(static_cast <uint16_t> (info.size), span4);
 		// Подаём длину привязки к применению
 		binding[3] = view_t(span4, sizeof(span4));
 		// Подаём привязку к применению
@@ -2307,7 +2310,7 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 			offset += binding[i].size;
 		}
 		// Вырабатываем секрет расписания целиком меченой выработкой
-		status = ::__ants_labeled__(suite.kdf, label, "secret", view_t(bound, offset), view_t(pooled, pooledsize), secret, keysize + noncesize + width);
+		status = ::__nts_labeled__(suite.kdf, label, "secret", view_t(bound, offset), view_t(pooled, pooledsize), secret, keysize + noncesize + width);
 		/**
 		 * Стираем накопители
 		 */
@@ -2333,15 +2336,15 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 		// Записываем режим
 		schedule[0] = static_cast <uint8_t> (mode);
 		// Алгоритм хеширования функции выработки ключа
-		const digest::hash_t hash = ::__ants_hashing__(suite.kdf);
+		const digest::hash_t hash = ::__nts_hashing__(suite.kdf);
 		// Длина хеша функции выработки ключа
 		const size_t length = digest::length(hash);
 		// Вырабатываем хеш опознавателя ключа
-		status = ::__ants_absorb__(hash, view_t(), label, "psk_id_hash", psk.identity, schedule + 1);
+		status = ::__nts_absorb__(hash, view_t(), label, "psk_id_hash", psk.identity, schedule + 1);
 		// Вырабатываем хеш привязки к применению
-		status = (status && ::__ants_absorb__(hash, view_t(), label, "info_hash", info, schedule + 1 + length));
+		status = (status && ::__nts_absorb__(hash, view_t(), label, "info_hash", info, schedule + 1 + length));
 		// Вырабатываем секрет расписания на общем значении
-		status = (status && ::__ants_absorb__(hash, shared, label, "secret", psk.key, secret));
+		status = (status && ::__nts_absorb__(hash, shared, label, "secret", psk.key, secret));
 		// Просмотр секрета расписания
 		const view_t prk(secret, length);
 		// Просмотр привязки расписания
@@ -2349,12 +2352,12 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 		// Если набор шифрует
 		if(suite.aead != aead_t::EXPORT_ONLY){
 			// Вырабатываем ключ шифра
-			status = (status && ::__ants_unfold__(hash, prk, label, "key", binding, this->_key, hpke::length(suite.aead)));
+			status = (status && ::__nts_unfold__(hash, prk, label, "key", binding, this->_key, hpke::length(suite.aead)));
 			// Вырабатываем начальное заполнение
-			status = (status && ::__ants_unfold__(hash, prk, label, "base_nonce", binding, this->_nonce, NONCE_SIZE));
+			status = (status && ::__nts_unfold__(hash, prk, label, "base_nonce", binding, this->_nonce, NONCE_SIZE));
 		}
 		// Вырабатываем секрет экспорта
-		status = (status && ::__ants_unfold__(hash, prk, label, "exp", binding, this->_exporter, length));
+		status = (status && ::__nts_unfold__(hash, prk, label, "exp", binding, this->_exporter, length));
 		// Стираем секрет расписания
 		wipe(secret, sizeof(secret));
 		// Стираем привязку расписания
@@ -2684,15 +2687,15 @@ nts::hpke::error_t nts::hpke::Context::exporter(const view_t & context, uint8_t 
 	// Опознаватель набора
 	uint8_t identifier[SUITE_STAMP];
 	// Составляем опознаватель набора
-	::__ants_stamp__(this->_suite, identifier);
+	::__nts_stamp__(this->_suite, identifier);
 	// Если функция выработки ключа одноступенчатая
-	if(::__ants_onestage__(this->_suite.kdf))
+	if(::__nts_onestage__(this->_suite.kdf))
 		// Вырабатываем секрет экспорта меченой выработкой: LabeledDerive(exporter_secret, "sec", context, L)
-		status = ::__ants_labeled__(this->_suite.kdf, view_t(identifier, sizeof(identifier)), "sec", context, view_t(this->_exporter, length), result, size);
+		status = ::__nts_labeled__(this->_suite.kdf, view_t(identifier, sizeof(identifier)), "sec", context, view_t(this->_exporter, length), result, size);
 	// Иначе растягиваем секрет экспорта: LabeledExpand(exporter_secret, "sec", context, L)
 	else
 		// Вырабатываем секрет растяжением
-		status = ::__ants_unfold__(::__ants_hashing__(this->_suite.kdf), view_t(this->_exporter, length), view_t(identifier, sizeof(identifier)), "sec", context, result, size);
+		status = ::__nts_unfold__(::__nts_hashing__(this->_suite.kdf), view_t(this->_exporter, length), view_t(identifier, sizeof(identifier)), "sec", context, result, size);
 	// Если выработка не удалась
 	if(!status){
 		// Стираем место под секрет
@@ -2781,7 +2784,7 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 	// Признак успешности выработки
 	bool status = false;
 	// Если способ Диффи-Хеллмана
-	if(::__ants_diffie__(kem)){
+	if(::__nts_diffie__(kem)){
 		// Размер общего значения кривой
 		const size_t size = hpke::secret(kem);
 		// Общие значения Диффи-Хеллмана: мимолётное и отправителя
@@ -2811,11 +2814,11 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 			// DHKEM кривых NIST
 			default: {
 				// Вырабатываем мимолётное общее значение
-				status = ::__ants_exchange__(kem, ephemeral.secret(), point, dhValues);
+				status = ::__nts_exchange__(kem, ephemeral.secret(), point, dhValues);
 				// Если подлинность отправителя требуется
 				if(status && (authenticator != nullptr))
 					// Вырабатываем общее значение отправителя
-					status = ::__ants_exchange__(kem, authenticator->secret(), point, dhValues + size);
+					status = ::__nts_exchange__(kem, authenticator->secret(), point, dhValues + size);
 			}
 		}
 		// Если общие значения выработаны
@@ -2833,7 +2836,7 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 			// Длина занятой части общих значений
 			const size_t width = ((authenticator != nullptr) ? (2 * size) : size);
 			// Вырабатываем общее значение
-			status = ::__ants_combine__(kem, view_t(dhValues, width), view_t(binding, ephemeral.point().size + point.size + ((authenticator != nullptr) ? authenticator->point().size : 0)), shared);
+			status = ::__nts_combine__(kem, view_t(dhValues, width), view_t(binding, ephemeral.point().size + point.size + ((authenticator != nullptr) ? authenticator->point().size : 0)), shared);
 			// Стираем привязку
 			wipe(binding, sizeof(binding));
 		}
@@ -2844,9 +2847,9 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 			// Копируем инкапсулированный ключ
 			::memcpy(result, ephemeral.point().data, ephemeral.point().size);
 	// Если способ чистый ML-KEM
-	} else if(::__ants_puremlkem__(kem)) {
+	} else if(::__nts_puremlkem__(kem)) {
 		// Набор параметров ML-KEM
-		const agreement::kem_t set = ::__ants_mlkemset__(kem);
+		const agreement::kem_t set = ::__nts_mlkemset__(kem);
 		// Если ключ инкапсуляции негоден: раздел 3 draft-ietf-hpke-pq
 		if(!agreement::validate(set, point))
 			// Выводим отказ инкапсуляции
@@ -2854,9 +2857,9 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 		// Инкапсулируем ключ на мимолётном зерне как сообщении
 		status = agreement::encapsulate(set, point, view_t(ephemeral.secret().data, MLKEM_MESSAGE_SIZE), result, shared);
 	// Если способ гибридный
-	} else if(::__ants_hybrid__(kem)) {
+	} else if(::__nts_hybrid__(kem)) {
 		// Набор параметров ML-KEM
-		const agreement::kem_t set = ::__ants_mlkemset__(kem);
+		const agreement::kem_t set = ::__nts_mlkemset__(kem);
 		// Длина ключа инкапсуляции ML-KEM
 		const size_t pksize = agreement::encapsulation(set);
 		// Длина шифртекста ML-KEM
@@ -2868,7 +2871,7 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 		// Зёрна составляющих из зерна мимолётной пары: сообщение ML-KEM и зерно группы
 		uint8_t kemSeed[MLKEM_SEED_SIZE], trad[128];
 		// Растягиваем зерно мимолётной пары в зёрна составляющих
-		::__ants_spread__(kem, ephemeral.secret(), kemSeed, trad);
+		::__nts_spread__(kem, ephemeral.secret(), kemSeed, trad);
 		// Общие значения составляющих
 		uint8_t ssPQ[MLKEM_SHARED_SIZE], ssT[SCALAR_SIZE];
 		// Инкапсулируем ключ ML-KEM на зерне как сообщении
@@ -2886,11 +2889,11 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 			// Мимолётный скаляр: зерно традиционной составляющей
 			uint8_t scalar[SCALAR_SIZE];
 			// Отбираем скаляр из зерна
-			status = ::__ants_pick__(kem, view_t(trad, ::__ants_tradition__(kem)), scalar);
+			status = ::__nts_pick__(kem, view_t(trad, ::__nts_tradition__(kem)), scalar);
 			// Вырабатываем мимолётный открытый ключ
-			status = (status && ::__ants_publish__(kem, view_t(scalar, size), result + ctsize));
+			status = (status && ::__nts_publish__(kem, view_t(scalar, size), result + ctsize));
 			// Вырабатываем общее значение традиционной составляющей
-			status = (status && ::__ants_exchange__(kem, view_t(scalar, size), view_t(point.data + pksize, 1 + (2 * size)), ssT));
+			status = (status && ::__nts_exchange__(kem, view_t(scalar, size), view_t(point.data + pksize, 1 + (2 * size)), ssT));
 			// Стираем скаляр
 			wipe(scalar, sizeof(scalar));
 		}
@@ -2904,7 +2907,7 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 			// Длина традиционной части ключа и шифртекста
 			const size_t tsize = ((kem == kem_t::MLKEM768_X25519) ? X25519_SIZE : (1 + (2 * ((kem == kem_t::MLKEM768_P256) ? 32 : 48))));
 			// Вырабатываем общее значение сочетателем C2PRI
-			::__ants_fuse__(kem, view_t(ssPQ, sizeof(ssPQ)), view_t(ssT, ((kem == kem_t::MLKEM768_X25519) ? X25519_SIZE : ((kem == kem_t::MLKEM768_P256) ? 32 : 48))), view_t(result + ctsize, tsize), view_t(point.data + pksize, tsize), shared);
+			::__nts_fuse__(kem, view_t(ssPQ, sizeof(ssPQ)), view_t(ssT, ((kem == kem_t::MLKEM768_X25519) ? X25519_SIZE : ((kem == kem_t::MLKEM768_P256) ? 32 : 48))), view_t(result + ctsize, tsize), view_t(point.data + pksize, tsize), shared);
 		}
 		/**
 		 * Стираем общие значения
@@ -2915,7 +2918,7 @@ nts::hpke::error_t nts::hpke::encapsulate(const key_t & ephemeral, const view_t 
 	// Если выработка не удалась
 	if(!status){
 		// Стираем место под общее значение
-		wipe(shared, ::__ants_nsecret__(kem));
+		wipe(shared, ::__nts_nsecret__(kem));
 		// Выводим отказ инкапсуляции
 		return error_t::ENCAPSULATION;
 	}
@@ -2958,7 +2961,7 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 	// Признак успешности выработки
 	bool status = false;
 	// Если способ Диффи-Хеллмана
-	if(::__ants_diffie__(kem)){
+	if(::__nts_diffie__(kem)){
 		// Общие значения Диффи-Хеллмана: мимолётное и отправителя
 		uint8_t dhValues[2 * SCALAR_SIZE];
 		// Размер общего значения кривой
@@ -2988,11 +2991,11 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 			// DHKEM кривых NIST
 			default: {
 				// Вырабатываем мимолётное общее значение
-				status = ::__ants_exchange__(kem, own.secret(), enc, dhValues);
+				status = ::__nts_exchange__(kem, own.secret(), enc, dhValues);
 				// Если подлинность отправителя требуется
 				if(status && authenticated)
 					// Вырабатываем общее значение отправителя
-					status = ::__ants_exchange__(kem, own.secret(), authenticator, dhValues + size);
+					status = ::__nts_exchange__(kem, own.secret(), authenticator, dhValues + size);
 			}
 		}
 		// Если общие значения выработаны
@@ -3010,20 +3013,20 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 			// Длина занятой части общих значений
 			const size_t width = (authenticated ? (2 * size) : size);
 			// Вырабатываем общее значение
-			status = ::__ants_combine__(kem, view_t(dhValues, width), view_t(binding, enc.size + own.point().size + (authenticated ? authenticator.size : 0)), shared);
+			status = ::__nts_combine__(kem, view_t(dhValues, width), view_t(binding, enc.size + own.point().size + (authenticated ? authenticator.size : 0)), shared);
 			// Стираем привязку
 			wipe(binding, sizeof(binding));
 		}
 		// Стираем общие значения
 		wipe(dhValues, sizeof(dhValues));
 	// Если способ чистый ML-KEM
-	} else if(::__ants_puremlkem__(kem)) {
+	} else if(::__nts_puremlkem__(kem)) {
 		// Ключ декапсуляции полной записью стандарта из зерна
 		uint8_t expanded[3168];
 		// Открытый ключ из зерна
 		uint8_t opened[KEM_PUBLIC];
 		// Набор параметров ML-KEM
-		const agreement::kem_t set = ::__ants_mlkemset__(kem);
+		const agreement::kem_t set = ::__nts_mlkemset__(kem);
 		// Разворачиваем зерно в ключ декапсуляции
 		status = agreement::generate(set, own.secret(), opened, expanded);
 		// Декапсулируем ключ
@@ -3034,13 +3037,13 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 		wipe(opened, sizeof(opened));
 		wipe(expanded, sizeof(expanded));
 	// Если способ гибридный
-	} else if(::__ants_hybrid__(kem)) {
+	} else if(::__nts_hybrid__(kem)) {
 		// Открытый ключ ML-KEM из зерна
 		uint8_t opened[1568];
 		// Ключ декапсуляции полной записью стандарта из зерна
 		uint8_t expanded[3168];
 		// Набор параметров ML-KEM
-		const agreement::kem_t set = ::__ants_mlkemset__(kem);
+		const agreement::kem_t set = ::__nts_mlkemset__(kem);
 		// Длина ключа инкапсуляции ML-KEM
 		const size_t pksize = agreement::encapsulation(set);
 		// Длина шифртекста ML-KEM
@@ -3048,7 +3051,7 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 		// Зёрна составляющих из зерна пары
 		uint8_t kemSeed[MLKEM_SEED_SIZE], trad[128];
 		// Растягиваем зерно пары в зёрна составляющих
-		status = ::__ants_spread__(kem, own.secret(), kemSeed, trad);
+		status = ::__nts_spread__(kem, own.secret(), kemSeed, trad);
 		// Разворачиваем зерно ML-KEM в ключ декапсуляции
 		status = (status && agreement::generate(set, view_t(kemSeed, sizeof(kemSeed)), opened, expanded));
 		// Общие значения составляющих
@@ -3066,9 +3069,9 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 			// Скаляр группы
 			uint8_t scalar[SCALAR_SIZE];
 			// Отбираем скаляр из зерна
-			status = ::__ants_pick__(kem, view_t(trad, ::__ants_tradition__(kem)), scalar);
+			status = ::__nts_pick__(kem, view_t(trad, ::__nts_tradition__(kem)), scalar);
 			// Вырабатываем общее значение традиционной составляющей
-			status = (status && ::__ants_exchange__(kem, view_t(scalar, size), view_t(enc.data + ctsize, 1 + (2 * size)), ssT));
+			status = (status && ::__nts_exchange__(kem, view_t(scalar, size), view_t(enc.data + ctsize, 1 + (2 * size)), ssT));
 			// Стираем скаляр
 			wipe(scalar, sizeof(scalar));
 		}
@@ -3077,7 +3080,7 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 			// Длина традиционной части ключа и шифртекста
 			const size_t tsize = ((kem == kem_t::MLKEM768_X25519) ? X25519_SIZE : (1 + (2 * ((kem == kem_t::MLKEM768_P256) ? 32 : 48))));
 			// Вырабатываем общее значение сочетателем C2PRI
-			::__ants_fuse__(kem, view_t(ssPQ, sizeof(ssPQ)), view_t(ssT, ((kem == kem_t::MLKEM768_X25519) ? X25519_SIZE : ((kem == kem_t::MLKEM768_P256) ? 32 : 48))), view_t(enc.data + ctsize, tsize), view_t(own.point().data + pksize, tsize), shared);
+			::__nts_fuse__(kem, view_t(ssPQ, sizeof(ssPQ)), view_t(ssT, ((kem == kem_t::MLKEM768_X25519) ? X25519_SIZE : ((kem == kem_t::MLKEM768_P256) ? 32 : 48))), view_t(enc.data + ctsize, tsize), view_t(own.point().data + pksize, tsize), shared);
 		}
 		/**
 		 * Стираем зёрна, ключи и общие значения
@@ -3092,7 +3095,7 @@ nts::hpke::error_t nts::hpke::decapsulate(const key_t & own, const view_t & enc,
 	// Если выработка не удалась
 	if(!status){
 		// Стираем место под общее значение
-		wipe(shared, ::__ants_nsecret__(kem));
+		wipe(shared, ::__nts_nsecret__(kem));
 		// Выводим отказ инкапсуляции
 		return error_t::ENCAPSULATION;
 	}
@@ -3124,15 +3127,15 @@ nts::hpke::error_t nts::hpke::sender(const suite_t & suite, const regime_t mode,
 		// Выводим отказ набора
 		return error_t::SUITE;
 	// Если режим неизвестен
-	if(!::__ants_admissible__(mode))
+	if(!::__nts_admissible__(mode))
 		// Выводим отказ режима
 		return error_t::MODE;
 	// Если наличие пары отправителя не отвечает режиму
-	if((authenticator != nullptr) != ::__ants_demanding__(mode))
+	if((authenticator != nullptr) != ::__nts_demanding__(mode))
 		// Выводим отказ ключа
 		return error_t::KEY;
 	// Если режим требует подлинности, а способ её не поддерживает: раздел 7.2 draft-ietf-hpke-pq
-	if(::__ants_demanding__(mode) && !hpke::authenticated(suite.kem))
+	if(::__nts_demanding__(mode) && !hpke::authenticated(suite.kem))
 		// Выводим отказ режима
 		return error_t::MODE;
 	// Если мимолётная пара не отвечает набору
@@ -3150,7 +3153,7 @@ nts::hpke::error_t nts::hpke::sender(const suite_t & suite, const regime_t mode,
 	// Если инкапсуляция удалась
 	if(status == error_t::NONE)
 		// Устанавливаем состояние отправителя
-		status = context.setup(suite, mode, view_t(shared, ::__ants_nsecret__(suite.kem)), info, psk, true);
+		status = context.setup(suite, mode, view_t(shared, ::__nts_nsecret__(suite.kem)), info, psk, true);
 	// Стираем общее значение
 	wipe(shared, sizeof(shared));
 	// Если установка не удалась
@@ -3216,15 +3219,15 @@ nts::hpke::error_t nts::hpke::recipient(const suite_t & suite, const regime_t mo
 		// Выводим отказ набора
 		return error_t::SUITE;
 	// Если режим неизвестен
-	if(!::__ants_admissible__(mode))
+	if(!::__nts_admissible__(mode))
 		// Выводим отказ режима
 		return error_t::MODE;
 	// Если наличие ключа отправителя не отвечает режиму
-	if((authenticator.size > 0) != ::__ants_demanding__(mode))
+	if((authenticator.size > 0) != ::__nts_demanding__(mode))
 		// Выводим отказ ключа
 		return error_t::KEY;
 	// Если режим требует подлинности, а способ её не поддерживает: раздел 7.2 draft-ietf-hpke-pq
-	if(::__ants_demanding__(mode) && !hpke::authenticated(suite.kem))
+	if(::__nts_demanding__(mode) && !hpke::authenticated(suite.kem))
 		// Выводим отказ режима
 		return error_t::MODE;
 	// Если пара получателя не отвечает набору
@@ -3238,7 +3241,7 @@ nts::hpke::error_t nts::hpke::recipient(const suite_t & suite, const regime_t mo
 	// Если декапсуляция удалась
 	if(status == error_t::NONE)
 		// Устанавливаем состояние получателя
-		status = context.setup(suite, mode, view_t(shared, ::__ants_nsecret__(suite.kem)), info, psk, false);
+		status = context.setup(suite, mode, view_t(shared, ::__nts_nsecret__(suite.kem)), info, psk, false);
 	// Стираем общее значение
 	wipe(shared, sizeof(shared));
 	// Выводим итог установки

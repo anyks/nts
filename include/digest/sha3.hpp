@@ -125,7 +125,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t length(const sha3_t type) noexcept;
+		__NTS_SHARED_EXPORT__ size_t length(const sha3_t type) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения скорости разновидности
@@ -141,7 +141,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t rate(const sha3_t type) noexcept;
+		__NTS_SHARED_EXPORT__ size_t rate(const sha3_t type) noexcept;
 		/**
 		 * \~russian
 		 * @brief Класс преобразования FIPS 202
@@ -164,7 +164,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Keccak {
+		typedef class __NTS_SHARED_EXPORT__ Keccak {
 			private:
 				// Разновидность преобразования
 				sha3_t _type;
@@ -342,7 +342,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool sha3(const sha3_t type, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool sha3(const sha3_t type, const view_t & data, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

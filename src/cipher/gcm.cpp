@@ -107,7 +107,7 @@
 /**
  * Если сборка ведётся под ARM64
  */
-#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -120,7 +120,7 @@
 		/**
 		 * Атрибут цели не нужен
 		 */
-		#define __ANTS_GHASH_TARGET__
+		#define __NTS_GHASH_TARGET__
 	/**
 	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
 	 */
@@ -128,7 +128,7 @@
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_GHASH_TARGET__
+		#define __NTS_GHASH_TARGET__
 	/**
 	 * Если собиратель clang
 	 */
@@ -136,7 +136,7 @@
 		/**
 		 * Разрешаем команды расширения одной функции
 		 */
-		#define __ANTS_GHASH_TARGET__ __attribute__((target("crypto")))
+		#define __NTS_GHASH_TARGET__ __attribute__((target("crypto")))
 	/**
 	 * Если собиратель GCC
 	 */
@@ -144,18 +144,18 @@
 		/**
 		 * Разрешаем команды расширения одной функции
 		 */
-		#define __ANTS_GHASH_TARGET__ __attribute__((target("+crypto")))
+		#define __NTS_GHASH_TARGET__ __attribute__((target("+crypto")))
 	#endif
 
 	/**
 	 * Объявляем наличие ветви машинного умножения
 	 */
-	#define __ANTS_GHASH_ARM__ 1
+	#define __NTS_GHASH_ARM__ 1
 
 	/**
 	 * Цель слитого ядра: расширение crypto несёт и AES, и умножение без переносов
 	 */
-	#define __ANTS_FUSED_TARGET__ __ANTS_GHASH_TARGET__
+	#define __NTS_FUSED_TARGET__ __NTS_GHASH_TARGET__
 
 	/**
 	 * Если собиратель Microsoft Visual C++: его команда умножения без переносов принимает
@@ -165,7 +165,7 @@
 		/**
 		 * Умножение слова на слово без переносов командой PMULL
 		 */
-		#define __ANTS_PMULL64__(first, second) vmull_p64(vcreate_p64(first), vcreate_p64(second))
+		#define __NTS_PMULL64__(first, second) vmull_p64(vcreate_p64(first), vcreate_p64(second))
 	/**
 	 * У собирателей семейства GCC команда принимает слово в типе многочлена
 	 */
@@ -173,12 +173,12 @@
 		/**
 		 * Умножение слова на слово без переносов командой PMULL
 		 */
-		#define __ANTS_PMULL64__(first, second) vmull_p64(static_cast <poly64_t> (first), static_cast <poly64_t> (second))
+		#define __NTS_PMULL64__(first, second) vmull_p64(static_cast <poly64_t> (first), static_cast <poly64_t> (second))
 	#endif
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC
  */
-#elif (defined(__x86_64__) || defined(__e2k__) || defined(__ANTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__e2k__) || defined(__NTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочные файлы команд x86-64
 	 */
@@ -192,7 +192,7 @@
 		/**
 		 * Атрибут цели не нужен
 		 */
-		#define __ANTS_GHASH_TARGET__
+		#define __NTS_GHASH_TARGET__
 	/**
 	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
 	 */
@@ -200,7 +200,7 @@
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_GHASH_TARGET__
+		#define __NTS_GHASH_TARGET__
 	/**
 	 * Иначе команды расширений разрешаем одной функции
 	 */
@@ -208,13 +208,13 @@
 		/**
 		 * Разрешаем команды расширений одной функции
 		 */
-		#define __ANTS_GHASH_TARGET__ __attribute__((target("pclmul,ssse3,sse2")))
+		#define __NTS_GHASH_TARGET__ __attribute__((target("pclmul,ssse3,sse2")))
 	#endif
 
 	/**
 	 * Объявляем наличие ветви машинного умножения
 	 */
-	#define __ANTS_GHASH_X86__ 1
+	#define __NTS_GHASH_X86__ 1
 
 	/**
 	 * Если команды AES и умножения без переносов уже разрешены ключами сборки
@@ -223,7 +223,7 @@
 		/**
 		 * Атрибут цели слитого ядра не нужен
 		 */
-		#define __ANTS_FUSED_TARGET__
+		#define __NTS_FUSED_TARGET__
 	/**
 	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
 	 */
@@ -231,7 +231,7 @@
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_FUSED_TARGET__
+		#define __NTS_FUSED_TARGET__
 	/**
 	 * Иначе команды расширений слитого ядра разрешаем одной функции
 	 */
@@ -239,7 +239,7 @@
 		/**
 		 * Разрешаем команды расширений слитого ядра одной функции
 		 */
-		#define __ANTS_FUSED_TARGET__ __attribute__((target("aes,pclmul,ssse3,sse2")))
+		#define __NTS_FUSED_TARGET__ __attribute__((target("aes,pclmul,ssse3,sse2")))
 	#endif
 #endif
 
@@ -257,11 +257,11 @@
 	/**
 	 * Объявляем перестановку байтов слова в тридцать два разряда
 	 */
-	#define __ANTS_BSWAP32__(value) ::_byteswap_ulong(value)
+	#define __NTS_BSWAP32__(value) ::_byteswap_ulong(value)
 	/**
 	 * Объявляем перестановку байтов слова в шестьдесят четыре разряда
 	 */
-	#define __ANTS_BSWAP64__(value) ::_byteswap_uint64(value)
+	#define __NTS_BSWAP64__(value) ::_byteswap_uint64(value)
 /**
  * Для собирателей семейства GCC и Эльбруса
  */
@@ -269,11 +269,11 @@
 	/**
 	 * Объявляем перестановку байтов слова в тридцать два разряда
 	 */
-	#define __ANTS_BSWAP32__(value) __builtin_bswap32(value)
+	#define __NTS_BSWAP32__(value) __builtin_bswap32(value)
 	/**
 	 * Объявляем перестановку байтов слова в шестьдесят четыре разряда
 	 */
-	#define __ANTS_BSWAP64__(value) __builtin_bswap64(value)
+	#define __NTS_BSWAP64__(value) __builtin_bswap64(value)
 #endif
 /**
  * Используем стандартное пространство имён
@@ -309,7 +309,7 @@ namespace {
 	/**
 	 * Если машина умножает без переносов командой PCLMULQDQ
 	 */
-	#if defined(__ANTS_GHASH_X86__)
+	#if defined(__NTS_GHASH_X86__)
 		/**
 		 * @brief Функция перестановки байтов блока от старшего к младшему
 		 *
@@ -323,7 +323,7 @@ namespace {
 		 * @return      байты в обратном порядке
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ __m128i swap(const __m128i value) noexcept {
+		static __NTS_GHASH_TARGET__ __NTS_INLINE__ __m128i swap(const __m128i value) noexcept {
 			// Выводим байты в обратном порядке
 			return _mm_shuffle_epi8(value, _mm_setr_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0));
 		}
@@ -337,7 +337,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint64_t load(const uint8_t * data) noexcept {
 		// Накопленное слово
 		uint64_t result = 0;
 		/**
@@ -357,7 +357,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint64_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store(const uint64_t value, uint8_t * data) noexcept {
 		/**
 		 * Выполняем перебор байтов слова
 		 */
@@ -444,7 +444,7 @@ namespace {
 	/**
 	 * Если есть ветвь машинного умножения PMULL
 	 */
-	#if defined(__ANTS_GHASH_ARM__)
+	#if defined(__NTS_GHASH_ARM__)
 		/**
 		 * @brief Функция записи ключа хеширования с отражёнными разрядами байтов
 		 *
@@ -452,7 +452,7 @@ namespace {
 		 * @param mirror место под три слова: отражённый ключ и сумма его половин
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ void mirrorArm(const uint8_t * key, uint64_t * mirror) noexcept {
+		static __NTS_GHASH_TARGET__ void mirrorArm(const uint8_t * key, uint64_t * mirror) noexcept {
 			// Записываем ключ хеширования с отражёнными разрядами байтов
 			vst1q_u64(mirror, vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(key))));
 			// Записываем сумму половин ключа под умножение Карацубы сшитого ядра
@@ -465,7 +465,7 @@ namespace {
 		 * @param value  умножаемое значение, заменяемое произведением
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ void multiplyArm(const uint64_t * mirror, uint8_t * value) noexcept {
+		static __NTS_GHASH_TARGET__ void multiplyArm(const uint64_t * mirror, uint8_t * value) noexcept {
 			/**
 			 * Разряды поля у GCM нумеруются от старшего внутри байта, а команда множит
 			 * многочлены с нумерацией от младшего: разряды каждого байта обоих множителей
@@ -480,27 +480,27 @@ namespace {
 			// Многочлен приведения x^7 + x^2 + x + 1
 			const uint64_t r = 0x87ULL;
 			// Произведение младших половин
-			const uint64x2_t p0 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 0)));
+			const uint64x2_t p0 = vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 0)));
 			// Произведение старших половин
-			const uint64x2_t p2 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 1)));
+			const uint64x2_t p2 = vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 1)));
 			// Перекрёстные произведения
 			const uint64x2_t p1 = veorq_u64(
-			vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 1))),
-			vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 0))));
+			vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 1))),
+			vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 0))));
 			// Младшие 128 разрядов произведения: p0 с младшей половиной p1, сдвинутой на 64
 			uint64x2_t low = veorq_u64(p0, vextq_u64(vdupq_n_u64(0), p1, 1));
 			// Старшие 128 разрядов произведения: p2 со старшей половиной p1
 			const uint64x2_t high = veorq_u64(p2, vextq_u64(p1, vdupq_n_u64(0), 1));
 			// Приведение старшей половины: младшее слово, умноженное на многочлен
-			const uint64x2_t f0 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(high, 0), r));
+			const uint64x2_t f0 = vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(high, 0), r));
 			// Приведение старшей половины: старшее слово, умноженное на многочлен
-			const uint64x2_t f1 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(high, 1), r));
+			const uint64x2_t f1 = vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(high, 1), r));
 			// Складываем приведение младшего слова
 			low = veorq_u64(low, f0);
 			// Складываем младшую половину приведения старшего слова, сдвинутую на 64
 			low = veorq_u64(low, vextq_u64(vdupq_n_u64(0), f1, 1));
 			// Остаток приведения старшего слова, ушедший за 128 разрядов, приводится ещё раз
-			low = veorq_u64(low, vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(f1, 1), r)));
+			low = veorq_u64(low, vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(f1, 1), r)));
 			// Записываем произведение, отразив разряды байтов обратно в порядок GCM
 			vst1q_u8(value, vrbitq_u8(vreinterpretq_u8_u64(low)));
 		}
@@ -513,15 +513,15 @@ namespace {
 		 * @param high старшие 128 разрядов произведения, складываемые с накопленными
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ void productArm(const uint64x2_t a, const uint64x2_t b, uint64x2_t & low, uint64x2_t & high) noexcept {
+		static __NTS_GHASH_TARGET__ __NTS_INLINE__ void productArm(const uint64x2_t a, const uint64x2_t b, uint64x2_t & low, uint64x2_t & high) noexcept {
 			// Произведение младших половин
-			const uint64x2_t p0 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 0)));
+			const uint64x2_t p0 = vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 0)));
 			// Произведение старших половин
-			const uint64x2_t p2 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 1)));
+			const uint64x2_t p2 = vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 1)));
 			// Перекрёстные произведения
 			const uint64x2_t p1 = veorq_u64(
-			vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 1))),
-			vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 0))));
+			vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(a, 0), vgetq_lane_u64(b, 1))),
+			vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(a, 1), vgetq_lane_u64(b, 0))));
 			// Складываем младшие 128 разрядов
 			low = veorq_u64(low, veorq_u64(p0, vextq_u64(vdupq_n_u64(0), p1, 1)));
 			// Складываем старшие 128 разрядов
@@ -535,7 +535,7 @@ namespace {
 		 * @param blocks      восемь блоков подряд
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ void aggregateArm(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
+		static __NTS_GHASH_TARGET__ void aggregateArm(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
 			// Многочлен приведения x^7 + x^2 + x + 1
 			const uint64_t r = 0x87ULL;
 			// Накопитель, сложенный с первым блоком, отражённый
@@ -555,15 +555,15 @@ namespace {
 			productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 96))), vld1q_u64(powers[6]), low, high);
 			productArm(vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(blocks + 112))), vld1q_u64(powers[7]), low, high);
 			// Приведение старшей половины: младшее слово, умноженное на многочлен
-			const uint64x2_t f0 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(high, 0), r));
+			const uint64x2_t f0 = vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(high, 0), r));
 			// Приведение старшей половины: старшее слово, умноженное на многочлен
-			const uint64x2_t f1 = vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(high, 1), r));
+			const uint64x2_t f1 = vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(high, 1), r));
 			// Складываем приведение младшего слова
 			low = veorq_u64(low, f0);
 			// Складываем младшую половину приведения старшего слова, сдвинутую на 64
 			low = veorq_u64(low, vextq_u64(vdupq_n_u64(0), f1, 1));
 			// Остаток приведения старшего слова, ушедший за 128 разрядов, приводится ещё раз
-			low = veorq_u64(low, vreinterpretq_u64_p128(__ANTS_PMULL64__(vgetq_lane_u64(f1, 1), r)));
+			low = veorq_u64(low, vreinterpretq_u64_p128(__NTS_PMULL64__(vgetq_lane_u64(f1, 1), r)));
 			// Записываем итог, отразив разряды байтов обратно
 			vst1q_u8(accumulator, vrbitq_u8(vreinterpretq_u8_u64(low)));
 		}
@@ -581,7 +581,7 @@ namespace {
 		 * @param chunks      число восьмёрок блоков
 		 *
 		 */
-		static __ANTS_FUSED_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		static __NTS_FUSED_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
 			// Ключ, складываемый после последнего круга
 			const uint8x16_t last = vld1q_u8(keys + (rounds * 16));
 			// Ключ последнего круга подстановки
@@ -623,7 +623,7 @@ namespace {
 				 */
 				if((tail & 0xFFU) < 0xF8U){
 					// Переставленный счётчик восьмёрки
-					const uint32x4_t c0 = vaddq_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail), vreinterpretq_u32_u8(base), 3), step1);
+					const uint32x4_t c0 = vaddq_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail), vreinterpretq_u32_u8(base), 3), step1);
 					// Счётчик восьмёрки со сдвигом на шаг
 					const uint32x4_t c1 = vaddq_u32(c0, step1);
 					// Счётчик восьмёрки со сдвигом на два шага
@@ -649,21 +649,21 @@ namespace {
 				// Иначе младший байт переполняется внутри восьмёрки
 				} else {
 					// Собираем восемь блоков счётчика по одному
-					s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 1), vreinterpretq_u32_u8(base), 3));
+					s0 = vreinterpretq_u8_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail + 1), vreinterpretq_u32_u8(base), 3));
 					// второй блок счётчика через скаляр
-					s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 2), vreinterpretq_u32_u8(base), 3));
+					s1 = vreinterpretq_u8_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail + 2), vreinterpretq_u32_u8(base), 3));
 					// третий блок счётчика через скаляр
-					s2 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 3), vreinterpretq_u32_u8(base), 3));
+					s2 = vreinterpretq_u8_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail + 3), vreinterpretq_u32_u8(base), 3));
 					// четвёртый блок счётчика через скаляр
-					s3 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 4), vreinterpretq_u32_u8(base), 3));
+					s3 = vreinterpretq_u8_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail + 4), vreinterpretq_u32_u8(base), 3));
 					// пятый блок счётчика через скаляр
-					s4 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 5), vreinterpretq_u32_u8(base), 3));
+					s4 = vreinterpretq_u8_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail + 5), vreinterpretq_u32_u8(base), 3));
 					// шестой блок счётчика через скаляр
-					s5 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 6), vreinterpretq_u32_u8(base), 3));
+					s5 = vreinterpretq_u8_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail + 6), vreinterpretq_u32_u8(base), 3));
 					// седьмой блок счётчика через скаляр
-					s6 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 7), vreinterpretq_u32_u8(base), 3));
+					s6 = vreinterpretq_u8_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail + 7), vreinterpretq_u32_u8(base), 3));
 					// восьмой блок счётчика через скаляр
-					s7 = vreinterpretq_u8_u32(vsetq_lane_u32(__ANTS_BSWAP32__(tail + 8), vreinterpretq_u32_u8(base), 3));
+					s7 = vreinterpretq_u8_u32(vsetq_lane_u32(__NTS_BSWAP32__(tail + 8), vreinterpretq_u32_u8(base), 3));
 				}
 				// Продвигаем счётчик на восемь блоков
 				tail += 8;
@@ -720,7 +720,7 @@ namespace {
 	/**
 	 * Если есть ветвь машинного умножения PCLMULQDQ
 	 */
-	#elif defined(__ANTS_GHASH_X86__)
+	#elif defined(__NTS_GHASH_X86__)
 		/**
 		 * @brief Функция записи ключа хеширования в виде под команду PCLMULQDQ
 		 *
@@ -733,7 +733,7 @@ namespace {
 		 * @param twist место под три слова: сдвинутый ключ и сумма его половин
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ void twistX86(const uint8_t * key, uint64_t * twist) noexcept {
+		static __NTS_GHASH_TARGET__ void twistX86(const uint8_t * key, uint64_t * twist) noexcept {
 			// Ключ с переставленными байтами
 			const __m128i value = swap(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key)));
 			// Ключ, сдвинутый на разряд влево по словам, со старшими разрядами слов, перешедшими в соседнее слово
@@ -762,7 +762,7 @@ namespace {
 		 * @param middle произведения сумм половин, складываемые с накопленными
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ void productX86(const __m128i a, const __m128i b, const __m128i ab, __m128i & low, __m128i & high, __m128i & middle) noexcept {
+		static __NTS_GHASH_TARGET__ __NTS_INLINE__ void productX86(const __m128i a, const __m128i b, const __m128i ab, __m128i & low, __m128i & high, __m128i & middle) noexcept {
 			// Складываем произведение младших половин
 			low = _mm_xor_si128(low, _mm_clmulepi64_si128(a, b, 0x00));
 			// Складываем произведение старших половин
@@ -784,7 +784,7 @@ namespace {
 		 * @return       приведённое произведение с переставленными байтами
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ __ANTS_INLINE__ __m128i reduceX86(__m128i low, __m128i high, __m128i middle) noexcept {
+		static __NTS_GHASH_TARGET__ __NTS_INLINE__ __m128i reduceX86(__m128i low, __m128i high, __m128i middle) noexcept {
 			// Средние произведения без крайних: перекрёстные произведения половин
 			middle = _mm_xor_si128(middle, _mm_xor_si128(low, high));
 			// Младшая половина произведения с младшим словом перекрёстных
@@ -823,7 +823,7 @@ namespace {
 		 * @param value умножаемое значение в порядке GCM, заменяемое произведением
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ void multiplyX86(const uint64_t * twist, uint8_t * value) noexcept {
+		static __NTS_GHASH_TARGET__ void multiplyX86(const uint64_t * twist, uint8_t * value) noexcept {
 			// Значение с переставленными байтами
 			const __m128i a = swap(_mm_loadu_si128(reinterpret_cast <const __m128i *> (value)));
 			// Суммы произведений
@@ -841,7 +841,7 @@ namespace {
 		 * @param blocks      восемь блоков подряд
 		 *
 		 */
-		static __ANTS_GHASH_TARGET__ void aggregateX86(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
+		static __NTS_GHASH_TARGET__ void aggregateX86(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
 			// Суммы произведений
 			__m128i low = _mm_setzero_si128(), high = _mm_setzero_si128(), middle = _mm_setzero_si128();
 			// Накопитель, сложенный с первым блоком, с переставленными байтами
@@ -1015,7 +1015,7 @@ namespace {
 		 * @param chunks      число восьмёрок блоков
 		 *
 		 */
-		static __ANTS_FUSED_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		static __NTS_FUSED_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
 			// Ключ первого круга
 			const __m128i first = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys));
 			// Ключ последнего круга
@@ -1057,7 +1057,7 @@ namespace {
 				 */
 				if((tail & 0xFFU) < 0xF8U){
 					// Переставленный счётчик восьмёрки
-					const __m128i c0 = _mm_add_epi32(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail)), 0, 0, 0)), step1);
+					const __m128i c0 = _mm_add_epi32(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail)), 0, 0, 0)), step1);
 					// Счётчик восьмёрки со сдвигом на шаг
 					const __m128i c1 = _mm_add_epi32(c0, step1);
 					// Счётчик восьмёрки со сдвигом на два шага
@@ -1083,21 +1083,21 @@ namespace {
 				// Иначе младший байт переполняется внутри восьмёрки
 				} else {
 					// Собираем восемь блоков счётчика по одному под первым ключом
-					s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 1)), 0, 0, 0)), first);
+					s0 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail + 1)), 0, 0, 0)), first);
 					// второй блок счётчика через скаляр
-					s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 2)), 0, 0, 0)), first);
+					s1 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail + 2)), 0, 0, 0)), first);
 					// третий блок счётчика через скаляр
-					s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 3)), 0, 0, 0)), first);
+					s2 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail + 3)), 0, 0, 0)), first);
 					// четвёртый блок счётчика через скаляр
-					s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 4)), 0, 0, 0)), first);
+					s3 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail + 4)), 0, 0, 0)), first);
 					// пятый блок счётчика через скаляр
-					s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 5)), 0, 0, 0)), first);
+					s4 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail + 5)), 0, 0, 0)), first);
 					// шестой блок счётчика через скаляр
-					s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 6)), 0, 0, 0)), first);
+					s5 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail + 6)), 0, 0, 0)), first);
 					// седьмой блок счётчика через скаляр
-					s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 7)), 0, 0, 0)), first);
+					s6 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail + 7)), 0, 0, 0)), first);
 					// восьмой блок счётчика через скаляр
-					s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__ANTS_BSWAP32__(tail + 8)), 0, 0, 0)), first);
+					s7 = _mm_xor_si128(_mm_or_si128(head, _mm_set_epi32(static_cast <int> (__NTS_BSWAP32__(tail + 8)), 0, 0, 0)), first);
 				}
 				// Продвигаем счётчик на восемь блоков
 				tail += 8;
@@ -1155,7 +1155,7 @@ namespace {
 	/**
 	 * Если есть сшитое ядро на ассемблере
 	 */
-	#if defined(__ANTS_GCM_STITCH__)
+	#if defined(__NTS_GCM_STITCH__)
 		/**
 		 * @brief Функция слитого хода целых восьмёрок сшитым ядром на ассемблере
 		 *
@@ -1259,7 +1259,7 @@ bool nts::cipher::Gcm::travel([[maybe_unused]] const bool sealing, [[maybe_unuse
 	/**
 	 * Если есть ветвь машинного умножения
 	 */
-	#if defined(__ANTS_GHASH_ARM__) || defined(__ANTS_GHASH_X86__)
+	#if defined(__NTS_GHASH_ARM__) || defined(__NTS_GHASH_X86__)
 		// Если расписания ключа AES нет либо команд машины нет: путь идёт порознь
 		if((this->_block.schedule == nullptr) || (chunks == 0) || !machine::has(machine::feature_t::CARRYLESS) || !machine::has(machine::feature_t::AES))
 		// Выводим отказ слитого хода
@@ -1267,11 +1267,11 @@ bool nts::cipher::Gcm::travel([[maybe_unused]] const bool sealing, [[maybe_unuse
 		/**
 		 * Если есть ветвь машинного умножения PMULL
 		 */
-		#if defined(__ANTS_GHASH_ARM__)
+		#if defined(__NTS_GHASH_ARM__)
 			/**
 			 * Если есть сшитое ядро на ассемблере
 			 */
-			#if defined(__ANTS_GCM_STITCH__)
+			#if defined(__NTS_GCM_STITCH__)
 				// Если шифр вырабатывает гамму
 				if(this->_block.stream != nullptr)
 				// Выводим итог слитого хода сшитым ядром
@@ -1286,7 +1286,7 @@ bool nts::cipher::Gcm::travel([[maybe_unused]] const bool sealing, [[maybe_unuse
 			/**
 			 * Если есть сшитое ядро на ассемблере, а машина несёт кодировку VEX и MOVBE
 			 */
-			#if defined(__ANTS_GCM_STITCH__)
+			#if defined(__NTS_GCM_STITCH__)
 				// Если машина несёт кодировку VEX, загрузку с перестановкой байтов и гамму шифра
 				if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::MOVBE) && (this->_block.stream != nullptr))
 				// Выводим итог слитого хода сшитым ядром
@@ -1315,7 +1315,7 @@ void nts::cipher::Gcm::multiply(uint8_t * value) const noexcept {
 	/**
 	 * Если есть ветвь машинного умножения PMULL
 	 */
-	#if defined(__ANTS_GHASH_ARM__)
+	#if defined(__NTS_GHASH_ARM__)
 		// Если машина умножает без переносов командой
 		if(machine::has(machine::feature_t::CARRYLESS)){
 			// Умножение командой
@@ -1326,7 +1326,7 @@ void nts::cipher::Gcm::multiply(uint8_t * value) const noexcept {
 	/**
 	 * Если есть ветвь машинного умножения PCLMULQDQ
 	 */
-	#elif defined(__ANTS_GHASH_X86__)
+	#elif defined(__NTS_GHASH_X86__)
 		// Если машина умножает без переносов командой
 		if(machine::has(machine::feature_t::CARRYLESS)){
 			// Умножение командой
@@ -1378,7 +1378,7 @@ bool nts::cipher::Gcm::aggregate([[maybe_unused]] uint8_t * accumulator, [[maybe
 	/**
 	 * Если есть ветвь машинного умножения PMULL
 	 */
-	#if defined(__ANTS_GHASH_ARM__)
+	#if defined(__NTS_GHASH_ARM__)
 		// Если машина умножает без переносов командой
 		if(machine::has(machine::feature_t::CARRYLESS)){
 			/**
@@ -1393,7 +1393,7 @@ bool nts::cipher::Gcm::aggregate([[maybe_unused]] uint8_t * accumulator, [[maybe
 	/**
 	 * Если есть ветвь машинного умножения PCLMULQDQ
 	 */
-	#elif defined(__ANTS_GHASH_X86__)
+	#elif defined(__NTS_GHASH_X86__)
 		// Если машина умножает без переносов командой
 		if(machine::has(machine::feature_t::CARRYLESS)){
 			/**
@@ -1469,7 +1469,7 @@ void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept 
 	/**
 	 * Если есть ветвь машинного умножения
 	 */
-	#if defined(__ANTS_GHASH_ARM__) || defined(__ANTS_GHASH_X86__)
+	#if defined(__NTS_GHASH_ARM__) || defined(__NTS_GHASH_X86__)
 		// Запоминаем, умножает ли машина без переносов командой
 		commands = machine::has(machine::feature_t::CARRYLESS);
 	#endif
@@ -1866,13 +1866,13 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 	/**
 	 * Если есть ветвь машинного умножения PMULL
 	 */
-	#if defined(__ANTS_GHASH_ARM__)
+	#if defined(__NTS_GHASH_ARM__)
 		// Записываем ключ хеширования с отражёнными разрядами байтов: умножение командой берёт его
 		mirrorArm(key, this->_mirror);
 	/**
 	 * Если есть ветвь машинного умножения PCLMULQDQ
 	 */
-	#elif defined(__ANTS_GHASH_X86__)
+	#elif defined(__NTS_GHASH_X86__)
 		// Если машина умножает без переносов командой: отражение само идёт командами
 		if(machine::has(machine::feature_t::CARRYLESS))
 		// Записываем ключ хеширования с отражёнными разрядами байтов
@@ -1946,7 +1946,7 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 	/**
 	 * Если есть ветвь машинного умножения
 	 */
-	#if defined(__ANTS_GHASH_ARM__) || defined(__ANTS_GHASH_X86__)
+	#if defined(__NTS_GHASH_ARM__) || defined(__NTS_GHASH_X86__)
 		// Если машина умножает без переносов командой
 		if(machine::has(machine::feature_t::CARRYLESS)){
 			// Степень ключа хеширования в порядке GCM: сначала первая
@@ -1967,7 +1967,7 @@ bool nts::cipher::Gcm::start(const block_t & block, const view_t & nonce, const 
 				/**
 				 * Если есть ветвь машинного умножения PMULL
 				 */
-				#if defined(__ANTS_GHASH_ARM__)
+				#if defined(__NTS_GHASH_ARM__)
 					// Записываем степень отражённой: восьмая идёт первой
 					mirrorArm(power, this->_powers[7 - i]);
 				/**

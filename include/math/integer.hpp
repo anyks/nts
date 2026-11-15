@@ -137,7 +137,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Integer {
+		typedef class __NTS_SHARED_EXPORT__ Integer {
 			private:
 				/**
 				 * Класс арифметики Монтгомери работает прямо со словами числа
@@ -806,7 +806,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Montgomery {
+		typedef class __NTS_SHARED_EXPORT__ Montgomery {
 			private:
 				// Признак того, что модуль установлен
 				bool _ready;

@@ -114,7 +114,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool x25519(const view_t & secret, const view_t & point, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool x25519(const view_t & secret, const view_t & point, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки открытого ключа на кривой Curve25519
@@ -138,7 +138,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool x25519(const view_t & secret, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool x25519(const view_t & secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция порождения пары ключей на кривой Curve25519
@@ -178,7 +178,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool generate(uint8_t * secret, uint8_t * key) noexcept;
+		__NTS_SHARED_EXPORT__ bool generate(uint8_t * secret, uint8_t * key) noexcept;
 	};
 };
 

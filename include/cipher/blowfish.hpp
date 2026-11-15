@@ -104,7 +104,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void init(blowfish_t * ctx) noexcept;
+		__NTS_SHARED_EXPORT__ void init(blowfish_t * ctx) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция расширения ключа без соли (eksblowfish phase 0)
@@ -122,7 +122,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void expand0(blowfish_t * ctx, const uint8_t * key, const size_t keylen) noexcept;
+		__NTS_SHARED_EXPORT__ void expand0(blowfish_t * ctx, const uint8_t * key, const size_t keylen) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция расширения ключа с солью (eksblowfish phase 1)
@@ -144,7 +144,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void expand(blowfish_t * ctx, const uint8_t * data, const size_t datalen, const uint8_t * key, const size_t keylen) noexcept;
+		__NTS_SHARED_EXPORT__ void expand(blowfish_t * ctx, const uint8_t * data, const size_t datalen, const uint8_t * key, const size_t keylen) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция шифрования блока
@@ -162,7 +162,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void encipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept;
+		__NTS_SHARED_EXPORT__ void encipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept;
 		/**
 
 		 * \~russian
@@ -189,7 +189,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void decipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept;
+		__NTS_SHARED_EXPORT__ void decipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция шифрования нескольких блоков
@@ -207,7 +207,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void encrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept;
+		__NTS_SHARED_EXPORT__ void encrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept;
 		/**
 
 		 * \~russian
@@ -226,7 +226,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void decrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept;
+		__NTS_SHARED_EXPORT__ void decrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения слова из потока байтов с зацикливанием
@@ -246,7 +246,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ uint32_t stream2word(const uint8_t * data, const size_t datalen, size_t * current) noexcept;
+		__NTS_SHARED_EXPORT__ uint32_t stream2word(const uint8_t * data, const size_t datalen, size_t * current) noexcept;
 	};
 };
 

@@ -74,7 +74,7 @@ namespace {
 	 * @param out      выходной буфер (32 байта)
 	 *
 	 */
-	void __ants_bcrypt_hash__(const uint8_t * sha2pass, const uint8_t * sha2salt, uint8_t * out) noexcept {
+	void __nts_bcrypt_hash__(const uint8_t * sha2pass, const uint8_t * sha2salt, uint8_t * out) noexcept {
 		// Состояние шифра Blowfish
 		cipher::blowfish_t state;
 		// Накопитель шифртекста магической строки
@@ -196,7 +196,7 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 			sha.finish(sha2salt, sizeof(sha2salt));
 		}
 		// Вырабатываем хеш bcrypt блока
-		__ants_bcrypt_hash__(sha2pass, sha2salt, tmpout);
+		__nts_bcrypt_hash__(sha2pass, sha2salt, tmpout);
 		// Запоминаем выход первого круга
 		::memcpy(out, tmpout, sizeof(out));
 		/**
@@ -212,7 +212,7 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 				sha.finish(sha2salt, sizeof(sha2salt));
 			}
 			// Вырабатываем хеш bcrypt очередного круга
-			__ants_bcrypt_hash__(sha2pass, sha2salt, tmpout);
+			__nts_bcrypt_hash__(sha2pass, sha2salt, tmpout);
 			/**
 			 * Выполняем перебор байтов выхода блока
 			 */

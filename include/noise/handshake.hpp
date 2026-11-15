@@ -136,7 +136,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Handshake {
+		typedef class __NTS_SHARED_EXPORT__ Handshake {
 			private:
 				// Узор рукопожатия
 				pattern_t _pattern;

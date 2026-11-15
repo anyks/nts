@@ -165,7 +165,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Keys {
+		typedef struct __NTS_SHARED_EXPORT__ Keys {
 			// Сессионный ключ шифрования
 			vector <uint8_t> cipher;
 			// Сессионный ключ имитовставки (пуст у профилей AES-GCM)
@@ -193,7 +193,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t lengths(const profile_t profile, size_t & key, size_t & salt) noexcept;
+		__NTS_SHARED_EXPORT__ error_t lengths(const profile_t profile, size_t & key, size_t & salt) noexcept;
 
 		/**
 		 * \~russian
@@ -229,7 +229,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t keys(const profile_t profile, const view_t & key, const view_t & salt, keys_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t keys(const profile_t profile, const view_t & key, const view_t & salt, keys_t & result) noexcept;
 
 		/**
 		 * \~russian
@@ -261,7 +261,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t pair(const profile_t profile, const view_t & material, keys_t & client, keys_t & server) noexcept;
+		__NTS_SHARED_EXPORT__ error_t pair(const profile_t profile, const view_t & material, keys_t & client, keys_t & server) noexcept;
 
 		/**
 		 * \~russian
@@ -291,7 +291,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Session {
+		typedef class __NTS_SHARED_EXPORT__ Session {
 			private:
 				// Признак установки ключей
 				bool _ready;

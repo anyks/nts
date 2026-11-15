@@ -159,7 +159,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void sink(const sink_t sink, void * context = nullptr) noexcept;
+			__NTS_SHARED_EXPORT__ void sink(const sink_t sink, void * context = nullptr) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция проверки того, что сток поставлен
@@ -173,7 +173,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool enabled() noexcept;
+			__NTS_SHARED_EXPORT__ bool enabled() noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция передачи готовой строки в сток
@@ -189,7 +189,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void emit(const level_t level, const char * text) noexcept;
+			__NTS_SHARED_EXPORT__ void emit(const level_t level, const char * text) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция передачи сообщения по образцу printf
@@ -211,7 +211,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void emitf(const level_t level, const char * format, ...) noexcept;
+			__NTS_SHARED_EXPORT__ void emitf(const level_t level, const char * format, ...) noexcept;
 		};
 	};
 };

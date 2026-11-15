@@ -942,7 +942,7 @@ TEST(NumberTest, FoldingMulx) {
 	// Признак MULX и ADCX/ADOX у машины: без него сборка под ADX не зовётся
 	const bool adx = machine::has(machine::feature_t::ADX);
 	/** Ядра на MULX есть только в сборке с заданным признаком ADX */
-	#if !defined(__ANTS_X86_64_ADX_KERNELS__)
+	#if !defined(__NTS_X86_64_ADX_KERNELS__)
 		// В этой сборке ядер на MULX нет вовсе (ASan без оптимизации либо ANTS_NO_MACHINE)
 		const bool kernels = false;
 	/** Иначе ядер на MULX в сборке нет */

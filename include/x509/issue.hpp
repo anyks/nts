@@ -113,7 +113,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t issueSelfSigned(const name_t & subject, const key_t & key, const keys::signer_t & signer, const digest::hash_t hash, const view_t & serial, const int64_t before, const int64_t after, const vector <extension_t> & extensions, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t issueSelfSigned(const name_t & subject, const key_t & key, const keys::signer_t & signer, const digest::hash_t hash, const view_t & serial, const int64_t before, const int64_t after, const vector <extension_t> & extensions, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -154,7 +154,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t issueByCA(const request_t & request, const name_t & issuer, const keys::signer_t & signer, const digest::hash_t hash, const view_t & serial, const int64_t before, const int64_t after, const vector <extension_t> & extensions, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t issueByCA(const request_t & request, const name_t & issuer, const keys::signer_t & signer, const digest::hash_t hash, const view_t & serial, const int64_t before, const int64_t after, const vector <extension_t> & extensions, vector <uint8_t> & result) noexcept;
 	};
 };
 

@@ -96,7 +96,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool extract(const hash_t algorithm, const view_t & salt, const view_t & material, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool extract(const hash_t algorithm, const view_t & salt, const view_t & material, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция развёртывания псевдослучайного ключа в ключевой материал
@@ -124,7 +124,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool expand(const hash_t algorithm, const view_t & key, const view_t & info, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool expand(const hash_t algorithm, const view_t & key, const view_t & info, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вывода ключевого материала из исходного за один вызов
@@ -154,7 +154,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool hkdf(const hash_t algorithm, const view_t & salt, const view_t & material, const view_t & info, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool hkdf(const hash_t algorithm, const view_t & salt, const view_t & material, const view_t & info, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция развёртывания секрета с меткой по разделу 7.1 RFC 8446
@@ -190,7 +190,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool label(const hash_t algorithm, const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool label(const hash_t algorithm, const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

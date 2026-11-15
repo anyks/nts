@@ -329,7 +329,7 @@ namespace {
 	 * @return       переставленное значение
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t permute(const uint64_t value, const uint8_t * table, const size_t output, const size_t input) noexcept {
+	static __NTS_INLINE__ uint64_t permute(const uint64_t value, const uint8_t * table, const size_t output, const size_t input) noexcept {
 		// Результат перестановки
 		uint64_t result = 0;
 		/**
@@ -386,7 +386,7 @@ namespace {
 	 * @param rounds место, в которое помещаются шестнадцать раундовых ключей
 	 *
 	 */
-	static __ANTS_INLINE__ void schedule(const uint8_t * key, uint64_t * rounds) noexcept {
+	static __NTS_INLINE__ void schedule(const uint8_t * key, uint64_t * rounds) noexcept {
 		// Ключ числом старшим байтом вперёд
 		uint64_t whole = 0;
 		/**
@@ -422,7 +422,7 @@ namespace {
 	 * @param invert признак обращения порядка раундовых ключей (расшифрование)
 	 *
 	 */
-	static __ANTS_INLINE__ void circles(uint32_t & left, uint32_t & right, const uint64_t * rounds, const bool invert) noexcept {
+	static __NTS_INLINE__ void circles(uint32_t & left, uint32_t & right, const uint64_t * rounds, const bool invert) noexcept {
 		/**
 		 * Выполняем перебор кругов Фейстеля
 		 */
@@ -446,7 +446,7 @@ namespace {
 	 * @return       преобразованный блок
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t transform(const uint64_t block, const uint64_t * rounds, const bool invert) noexcept {
+	static __NTS_INLINE__ uint64_t transform(const uint64_t block, const uint64_t * rounds, const bool invert) noexcept {
 		// Блок после начальной перестановки
 		const uint64_t permuted = entering(block);
 		// Левая и правая половины блока
@@ -465,7 +465,7 @@ namespace {
 	 * @return     блок числом
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t fetch(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint64_t fetch(const uint8_t * data) noexcept {
 		// Прочитанный блок
 		uint64_t result = 0;
 		/**
@@ -484,7 +484,7 @@ namespace {
 	 * @param result место, в которое помещаются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint64_t value, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void store(const uint64_t value, uint8_t * result) noexcept {
 		/**
 		 * Выполняем запись байтов блока
 		 */

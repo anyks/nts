@@ -458,7 +458,7 @@ namespace {
 	 * @return        признак присутствия
 	 *
 	 */
-	static bool __ants_seek_type__(const fingerprint::profile_t & profile, const uint16_t type) noexcept {
+	static bool __nts_seek_type__(const fingerprint::profile_t & profile, const uint16_t type) noexcept {
 		/**
 		 * Выполняем перебор расширений
 		 */
@@ -1447,7 +1447,7 @@ TEST(ProfileTest, Refusals){
 	ASSERT_TRUE(captured(nameless, made));
 	// Расширений на одно меньше, имени узла нет
 	EXPECT_EQ(made.extensions.size(), source.extensions.size() - 1);
-	EXPECT_EQ(__ants_seek_type__(made, 0x0000), false);
+	EXPECT_EQ(__nts_seek_type__(made, 0x0000), false);
 	// Профиль без опознавателя связи: приветствие идёт без опознавателя
 	vector <uint8_t> plain;
 	// Составляем приветствие примера JA3

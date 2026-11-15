@@ -70,7 +70,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
 		// Если сдвиг нулевой, слово не меняется: сдвиг вправо на 32 разряда не определён
 		if(count == 0)
 			// Выводим слово без сдвига
@@ -86,7 +86,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
 		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
@@ -99,7 +99,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем старший байт слова
 		data[0] = static_cast <uint8_t> (value >> 24);
 		// Записываем второй байт слова
@@ -117,7 +117,7 @@ namespace {
 	 * @return      переставленное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t p0(const uint32_t value) noexcept {
+	static __NTS_INLINE__ uint32_t p0(const uint32_t value) noexcept {
 		// Выводим слово, переставленное по правилу P0
 		return (value ^ rotl(value, 9) ^ rotl(value, 17));
 	}
@@ -129,7 +129,7 @@ namespace {
 	 * @return      переставленное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t p1(const uint32_t value) noexcept {
+	static __NTS_INLINE__ uint32_t p1(const uint32_t value) noexcept {
 		// Выводим слово, переставленное по правилу P1
 		return (value ^ rotl(value, 15) ^ rotl(value, 23));
 	}
@@ -144,7 +144,7 @@ namespace {
 	 * @return  значение функции круга
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t ff(const uint32_t x, const uint32_t y, const uint32_t z, const size_t i) noexcept {
+	static __NTS_INLINE__ uint32_t ff(const uint32_t x, const uint32_t y, const uint32_t z, const size_t i) noexcept {
 		// Если идёт первая шестнадцатка кругов
 		if(i < 16)
 			// Выводим функцию чётности
@@ -163,7 +163,7 @@ namespace {
 	 * @return  значение функции круга
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t gg(const uint32_t x, const uint32_t y, const uint32_t z, const size_t i) noexcept {
+	static __NTS_INLINE__ uint32_t gg(const uint32_t x, const uint32_t y, const uint32_t z, const size_t i) noexcept {
 		// Если идёт первая шестнадцатка кругов
 		if(i < 16)
 			// Выводим функцию чётности

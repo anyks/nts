@@ -124,7 +124,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Context {
+		typedef class __NTS_SHARED_EXPORT__ Context {
 			private:
 				// Объект ведения связи протокола
 				unique_ptr <internal::Engine> _engine;

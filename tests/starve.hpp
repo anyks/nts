@@ -18,11 +18,11 @@
  *
  */
 
-#ifndef __ANTS_TESTS_STARVE__
+#ifndef __NTS_TESTS_STARVE__
 /**
  * Заводим макрос стража: повторное подключение заголовка подмены распределителя отсекается
  */
-#define __ANTS_TESTS_STARVE__
+#define __NTS_TESTS_STARVE__
 
 /**
  * Стандартные заголовочные файлы

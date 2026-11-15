@@ -156,7 +156,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Streebog {
+		typedef class __NTS_SHARED_EXPORT__ Streebog {
 			private:
 				// Длина вырабатываемого хеша
 				type_t _type;
@@ -304,7 +304,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order = order_t::STREAM) noexcept;
+		__NTS_SHARED_EXPORT__ bool streebog(const type_t type, const view_t & data, uint8_t * result, const size_t size, const order_t order = order_t::STREAM) noexcept;
 	};
 };
 

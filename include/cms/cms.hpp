@@ -159,7 +159,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Signer {
+		typedef struct __NTS_SHARED_EXPORT__ Signer {
 			// Просмотр записи имени издателя сертификата подписывающего
 			view_t issuer;
 			// Просмотр порядкового номера сертификата подписывающего
@@ -206,7 +206,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Recipient {
+		typedef struct __NTS_SHARED_EXPORT__ Recipient {
 			/**
 			 * \~russian
 			 * @brief Вид сведений о получателе: RSA либо KEM
@@ -271,7 +271,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Signed {
+		typedef class __NTS_SHARED_EXPORT__ Signed {
 			private:
 				// Просмотр содержимого, пуст при отделённом содержимом
 				view_t _content;
@@ -429,7 +429,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Enveloped {
+		typedef class __NTS_SHARED_EXPORT__ Enveloped {
 			private:
 				// Просмотр зашифрованного содержимого
 				view_t _content;
@@ -601,7 +601,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Digested {
+		typedef class __NTS_SHARED_EXPORT__ Digested {
 			private:
 				// Просмотр содержимого хеша
 				view_t _digest;
@@ -728,7 +728,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Encrypted {
+		typedef class __NTS_SHARED_EXPORT__ Encrypted {
 			private:
 				// Просмотр зашифрованного содержимого
 				view_t _content;
@@ -855,7 +855,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Authenticated {
+		typedef class __NTS_SHARED_EXPORT__ Authenticated {
 			private:
 				// Просмотр содержимого имитовставки
 				view_t _mac;
@@ -993,7 +993,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t digest(const view_t & content, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t digest(const view_t & content, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки записи DigestedData
@@ -1009,7 +1009,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t digestVerify(const digested_t & digested) noexcept;
+		__NTS_SHARED_EXPORT__ error_t digestVerify(const digested_t & digested) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки записи EncryptedData
@@ -1029,7 +1029,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encrypt(const view_t & content, const view_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encrypt(const view_t & content, const view_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция расшифрования записи EncryptedData
@@ -1049,7 +1049,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decrypt(const encrypted_t & encrypted, const view_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decrypt(const encrypted_t & encrypted, const view_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки записи AuthenticatedData
@@ -1071,7 +1071,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t authenticate(const view_t & content, const view_t & key, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t authenticate(const view_t & content, const view_t & key, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки записи AuthenticatedData
@@ -1089,7 +1089,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t authenticateVerify(const authenticated_t & authenticated, const view_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t authenticateVerify(const authenticated_t & authenticated, const view_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция определения вида записи ContentInfo
@@ -1105,7 +1105,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ content_t content(const view_t & data) noexcept;
+		__NTS_SHARED_EXPORT__ content_t content(const view_t & data) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки подписанного сообщения
@@ -1141,7 +1141,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t sign(const vector <view_t> & certificates, const view_t & issuer, const view_t & serial, const view_t & content, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t sign(const vector <view_t> & certificates, const view_t & issuer, const view_t & serial, const view_t & content, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки подписи подписанного сообщения
@@ -1175,7 +1175,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const signed_t & signed_, const signer_info_t & signer, const view_t & content, const x509::key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const signed_t & signed_, const signer_info_t & signer, const view_t & content, const x509::key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки вырожденной записи цепочки сертификатов («.p7b»)
@@ -1201,7 +1201,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t certificates(const vector <view_t> & certificates, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t certificates(const vector <view_t> & certificates, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки зашифрованного сообщения с передачей ключа по RSA
@@ -1233,7 +1233,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t envelop(const view_t & content, const view_t & issuer, const view_t & serial, const x509::key_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t envelop(const view_t & content, const view_t & issuer, const view_t & serial, const x509::key_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки зашифрованного сообщения с инкапсуляцией ключа по KEM
@@ -1271,7 +1271,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t envelop(const view_t & content, const view_t & issuer, const view_t & serial, const agreement::kem_t kem, const view_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t envelop(const view_t & content, const view_t & issuer, const view_t & serial, const agreement::kem_t kem, const view_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция расшифрования зашифрованного сообщения ключом RSA
@@ -1291,7 +1291,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t unenvelop(const enveloped_t & enveloped, const keys::key_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t unenvelop(const enveloped_t & enveloped, const keys::key_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция расшифрования зашифрованного сообщения ключом ML-KEM
@@ -1313,6 +1313,6 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t unenvelop(const enveloped_t & enveloped, const agreement::kem_t kem, const view_t & secret, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t unenvelop(const enveloped_t & enveloped, const agreement::kem_t kem, const view_t & secret, vector <uint8_t> & result) noexcept;
 	};
 };

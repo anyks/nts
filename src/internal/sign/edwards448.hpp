@@ -24,11 +24,11 @@
  *
  */
 
-#ifndef __ANTS_INTERNAL_SIGN_EDWARDS448__
+#ifndef __NTS_INTERNAL_SIGN_EDWARDS448__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __ANTS_INTERNAL_SIGN_EDWARDS448__
+#define __NTS_INTERNAL_SIGN_EDWARDS448__
 
 /**
  * Стандартные заголовочные файлы
@@ -128,7 +128,7 @@ namespace nts {
 			 * @return коэффициент кривой элементом поля
 			 *
 			 */
-			static __ANTS_INLINE__ const element_t & coefficient() noexcept {
+			static __NTS_INLINE__ const element_t & coefficient() noexcept {
 				// Коэффициент кривой, заведённый один раз
 				static const element_t item = []() noexcept {
 					// Разбираемый коэффициент
@@ -147,7 +147,7 @@ namespace nts {
 			 * @param result место, в которое помещается нейтральная точка
 			 *
 			 */
-			static __ANTS_INLINE__ void neutral(point_t & result) noexcept {
+			static __NTS_INLINE__ void neutral(point_t & result) noexcept {
 				// Первая координата нейтральной точки - ноль
 				zero(result.x);
 				// Вторая координата нейтральной точки - единица
@@ -163,7 +163,7 @@ namespace nts {
 			 * @param result место, в которое помещается точка основания
 			 *
 			 */
-			static __ANTS_INLINE__ void base(point_t & result) noexcept {
+			static __NTS_INLINE__ void base(point_t & result) noexcept {
 				// Разбор первой координаты точки основания
 				load(BASE_X, result.x);
 				// Разбор второй координаты точки основания
@@ -184,7 +184,7 @@ namespace nts {
 			 * @param result место, в которое помещается сумма
 			 *
 			 */
-			static __ANTS_INLINE__ void add(const point_t & first, const point_t & second, point_t & result) noexcept {
+			static __NTS_INLINE__ void add(const point_t & first, const point_t & second, point_t & result) noexcept {
 				// Промежуточные значения сложения
 				element_t a, b, c, d, e, f, g, h, item;
 				// Вырабатываем произведение первых координат
@@ -249,7 +249,7 @@ namespace nts {
 			 * @param result место, в которое помещается удвоенная точка
 			 *
 			 */
-			static __ANTS_INLINE__ void twice(const point_t & value, point_t & result) noexcept {
+			static __NTS_INLINE__ void twice(const point_t & value, point_t & result) noexcept {
 				// Промежуточные значения удвоения
 				element_t a, b, c, e, f, g, h;
 				// Вырабатываем квадрат первой координаты

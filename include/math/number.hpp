@@ -130,7 +130,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Number {
+		typedef struct __NTS_SHARED_EXPORT__ Number {
 			// Слова числа от младшего к старшему
 			uint64_t words[NUMBER_WORDS];
 			/**
@@ -194,7 +194,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Modulus {
+		typedef class __NTS_SHARED_EXPORT__ Modulus {
 			public:
 				/**
 				 * \~russian

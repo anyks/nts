@@ -115,7 +115,7 @@ namespace {
 	 * @return     слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t fetch(const uint8_t * data, const bool wide) noexcept {
+	static __NTS_INLINE__ uint64_t fetch(const uint8_t * data, const bool wide) noexcept {
 		// Собираемое слово
 		uint64_t result = 0;
 		/**
@@ -140,7 +140,7 @@ namespace {
 	 * @param wide признак ширины в 64 разряда
 	 *
 	 */
-	static __ANTS_INLINE__ void mix(uint64_t * v, const size_t a, const size_t b, const size_t c, const size_t d, const uint64_t x, const uint64_t y, const bool wide) noexcept {
+	static __NTS_INLINE__ void mix(uint64_t * v, const size_t a, const size_t b, const size_t c, const size_t d, const uint64_t x, const uint64_t y, const bool wide) noexcept {
 		// Маска ширины слова
 		const uint64_t mask = (wide ? 0xFFFFFFFFFFFFFFFFULL : 0xFFFFFFFFULL);
 		// Сдвиги разновидности

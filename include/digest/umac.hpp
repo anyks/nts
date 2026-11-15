@@ -130,6 +130,6 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool umac(const view_t & key, const view_t & nonce, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool umac(const view_t & key, const view_t & nonce, const view_t & data, uint8_t * result, const size_t size) noexcept;
 	};
 };

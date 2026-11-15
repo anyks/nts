@@ -171,7 +171,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Store {
+		typedef class __NTS_SHARED_EXPORT__ Store {
 			private:
 				// Записи доверенных сертификатов запаса
 				vector <vector <uint8_t>> _chain;
@@ -386,7 +386,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки цепочки сертификатов по запасу доверенных с учётом роли собеседника
@@ -408,7 +408,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment, const role_t role) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const vector <vector <uint8_t>> & chain, const store_t & store, const int64_t moment, const role_t role) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сличения имени узла с именами сертификата
@@ -439,7 +439,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t belongs(const view_t & certificate, const string & name) noexcept;
+		__NTS_SHARED_EXPORT__ error_t belongs(const view_t & certificate, const string & name) noexcept;
 	};
 };
 

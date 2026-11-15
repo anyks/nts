@@ -29,11 +29,11 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_DIGEST_KECCAK__
+#ifndef __NTS_DIGEST_KECCAK__
 /**
  * Макрос экранирования повторной инициализации модуля
  */
-#define __ANTS_DIGEST_KECCAK__
+#define __NTS_DIGEST_KECCAK__
 
 /**
  * Стандартные заголовочные файлы
@@ -50,13 +50,13 @@
  * Ядро берётся у gcc и clang на x86-64; у прочих собирателей и архитектур остаётся переносимая
  * перестановка. Под ASan без оптимизации ядро тоже не берётся: вставка занимает все
  * четырнадцать регистров общего назначения, и собирателю их не хватает (признак
- * __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp, круг 38)
+ * __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp, круг 38)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 	/**
 	 * Признак наличия ядра на ассемблере
 	 */
-	#define __ANTS_KECCAK_X86_64__
+	#define __NTS_KECCAK_X86_64__
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -79,7 +79,7 @@
 				 * @param iota  константы ι двадцати четырёх кругов
 				 *
 				 */
-				static __ANTS_INLINE__ void keccak(uint64_t * state, const uint64_t * iota) noexcept {
+				static __NTS_INLINE__ void keccak(uint64_t * state, const uint64_t * iota) noexcept {
 					// Второй накопитель состояния: круги пишут попеременно в состояние и в него
 					uint64_t buffer[25];
 					// Указатель на константу текущего круга и на конец таблицы
@@ -349,7 +349,7 @@
 	/**
 	 * Признак наличия ядра на командах SHA-3
 	 */
-	#define __ANTS_KECCAK_AARCH64__
+	#define __NTS_KECCAK_AARCH64__
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -375,7 +375,7 @@
 				 *       ложатся в свободные регистры (переименование без копий): 1682 команд
 				 *
 				 */
-				static __ANTS_INLINE__ void keccak(uint64_t * state, const uint64_t * iota) noexcept {
+				static __NTS_INLINE__ void keccak(uint64_t * state, const uint64_t * iota) noexcept {
 					// Выводим встроенный ассемблер кругов
 					__asm__ __volatile__ (
 						"ldr d0, [%[state], #0]\n\t"
@@ -2078,7 +2078,7 @@
 				 *       константа ι размножается на обе дорожки командой ins
 				 *
 				 */
-				static __ANTS_INLINE__ void keccak2(uint64_t * state, const uint64_t * iota) noexcept {
+				static __NTS_INLINE__ void keccak2(uint64_t * state, const uint64_t * iota) noexcept {
 					// Выводим встроенный ассемблер кругов
 					__asm__ __volatile__(
 						"ldr q0, [%[state], #0]\n\t"
@@ -3841,11 +3841,11 @@ namespace nts {
  * атрибут цели AVX2 и зовётся лишь после проверки машины; на ARM64 NEON вечно доступен.
  * Под ASan без оптимизации ядро не берётся, как и соседние
  */
-#if (defined(__x86_64__) || defined(__aarch64__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if (defined(__x86_64__) || defined(__aarch64__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Признак наличия параллельного ядра четырёх состояний
 	 */
-	#define __ANTS_KECCAK_X4__
+	#define __NTS_KECCAK_X4__
 	/**
 	 * Если архитектура x86-64
 	 */
@@ -3853,7 +3853,7 @@ namespace nts {
 		/**
 		 * Цель ядра: команды AVX2
 		 */
-		#define __ANTS_KECCAK_X4_TARGET__ __attribute__((target("avx2")))
+		#define __NTS_KECCAK_X4_TARGET__ __attribute__((target("avx2")))
 	/**
 	 * Иначе цель ядра не нужна: NEON входит в архитектуру
 	 */
@@ -3861,7 +3861,7 @@ namespace nts {
 		/**
 		 * Пустая цель ядра
 		 */
-		#define __ANTS_KECCAK_X4_TARGET__
+		#define __NTS_KECCAK_X4_TARGET__
 	#endif
 	/**
 	 * @brief Основное пространство имён
@@ -3893,7 +3893,7 @@ namespace nts {
 				 *       проходят без изменений
 				 *
 				 */
-				__ANTS_KECCAK_X4_TARGET__ static inline lane4_t spin4(const lane4_t lane, const int count) noexcept {
+				__NTS_KECCAK_X4_TARGET__ static inline lane4_t spin4(const lane4_t lane, const int count) noexcept {
 					// Выводим круговой сдвиг полос
 					return ((lane << count) | (lane >> ((64 - count) & 63)));
 				}
@@ -3901,7 +3901,7 @@ namespace nts {
 				 * Если доступно ядро на командах SHA-3, четвёрка состояний идёт двумя парами
 				 * переплетённых перестановок - на треть быстрее векторного расширения
 				 */
-				#if defined(__ANTS_KECCAK_AARCH64__)
+				#if defined(__NTS_KECCAK_AARCH64__)
 					/**
 					 * @brief Функция параллельной перестановки четырёх состояний Keccak-f[1600]
 					 *
@@ -3914,7 +3914,7 @@ namespace nts {
 					 *       затем χ и ι; полосы четырёх губок держатся в векторах по четыре
 					 *
 					 */
-					static __ANTS_INLINE__ void keccak4(uint64_t states[4][25]) noexcept {
+					static __NTS_INLINE__ void keccak4(uint64_t states[4][25]) noexcept {
 						// Буфер переплетённых состояний: пара полос в каждом 128-битном слове
 						uint64_t interleaved[50];
 						/**
@@ -3963,7 +3963,7 @@ namespace nts {
 					 * @param states четыре состояния по 25 полос каждое
 					 *
 					 */
-					__ANTS_KECCAK_X4_TARGET__ static inline void keccak4(uint64_t states[4][25]) noexcept {
+					__NTS_KECCAK_X4_TARGET__ static inline void keccak4(uint64_t states[4][25]) noexcept {
 						// Полосы состояний в векторах: место i несёт полосу i каждой губки
 						lane4_t a00 = {states[0][0], states[1][0], states[2][0], states[3][0]}, a01 = {states[0][1], states[1][1], states[2][1], states[3][1]}, a02 = {states[0][2], states[1][2], states[2][2], states[3][2]}, a03 = {states[0][3], states[1][3], states[2][3], states[3][3]}, a04 = {states[0][4], states[1][4], states[2][4], states[3][4]}, a05 = {states[0][5], states[1][5], states[2][5], states[3][5]}, a06 = {states[0][6], states[1][6], states[2][6], states[3][6]}, a07 = {states[0][7], states[1][7], states[2][7], states[3][7]}, a08 = {states[0][8], states[1][8], states[2][8], states[3][8]}, a09 = {states[0][9], states[1][9], states[2][9], states[3][9]}, a10 = {states[0][10], states[1][10], states[2][10], states[3][10]}, a11 = {states[0][11], states[1][11], states[2][11], states[3][11]}, a12 = {states[0][12], states[1][12], states[2][12], states[3][12]}, a13 = {states[0][13], states[1][13], states[2][13], states[3][13]}, a14 = {states[0][14], states[1][14], states[2][14], states[3][14]}, a15 = {states[0][15], states[1][15], states[2][15], states[3][15]}, a16 = {states[0][16], states[1][16], states[2][16], states[3][16]}, a17 = {states[0][17], states[1][17], states[2][17], states[3][17]}, a18 = {states[0][18], states[1][18], states[2][18], states[3][18]}, a19 = {states[0][19], states[1][19], states[2][19], states[3][19]}, a20 = {states[0][20], states[1][20], states[2][20], states[3][20]}, a21 = {states[0][21], states[1][21], states[2][21], states[3][21]}, a22 = {states[0][22], states[1][22], states[2][22], states[3][22]}, a23 = {states[0][23], states[1][23], states[2][23], states[3][23]}, a24 = {states[0][24], states[1][24], states[2][24], states[3][24]};
 						// Полосы после шагов ρ и π

@@ -24,11 +24,11 @@
  *
  */
 
-#ifndef __ANTS_ENTROPY_GENERATOR__
+#ifndef __NTS_ENTROPY_GENERATOR__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __ANTS_ENTROPY_GENERATOR__
+#define __NTS_ENTROPY_GENERATOR__
 
 /**
  * Стандартные заголовочные файлы

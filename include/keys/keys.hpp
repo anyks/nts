@@ -223,7 +223,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Key {
+		typedef struct __NTS_SHARED_EXPORT__ Key {
 			// Вид ключа
 			kind_t kind;
 			// Опознаватель кривой у EC и ГОСТ
@@ -478,7 +478,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Signer {
+		typedef class __NTS_SHARED_EXPORT__ Signer {
 			private:
 				// Вид подготовленного ключа
 				kind_t _kind;
@@ -776,7 +776,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decodeSubjectPublicKeyInfo(const view_t & der, key_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decodeSubjectPublicKeyInfo(const view_t & der, key_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи SubjectPublicKeyInfo
@@ -794,7 +794,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encodeSubjectPublicKeyInfo(const key_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encodeSubjectPublicKeyInfo(const key_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи PrivateKeyInfo по RFC 5958
@@ -823,7 +823,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decodePrivateKeyInfo(const view_t & der, key_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decodePrivateKeyInfo(const view_t & der, key_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи PrivateKeyInfo по RFC 5958
@@ -849,7 +849,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encodePrivateKeyInfo(const key_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encodePrivateKeyInfo(const key_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи ECPrivateKey по RFC 5915 вне обёртки
@@ -873,7 +873,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decodeECPrivateKey(const view_t & der, key_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decodeECPrivateKey(const view_t & der, key_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи ECPrivateKey по RFC 5915 вне обёртки
@@ -891,7 +891,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encodeECPrivateKey(const key_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encodeECPrivateKey(const key_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи RSAPrivateKey по RFC 8017
@@ -909,7 +909,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decodeRSAPrivateKey(const view_t & der, key_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decodeRSAPrivateKey(const view_t & der, key_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи RSAPrivateKey по RFC 8017
@@ -927,7 +927,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encodeRSAPrivateKey(const key_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encodeRSAPrivateKey(const key_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи RSAPublicKey по RFC 8017
@@ -945,7 +945,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decodeRSAPublicKey(const view_t & der, key_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decodeRSAPublicKey(const view_t & der, key_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи RSAPublicKey по RFC 8017
@@ -963,7 +963,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encodeRSAPublicKey(const key_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encodeRSAPublicKey(const key_t & key, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи EncryptedPrivateKeyInfo по схеме PBES2 из RFC 8018
@@ -999,7 +999,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decodeEncryptedPrivateKeyInfo(const view_t & der, const view_t & password, key_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decodeEncryptedPrivateKeyInfo(const view_t & der, const view_t & password, key_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи PKCS #12 по RFC 7292: ключа с цепочкой сертификатов
@@ -1041,7 +1041,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decodePkcs12(const view_t & der, const view_t & password, key_t & key, vector <vector <uint8_t>> & chain) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decodePkcs12(const view_t & der, const view_t & password, key_t & key, vector <vector <uint8_t>> & chain) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи EncryptedPrivateKeyInfo по схеме PBES2 из RFC 8018
@@ -1073,7 +1073,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encodeEncryptedPrivateKeyInfo(const key_t & key, const view_t & password, vector <uint8_t> & result, const size_t bits = 256, const uint32_t iterations = 2048) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encodeEncryptedPrivateKeyInfo(const key_t & key, const view_t & password, vector <uint8_t> & result, const size_t bits = 256, const uint32_t iterations = 2048) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора ключа из текста в обёртке PEM
@@ -1101,7 +1101,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decode(const string & text, const view_t & password, key_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decode(const string & text, const view_t & password, key_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи ключа в текст в обёртке PEM
@@ -1127,7 +1127,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encode(const key_t & key, const container_t container, string & result, const view_t & password = view_t(), const size_t bits = 256, const uint32_t iterations = 2048) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encode(const key_t & key, const container_t container, string & result, const view_t & password = view_t(), const size_t bits = 256, const uint32_t iterations = 2048) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения названия отказа
@@ -1143,7 +1143,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const char * name(const error_t error) noexcept;
+		__NTS_SHARED_EXPORT__ const char * name(const error_t error) noexcept;
 	};
 };
 

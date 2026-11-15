@@ -216,7 +216,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Machine {
+		typedef class __NTS_SHARED_EXPORT__ Machine {
 			private:
 				// Роль стороны, ведущей ход рукопожатия
 				role_t _role;

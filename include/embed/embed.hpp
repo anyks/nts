@@ -123,7 +123,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool key(const digest::hash_t algorithm, const view_t & material, const view_t & salt, const view_t & context, const uint64_t version, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool key(const digest::hash_t algorithm, const view_t & material, const view_t & salt, const view_t & context, const uint64_t version, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вывода зашитого ключа из пароля растяжением Argon2
@@ -166,7 +166,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool secret(const digest::argon_params_t & params, const view_t & password, const view_t & salt, const view_t & context, const uint64_t version, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool secret(const digest::argon_params_t & params, const view_t & password, const view_t & salt, const view_t & context, const uint64_t version, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

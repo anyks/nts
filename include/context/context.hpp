@@ -70,7 +70,7 @@ namespace nts {
 	 */
 	namespace keys {
 		// Предварительно объявляем класс подписанта
-		class __ANTS_SHARED_EXPORT__ Signer;
+		class __NTS_SHARED_EXPORT__ Signer;
 	};
 
 	/**
@@ -367,7 +367,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Credential {
+		typedef struct __NTS_SHARED_EXPORT__ Credential {
 			// Секретный ключ своего сертификата
 			vector <uint8_t> secret;
 			// Цепочка сертификатов своей стороны
@@ -477,7 +477,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Codec {
+		typedef struct __NTS_SHARED_EXPORT__ Codec {
 			/**
 			 * \~russian
 			 * @brief Вызов сжатия цепочки сертификатов
@@ -599,7 +599,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Psk {
+		typedef struct __NTS_SHARED_EXPORT__ Psk {
 			/**
 			 * \~russian
 			 * @brief Вызов сервера: ключ по опознавателю клиента
@@ -743,7 +743,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Select {
+		typedef struct __NTS_SHARED_EXPORT__ Select {
 			/**
 			 * \~russian
 			 * @brief Итог выбора подлинности
@@ -879,7 +879,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Ticket {
+		typedef struct __NTS_SHARED_EXPORT__ Ticket {
 			// Набор шифрования связи, выдавшей билет
 			protect::suite_t suite;
 			// Миг выдачи билета в секундах, ноль означает неизвестный миг
@@ -1018,7 +1018,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encode(const ticket_t & ticket, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encode(const ticket_t & ticket, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция чтения билета возобновления связи из октетов
@@ -1042,7 +1042,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decode(const view_t & data, ticket_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decode(const view_t & data, ticket_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Вызов журнала секретов связи
@@ -1088,7 +1088,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Keylog {
+		typedef struct __NTS_SHARED_EXPORT__ Keylog {
 			// Вызов журнала
 			keylog_fn_t log;
 			// Указатель контекста потребителя, передаваемый вызову как есть

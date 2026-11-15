@@ -114,7 +114,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool x448(const view_t & secret, const view_t & point, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool x448(const view_t & secret, const view_t & point, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки открытого ключа на кривой Curve448
@@ -138,7 +138,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool x448(const view_t & secret, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool x448(const view_t & secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция порождения пары ключей на кривой Curve448
@@ -162,7 +162,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool pair448(uint8_t * secret, uint8_t * key) noexcept;
+		__NTS_SHARED_EXPORT__ bool pair448(uint8_t * secret, uint8_t * key) noexcept;
 	};
 };
 

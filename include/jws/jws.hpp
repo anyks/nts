@@ -147,7 +147,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Signature {
+		typedef class __NTS_SHARED_EXPORT__ Signature {
 			private:
 				// Причина последнего отказа
 				error_t _error;
@@ -337,7 +337,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void base64url(const view_t & data, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ void base64url(const view_t & data, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция декодирования base64url
@@ -362,7 +362,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool unbase64url(const view_t & text, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ bool unbase64url(const view_t & text, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -379,7 +379,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const char * name(const algorithm_t algorithm) noexcept;
+		__NTS_SHARED_EXPORT__ const char * name(const algorithm_t algorithm) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения алгоритма подписи по его имени
@@ -395,7 +395,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ algorithm_t algorithm(const view_t & name) noexcept;
+		__NTS_SHARED_EXPORT__ algorithm_t algorithm(const view_t & name) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция определения алгоритма подписи по ключу
@@ -417,7 +417,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ algorithm_t algorithm(const keys::key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ algorithm_t algorithm(const keys::key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция определения алгоритма подписи по подготовленному ключу
@@ -433,7 +433,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ algorithm_t algorithm(const keys::signer_t & signer) noexcept;
+		__NTS_SHARED_EXPORT__ algorithm_t algorithm(const keys::signer_t & signer) noexcept;
 
 		/**
 		 * \~russian
@@ -471,7 +471,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encode(const algorithm_t algorithm, const string & header, const view_t & payload, const keys::signer_t & signer, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encode(const algorithm_t algorithm, const string & header, const view_t & payload, const keys::signer_t & signer, string & result) noexcept;
 
 		/**
 		 * \~russian
@@ -500,7 +500,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t jwk(const keys::key_t & key, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t jwk(const keys::key_t & key, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи открытого ключа JWK
@@ -526,7 +526,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t unjwk(const view_t & text, keys::key_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t unjwk(const view_t & text, keys::key_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки отпечатка открытого ключа JWK
@@ -553,7 +553,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t thumbprint(const keys::key_t & key, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t thumbprint(const keys::key_t & key, string & result) noexcept;
 	}
 }
 

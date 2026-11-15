@@ -146,7 +146,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Poly1305 {
+		typedef class __NTS_SHARED_EXPORT__ Poly1305 {
 			private:
 				// Признак того, что имитовставка готова к работе
 				bool _ready;

@@ -113,7 +113,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void wipe(void * data, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ void wipe(void * data, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция затирания набора байтов с его опустошением
@@ -127,7 +127,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void wipe(vector <uint8_t> & data) noexcept;
+		__NTS_SHARED_EXPORT__ void wipe(vector <uint8_t> & data) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция затирания строки с её опустошением
@@ -141,7 +141,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void wipe(string & data) noexcept;
+		__NTS_SHARED_EXPORT__ void wipe(string & data) noexcept;
 	};
 };
 

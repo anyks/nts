@@ -90,7 +90,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Symmetric {
+		typedef class __NTS_SHARED_EXPORT__ Symmetric {
 			private:
 				// Функция хеширования
 				digest::hash_t _hash;

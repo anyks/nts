@@ -142,7 +142,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool pairSntrup761x25519(uint8_t * key, uint8_t * secret) noexcept;
+		__NTS_SHARED_EXPORT__ bool pairSntrup761x25519(uint8_t * key, uint8_t * secret) noexcept;
 
 		/**
 		 * \~russian
@@ -173,7 +173,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encapsSntrup761x25519(const view_t & key, uint8_t * cipher, uint8_t * secret, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool encapsSntrup761x25519(const view_t & key, uint8_t * cipher, uint8_t * secret, uint8_t * shared) noexcept;
 
 		/**
 		 * \~russian
@@ -200,7 +200,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool decapsSntrup761x25519(const view_t & cipher, const view_t & secret, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool decapsSntrup761x25519(const view_t & cipher, const view_t & secret, uint8_t * shared) noexcept;
 	} // namespace agreement
 } // namespace nts
 

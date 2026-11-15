@@ -35,11 +35,11 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_CIPHER_GCM__
+#ifndef __NTS_INTERNAL_CIPHER_GCM__
 /**
  * Макрос экранирования повторной инициализации модуля
  */
-#define __ANTS_INTERNAL_CIPHER_GCM__
+#define __NTS_INTERNAL_CIPHER_GCM__
 
 /**
  * Стандартные заголовочные файлы
@@ -58,15 +58,15 @@
  * сборки (признак __ARM_FEATURE_AES: у clang на процессорах Apple задан сам, у gcc и clang под Linux
  * появляется от -march=armv8-a+crypto); у прочих собирателей и архитектур остаются ветви на
  * интринсиках либо переносимый путь. Под ASan без оптимизации ядро x86-64 не берётся (признак
- * __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp: тринадцать регистров общего назначения во вставке,
+ * __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp: тринадцать регистров общего назначения во вставке,
  * а ASan держит адреса своего стека в регистрах); ядру AArch64 регистров хватает, и оно
  * проверяется отладочной сборкой
  */
-#if((defined(__x86_64__) && !defined(__ANTS_ASAN_UNOPTIMIZED__)) || (defined(__aarch64__) && defined(__ARM_FEATURE_AES))) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+#if((defined(__x86_64__) && !defined(__NTS_ASAN_UNOPTIMIZED__)) || (defined(__aarch64__) && defined(__ARM_FEATURE_AES))) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Признак наличия сшитого ядра на ассемблере
 	 */
-	#define __ANTS_GCM_STITCH__
+	#define __NTS_GCM_STITCH__
 	/**
 	 * @brief Основное пространство имён
 	 *

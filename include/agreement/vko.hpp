@@ -119,7 +119,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool vko(const curve::curve_t & curve, const view_t & secret, const view_t & x, const view_t & y, const view_t & ukm, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool vko(const curve::curve_t & curve, const view_t & secret, const view_t & x, const view_t & y, const view_t & ukm, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

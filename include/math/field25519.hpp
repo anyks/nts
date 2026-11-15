@@ -130,7 +130,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			typedef struct __ANTS_SHARED_EXPORT__ Element {
+			typedef struct __NTS_SHARED_EXPORT__ Element {
 				// Конечности элемента поля
 				uint64_t limbs[LIMBS];
 				/**
@@ -158,7 +158,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void zero(element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void zero(element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция получения единицы поля
@@ -172,7 +172,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void one(element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void one(element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция разбора элемента поля из тридцати двух байтов
@@ -194,7 +194,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void load(const uint8_t * data, element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void load(const uint8_t * data, element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция записи элемента поля в тридцать два байта
@@ -216,7 +216,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void store(const element_t & value, uint8_t * data) noexcept;
+			__NTS_SHARED_EXPORT__ void store(const element_t & value, uint8_t * data) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция сложения элементов поля
@@ -238,7 +238,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void add(const element_t & first, const element_t & second, element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void add(const element_t & first, const element_t & second, element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция вычитания элементов поля
@@ -260,7 +260,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void sub(const element_t & first, const element_t & second, element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void sub(const element_t & first, const element_t & second, element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция умножения элементов поля
@@ -282,7 +282,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void mul(const element_t & first, const element_t & second, element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void mul(const element_t & first, const element_t & second, element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция умножения элемента поля на малое число
@@ -306,7 +306,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void mul(const element_t & value, const uint64_t factor, element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void mul(const element_t & value, const uint64_t factor, element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция возведения элемента поля в квадрат
@@ -326,7 +326,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void square(const element_t & value, element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void square(const element_t & value, element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция обращения элемента поля
@@ -352,7 +352,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void invert(const element_t & value, element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void invert(const element_t & value, element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция возведения элемента поля в степень (2^255 - 24) / 8
@@ -378,7 +378,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void root(const element_t & value, element_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ void root(const element_t & value, element_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция сличения элементов поля
@@ -400,7 +400,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool equal(const element_t & first, const element_t & second) noexcept;
+			__NTS_SHARED_EXPORT__ bool equal(const element_t & first, const element_t & second) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция проверки обращения элемента поля в ноль
@@ -420,7 +420,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool nil(const element_t & value) noexcept;
+			__NTS_SHARED_EXPORT__ bool nil(const element_t & value) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция условного обмена элементов поля
@@ -444,7 +444,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ void swap(element_t & first, element_t & second, const uint64_t flag) noexcept;
+			__NTS_SHARED_EXPORT__ void swap(element_t & first, element_t & second, const uint64_t flag) noexcept;
 		};
 	};
 };

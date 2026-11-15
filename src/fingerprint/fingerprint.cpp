@@ -344,7 +344,7 @@ namespace {
 	 * @return      запись вида "0x%04X"
 	 *
 	 */
-	static string __ants_hex16__(const uint16_t value) noexcept {
+	static string __nts_hex16__(const uint16_t value) noexcept {
 		// Место записи числа
 		char buffer[8];
 		// Составляем запись числа
@@ -359,7 +359,7 @@ namespace {
 	 * @return      запись вида "0x%02X"
 	 *
 	 */
-	static string __ants_hex8__(const uint8_t value) noexcept {
+	static string __nts_hex8__(const uint8_t value) noexcept {
 		// Место записи числа
 		char buffer[6];
 		// Составляем запись числа
@@ -374,7 +374,7 @@ namespace {
 	 * @return   имя алгоритма сжатия
 	 *
 	 */
-	static const char * __ants_compress_alg_name__(const uint8_t id) noexcept {
+	static const char * __nts_compress_alg_name__(const uint8_t id) noexcept {
 		/**
 		 * Определяем имя для кода алгоритма сжатия
 		 */
@@ -396,7 +396,7 @@ namespace {
 	 * @return        имя издания протокола
 	 *
 	 */
-	static const char * __ants_tls_version_name__(const uint16_t version) noexcept {
+	static const char * __nts_tls_version_name__(const uint16_t version) noexcept {
 		// Если версия является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(version))
 			// Возвращаем строку "GREASE" для GREASE версий
@@ -432,7 +432,7 @@ namespace {
 	 * @return    имя группы обмена ключами
 	 *
 	 */
-	static const char * __ants_group_name__(const uint16_t gid) noexcept {
+	static const char * __nts_group_name__(const uint16_t gid) noexcept {
 		// Если код группы является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(gid))
 			// Возвращаем строку "GREASE" для GREASE кодов групп
@@ -480,7 +480,7 @@ namespace {
 	 * @return   имя схемы подписи
 	 *
 	 */
-	static const char * __ants_signature_name__(const uint16_t id) noexcept {
+	static const char * __nts_signature_name__(const uint16_t id) noexcept {
 		// Если код схемы подписи является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(id))
 			// Возвращаем строку "GREASE" для GREASE кодов схем подписи
@@ -538,7 +538,7 @@ namespace {
 	 * @return   имя набора шифрования
 	 *
 	 */
-	static const char * __ants_cipher_name__(const uint16_t id) noexcept {
+	static const char * __nts_cipher_name__(const uint16_t id) noexcept {
 		// Если код набора является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(id))
 			// Возвращаем строку "GREASE" для GREASE кодов наборов
@@ -606,7 +606,7 @@ namespace {
 	 * @return     имя расширения
 	 *
 	 */
-	static const char * __ants_extension_name__(const uint16_t type) noexcept {
+	static const char * __nts_extension_name__(const uint16_t type) noexcept {
 		// Если код расширения является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(type))
 			// Возвращаем строку "GREASE" для GREASE кодов расширений
@@ -708,7 +708,7 @@ namespace {
 	 * @return     число доверенных центров
 	 *
 	 */
-	static size_t __ants_ca_count__(const vector <uint8_t> & data) noexcept {
+	static size_t __nts_ca_count__(const vector <uint8_t> & data) noexcept {
 		// Если тело короче длины перечня
 		if(data.size() < 2)
 			// Выводим отсутствие центров
@@ -2217,7 +2217,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 			// Издание слоя записей: ноль, когда разбиралось голое сообщение рукопожатия
 			const uint16_t wire = profile.record;
 			// Возвращаем версию и её код
-			out << "    Version  : " << ::__ants_tls_version_name__(wire) << "  (" << ::__ants_hex16__(wire) << ")" << endl;
+			out << "    Version  : " << ::__nts_tls_version_name__(wire) << "  (" << ::__nts_hex16__(wire) << ")" << endl;
 			// Длина записи: длина тела приветствия плюс обвязка сообщения (12 байтов у дейтаграмм, 4 у потока)
 			out << "    Length   : " << (profile.length + (profile.datagram ? 12 : 4)) << endl;
 			// Поля дейтаграмм выводим всегда при дейтаграммном устройстве, иначе лишь когда они ненулевые
@@ -2246,7 +2246,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 		section("ClientHello");
 		{
 			// Возвращаем издание приветствия и его код
-			out << "    Legacy Version : " << ::__ants_tls_version_name__(profile.version) << "  (" << ::__ants_hex16__(profile.version) << ")" << endl;
+			out << "    Legacy Version : " << ::__nts_tls_version_name__(profile.version) << "  (" << ::__nts_hex16__(profile.version) << ")" << endl;
 			// Запись случайного значения
 			string random;
 			// Составляем запись случайного значения
@@ -2293,7 +2293,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 			// Набор по проводу
 			const uint16_t wire = static_cast <uint16_t> (profile.suites[i]);
 			// Имя набора: GREASE или реальное название
-			const char * name = ::__ants_cipher_name__(wire);
+			const char * name = ::__nts_cipher_name__(wire);
 			// Место записи индекса набора
 			char index[24];
 			// Составляем запись индекса набора
@@ -2309,7 +2309,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 				// Печатаем пробел для выравнивания
 				out << ' ';
 			// Печатаем код набора
-			out << "(" << ::__ants_hex16__(wire) << ")" << endl;
+			out << "(" << ::__nts_hex16__(wire) << ")" << endl;
 		}
 		/**
 		 * Формируем секцию Compression Methods с количеством способов
@@ -2333,7 +2333,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 			// Составляем запись индекса способа сжатия
 			::snprintf(index, sizeof(index), "[%2zu]", i);
 			// Печатаем индекс, имя способа сжатия и его код
-			out << "    " << index << "  " << ::__ants_compress_alg_name__(wire) << "  (" << ::__ants_hex8__(wire) << ")" << endl;
+			out << "    " << index << "  " << ::__nts_compress_alg_name__(wire) << "  (" << ::__nts_hex8__(wire) << ")" << endl;
 		}
 		/**
 		 * Формируем секцию Extensions с количеством расширений
@@ -2364,7 +2364,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 				continue;
 			}
 			// Имя расширения
-			const char * ename = ::__ants_extension_name__(extension.type);
+			const char * ename = ::__nts_extension_name__(extension.type);
 			// Печатаем индекс и имя расширения
 			out << "    " << index << "  " << ename;
 			// Вычисляем количество пробелов для выравнивания имён по столбцу 46
@@ -2376,7 +2376,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 				// Печатаем пробел для выравнивания
 				out << ' ';
 			// Печатаем код расширения
-			out << "(" << ::__ants_hex16__(extension.type) << ")";
+			out << "(" << ::__nts_hex16__(extension.type) << ")";
 			/**
 			 * Подробности расширения в зависимости от его вида
 			 */
@@ -2412,7 +2412,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем маркер GREASE-издания
 							out << "[GREASE]";
 						// Печатаем имя издания по его коду
-						else out << ::__ants_tls_version_name__(extension.versions[j]);
+						else out << ::__nts_tls_version_name__(extension.versions[j]);
 					}
 				} break;
 				// Поддерживаемые группы: выводим список с GREASE-маркерами
@@ -2434,7 +2434,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем маркер GREASE-группы
 							out << "[GREASE]";
 						// Печатаем имя группы по её коду
-						else out << ::__ants_group_name__(wire);
+						else out << ::__nts_group_name__(wire);
 					}
 				} break;
 				// Записи точек: выводим форматы точек кривой
@@ -2464,7 +2464,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем имя формата точки
 							out << "ansiX962_compressed_char2";
 						// Для остальных форматов выводим их коды
-						else out << ::__ants_hex8__(wire);
+						else out << ::__nts_hex8__(wire);
 					}
 				} break;
 				// Схемы подписи: каждая на отдельной строке
@@ -2488,7 +2488,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем маркер GREASE-схемы
 							out << "[GREASE]";
 						// Печатаем имя схемы и её код
-						else out << ::__ants_signature_name__(wire) << "  (" << ::__ants_hex16__(wire) << ")";
+						else out << ::__nts_signature_name__(wire) << "  (" << ::__nts_hex16__(wire) << ")";
 						// Печатаем перевод строки после каждой схемы
 						out << endl;
 					}
@@ -2536,7 +2536,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем маркер GREASE-группы и размер ключа
 							out << "[GREASE](" << extension.shares[j].key.size() << "B)";
 						// Печатаем имя группы и размер ключа
-						else out << ::__ants_group_name__(wire) << "(" << extension.shares[j].key.size() << "B)";
+						else out << ::__nts_group_name__(wire) << "(" << extension.shares[j].key.size() << "B)";
 					}
 				} break;
 				// Способы обмена заранее разделённым ключом
@@ -2625,7 +2625,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем запятую для разделения алгоритмов
 							out << ", ";
 						// Печатаем имя алгоритма по его коду
-						out << ::__ants_compress_alg_name__(static_cast <uint8_t> (static_cast <uint16_t> (extension.algorithms[j])));
+						out << ::__nts_compress_alg_name__(static_cast <uint8_t> (static_cast <uint16_t> (extension.algorithms[j])));
 					}
 				} break;
 				// Сердцебиение: выводим режим
@@ -2664,7 +2664,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 				// Доверенные центры: выводим их количество
 				case static_cast <uint16_t> (extension::type_t::AUTHORITIES):
 					// Печатаем маркер перед количеством доверенных центров
-					out << "  ->  " << __ants_ca_count__(extension.data) << " CA(s)";
+					out << "  ->  " << __nts_ca_count__(extension.data) << " CA(s)";
 				break;
 				// Предел длины куска: выводим код длины
 				case WIRE_FRAGMENT:
@@ -2699,9 +2699,9 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 			// Составляем десятичную запись согласуемого издания
 			decimal(imp.negotiated, negV);
 			// Издания протокола
-			out << "    TLS Record Version     : " << recV << "  (" << ::__ants_hex16__(imp.record) << ")  =  " << ::__ants_tls_version_name__(imp.record) << endl;
+			out << "    TLS Record Version     : " << recV << "  (" << ::__nts_hex16__(imp.record) << ")  =  " << ::__nts_tls_version_name__(imp.record) << endl;
 			// Печатаем согласуемое издание протокола
-			out << "    TLS Negotiated Version : " << negV << "  (" << ::__ants_hex16__(imp.negotiated) << ")  =  " << ::__ants_tls_version_name__(imp.negotiated) << endl;
+			out << "    TLS Negotiated Version : " << negV << "  (" << ::__nts_hex16__(imp.negotiated) << ")  =  " << ::__nts_tls_version_name__(imp.negotiated) << endl;
 			// Опознаватели соединения
 			out << "    Client Random          : " << imp.random << endl;
 			// Печатаем опознаватель связи

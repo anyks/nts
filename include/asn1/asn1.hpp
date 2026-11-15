@@ -218,7 +218,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Element {
+		typedef struct __NTS_SHARED_EXPORT__ Element {
 			// Признак составного вида метки
 			bool constructed;
 			// Класс метки
@@ -258,7 +258,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Reader {
+		typedef class __NTS_SHARED_EXPORT__ Reader {
 			private:
 				// Просмотр разбираемой области данных
 				view_t _view;
@@ -451,7 +451,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t boolean(const element_t & element, bool & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t boolean(const element_t & element, bool & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения целого числа
@@ -477,7 +477,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t integer(const element_t & element, int64_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t integer(const element_t & element, int64_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения целого числа произвольной разрядности
@@ -503,7 +503,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t integer(const element_t & element, view_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t integer(const element_t & element, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения строки битов
@@ -523,7 +523,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t bits(const element_t & element, view_t & result, uint8_t & unused) noexcept;
+		__NTS_SHARED_EXPORT__ error_t bits(const element_t & element, view_t & result, uint8_t & unused) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения опознавателя объекта
@@ -541,7 +541,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t oid(const element_t & element, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t oid(const element_t & element, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения времени
@@ -577,7 +577,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t time(const element_t & element, const tag_t type, int64_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t time(const element_t & element, const tag_t type, int64_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения строки
@@ -609,7 +609,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t text(const element_t & element, const tag_t type, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t text(const element_t & element, const tag_t type, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Записчик данных в кодировке DER
@@ -639,7 +639,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Writer {
+		typedef class __NTS_SHARED_EXPORT__ Writer {
 			private:
 				// Буфер собираемой записи
 				vector <uint8_t> _buffer;

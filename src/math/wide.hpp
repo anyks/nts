@@ -28,11 +28,11 @@
  *
  */
 
-#ifndef __ANTS_MATH_WIDE__
+#ifndef __NTS_MATH_WIDE__
 /**
  * Макрос экранирования повторной инициализации модуля
  */
-#define __ANTS_MATH_WIDE__
+#define __NTS_MATH_WIDE__
 
 /**
  * Стандартные заголовочные файлы

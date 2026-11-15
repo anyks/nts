@@ -97,7 +97,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Mldsa {
+		typedef class __NTS_SHARED_EXPORT__ Mldsa {
 			public:
 				/**
 				 * \~russian

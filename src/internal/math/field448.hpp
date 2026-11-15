@@ -38,11 +38,11 @@
  *
  */
 
-#ifndef __ANTS_INTERNAL_MATH_FIELD448__
+#ifndef __NTS_INTERNAL_MATH_FIELD448__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __ANTS_INTERNAL_MATH_FIELD448__
+#define __NTS_INTERNAL_MATH_FIELD448__
 
 /**
  * Стандартные заголовочные файлы
@@ -114,7 +114,7 @@ namespace nts {
 				 * @param result место, в которое помещается сумма
 				 *
 				 */
-				static __ANTS_INLINE__ void plus(const element_t & first, const element_t & second, element_t & result) noexcept {
+				static __NTS_INLINE__ void plus(const element_t & first, const element_t & second, element_t & result) noexcept {
 					/**
 					 * Выполняем перебор конечностей слагаемых
 					 */
@@ -135,7 +135,7 @@ namespace nts {
 				 * @param result место, в которое помещается разность
 				 *
 				 */
-				static __ANTS_INLINE__ void minus(const element_t & first, const element_t & second, element_t & result) noexcept {
+				static __NTS_INLINE__ void minus(const element_t & first, const element_t & second, element_t & result) noexcept {
 					// Вычитаем четыре младшие конечности с прибавлением удвоенного модуля
 					result.limbs[0] = ((first.limbs[0] + TWICE_LOW) - second.limbs[0]);
 					// Вычитаем вторую конечность с прибавлением удвоенного модуля
@@ -165,7 +165,7 @@ namespace nts {
 				 * @param value приводимый элемент
 				 *
 				 */
-				static __ANTS_INLINE__ void wave(element_t & value) noexcept {
+				static __NTS_INLINE__ void wave(element_t & value) noexcept {
 					// Перенос из нулевой конечности в первую
 					uint64_t item = (value.limbs[0] >> 56);
 					// Отбрасываем перенесённые разряды нулевой конечности
@@ -230,7 +230,7 @@ namespace nts {
 				 * @param result место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void finish(const wide_t (&r)[LIMBS], element_t & result) noexcept {
+				static __NTS_INLINE__ void finish(const wide_t (&r)[LIMBS], element_t & result) noexcept {
 					// Цепочка переносов между разрядами
 					wide_t carry = 0;
 					/**
@@ -275,7 +275,7 @@ namespace nts {
 				 * @param result место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
+				static __NTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
 					// Сырые суммы столбцов произведения
 					wide_t s[(LIMBS * 2)] = {};
 					/**
@@ -346,7 +346,7 @@ namespace nts {
 				 * @param result место, в которое помещается квадрат
 				 *
 				 */
-				static __ANTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
+				static __NTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
 					// Сырые суммы столбцов квадрата
 					wide_t s[(LIMBS * 2)] = {};
 					/**
@@ -428,7 +428,7 @@ namespace nts {
 				 * @param result место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
+				static __NTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
 					// Перенос между конечностями
 					wide_t carry = 0;
 					/**

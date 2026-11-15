@@ -174,7 +174,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Rsa {
+		typedef class __NTS_SHARED_EXPORT__ Rsa {
 			private:
 				// Признак того, что открытый ключ установлен
 				bool _public;

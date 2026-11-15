@@ -600,7 +600,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Header {
+		typedef struct __NTS_SHARED_EXPORT__ Header {
 			// Признак объединённого заголовка защищённой записи
 			bool unified;
 			// Признак того, что запись несёт опознаватель связи
@@ -650,7 +650,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Fragment {
+		typedef struct __NTS_SHARED_EXPORT__ Fragment {
 			// Вид сообщения рукопожатия
 			handshake::type_t type;
 			// Порядковый номер сообщения рукопожатия
@@ -688,7 +688,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Number {
+		typedef struct __NTS_SHARED_EXPORT__ Number {
 			// Пора ключей записи
 			uint64_t epoch;
 			// Порядковый номер записи
@@ -750,7 +750,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи заголовка записи поверх дейтаграммы
@@ -776,7 +776,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора заголовка записи поверх дейтаграммы по изданию переноса
@@ -812,7 +812,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора заголовка записи с учётом издания DTLS 1.0
@@ -840,7 +840,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy, const bool ancient) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result, const bool legacy, const bool ancient) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи заголовка записи поверх дейтаграммы по изданию переноса
@@ -877,7 +877,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи заголовка записи с учётом издания DTLS 1.0
@@ -901,7 +901,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy, const bool ancient) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result, size_t & length, const bool legacy, const bool ancient) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора обвязки куска сообщения рукопожатия
@@ -926,7 +926,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, fragment_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, fragment_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи обвязки куска сообщения рукопожатия
@@ -948,7 +948,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const fragment_t & fragment, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const fragment_t & fragment, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора тела сообщения подтверждения
@@ -972,7 +972,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, vector <number_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, vector <number_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления тела сообщения подтверждения
@@ -990,7 +990,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const vector <number_t> & numbers, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const vector <number_t> & numbers, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки маски номера записи
@@ -1022,7 +1022,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool mask(const protect::suite_t suite, const view_t & key, const uint8_t * sample, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool mask(const protect::suite_t suite, const view_t & key, const uint8_t * sample, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция восстановления полного порядкового номера записи по младшим разрядам
@@ -1048,7 +1048,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ uint64_t restore(const uint64_t expected, const uint64_t junior, const size_t bits) noexcept;
+		__NTS_SHARED_EXPORT__ uint64_t restore(const uint64_t expected, const uint64_t junior, const size_t bits) noexcept;
 		/**
 		 * \~russian
 		 * @brief Окно защиты от повторов записей одной поры ключей
@@ -1068,7 +1068,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Window {
+		typedef class __NTS_SHARED_EXPORT__ Window {
 			private:
 				// Признак того, что хоть одна запись принята
 				bool _filled;

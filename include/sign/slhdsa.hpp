@@ -105,7 +105,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ SLH_DSA {
+		typedef class __NTS_SHARED_EXPORT__ SLH_DSA {
 			public:
 				/**
 				 * \~russian

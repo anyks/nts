@@ -25,11 +25,11 @@
  *
  */
 
-#ifndef __ANTS_FLIGHT__
+#ifndef __NTS_FLIGHT__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __ANTS_FLIGHT__
+#define __NTS_FLIGHT__
 
 /**
  * Стандартные заголовочные файлы

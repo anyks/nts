@@ -113,7 +113,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Sm4 {
+		typedef class __NTS_SHARED_EXPORT__ Sm4 {
 			private:
 				// Признак того, что ключ установлен
 				bool _ready;

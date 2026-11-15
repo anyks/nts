@@ -137,7 +137,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t length(const hash_t algorithm) noexcept;
+		__NTS_SHARED_EXPORT__ size_t length(const hash_t algorithm) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения размера блока сжатия алгоритма
@@ -159,7 +159,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t block(const hash_t algorithm) noexcept;
+		__NTS_SHARED_EXPORT__ size_t block(const hash_t algorithm) noexcept;
 
 		/**
 		 * \~russian
@@ -179,7 +179,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Hasher {
+		typedef class __NTS_SHARED_EXPORT__ Hasher {
 			private:
 				// Выбранный алгоритм хеширования
 				hash_t _type;
@@ -300,7 +300,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool hash(const hash_t algorithm, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool hash(const hash_t algorithm, const view_t & data, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

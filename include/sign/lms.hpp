@@ -129,7 +129,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool verify(const view_t & key, const view_t & message, const view_t & signature) noexcept;
+			__NTS_SHARED_EXPORT__ bool verify(const view_t & key, const view_t & message, const view_t & signature) noexcept;
 		} // namespace lms
 	} // namespace sign
 } // namespace nts

@@ -220,7 +220,7 @@ namespace {
 		/**
 		 * Если сборка ведётся под ARM64 на Windows
 		 */
-		#elif (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && defined(_WIN32)
+		#elif (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && defined(_WIN32)
 			// Если расширение криптографии ARMv8 есть: AES, PMULL и SHA-256 идут вместе
 			if(::IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE))
 			// Записываем разряды расширений
@@ -356,7 +356,7 @@ namespace {
 		/**
 		 * Если сборка ведётся под ARM64 либо x86-64
 		 */
-		#if defined(__aarch64__) || defined(__x86_64__) || defined(__ANTS_MSVC_X64__) || defined(__ANTS_MSVC_ARM64__)
+		#if defined(__aarch64__) || defined(__x86_64__) || defined(__NTS_MSVC_X64__) || defined(__NTS_MSVC_ARM64__)
 			// Векторные команды основания набора есть у всякой машины
 			result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::VECTOR));
 		/**

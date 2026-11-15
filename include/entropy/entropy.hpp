@@ -134,7 +134,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool bytes(uint8_t * data, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool bytes(uint8_t * data, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения случайного числа по модулю
@@ -162,7 +162,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool number(const math::modulus_t & modulus, math::number_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ bool number(const math::modulus_t & modulus, math::number_t & result) noexcept;
 	};
 };
 

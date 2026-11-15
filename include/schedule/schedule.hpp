@@ -167,7 +167,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool extract(const view_t & salt, const view_t & key, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool extract(const view_t & salt, const view_t & key, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения значения расписания ключей выбранным хешем
@@ -193,7 +193,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool extract(const digest::hash_t algorithm, const view_t & salt, const view_t & key, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool extract(const digest::hash_t algorithm, const view_t & salt, const view_t & key, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция растяжения значения расписания ключей
@@ -223,7 +223,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool expand(const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool expand(const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция растяжения значения расписания ключей выбранным хешем
@@ -247,7 +247,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool expand(const digest::hash_t algorithm, const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool expand(const digest::hash_t algorithm, const view_t & secret, const view_t & info, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вывода значения по метке назначения
@@ -278,7 +278,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool derive(const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool derive(const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вывода значения по метке назначения выбранным хешем
@@ -304,7 +304,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool derive(const digest::hash_t algorithm, const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool derive(const digest::hash_t algorithm, const view_t & secret, const view_t & label, const view_t & context, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вывода очередного значения расписания ключей
@@ -337,7 +337,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool secret(const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool secret(const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вывода очередного значения расписания ключей выбранным хешем
@@ -365,7 +365,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool secret(const digest::hash_t algorithm, const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool secret(const digest::hash_t algorithm, const view_t & secret, const view_t & label, const view_t & digest, uint8_t * result) noexcept;
 	};
 };
 

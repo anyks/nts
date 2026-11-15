@@ -120,7 +120,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Des {
+		typedef class __NTS_SHARED_EXPORT__ Des {
 			private:
 				// Признак того, что ключ установлен
 				bool _ready;

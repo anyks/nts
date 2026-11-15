@@ -105,7 +105,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Magma {
+		typedef class __NTS_SHARED_EXPORT__ Magma {
 			private:
 				// Признак того, что ключ установлен
 				bool _ready;

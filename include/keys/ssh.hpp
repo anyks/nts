@@ -103,7 +103,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			typedef struct __ANTS_SHARED_EXPORT__ KnownHost {
+			typedef struct __NTS_SHARED_EXPORT__ KnownHost {
 				// Признак хешированной записи (хозяин под HMAC-SHA1)
 				bool hashed;
 				// Хозяин открытым текстом; пусто у хешированной записи
@@ -149,7 +149,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ string fingerprint(const key_t & key) noexcept;
+			__NTS_SHARED_EXPORT__ string fingerprint(const key_t & key) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция записи открытого ключа в строку authorized_keys
@@ -173,7 +173,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ string publish(const key_t & key, const string & comment) noexcept;
+			__NTS_SHARED_EXPORT__ string publish(const key_t & key, const string & comment) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция сверки хозяина с записью known_hosts
@@ -197,7 +197,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool knownHostsMatch(const known_host_t & record, const string & host) noexcept;
+			__NTS_SHARED_EXPORT__ bool knownHostsMatch(const known_host_t & record, const string & host) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция разбора строки known_hosts
@@ -223,7 +223,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool knownHosts(const string & line, known_host_t & result) noexcept;
+			__NTS_SHARED_EXPORT__ bool knownHosts(const string & line, known_host_t & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция сборки строки known_hosts
@@ -253,7 +253,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool knownHosts(const string & host, const key_t & key, const string & comment, const bool hashed, string & result) noexcept;
+			__NTS_SHARED_EXPORT__ bool knownHosts(const string & host, const key_t & key, const string & comment, const bool hashed, string & result) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция разбора ключа openssh-key-v1
@@ -284,7 +284,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool decode(const view_t & data, const view_t & password, key_t & key, string & comment) noexcept;
+			__NTS_SHARED_EXPORT__ bool decode(const view_t & data, const view_t & password, key_t & key, string & comment) noexcept;
 			/**
 			 * \~russian
 			 * @brief Функция записи ключа openssh-key-v1
@@ -314,7 +314,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			__ANTS_SHARED_EXPORT__ bool encode(const key_t & key, const string & comment, const view_t & password, vector <uint8_t> & result) noexcept;
+			__NTS_SHARED_EXPORT__ bool encode(const key_t & key, const string & comment, const view_t & password, vector <uint8_t> & result) noexcept;
 		};
 	};
 };

@@ -30,11 +30,11 @@
  *
  */
 
-#ifndef __ANTS_INTERNAL_SIGN_TABLES__
+#ifndef __NTS_INTERNAL_SIGN_TABLES__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __ANTS_INTERNAL_SIGN_TABLES__
+#define __NTS_INTERNAL_SIGN_TABLES__
 
 /**
  * Стандартные заголовочные файлы

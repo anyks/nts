@@ -97,7 +97,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Ripemd {
+		typedef class __NTS_SHARED_EXPORT__ Ripemd {
 			private:
 				// Признак того, что хеш уже снят
 				bool _finished;
@@ -217,6 +217,6 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool ripemd160(const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool ripemd160(const view_t & data, uint8_t * result, const size_t size) noexcept;
 	};
 };

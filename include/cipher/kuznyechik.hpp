@@ -122,7 +122,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Kuznyechik {
+		typedef class __NTS_SHARED_EXPORT__ Kuznyechik {
 			private:
 				// Признак того, что ключ установлен
 				bool _ready;

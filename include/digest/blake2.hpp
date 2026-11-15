@@ -132,7 +132,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Blake2 {
+		typedef class __NTS_SHARED_EXPORT__ Blake2 {
 			private:
 				// Разновидность хеша
 				blake_t _type;
@@ -309,7 +309,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool blake2(const blake_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool blake2(const blake_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

@@ -134,7 +134,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Chachapoly {
+		typedef class __NTS_SHARED_EXPORT__ Chachapoly {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;

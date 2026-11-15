@@ -107,7 +107,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Sm2 {
+		typedef class __NTS_SHARED_EXPORT__ Sm2 {
 			private:
 				// Признак того, что ключ подписи установлен
 				bool _secret;

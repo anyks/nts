@@ -102,7 +102,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool cshake(const sha3_t type, const view_t & data, const view_t & name, const view_t & custom, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool cshake(const sha3_t type, const view_t & data, const view_t & name, const view_t & custom, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вычисления имитовставки KMAC за один вызов
@@ -136,7 +136,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool kmac(const sha3_t type, const view_t & key, const view_t & data, const view_t & custom, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool kmac(const sha3_t type, const view_t & key, const view_t & data, const view_t & custom, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вычисления имитовставки KMAC переменной длины за один вызов
@@ -169,7 +169,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool kmacxof(const sha3_t type, const view_t & key, const view_t & data, const view_t & custom, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool kmacxof(const sha3_t type, const view_t & key, const view_t & data, const view_t & custom, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

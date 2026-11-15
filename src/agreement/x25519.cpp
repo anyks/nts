@@ -127,7 +127,7 @@
 /**
  * Под x86-64 путь на словах выбирается по признакам машины
  */
-#if defined(__ANTS_FIELD25519_WORDS__)
+#if defined(__NTS_FIELD25519_WORDS__)
 	#include <sys/machine.hpp>
 #endif
 
@@ -165,7 +165,7 @@ namespace {
 	 * Ядра умножения, квадрата и малого множителя шага лестницы на конечностях: под x86-64 -
 	 * ядра по столбцам на MULQ внутреннего заголовочного файла (решение 8 шапки), иначе - на C++
 	 */
-	#if defined(__ANTS_FIELD25519_COLUMNS__)
+	#if defined(__NTS_FIELD25519_COLUMNS__)
 		/**
 		 * Пространство имён ядер шага лестницы
 		 */
@@ -197,7 +197,7 @@ namespace {
 		/**
 		 * Если шаг лестницы идёт одной вставкой (решение 9 шапки)
 		 */
-		#if defined(__ANTS_FIELD25519_COLUMNS__)
+		#if defined(__NTS_FIELD25519_COLUMNS__)
 			// Кадр лестницы: координаты двух точек, множимая точка и промежуточные значения подряд
 			columns::ladder_t frame;
 			// Координаты двух точек лестницы в кадре
@@ -242,7 +242,7 @@ namespace {
 			/**
 			 * Если шаг лестницы идёт одной вставкой
 			 */
-			#if defined(__ANTS_FIELD25519_COLUMNS__)
+			#if defined(__NTS_FIELD25519_COLUMNS__)
 				// Шаг лестницы одной вставкой: обмен точек по признаку внутри шага
 				columns::step(frame, swapped);
 				// Запоминаем очередной разряд признаком обмена
@@ -306,7 +306,7 @@ namespace {
 		/**
 		 * Если шаг лестницы идёт одной вставкой
 		 */
-		#if defined(__ANTS_FIELD25519_COLUMNS__)
+		#if defined(__NTS_FIELD25519_COLUMNS__)
 			// Затирание кадра лестницы: координаты, множимая точка и промежуточные значения
 			wipe(&frame, sizeof(frame));
 		/**
@@ -330,7 +330,7 @@ namespace {
 	/**
 	 * Под x86-64 при MULX и ADCX/ADOX у машины лестница идёт на четырёх словах (решение 7 шапки)
 	 */
-	#if defined(__ANTS_FIELD25519_WORDS__)
+	#if defined(__NTS_FIELD25519_WORDS__)
 		/**
 		 * @brief Функция умножения точки на скаляр лестницей Монтгомери на словах
 		 *
@@ -478,7 +478,7 @@ namespace {
 		/**
 		 * Под x86-64 при MULX и ADCX/ADOX у машины лестница идёт на словах (решение 7 шапки)
 		 */
-		#if defined(__ANTS_FIELD25519_WORDS__)
+		#if defined(__NTS_FIELD25519_WORDS__)
 			// Если у машины есть MULX и ADCX/ADOX
 			if(machine::has(machine::feature_t::ADX))
 			// Умножение точки на зажатый скаляр лестницей на словах
@@ -495,7 +495,7 @@ namespace {
 			/**
 			 * Если лестница шла на словах, закрываем ветвь
 			 */
-			#if defined(__ANTS_FIELD25519_WORDS__)
+			#if defined(__NTS_FIELD25519_WORDS__)
 			}
 		#endif
 		// Накопленное значение всех байтов итога

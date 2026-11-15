@@ -119,7 +119,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encode(const view_t & data, string & result, const bool padding = true, const alphabet_t alphabet = alphabet_t::STANDARD) noexcept;
+		__NTS_SHARED_EXPORT__ bool encode(const view_t & data, string & result, const bool padding = true, const alphabet_t alphabet = alphabet_t::STANDARD) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи основания 64
@@ -160,6 +160,6 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool decode(const view_t & text, vector <uint8_t> & result, const alphabet_t alphabet = alphabet_t::STANDARD, const bool spaces = false, const bool padding = true) noexcept;
+		__NTS_SHARED_EXPORT__ bool decode(const view_t & text, vector <uint8_t> & result, const alphabet_t alphabet = alphabet_t::STANDARD, const bool spaces = false, const bool padding = true) noexcept;
 	};
 };

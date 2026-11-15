@@ -112,7 +112,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool parameters(const string & oid, curve_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ bool parameters(const string & oid, curve_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция установки кривой по опознавателю-литералу набора параметров
@@ -136,7 +136,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool parameters(const char * oid, curve_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ bool parameters(const char * oid, curve_t & result) noexcept;
 	};
 };
 

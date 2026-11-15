@@ -229,7 +229,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Attribute {
+		typedef struct __NTS_SHARED_EXPORT__ Attribute {
 			// Вид записи значения признака
 			asn1::tag_t type;
 			// Опознаватель признака
@@ -269,7 +269,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Name {
+		typedef struct __NTS_SHARED_EXPORT__ Name {
 			// Просмотр записи имени целиком
 			view_t element;
 			// Набор составляющих имени
@@ -285,7 +285,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Alternative {
+		typedef struct __NTS_SHARED_EXPORT__ Alternative {
 			// Вид имени
 			kind_t kind;
 			// Значение имени
@@ -313,7 +313,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Extension {
+		typedef struct __NTS_SHARED_EXPORT__ Extension {
 			// Признак обязательности расширения
 			bool critical;
 			// Опознаватель расширения
@@ -341,7 +341,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Key {
+		typedef struct __NTS_SHARED_EXPORT__ Key {
 			// Число неиспользуемых разрядов последнего байта ключа
 			uint8_t unused;
 			// Опознаватель алгоритма ключа
@@ -379,7 +379,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Certificate {
+		typedef class __NTS_SHARED_EXPORT__ Certificate {
 			private:
 				// Издание сертификата
 				version_t _version;
@@ -763,7 +763,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const attribute_t * attribute(const name_t & name, const string & oid) noexcept;
+		__NTS_SHARED_EXPORT__ const attribute_t * attribute(const name_t & name, const string & oid) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки записи имени в виде строки
@@ -789,7 +789,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t text(const name_t & name, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t text(const name_t & name, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения основных ограничений сертификата
@@ -809,7 +809,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, bool & authority, int64_t & depth) noexcept;
+		__NTS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, bool & authority, int64_t & depth) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения назначения открытого ключа
@@ -827,7 +827,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t usage(const extension_t & extension, uint16_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t usage(const extension_t & extension, uint16_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки критичных расширений сертификата на известность
@@ -851,7 +851,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool recognized(const certificate_t & certificate) noexcept;
+		__NTS_SHARED_EXPORT__ bool recognized(const certificate_t & certificate) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки стойкости алгоритма подписи
@@ -877,7 +877,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool weak(const string & algorithm, const view_t & parameters) noexcept;
+		__NTS_SHARED_EXPORT__ bool weak(const string & algorithm, const view_t & parameters) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки стойкости открытого ключа
@@ -893,7 +893,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool weak(const key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ bool weak(const key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки стойкости сертификата как звена доверия
@@ -911,7 +911,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool weak(const certificate_t & certificate, const bool anchor) noexcept;
+		__NTS_SHARED_EXPORT__ bool weak(const certificate_t & certificate, const bool anchor) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения расширенного назначения открытого ключа
@@ -929,7 +929,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t purpose(const extension_t & extension, vector <string> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t purpose(const extension_t & extension, vector <string> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения дополнительных имён владельца
@@ -953,7 +953,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t alternatives(const extension_t & extension, vector <alternative_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения ограничений имён издателя
@@ -979,7 +979,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, vector <alternative_t> & permitted, vector <alternative_t> & excluded) noexcept;
+		__NTS_SHARED_EXPORT__ error_t constraints(const extension_t & extension, vector <alternative_t> & permitted, vector <alternative_t> & excluded) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения опознавателя ключа владельца
@@ -997,7 +997,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t subjectKey(const extension_t & extension, view_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t subjectKey(const extension_t & extension, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения опознавателя ключа издателя
@@ -1023,7 +1023,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t authorityKey(const extension_t & extension, view_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t authorityKey(const extension_t & extension, view_t & result) noexcept;
 	};
 };
 

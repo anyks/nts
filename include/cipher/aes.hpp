@@ -135,7 +135,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Aes {
+		typedef class __NTS_SHARED_EXPORT__ Aes {
 			private:
 				// Признак того, что ключ установлен
 				bool _ready;

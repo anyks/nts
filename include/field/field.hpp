@@ -132,7 +132,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Scanner {
+		typedef class __NTS_SHARED_EXPORT__ Scanner {
 			private:
 				// Разбираемая область байтов
 				view_t _data;
@@ -311,7 +311,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Builder {
+		typedef class __NTS_SHARED_EXPORT__ Builder {
 			private:
 				// Накопитель составляемой записи
 				vector <uint8_t> _buffer;

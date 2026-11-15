@@ -97,17 +97,17 @@
  * 26 разрядов (1,28 → 0,85 ГБ/с), оттого Эльбрус остаётся на переносимом пути; у собирателя
  * Microsoft Visual C++ числа нет, но есть _umul128 у x64 и __umulh у ARM64
  */
-#if (defined(__SIZEOF_INT128__) && !defined(__e2k__)) || defined(__ANTS_MSVC_X64__) || defined(__ANTS_MSVC_ARM64__)
+#if (defined(__SIZEOF_INT128__) && !defined(__e2k__)) || defined(__NTS_MSVC_X64__) || defined(__NTS_MSVC_ARM64__)
 	/**
 	 * Объявляем наличие 64-разрядного пути
 	 */
-	#define __ANTS_POLY1305_WIDE__ 1
+	#define __NTS_POLY1305_WIDE__ 1
 #endif
 
 /**
  * Если сборка ведётся под ARM64 от младшего байта с 64-разрядным путём
  */
-#if defined(__aarch64__) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE) && defined(__ANTS_POLY1305_WIDE__)
+#if defined(__aarch64__) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE) && defined(__NTS_POLY1305_WIDE__)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -116,11 +116,11 @@
 	/**
 	 * Объявляем наличие ветви команд NEON
 	 */
-	#define __ANTS_POLY1305_NEON__ 1
+	#define __NTS_POLY1305_NEON__ 1
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC с 64-разрядным путём
  */
-#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE) && defined(__ANTS_POLY1305_WIDE__)
+#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE) && defined(__NTS_POLY1305_WIDE__)
 	/**
 	 * Подключаем заголовочный файл команд x86-64 вплоть до AVX2
 	 */
@@ -133,7 +133,7 @@
 		/**
 		 * Атрибут цели не нужен
 		 */
-		#define __ANTS_POLY1305_AVX2_TARGET__
+		#define __NTS_POLY1305_AVX2_TARGET__
 	/**
 	 * Если расширение не разрешено ключами сборки
 	 */
@@ -141,33 +141,33 @@
 		/**
 		 * Разрешаем команды AVX2 одной функции
 		 */
-		#define __ANTS_POLY1305_AVX2_TARGET__ __attribute__((target("avx2")))
+		#define __NTS_POLY1305_AVX2_TARGET__ __attribute__((target("avx2")))
 	#endif
 
 	/**
 	 * Объявляем наличие ветви команд AVX2
 	 */
-	#define __ANTS_POLY1305_AVX2__ 1
+	#define __NTS_POLY1305_AVX2__ 1
 #endif
 
 /**
  * Если 64-разрядный путь собирается под x86-64 собирателем семейства GCC
  */
-#if defined(__ANTS_POLY1305_WIDE__) && defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
+#if defined(__NTS_POLY1305_WIDE__) && defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Объявляем наличие ядра блоков на ассемблере x86-64
 	 */
-	#define __ANTS_POLY1305_X86_ASM__ 1
+	#define __NTS_POLY1305_X86_ASM__ 1
 #endif
 
 /**
  * Если есть хотя бы одна векторная ветвь
  */
-#if defined(__ANTS_POLY1305_NEON__) || defined(__ANTS_POLY1305_AVX2__)
+#if defined(__NTS_POLY1305_NEON__) || defined(__NTS_POLY1305_AVX2__)
 	/**
 	 * Объявляем наличие векторных ветвей
 	 */
-	#define __ANTS_POLY1305_VECTOR__ 1
+	#define __NTS_POLY1305_VECTOR__ 1
 #endif
 
 /**
@@ -195,11 +195,11 @@ namespace {
 	/**
 	 * Если есть векторные ветви
 	 */
-	#if defined(__ANTS_POLY1305_VECTOR__)
+	#if defined(__NTS_POLY1305_VECTOR__)
 		/**
 		 * Если есть ядро AVX2 на ассемблере
 		 */
-		#if defined(__ANTS_POLY1305_X86_64__)
+		#if defined(__NTS_POLY1305_X86_64__)
 			/**
 			 * @brief Число степеней множителя, нужных векторной ветви: ядро ведёт четыре дорожки на r^4
 			 *
@@ -224,7 +224,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
 		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) | (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
 	}
@@ -235,7 +235,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем младший байт
 		data[0] = static_cast <uint8_t> (value);
 		// Записываем второй байт
@@ -249,7 +249,7 @@ namespace {
 	/**
 	 * Если переносимый путь либо векторные ветви нуждаются в арифметике по 26 разрядов
 	 */
-	#if !defined(__ANTS_POLY1305_WIDE__) || defined(__ANTS_POLY1305_VECTOR__)
+	#if !defined(__NTS_POLY1305_WIDE__) || defined(__NTS_POLY1305_VECTOR__)
 		/**
 		 * @brief Функция умножения конечностей на множитель с прибавлением к произведению
 		 *
@@ -264,7 +264,7 @@ namespace {
 		 * @param product конечности произведения, к которым прибавляется итог
 		 *
 		 */
-		static __ANTS_INLINE__ void multiply(const uint32_t * limbs, const uint32_t * r, const uint32_t * s, uint64_t * product) noexcept {
+		static __NTS_INLINE__ void multiply(const uint32_t * limbs, const uint32_t * r, const uint32_t * s, uint64_t * product) noexcept {
 			// Первая конечность произведения
 			product[0] += ((static_cast <uint64_t> (limbs[0]) * r[0]) + (static_cast <uint64_t> (limbs[1]) * s[4]) + (static_cast <uint64_t> (limbs[2]) * s[3]) + (static_cast <uint64_t> (limbs[3]) * s[2]) + (static_cast <uint64_t> (limbs[4]) * s[1]));
 			// Вторая конечность произведения
@@ -287,7 +287,7 @@ namespace {
 		 * @param limbs   место под приведённые конечности
 		 *
 		 */
-		static __ANTS_INLINE__ void reduce(uint64_t * product, uint32_t * limbs) noexcept {
+		static __NTS_INLINE__ void reduce(uint64_t * product, uint32_t * limbs) noexcept {
 			// Перенос из первой конечности
 			uint32_t carry = static_cast <uint32_t> (product[0] >> 26);
 			// Первая конечность
@@ -335,7 +335,7 @@ namespace {
 		 * @param limbs место под пять конечностей
 		 *
 		 */
-		static __ANTS_INLINE__ void clamp(const uint8_t * key, uint32_t * limbs) noexcept {
+		static __NTS_INLINE__ void clamp(const uint8_t * key, uint32_t * limbs) noexcept {
 			// Первая конечность r: обрезка по стандарту
 			limbs[0] = (load(key) & 0x3FFFFFF);
 			// Вторая конечность r: обрезка старших двух разрядов байтов 4 и 7
@@ -355,7 +355,7 @@ namespace {
 		 * @param result место под конечности следующей степени
 		 *
 		 */
-		static __ANTS_INLINE__ void raise(const uint32_t * power, const uint32_t * r, uint32_t * result) noexcept {
+		static __NTS_INLINE__ void raise(const uint32_t * power, const uint32_t * r, uint32_t * result) noexcept {
 			// Конечности множителя, умноженные на пять
 			const uint32_t s[5] = {0, (r[1] * 5), (r[2] * 5), (r[3] * 5), (r[4] * 5)};
 			// Конечности произведения
@@ -370,7 +370,7 @@ namespace {
 	/**
 	 * Если переносимый путь
 	 */
-	#if !defined(__ANTS_POLY1305_WIDE__)
+	#if !defined(__NTS_POLY1305_WIDE__)
 		/**
 		 * @brief Функция разбора блока на пять конечностей по 26 разрядов
 		 *
@@ -379,7 +379,7 @@ namespace {
 		 * @param limbs место под пять конечностей
 		 *
 		 */
-		static __ANTS_INLINE__ void split(const uint8_t * block, const uint32_t hibit, uint32_t * limbs) noexcept {
+		static __NTS_INLINE__ void split(const uint8_t * block, const uint32_t hibit, uint32_t * limbs) noexcept {
 			// Первая конечность блока
 			limbs[0] = (load(block) & 0x3FFFFFF);
 			// Вторая конечность блока
@@ -412,7 +412,7 @@ namespace {
 		 * @return     прочитанное слово
 		 *
 		 */
-		static __ANTS_INLINE__ uint64_t load64(const uint8_t * data) noexcept {
+		static __NTS_INLINE__ uint64_t load64(const uint8_t * data) noexcept {
 			// Выводим слово, собранное из двух половин от младшего байта
 			return (static_cast <uint64_t> (load(data)) | (static_cast <uint64_t> (load(data + 4)) << 32));
 		}
@@ -421,7 +421,7 @@ namespace {
 	/**
 	 * Если есть ядро блоков на ассемблере x86-64
 	 */
-	#if defined(__ANTS_POLY1305_X86_ASM__)
+	#if defined(__NTS_POLY1305_X86_ASM__)
 		/**
 		 * @brief Функция сложения целых блоков в накопитель на ассемблере x86-64
 		 *
@@ -506,7 +506,7 @@ namespace {
 	/**
 	 * Если есть векторные ветви
 	 */
-	#if defined(__ANTS_POLY1305_VECTOR__)
+	#if defined(__NTS_POLY1305_VECTOR__)
 		/**
 		 * @brief Функция перевода накопителя из трёх конечностей по 64 разряда в пять по 26
 		 *
@@ -516,7 +516,7 @@ namespace {
 		 * @param limbs место под пять конечностей
 		 *
 		 */
-		static __ANTS_INLINE__ void widen(const uint64_t h0, const uint64_t h1, const uint64_t h2, uint32_t * limbs) noexcept {
+		static __NTS_INLINE__ void widen(const uint64_t h0, const uint64_t h1, const uint64_t h2, uint32_t * limbs) noexcept {
 			// Первая конечность
 			limbs[0] = static_cast <uint32_t> (h0 & 0x3FFFFFF);
 			// Вторая конечность
@@ -540,7 +540,7 @@ namespace {
 		 * @param h2    место под старшую конечность накопителя
 		 *
 		 */
-		static __ANTS_INLINE__ void narrow(uint64_t * limbs, uint64_t & h0, uint64_t & h1, uint64_t & h2) noexcept {
+		static __NTS_INLINE__ void narrow(uint64_t * limbs, uint64_t & h0, uint64_t & h1, uint64_t & h2) noexcept {
 			// Перенос из первой конечности
 			uint64_t carry = (limbs[0] >> 26);
 			// Первая конечность
@@ -587,7 +587,7 @@ namespace {
 	/**
 	 * Если есть ветвь команд NEON
 	 */
-	#if defined(__ANTS_POLY1305_NEON__)
+	#if defined(__NTS_POLY1305_NEON__)
 		/**
 		 * @brief Функция разбора четырёх блоков на конечности по 26 разрядов дорожками вектора
 		 *
@@ -599,7 +599,7 @@ namespace {
 		 * @param m    место под пять конечностей по четырём дорожкам
 		 *
 		 */
-		static __ANTS_INLINE__ void splitQuadNeon(const uint8_t * data, uint32x4_t * m) noexcept {
+		static __NTS_INLINE__ void splitQuadNeon(const uint8_t * data, uint32x4_t * m) noexcept {
 			// Маска конечности по 32 разрядам
 			const uint32x4_t mask = vdupq_n_u32(0x3FFFFFF);
 			// Слова четырёх блоков
@@ -644,7 +644,7 @@ namespace {
 		 * @param high место под пять конечностей произведения старшей пары в 64 разряда
 		 *
 		 */
-		static __ANTS_INLINE__ void productQuadNeon(const uint32x4_t * h, const uint32x4_t ra, const uint32x4_t rb, const uint32x4_t rc, uint64x2_t * low, uint64x2_t * high) noexcept {
+		static __NTS_INLINE__ void productQuadNeon(const uint32x4_t * h, const uint32x4_t ra, const uint32x4_t rb, const uint32x4_t rc, uint64x2_t * low, uint64x2_t * high) noexcept {
 			// Младшие пары конечностей
 			const uint32x2_t h0 = vget_low_u32(h[0]), h1 = vget_low_u32(h[1]), h2 = vget_low_u32(h[2]), h3 = vget_low_u32(h[3]), h4 = vget_low_u32(h[4]);
 			// Первая конечность произведения
@@ -681,7 +681,7 @@ namespace {
 		 * @param high место под пять конечностей произведения старшей пары в 64 разряда
 		 *
 		 */
-		static __ANTS_INLINE__ void productLanesNeon(const uint32x4_t * h, const uint32x4_t * r, const uint32x4_t * s, uint64x2_t * low, uint64x2_t * high) noexcept {
+		static __NTS_INLINE__ void productLanesNeon(const uint32x4_t * h, const uint32x4_t * r, const uint32x4_t * s, uint64x2_t * low, uint64x2_t * high) noexcept {
 			// Младшие пары конечностей
 			const uint32x2_t h0 = vget_low_u32(h[0]), h1 = vget_low_u32(h[1]), h2 = vget_low_u32(h[2]), h3 = vget_low_u32(h[3]), h4 = vget_low_u32(h[4]);
 			// Младшие пары множителей
@@ -723,7 +723,7 @@ namespace {
 		 * @param high конечности произведения старшей пары
 		 *
 		 */
-		static __ANTS_INLINE__ void pinNeon(uint64x2_t * low, uint64x2_t * high) noexcept {
+		static __NTS_INLINE__ void pinNeon(uint64x2_t * low, uint64x2_t * high) noexcept {
 			// Закрепляем все конечности обеих пар
 			__asm__ ("" : "+w" (low[0]), "+w" (low[1]), "+w" (low[2]), "+w" (low[3]), "+w" (low[4]));
 			// Закрепляем конечности старшей пары
@@ -741,7 +741,7 @@ namespace {
 		 * @param product конечности произведения пары дорожек в 64 разряда, приводимые на месте
 		 *
 		 */
-		static __ANTS_INLINE__ void carryPairNeon(uint64x2_t * product) noexcept {
+		static __NTS_INLINE__ void carryPairNeon(uint64x2_t * product) noexcept {
 			// Маска конечности
 			const uint64x2_t mask = vdupq_n_u64(0x3FFFFFF);
 			// Переносы по цепочке конечностей: сдвиг с накоплением
@@ -913,7 +913,7 @@ namespace {
 	/**
 	 * Если есть ветвь команд AVX2
 	 */
-	#if defined(__ANTS_POLY1305_AVX2__) && !defined(__ANTS_POLY1305_X86_64__)
+	#if defined(__NTS_POLY1305_AVX2__) && !defined(__NTS_POLY1305_X86_64__)
 		/**
 		 * @brief Функция сложения пяти произведений конечностей четырёх дорожек на множитель
 		 *
@@ -923,7 +923,7 @@ namespace {
 		 * @param result место под пять конечностей произведения в 64 разряда
 		 *
 		 */
-		static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void productAvx2(const __m256i * h, const __m256i * r, const __m256i * s, __m256i * result) noexcept {
+		static __NTS_POLY1305_AVX2_TARGET__ __NTS_INLINE__ void productAvx2(const __m256i * h, const __m256i * r, const __m256i * s, __m256i * result) noexcept {
 			// Первая конечность произведения
 			result[0] = _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[0], r[0]), _mm256_mul_epu32(h[1], s[4])), _mm256_add_epi64(_mm256_add_epi64(_mm256_mul_epu32(h[2], s[3]), _mm256_mul_epu32(h[3], s[2])), _mm256_mul_epu32(h[4], s[1])));
 			// Вторая конечность произведения
@@ -941,7 +941,7 @@ namespace {
 		 * @param product конечности произведения, заменяемые приведёнными
 		 *
 		 */
-		static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void carryAvx2(__m256i * product) noexcept {
+		static __NTS_POLY1305_AVX2_TARGET__ __NTS_INLINE__ void carryAvx2(__m256i * product) noexcept {
 			// Маска конечности
 			const __m256i mask = _mm256_set1_epi64x(0x3FFFFFF);
 			// Перенос из первой конечности во вторую
@@ -982,7 +982,7 @@ namespace {
 		 * @param m    место под пять конечностей дорожек
 		 *
 		 */
-		static __ANTS_POLY1305_AVX2_TARGET__ __ANTS_INLINE__ void splitAvx2(const uint8_t * data, __m256i * m) noexcept {
+		static __NTS_POLY1305_AVX2_TARGET__ __NTS_INLINE__ void splitAvx2(const uint8_t * data, __m256i * m) noexcept {
 			// Маска конечности
 			const __m256i mask = _mm256_set1_epi64x(0x3FFFFFF);
 			// Слова первого и второго блоков
@@ -1020,7 +1020,7 @@ namespace {
 		 * @param groups число восьмёрок блоков: не меньше одной
 		 *
 		 */
-		static __ANTS_POLY1305_AVX2_TARGET__ void absorbAvx2(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
+		static __NTS_POLY1305_AVX2_TARGET__ void absorbAvx2(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
 			// Конечности r^8 на все дорожки и они же, умноженные на пять
 			__m256i r8[5], s8[5];
 			/**
@@ -1119,7 +1119,7 @@ namespace {
 	/**
 	 * Если есть ядро AVX2 на ассемблере
 	 */
-	#if defined(__ANTS_POLY1305_X86_64__)
+	#if defined(__NTS_POLY1305_X86_64__)
 		/**
 		 * @brief Функция построения стола ядра AVX2 на ассемблере
 		 *
@@ -1132,7 +1132,7 @@ namespace {
 		 * @param table  место под стол в POLY_TABLE байтов, выровненное на 32
 		 *
 		 */
-		static __ANTS_POLY1305_AVX2_TARGET__ void tableAvx2(const uint32_t (* powers)[5], uint64_t * table) noexcept {
+		static __NTS_POLY1305_AVX2_TARGET__ void tableAvx2(const uint32_t (* powers)[5], uint64_t * table) noexcept {
 			// Место под стол векторами
 			__m256i * rows = reinterpret_cast <__m256i *> (table);
 			/**
@@ -1213,13 +1213,13 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 	/**
 	 * Если 64-разрядный путь
 	 */
-	#if defined(__ANTS_POLY1305_WIDE__)
+	#if defined(__NTS_POLY1305_WIDE__)
 		// Конечности накопителя
 		uint64_t h0 = this->_wide[0], h1 = this->_wide[1], h2 = this->_wide[2];
 		/**
 		 * Если есть векторные ветви
 		 */
-		#if defined(__ANTS_POLY1305_VECTOR__)
+		#if defined(__NTS_POLY1305_VECTOR__)
 			// Если впереди хотя бы две восьмёрки целых блоков со старшим разрядом
 			if(!last && (left >= 256)){
 				// Признак того, что машина ведёт векторную ветвь
@@ -1227,7 +1227,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 				/**
 				 * Если есть ветвь команд NEON
 				 */
-				#if defined(__ANTS_POLY1305_NEON__)
+				#if defined(__NTS_POLY1305_NEON__)
 					// Векторы основания набора есть у всякой машины ARM64
 					vectors = machine::has(machine::feature_t::VECTOR);
 				/**
@@ -1250,7 +1250,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 						/**
 						 * Если есть ядро AVX2 на ассемблере
 						 */
-						#if defined(__ANTS_POLY1305_X86_64__)
+						#if defined(__NTS_POLY1305_X86_64__)
 							// Строим стол ядра по степеням
 							tableAvx2(this->_powers, this->_table);
 						#endif
@@ -1260,7 +1260,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 					/**
 					 * Если есть ядро AVX2 на ассемблере
 					 */
-					#if defined(__ANTS_POLY1305_X86_64__)
+					#if defined(__NTS_POLY1305_X86_64__)
 						// Число четвёрок блоков
 						const size_t groups = (left / 64);
 						// Складываем четвёрки блоков ядром
@@ -1278,7 +1278,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 						/**
 						 * Если есть ветвь команд NEON
 						 */
-						#if defined(__ANTS_POLY1305_NEON__)
+						#if defined(__NTS_POLY1305_NEON__)
 							// Складываем восьмёрки блоков командами NEON
 							absorbNeon(this->_powers, h0, h1, h2, cursor, groups);
 						/**
@@ -1303,7 +1303,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 		/**
 		 * Если есть ядро блоков на ассемблере x86-64
 		 */
-		#if defined(__ANTS_POLY1305_X86_ASM__)
+		#if defined(__NTS_POLY1305_X86_ASM__)
 			// Если целые блоки остались
 			if(left >= POLY1305_TAG){
 				// Конечности накопителя под ядро
@@ -1501,7 +1501,7 @@ bool nts::cipher::Poly1305::start(const view_t & key) noexcept {
 	/**
 	 * Если 64-разрядный путь
 	 */
-	#if defined(__ANTS_POLY1305_WIDE__)
+	#if defined(__NTS_POLY1305_WIDE__)
 		// Младшая конечность множителя с обрезкой по стандарту
 		this->_wide[3] = (load64(key.data) & 0x0FFFFFFC0FFFFFFFULL);
 		// Старшая конечность множителя с обрезкой по стандарту: младшие два разряда чисты
@@ -1511,7 +1511,7 @@ bool nts::cipher::Poly1305::start(const view_t & key) noexcept {
 		/**
 		 * Если есть векторные ветви
 		 */
-		#if defined(__ANTS_POLY1305_VECTOR__)
+		#if defined(__NTS_POLY1305_VECTOR__)
 			// Множитель по 26 разрядов под векторные ветви: степени считаются при первом входе в ветвь
 			clamp(key.data, this->_powers[0]);
 		#endif
@@ -1649,7 +1649,7 @@ bool nts::cipher::Poly1305::finish(uint8_t * tag) noexcept {
 	/**
 	 * Если 64-разрядный путь
 	 */
-	#if defined(__ANTS_POLY1305_WIDE__)
+	#if defined(__NTS_POLY1305_WIDE__)
 		// Конечности накопителя
 		uint64_t h0 = this->_wide[0], h1 = this->_wide[1];
 		// Накопитель плюс пять: младшая конечность с переносом

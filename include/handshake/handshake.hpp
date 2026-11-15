@@ -203,7 +203,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Header {
+		typedef struct __NTS_SHARED_EXPORT__ Header {
 			// Вид сообщения рукопожатия
 			type_t type;
 			// Длина тела сообщения рукопожатия в байтах
@@ -237,7 +237,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, header_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи обвязки сообщения рукопожатия
@@ -259,7 +259,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const header_t & header, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки известности вида сообщения рукопожатия
@@ -275,7 +275,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool known(const type_t type) noexcept;
+		__NTS_SHARED_EXPORT__ bool known(const type_t type) noexcept;
 		/**
 		 * \~russian
 		 * @brief Сборщик входящих сообщений рукопожатия
@@ -293,7 +293,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Reader {
+		typedef class __NTS_SHARED_EXPORT__ Reader {
 			private:
 				// Смещение начала неразобранных данных в накопителе
 				size_t _offset;
@@ -472,7 +472,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Writer {
+		typedef class __NTS_SHARED_EXPORT__ Writer {
 			private:
 				// Накопитель составленных сообщений
 				vector <uint8_t> _buffer;

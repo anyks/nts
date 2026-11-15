@@ -112,21 +112,21 @@
  *       основания набора - SSE2 у x86-64 и NEON у ARM64 - доступны ему без ключей сборки
  *
  */
-#if (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__ANTS_MSVC_ARM64__)
+#if (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_ARM64__)
 	#include <arm_neon.h>
 	/**
 	 * Включаем ускоренный перебор таблицы векторными командами NEON
 	 */
-	#define __ANTS_CURVE_NEON__
+	#define __NTS_CURVE_NEON__
 /**
  * Иначе выбираем векторные команды SSE2 под x86-64
  */
-#elif (defined(__x86_64__) && defined(__SSE2__)) || defined(__ANTS_MSVC_X64__)
+#elif (defined(__x86_64__) && defined(__SSE2__)) || defined(__NTS_MSVC_X64__)
 	#include <emmintrin.h>
 	/**
 	 * Включаем ускоренный перебор таблицы векторными командами SSE2
 	 */
-	#define __ANTS_CURVE_SSE2__
+	#define __NTS_CURVE_SSE2__
 #endif
 
 /**
@@ -182,7 +182,7 @@ namespace {
 	 *       заголовке. Замер 22.09.2026
 	 *
 	 */
-	__ANTS_NOINLINE__ static void overwrite() noexcept {
+	__NTS_NOINLINE__ static void overwrite() noexcept {
 		// Область стека, накрывающая кадры удвоения и сложения точек
 		uint64_t area[512];
 		/**
@@ -218,7 +218,7 @@ namespace {
 	 *       множителя, а множитель этот секретен
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t same(const uint64_t first, const uint64_t second) noexcept {
+	static __NTS_INLINE__ uint64_t same(const uint64_t first, const uint64_t second) noexcept {
 		// Получаем разность сличаемых чисел по модулю два
 		const uint64_t value = (first ^ second);
 		// Выводим все единицы при нулевой разности и ноль при всякой иной
@@ -240,7 +240,7 @@ namespace {
 	 *       открыт, и времени работы от множителя это не ставит в зависимость
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t slice(const math::number_t & factor, const size_t bit, const size_t count) noexcept {
+	static __NTS_INLINE__ uint64_t slice(const math::number_t & factor, const size_t bit, const size_t count) noexcept {
 		// Номер слова, несущего младший разряд
 		const size_t index = (bit / 64);
 		// Сдвиг младшего разряда внутри слова
@@ -273,7 +273,7 @@ namespace {
 	 * @note Кодирование идёт наложением масок без ветвления: разряды множителя секретны
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t digit(const math::number_t & factor, const size_t position, const size_t width, uint64_t & sign) noexcept {
+	static __NTS_INLINE__ uint64_t digit(const math::number_t & factor, const size_t position, const size_t width, uint64_t & sign) noexcept {
 		// Номер младшего разряда окна
 		const size_t bit = (position * width);
 		// Разряды окна вместе с разрядом ниже: у младшего окна разряда ниже нет
@@ -320,7 +320,7 @@ namespace {
 		/**
 		 * Ядра на MULX и ADCX/ADOX есть лишь под x86-64 с GCC и clang и лишь у простого P-256
 		 */
-		#if defined(__ANTS_X86_64_ADX_KERNELS__)
+		#if defined(__NTS_X86_64_ADX_KERNELS__)
 			// Выводим признак: поле P-256 либо вида 2^256 - c и MULX с ADCX/ADOX у машины
 			return (((layout.form == math::Modulus::form_t::NIST) || (layout.form == math::Modulus::form_t::MINUS)) && machine::has(machine::feature_t::ADX));
 		/**
@@ -356,7 +356,7 @@ namespace {
 		 * @param result место, в которое помещается произведение
 		 *
 		 */
-		__ANTS_INLINE__ void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
+		__NTS_INLINE__ void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Умножение встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
 			math::kernel::multiply <WORDS, ADX> (this->layout, first, second, result);
 		}
@@ -364,7 +364,7 @@ namespace {
 		 * @brief Метод возведения в квадрат по модулю
 		 *
 		 */
-		__ANTS_INLINE__ void square(const value_t & value, value_t & result) const noexcept {
+		__NTS_INLINE__ void square(const value_t & value, value_t & result) const noexcept {
 			// Возведение в квадрат встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
 			math::kernel::square <WORDS, ADX> (this->layout, value, result);
 		}
@@ -376,7 +376,7 @@ namespace {
 		 * @param result место, в которое помещается сумма точек
 		 *
 		 */
-		__ANTS_INLINE__ void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
+		__NTS_INLINE__ void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Сложение встраиваемым ядром
 			math::kernel::add <WORDS> (this->layout, first, second, result);
 		}
@@ -384,7 +384,7 @@ namespace {
 		 * @brief Метод вычитания по модулю
 		 *
 		 */
-		__ANTS_INLINE__ void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
+		__NTS_INLINE__ void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Вычитание встраиваемым ядром
 			math::kernel::subtract <WORDS> (this->layout, first, second, result);
 		}
@@ -392,7 +392,7 @@ namespace {
 		 * @brief Метод выбора одного из двух значений наложением маски
 		 *
 		 */
-		__ANTS_INLINE__ void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
+		__NTS_INLINE__ void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выбор наложением маски
 			math::kernel::choose <WORDS> (mask, first, second, result);
 		}
@@ -400,7 +400,7 @@ namespace {
 		 * @brief Метод получения маски равенства значения нулю
 		 *
 		 */
-		__ANTS_INLINE__ uint64_t zero(const value_t & value) const noexcept {
+		__NTS_INLINE__ uint64_t zero(const value_t & value) const noexcept {
 			// Выводим маску равенства нулю
 			return math::kernel::zero <WORDS> (value);
 		}
@@ -408,7 +408,7 @@ namespace {
 		 * @brief Метод чтения значения из слов числа
 		 *
 		 */
-		__ANTS_INLINE__ void load(const math::number_t & number, value_t & result) const noexcept {
+		__NTS_INLINE__ void load(const math::number_t & number, value_t & result) const noexcept {
 			/**
 			 * Выполняем чтение слов числа по ширине поля
 			 */
@@ -420,7 +420,7 @@ namespace {
 		 * @brief Метод чтения значения из слов в памяти
 		 *
 		 */
-		__ANTS_INLINE__ void read(const uint64_t * place, value_t & result) const noexcept {
+		__NTS_INLINE__ void read(const uint64_t * place, value_t & result) const noexcept {
 			/**
 			 * Выполняем чтение слов по ширине поля
 			 */
@@ -432,7 +432,7 @@ namespace {
 		 * @brief Метод записи значения в число
 		 *
 		 */
-		__ANTS_INLINE__ void store(const value_t & value, math::number_t & number) const noexcept {
+		__NTS_INLINE__ void store(const value_t & value, math::number_t & number) const noexcept {
 			// Обнуление числа: слова выше ширины поля нулевые
 			number = math::number_t();
 			// Записываем слова значения
@@ -454,11 +454,11 @@ namespace {
 		 * @param length число накапливаемых слов строки: кратно двум
 		 *
 		 */
-		__ANTS_INLINE__ void gather(const uint64_t * table, const size_t stride, const size_t count, const uint64_t first, const uint64_t index, uint64_t * result, const size_t length) const noexcept {
+		__NTS_INLINE__ void gather(const uint64_t * table, const size_t stride, const size_t count, const uint64_t first, const uint64_t index, uint64_t * result, const size_t length) const noexcept {
 			/**
 			 * Выбираем строку таблицы векторными командами NEON
 			 */
-			#if defined(__ANTS_CURVE_NEON__)
+			#if defined(__NTS_CURVE_NEON__)
 				// Накопители по два слова
 				uint64x2_t acc[(3 * WORDS) / 2];
 				/**
@@ -491,7 +491,7 @@ namespace {
 			/**
 			 * Иначе выбираем строку таблицы векторными командами SSE2
 			 */
-			#elif defined(__ANTS_CURVE_SSE2__)
+			#elif defined(__NTS_CURVE_SSE2__)
 				// Накопители по два слова
 				__m128i acc[(3 * WORDS) / 2];
 				/**
@@ -661,7 +661,7 @@ namespace {
 	 *
 	 */
 	template <typename F>
-	static __ANTS_INLINE__ void enter(const F & f, const point_t & value, Triple <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void enter(const F & f, const point_t & value, Triple <typename F::value_t> & result) noexcept {
 		// Читаем первую координату
 		f.load(value.x, result.x);
 		// Читаем вторую координату
@@ -678,7 +678,7 @@ namespace {
 	 *
 	 */
 	template <typename F>
-	static __ANTS_INLINE__ void leave(const F & f, const Triple <typename F::value_t> & value, point_t & result) noexcept {
+	static __NTS_INLINE__ void leave(const F & f, const Triple <typename F::value_t> & value, point_t & result) noexcept {
 		// Записываем первую координату
 		f.store(value.x, result.x);
 		// Записываем вторую координату
@@ -697,7 +697,7 @@ namespace {
 	 *
 	 */
 	template <typename F>
-	static __ANTS_INLINE__ void choose(const F & f, const uint64_t mask, const Triple <typename F::value_t> & first, const Triple <typename F::value_t> & second, Triple <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void choose(const F & f, const uint64_t mask, const Triple <typename F::value_t> & first, const Triple <typename F::value_t> & second, Triple <typename F::value_t> & result) noexcept {
 		// Выбираем первую координату
 		f.choose(mask, first.x, second.x, result.x);
 		// Выбираем вторую координату
@@ -1126,7 +1126,7 @@ namespace {
 	 *
 	 */
 	template <typename F, typename = typename std::enable_if <!is_fast <F>::value>::type>
-	static __ANTS_INLINE__ void pick(const F & f, const Triple <typename F::value_t> * table, const size_t count, const uint64_t index, Triple <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void pick(const F & f, const Triple <typename F::value_t> * table, const size_t count, const uint64_t index, Triple <typename F::value_t> & result) noexcept {
 		// Накопитель выбираемого кратного: нулевое кратное таблицы
 		result = table[0];
 		/**
@@ -1150,7 +1150,7 @@ namespace {
 	 *
 	 */
 	template <size_t WORDS, bool ADX>
-	static __ANTS_INLINE__ void pick(const Fast <WORDS, ADX> & f, const Triple <math::kernel::Words <WORDS>> * table, const size_t count, const uint64_t index, Triple <math::kernel::Words <WORDS>> & result) noexcept {
+	static __NTS_INLINE__ void pick(const Fast <WORDS, ADX> & f, const Triple <math::kernel::Words <WORDS>> * table, const size_t count, const uint64_t index, Triple <math::kernel::Words <WORDS>> & result) noexcept {
 		// Выборка строки таблицы: три координаты подряд
 		f.gather(table[0].x.w, (3 * WORDS), count, 0, index, result.x.w, (3 * WORDS));
 	}
@@ -1290,7 +1290,7 @@ namespace {
 	 *
 	 */
 	template <size_t WORDS, bool ADX>
-	static __ANTS_INLINE__ void gathering(const Fast <WORDS, ADX> & f, const uint64_t * row, [[maybe_unused]] const size_t words, const uint64_t index, Triple <math::kernel::Words <WORDS>> & chosen) noexcept {
+	static __NTS_INLINE__ void gathering(const Fast <WORDS, ADX> & f, const uint64_t * row, [[maybe_unused]] const size_t words, const uint64_t index, Triple <math::kernel::Words <WORDS>> & chosen) noexcept {
 		// Выборка строки: кратные от первого, координаты подряд
 		f.gather(row, (2 * WORDS), TABLES_MULTIPLES, 1, index, chosen.x.w, (2 * WORDS));
 	}

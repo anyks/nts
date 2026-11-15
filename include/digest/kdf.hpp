@@ -130,7 +130,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool kdf(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool kdf(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result) noexcept;
 
 		/**
 		 * \~russian
@@ -163,7 +163,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool snmpv3(const hash_t algorithm, const view_t & password, const view_t & engine, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool snmpv3(const hash_t algorithm, const view_t & password, const view_t & engine, uint8_t * result) noexcept;
 
 		/**
 		 * \~russian
@@ -197,7 +197,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool prfplus(const hash_t algorithm, const view_t & key, const view_t & seed, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool prfplus(const hash_t algorithm, const view_t & key, const view_t & seed, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

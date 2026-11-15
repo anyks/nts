@@ -145,7 +145,7 @@ namespace {
 		 *       по секрету: было 128 байтов, стало 4 КБ
 		 *
 		 */
-		static __ANTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
+		static __NTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
 			// Сложение преобразуемого слова с раундовым ключом
 			const uint32_t item = (value + key);
 			// Выводим итог преобразования, собранный из слагаемых по байтам слова
@@ -165,7 +165,7 @@ namespace {
 		 * @return      слово с подставленными полубайтами
 		 *
 		 */
-		static __ANTS_INLINE__ uint32_t substitute(const uint32_t value) noexcept {
+		static __NTS_INLINE__ uint32_t substitute(const uint32_t value) noexcept {
 			// Собираемое слово итога подстановки
 			uint32_t result = 0;
 			/**
@@ -189,7 +189,7 @@ namespace {
 		 * @return      итог раундового преобразования
 		 *
 		 */
-		static __ANTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
+		static __NTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
 			// Подстановка полубайтов суммы слова и раундового ключа
 			const uint32_t item = substitute(value + key);
 			// Выводим итог кругового сдвига подставленного слова
@@ -203,7 +203,7 @@ namespace {
 	 * @return     разобранное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта к младшему
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
 		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
@@ -215,7 +215,7 @@ namespace {
 	 * @param data  место, в которое записывается слово
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем старший байт слова
 		data[0] = static_cast <uint8_t> ((value >> 24) & 0xFF);
 		// Записываем второй байт слова
@@ -285,7 +285,7 @@ namespace {
 	 * @param result  место, в которое помещается преобразованный блок
 	 *
 	 */
-	static __ANTS_INLINE__ void process(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void process(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Разбираем старшую половину преобразуемого блока
 		uint32_t high = load(source);
 		// Разбираем младшую половину преобразуемого блока

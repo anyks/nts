@@ -27,11 +27,11 @@
  *
  */
 
-#ifndef __ANTS_CURVE_TABLES__
+#ifndef __NTS_CURVE_TABLES__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __ANTS_CURVE_TABLES__
+#define __NTS_CURVE_TABLES__
 
 /**
  * Подключаем стандартные заголовочные файлы

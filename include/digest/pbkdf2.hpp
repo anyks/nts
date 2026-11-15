@@ -108,7 +108,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool pbkdf2(const hash_t algorithm, const view_t & password, const view_t & salt, const uint32_t iterations, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool pbkdf2(const hash_t algorithm, const view_t & password, const view_t & salt, const uint32_t iterations, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

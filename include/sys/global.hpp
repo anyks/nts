@@ -52,11 +52,11 @@
 	/**
 	 * Экспорт символов из динамической библиотеки
 	 */
-	#define __ANTS_DECL_EXPORT__ __declspec(dllexport)
+	#define __NTS_DECL_EXPORT__ __declspec(dllexport)
 	/**
 	 * Импорт символов из динамической библиотеки
 	 */
-	#define __ANTS_DECL_IMPORT__ __declspec(dllimport)
+	#define __NTS_DECL_IMPORT__ __declspec(dllimport)
 /**
  * Ветвь для прочих платформ: экспорт и импорт символов через атрибут видимости
  */
@@ -64,11 +64,11 @@
 	/**
 	 * Экспорт символов из динамической библиотеки
 	 */
-	#define __ANTS_DECL_EXPORT__ __attribute__((visibility("default")))
+	#define __NTS_DECL_EXPORT__ __attribute__((visibility("default")))
 	/**
 	 * Импорт символов из динамической библиотеки
 	 */
-	#define __ANTS_DECL_IMPORT__ __attribute__((visibility("default")))
+	#define __NTS_DECL_IMPORT__ __attribute__((visibility("default")))
 #endif
 
 /**
@@ -78,7 +78,7 @@
 	/**
 	 * Обозначение символов, доступных снаружи библиотеки
 	 */
-	#define __ANTS_SHARED_EXPORT__
+	#define __NTS_SHARED_EXPORT__
 /**
  * Если производится сборка самой динамической библиотеки
  */
@@ -86,7 +86,7 @@
 	/**
 	 * Обозначение символов, доступных снаружи библиотеки
 	 */
-	#define __ANTS_SHARED_EXPORT__ __ANTS_DECL_EXPORT__
+	#define __NTS_SHARED_EXPORT__ __NTS_DECL_EXPORT__
 /**
  * Если динамическая библиотека подключается потребителем
  */
@@ -94,7 +94,7 @@
 	/**
 	 * Обозначение символов, доступных снаружи библиотеки
 	 */
-	#define __ANTS_SHARED_EXPORT__ __ANTS_DECL_IMPORT__
+	#define __NTS_SHARED_EXPORT__ __NTS_DECL_IMPORT__
 #endif
 
 /**
@@ -128,11 +128,11 @@
 	/**
 	 * Обозначение принудительно встраиваемого вызова
 	 */
-	#define __ANTS_INLINE__ __forceinline
+	#define __NTS_INLINE__ __forceinline
 	/**
 	 * Обозначение вызова, встраивание которого запрещено
 	 */
-	#define __ANTS_NOINLINE__ __declspec(noinline)
+	#define __NTS_NOINLINE__ __declspec(noinline)
 /**
  * Ветвь для прочих платформ: принудительное встраивание и запрет встраивания через атрибуты
  */
@@ -140,11 +140,11 @@
 	/**
 	 * Обозначение принудительно встраиваемого вызова
 	 */
-	#define __ANTS_INLINE__ inline __attribute__((always_inline))
+	#define __NTS_INLINE__ inline __attribute__((always_inline))
 	/**
 	 * Обозначение вызова, встраивание которого запрещено
 	 */
-	#define __ANTS_NOINLINE__ __attribute__((noinline))
+	#define __NTS_NOINLINE__ __attribute__((noinline))
 #endif
 
 /**
@@ -178,7 +178,7 @@
 		/**
 		 * Признак сборки под ASan без оптимизации
 		 */
-		#define __ANTS_ASAN_UNOPTIMIZED__ 1
+		#define __NTS_ASAN_UNOPTIMIZED__ 1
 	/**
 	 * Если сборка выполняется под Clang LLVM
 	 */
@@ -190,7 +190,7 @@
 			/**
 			 * Признак сборки под ASan без оптимизации
 			 */
-			#define __ANTS_ASAN_UNOPTIMIZED__ 1
+			#define __NTS_ASAN_UNOPTIMIZED__ 1
 		#endif
 	#endif
 #endif
@@ -227,7 +227,7 @@
 	/**
 	 * Признак сборки под x86-64 собирателем Microsoft Visual C++
 	 */
-	#define __ANTS_MSVC_X64__ 1
+	#define __NTS_MSVC_X64__ 1
 #endif
 
 /**
@@ -237,7 +237,7 @@
 	/**
 	 * Признак сборки под ARM64 собирателем Microsoft Visual C++
 	 */
-	#define __ANTS_MSVC_ARM64__ 1
+	#define __NTS_MSVC_ARM64__ 1
 #endif
 
 /**

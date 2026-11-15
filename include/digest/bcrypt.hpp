@@ -97,7 +97,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool bcrypt(const view_t & pass, const view_t & salt, uint8_t * key, const size_t keylen, const size_t rounds) noexcept;
+		__NTS_SHARED_EXPORT__ bool bcrypt(const view_t & pass, const view_t & salt, uint8_t * key, const size_t keylen, const size_t rounds) noexcept;
 	};
 };
 

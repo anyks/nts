@@ -478,7 +478,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Suite {
+		typedef struct __NTS_SHARED_EXPORT__ Suite {
 			// Функция обмена ключами
 			dh_t dh;
 			// Функция шифрования с подлинностью
@@ -549,7 +549,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool valid(const suite_t & suite) noexcept;
+		__NTS_SHARED_EXPORT__ bool valid(const suite_t & suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления имени протокола вида «Noise_XXpsk3_25519_ChaChaPoly_SHA256»
@@ -573,7 +573,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool name(const pattern_t pattern, const psk_t psks, const suite_t & suite, char * result, size_t & size) noexcept;
+		__NTS_SHARED_EXPORT__ bool name(const pattern_t pattern, const psk_t psks, const suite_t & suite, char * result, size_t & size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора имени протокола
@@ -601,7 +601,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool parse(const view_t & text, pattern_t & pattern, psk_t & psks, suite_t & suite) noexcept;
+		__NTS_SHARED_EXPORT__ bool parse(const view_t & text, pattern_t & pattern, psk_t & psks, suite_t & suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения числа сообщений узора
@@ -617,7 +617,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t messages(const pattern_t pattern) noexcept;
+		__NTS_SHARED_EXPORT__ size_t messages(const pattern_t pattern) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения знаков сообщения узора
@@ -639,7 +639,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool tokens(const pattern_t pattern, const size_t index, const token_t *& result, size_t & count) noexcept;
+		__NTS_SHARED_EXPORT__ bool tokens(const pattern_t pattern, const size_t index, const token_t *& result, size_t & count) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения знаков предсообщения узора
@@ -661,7 +661,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool premessage(const pattern_t pattern, const bool initiator, const token_t *& result, size_t & count) noexcept;
+		__NTS_SHARED_EXPORT__ bool premessage(const pattern_t pattern, const bool initiator, const token_t *& result, size_t & count) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения имени узора
@@ -677,7 +677,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const char * title(const pattern_t pattern) noexcept;
+		__NTS_SHARED_EXPORT__ const char * title(const pattern_t pattern) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вычисления DH
@@ -699,7 +699,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool agree(const dh_t dh, const view_t & secret, const view_t & point, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool agree(const dh_t dh, const view_t & secret, const view_t & point, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вывода открытого ключа из закрытого
@@ -719,7 +719,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool derive(const dh_t dh, const view_t & secret, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool derive(const dh_t dh, const view_t & secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки пары ключей из энтропии
@@ -739,7 +739,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool generate(const dh_t dh, uint8_t * secret, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool generate(const dh_t dh, uint8_t * secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки, что узор относится к PQNoise
@@ -755,7 +755,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool postquantum(const pattern_t pattern) noexcept;
+		__NTS_SHARED_EXPORT__ bool postquantum(const pattern_t pattern) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины части KEM
@@ -773,7 +773,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t kemlength(const kem_t kem, const part_t part) noexcept;
+		__NTS_SHARED_EXPORT__ size_t kemlength(const kem_t kem, const part_t part) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция порождения пары ключей KEM из зерна - детерминированный, для корпусов и потребителя, хранящего зерно
@@ -799,7 +799,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool kemgenerateDeterministic(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept;
+		__NTS_SHARED_EXPORT__ bool kemgenerateDeterministic(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция порождения пары ключей KEM из энтропии
@@ -819,7 +819,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool kemgenerate(const kem_t kem, uint8_t * key, uint8_t * secret) noexcept;
+		__NTS_SHARED_EXPORT__ bool kemgenerate(const kem_t kem, uint8_t * key, uint8_t * secret) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция упаковки общего секрета на заданной случайности - детерминированный, для корпусов
@@ -849,7 +849,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encapsulateDeterministic(const kem_t kem, const view_t & key, const view_t & coins, uint8_t * ciphertext, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool encapsulateDeterministic(const kem_t kem, const view_t & key, const view_t & coins, uint8_t * ciphertext, uint8_t * shared) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция упаковки общего секрета к открытому ключу на энтропии
@@ -871,7 +871,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encapsulate(const kem_t kem, const view_t & key, uint8_t * ciphertext, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool encapsulate(const kem_t kem, const view_t & key, uint8_t * ciphertext, uint8_t * shared) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция распаковки общего секрета
@@ -893,7 +893,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool decapsulate(const kem_t kem, const view_t & secret, const view_t & ciphertext, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool decapsulate(const kem_t kem, const view_t & secret, const view_t & ciphertext, uint8_t * shared) noexcept;
 	};
 };
 

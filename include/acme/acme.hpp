@@ -127,7 +127,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Directory {
+		typedef struct __NTS_SHARED_EXPORT__ Directory {
 			// Адрес ресурса выдачи метки новизны
 			string newNonce;
 			// Адрес ресурса заведения учётной записи
@@ -184,7 +184,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Account {
+		typedef struct __NTS_SHARED_EXPORT__ Account {
 			// Состояние записи: valid, deactivated, revoked
 			string status;
 			// Набор адресов заказов записи
@@ -231,7 +231,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Order {
+		typedef struct __NTS_SHARED_EXPORT__ Order {
 			// Состояние заказа: pending, ready, processing, valid, invalid
 			string status;
 			// Срок действия заказа в записи RFC 3339, пустой при его отсутствии
@@ -286,7 +286,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Challenge {
+		typedef struct __NTS_SHARED_EXPORT__ Challenge {
 			// Вид испытания: http-01, dns-01, tls-alpn-01 и прочие
 			string type;
 			// Адрес ресурса испытания
@@ -323,7 +323,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Authorization {
+		typedef struct __NTS_SHARED_EXPORT__ Authorization {
 			// Состояние записи: pending, valid, invalid, deactivated, expired, revoked
 			string status;
 			// Срок действия записи в записи RFC 3339, пустой при его отсутствии
@@ -387,7 +387,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Problem {
+		typedef struct __NTS_SHARED_EXPORT__ Problem {
 			// Опознаватель вида отказа: urn:ietf:params:acme:error:…
 			string type;
 			// Краткое описание отказа
@@ -471,7 +471,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t request(const string & url, const string & nonce, const string & kid, const keys::key_t & key, const view_t & payload, const keys::signer_t & signer, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t request(const string & url, const string & nonce, const string & kid, const keys::key_t & key, const view_t & payload, const keys::signer_t & signer, string & result) noexcept;
 
 		/**
 		 * \~russian
@@ -496,7 +496,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void newAccount(const vector <string> & contacts, const bool termsOfServiceAgreed, const bool onlyReturnExisting, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ void newAccount(const vector <string> & contacts, const bool termsOfServiceAgreed, const bool onlyReturnExisting, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки полезной нагрузки заведения заказа
@@ -518,7 +518,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t newOrder(const vector <pair <identifier_t, string>> & identifiers, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t newOrder(const vector <pair <identifier_t, string>> & identifiers, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки полезной нагрузки завершения заказа
@@ -540,7 +540,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void finalize(const view_t & csr, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ void finalize(const view_t & csr, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки полезной нагрузки отзыва сертификата
@@ -564,7 +564,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void revokeCert(const view_t & certificate, const uint8_t reason, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ void revokeCert(const view_t & certificate, const uint8_t reason, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки полезной нагрузки ответа на испытание
@@ -583,7 +583,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void answer(string & result) noexcept;
+		__NTS_SHARED_EXPORT__ void answer(string & result) noexcept;
 
 		/**
 		 * \~russian
@@ -612,7 +612,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t keyAuthorization(const string & token, const keys::key_t & key, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t keyAuthorization(const string & token, const keys::key_t & key, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки владения ключом испытания
@@ -639,7 +639,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t keyPossession(const string & token, const keys::key_t & key, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t keyPossession(const string & token, const keys::key_t & key, string & result) noexcept;
 	}
 }
 

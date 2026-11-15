@@ -174,7 +174,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t material(const view_t & traffic, const protect::suite_t suite, uint8_t * key, uint8_t * vector) noexcept;
+		__NTS_SHARED_EXPORT__ error_t material(const view_t & traffic, const protect::suite_t suite, uint8_t * key, uint8_t * vector) noexcept;
 
 		/**
 		 * \~russian
@@ -204,7 +204,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Transcript {
+		typedef class __NTS_SHARED_EXPORT__ Transcript {
 			public:
 				/**
 				 * \~russian
@@ -517,7 +517,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Secrets {
+		typedef class __NTS_SHARED_EXPORT__ Secrets {
 			private:
 				// Пройденная ступень расписания ключей
 				stage_t _stage;

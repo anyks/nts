@@ -27,7 +27,7 @@
  *       линейного преобразования и величины итераций перенесены дословно, а
  *       производная от них таблица преобразования LPS вычисляется при сборке
  *
- * @note Обозначение __ANTS_INLINE__ у преобразования LPS не украшение: преобразование
+ * @note Обозначение __NTS_INLINE__ у преобразования LPS не украшение: преобразование
  *       зовётся двадцать пять раз на всякий блок сообщения, и оставленное вызовом оно
  *       гоняет через стек по 64 байта состояния на всякий вызов. Замер 31.08.2026:
  *       284 МБ/с без встраивания против 375 МБ/с с ним
@@ -62,12 +62,12 @@
  * Собиратель Microsoft Visual C++ признака набора SSE2 не объявляет, но команды основания
  * набора x86-64 доступны ему без ключей сборки
  */
-#if (defined(__x86_64__) && defined(__SSE2__)) || defined(__ANTS_MSVC_X64__)
+#if (defined(__x86_64__) && defined(__SSE2__)) || defined(__NTS_MSVC_X64__)
 	#include <emmintrin.h>
 	/**
 	 * Признак пути сжатия на SSE2
 	 */
-	#define __ANTS_STREEBOG_SSE2__
+	#define __NTS_STREEBOG_SSE2__
 #endif
 
 /**
@@ -341,7 +341,7 @@ namespace {
 	/**
 	 * Скалярный путь сжатия: все собиратели, кроме x86-64
 	 */
-	#if !defined(__ANTS_STREEBOG_SSE2__)
+	#if !defined(__NTS_STREEBOG_SSE2__)
 		/**
 		 * @brief Функция совмещённого преобразования LPS над суммой двух векторов
 		 *
@@ -350,7 +350,7 @@ namespace {
 		 * @param result вектор, в который помещается итог преобразования
 		 *
 		 */
-		static __ANTS_INLINE__ void transform(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+		static __NTS_INLINE__ void transform(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 			// Сумма слагаемых по исключающему ИЛИ
 			uint64_t value[8];
 			/**
@@ -426,12 +426,12 @@ namespace {
 				/**
 				 * Круг: выработка ключа очередной итерации и применение преобразования к состоянию
 				 */
-				#define __ANTS_STREEBOG_ROUND__(N) transform(item, CONSTANTS[N], item); transform(state, item, state);
+				#define __NTS_STREEBOG_ROUND__(N) transform(item, CONSTANTS[N], item); transform(state, item, state);
 				// Разворачиваем применения преобразования вручную, круг за кругом
-				__ANTS_STREEBOG_ROUND__(0) __ANTS_STREEBOG_ROUND__(1) __ANTS_STREEBOG_ROUND__(2) __ANTS_STREEBOG_ROUND__(3)
-				__ANTS_STREEBOG_ROUND__(4) __ANTS_STREEBOG_ROUND__(5) __ANTS_STREEBOG_ROUND__(6) __ANTS_STREEBOG_ROUND__(7)
-				__ANTS_STREEBOG_ROUND__(8) __ANTS_STREEBOG_ROUND__(9) __ANTS_STREEBOG_ROUND__(10)
-				#undef __ANTS_STREEBOG_ROUND__
+				__NTS_STREEBOG_ROUND__(0) __NTS_STREEBOG_ROUND__(1) __NTS_STREEBOG_ROUND__(2) __NTS_STREEBOG_ROUND__(3)
+				__NTS_STREEBOG_ROUND__(4) __NTS_STREEBOG_ROUND__(5) __NTS_STREEBOG_ROUND__(6) __NTS_STREEBOG_ROUND__(7)
+				__NTS_STREEBOG_ROUND__(8) __NTS_STREEBOG_ROUND__(9) __NTS_STREEBOG_ROUND__(10)
+				#undef __NTS_STREEBOG_ROUND__
 			#endif
 			// Вырабатываем ключ последней итерации
 			transform(item, CONSTANTS[11], item);
@@ -488,7 +488,7 @@ namespace {
 		 *
 		 */
 		template <int ROW>
-		static __ANTS_INLINE__ __m128i gather(const __m128i x0, const __m128i x1, const __m128i x2, const __m128i x3) noexcept {
+		static __NTS_INLINE__ __m128i gather(const __m128i x0, const __m128i x1, const __m128i x2, const __m128i x3) noexcept {
 			// Пара байтов преобразуемого слова
 			unsigned pair = 0;
 			// Собираемые слова итога
@@ -557,7 +557,7 @@ namespace {
 		 * @param k3 шестое и седьмое слова складываемого вектора
 		 *
 		 */
-		static __ANTS_INLINE__ void lpsx(__m128i & s0, __m128i & s1, __m128i & s2, __m128i & s3, const __m128i k0, const __m128i k1, const __m128i k2, const __m128i k3) noexcept {
+		static __NTS_INLINE__ void lpsx(__m128i & s0, __m128i & s1, __m128i & s2, __m128i & s3, const __m128i k0, const __m128i k1, const __m128i k2, const __m128i k3) noexcept {
 			// Сложение состояния с вектором по исключающему ИЛИ
 			s0 = _mm_xor_si128(s0, k0);
 			// Складываем вторую пару слов состояния с вектором по исключающему ИЛИ
@@ -593,7 +593,7 @@ namespace {
 		 * @param x3    шестое и седьмое слова
 		 *
 		 */
-		static __ANTS_INLINE__ void fetch(const uint64_t * value, __m128i & x0, __m128i & x1, __m128i & x2, __m128i & x3) noexcept {
+		static __NTS_INLINE__ void fetch(const uint64_t * value, __m128i & x0, __m128i & x1, __m128i & x2, __m128i & x3) noexcept {
 			// Читаем слова вектора парами
 			x0 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value));
 			// Читаем вторую пару слов вектора
@@ -679,7 +679,7 @@ namespace {
 	 * @param addend прибавляемый вектор
 	 *
 	 */
-	static __ANTS_INLINE__ void increase(uint64_t * value, const uint64_t * addend) noexcept {
+	static __NTS_INLINE__ void increase(uint64_t * value, const uint64_t * addend) noexcept {
 		// Перенос из младшего слова в старшее
 		uint64_t carry = 0;
 		/**
@@ -705,7 +705,7 @@ namespace {
 	 * @param result вектор, в который помещаются разобранные слова
 	 *
 	 */
-	static __ANTS_INLINE__ void load(const uint8_t * data, uint64_t * result) noexcept {
+	static __NTS_INLINE__ void load(const uint8_t * data, uint64_t * result) noexcept {
 		/**
 		 * Порядок байтов машины совпадает с порядком байтов в словах блока лишь
 		 * на машинах с младшим байтом вперёд: блок там читается одной копией

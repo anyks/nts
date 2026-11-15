@@ -133,7 +133,7 @@ extern "C" __attribute__((noinline)) void montFused(const uint64_t * first, cons
  */
 #if defined(__aarch64__)
 // Слитый ряд на ассемблере: t = (t + a*w + m*n) / 2^64, t на count+1 слов
-static inline void __ants_row_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w, const uint64_t n0, const size_t count){
+static inline void __nts_row_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w, const uint64_t n0, const size_t count){
 	// Объявляем переменную для промежуточного значения
 	uint64_t m;
 	// Выполняем очередной шаг
@@ -190,13 +190,13 @@ extern "C" __attribute__((noinline)) void montRow(const uint64_t * first, const 
 	/**
 	 * Перебираем элементы по счётчику до count
 	 */
-	for(size_t i = 0; i < count; i++) __ants_row_arm__(buffer, first, modulus, second[i], inverse, count);
+	for(size_t i = 0; i < count; i++) __nts_row_arm__(buffer, first, modulus, second[i], inverse, count);
 	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 #endif
 // Два ряда со сдвигом на один шаг: ряд i на столбце j, ряд i+1 на столбце j-1 берёт выход ряда i из регистра
-static inline void __ants_rows2_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w0, const uint64_t w1, const uint64_t n0, const size_t count){
+static inline void __nts_rows2_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w0, const uint64_t w1, const uint64_t n0, const size_t count){
 	// Первый столбец ряда ноль и его множитель редукции
 	wide_t p = (static_cast <wide_t> (a[0]) * w0 + t[0]); uint64_t lo = static_cast <uint64_t> (p); const uint64_t m0 = lo * n0;
 	// Вклад модуля ряда ноль и переносы
@@ -232,7 +232,7 @@ static inline void __ants_rows2_c__(uint64_t * t, const uint64_t * a, const uint
 	T = (static_cast <wide_t> (top1) + c11 + c21); t[count - 1] = static_cast <uint64_t> (T); t[count] = static_cast <uint64_t> ((T >> 64));
 }
 // Вызываем ядро на ассемблере
-static inline void __ants_row_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w, const uint64_t n0, const size_t count){
+static inline void __nts_row_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w, const uint64_t n0, const size_t count){
 	// Первый столбец ряда и множитель редукции
 	wide_t p = (static_cast <wide_t> (a[0]) * w + t[0]); const uint64_t lo = static_cast <uint64_t> (p); const uint64_t m = lo * n0;
 	// Вклад модуля и переносы
@@ -258,11 +258,11 @@ extern "C" __attribute__((noinline)) void montRows2c(const uint64_t * first, con
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; (i + 2) <= count; i += 2) __ants_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	for(; (i + 2) <= count; i += 2) __nts_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	for(; i < count; i++) __nts_row_c__(buffer, first, modulus, second[i], inverse, count);
 	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
@@ -272,7 +272,7 @@ extern "C" __attribute__((noinline)) void montRows2c(const uint64_t * first, con
  */
 #if defined(__aarch64__)
 // Два ряда со сдвигом: пролог и эпилог на C, цикл столбцов на ассемблере; переносы и перенесённые слова живут в регистрах
-static inline void __ants_rows2_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w0, const uint64_t w1, const uint64_t n0, const size_t count){
+static inline void __nts_rows2_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t w0, const uint64_t w1, const uint64_t n0, const size_t count){
 	// Первый столбец ряда ноль и его множитель редукции
 	wide_t p = (static_cast <wide_t> (a[0]) * w0 + t[0]); uint64_t lo = static_cast <uint64_t> (p); const uint64_t m0 = lo * n0;
 	// Вклад модуля ряда ноль и переносы
@@ -352,18 +352,18 @@ extern "C" __attribute__((noinline)) void montRows2(const uint64_t * first, cons
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; (i + 2) <= count; i += 2) __ants_rows2_arm__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	for(; (i + 2) <= count; i += 2) __nts_rows2_arm__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	for(; i < count; i++) __nts_row_c__(buffer, first, modulus, second[i], inverse, count);
 	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 #endif
 
 // Четыре ряда со сдвигом на шаг (C): единый цикл J по «итерациям», ряд r на столбце J-r
-static inline void __ants_rows4_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+static inline void __nts_rows4_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
 	// Множители редукции, переносы и выходы четырёх рядов
 	uint64_t m[4] = {0,0,0,0}, c1[4] = {0,0,0,0}, c2[4] = {0,0,0,0}, out[4] = {0,0,0,0}, top[4] = {0,0,0,0};
 	/**
@@ -412,20 +412,20 @@ extern "C" __attribute__((noinline)) void montRows4c(const uint64_t * first, con
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; (i + 4) <= count; i += 4) __ants_rows4_c__(buffer, first, modulus, second + i, inverse, count);
+	for(; (i + 4) <= count; i += 4) __nts_rows4_c__(buffer, first, modulus, second + i, inverse, count);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; (i + 2) <= count; i += 2) __ants_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	for(; (i + 2) <= count; i += 2) __nts_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	for(; i < count; i++) __nts_row_c__(buffer, first, modulus, second[i], inverse, count);
 	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
 // Квадрат: симметричные произведения (n(n-1)/2), удвоение, диагональ, затем приведение Монтгомери рядами со сдвигом по два
-static inline void __ants_reduce2_c__(uint64_t * P, const uint64_t * n, const uint64_t n0, const size_t count, const size_t i){
+static inline void __nts_reduce2_c__(uint64_t * P, const uint64_t * n, const uint64_t n0, const size_t count, const size_t i){
 	// Два ряда приведения: ряд i берёт P[i..], ряд i+1 - выход ряда i; вклад m*n в P со смещением; итог: P[i], P[i+1] обнуляются
 	const uint64_t m0 = (P[i] * n0);
 	// Вклад модуля ряда ноль и перенос
@@ -511,7 +511,7 @@ extern "C" __attribute__((noinline)) void montSqrc(const uint64_t * first, const
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; (i + 2) <= count; i += 2) __ants_reduce2_c__(P, modulus, inverse, count, i);
+	for(; (i + 2) <= count; i += 2) __nts_reduce2_c__(P, modulus, inverse, count, i);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
@@ -554,7 +554,7 @@ extern "C" __attribute__((noinline)) uint64_t multhroughput(uint64_t x, size_t N
 }
 
 // Четыре ряда со сдвигом: пролог, прямой основной цикл без ветвлений, эпилог
-static inline void __ants_rows4b_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+static inline void __nts_rows4b_c__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
 	// Множители, переносы и выходы четырёх рядов
 	uint64_t m0, m1, m2, m3, c10 = 0, c20 = 0, c11 = 0, c21 = 0, c12 = 0, c22 = 0, c13 = 0, c23 = 0, o0, o1, o2, o3;
 	// Выполняем очередной шаг
@@ -615,15 +615,15 @@ extern "C" __attribute__((noinline)) void montRows4b(const uint64_t * first, con
 	// Счётчик внешнего цикла
 	size_t i = 0;
 	// Проверяем условие ветвления
-	if(count >= 4) for(; (i + 4) <= count; i += 4) __ants_rows4b_c__(buffer, first, modulus, second + i, inverse, count);
+	if(count >= 4) for(; (i + 4) <= count; i += 4) __nts_rows4b_c__(buffer, first, modulus, second + i, inverse, count);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; (i + 2) <= count; i += 2) __ants_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	for(; (i + 2) <= count; i += 2) __nts_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	for(; i < count; i++) __nts_row_c__(buffer, first, modulus, second[i], inverse, count);
 	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
@@ -821,8 +821,8 @@ extern "C" __attribute__((noinline)) void montSqr2(const uint64_t * first, const
  * Раздел четырёх рядов со сдвигом на ассемблере AArch64
  */
 #if defined(__aarch64__)
-// Четыре ряда со сдвигом: пролог и эпилог на C (как __ants_rows4b_c__), основной цикл на ассемблере с продвигаемыми указателями
-static inline void __ants_rows4_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
+// Четыре ряда со сдвигом: пролог и эпилог на C (как __nts_rows4b_c__), основной цикл на ассемблере с продвигаемыми указателями
+static inline void __nts_rows4_arm__(uint64_t * t, const uint64_t * a, const uint64_t * n, const uint64_t * w, const uint64_t n0, const size_t count){
 	// Множители, переносы и выходы четырёх рядов
 	uint64_t m0, m1, m2, m3, c10 = 0, c20 = 0, c11 = 0, c21 = 0, c12 = 0, c22 = 0, c13 = 0, c23 = 0, o0, o1, o2, o3;
 	// Выполняем очередной шаг
@@ -928,7 +928,7 @@ static inline void __ants_rows4_arm__(uint64_t * t, const uint64_t * a, const ui
 			: [w0] "r" (w0), [w1] "r" (w1), [w2] "r" (w2), [w3] "r" (w3), [m0] "r" (m0), [m1] "r" (m1), [m2] "r" (m2), [m3] "r" (m3)
 			: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "cc", "memory");
 	}
-	// Эпилог как у __ants_rows4b_c__: внутри итерации ряд r берёт выход ряда r-1 на столбце c+1, потому выходов цикла не нужно
+	// Эпилог как у __nts_rows4b_c__: внутри итерации ряд r берёт выход ряда r-1 на столбце c+1, потому выходов цикла не нужно
 	wide_t T; uint64_t top0, top1, top2, top3;
 	// Старшие разряды буфера
 	T = (static_cast <wide_t> (t[count]) + c10 + c20); o0 = static_cast <uint64_t> (T); top0 = static_cast <uint64_t> (T >> 64);
@@ -956,15 +956,15 @@ extern "C" __attribute__((noinline)) void montRows4(const uint64_t * first, cons
 	// Счётчик внешнего цикла
 	size_t i = 0;
 	// Проверяем условие ветвления
-	if(count >= 4) for(; (i + 4) <= count; i += 4) __ants_rows4_arm__(buffer, first, modulus, second + i, inverse, count);
+	if(count >= 4) for(; (i + 4) <= count; i += 4) __nts_rows4_arm__(buffer, first, modulus, second + i, inverse, count);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; (i + 2) <= count; i += 2) __ants_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
+	for(; (i + 2) <= count; i += 2) __nts_rows2_c__(buffer, first, modulus, second[i], second[i + 1], inverse, count);
 	/**
 	 * Перебираем элементы по счётчику
 	 */
-	for(; i < count; i++) __ants_row_c__(buffer, first, modulus, second[i], inverse, count);
+	for(; i < count; i++) __nts_row_c__(buffer, first, modulus, second[i], inverse, count);
 	// Выполняем финальную редукцию результата
 	finish(buffer, modulus, count, result);
 }
@@ -1234,9 +1234,9 @@ namespace library {
 /**
  * Ветвь x86-64 (GCC, clang) с расширениями BMI2 и ADX: ряд полосами по четыре слова на MULX и
  * двух независимых цепочках переносов ADCX/ADOX (решение 7 шапки). Под ASan без оптимизации
- * ветвь не берётся: вставка занимает все регистры общего назначения (признак __ANTS_ASAN_UNOPTIMIZED__)
+ * ветвь не берётся: вставка занимает все регистры общего назначения (признак __NTS_ASAN_UNOPTIMIZED__)
  */
-#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 	/**
 	 * @brief Функция одного ряда умножения Монтгомери полосами по четыре слова на ассемблере x86-64 (BMI2, ADX)
 	 *
@@ -1841,7 +1841,7 @@ namespace library {
  * нет - восемь шагов окна развёрнуты, а старшая половина произведения ложится прямо в
  * регистр сдвинутого слова. Под ASan без оптимизации ветвь не берётся (все регистры заняты)
  */
-#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 	/**
 	 * @brief Функция квадрата Монтгомери блоками по восемь слов на ассемблере x86-64 (BMI2, ADX)
 	 *
@@ -2928,7 +2928,7 @@ namespace library {
 /**
  * Признак включения ядра полосами в таблицу щупа
  */
-#define __ANTS_PROBE_STRIPES__ 1
+#define __NTS_PROBE_STRIPES__ 1
 // Определяем ядро вычисления
 extern "C" __attribute__((noinline)) void montStripes(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
 	// Обнуляем буфер
@@ -2948,7 +2948,7 @@ extern "C" __attribute__((noinline)) void montStripes(const uint64_t * first, co
 /**
  * Признак включения квадрата блоками в таблицу щупа
  */
-#define __ANTS_PROBE_SQUARE8X__ 1
+#define __NTS_PROBE_SQUARE8X__ 1
 // Определяем ядро вычисления
 extern "C" __attribute__((noinline)) void montSquare8x(const uint64_t * first, const uint64_t *, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result){
 	// Выполняем очередной шаг
@@ -3010,7 +3010,7 @@ int main(int argc, char **){
 /**
  * В таблицу ядер добавляем ядро полосами
  */
-#if defined(__ANTS_PROBE_STRIPES__)
+#if defined(__NTS_PROBE_STRIPES__)
 		// Выполняем очередной шаг
 		montStripes,
 #endif
@@ -3094,7 +3094,7 @@ int main(int argc, char **){
 /**
  * Сверяем квадрат блоками с эталоном двух проходов
  */
-#if defined(__ANTS_PROBE_SQUARE8X__)
+#if defined(__NTS_PROBE_SQUARE8X__)
 		// Проверяем условие ветвления
 		if((n % 8) == 0){ montSquare8x(a, a, m, n, inv, r2); stotal++; if(::memcmp(r1, r2, n * 8) != 0){ sbad++; if(sbad < 5) printf("РАСХОЖДЕНИЕ квадрата блоками n=%zu c=%d\n", n, c); } }
 #endif
@@ -3138,7 +3138,7 @@ int main(int argc, char **){
 /**
  * Меряем скорость квадрата блоками на ассемблере
  */
-#if defined(__ANTS_PROBE_SQUARE8X__)
+#if defined(__NTS_PROBE_SQUARE8X__)
 		// Проверяем условие ветвления
 		if((n % 8) == 0){ uint64_t x[64]; ::memcpy(x, a, n * 8); const int N = (n <= 16 ? 200000 : 60000); double t0 = now(); for(int i = 0; i < N; i++) montSquare8x(x, x, m, n, inv, x); double t1 = now(); printf("  квадрат блоками 8 asm (библиотека) %6.1f нс", (t1 - t0) / N * 1e9); }
 #endif

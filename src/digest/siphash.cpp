@@ -56,7 +56,7 @@ namespace {
 	 * @param v состояние из четырёх слов
 	 *
 	 */
-	static __ANTS_INLINE__ void round(uint64_t * v) noexcept {
+	static __NTS_INLINE__ void round(uint64_t * v) noexcept {
 		// Первое слово складывается со вторым, второе сдвигается и складывается по модулю два с первым, первое сдвигается
 		v[0] += v[1]; v[1] = spin(v[1], 13); v[1] ^= v[0]; v[0] = spin(v[0], 32);
 		// Третье слово складывается с четвёртым, четвёртое сдвигается и складывается по модулю два с третьим
@@ -74,7 +74,7 @@ namespace {
 	 * @return     слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t octet(const uint8_t * data, const size_t size) noexcept {
+	static __NTS_INLINE__ uint64_t octet(const uint8_t * data, const size_t size) noexcept {
 		// Собираемое слово
 		uint64_t result = 0;
 		/**

@@ -81,7 +81,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const char * version() noexcept;
+		__NTS_SHARED_EXPORT__ const char * version() noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения сводного числа издания библиотеки
@@ -103,7 +103,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ uint32_t number() noexcept;
+		__NTS_SHARED_EXPORT__ uint32_t number() noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения старшего номера издания библиотеки
@@ -121,7 +121,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ uint32_t majorVersion() noexcept;
+		__NTS_SHARED_EXPORT__ uint32_t majorVersion() noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения младшего номера издания библиотеки
@@ -139,7 +139,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ uint32_t minorVersion() noexcept;
+		__NTS_SHARED_EXPORT__ uint32_t minorVersion() noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения заплатки издания библиотеки
@@ -157,6 +157,6 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ uint32_t patchVersion() noexcept;
+		__NTS_SHARED_EXPORT__ uint32_t patchVersion() noexcept;
 	};
 };

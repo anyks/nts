@@ -106,7 +106,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool siphash(const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool siphash(const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вычисления SipHash-2-4 числом
@@ -126,7 +126,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool siphash(const view_t & key, const view_t & data, uint64_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ bool siphash(const view_t & key, const view_t & data, uint64_t & result) noexcept;
 	};
 };
 

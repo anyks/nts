@@ -152,7 +152,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Stream {
+		typedef class __NTS_SHARED_EXPORT__ Stream {
 			private:
 				// Признак того, что поток заведён и не завершён
 				bool _ready;

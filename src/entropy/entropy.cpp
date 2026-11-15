@@ -73,7 +73,7 @@
 		/**
 		 * Признак наличия вызова ядра, выдающего случайные байты
 		 */
-		#define __ANTS_ENTROPY_CALL__ 1
+		#define __NTS_ENTROPY_CALL__ 1
 		/**
 		 * @note У macOS и четырёх BSD случайные байты выдаёт порождатель самой libc
 		 *       (arc4random_buf: ChaCha20, наполняемый ядром, с переналивкой по счётчику
@@ -87,7 +87,7 @@
 			/**
 			 * Признак наличия порождателя случайных байтов у libc
 			 */
-			#define __ANTS_ENTROPY_LIBC__ 1
+			#define __NTS_ENTROPY_LIBC__ 1
 		#endif
 		/**
 		 * Заголовочные файлы вызова ядра, выдающего случайные байты
@@ -214,7 +214,7 @@ namespace {
 	 * нет вовсе, а у систем с порождателем libc он не нужен, и помощник там не
 	 * заводится - иначе он оставался бы неупотребимым
 	 */
-	#if !defined(_MSC_VER) && !defined(WIN64) && !defined(_WIN64) && !defined(__WIN64__) && !defined(WIN32) && !defined(_WIN32) && !defined(__WIN32__) && !defined(__NT__) && !defined(__ANTS_ENTROPY_LIBC__)
+	#if !defined(_MSC_VER) && !defined(WIN64) && !defined(_WIN64) && !defined(__WIN64__) && !defined(WIN32) && !defined(_WIN32) && !defined(__WIN32__) && !defined(__NT__) && !defined(__NTS_ENTROPY_LIBC__)
 		/**
 		 * @brief Функция чтения случайных байтов из устройства системы
 		 *
@@ -292,7 +292,7 @@ namespace {
 			/**
 			 * Если у libc есть порождатель случайных байтов
 			 */
-			#if defined(__ANTS_ENTROPY_LIBC__)
+			#if defined(__NTS_ENTROPY_LIBC__)
 				// Получение случайных байтов у порождателя libc: отказать он не может
 				::arc4random_buf(data, size);
 				// Выводим успешность получения случайных байтов
@@ -300,7 +300,7 @@ namespace {
 			/**
 			 * Если вызова ядра, выдающего случайные байты, у системы нет
 			 */
-			#elif !defined(__ANTS_ENTROPY_CALL__)
+			#elif !defined(__NTS_ENTROPY_CALL__)
 				// Выводим итог чтения случайных байтов из устройства системы
 				return device(data, size);
 			/**

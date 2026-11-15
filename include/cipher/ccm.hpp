@@ -128,7 +128,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Ccm {
+		typedef class __NTS_SHARED_EXPORT__ Ccm {
 			private:
 				// Признак того, что режим готов к работе
 				bool _ready;

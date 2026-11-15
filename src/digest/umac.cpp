@@ -46,7 +46,7 @@
 /**
  * Если сборка ведётся под x86-64: слой NH идёт SSE2 (базовый на архитектуре)
  */
-#if (defined(__x86_64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл внутренних функций x86-64
 	 */
@@ -54,11 +54,11 @@
 	/**
 	 * Объявляем наличие векторного пути NH SSE2
 	 */
-	#define __ANTS_UMAC_SSE__ 1
+	#define __NTS_UMAC_SSE__ 1
 /**
  * Если сборка ведётся под ARM64: слой NH идёт NEON
  */
-#elif (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -66,7 +66,7 @@
 	/**
 	 * Объявляем наличие векторного пути NH NEON
 	 */
-	#define __ANTS_UMAC_NEON__ 1
+	#define __NTS_UMAC_NEON__ 1
 #endif
 
 /**
@@ -122,7 +122,7 @@ namespace {
 	 * @param size   число байтов записи
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint64_t value, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void store(const uint64_t value, uint8_t * result, const size_t size) noexcept {
 		/**
 		 * Выполняем запись байтов от старшего к младшему
 		 */
@@ -138,7 +138,7 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t fetch(const uint8_t * data, const size_t size) noexcept {
+	static __NTS_INLINE__ uint64_t fetch(const uint8_t * data, const size_t size) noexcept {
 		// Прочитанное число
 		uint64_t result = 0;
 		/**
@@ -191,7 +191,7 @@ namespace {
 	 * Если есть векторный путь SSE2: разворот байтов в каждом слове чисто сдвигами
 	 * (SSE2, без SSSE3, чтобы путь собирался и на базовом x86-64)
 	 */
-	#if defined(__ANTS_UMAC_SSE__)
+	#if defined(__NTS_UMAC_SSE__)
 		/**
 		 * @brief Функция разворота байтов в каждом 32-разрядном слове вектора
 		 *
@@ -199,7 +199,7 @@ namespace {
 		 * @return      вектор слов старшим байтом вперёд
 		 *
 		 */
-		static __ANTS_INLINE__ __m128i reverse32(const __m128i value) noexcept {
+		static __NTS_INLINE__ __m128i reverse32(const __m128i value) noexcept {
 			// Обмен соседних байтов в каждой 16-разрядной половине
 			const __m128i swapped = _mm_or_si128(_mm_slli_epi16(value, 8), _mm_srli_epi16(value, 8));
 			// Обмен двух 16-разрядных половин в каждом 32-разрядном слове
@@ -224,7 +224,7 @@ namespace {
 		 * Если есть векторный путь SSE2: разворот четвёрок и произведения сумм идут
 		 * векторно, без побайтового чтения и скалярного накопления
 		 */
-		#if defined(__ANTS_UMAC_SSE__)
+		#if defined(__NTS_UMAC_SSE__)
 			// Накопитель произведений (два слова по 64 разряда)
 			__m128i acc = _mm_setzero_si128();
 			/**
@@ -255,7 +255,7 @@ namespace {
 		/**
 		 * Если есть векторный путь NEON
 		 */
-		#elif defined(__ANTS_UMAC_NEON__)
+		#elif defined(__NTS_UMAC_NEON__)
 			// Накопитель произведений
 			uint64x2_t acc = vdupq_n_u64(0);
 			/**
@@ -343,7 +343,7 @@ namespace {
 	 * @return       длина вывода слоя в байтах
 	 *
 	 */
-	static __ANTS_INLINE__ size_t l1hash(const uint8_t * key, const view_t & data, uint8_t * result) noexcept {
+	static __NTS_INLINE__ size_t l1hash(const uint8_t * key, const view_t & data, uint8_t * result) noexcept {
 		// Смещение пройденной части сообщения и длина вывода
 		size_t offset = 0, length = 0;
 		/**
@@ -389,7 +389,7 @@ namespace {
 	 * @return  новое значение полинома по модулю
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t poly64step(const uint64_t k, const uint64_t y, const uint64_t m) noexcept {
+	static __NTS_INLINE__ uint64_t poly64step(const uint64_t k, const uint64_t y, const uint64_t m) noexcept {
 		// Простой модуль 2^64 - 59
 		const uint64_t p = (~static_cast <uint64_t> (0)) - 58;
 		// Произведение ключа на значение в 128 разрядов
@@ -421,7 +421,7 @@ namespace {
 	 * @return     значение полинома по модулю
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t poly64(const uint64_t key, const view_t & data) noexcept {
+	static __NTS_INLINE__ uint64_t poly64(const uint64_t key, const view_t & data) noexcept {
 		// Дополнение модуля до 2^64 (2^64 - p)
 		const uint64_t offset = 59;
 		// Метка модуля (p - 1)
@@ -466,7 +466,7 @@ namespace {
 	 * @return      итог слоя (четыре байта)
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t l3hash(const uint8_t * k1, const uint8_t * k2, const uint8_t * value) noexcept {
+	static __NTS_INLINE__ uint32_t l3hash(const uint8_t * k1, const uint8_t * k2, const uint8_t * value) noexcept {
 		// Простой модуль 2^36 - 5
 		const uint64_t p = ((static_cast <uint64_t> (1) << 36) - 5);
 		// Накопленная сумма произведений
@@ -502,7 +502,7 @@ namespace {
 	 * @param size   длина подложки в байтах (8 или 16)
 	 *
 	 */
-	static __ANTS_INLINE__ void pdf(Aes & aes, const view_t & nonce, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void pdf(Aes & aes, const view_t & nonce, uint8_t * result, const size_t size) noexcept {
 		// Ключ подложки, выводимый из ключа связи
 		uint8_t subkey[UMAC_KEY];
 		// Выводим ключ подложки опознавателем ноль

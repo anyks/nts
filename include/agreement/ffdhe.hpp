@@ -98,7 +98,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ view_t prime(const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ view_t prime(const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины секретного показателя группы RFC 7919
@@ -122,7 +122,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t exponent(const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ size_t exponent(const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки открытого ключа группы RFC 7919
@@ -146,7 +146,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool ffdhe(const size_t size, const view_t & secret, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool ffdhe(const size_t size, const view_t & secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки общего значения группы RFC 7919
@@ -178,7 +178,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool ffdhe(const size_t size, const view_t & secret, const view_t & key, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool ffdhe(const size_t size, const view_t & secret, const view_t & key, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция порождения пары ключей группы RFC 7919
@@ -202,7 +202,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool pairffdhe(const size_t size, uint8_t * secret, uint8_t * key) noexcept;
+		__NTS_SHARED_EXPORT__ bool pairffdhe(const size_t size, uint8_t * secret, uint8_t * key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения простого модуля группы RFC 3526 по её опознавателю
@@ -218,7 +218,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ view_t prime3526(const uint8_t id) noexcept;
+		__NTS_SHARED_EXPORT__ view_t prime3526(const uint8_t id) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины секретного показателя группы RFC 3526
@@ -240,7 +240,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t exponent3526(const uint8_t id) noexcept;
+		__NTS_SHARED_EXPORT__ size_t exponent3526(const uint8_t id) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки открытого ключа по произвольному простому модулю и образующей
@@ -268,7 +268,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool ffdhe(const view_t & prime, const view_t & generator, const view_t & secret, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool ffdhe(const view_t & prime, const view_t & generator, const view_t & secret, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки общего значения по произвольному простому модулю и образующей
@@ -299,7 +299,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool ffdhe(const view_t & prime, const view_t & generator, const view_t & secret, const view_t & key, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool ffdhe(const view_t & prime, const view_t & generator, const view_t & secret, const view_t & key, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция порождения пары ключей по произвольному простому модулю и образующей
@@ -330,7 +330,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool pairffdhe(const view_t & prime, const view_t & generator, const size_t length, uint8_t * secret, uint8_t * key) noexcept;
+		__NTS_SHARED_EXPORT__ bool pairffdhe(const view_t & prime, const view_t & generator, const size_t length, uint8_t * secret, uint8_t * key) noexcept;
 	};
 };
 

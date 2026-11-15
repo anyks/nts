@@ -337,12 +337,12 @@
 /**
  * Векторные команды выбора записи таблицы окна: NEON под AArch64, SSE2 под x86-64
  */
-#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
 	#include <arm_neon.h>
 /**
  * Для x86-64 подключаем заголовочные файлы SSE2 и AVX2
  */
-#elif (defined(__x86_64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 	#include <emmintrin.h>
 	#include <immintrin.h>
 #endif
@@ -562,12 +562,12 @@ namespace {
 		/**
 		 * Признак машины с младшим байтом впереди
 		 */
-		#define __ANTS_LITTLE_ENDIAN__ 1
+		#define __NTS_LITTLE_ENDIAN__ 1
 	#endif
 	/**
 	 * Если машина с младшим байтом впереди
 	 */
-	#if defined(__ANTS_LITTLE_ENDIAN__)
+	#if defined(__NTS_LITTLE_ENDIAN__)
 		/**
 		 * @brief Функция перестановки байтов слова
 		 *
@@ -920,9 +920,9 @@ namespace {
 	 * ряда на C медленнее прежнего ядра (1 201 нс против 1 131 на 16 словах), у GCC 16 - 770,
 	 * у clang 19 - 762, а этот цикл - 795, 662 и 673 соответственно (стенды QEMU, круг 33).
 	 * Под ASan без оптимизации ветвь не берётся: вставка занимает все регистры общего
-	 * назначения, и собирателю их не хватает (признак __ANTS_ASAN_UNOPTIMIZED__, круг 38)
+	 * назначения, и собирателю их не хватает (признак __NTS_ASAN_UNOPTIMIZED__, круг 38)
 	 */
-	#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+	#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 		/**
 		 * @brief Функция цикла столбцов двух рядов умножения Монтгомери на ассемблере x86-64
 		 *
@@ -951,7 +951,7 @@ namespace {
 		 *       23 950 → 21 000 при 21 950; квадрат на mulq этим циклом не идёт (square8xMulq)
 		 *
 		 */
-		static __ANTS_INLINE__ void columns(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t low, const uint64_t high, const uint64_t reducer1, const uint64_t reducer2, uint64_t & carry1, uint64_t & lift1, uint64_t & carry2, uint64_t & lift2, size_t left) noexcept {
+		static __NTS_INLINE__ void columns(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t low, const uint64_t high, const uint64_t reducer1, const uint64_t reducer2, uint64_t & carry1, uint64_t & lift1, uint64_t & carry2, uint64_t & lift2, size_t left) noexcept {
 			// Временное слово
 			uint64_t passed = 0;
 			// Переносы в регистрах
@@ -1381,7 +1381,7 @@ namespace {
 		/**
 		 * Под x86-64 цикл столбцов идёт на ассемблере
 		 */
-		#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+		#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 			// Если столбцы есть
 			if(count > 2)
 			// Цикл столбцов на ассемблере
@@ -1459,7 +1459,7 @@ namespace {
 		 *       две с половиной флаговые команды вместо четырёх у рядов на C
 		 *
 		 */
-		static __ANTS_INLINE__ void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
+		static __NTS_INLINE__ void stripes(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
 			// Ряд полосами по четыре слова на ассемблере
 			__asm__ __volatile__(
 			"mov   x24, %[buffer]\n\t"
@@ -1579,9 +1579,9 @@ namespace {
 	 * Ветвь x86-64 (GCC, clang) с расширениями BMI2 и ADX: умножение целиком - все ряды полосами по
 	 * четыре слова на MULX и двух независимых цепочках переносов ADCX/ADOX одним вызовом (решения 7
 	 * и 11 шапки). Под ASan без оптимизации ветвь не берётся: вставка занимает все регистры общего
-	 * назначения (признак __ANTS_ASAN_UNOPTIMIZED__)
+	 * назначения (признак __NTS_ASAN_UNOPTIMIZED__)
 	 */
-	#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+	#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 		/**
 		 * @brief Функция умножения Монтгомери полосами по четыре слова всеми рядами одним вызовом на ассемблере x86-64 (BMI2, ADX)
 		 *
@@ -2303,7 +2303,7 @@ namespace {
 	 * (верхние 128 байт - красная зона вызывающего), операнды "m" читаются до смены rsp и после её
 	 * возврата. Под ASan без оптимизации ветвь не берётся (все регистры заняты)
 	 */
-	#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+	#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 		/**
 		 * @brief Функция квадрата Монтгомери блоками по восемь слов на ассемблере x86-64 (BMI2, ADX)
 		 *
@@ -3192,12 +3192,12 @@ namespace {
 		/**
 		 * Объявляем выбор из таблицы по столбцам
 		 */
-		#define __ANTS_CHOOSE_COLUMNS__ 1
+		#define __NTS_CHOOSE_COLUMNS__ 1
 	#endif
 	/**
 	 * Перебор строк нужен там, где нет столбцов: AArch64, MSVC, сборки без признаков машины
 	 */
-	#if !defined(__ANTS_CHOOSE_COLUMNS__)
+	#if !defined(__NTS_CHOOSE_COLUMNS__)
 		/**
 		 * @brief Функция выбора записи таблицы окна перебором всей таблицы под масками
 		 *
@@ -3220,7 +3220,7 @@ namespace {
 			/**
 			 * Под AArch64 пары слов накапливаются командами NEON
 			 */
-			#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+			#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
 				/**
 				 * Выполняем перебор слов записи восьмёрками пар
 				 */
@@ -3280,7 +3280,7 @@ namespace {
 			/**
 			 * Под x86-64 пары слов накапливаются командами SSE2 основания набора
 			 */
-			#elif (defined(__x86_64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+			#elif (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 				/**
 				 * Выполняем перебор слов записи восьмёрками пар
 				 */
@@ -3363,7 +3363,7 @@ namespace {
 	/**
 	 * Ядра квадрата нужны всюду, кроме x86-64 с GCC и clang: там квадрат идёт ассемблерными рядами умножения
 	 */
-	#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__))
+	#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__))
 		/**
 		 * @brief Функция двух рядов симметричных произведений квадрата
 		 *
@@ -3515,33 +3515,33 @@ namespace {
 			/**
 			 * Шаг ряда на слове c со входом in
 			 */
-			#define __ANTS_SHRINK_STEP__(c, in, lift, reducer, out) \
+			#define __NTS_SHRINK_STEP__(c, in, lift, reducer, out) \
 			item = (static_cast <wide_t> (reducer) * modulus[c] + (in) + lift); \
 			out = static_cast <uint64_t> (item); \
 			lift = static_cast <uint64_t> (item >> 64);
 			/**
 			 * Первый шаг ряда: множитель приведения и обнуление слова
 			 */
-			#define __ANTS_SHRINK_FIRST__(in, lift, reducer, out) \
+			#define __NTS_SHRINK_FIRST__(in, lift, reducer, out) \
 			reducer = ((in) * inverse); \
 			item = (static_cast <wide_t> (reducer) * modulus[0] + (in)); \
 			out = static_cast <uint64_t> (item); \
 			lift = static_cast <uint64_t> (item >> 64);
 			// Пролог: первый ряд начинается первым шагом
-			__ANTS_SHRINK_FIRST__(buffer[0], lift0, reducer0, out0)
+			__NTS_SHRINK_FIRST__(buffer[0], lift0, reducer0, out0)
 			// Пролог: второй ряд вступает первым шагом
-			__ANTS_SHRINK_STEP__(1, buffer[1], lift0, reducer0, out0) __ANTS_SHRINK_FIRST__(out0, lift1, reducer1, out1)
-			__ANTS_SHRINK_STEP__(2, buffer[2], lift0, reducer0, out0) __ANTS_SHRINK_STEP__(1, out0, lift1, reducer1, out1) __ANTS_SHRINK_FIRST__(out1, lift2, reducer2, out2)
-			__ANTS_SHRINK_STEP__(3, buffer[3], lift0, reducer0, out0) __ANTS_SHRINK_STEP__(2, out0, lift1, reducer1, out1) __ANTS_SHRINK_STEP__(1, out1, lift2, reducer2, out2) __ANTS_SHRINK_FIRST__(out2, lift3, reducer3, out3)
+			__NTS_SHRINK_STEP__(1, buffer[1], lift0, reducer0, out0) __NTS_SHRINK_FIRST__(out0, lift1, reducer1, out1)
+			__NTS_SHRINK_STEP__(2, buffer[2], lift0, reducer0, out0) __NTS_SHRINK_STEP__(1, out0, lift1, reducer1, out1) __NTS_SHRINK_FIRST__(out1, lift2, reducer2, out2)
+			__NTS_SHRINK_STEP__(3, buffer[3], lift0, reducer0, out0) __NTS_SHRINK_STEP__(2, out0, lift1, reducer1, out1) __NTS_SHRINK_STEP__(1, out1, lift2, reducer2, out2) __NTS_SHRINK_FIRST__(out2, lift3, reducer3, out3)
 			/**
 			 * Выполняем перебор слов: четыре ряда со сдвигом на слово
 			 */
 			for(size_t j = 4; j < count; j++){
 				// Ряды на словах j, j - 1, j - 2, j - 3
-				__ANTS_SHRINK_STEP__(j, buffer[j], lift0, reducer0, out0)
-				__ANTS_SHRINK_STEP__(j - 1, out0, lift1, reducer1, out1)
-				__ANTS_SHRINK_STEP__(j - 2, out1, lift2, reducer2, out2)
-				__ANTS_SHRINK_STEP__(j - 3, out2, lift3, reducer3, out3)
+				__NTS_SHRINK_STEP__(j, buffer[j], lift0, reducer0, out0)
+				__NTS_SHRINK_STEP__(j - 1, out0, lift1, reducer1, out1)
+				__NTS_SHRINK_STEP__(j - 2, out1, lift2, reducer2, out2)
+				__NTS_SHRINK_STEP__(j - 3, out2, lift3, reducer3, out3)
 				// Записываем итог со сдвигом на четыре слова
 				buffer[j - 4] = out3;
 			}
@@ -3554,7 +3554,7 @@ namespace {
 			// Запоминаем перенос первого ряда
 			top = static_cast <uint64_t> (item >> 64);
 			// Остальные ряды добирают слова
-			__ANTS_SHRINK_STEP__(count - 1, out0, lift1, reducer1, out1) __ANTS_SHRINK_STEP__(count - 2, out1, lift2, reducer2, out2) __ANTS_SHRINK_STEP__(count - 3, out2, lift3, reducer3, out3)
+			__NTS_SHRINK_STEP__(count - 1, out0, lift1, reducer1, out1) __NTS_SHRINK_STEP__(count - 2, out1, lift2, reducer2, out2) __NTS_SHRINK_STEP__(count - 3, out2, lift3, reducer3, out3)
 			// Записываем итог второго ряда со сдвигом
 			buffer[count - 4] = out3;
 			// Второй ряд завершается
@@ -3564,7 +3564,7 @@ namespace {
 			// Запоминаем перенос второго ряда
 			top = static_cast <uint64_t> (item >> 64);
 			// Третий и четвёртый ряды добирают слова
-			__ANTS_SHRINK_STEP__(count - 1, out1, lift2, reducer2, out2) __ANTS_SHRINK_STEP__(count - 2, out2, lift3, reducer3, out3)
+			__NTS_SHRINK_STEP__(count - 1, out1, lift2, reducer2, out2) __NTS_SHRINK_STEP__(count - 2, out2, lift3, reducer3, out3)
 			// Записываем итог третьего ряда со сдвигом
 			buffer[count - 3] = out3;
 			// Третий ряд завершается
@@ -3574,7 +3574,7 @@ namespace {
 			// Запоминаем перенос третьего ряда
 			top = static_cast <uint64_t> (item >> 64);
 			// Четвёртый ряд добирает слово
-			__ANTS_SHRINK_STEP__(count - 1, out2, lift3, reducer3, out3)
+			__NTS_SHRINK_STEP__(count - 1, out2, lift3, reducer3, out3)
 			// Записываем итог четвёртого ряда со сдвигом
 			buffer[count - 2] = out3;
 			// Четвёртый ряд завершается
@@ -3583,8 +3583,8 @@ namespace {
 			buffer[count - 1] = static_cast <uint64_t> (item);
 			// Записываем перенос четвёртого ряда
 			buffer[count] = static_cast <uint64_t> (item >> 64);
-			#undef __ANTS_SHRINK_STEP__
-			#undef __ANTS_SHRINK_FIRST__
+			#undef __NTS_SHRINK_STEP__
+			#undef __NTS_SHRINK_FIRST__
 		}
 		/**
 		 * @brief Функция сдвигового приведения Монтгомери одним рядом
@@ -3711,7 +3711,7 @@ namespace {
 		/**
 		 * Под x86-64 с GCC и clang ядра выбираются по расширениям BMI2 и ADX машины
 		 */
-		#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+		#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 			// Выводим признак MULX и ADCX/ADOX у машины
 			return machine::has(machine::feature_t::ADX);
 		/**
@@ -3742,7 +3742,7 @@ namespace {
 	 *       RSA-1024 стоили 28 тактов на умножение - 3,5 % степени (решение 15 шапки)
 	 *
 	 */
-	static __ANTS_INLINE__ void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch, [[maybe_unused]] const bool adx) noexcept {
+	static __NTS_INLINE__ void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch, [[maybe_unused]] const bool adx) noexcept {
 		/**
 		 * Квадрат ширины, кратной восьми, идёт блочным ядром: под AArch64 всегда, под x86-64 при
 		 * расширениях BMI2 и ADX у машины (решение 8 шапки): три четверти умножений и окно
@@ -3752,22 +3752,22 @@ namespace {
 			/**
 			 * Квадрат блоками берётся у ширины, кратной восьми
 			 */
-			#define __ANTS_SQUARE8X_READY__ ((count % 8) == 0)
+			#define __NTS_SQUARE8X_READY__ ((count % 8) == 0)
 		/**
 		 * Иначе под x86-64 с GCC и clang квадрат блоками берётся при MULX и ADCX/ADOX у машины
 		 */
-		#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+		#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 			/**
 			 * Квадрат блоками берётся у ширины, кратной восьми, при MULX и ADCX/ADOX у машины
 			 */
-			#define __ANTS_SQUARE8X_READY__ (((count % 8) == 0) && adx)
+			#define __NTS_SQUARE8X_READY__ (((count % 8) == 0) && adx)
 		#endif
 		/**
 		 * Если сомножители - одно число, и квадрат блоками берётся
 		 */
-		#if defined(__ANTS_SQUARE8X_READY__)
+		#if defined(__NTS_SQUARE8X_READY__)
 			// Если сомножители - одно число, и квадрат блоками берётся
-			if((first == second) && __ANTS_SQUARE8X_READY__){
+			if((first == second) && __NTS_SQUARE8X_READY__){
 				// Квадрат блоками по восемь слов
 				square8x(scratch, first, modulus, count, inverse);
 				// Доводим старшую половину до значения, меньшего модуля
@@ -3775,13 +3775,13 @@ namespace {
 				// Выходим: квадрат записан
 				return;
 			}
-			#undef __ANTS_SQUARE8X_READY__
+			#undef __NTS_SQUARE8X_READY__
 		#endif
 		/**
 		 * Под x86-64 без BMI2 и ADX квадрат ширины, кратной восьми, идёт тем же устройством на mulq из
 		 * порождателя tools/math/mont.py (решение 9 шапки): три четверти умножений против рядов-столбцов
 		 */
-		#if defined(__ANTS_MONT_SQUARE8X_MULQ__)
+		#if defined(__NTS_MONT_SQUARE8X_MULQ__)
 			// Если сомножители - одно число, ширина кратна восьми, а MULX и ADCX/ADOX у машины нет
 			if((first == second) && ((count % 8) == 0) && !adx){
 				// Квадрат блоками по восемь слов на mulq
@@ -3803,22 +3803,22 @@ namespace {
 			/**
 			 * Ряды полосами берутся у ширины, кратной четырём
 			 */
-			#define __ANTS_STRIPES_READY__ ((count % 4) == 0)
+			#define __NTS_STRIPES_READY__ ((count % 4) == 0)
 		/**
 		 * Иначе под x86-64 с GCC и clang ряды полосами берутся при MULX и ADCX/ADOX у машины
 		 */
-		#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+		#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 			/**
 			 * Ряды полосами берутся у ширины, кратной четырём, при MULX и ADCX/ADOX у машины
 			 */
-			#define __ANTS_STRIPES_READY__ (((count % 4) == 0) && (count >= 8) && adx)
+			#define __NTS_STRIPES_READY__ (((count % 4) == 0) && (count >= 8) && adx)
 		#endif
 		/**
 		 * Если ряды полосами берутся
 		 */
-		#if defined(__ANTS_STRIPES_READY__)
+		#if defined(__NTS_STRIPES_READY__)
 			// Если ряды полосами берутся
-			if(__ANTS_STRIPES_READY__){
+			if(__NTS_STRIPES_READY__){
 				/**
 				 * Под x86-64 все ряды идут одним вызовом ядра: первый ряд накопитель не читает, обнуление не нужно
 				 */
@@ -3843,7 +3843,7 @@ namespace {
 				// Выходим: произведение записано
 				return;
 			}
-			#undef __ANTS_STRIPES_READY__
+			#undef __NTS_STRIPES_READY__
 		#endif
 		/**
 		 * Под x86-64 без BMI2 и ADX ширины 8, 12 и 16 слов идут ядром на mulq: все ряды, вычитание
@@ -3851,7 +3851,7 @@ namespace {
 		 * обработан отдельным ядром выше. Остальные ширины идут рядами со сдвигом: на больших
 		 * ширинах они быстрее по замеру, а четыре слова не годятся для начала развёртки
 		 */
-		#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+		#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 			// Если ширина годится для развёртки и расширения ADX не берутся
 			if(((count % 4) == 0) && (count >= 8) && (count <= 16) && !adx){
 				// Умножаем и доводим итог до значения, меньшего модуля
@@ -3864,7 +3864,7 @@ namespace {
 		 * Под x86-64 квадрат идёт общим ядром: ряды квадрата на C у GCC 12 медленнее
 		 * ассемблерных рядов умножения (1 066 нс против 795 на 16 словах, круг 33)
 		 */
-		#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__))
+		#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__))
 			// Если сомножители - одно число
 			if(first == second){
 				// Идёт ядро квадрата
@@ -3909,7 +3909,7 @@ namespace {
 	 *       снятым один раз (решение 15 шапки)
 	 *
 	 */
-	static __ANTS_NOINLINE__ void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch) noexcept {
+	static __NTS_NOINLINE__ void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch) noexcept {
 		// Умножаем по снятому признаку машины
 		montgomery(first, second, modulus, count, inverse, result, scratch, adxReady());
 	}
@@ -4422,7 +4422,7 @@ namespace {
 		 * @return     та же маска
 		 *
 		 */
-		static __ANTS_INLINE__ int64_t hide(int64_t mask) noexcept {
+		static __NTS_INLINE__ int64_t hide(int64_t mask) noexcept {
 			// Прячем маску от собирателя пустой вставкой
 			__asm__ __volatile__("" : "+r"(mask));
 			// Выводим ту же маску
@@ -4945,7 +4945,7 @@ bool nts::math::Integer::load(const view_t & data) noexcept {
 	 * На машинах с младшим байтом впереди целые слова читаются разом с перестановкой байтов:
 	 * побайтовый разбор стоил 865 тактов TSC на 256 байтах при 618 у BN_bin2bn (круг 49)
 	 */
-	#if defined(__ANTS_LITTLE_ENDIAN__)
+	#if defined(__NTS_LITTLE_ENDIAN__)
 		/**
 		 * Выполняем перебор целых слов от младшего к старшему
 		 */
@@ -4989,7 +4989,7 @@ bool nts::math::Integer::store(uint8_t * data, const size_t size) const noexcept
 	 * слова сверх размера объединяются целиком: побайтовая запись стоила 1 730 тактов TSC на 256
 	 * байтах при 1 611 у BN_bn2binpad (круг 49)
 	 */
-	#if defined(__ANTS_LITTLE_ENDIAN__)
+	#if defined(__NTS_LITTLE_ENDIAN__)
 		/**
 		 * Выполняем перебор целых слов, умещающихся в размер, от младшего к старшему
 		 */
@@ -5547,7 +5547,7 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	/**
 	 * Для фиксированного перебора 1024 разрядов доступна отдельная область на коэффициентах по 29 разрядов
 	 */
-	#if defined(__ANTS_POWER16_AVX2__)
+	#if defined(__NTS_POWER16_AVX2__)
 		// На AVX2 без ADX берём векторную степень только для шестнадцати слов
 		if((words == 16) && (bits == 1024) && !adxReady() && machine::has(machine::feature_t::AVX2)){
 			// Избыточный итог с запасом на старшее слово
@@ -5589,7 +5589,7 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	/**
 	 * Под x86-64 таблица перекладывается столбцами: выбор читает по столбцу
 	 */
-	#if defined(__ANTS_CHOOSE_COLUMNS__)
+	#if defined(__NTS_CHOOSE_COLUMNS__)
 		// Таблица степеней столбцами
 		alignas(32) uint64_t columns[INTEGER_WORDS][TABLE];
 		// Перекладываем таблицу столбцами
@@ -5620,7 +5620,7 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 		/**
 		 * Выбираем запись перебором всей таблицы под масками: ни ветвления, ни адрес обращения от показателя не зависят
 		 */
-		#if defined(__ANTS_CHOOSE_COLUMNS__)
+		#if defined(__NTS_CHOOSE_COLUMNS__)
 			// Выбираем запись по столбцам таблицы
 			chooseColumns(columns, index, words, chosen, avx2);
 		/**
@@ -5648,7 +5648,7 @@ bool nts::math::Integer::power(const Integer & base, const Integer & exponent, c
 	/**
 	 * Если таблица переложена столбцами
 	 */
-	#if defined(__ANTS_CHOOSE_COLUMNS__)
+	#if defined(__NTS_CHOOSE_COLUMNS__)
 		// Затираем столбцы
 		wipe(columns, sizeof(columns));
 	#endif
@@ -6146,7 +6146,7 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 	/**
 	 * Векторная степень доступна лишь после проверки ширины показателя и допустимости основания
 	 */
-	#if defined(__ANTS_POWER16_AVX2__)
+	#if defined(__NTS_POWER16_AVX2__)
 		// Секретный показатель перебирается по всем 1024 разрядам шестнадцати слов
 		if(secret && (words == 16) && !adxReady() && machine::has(machine::feature_t::AVX2)){
 			// Избыточный итог с запасом на старшее слово
@@ -6208,7 +6208,7 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 		/**
 		 * Под x86-64 таблица перекладывается столбцами: выбор читает по столбцу
 		 */
-		#if defined(__ANTS_CHOOSE_COLUMNS__)
+		#if defined(__NTS_CHOOSE_COLUMNS__)
 			// Таблица степеней столбцами
 			alignas(32) uint64_t columns[INTEGER_WORDS][TABLE];
 			// Перекладываем таблицу столбцами
@@ -6235,7 +6235,7 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 			/**
 			 * Выбираем степень перебором всей таблицы под масками
 			 */
-			#if defined(__ANTS_CHOOSE_COLUMNS__)
+			#if defined(__NTS_CHOOSE_COLUMNS__)
 				// Выбираем запись по столбцам таблицы
 				chooseColumns(columns, index, words, chosen, avx2);
 			/**
@@ -6253,7 +6253,7 @@ bool nts::math::Montgomery::power(const Integer & base, const Integer & exponent
 		/**
 		 * Затираем столбцы таблицы, если они заводились
 		 */
-		#if defined(__ANTS_CHOOSE_COLUMNS__)
+		#if defined(__NTS_CHOOSE_COLUMNS__)
 			// Затираем столбцы
 			wipe(columns, sizeof(columns));
 		#endif

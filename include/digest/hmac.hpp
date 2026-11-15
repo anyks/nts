@@ -104,7 +104,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool hmac(const type_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool hmac(const type_t type, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки имитовставки HMAC выбранным алгоритмом хеширования
@@ -142,7 +142,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool hmac(const hash_t algorithm, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool hmac(const hash_t algorithm, const view_t & key, const view_t & data, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Поточная выработка имитовставки HMAC выбранным алгоритмом хеширования
@@ -163,7 +163,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Mac {
+		typedef class __NTS_SHARED_EXPORT__ Mac {
 			private:
 				// Признак того, что ключ установлен
 				bool _ready;
@@ -326,7 +326,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool prf(const type_t type, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool prf(const type_t type, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки порождающей последовательности протокола TLS 1.2 выбранным хешем
@@ -361,7 +361,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool prf(const hash_t algorithm, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool prf(const hash_t algorithm, const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки псевдослучайной последовательности PRF изданий TLS 1.0 и 1.1
@@ -393,7 +393,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool legacy(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool legacy(const view_t & key, const view_t & label, const view_t & seed, uint8_t * result, const size_t size) noexcept;
 	};
 };
 

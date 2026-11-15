@@ -78,7 +78,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Revoked {
+		typedef struct __NTS_SHARED_EXPORT__ Revoked {
 			// Просмотр порядкового номера отозванного сертификата
 			view_t serial;
 			// Дата отзыва в секундах от начала эпохи
@@ -114,7 +114,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Revocations {
+		typedef class __NTS_SHARED_EXPORT__ Revocations {
 			private:
 				// Причина последнего отказа
 				error_t _error;
@@ -368,7 +368,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const crl_t & crl, const key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const crl_t & crl, const key_t & key) noexcept;
 	};
 };
 

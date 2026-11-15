@@ -372,7 +372,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t block(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ size_t block(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины ключа набора шифрования
@@ -388,7 +388,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t key(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ size_t key(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины метки целостности записи набора шифрования
@@ -404,7 +404,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t tag(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ size_t tag(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения хеша расписания ключей набора шифрования
@@ -426,7 +426,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ digest::hash_t hash(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ digest::hash_t hash(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения наибольшего порядкового номера записи набора шифрования
@@ -460,7 +460,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ uint64_t limit(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ uint64_t limit(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки принадлежности набора шифрования изданию TLS 1.2
@@ -486,7 +486,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool legacy(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ bool legacy(const suite_t suite) noexcept;
 
 		/**
 		 * \~russian
@@ -511,7 +511,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t prefix(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ size_t prefix(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения алгоритма подписи, требуемого набором шифрования TLS 1.2
@@ -527,7 +527,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ signer_t signer(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ signer_t signer(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения способа обмена ключами набора шифрования TLS 1.2
@@ -543,7 +543,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ exchange_t exchange(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ exchange_t exchange(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения хеша имитовставки набора шифрования CBC
@@ -565,7 +565,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ digest::hash_t mac(const suite_t suite) noexcept;
+		__NTS_SHARED_EXPORT__ digest::hash_t mac(const suite_t suite) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки ключа записи построением TLSTREE
@@ -605,7 +605,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool tree(const suite_t suite, const view_t & key, const uint64_t sequence, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool tree(const suite_t suite, const view_t & key, const uint64_t sequence, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Защита записей одного направления связи
@@ -630,7 +630,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Protection {
+		typedef class __NTS_SHARED_EXPORT__ Protection {
 			private:
 				// Признак того, что ключевой материал установлен
 				bool _ready;

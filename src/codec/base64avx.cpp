@@ -35,7 +35,7 @@
  * без ключей сборки (Microsoft Visual C++), и стены кодека допускают x86-64: прочие
  * машины ядра не зовут вовсе
  */
-#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Системный заголовочный файл
 	 */
@@ -47,7 +47,7 @@
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_BASE64_TARGET__
+		#define __NTS_BASE64_TARGET__
 	/**
 	 * Иначе векторные команды разрешает атрибут цели
 	 */
@@ -56,7 +56,7 @@
 		 * Разрешаем векторные команды одной функции: чек ключа -mavx2 утилитой сторонней
 		 * сборки может не пройти, и атрибут держит команды при функции сам
 		 */
-		#define __ANTS_BASE64_TARGET__ __attribute__((target("avx2")))
+		#define __NTS_BASE64_TARGET__ __attribute__((target("avx2")))
 	#endif
 
 /**
@@ -77,7 +77,7 @@ namespace {
 	 * @return     слова троек, готовые к разбору на шестёрки
 	 *
 	 */
-	__ANTS_BASE64_TARGET__ static __ANTS_INLINE__ __m256i gather(const uint8_t * data) noexcept {
+	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i gather(const uint8_t * data) noexcept {
 		// Младшие шестнадцать байтов блока
 		const __m128i low = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data));
 		// Старшие восемь байтов блока
@@ -99,7 +99,7 @@ namespace {
 	 * @return         шестёрки разрядов по одному значению на байт
 	 *
 	 */
-	__ANTS_BASE64_TARGET__ static __ANTS_INLINE__ __m256i split(const __m256i shuffled) noexcept {
+	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i split(const __m256i shuffled) noexcept {
 		// Старшие шестёрки каждой пары слов: старшие произведения без переносов
 		const __m256i upper = _mm256_mulhi_epu16(_mm256_and_si256(shuffled, _mm256_set1_epi32(0x0fc0fc00)), _mm256_set1_epi32(0x04000040));
 		// Младшие шестёрки каждой пары слов: младшие произведения
@@ -123,7 +123,7 @@ namespace {
 	 * @return         знаки основания 64
 	 *
 	 */
-	__ANTS_BASE64_TARGET__ static __ANTS_INLINE__ __m256i convert(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
+	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i convert(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
 		// Таблица добавок своего алфавита разводится по обеим полосам
 		const __m256i table = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast <const __m128i *> ((alphabet == nts::codec::alphabet_t::URL) ? nts::codec::kernel::OFFSETS_URL : nts::codec::kernel::OFFSETS)));
 		// Номер хвостового диапазона: нуль до пятидесяти одного, далее единица..двенадцать
@@ -151,7 +151,7 @@ namespace {
  * @param alphabet алфавит записи
  *
  */
-__ANTS_BASE64_TARGET__ void nts::codec::encodeBlocks(const uint8_t * data, uint8_t * result, const size_t blocks, const alphabet_t alphabet) noexcept {
+__NTS_BASE64_TARGET__ void nts::codec::encodeBlocks(const uint8_t * data, uint8_t * result, const size_t blocks, const alphabet_t alphabet) noexcept {
 	// Номер блока очереди
 	size_t i = 0;
 	/**

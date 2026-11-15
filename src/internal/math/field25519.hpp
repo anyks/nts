@@ -52,11 +52,11 @@
  *
  */
 
-#ifndef __ANTS_INTERNAL_MATH_FIELD25519__
+#ifndef __NTS_INTERNAL_MATH_FIELD25519__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __ANTS_INTERNAL_MATH_FIELD25519__
+#define __NTS_INTERNAL_MATH_FIELD25519__
 
 /**
  * Стандартные заголовочные файлы
@@ -124,7 +124,7 @@ namespace nts {
 				 * @param result место, в которое помещается сумма
 				 *
 				 */
-				static __ANTS_INLINE__ void plus(const element_t & first, const element_t & second, element_t & result) noexcept {
+				static __NTS_INLINE__ void plus(const element_t & first, const element_t & second, element_t & result) noexcept {
 					/**
 					 * Выполняем перебор конечностей слагаемых
 					 */
@@ -145,7 +145,7 @@ namespace nts {
 				 * @param result место, в которое помещается разность
 				 *
 				 */
-				static __ANTS_INLINE__ void minus(const element_t & first, const element_t & second, element_t & result) noexcept {
+				static __NTS_INLINE__ void minus(const element_t & first, const element_t & second, element_t & result) noexcept {
 					// Вычитаем младшие конечности с прибавлением удвоенного модуля
 					result.limbs[0] = ((first.limbs[0] + DOUBLED_LOW) - second.limbs[0]);
 					/**
@@ -172,7 +172,7 @@ namespace nts {
 				 * @param result место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void finish(wide_t r0, wide_t r1, wide_t r2, wide_t r3, wide_t r4, element_t & result) noexcept {
+				static __NTS_INLINE__ void finish(wide_t r0, wide_t r1, wide_t r2, wide_t r3, wide_t r4, element_t & result) noexcept {
 					// Переносим разряды третьей конечности сверх пятидесяти одного в четвёртую
 					r3 += static_cast <uint64_t> (r2 >> 51);
 					// Отбрасываем перенесённые разряды третьей конечности
@@ -223,7 +223,7 @@ namespace nts {
 				 * @param result место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
+				static __NTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
 					// Конечности второго сомножителя: старшие по ходу получают множитель сворачивания
 					uint64_t b0 = second.limbs[0], b1 = second.limbs[1], b2 = second.limbs[2], b3 = second.limbs[3], b4 = second.limbs[4];
 					// Очередная конечность первого сомножителя
@@ -299,7 +299,7 @@ namespace nts {
 				 * @param result место, в которое помещается квадрат
 				 *
 				 */
-				static __ANTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
+				static __NTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
 					// Конечности возводимого элемента: по ходу удваиваются либо получают множитель сворачивания
 					uint64_t g0 = value.limbs[0], g1 = value.limbs[1], g2 = value.limbs[2], g3 = value.limbs[3], g4 = value.limbs[4];
 					// Квадрат младшей конечности
@@ -353,7 +353,7 @@ namespace nts {
 				 * @param result место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
+				static __NTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
 					// Произведения конечностей на множитель: конечность до 2^54, множитель до 2^32
 					wide_t r0 = (static_cast <wide_t> (value.limbs[0]) * factor);
 					// Вторая конечность произведения
@@ -377,17 +377,17 @@ namespace nts {
  * ADCX/ADOX у машины - четыре слова по шестьдесят четыре разряда (перевод x25519_fe64_mul и
  * x25519_fe64_sqr из x25519-x86_64.pl OpenSSL), иначе - пять конечностей по пятьдесят одному
  * разряду на MULQ по столбцам (пространство имён columns). Под ASan без оптимизации не берётся
- * (регистры общего назначения заняты целиком, признак __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
+ * (регистры общего назначения заняты целиком, признак __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядер на словах
 	 */
-	#define __ANTS_FIELD25519_WORDS__
+	#define __NTS_FIELD25519_WORDS__
 	/**
 	 * Признак наличия ядер конечностей по столбцам на MULQ
 	 */
-	#define __ANTS_FIELD25519_COLUMNS__
+	#define __NTS_FIELD25519_COLUMNS__
 	/**
 	 * Заголовочный файл встроенных команд переносов
 	 */
@@ -446,7 +446,7 @@ namespace nts {
 					 * @param result место, в которое помещается произведение
 					 *
 					 */
-					static __ANTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
+					static __NTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
 						// Адрес итога: берётся из памяти в конце, регистров под него нет
 						uint64_t * const hp = result.limbs;
 						// Умножение по столбцам на встроенном ассемблере
@@ -626,7 +626,7 @@ namespace nts {
 					 * @param result место, в которое помещается квадрат
 					 *
 					 */
-					static __ANTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
+					static __NTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
 						// Адрес итога: берётся из памяти в конце, регистров под него нет
 						uint64_t * const hp = result.limbs;
 						// Возведение в квадрат по столбцам на встроенном ассемблере
@@ -769,7 +769,7 @@ namespace nts {
 					 * @param result место, в которое помещается произведение
 					 *
 					 */
-					static __ANTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
+					static __NTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
 						// Адрес итога: берётся из памяти в конце, регистров под него нет
 						uint64_t * const hp = result.limbs;
 						// Умножение на множитель по столбцам на встроенном ассемблере
@@ -892,7 +892,7 @@ namespace nts {
 					 * @param flag  признак обмена точек перед шагом: младший разряд
 					 *
 					 */
-					static __ANTS_INLINE__ void step(ladder_t & frame, const uint64_t flag) noexcept {
+					static __NTS_INLINE__ void step(ladder_t & frame, const uint64_t flag) noexcept {
 						// Маска обмена: все разряды по признаку
 						const uint64_t mask = (0 - (flag & 1));
 						// Шаг лестницы на встроенном ассемблере
@@ -2440,7 +2440,7 @@ namespace nts {
 					 * @return       исходящий перенос: младший разряд
 					 *
 					 */
-					static __ANTS_INLINE__ unsigned char carry64(const unsigned char carry, const uint64_t first, const uint64_t second, unsigned long long * const result) noexcept {
+					static __NTS_INLINE__ unsigned char carry64(const unsigned char carry, const uint64_t first, const uint64_t second, unsigned long long * const result) noexcept {
 						/**
 						 * У clang и GCC от девятой версии цепочка идёт интринсиком переноса
 						 */
@@ -2473,7 +2473,7 @@ namespace nts {
 					 * @return       исходящий заём: младший разряд
 					 *
 					 */
-					static __ANTS_INLINE__ unsigned char borrow64(const unsigned char borrow, const uint64_t first, const uint64_t second, unsigned long long * const result) noexcept {
+					static __NTS_INLINE__ unsigned char borrow64(const unsigned char borrow, const uint64_t first, const uint64_t second, unsigned long long * const result) noexcept {
 						/**
 						 * У clang и GCC от девятой версии цепочка идёт интринсиком заёма
 						 */
@@ -2512,7 +2512,7 @@ namespace nts {
 					 * @param result место, в которое помещается произведение
 					 *
 					 */
-					static __ANTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
+					static __NTS_INLINE__ void multiply(const element_t & first, const element_t & second, element_t & result) noexcept {
 						// Умножение на встроенном ассемблере с командами переносов
 						__asm__ __volatile__(
 							/* Ряд младшего слова первого сомножителя */
@@ -2613,7 +2613,7 @@ namespace nts {
 					 * @param result место, в которое помещается квадрат
 					 *
 					 */
-					static __ANTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
+					static __NTS_INLINE__ void square(const element_t & value, element_t & result) noexcept {
 						// Возведение в квадрат на встроенном ассемблере с командами переносов
 						__asm__ __volatile__(
 							/* Произведения разных слов */
@@ -2698,7 +2698,7 @@ namespace nts {
 					 * @param result место, в которое помещается произведение
 					 *
 					 */
-					static __ANTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
+					static __NTS_INLINE__ void scale(const element_t & value, const uint64_t factor, element_t & result) noexcept {
 						// Произведение младшего слова на множитель
 						wide_t item = (static_cast <wide_t> (value[0]) * factor);
 						// Младшее слово произведения
@@ -2750,7 +2750,7 @@ namespace nts {
 					 * @param result место, в которое помещается сумма
 					 *
 					 */
-					static __ANTS_INLINE__ void plus(const element_t & first, const element_t & second, element_t & result) noexcept {
+					static __NTS_INLINE__ void plus(const element_t & first, const element_t & second, element_t & result) noexcept {
 						// Слова суммы
 						uint64_t h0, h1, h2, h3;
 						// Складываем слова цепочкой переносов
@@ -2788,7 +2788,7 @@ namespace nts {
 					 * @param result место, в которое помещается разность
 					 *
 					 */
-					static __ANTS_INLINE__ void minus(const element_t & first, const element_t & second, element_t & result) noexcept {
+					static __NTS_INLINE__ void minus(const element_t & first, const element_t & second, element_t & result) noexcept {
 						// Слова разности
 						uint64_t h0, h1, h2, h3;
 						// Вычитаем слова цепочкой заёмов
@@ -2825,7 +2825,7 @@ namespace nts {
 					 * @param result место, в которое помещается разобранный элемент
 					 *
 					 */
-					static __ANTS_INLINE__ void load(const uint8_t * data, element_t & result) noexcept {
+					static __NTS_INLINE__ void load(const uint8_t * data, element_t & result) noexcept {
 						/**
 						 * Выполняем перебор слов записи
 						 */
@@ -2853,7 +2853,7 @@ namespace nts {
 					 * @param data  место, в которое помещается запись младшим байтом вперёд
 					 *
 					 */
-					static __ANTS_INLINE__ void store(const element_t & value, uint8_t * data) noexcept {
+					static __NTS_INLINE__ void store(const element_t & value, uint8_t * data) noexcept {
 						// Слова записываемого элемента
 						uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3];
 						// Старшее слово без разряда 2^255
@@ -2902,7 +2902,7 @@ namespace nts {
 					 * @param flag   признак обмена
 					 *
 					 */
-					static __ANTS_INLINE__ void swap(element_t & first, element_t & second, const uint64_t flag) noexcept {
+					static __NTS_INLINE__ void swap(element_t & first, element_t & second, const uint64_t flag) noexcept {
 						// Маска обмена: все разряды по признаку
 						const uint64_t mask = (0 - (flag & 1));
 						/**
@@ -2925,7 +2925,7 @@ namespace nts {
 					 * @param result место, в которое помещается степень
 					 *
 					 */
-					static __ANTS_INLINE__ void power(const element_t & value, const size_t count, element_t & result) noexcept {
+					static __NTS_INLINE__ void power(const element_t & value, const size_t count, element_t & result) noexcept {
 						/**
 						 * Выполняем перебор слов элемента
 						 */
@@ -2949,7 +2949,7 @@ namespace nts {
 					 * @param result место, в которое помещается обратный элемент
 					 *
 					 */
-					static __ANTS_INLINE__ void invert(const element_t & value, element_t & result) noexcept {
+					static __NTS_INLINE__ void invert(const element_t & value, element_t & result) noexcept {
 						// Промежуточные степени цепочки
 						element_t z2, z9, eleven, z10, z50, item, chain;
 						// Вырабатываем z^2

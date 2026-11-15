@@ -23,11 +23,11 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_TESTS_HPKE_VECTORS__
+#ifndef __NTS_TESTS_HPKE_VECTORS__
 /**
  * Заводим макрос стража: повторное подключение заголовка векторов HPKE отсекается
  */
-#define __ANTS_TESTS_HPKE_VECTORS__
+#define __NTS_TESTS_HPKE_VECTORS__
 
 /**
  * Стандартные заголовочные файлы

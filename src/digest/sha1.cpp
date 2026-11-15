@@ -66,7 +66,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -78,7 +78,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
 		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
@@ -91,7 +91,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем старший байт слова
 		data[0] = static_cast <uint8_t> (value >> 24);
 		// Записываем второй байт слова

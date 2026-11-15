@@ -106,7 +106,7 @@ namespace {
 	 * @return      -1 если value < 0, иначе 0
 	 *
 	 */
-	static constexpr int32_t __ants_int16_negative_mask__(const int16_t value) noexcept {
+	static constexpr int32_t __nts_int16_negative_mask__(const int16_t value) noexcept {
 		// Возвращаем маску знака: старший бит размножен на все разряды
 		return -(static_cast <int32_t> (static_cast <uint16_t> (value) >> 15));
 	}
@@ -117,7 +117,7 @@ namespace {
 	 * @return      -1 если value != 0, иначе 0
 	 *
 	 */
-	static constexpr int32_t __ants_int16_nonzero_mask__(const int16_t value) noexcept {
+	static constexpr int32_t __nts_int16_nonzero_mask__(const int16_t value) noexcept {
 		// Приводим число к беззнаковому виду
 		const uint32_t word = static_cast <uint32_t> (static_cast <uint16_t> (value));
 		// Возвращаем маску ненулевого значения
@@ -143,7 +143,7 @@ namespace {
 	 * @param divisor   делитель
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_uint32_divmod_uint14__(uint32_t * quotient, uint16_t * remainder, uint32_t dividend, const uint16_t divisor) noexcept {
+	static __NTS_INLINE__ void __nts_uint32_divmod_uint14__(uint32_t * quotient, uint16_t * remainder, uint32_t dividend, const uint16_t divisor) noexcept {
 		// Предвычисляем масштаб двух в тридцать первой степени на модуль
 		uint32_t scale = (0x80000000 / divisor);
 		// Обнуляем частное перед накоплением
@@ -192,13 +192,13 @@ namespace {
 	 * @return        остаток
 	 *
 	 */
-	static __ANTS_INLINE__ uint16_t __ants_uint32_mod_uint14__(const uint32_t value, const uint16_t modulus) noexcept {
+	static __NTS_INLINE__ uint16_t __nts_uint32_mod_uint14__(const uint32_t value, const uint16_t modulus) noexcept {
 		// Место под частное
 		uint32_t quotient = 0;
 		// Место под остаток
 		uint16_t remainder = 0;
 		// Получаем частное и остаток деления
-		::__ants_uint32_divmod_uint14__(&quotient, &remainder, value, modulus);
+		::__nts_uint32_divmod_uint14__(&quotient, &remainder, value, modulus);
 		// Возвращаем остаток деления
 		return remainder;
 	}
@@ -210,7 +210,7 @@ namespace {
 	 * @return        остаток
 	 *
 	 */
-	static __ANTS_INLINE__ uint16_t __ants_int32_mod_uint14__(const int32_t value, const uint16_t modulus) noexcept {
+	static __NTS_INLINE__ uint16_t __nts_int32_mod_uint14__(const int32_t value, const uint16_t modulus) noexcept {
 		// Приводим знаковое число к беззнаковому виду
 		uint32_t magnitude = static_cast <uint32_t> (value);
 		// Для отрицательного входа берём его модуль
@@ -218,7 +218,7 @@ namespace {
 			// Запоминаем модуль входного числа
 			magnitude = static_cast <uint32_t> (-value);
 		// Получаем остаток от деления модуля
-		uint16_t remainder = ::__ants_uint32_mod_uint14__(magnitude, modulus);
+		uint16_t remainder = ::__nts_uint32_mod_uint14__(magnitude, modulus);
 		// Для отрицательного входа переводим остаток в отрицательную область
 		if((value < 0) && (remainder != 0))
 			// Инвертируем остаток относительно модуля
@@ -233,9 +233,9 @@ namespace {
 	 * @return      число в {-1, 0, 1}
 	 *
 	 */
-	static __ANTS_INLINE__ small_t __ants_freeze3__(const int16_t value) noexcept {
+	static __NTS_INLINE__ small_t __nts_freeze3__(const int16_t value) noexcept {
 		// Приводим число по модулю 3 к представителю в диапазоне от минус единицы до единицы
-		return static_cast <small_t> (::__ants_int32_mod_uint14__(value + 1, 3) - 1);
+		return static_cast <small_t> (::__nts_int32_mod_uint14__(value + 1, 3) - 1);
 	}
 	/**
 	 * @brief Функция приведения по модулю q
@@ -244,9 +244,9 @@ namespace {
 	 * @return      число в [-q12, q12]
 	 *
 	 */
-	static __ANTS_INLINE__ fq_t __ants_freeze_q__(const int32_t value) noexcept {
+	static __NTS_INLINE__ fq_t __nts_freeze_q__(const int32_t value) noexcept {
 		// Приводим число к симметричному представителю по модулю q
-		return static_cast <fq_t> (::__ants_int32_mod_uint14__(value + Q12, Q) - Q12);
+		return static_cast <fq_t> (::__nts_int32_mod_uint14__(value + Q12, Q) - Q12);
 	}
 	/**
 	 * @brief Функция обращения по модулю q
@@ -255,7 +255,7 @@ namespace {
 	 * @return     обратное число
 	 *
 	 */
-	static __ANTS_INLINE__ fq_t __ants_reciprocal_q__(const fq_t base) noexcept {
+	static __NTS_INLINE__ fq_t __nts_reciprocal_q__(const fq_t base) noexcept {
 		// Начинаем обращение с самого элемента
 		fq_t inverse = base;
 		/**
@@ -263,7 +263,7 @@ namespace {
 		 */
 		for(int32_t i = 1; i < Q - 2; ++i)
 			// Накапливаем произведение с приведением по модулю q
-			inverse = ::__ants_freeze_q__(base * static_cast <int32_t> (inverse));
+			inverse = ::__nts_freeze_q__(base * static_cast <int32_t> (inverse));
 		// Возвращаем обратный элемент
 		return inverse;
 	}
@@ -274,7 +274,7 @@ namespace {
 	 * @param count число элементов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_crypto_sort_uint32__(uint32_t * array, const size_t count) noexcept {
+	static __NTS_INLINE__ void __nts_crypto_sort_uint32__(uint32_t * array, const size_t count) noexcept {
 		// Короткие массивы сортировать не требуется
 		if(count < 2)
 			// Завершаем работу сразу
@@ -343,7 +343,7 @@ namespace {
 	 * @return       признак успешности
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_urandom32__(uint32_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_urandom32__(uint32_t * result) noexcept {
 		// Буфер под четыре случайных байта
 		uint8_t bytes[4];
 		// Заполняем буфер из генератора случайных чисел
@@ -367,7 +367,7 @@ namespace {
 	 * @param in  входной список uint32
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_build_short__(small_t * out, const uint32_t * in) noexcept {
+	static __NTS_INLINE__ void __nts_build_short__(small_t * out, const uint32_t * in) noexcept {
 		// Список пар для сортировки
 		uint32_t tags[P];
 		/**
@@ -383,7 +383,7 @@ namespace {
 			// Сохраняем входное значение с нечётной меткой
 			tags[i] = (in[i] & static_cast <uint32_t> (-3)) | 1;
 		// Сортируем список меток по возрастанию
-		::__ants_crypto_sort_uint32__(tags, P);
+		::__nts_crypto_sort_uint32__(tags, P);
 		/**
 		 * Размечаем коэффициенты по младшим битам меток
 		 */
@@ -398,7 +398,7 @@ namespace {
 	 * @return    признак успешности
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_random_short__(small_t * out) noexcept {
+	static __NTS_INLINE__ bool __nts_random_short__(small_t * out) noexcept {
 		// Список случайных значений
 		uint32_t tags[P];
 		/**
@@ -406,12 +406,12 @@ namespace {
 		 */
 		for(size_t i = 0; i < P; ++i){
 			// Вырабатываем очередное случайное число
-			if(!::__ants_urandom32__(&tags[i]))
+			if(!::__nts_urandom32__(&tags[i]))
 				// При сбое энтропии сообщаем об отказе
 				return false;
 		}
 		// Строим короткий полином из отсортированного списка
-		::__ants_build_short__(out, tags);
+		::__nts_build_short__(out, tags);
 		// Сообщаем об успешной выработке полинома
 		return true;
 	}
@@ -422,7 +422,7 @@ namespace {
 	 * @return    признак успешности
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_random_small__(small_t * out) noexcept {
+	static __NTS_INLINE__ bool __nts_random_small__(small_t * out) noexcept {
 		/**
 		 * Проходим по всем коэффициентам полинома
 		 */
@@ -430,7 +430,7 @@ namespace {
 			// Место под случайное число
 			uint32_t draw;
 			// Вырабатываем очередное случайное число
-			if(!::__ants_urandom32__(&draw))
+			if(!::__nts_urandom32__(&draw))
 				// При сбое энтропии сообщаем об отказе
 				return false;
 			// Преобразуем случайное число в коэффициент из диапазона от минус единицы до единицы
@@ -447,7 +447,7 @@ namespace {
 	 * @param second второй множитель
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_multiply3__(small_t * result, const small_t * first, const small_t * second) noexcept {
+	static __NTS_INLINE__ void __nts_multiply3__(small_t * result, const small_t * first, const small_t * second) noexcept {
 		// Буфер под произведение полной длины
 		small_t product[P + P - 1];
 		/**
@@ -461,7 +461,7 @@ namespace {
 			 */
 			for(size_t j = 0; j <= i; ++j)
 				// Накапливаем произведение с приведением по модулю 3
-				result = ::__ants_freeze3__(result + first[j] * second[i - j]);
+				result = ::__nts_freeze3__(result + first[j] * second[i - j]);
 			// Сохраняем коэффициент произведения
 			product[i] = result;
 		}
@@ -476,7 +476,7 @@ namespace {
 			 */
 			for(size_t j = i - P + 1; j < P; ++j)
 				// Накапливаем произведение с приведением по модулю 3
-				result = ::__ants_freeze3__(result + first[j] * second[i - j]);
+				result = ::__nts_freeze3__(result + first[j] * second[i - j]);
 			// Сохраняем коэффициент произведения
 			product[i] = result;
 		}
@@ -485,9 +485,9 @@ namespace {
 		 */
 		for(size_t i = P + P - 2; i >= P; --i){
 			// Добавляем старший коэффициент к младшему
-			product[i - P] = ::__ants_freeze3__(product[i - P] + product[i]);
+			product[i - P] = ::__nts_freeze3__(product[i - P] + product[i]);
 			// Добавляем старший коэффициент к следующему
-			product[i - P + 1] = ::__ants_freeze3__(product[i - P + 1] + product[i]);
+			product[i - P + 1] = ::__nts_freeze3__(product[i - P + 1] + product[i]);
 		}
 		/**
 		 * Копируем результат в выходной полином
@@ -504,7 +504,7 @@ namespace {
 	 * @return    0 при успехе, -1 при отказе
 	 *
 	 */
-	static __ANTS_INLINE__ int32_t __ants_reciprocal3__(small_t * out, const small_t * in) noexcept {
+	static __NTS_INLINE__ int32_t __nts_reciprocal3__(small_t * out, const small_t * in) noexcept {
 		// Буферы полиномов расширенной длины
 		small_t modulus[P + 1], flipped[P + 1], inverse[P + 1], bezout[P + 1];
 		/**
@@ -556,7 +556,7 @@ namespace {
 			// Знак ведущего коэффициента
 			const int32_t sign = -flipped[0] * modulus[0];
 			// Условие перестановки полиномов
-			const int32_t swap = ::__ants_int16_negative_mask__(-delta) & ::__ants_int16_nonzero_mask__(flipped[0]);
+			const int32_t swap = ::__nts_int16_negative_mask__(-delta) & ::__nts_int16_nonzero_mask__(flipped[0]);
 			// Обновляем сдвиг при перестановке
 			delta ^= (swap & (delta ^ -delta));
 			// Увеличиваем сдвиг на единицу
@@ -583,13 +583,13 @@ namespace {
 			 */
 			for(size_t i = 0; i < P + 1; ++i)
 				// Вычитаем коэффициенты с приведением
-				flipped[i] = ::__ants_freeze3__(flipped[i] + sign * modulus[i]);
+				flipped[i] = ::__nts_freeze3__(flipped[i] + sign * modulus[i]);
 			/**
 			 * Вычитаем вспомогательные полиномы с приведением
 			 */
 			for(size_t i = 0; i < P + 1; ++i)
 				// Вычитаем коэффициенты с приведением
-				bezout[i] = ::__ants_freeze3__(bezout[i] + sign * inverse[i]);
+				bezout[i] = ::__nts_freeze3__(bezout[i] + sign * inverse[i]);
 			/**
 			 * Сдвигаем коэффициенты полинома
 			 */
@@ -608,7 +608,7 @@ namespace {
 			// Копируем коэффициент с обратным индексом
 			out[i] = sign * inverse[P - 1 - i];
 		// Возвращаем признак невырожденности
-		return ::__ants_int16_nonzero_mask__(delta);
+		return ::__nts_int16_nonzero_mask__(delta);
 	}
 	/**
 	 * @brief Функция умножения в кольце Rq на малый полином
@@ -618,7 +618,7 @@ namespace {
 	 * @param second второй множитель (малый)
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_multiply_small__(fq_t * result, const fq_t * first, const small_t * second) noexcept {
+	static __NTS_INLINE__ void __nts_multiply_small__(fq_t * result, const fq_t * first, const small_t * second) noexcept {
 		// Буфер под произведение полной длины
 		fq_t product[P + P - 1];
 		/**
@@ -632,7 +632,7 @@ namespace {
 			 */
 			for(size_t j = 0; j <= i; ++j)
 				// Накапливаем произведение с приведением по модулю q
-				result = ::__ants_freeze_q__(result + first[j] * static_cast <int32_t> (second[i - j]));
+				result = ::__nts_freeze_q__(result + first[j] * static_cast <int32_t> (second[i - j]));
 			// Сохраняем коэффициент произведения
 			product[i] = result;
 		}
@@ -647,7 +647,7 @@ namespace {
 			 */
 			for(size_t j = i - P + 1; j < P; ++j)
 				// Накапливаем произведение с приведением по модулю q
-				result = ::__ants_freeze_q__(result + first[j] * static_cast <int32_t> (second[i - j]));
+				result = ::__nts_freeze_q__(result + first[j] * static_cast <int32_t> (second[i - j]));
 			// Сохраняем коэффициент произведения
 			product[i] = result;
 		}
@@ -656,9 +656,9 @@ namespace {
 		 */
 		for(size_t i = P + P - 2; i >= P; --i){
 			// Добавляем старший коэффициент к младшему
-			product[i - P] = ::__ants_freeze_q__(product[i - P] + product[i]);
+			product[i - P] = ::__nts_freeze_q__(product[i - P] + product[i]);
 			// Добавляем старший коэффициент к следующему
-			product[i - P + 1] = ::__ants_freeze_q__(product[i - P + 1] + product[i]);
+			product[i - P + 1] = ::__nts_freeze_q__(product[i - P + 1] + product[i]);
 		}
 		/**
 		 * Копируем результат в выходной полином
@@ -674,13 +674,13 @@ namespace {
 	 * @param source входной полином
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_triple__(fq_t * result, const fq_t * source) noexcept {
+	static __NTS_INLINE__ void __nts_triple__(fq_t * result, const fq_t * source) noexcept {
 		/**
 		 * Умножаем каждый коэффициент на три
 		 */
 		for(size_t i = 0; i < P; ++i)
 			// Умножаем коэффициент с приведением по модулю q
-			result[i] = ::__ants_freeze_q__(3 * source[i]);
+			result[i] = ::__nts_freeze_q__(3 * source[i]);
 	}
 	/**
 	 * @brief Функция обращения в кольце Rq с умножением на 3
@@ -690,7 +690,7 @@ namespace {
 	 * @return    0 при успехе, -1 при отказе
 	 *
 	 */
-	static __ANTS_INLINE__ int32_t __ants_triple_reciprocal__(fq_t * out, const small_t * in) noexcept {
+	static __NTS_INLINE__ int32_t __nts_triple_reciprocal__(fq_t * out, const small_t * in) noexcept {
 		// Буферы полиномов расширенной длины
 		fq_t modulus[P + 1], flipped[P + 1], inverse[P + 1], bezout[P + 1];
 		/**
@@ -706,7 +706,7 @@ namespace {
 			// Обнуляем очередной коэффициент
 			bezout[i] = 0;
 		// Единичный коэффициент с учётом обратной тройки
-		bezout[0] = ::__ants_reciprocal_q__(3);
+		bezout[0] = ::__nts_reciprocal_q__(3);
 		/**
 		 * Обнуляем рабочий полином
 		 */
@@ -740,7 +740,7 @@ namespace {
 			// Младший коэффициент сдвига обнуляется
 			inverse[0] = 0;
 			// Условие перестановки полиномов
-			const int32_t swap = ::__ants_int16_negative_mask__(-delta) & ::__ants_int16_nonzero_mask__(flipped[0]);
+			const int32_t swap = ::__nts_int16_negative_mask__(-delta) & ::__nts_int16_nonzero_mask__(flipped[0]);
 			// Обновляем сдвиг при перестановке
 			delta ^= (swap & (delta ^ -delta));
 			// Увеличиваем сдвиг на единицу
@@ -771,13 +771,13 @@ namespace {
 			 */
 			for(size_t i = 0; i < P + 1; ++i)
 				// Вычитаем коэффициенты с приведением
-				flipped[i] = ::__ants_freeze_q__(firstLead * flipped[i] - secondLead * modulus[i]);
+				flipped[i] = ::__nts_freeze_q__(firstLead * flipped[i] - secondLead * modulus[i]);
 			/**
 			 * Вычитаем вспомогательные полиномы с приведением
 			 */
 			for(size_t i = 0; i < P + 1; ++i)
 				// Вычитаем коэффициенты с приведением
-				bezout[i] = ::__ants_freeze_q__(firstLead * bezout[i] - secondLead * inverse[i]);
+				bezout[i] = ::__nts_freeze_q__(firstLead * bezout[i] - secondLead * inverse[i]);
 			/**
 			 * Сдвигаем коэффициенты полинома
 			 */
@@ -788,15 +788,15 @@ namespace {
 			flipped[P] = 0;
 		}
 		// Масштаб обратного элемента
-		const fq_t scale = ::__ants_reciprocal_q__(modulus[0]);
+		const fq_t scale = ::__nts_reciprocal_q__(modulus[0]);
 		/**
 		 * Разворачиваем вспомогательный полином
 		 */
 		for(size_t i = 0; i < P; ++i)
 			// Копируем коэффициент с масштабированием
-			out[i] = ::__ants_freeze_q__(scale * static_cast <int32_t> (inverse[P - 1 - i]));
+			out[i] = ::__nts_freeze_q__(scale * static_cast <int32_t> (inverse[P - 1 - i]));
 		// Возвращаем признак невырожденности
-		return ::__ants_int16_nonzero_mask__(delta);
+		return ::__nts_int16_nonzero_mask__(delta);
 	}
 	/**
 	 * @brief Функция округления полинома
@@ -805,13 +805,13 @@ namespace {
 	 * @param source входной полином
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_round_poly__(fq_t * out, const fq_t * source) noexcept {
+	static __NTS_INLINE__ void __nts_round_poly__(fq_t * out, const fq_t * source) noexcept {
 		/**
 		 * Вычитаем остаток по модулю 3
 		 */
 		for(size_t i = 0; i < P; ++i)
 			// Округляем коэффициент вниз
-			out[i] = (source[i] - ::__ants_freeze3__(source[i]));
+			out[i] = (source[i] - ::__nts_freeze3__(source[i]));
 	}
 	/**
 	 * @brief Функция проверки веса малого полинома
@@ -820,7 +820,7 @@ namespace {
 	 * @return      0 если вес равен W, иначе -1
 	 *
 	 */
-	static __ANTS_INLINE__ int32_t __ants_weight_mask__(const small_t * value) noexcept {
+	static __NTS_INLINE__ int32_t __nts_weight_mask__(const small_t * value) noexcept {
 		// Счётчик ненулевых коэффициентов
 		int32_t weight = 0;
 		/**
@@ -830,7 +830,7 @@ namespace {
 			// Добавляем младший бит коэффициента
 			weight += (value[i] & 1);
 		// Возвращаем маску несовпадения веса
-		return ::__ants_int16_nonzero_mask__(weight - W);
+		return ::__nts_int16_nonzero_mask__(weight - W);
 	}
 	/**
 	 * @brief Функция преобразования из Rq в R3
@@ -839,13 +839,13 @@ namespace {
 	 * @param source входной полином Rq
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_reduce3__(small_t * out, const fq_t * source) noexcept {
+	static __NTS_INLINE__ void __nts_reduce3__(small_t * out, const fq_t * source) noexcept {
 		/**
 		 * Приводим коэффициенты по модулю 3
 		 */
 		for(size_t i = 0; i < P; ++i)
 			// Приводим коэффициент к малому виду
-			out[i] = ::__ants_freeze3__(source[i]);
+			out[i] = ::__nts_freeze3__(source[i]);
 	}
 	/**
 	 * @brief Функция кодирования малого полинома
@@ -854,7 +854,7 @@ namespace {
 	 * @param source входной полином
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_encode_small__(uint8_t * bytes, const small_t * source) noexcept {
+	static __NTS_INLINE__ void __nts_encode_small__(uint8_t * bytes, const small_t * source) noexcept {
 		/**
 		 * Проходим по четвёркам коэффициентов
 		 */
@@ -880,7 +880,7 @@ namespace {
 	 * @param bytes  входной буфер
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_decode_small__(small_t * target, const uint8_t * bytes) noexcept {
+	static __NTS_INLINE__ void __nts_decode_small__(small_t * target, const uint8_t * bytes) noexcept {
 		/**
 		 * Проходим по четвёркам коэффициентов
 		 */
@@ -914,7 +914,7 @@ namespace {
 	 * @param size     размер массива
 	 *
 	 */
-	static void __ants_encode_residues__(uint8_t * out, const uint16_t * residues, const uint16_t * moduli, const size_t size) noexcept {
+	static void __nts_encode_residues__(uint8_t * out, const uint16_t * residues, const uint16_t * moduli, const size_t size) noexcept {
 		// Обрабатываем вырожденный случай одиночного модуля
 		if(size == 1){
 			// Модуль одиночного элемента
@@ -975,7 +975,7 @@ namespace {
 			residuesHalf[pair / 2] = residues[pair];
 		}
 		// Повторяем кодирование для половинной длины
-		::__ants_encode_residues__(out, residuesHalf, moduliHalf, (size + 1) / 2);
+		::__nts_encode_residues__(out, residuesHalf, moduliHalf, (size + 1) / 2);
 	}
 	/**
 	 * @brief Функция декодирования массива по модулям
@@ -986,7 +986,7 @@ namespace {
 	 * @param size   размер массива
 	 *
 	 */
-	static void __ants_decode_residues__(uint16_t * out, const uint8_t * bytes, const uint16_t * moduli, const size_t size) noexcept {
+	static void __nts_decode_residues__(uint16_t * out, const uint8_t * bytes, const uint16_t * moduli, const size_t size) noexcept {
 		// Обрабатываем вырожденный случай одиночного модуля
 		if(size == 1){
 			// Проверяем единичность модуля
@@ -996,11 +996,11 @@ namespace {
 			// Иначе проверяем вместимость модуля в один байт
 			else if(moduli[0] <= 256)
 				// Снимаем остаток однобайтового модуля
-				(* out) = ::__ants_uint32_mod_uint14__(bytes[0], moduli[0]);
+				(* out) = ::__nts_uint32_mod_uint14__(bytes[0], moduli[0]);
 			// Иначе модуль занимает два байта
 			else
 				// Снимаем остаток двухбайтового модуля
-				(* out) = ::__ants_uint32_mod_uint14__(bytes[0] + (static_cast <uint16_t> (bytes[1]) << 8), moduli[0]);
+				(* out) = ::__nts_uint32_mod_uint14__(bytes[0] + (static_cast <uint16_t> (bytes[1]) << 8), moduli[0]);
 			// Завершаем обработку вырожденного случая
 			return;
 		}
@@ -1055,7 +1055,7 @@ namespace {
 			// Сохраняем последний модуль
 			moduliHalf[pair / 2] = moduli[pair];
 		// Повторяем декодирование для половинной длины
-		::__ants_decode_residues__(residuesHalf, bytes, moduliHalf, (size + 1) / 2);
+		::__nts_decode_residues__(residuesHalf, bytes, moduliHalf, (size + 1) / 2);
 		// Нижний остаток пары
 		uint32_t residue = 0;
 		// Место под верхнее частное
@@ -1071,9 +1071,9 @@ namespace {
 			// Восстанавливаем остаток пары
 			residue += (bottomFactors[pair / 2] * residuesHalf[pair / 2]);
 			// Делим восстановленный остаток
-			::__ants_uint32_divmod_uint14__(&upperQuotient, &upperRemainder, residue, moduli[pair]);
+			::__nts_uint32_divmod_uint14__(&upperQuotient, &upperRemainder, residue, moduli[pair]);
 			// Приводим частное по второму модулю
-			upperQuotient = ::__ants_uint32_mod_uint14__(upperQuotient, moduli[pair + 1]);
+			upperQuotient = ::__nts_uint32_mod_uint14__(upperQuotient, moduli[pair + 1]);
 			// Выкладываем остаток первого элемента пары
 			(* out++) = upperRemainder;
 			// Выкладываем частное второго элемента пары
@@ -1091,7 +1091,7 @@ namespace {
 	 * @param values входной полином
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_encode_q__(uint8_t * bytes, const fq_t * values) noexcept {
+	static __NTS_INLINE__ void __nts_encode_q__(uint8_t * bytes, const fq_t * values) noexcept {
 		// Буферы остатков и модулей
 		uint16_t residues[P], moduli[P];
 		/**
@@ -1107,7 +1107,7 @@ namespace {
 			// Сохраняем модуль очередного коэффициента
 			moduli[i] = Q;
 		// Кодируем массив остатков по модулям
-		::__ants_encode_residues__(bytes, residues, moduli, P);
+		::__nts_encode_residues__(bytes, residues, moduli, P);
 	}
 	/**
 	 * @brief Функция декодирования полинома Rq
@@ -1116,7 +1116,7 @@ namespace {
 	 * @param bytes  входной буфер
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_decode_q__(fq_t * values, const uint8_t * bytes) noexcept {
+	static __NTS_INLINE__ void __nts_decode_q__(fq_t * values, const uint8_t * bytes) noexcept {
 		// Буферы остатков и модулей
 		uint16_t residues[P], moduli[P];
 		/**
@@ -1126,7 +1126,7 @@ namespace {
 			// Сохраняем модуль очередного коэффициента
 			moduli[i] = Q;
 		// Декодируем массив остатков по модулям
-		::__ants_decode_residues__(residues, bytes, moduli, P);
+		::__nts_decode_residues__(residues, bytes, moduli, P);
 		/**
 		 * Возвращаем симметричное представление
 		 */
@@ -1141,7 +1141,7 @@ namespace {
 	 * @param values входной полином
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_encode_rounded__(uint8_t * bytes, const fq_t * values) noexcept {
+	static __NTS_INLINE__ void __nts_encode_rounded__(uint8_t * bytes, const fq_t * values) noexcept {
 		// Буферы остатков и модулей
 		uint16_t residues[P], moduli[P];
 		/**
@@ -1157,7 +1157,7 @@ namespace {
 			// Сохраняем округлённый модуль
 			moduli[i] = (Q + 2) / 3;
 		// Кодируем округлённый массив по модулям
-		::__ants_encode_residues__(bytes, residues, moduli, P);
+		::__nts_encode_residues__(bytes, residues, moduli, P);
 	}
 	/**
 	 * @brief Функция декодирования округлённого полинома
@@ -1166,7 +1166,7 @@ namespace {
 	 * @param bytes  входной буфер
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_decode_rounded__(fq_t * values, const uint8_t * bytes) noexcept {
+	static __NTS_INLINE__ void __nts_decode_rounded__(fq_t * values, const uint8_t * bytes) noexcept {
 		// Буферы остатков и модулей
 		uint16_t residues[P], moduli[P];
 		/**
@@ -1176,7 +1176,7 @@ namespace {
 			// Сохраняем округлённый модуль
 			moduli[i] = (Q + 2) / 3;
 		// Декодируем округлённый массив по модулям
-		::__ants_decode_residues__(residues, bytes, moduli, P);
+		::__nts_decode_residues__(residues, bytes, moduli, P);
 		/**
 		 * Восстанавливаем коэффициенты из округления
 		 */
@@ -1193,7 +1193,7 @@ namespace {
 	 * @param size   размер входных данных
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_hash_prefix__(uint8_t * out, const uint8_t prefix, const uint8_t * in, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_hash_prefix__(uint8_t * out, const uint8_t prefix, const uint8_t * in, const size_t size) noexcept {
 		// Буфер под хеш
 		uint8_t hash[64];
 		// Буфер префикса и входных данных
@@ -1232,7 +1232,7 @@ namespace {
 	 * @return           признак успешности
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_generate_keys__(fq_t * publicPoly, small_t * secret, small_t * inverse) noexcept {
+	static __NTS_INLINE__ bool __nts_generate_keys__(fq_t * publicPoly, small_t * secret, small_t * inverse) noexcept {
 		// Случайный полином g
 		small_t random[P];
 		// Утроенный обратный 3/f в кольце Rq
@@ -1242,22 +1242,22 @@ namespace {
 		 */
 		for(;;){
 			// Вырабатываем случайный малый полином
-			if(!::__ants_random_small__(random))
+			if(!::__nts_random_small__(random))
 				// Сообщаем об ошибке генерации
 				return false;
 			// Проверяем обратимость g в кольце R3: найденный обратный сразу сохраняем
-			if(::__ants_reciprocal3__(inverse, random) == 0)
+			if(::__nts_reciprocal3__(inverse, random) == 0)
 				// Полином g обратим - выходим из перебора
 				break;
 		}
 		// Вырабатываем случайный короткий полином
-		if(!::__ants_random_short__(secret))
+		if(!::__nts_random_short__(secret))
 			// Сообщаем об ошибке генерации
 			return false;
 		// Находим утроенный обратный 3/f в кольце Rq
-		::__ants_triple_reciprocal__(secretInverse, secret);
+		::__nts_triple_reciprocal__(secretInverse, secret);
 		// Вычисляем открытый ключ h = 3·g/f
-		::__ants_multiply_small__(publicPoly, secretInverse, random);
+		::__nts_multiply_small__(publicPoly, secretInverse, random);
 		// Затираем случайный полином g
 		wipe(random, sizeof(random));
 		// Затираем утроенный обратный 3/f
@@ -1273,13 +1273,13 @@ namespace {
 	 * @param publicPoly открытый ключ
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_encrypt__(fq_t * cipher, const small_t * input, const fq_t * publicPoly) noexcept {
+	static __NTS_INLINE__ void __nts_encrypt__(fq_t * cipher, const small_t * input, const fq_t * publicPoly) noexcept {
 		// Буфер произведения ключа на вход
 		fq_t product[P];
 		// Умножаем открытый ключ на вход
-		::__ants_multiply_small__(product, publicPoly, input);
+		::__nts_multiply_small__(product, publicPoly, input);
 		// Округляем произведение в шифртекст
-		::__ants_round_poly__(cipher, product);
+		::__nts_round_poly__(cipher, product);
 	}
 	/**
 	 * @brief Функция расшифрования ядра
@@ -1290,7 +1290,7 @@ namespace {
 	 * @param inverse обратный к случайному полиному g в R3
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_decrypt__(small_t * output, const fq_t * cipher, const small_t * secret, const small_t * inverse) noexcept {
+	static __NTS_INLINE__ void __nts_decrypt__(small_t * output, const fq_t * cipher, const small_t * secret, const small_t * inverse) noexcept {
 		// Буфер произведения шифртекста на f
 		fq_t product[P];
 		// Буфер утроенного произведения
@@ -1300,15 +1300,15 @@ namespace {
 		// Буфер произведения в кольце R3
 		small_t product3[P];
 		// Умножаем шифртекст на секретный полином
-		::__ants_multiply_small__(product, cipher, secret);
+		::__nts_multiply_small__(product, cipher, secret);
 		// Утраиваем произведение в кольце Rq
-		::__ants_triple__(tripled, product);
+		::__nts_triple__(tripled, product);
 		// Переводим результат в кольцо R3
-		::__ants_reduce3__(reduced, tripled);
+		::__nts_reduce3__(reduced, tripled);
 		// Умножаем на обратный полином в кольце R3
-		::__ants_multiply3__(product3, reduced, inverse);
+		::__nts_multiply3__(product3, reduced, inverse);
 		// Проверяем вес восстановленного полинома
-		const int32_t mask = ::__ants_weight_mask__(product3);
+		const int32_t mask = ::__nts_weight_mask__(product3);
 		/**
 		 * Маскируем коэффициенты по результату проверки веса
 		 */
@@ -1338,23 +1338,23 @@ namespace {
 	 * @return          признак успешности
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_generate_keys_encoded__(uint8_t * publicKey, uint8_t * secretKey) noexcept {
+	static __NTS_INLINE__ bool __nts_generate_keys_encoded__(uint8_t * publicKey, uint8_t * secretKey) noexcept {
 		// Буфер открытого ключа
 		fq_t publicPoly[P];
 		// Буферы секретных полиномов
 		small_t secret[P], inverse[P];
 		// Вырабатываем пару ключей ядра
-		if(!::__ants_generate_keys__(publicPoly, secret, inverse))
+		if(!::__nts_generate_keys__(publicPoly, secret, inverse))
 			// Сообщаем об ошибке генерации
 			return false;
 		// Кодируем открытый ключ
-		::__ants_encode_q__(publicKey, publicPoly);
+		::__nts_encode_q__(publicKey, publicPoly);
 		// Кодируем секретный полином
-		::__ants_encode_small__(secretKey, secret);
+		::__nts_encode_small__(secretKey, secret);
 		// Сдвигаем буфер за первый полином
 		secretKey += SMALL_BYTES;
 		// Кодируем обратный полином
-		::__ants_encode_small__(secretKey, inverse);
+		::__nts_encode_small__(secretKey, inverse);
 		// Затираем секретный ключ
 		wipe(secret, sizeof(secret));
 		// Затираем обратный полином
@@ -1372,17 +1372,17 @@ namespace {
 	 * @param publicKey открытый ключ
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_encrypt_encoded__(uint8_t * cipherOut, const small_t * input, const uint8_t * publicKey) noexcept {
+	static __NTS_INLINE__ void __nts_encrypt_encoded__(uint8_t * cipherOut, const small_t * input, const uint8_t * publicKey) noexcept {
 		// Буфер открытого ключа
 		fq_t publicPoly[P];
 		// Буфер шифртекста
 		fq_t cipherPoly[P];
 		// Декодируем открытый ключ
-		::__ants_decode_q__(publicPoly, publicKey);
+		::__nts_decode_q__(publicPoly, publicKey);
 		// Шифруем вход открытым ключом
-		::__ants_encrypt__(cipherPoly, input, publicPoly);
+		::__nts_encrypt__(cipherPoly, input, publicPoly);
 		// Кодируем округлённый шифртекст
-		::__ants_encode_rounded__(cipherOut, cipherPoly);
+		::__nts_encode_rounded__(cipherOut, cipherPoly);
 		// Затираем открытый ключ
 		wipe(publicPoly, sizeof(publicPoly));
 		// Затираем шифртекст
@@ -1396,21 +1396,21 @@ namespace {
 	 * @param secretKey секретный ключ
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_decrypt_encoded__(small_t * output, const uint8_t * cipher, const uint8_t * secretKey) noexcept {
+	static __NTS_INLINE__ void __nts_decrypt_encoded__(small_t * output, const uint8_t * cipher, const uint8_t * secretKey) noexcept {
 		// Буфер шифртекста
 		fq_t cipherPoly[P];
 		// Буферы секретных полиномов
 		small_t secret[P], inverse[P];
 		// Декодируем секретный полином
-		::__ants_decode_small__(secret, secretKey);
+		::__nts_decode_small__(secret, secretKey);
 		// Сдвигаем буфер за первый полином
 		secretKey += SMALL_BYTES;
 		// Декодируем обратный полином
-		::__ants_decode_small__(inverse, secretKey);
+		::__nts_decode_small__(inverse, secretKey);
 		// Декодируем округлённый шифртекст
-		::__ants_decode_rounded__(cipherPoly, cipher);
+		::__nts_decode_rounded__(cipherPoly, cipher);
 		// Расшифровываем шифртекст
-		::__ants_decrypt__(output, cipherPoly, secret, inverse);
+		::__nts_decrypt__(output, cipherPoly, secret, inverse);
 		// Затираем секретный полином
 		wipe(secret, sizeof(secret));
 		// Затираем обратный полином
@@ -1426,11 +1426,11 @@ namespace {
 	 * @param cache кэш Hash4(pk)
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_hash_confirm__(uint8_t * hash, const uint8_t * input, const uint8_t * cache) noexcept {
+	static __NTS_INLINE__ void __nts_hash_confirm__(uint8_t * hash, const uint8_t * input, const uint8_t * cache) noexcept {
 		// Буфер хеша входа и кэша
 		uint8_t buffer[HASH_BYTES * 2];
 		// Вычисляем хеш входного полинома
-		::__ants_hash_prefix__(buffer, 3, input, SMALL_BYTES);
+		::__nts_hash_prefix__(buffer, 3, input, SMALL_BYTES);
 		/**
 		 * Дописываем кэш открытого ключа
 		 */
@@ -1438,7 +1438,7 @@ namespace {
 			// Копируем очередной байт кэша
 			buffer[HASH_BYTES + i] = cache[i];
 		// Вычисляем итоговый хеш подтверждения
-		::__ants_hash_prefix__(hash, 2, buffer, sizeof(buffer));
+		::__nts_hash_prefix__(hash, 2, buffer, sizeof(buffer));
 		// Затираем буфер хеша
 		wipe(buffer, sizeof(buffer));
 	}
@@ -1451,11 +1451,11 @@ namespace {
 	 * @param tail   шифртекст с подтверждением
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_hash_session__(uint8_t * key, const uint8_t prefix, const uint8_t * input, const uint8_t * tail) noexcept {
+	static __NTS_INLINE__ void __nts_hash_session__(uint8_t * key, const uint8_t prefix, const uint8_t * input, const uint8_t * tail) noexcept {
 		// Буфер хеша входа и шифртекста
 		uint8_t buffer[HASH_BYTES + ROUNDED_BYTES + HASH_BYTES];
 		// Вычисляем хеш входного полинома
-		::__ants_hash_prefix__(buffer, 3, input, SMALL_BYTES);
+		::__nts_hash_prefix__(buffer, 3, input, SMALL_BYTES);
 		/**
 		 * Дописываем шифртекст и его хеш
 		 */
@@ -1463,7 +1463,7 @@ namespace {
 			// Копируем очередной байт
 			buffer[HASH_BYTES + i] = tail[i];
 		// Вычисляем итоговый хеш сессии
-		::__ants_hash_prefix__(key, prefix, buffer, sizeof(buffer));
+		::__nts_hash_prefix__(key, prefix, buffer, sizeof(buffer));
 		// Затираем буфер хеша
 		wipe(buffer, sizeof(buffer));
 	}
@@ -1477,15 +1477,15 @@ namespace {
 	 * @param cache     кэш Hash4(pk)
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_hide__(uint8_t * cipher, uint8_t * inputEnc, const small_t * input, const uint8_t * publicKey, const uint8_t * cache) noexcept {
+	static __NTS_INLINE__ void __nts_hide__(uint8_t * cipher, uint8_t * inputEnc, const small_t * input, const uint8_t * publicKey, const uint8_t * cache) noexcept {
 		// Кодируем входной полином
-		::__ants_encode_small__(inputEnc, input);
+		::__nts_encode_small__(inputEnc, input);
 		// Шифруем вход открытым ключом
-		::__ants_encrypt_encoded__(cipher, input, publicKey);
+		::__nts_encrypt_encoded__(cipher, input, publicKey);
 		// Сдвигаем буфер за шифртекст
 		cipher += ROUNDED_BYTES;
 		// Дописываем хеш подтверждения
-		::__ants_hash_confirm__(cipher, inputEnc, cache);
+		::__nts_hash_confirm__(cipher, inputEnc, cache);
 	}
 	/**
 	 * @brief Функция сравнения шифртекстов
@@ -1495,7 +1495,7 @@ namespace {
 	 * @return       0 при совпадении, -1 при различии
 	 *
 	 */
-	static __ANTS_INLINE__ int32_t __ants_diff_mask__(const uint8_t * first, const uint8_t * second) noexcept {
+	static __NTS_INLINE__ int32_t __nts_diff_mask__(const uint8_t * first, const uint8_t * second) noexcept {
 		// Накапливаем различающиеся биты
 		uint16_t differentBits = 0;
 		// Длина сравниваемой части шифртекста
@@ -1525,7 +1525,7 @@ bool nts::agreement::pair(uint8_t * key, uint8_t * secret) noexcept {
 		// Отклоняем вызов с нулевыми указателями
 		return false;
 	// Вырабатываем ключи в закодированном виде
-	if(!::__ants_generate_keys_encoded__(key, secret))
+	if(!::__nts_generate_keys_encoded__(key, secret))
 		// Сообщаем об ошибке генерации ключей
 		return false;
 	// Дописываем открытый ключ в секретный
@@ -1546,7 +1546,7 @@ bool nts::agreement::pair(uint8_t * key, uint8_t * secret) noexcept {
 	// Вычисляем кэш хеша открытого ключа
 	tail += SMALL_BYTES;
 	// Дописываем кэш Hash4(pk)
-	::__ants_hash_prefix__(tail, 4, key, RQ_BYTES);
+	::__nts_hash_prefix__(tail, 4, key, RQ_BYTES);
 	// Сообщаем об успешности
 	return true;
 }
@@ -1567,19 +1567,19 @@ bool nts::agreement::encaps(const view_t & key, uint8_t * cipher, uint8_t * shar
 	// Вырабатываем случайный вход
 	small_t input[P];
 	// Вырабатываем случайный короткий вход
-	if(!::__ants_random_short__(input))
+	if(!::__nts_random_short__(input))
 		// Сообщаем об ошибке генерации входа
 		return false;
 	// Вычисляем кэш Hash4(pk)
 	uint8_t cache[HASH_BYTES];
 	// Заполняем кэш хешем открытого ключа
-	::__ants_hash_prefix__(cache, 4, key.data, RQ_BYTES);
+	::__nts_hash_prefix__(cache, 4, key.data, RQ_BYTES);
 	// Скрываем вход
 	uint8_t inputEnc[SMALL_BYTES];
 	// Скрываем вход в шифртексте
-	::__ants_hide__(cipher, inputEnc, input, key.data, cache);
+	::__nts_hide__(cipher, inputEnc, input, key.data, cache);
 	// Вычисляем общий секрет
-	::__ants_hash_session__(shared, 1, inputEnc, cipher);
+	::__nts_hash_session__(shared, 1, inputEnc, cipher);
 	/**
 	 * Затираем промежуточные данные
 	 */
@@ -1613,15 +1613,15 @@ bool nts::agreement::decaps(const view_t & cipher, const view_t & secret, uint8_
 	// Расшифровываем вход
 	small_t input[P];
 	// Расшифровываем шифртекст секретным ключом
-	::__ants_decrypt_encoded__(input, cipher.data, secret.data);
+	::__nts_decrypt_encoded__(input, cipher.data, secret.data);
 	// Скрываем вход повторно для проверки
 	uint8_t inputEnc[SMALL_BYTES];
 	// Буфер повторно скрытого входа
 	uint8_t retry[ROUNDED_BYTES + HASH_BYTES];
 	// Скрываем вход повторно для проверки
-	::__ants_hide__(retry, inputEnc, input, publicKey, cache);
+	::__nts_hide__(retry, inputEnc, input, publicKey, cache);
 	// Сравниваем шифртексты
-	const int32_t mask = ::__ants_diff_mask__(cipher.data, retry);
+	const int32_t mask = ::__nts_diff_mask__(cipher.data, retry);
 	/**
 	 * При несовпадении подставляем rho вместо input
 	 */
@@ -1629,7 +1629,7 @@ bool nts::agreement::decaps(const view_t & cipher, const view_t & secret, uint8_
 		// Подменяем вход зерном при несовпадении
 		inputEnc[i] ^= mask & (inputEnc[i] ^ rho[i]);
 	// Вычисляем общий секрет
-	::__ants_hash_session__(shared, 1 + mask, inputEnc, cipher.data);
+	::__nts_hash_session__(shared, 1 + mask, inputEnc, cipher.data);
 	/**
 	 * Затираем промежуточные данные
 	 */

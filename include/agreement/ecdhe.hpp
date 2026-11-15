@@ -104,7 +104,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool generate(const curve::curve_t & curve, uint8_t * secret, uint8_t * key) noexcept;
+		__NTS_SHARED_EXPORT__ bool generate(const curve::curve_t & curve, uint8_t * secret, uint8_t * key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки общего значения обмена мимолётными ключами
@@ -142,7 +142,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool ecdhe(const curve::curve_t & curve, const view_t & secret, const view_t & key, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool ecdhe(const curve::curve_t & curve, const view_t & secret, const view_t & key, uint8_t * result) noexcept;
 	};
 };
 

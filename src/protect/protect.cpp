@@ -80,18 +80,23 @@
  * Стандартные заголовочные файлы
  */
 #include <new>
+#include <tuple>
 #include <cstdint>
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include <sys/wipe.hpp>
 #include <digest/kdf.hpp>
 #include <digest/hmac.hpp>
 #include <entropy/entropy.hpp>
 #include <message/message.hpp>
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
 #include <protect/protect.hpp>
-#include <sys/wipe.hpp>
 
 /**
  * Используем стандартное пространство имён

@@ -83,7 +83,7 @@
 /**
  * Если сборка ведётся под ARM64 от младшего байта
  */
-#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -92,11 +92,11 @@
 	/**
 	 * Объявляем наличие ветви команд NEON: они входят в основание набора ARM64
 	 */
-	#define __ANTS_CHACHA_NEON__ 1
+	#define __NTS_CHACHA_NEON__ 1
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC либо Microsoft Visual C++ без ядер на ассемблере
  */
-#elif (defined(__x86_64__) || defined(__e2k__) || defined(__ANTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE) && !defined(__ANTS_CHACHA_X86_64__)
+#elif (defined(__x86_64__) || defined(__e2k__) || defined(__NTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE) && !defined(__NTS_CHACHA_X86_64__)
 	/**
 	 * Подключаем заголовочный файл команд x86-64 вплоть до AVX2
 	 */
@@ -110,15 +110,15 @@
 		/**
 		 * Атрибут цели не нужен: собиратель lcc переводит команды сам
 		 */
-		#define __ANTS_CHACHA_SSE2_TARGET__
+		#define __NTS_CHACHA_SSE2_TARGET__
 		/**
 		 * Атрибут цели не нужен: собиратель lcc переводит команды сам
 		 */
-		#define __ANTS_CHACHA_SSSE3_TARGET__
+		#define __NTS_CHACHA_SSSE3_TARGET__
 		/**
 		 * Атрибут цели не нужен: собиратель lcc переводит команды сам
 		 */
-		#define __ANTS_CHACHA_AVX2_TARGET__
+		#define __NTS_CHACHA_AVX2_TARGET__
 	/**
 	 * Если собиратель Microsoft Visual C++: внутренние функции команд доступны ему без ключей сборки
 	 */
@@ -126,15 +126,15 @@
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_CHACHA_SSE2_TARGET__
+		#define __NTS_CHACHA_SSE2_TARGET__
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_CHACHA_SSSE3_TARGET__
+		#define __NTS_CHACHA_SSSE3_TARGET__
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_CHACHA_AVX2_TARGET__
+		#define __NTS_CHACHA_AVX2_TARGET__
 	/**
 	 * Иначе ветви идут с атрибутами цели
 	 */
@@ -142,21 +142,21 @@
 		/**
 		 * Разрешаем команды SSE2 одной функции: они входят в основание набора x86-64
 		 */
-		#define __ANTS_CHACHA_SSE2_TARGET__ __attribute__((target("sse2")))
+		#define __NTS_CHACHA_SSE2_TARGET__ __attribute__((target("sse2")))
 		/**
 		 * Разрешаем команды SSSE3 одной функции
 		 */
-		#define __ANTS_CHACHA_SSSE3_TARGET__ __attribute__((target("ssse3")))
+		#define __NTS_CHACHA_SSSE3_TARGET__ __attribute__((target("ssse3")))
 		/**
 		 * Разрешаем команды AVX2 одной функции
 		 */
-		#define __ANTS_CHACHA_AVX2_TARGET__ __attribute__((target("avx2")))
+		#define __NTS_CHACHA_AVX2_TARGET__ __attribute__((target("avx2")))
 	#endif
 
 	/**
 	 * Объявляем наличие ветвей команд x86-64
 	 */
-	#define __ANTS_CHACHA_X86__ 1
+	#define __NTS_CHACHA_X86__ 1
 #endif
 
 /**
@@ -195,7 +195,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
 		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) | (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
 	}
@@ -206,7 +206,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем младший байт
 		data[0] = static_cast <uint8_t> (value);
 		// Записываем второй байт
@@ -244,7 +244,7 @@ namespace {
 	/**
 	 * Если есть ветвь команд NEON
 	 */
-	#if defined(__ANTS_CHACHA_NEON__)
+	#if defined(__NTS_CHACHA_NEON__)
 		/**
 		 * @brief Число блоков гаммы в пачке NEON из двух четвёрок векторами и двух блоков скалярно
 		 *
@@ -276,7 +276,7 @@ namespace {
 		 * @param table перестановка байтов вращения на восемь разрядов
 		 *
 		 */
-		static __ANTS_INLINE__ void quarterNeon(uint32x4_t & a, uint32x4_t & b, uint32x4_t & c, uint32x4_t & d, const uint8x16_t table) noexcept {
+		static __NTS_INLINE__ void quarterNeon(uint32x4_t & a, uint32x4_t & b, uint32x4_t & c, uint32x4_t & d, const uint8x16_t table) noexcept {
 			// Складываем первые слова со вторыми
 			a = vaddq_u32(a, b);
 			// Складываем четвёртые слова с первыми по модулю два
@@ -311,7 +311,7 @@ namespace {
 		 * @param d четвёртый вектор: заменяется четырьмя словами четвёртого блока
 		 *
 		 */
-		static __ANTS_INLINE__ void transposeNeon(uint32x4_t & a, uint32x4_t & b, uint32x4_t & c, uint32x4_t & d) noexcept {
+		static __NTS_INLINE__ void transposeNeon(uint32x4_t & a, uint32x4_t & b, uint32x4_t & c, uint32x4_t & d) noexcept {
 			// Чередование слов первой пары векторов
 			const uint32x4x2_t ab = vtrnq_u32(a, b);
 			// Чередование слов второй пары векторов
@@ -511,7 +511,7 @@ namespace {
 		 * @param d четвёртое слово, заменяемое итогом
 		 *
 		 */
-		static __ANTS_INLINE__ void quarterWord(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d) noexcept {
+		static __NTS_INLINE__ void quarterWord(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d) noexcept {
 			// Первая половина четвертьраунда: вращения на шестнадцать и двенадцать
 			a += b; d ^= a; d = rotate(d, 16);
 			// Завершение первой половины четвертьраунда
@@ -529,7 +529,7 @@ namespace {
 		 * @param words   место, в которое помещаются рабочие слова блока
 		 *
 		 */
-		static __ANTS_INLINE__ void beginWord(const uint32_t * state, const uint32_t counter, uint32_t * words) noexcept {
+		static __NTS_INLINE__ void beginWord(const uint32_t * state, const uint32_t counter, uint32_t * words) noexcept {
 			/**
 			 * Выполняем перенос слов состояния в рабочие
 			 */
@@ -549,7 +549,7 @@ namespace {
 		 * @param result  место, в которое записываются покрытые данные
 		 *
 		 */
-		static __ANTS_INLINE__ void finishWord(const uint32_t * state, const uint32_t counter, uint32_t * words, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_INLINE__ void finishWord(const uint32_t * state, const uint32_t counter, uint32_t * words, const uint8_t * source, uint8_t * result) noexcept {
 			/**
 			 * Выполняем сложение рабочих слов с исходными
 			 */
@@ -586,7 +586,7 @@ namespace {
 		 * @param table  перестановка байтов вращения на восемь
 		 *
 		 */
-		static __ANTS_INLINE__ void roundNeon10(uint32x4_t * first, uint32x4_t * second, uint32_t * words, const uint8x16_t table) noexcept {
+		static __NTS_INLINE__ void roundNeon10(uint32x4_t * first, uint32x4_t * second, uint32_t * words, const uint8x16_t table) noexcept {
 			// Первые два столбца четвёрок
 			quarterNeon(first[0], first[4], first[8], first[12], table);
 			quarterNeon(second[0], second[4], second[8], second[12], table);
@@ -728,7 +728,7 @@ namespace {
 	/**
 	 * Если есть ветви команд x86-64
 	 */
-	#if defined(__ANTS_CHACHA_X86__)
+	#if defined(__NTS_CHACHA_X86__)
 		/**
 		 * @brief Перестановка байтов вращения слов влево на шестнадцать разрядов
 		 *
@@ -771,7 +771,7 @@ namespace {
 		 * @param r8  вращение на восемь разрядов
 		 *
 		 */
-		#define __ANTS_CHACHA_QUARTER_X86__(a, b, c, d, r16, r8) \
+		#define __NTS_CHACHA_QUARTER_X86__(a, b, c, d, r16, r8) \
 		/* Складываем первые слова со вторыми */ \
 		a = _mm_add_epi32(a, b); \
 		/* Складываем четвёртые слова с первыми по модулю два */ \
@@ -812,7 +812,7 @@ namespace {
 		 * @param r8     вращение на восемь разрядов
 		 *
 		 */
-		#define __ANTS_CHACHA_STREAM_X86__(state, source, result, r16, r8) \
+		#define __NTS_CHACHA_STREAM_X86__(state, source, result, r16, r8) \
 		/* Приращения счётчиков четырёх блоков */ \
 		const __m128i steps = _mm_load_si128(reinterpret_cast <const __m128i *> (STEPS8)); \
 		/* Рабочие слова четырёх блоков */ \
@@ -826,21 +826,21 @@ namespace {
 		/** Десять двойных раундов столбцами и диагоналями */ \
 		for(size_t i = 0; i < 10; i++){ \
 			/* Четвертьраунд первого столбца */ \
-			__ANTS_CHACHA_QUARTER_X86__(work[0], work[4], work[8], work[12], r16, r8) \
+			__NTS_CHACHA_QUARTER_X86__(work[0], work[4], work[8], work[12], r16, r8) \
 			/* Четвертьраунд второго столбца */ \
-			__ANTS_CHACHA_QUARTER_X86__(work[1], work[5], work[9], work[13], r16, r8) \
+			__NTS_CHACHA_QUARTER_X86__(work[1], work[5], work[9], work[13], r16, r8) \
 			/* Четвертьраунд третьего столбца */ \
-			__ANTS_CHACHA_QUARTER_X86__(work[2], work[6], work[10], work[14], r16, r8) \
+			__NTS_CHACHA_QUARTER_X86__(work[2], work[6], work[10], work[14], r16, r8) \
 			/* Четвертьраунд четвёртого столбца */ \
-			__ANTS_CHACHA_QUARTER_X86__(work[3], work[7], work[11], work[15], r16, r8) \
+			__NTS_CHACHA_QUARTER_X86__(work[3], work[7], work[11], work[15], r16, r8) \
 			/* Четвертьраунд первой диагонали */ \
-			__ANTS_CHACHA_QUARTER_X86__(work[0], work[5], work[10], work[15], r16, r8) \
+			__NTS_CHACHA_QUARTER_X86__(work[0], work[5], work[10], work[15], r16, r8) \
 			/* Четвертьраунд второй диагонали */ \
-			__ANTS_CHACHA_QUARTER_X86__(work[1], work[6], work[11], work[12], r16, r8) \
+			__NTS_CHACHA_QUARTER_X86__(work[1], work[6], work[11], work[12], r16, r8) \
 			/* Четвертьраунд третьей диагонали */ \
-			__ANTS_CHACHA_QUARTER_X86__(work[2], work[7], work[8], work[13], r16, r8) \
+			__NTS_CHACHA_QUARTER_X86__(work[2], work[7], work[8], work[13], r16, r8) \
 			/* Четвертьраунд четвёртой диагонали */ \
-			__ANTS_CHACHA_QUARTER_X86__(work[3], work[4], work[9], work[14], r16, r8) \
+			__NTS_CHACHA_QUARTER_X86__(work[3], work[4], work[9], work[14], r16, r8) \
 		} \
 		/** Сложение рабочих слов с исходными из состояния заново */ \
 		for(size_t i = 0; i < 16; i++) \
@@ -883,7 +883,7 @@ namespace {
 		 * @return      вращённые слова
 		 *
 		 */
-		static __ANTS_INLINE__ __ANTS_CHACHA_SSE2_TARGET__ __m128i rotate16Sse2(const __m128i value) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_SSE2_TARGET__ __m128i rotate16Sse2(const __m128i value) noexcept {
 			// Выводим слова, вращённые парой сдвигов
 			return _mm_or_si128(_mm_slli_epi32(value, 16), _mm_srli_epi32(value, 16));
 		}
@@ -894,7 +894,7 @@ namespace {
 		 * @return      вращённые слова
 		 *
 		 */
-		static __ANTS_INLINE__ __ANTS_CHACHA_SSE2_TARGET__ __m128i rotate8Sse2(const __m128i value) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_SSE2_TARGET__ __m128i rotate8Sse2(const __m128i value) noexcept {
 			// Выводим слова, вращённые парой сдвигов
 			return _mm_or_si128(_mm_slli_epi32(value, 8), _mm_srli_epi32(value, 24));
 		}
@@ -905,7 +905,7 @@ namespace {
 		 * @return      вращённые слова
 		 *
 		 */
-		static __ANTS_INLINE__ __ANTS_CHACHA_SSSE3_TARGET__ __m128i rotate16Ssse3(const __m128i value) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_SSSE3_TARGET__ __m128i rotate16Ssse3(const __m128i value) noexcept {
 			// Выводим слова, вращённые перестановкой байтов
 			return _mm_shuffle_epi8(value, _mm_load_si128(reinterpret_cast <const __m128i *> (ROTATE16)));
 		}
@@ -916,7 +916,7 @@ namespace {
 		 * @return      вращённые слова
 		 *
 		 */
-		static __ANTS_INLINE__ __ANTS_CHACHA_SSSE3_TARGET__ __m128i rotate8Ssse3(const __m128i value) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_SSSE3_TARGET__ __m128i rotate8Ssse3(const __m128i value) noexcept {
 			// Выводим слова, вращённые перестановкой байтов
 			return _mm_shuffle_epi8(value, _mm_load_si128(reinterpret_cast <const __m128i *> (ROTATE8)));
 		}
@@ -928,9 +928,9 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __ANTS_CHACHA_SSE2_TARGET__ void streamSse2(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_CHACHA_SSE2_TARGET__ void streamSse2(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Тело покрытия с вращениями парой сдвигов
-			__ANTS_CHACHA_STREAM_X86__(state, source, result, rotate16Sse2, rotate8Sse2)
+			__NTS_CHACHA_STREAM_X86__(state, source, result, rotate16Sse2, rotate8Sse2)
 		}
 		/**
 		 * @brief Функция покрытия гаммой четырёх целых блоков разом командами SSSE3
@@ -940,9 +940,9 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __ANTS_CHACHA_SSSE3_TARGET__ void streamSsse3(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_CHACHA_SSSE3_TARGET__ void streamSsse3(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Тело покрытия с вращениями перестановкой байтов
-			__ANTS_CHACHA_STREAM_X86__(state, source, result, rotate16Ssse3, rotate8Ssse3)
+			__NTS_CHACHA_STREAM_X86__(state, source, result, rotate16Ssse3, rotate8Ssse3)
 		}
 		/**
 		 * @brief Функция четвертьраунда над восемью блоками разом командами AVX2
@@ -955,7 +955,7 @@ namespace {
 		 * @param r8  перестановка байтов вращения на восемь разрядов
 		 *
 		 */
-		static __ANTS_INLINE__ __ANTS_CHACHA_AVX2_TARGET__ void quarterAvx2(__m256i & a, __m256i & b, __m256i & c, __m256i & d, const __m256i r16, const __m256i r8) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_AVX2_TARGET__ void quarterAvx2(__m256i & a, __m256i & b, __m256i & c, __m256i & d, const __m256i r16, const __m256i r8) noexcept {
 			// Складываем первые слова со вторыми
 			a = _mm256_add_epi32(a, b);
 			// Складываем четвёртые слова с первыми по модулю два
@@ -995,7 +995,7 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __ANTS_CHACHA_AVX2_TARGET__ void streamAvx2(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_CHACHA_AVX2_TARGET__ void streamAvx2(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков восьми блоков
 			const __m256i steps = _mm256_load_si256(reinterpret_cast <const __m256i *> (STEPS8));
 			// Перестановка байтов вращения на шестнадцать разрядов
@@ -1196,7 +1196,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 	/**
 	 * Если есть ядра на ассемблере x86-64
 	 */
-	#if defined(__ANTS_CHACHA_X86_64__)
+	#if defined(__NTS_CHACHA_X86_64__)
 		// Если машина несёт векторы в 128 разрядов: ядра требуют хотя бы SSE2
 		if(!this->_exhausted && machine::has(machine::feature_t::VECTOR)){
 			// Кадр ядра: стол слов состояния и рабочие ячейки третьих слов
@@ -1262,7 +1262,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 	/**
 	 * Если есть ветви команд x86-64 на интринсиках
 	 */
-	#elif defined(__ANTS_CHACHA_X86__)
+	#elif defined(__NTS_CHACHA_X86__)
 		// Если машина несёт векторы в 256 разрядов
 		if(machine::has(machine::feature_t::AVX2)){
 			/**
@@ -1289,7 +1289,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 	/**
 	 * Если есть ветвь команд NEON
 	 */
-	#if defined(__ANTS_CHACHA_NEON__)
+	#if defined(__NTS_CHACHA_NEON__)
 		// Если машина несёт векторы в 128 разрядов
 		if(machine::has(machine::feature_t::VECTOR)){
 			/**
@@ -1336,13 +1336,13 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 	/**
 	 * Если есть ветвь команд NEON либо ветви команд x86-64
 	 */
-	#if defined(__ANTS_CHACHA_NEON__) || defined(__ANTS_CHACHA_X86__)
+	#if defined(__NTS_CHACHA_NEON__) || defined(__NTS_CHACHA_X86__)
 		// Если машина несёт векторы в 128 разрядов
 		if(machine::has(machine::feature_t::VECTOR)){
 			/**
 			 * Если есть ветви команд x86-64
 			 */
-			#if defined(__ANTS_CHACHA_X86__)
+			#if defined(__NTS_CHACHA_X86__)
 				// Признак перестановки байтов SSSE3
 				const bool shuffle = machine::has(machine::feature_t::SSSE3);
 			#endif
@@ -1353,7 +1353,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				/**
 				 * Если есть ветвь команд NEON
 				 */
-				#if defined(__ANTS_CHACHA_NEON__)
+				#if defined(__NTS_CHACHA_NEON__)
 					// Покрытие четырёх блоков разом командами NEON
 					streamNeon(this->_state, cursor, output);
 				/**

@@ -177,7 +177,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Chacha {
+		typedef class __NTS_SHARED_EXPORT__ Chacha {
 			private:
 				// Признак того, что шифр готов к работе
 				bool _ready;

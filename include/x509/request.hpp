@@ -90,7 +90,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Request {
+		typedef class __NTS_SHARED_EXPORT__ Request {
 			private:
 				// Причина последнего отказа
 				error_t _error;
@@ -323,7 +323,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encode(const name_t & subject, const key_t & key, const vector <extension_t> & extensions, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encode(const name_t & subject, const key_t & key, const vector <extension_t> & extensions, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -344,7 +344,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const request_t & request, const key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const request_t & request, const key_t & key) noexcept;
 	};
 };
 

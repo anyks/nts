@@ -37,41 +37,41 @@ using namespace nts;
 /**
  * Сток журнала процесса и контекст потребителя
  */
-static sys::log::sink_t __ants_sink__ = nullptr;
+static sys::log::sink_t __nts_sink__ = nullptr;
 // Контекст потребителя журнала
-static void * __ants_context__ = nullptr;
+static void * __nts_context__ = nullptr;
 
 /**
  * sink Метод установки стока журнала
  */
 void sys::log::sink(const sink_t sink, void * context) noexcept {
 	// Запоминаем контекст потребителя прежде стока: сток без контекста хуже, чем контекст без стока
-	::__ants_context__ = context;
+	::__nts_context__ = context;
 	// Запоминаем сток журнала
-	::__ants_sink__ = sink;
+	::__nts_sink__ = sink;
 }
 /**
  * enabled Метод проверки того, что сток поставлен
  */
 bool sys::log::enabled() noexcept {
 	// Выводим признак поставленного стока
-	return (::__ants_sink__ != nullptr);
+	return (::__nts_sink__ != nullptr);
 }
 /**
  * emit Метод передачи готовой строки в сток
  */
 void sys::log::emit(const level_t level, const char * text) noexcept {
 	// Если сток поставлен и строка задана
-	if((::__ants_sink__ != nullptr) && (text != nullptr))
+	if((::__nts_sink__ != nullptr) && (text != nullptr))
 		// Передаём строку стоку
-		::__ants_sink__(level, text, ::__ants_context__);
+		::__nts_sink__(level, text, ::__nts_context__);
 }
 /**
  * emitf Метод передачи сообщения по образцу printf
  */
 void sys::log::emitf(const level_t level, const char * format, ...) noexcept {
 	// Если сток не поставлен либо образец не задан, строка не собирается вовсе
-	if((::__ants_sink__ == nullptr) || (format == nullptr))
+	if((::__nts_sink__ == nullptr) || (format == nullptr))
 		// Выходим из метода
 		return;
 	// Буфер строки на стеке: сообщения библиотеки коротки, длиннее обрезаются
@@ -87,5 +87,5 @@ void sys::log::emitf(const level_t level, const char * format, ...) noexcept {
 	// Если строка собрана
 	if(written >= 0)
 		// Передаём строку стоку
-		::__ants_sink__(level, buffer, ::__ants_context__);
+		::__nts_sink__(level, buffer, ::__nts_context__);
 }

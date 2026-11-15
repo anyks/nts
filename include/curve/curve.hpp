@@ -102,7 +102,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Point {
+		typedef struct __NTS_SHARED_EXPORT__ Point {
 			// Первая координата точки
 			math::number_t x;
 			// Вторая координата точки
@@ -178,7 +178,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Curve {
+		typedef class __NTS_SHARED_EXPORT__ Curve {
 			private:
 				// Признак того, что кривая установлена
 				bool _ready;

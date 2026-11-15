@@ -387,7 +387,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Suite {
+		typedef struct __NTS_SHARED_EXPORT__ Suite {
 			// Способ инкапсуляции ключа
 			kem_t kem;
 			// Функция выработки ключа
@@ -439,7 +439,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Shared {
+		typedef struct __NTS_SHARED_EXPORT__ Shared {
 			// Просмотр заранее разделённого ключа
 			view_t key;
 			// Просмотр опознавателя ключа
@@ -487,7 +487,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t length(const kdf_t kdf) noexcept;
+		__NTS_SHARED_EXPORT__ size_t length(const kdf_t kdf) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения длины открытого ключа способа инкапсуляции
@@ -503,7 +503,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t length(const kem_t kem) noexcept;
+		__NTS_SHARED_EXPORT__ size_t length(const kem_t kem) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения длины секретного ключа способа инкапсуляции
@@ -519,7 +519,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t secret(const kem_t kem) noexcept;
+		__NTS_SHARED_EXPORT__ size_t secret(const kem_t kem) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения длины инкапсулированного ключа способа инкапсуляции
@@ -535,7 +535,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t overhead(const kem_t kem) noexcept;
+		__NTS_SHARED_EXPORT__ size_t overhead(const kem_t kem) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения длины исходного материала выработки пары ключей
@@ -551,7 +551,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t material(const kem_t kem) noexcept;
+		__NTS_SHARED_EXPORT__ size_t material(const kem_t kem) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки признака подлинности отправителя у способа инкапсуляции
@@ -575,7 +575,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool authenticated(const kem_t kem) noexcept;
+		__NTS_SHARED_EXPORT__ bool authenticated(const kem_t kem) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения длины ключа шифра
@@ -591,7 +591,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t length(const aead_t aead) noexcept;
+		__NTS_SHARED_EXPORT__ size_t length(const aead_t aead) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция извлечения длины метки подлинности шифра
@@ -607,7 +607,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t overhead(const aead_t aead) noexcept;
+		__NTS_SHARED_EXPORT__ size_t overhead(const aead_t aead) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки поддержки набора алгоритмов
@@ -623,7 +623,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool supported(const suite_t & suite) noexcept;
+		__NTS_SHARED_EXPORT__ bool supported(const suite_t & suite) noexcept;
 
 		/**
 		 * \~russian
@@ -644,7 +644,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Key {
+		typedef class __NTS_SHARED_EXPORT__ Key {
 			private:
 				// Способ инкапсуляции ключа
 				kem_t _kem;
@@ -870,11 +870,11 @@ namespace nts {
 		 */
 		class Context;
 		// Объявляем функцию установки состояния отправителя
-		__ANTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const key_t & ephemeral, uint8_t * enc, Context & context) noexcept;
+		__NTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const key_t & ephemeral, uint8_t * enc, Context & context) noexcept;
 		// Объявляем функцию установки состояния получателя
-		__ANTS_SHARED_EXPORT__ error_t recipient(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, Context & context) noexcept;
+		__NTS_SHARED_EXPORT__ error_t recipient(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, Context & context) noexcept;
 		// Объявляем контекст защищённой пересылки сообщений
-		typedef class __ANTS_SHARED_EXPORT__ Context {
+		typedef class __NTS_SHARED_EXPORT__ Context {
 			private:
 				// Признак того, что состояние установлено
 				bool _ready;
@@ -1183,7 +1183,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encapsulate(const key_t & ephemeral, const view_t & point, const key_t * authenticator, uint8_t * shared, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encapsulate(const key_t & ephemeral, const view_t & point, const key_t * authenticator, uint8_t * shared, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция декапсуляции ключа
@@ -1209,7 +1209,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decapsulate(const key_t & own, const view_t & enc, const view_t & authenticator, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decapsulate(const key_t & own, const view_t & enc, const view_t & authenticator, uint8_t * shared) noexcept;
 
 		/**
 		 * \~russian
@@ -1249,7 +1249,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const key_t & ephemeral, uint8_t * enc, context_t & context) noexcept;
+		__NTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const key_t & ephemeral, uint8_t * enc, context_t & context) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция установки состояния отправителя
@@ -1283,7 +1283,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, uint8_t * enc, context_t & context) noexcept;
+		__NTS_SHARED_EXPORT__ error_t sender(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, uint8_t * enc, context_t & context) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция установки состояния получателя
@@ -1317,7 +1317,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t recipient(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, context_t & context) noexcept;
+		__NTS_SHARED_EXPORT__ error_t recipient(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, context_t & context) noexcept;
 
 		/**
 		 * \~russian
@@ -1356,7 +1356,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t seal(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const view_t & associated, const view_t & source, vector <uint8_t> & enc, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t seal(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const view_t & associated, const view_t & source, vector <uint8_t> & enc, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция расшифрования одного сообщения
@@ -1394,7 +1394,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t open(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, const view_t & associated, const view_t & source, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t open(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, const view_t & associated, const view_t & source, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки секрета экспорта отправителем за один шаг
@@ -1432,7 +1432,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t dispatch(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const view_t & context, const size_t size, vector <uint8_t> & enc, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t dispatch(const suite_t & suite, const regime_t mode, const view_t & point, const view_t & info, const shared_t & psk, const key_t * authenticator, const view_t & context, const size_t size, vector <uint8_t> & enc, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки секрета экспорта получателем за один шаг
@@ -1470,7 +1470,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t receive(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, const view_t & context, const size_t size, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t receive(const suite_t & suite, const regime_t mode, const key_t & own, const view_t & enc, const view_t & info, const shared_t & psk, const view_t & authenticator, const view_t & context, const size_t size, vector <uint8_t> & result) noexcept;
 	};
 };
 

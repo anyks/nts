@@ -23,11 +23,11 @@
  *
  */
 
-#ifndef __ANTS_TESTS_SOCKETS__
+#ifndef __NTS_TESTS_SOCKETS__
 /**
  * Страж включения: файл подключается однократно
  */
-#define __ANTS_TESTS_SOCKETS__
+#define __NTS_TESTS_SOCKETS__
 
 /**
  * Стандартные заголовочные файлы
@@ -88,7 +88,7 @@
 		~AntsWinsock() noexcept { ::WSACleanup(); }
 	};
 	// Единственный экземпляр поднимает Winsock при загрузке оснастки
-	static const AntsWinsock __ants_winsock__;
+	static const AntsWinsock __nts_winsock__;
 	/**
 	 * @brief Закрытие сокета: у Windows close() сокет не закрывает
 	 *

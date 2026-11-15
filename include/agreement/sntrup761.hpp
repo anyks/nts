@@ -130,7 +130,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool pair(uint8_t * key, uint8_t * secret) noexcept;
+		__NTS_SHARED_EXPORT__ bool pair(uint8_t * key, uint8_t * secret) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция инкапсуляции общего секрета sntrup761
@@ -156,7 +156,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encaps(const view_t & key, uint8_t * cipher, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool encaps(const view_t & key, uint8_t * cipher, uint8_t * shared) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция декапсуляции общего секрета sntrup761
@@ -182,7 +182,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool decaps(const view_t & cipher, const view_t & secret, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool decaps(const view_t & cipher, const view_t & secret, uint8_t * shared) noexcept;
 	};
 };
 

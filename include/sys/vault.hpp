@@ -89,7 +89,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Shelter {
+		typedef struct __NTS_SHARED_EXPORT__ Shelter {
 			// Признак памяти, укрытой от снимков памяти процесса
 			bool hidden;
 			// Признак памяти, которой запрещено уходить в подкачку
@@ -156,7 +156,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Vault {
+		typedef class __NTS_SHARED_EXPORT__ Vault {
 			private:
 				/**
 				 * \~russian
@@ -430,7 +430,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Secret {
+		typedef class __NTS_SHARED_EXPORT__ Secret {
 			private:
 				// Адрес участка
 				uint8_t * _data;

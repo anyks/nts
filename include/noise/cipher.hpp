@@ -93,7 +93,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Cipher {
+		typedef class __NTS_SHARED_EXPORT__ Cipher {
 			private:
 				// Функция шифрования с подлинностью
 				aead_t _aead;

@@ -33,11 +33,11 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_CIPHER_CHACHA__
+#ifndef __NTS_INTERNAL_CIPHER_CHACHA__
 /**
  * Макрос экранирования повторной инициализации модуля
  */
-#define __ANTS_INTERNAL_CIPHER_CHACHA__
+#define __NTS_INTERNAL_CIPHER_CHACHA__
 
 /**
  * Стандартные заголовочные файлы
@@ -53,13 +53,13 @@
 /**
  * Ядра берутся у gcc и clang на x86-64; у прочих собирателей и архитектур остаются ветви на
  * интринсиках либо переносимый путь. Под ASan без оптимизации ядра не берутся (признак
- * __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
+ * __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядер на ассемблере
 	 */
-	#define __ANTS_CHACHA_X86_64__
+	#define __NTS_CHACHA_X86_64__
 	/**
 	 * @brief Основное пространство имён
 	 *

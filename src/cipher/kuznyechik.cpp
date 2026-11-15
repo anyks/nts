@@ -54,7 +54,7 @@
  * Если сборка ведётся под x86-64: векторное сложение итогов таблицы идёт SSE2,
  * который на этой архитектуре базовый и ключей сборки не требует
  */
-#if (defined(__x86_64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл внутренних функций x86-64
 	 */
@@ -62,11 +62,11 @@
 	/**
 	 * Объявляем наличие векторного пути SSE2
 	 */
-	#define __ANTS_KUZ_SSE__ 1
+	#define __NTS_KUZ_SSE__ 1
 /**
  * Если сборка ведётся под ARM64: векторное сложение идёт NEON
  */
-#elif (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -74,7 +74,7 @@
 	/**
 	 * Объявляем наличие векторного пути NEON
 	 */
-	#define __ANTS_KUZ_NEON__ 1
+	#define __NTS_KUZ_NEON__ 1
 #endif
 
 /**
@@ -527,7 +527,7 @@ namespace {
 			 * Если есть векторный путь SSE2: итог места байта - шестнадцать байтов,
 			 * они складываются одной векторной операцией вместо двух скалярных
 			 */
-			#if defined(__ANTS_KUZ_SSE__)
+			#if defined(__NTS_KUZ_SSE__)
 				// Накопитель итога преобразования
 				__m128i acc = _mm_setzero_si128();
 				/**
@@ -541,7 +541,7 @@ namespace {
 			/**
 			 * Если есть векторный путь NEON
 			 */
-			#elif defined(__ANTS_KUZ_NEON__)
+			#elif defined(__NTS_KUZ_NEON__)
 				// Накопитель итога преобразования
 				uint8x16_t acc = vdupq_n_u8(0);
 				/**
@@ -606,7 +606,7 @@ namespace {
 			 * Если есть векторный путь SSE2: четыре независимых накопителя, чтения
 			 * таблицы по байтам блоков не зависят друг от друга и идут внахлёст
 			 */
-			#if defined(__ANTS_KUZ_SSE__)
+			#if defined(__NTS_KUZ_SSE__)
 				// Накопители итогов четырёх блоков
 				__m128i a = _mm_setzero_si128(), b = _mm_setzero_si128();
 				// Накопители итогов третьего и четвёртого блоков
@@ -635,7 +635,7 @@ namespace {
 			/**
 			 * Если есть векторный путь NEON
 			 */
-			#elif defined(__ANTS_KUZ_NEON__)
+			#elif defined(__NTS_KUZ_NEON__)
 				// Накопители итогов четырёх блоков
 				uint8x16_t a = vdupq_n_u8(0), b = vdupq_n_u8(0);
 				// Накопители итогов третьего и четвёртого блоков

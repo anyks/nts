@@ -27,10 +27,10 @@
 /**
  * Стандартные модули
  */
+#include <vector>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
-#include <vector>
 
 /**
  * Подключаем заголовочные файлы проекта

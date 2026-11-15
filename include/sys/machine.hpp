@@ -156,7 +156,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool has(const feature_t feature) noexcept;
+		__NTS_SHARED_EXPORT__ bool has(const feature_t feature) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция запрета либо разрешения расширений на исполнении
@@ -176,7 +176,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ void allow(const bool allowed) noexcept;
+		__NTS_SHARED_EXPORT__ void allow(const bool allowed) noexcept;
 	};
 };
 

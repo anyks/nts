@@ -131,7 +131,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -145,7 +145,7 @@ namespace {
 	 * @return      значение функции круга
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t fn(const size_t round, const uint32_t x, const uint32_t y, const uint32_t z) noexcept {
+	static __NTS_INLINE__ uint32_t fn(const size_t round, const uint32_t x, const uint32_t y, const uint32_t z) noexcept {
 		/**
 		 * Выбираем функцию по номеру круга
 		 */
@@ -169,7 +169,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
 		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) |
 		        (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
@@ -181,7 +181,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем младший байт слова
 		data[0] = static_cast <uint8_t> (value);
 		// Записываем второй байт слова
@@ -203,7 +203,7 @@ namespace {
 	 *
 	 */
 	template <size_t STEP>
-	static __ANTS_INLINE__ void leftStep(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
+	static __NTS_INLINE__ void leftStep(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
 		// Номер круга шага
 		constexpr size_t round = (STEP / 16);
 		// Временное слово: сумма первого рабочего слова, функции круга, слова сообщения и константы круга
@@ -227,7 +227,7 @@ namespace {
 	 *
 	 */
 	template <size_t STEP>
-	static __ANTS_INLINE__ void rightStep(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
+	static __NTS_INLINE__ void rightStep(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
 		// Номер круга шага
 		constexpr size_t round = (STEP / 16);
 		// Временное слово: сумма первого рабочего слова, функции круга, слова сообщения и константы круга
@@ -255,7 +255,7 @@ namespace {
 	 *
 	 */
 	template <size_t... STEP>
-	static __ANTS_INLINE__ void passSteps(uint32_t & al, uint32_t & bl, uint32_t & cl, uint32_t & dl, uint32_t & el,
+	static __NTS_INLINE__ void passSteps(uint32_t & al, uint32_t & bl, uint32_t & cl, uint32_t & dl, uint32_t & el,
 	                                      uint32_t & ar, uint32_t & br, uint32_t & cr, uint32_t & dr, uint32_t & er,
 	                                      const uint32_t * message, const std::index_sequence <STEP...> &) noexcept {
 		// Шаг обоих потоков для каждого номера шага: потоки независимы и идут вперемежку

@@ -77,7 +77,7 @@
 	/**
 	 * Объявляем наличие машинного умножения без переносов
 	 */
-	#define __ANTS_CARRYLESS__ 1
+	#define __NTS_CARRYLESS__ 1
 /**
  * Если машина умножает без переносов командой PCLMULQDQ
  */
@@ -90,16 +90,16 @@
 	/**
 	 * Объявляем наличие машинного умножения без переносов
 	 */
-	#define __ANTS_CARRYLESS__ 1
+	#define __NTS_CARRYLESS__ 1
 /**
  * Если сборка ведётся собирателем Microsoft Visual C++ под ARM64 либо x86-64: внутренние функции
  * умножения без переносов доступны ему без ключей сборки, а несёт ли их машина, знает лишь опознание
  */
-#elif (defined(__ANTS_MSVC_ARM64__) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_CARRYLESS)
+#elif (defined(__NTS_MSVC_ARM64__) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_CARRYLESS)
 	/**
 	 * Если сборка ведётся под x86-64
 	 */
-	#if defined(__ANTS_MSVC_X64__)
+	#if defined(__NTS_MSVC_X64__)
 		/**
 		 * Подключаем заголовочный файл команд x86-64
 		 */
@@ -117,17 +117,17 @@
 	/**
 	 * Объявляем наличие машинного умножения без переносов
 	 */
-	#define __ANTS_CARRYLESS__ 1
+	#define __NTS_CARRYLESS__ 1
 	/**
 	 * Объявляем, что пригодность команды спрашивается на исполнении: ключами сборки она не закреплена
 	 */
-	#define __ANTS_CARRYLESS_ASK__ 1
+	#define __NTS_CARRYLESS_ASK__ 1
 #endif
 
 /**
  * Если машина умножает без переносов командой PMULL
  */
-#if defined(__ANTS_CARRYLESS__) && (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__))
+#if defined(__NTS_CARRYLESS__) && (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__))
 	/**
 	 * Если собиратель Microsoft Visual C++: его команда умножения без переносов принимает
 	 * вектор из одного места, собранный из слова внутренней функцией
@@ -136,7 +136,7 @@
 		/**
 		 * Умножение слова на слово без переносов командой PMULL
 		 */
-		#define __ANTS_PMULL64__(first, second) vmull_p64(vcreate_p64(first), vcreate_p64(second))
+		#define __NTS_PMULL64__(first, second) vmull_p64(vcreate_p64(first), vcreate_p64(second))
 	/**
 	 * У собирателей семейства GCC команда принимает слово в типе многочлена
 	 */
@@ -144,7 +144,7 @@
 		/**
 		 * Умножение слова на слово без переносов командой PMULL
 		 */
-		#define __ANTS_PMULL64__(first, second) vmull_p64(static_cast <poly64_t> (first), static_cast <poly64_t> (second))
+		#define __NTS_PMULL64__(first, second) vmull_p64(static_cast <poly64_t> (first), static_cast <poly64_t> (second))
 	#endif
 #endif
 
@@ -197,7 +197,7 @@ namespace {
 	/**
 	 * Если машина умножает без переносов своей командой
 	 */
-	#if defined(__ANTS_CARRYLESS__)
+	#if defined(__NTS_CARRYLESS__)
 		/**
 		 * @brief Функция умножения чисел без переносов машинной командой
 		 *
@@ -214,9 +214,9 @@ namespace {
 			/**
 			 * Если умножение ведётся командой PMULL
 			 */
-			#if defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)
+			#if defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)
 				// Умножение сомножителей без переносов
-				const uint64x2_t value = vreinterpretq_u64_p128(__ANTS_PMULL64__(first, second));
+				const uint64x2_t value = vreinterpretq_u64_p128(__NTS_PMULL64__(first, second));
 				// Записываем младшую половину произведения
 				lo = vgetq_lane_u64(value, 0);
 				// Записываем старшую половину произведения
@@ -242,7 +242,7 @@ namespace {
 	/**
 	 * Если умножения без переносов командой у машины нет либо наличие команды спрашивается на исполнении
 	 */
-	#if !defined(__ANTS_CARRYLESS__) || defined(__ANTS_CARRYLESS_ASK__)
+	#if !defined(__NTS_CARRYLESS__) || defined(__NTS_CARRYLESS_ASK__)
 		/**
 		 * @brief Функция обращения порядка разрядов числа
 		 *
@@ -417,11 +417,11 @@ namespace {
 		/**
 		 * Если умножение без переносов делает сама машина
 		 */
-		#if defined(__ANTS_CARRYLESS__)
+		#if defined(__NTS_CARRYLESS__)
 			/**
 			 * Если пригодность команды не закреплена ключами сборки, её наличие спрашивает опознание машины
 			 */
-			#if defined(__ANTS_CARRYLESS_ASK__)
+			#if defined(__NTS_CARRYLESS_ASK__)
 				// Если машина умножение без переносов своей командой не несёт
 				if(!machine::has(machine::feature_t::CARRYLESS)){
 					// Умножение сомножителей произведениями слоёв разрядов
@@ -558,11 +558,11 @@ namespace {
 	 * @param result место, в которое помещается произведение
 	 * @param size   размер перемножаемых блоков
 	 *
-	 * @note Обозначение __ANTS_INLINE__ здесь нужно по делу: умножение зовётся на всякий
+	 * @note Обозначение __NTS_INLINE__ здесь нужно по делу: умножение зовётся на всякий
 	 *       блок, и оставленное вызовом оно стоит полосе около пяти сотых доли
 	 *
 	 */
-	static __ANTS_INLINE__ void multiply(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void multiply(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
 		// Если перемножаются блоки длиной 128 разрядов
 		if(size == 16)
 			// Умножение блоков в поле GF(2^128)

@@ -192,7 +192,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Share {
+		typedef struct __NTS_SHARED_EXPORT__ Share {
 			// Открытая часть ключа обмена как записана
 			vector <uint8_t> key;
 			// Группа обмена ключами доли: неведомые значения хранятся числом по проводу
@@ -222,7 +222,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Identity {
+		typedef struct __NTS_SHARED_EXPORT__ Identity {
 			// Скрытый возраст билета
 			uint32_t age;
 			// Опознаватель заранее разделённого ключа
@@ -277,7 +277,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Extension {
+		typedef struct __NTS_SHARED_EXPORT__ Extension {
 			// Признак того, что вид расширения есть значение GREASE
 			bool grease;
 			// Вид расширения по проводу
@@ -345,7 +345,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Profile {
+		typedef struct __NTS_SHARED_EXPORT__ Profile {
 			// Признак того, что приветствие несёт значения GREASE
 			bool grease;
 			// Признак того, что приветствие снято поверх дейтаграмм
@@ -403,7 +403,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Imprint {
+		typedef struct __NTS_SHARED_EXPORT__ Imprint {
 			// Строка JA3
 			string ja3;
 			// Отпечаток JA4
@@ -447,7 +447,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Setting {
+		typedef struct __NTS_SHARED_EXPORT__ Setting {
 			// Опознаватель настройки
 			uint16_t id;
 			// Значение настройки
@@ -473,7 +473,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Priority {
+		typedef struct __NTS_SHARED_EXPORT__ Priority {
 			// Признак исключительной зависимости
 			bool exclusive;
 			// Вес потока как записан: настоящий вес на единицу больше
@@ -510,7 +510,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Stream {
+		typedef struct __NTS_SHARED_EXPORT__ Stream {
 			// Порядок псевдозаголовков первого запроса буквами: m - :method, p - :path, s - :scheme, a - :authority
 			string pseudo;
 			// Прибавка окна связи кадром WINDOW_UPDATE: ноль, когда кадра не было
@@ -565,7 +565,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool grease(const uint16_t value) noexcept;
+		__NTS_SHARED_EXPORT__ bool grease(const uint16_t value) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записи с приветствием клиента в профиль
@@ -597,7 +597,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, profile_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, profile_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора сообщения рукопожатия с приветствием клиента в профиль
@@ -625,7 +625,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, profile_t & result, const bool datagram) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, profile_t & result, const bool datagram) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вычисления отпечатков профиля
@@ -665,7 +665,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t imprint(const profile_t & profile, imprint_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t imprint(const profile_t & profile, imprint_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки того, что отпечатки похожи на отпечатки браузера
@@ -681,7 +681,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool browser(const imprint_t & imprint) noexcept;
+		__NTS_SHARED_EXPORT__ bool browser(const imprint_t & imprint) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция печати профиля человеку
@@ -707,7 +707,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t print(const profile_t & profile, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t print(const profile_t & profile, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора начала связи протокола HTTP/2
@@ -731,7 +731,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, stream_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, stream_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вычисления отпечатка Akamai HTTP/2
@@ -755,7 +755,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t akamai(const stream_t & stream, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t akamai(const stream_t & stream, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция снятия переносимого снимка профиля
@@ -781,7 +781,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t dump(const profile_t & profile, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t dump(const profile_t & profile, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция подъёма профиля из переносимого снимка
@@ -799,7 +799,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t load(const view_t & data, profile_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t load(const view_t & data, profile_t & result) noexcept;
 
 		/**
 		 * \~russian
@@ -818,7 +818,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Store {
+		typedef class __NTS_SHARED_EXPORT__ Store {
 			private:
 				/**
 				 * \~russian
@@ -829,7 +829,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				typedef struct __ANTS_SHARED_EXPORT__ Entry {
+				typedef struct __NTS_SHARED_EXPORT__ Entry {
 					// Опознаватель профиля
 					id_t id;
 					// Хранимый профиль

@@ -51,6 +51,7 @@
 /**
  * Стандартный заголовочный файл
  */
+#include <tuple>
 #include <cstring>
 
 /**
@@ -64,7 +65,7 @@
 /**
  * На x86-64 с командами Keccak-x4 нужен опрос признаков машины
  */
-#if defined(__ANTS_KECCAK_X4__) && defined(__x86_64__)
+#if defined(__NTS_KECCAK_X4__) && defined(__x86_64__)
 	/**
 	 * Подключаем заголовочный файл проекта
 	 */
@@ -82,7 +83,7 @@
  *       потому стена открывается признаком архитектуры вместо признака набора
  *
  */
-#if ((defined(__x86_64__) && defined(__SSE2__)) || defined(__ANTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) && defined(__SSE2__)) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Системный заголовочный файл
 	 */
@@ -91,15 +92,15 @@
 	/**
 	 * Признаки векторного пути: команды SSE2
 	 */
-	#define __ANTS_MLDSA_SSE2__
+	#define __NTS_MLDSA_SSE2__
 	/**
 	 * Признак общего векторного пути
 	 */
-	#define __ANTS_MLDSA_VECTOR__
+	#define __NTS_MLDSA_VECTOR__
 /**
  * Ветвь NEON на ARM64
  */
-#elif ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#elif ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Системный заголовочный файл
 	 */
@@ -108,17 +109,17 @@
 	/**
 	 * Признаки векторного пути: команды NEON
 	 */
-	#define __ANTS_MLDSA_NEON__
+	#define __NTS_MLDSA_NEON__
 	/**
 	 * Признак общего векторного пути
 	 */
-	#define __ANTS_MLDSA_VECTOR__
+	#define __NTS_MLDSA_VECTOR__
 #endif
 
 /**
  * Опрос машины нужен ветви SSE2 для развилки векторных слоёв на исполнении
  */
-#if defined(__ANTS_MLDSA_SSE2__)
+#if defined(__NTS_MLDSA_SSE2__)
 	/**
 	 * Подключаем заголовочный файл проекта
 	 */
@@ -158,7 +159,7 @@ namespace {
 	 * @return      обратное value⁻¹ mod 2^32
 	 *
 	 */
-	static constexpr uint32_t __ants_invert32__(const uint32_t value) noexcept {
+	static constexpr uint32_t __nts_invert32__(const uint32_t value) noexcept {
 		// Шаг Ньютона удваивает верные разряды: x·(2 − a·x) сходится к a⁻¹
 		uint32_t result = value;
 		/**
@@ -178,7 +179,7 @@ namespace {
 	 * @brief Обратный множитель приведения Монтгомери: q⁻¹ mod 2^32
 	 *
 	 */
-	static constexpr uint32_t QINV = __ants_invert32__(Q);
+	static constexpr uint32_t QINV = __nts_invert32__(Q);
 	/**
 	 * @brief Единица в форме Монтгомери: 2^32 mod q
 	 *
@@ -198,7 +199,7 @@ namespace {
 	 * @return      приведённое value · 2⁻³² mod q в [−q, q]
 	 *
 	 */
-	static constexpr int32_t __ants_reduce__(const int64_t value) noexcept {
+	static constexpr int32_t __nts_reduce__(const int64_t value) noexcept {
 		// Младшие 32 разряда произведения на q⁻¹ mod 2^32 обращают значение в кратное q
 		const int64_t word = static_cast <int32_t> (static_cast <uint32_t> (static_cast <uint64_t> (value) * QINV));
 		// Выводим приведённое значение: вычитаем кратное q и снимаем масштаб 2^32
@@ -212,9 +213,9 @@ namespace {
 	 * @return       произведение по модулю в форме Монтгомери при second в ней
 	 *
 	 */
-	static constexpr int32_t __ants_multiply__(const int32_t first, const int32_t second) noexcept {
+	static constexpr int32_t __nts_multiply__(const int32_t first, const int32_t second) noexcept {
 		// Выводим произведение с приведением Монтгомери
-		return ::__ants_reduce__(static_cast <int64_t> (first) * second);
+		return ::__nts_reduce__(static_cast <int64_t> (first) * second);
 	}
 	/**
 	 * @brief Функция вычисления обратного по простому модулю q возведением в степень при сборке
@@ -223,7 +224,7 @@ namespace {
 	 * @return      обратное value⁻¹ mod q по малой теореме Ферма: value^(q − 2) mod q
 	 *
 	 */
-	static constexpr uint32_t __ants_invert_q__(const uint32_t value) noexcept {
+	static constexpr uint32_t __nts_invert_q__(const uint32_t value) noexcept {
 		// Накопитель степени и основание в квадрате
 		uint64_t result = 1, base = value;
 		// Показатель q − 2 из малой теоремы Ферма
@@ -249,7 +250,7 @@ namespace {
 	 * @brief Проверяем правильность обращения по модулю
 	 *
 	 */
-	static_assert((static_cast <uint64_t> (::__ants_invert_q__(1753)) * 1753) % Q == 1, "the congruence must hold modulo q");
+	static_assert((static_cast <uint64_t> (::__nts_invert_q__(1753)) * 1753) % Q == 1, "the congruence must hold modulo q");
 
 	/**
 	 * @brief Таблицы степеней корня NTT, считаются один раз при первом обращении
@@ -264,7 +265,7 @@ namespace {
 		 * Хвостовые таблицы нужны лишь векторному пути: слои длины 2 и 1 идут сплавленным
 		 * проходом по восьмёркам коэффициентов, и степени лежат в порядке мест этого прохода
 		 */
-		#if defined(__ANTS_MLDSA_VECTOR__)
+		#if defined(__NTS_MLDSA_VECTOR__)
 			// Степени слоя длины 2 обратного NTT: задом наперёд со знаком минус
 			uint32_t back2[N / 2] = {};
 			// Степени слоя длины 1 обратного NTT
@@ -319,7 +320,7 @@ namespace {
 			/**
 			 * Заполняем хвостовые таблицы векторного пути: по четыре степени на восьмёрку коэффициентов
 			 */
-			#if defined(__ANTS_MLDSA_VECTOR__)
+			#if defined(__NTS_MLDSA_VECTOR__)
 				/**
 				 * Перебираем восьмёрки коэффициентов
 				 */
@@ -356,11 +357,11 @@ namespace {
 	/**
 	 * Векторная прослойка над четырьмя 32-разрядными местами одного регистра
 	 */
-	#if defined(__ANTS_MLDSA_VECTOR__)
+	#if defined(__NTS_MLDSA_VECTOR__)
 		/**
 		 * Ветвь SSE2: вектор в 128 разрядов
 		 */
-		#if defined(__ANTS_MLDSA_SSE2__)
+		#if defined(__NTS_MLDSA_SSE2__)
 			/**
 			 * Создаём тип данных вектора в 128 разрядов
 			 */
@@ -373,7 +374,7 @@ namespace {
 			 * @return     вектор четырёх коэффициентов
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_load_vector__(const void * data) noexcept {
+			static __NTS_INLINE__ vec_t __nts_load_vector__(const void * data) noexcept {
 				// Выводим вектор четырёх коэффициентов
 				return _mm_loadu_si128(reinterpret_cast <const __m128i *> (data));
 			}
@@ -384,7 +385,7 @@ namespace {
 			 * @param value  записываемый вектор
 			 *
 			 */
-			static __ANTS_INLINE__ void __ants_store_vector__(void * result, const vec_t value) noexcept {
+			static __NTS_INLINE__ void __nts_store_vector__(void * result, const vec_t value) noexcept {
 				// Записываем вектор четырёх коэффициентов
 				_mm_storeu_si128(reinterpret_cast <__m128i *> (result), value);
 			}
@@ -395,7 +396,7 @@ namespace {
 			 * @return      вектор с заполненными местами
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_broadcast32__(const int32_t value) noexcept {
+			static __NTS_INLINE__ vec_t __nts_broadcast32__(const int32_t value) noexcept {
 				// Выводим вектор с заполненными местами
 				return _mm_set1_epi32(value);
 			}
@@ -407,7 +408,7 @@ namespace {
 			 * @return       суммы мест
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_add32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_add32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим суммы мест
 				return _mm_add_epi32(first, second);
 			}
@@ -419,7 +420,7 @@ namespace {
 			 * @return       разности мест
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_subtract32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_subtract32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим разности мест
 				return _mm_sub_epi32(first, second);
 			}
@@ -435,7 +436,7 @@ namespace {
 			 * @return       произведения чётных мест в 64-разрядных половинах
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_multiply_even64__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_multiply_even64__(const vec_t first, const vec_t second) noexcept {
 				// Нулевой вектор для расширения слов
 				const vec_t zero = _mm_setzero_si128();
 				// Беззнаковые произведения чётных мест
@@ -455,13 +456,13 @@ namespace {
 			 * @return       произведения нечётных мест в 64-разрядных половинах
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_multiply_odd64__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_multiply_odd64__(const vec_t first, const vec_t second) noexcept {
 				// Нечётные места на чётных позициях
 				const vec_t low = _mm_shuffle_epi32(first, 0x31);
 				// То же для второго сомножителя
 				const vec_t high = _mm_shuffle_epi32(second, 0x31);
 				// Выводим произведения чётных позиций переставленных векторов
-				return ::__ants_multiply_even64__(low, high);
+				return ::__nts_multiply_even64__(low, high);
 			}
 			/**
 			 * @brief Функция умножения Монтгомери четырёх пар мест
@@ -477,27 +478,27 @@ namespace {
 			 * @return       произведения мест с приведением Монтгомери
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_multiply_montgomery__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_multiply_montgomery__(const vec_t first, const vec_t second) noexcept {
 				// Произведения чётных мест
-				const vec_t productEven = ::__ants_multiply_even64__(first, second);
+				const vec_t productEven = ::__nts_multiply_even64__(first, second);
 				// Произведения нечётных мест
-				const vec_t productOdd = ::__ants_multiply_odd64__(first, second);
+				const vec_t productOdd = ::__nts_multiply_odd64__(first, second);
 				// Множитель q⁻¹ mod 2³² по всем местам
-				const vec_t inverse = ::__ants_broadcast32__(static_cast <int32_t> (QINV));
+				const vec_t inverse = ::__nts_broadcast32__(static_cast <int32_t> (QINV));
 				// Модуль q по всем местам
-				const vec_t modulus = ::__ants_broadcast32__(static_cast <int32_t> (Q));
+				const vec_t modulus = ::__nts_broadcast32__(static_cast <int32_t> (Q));
 				// Младшие слова чётных произведений на чётных позициях
 				const vec_t lowEven = _mm_shuffle_epi32(_mm_shuffle_epi32(productEven, 0x08), 0x10);
 				// Младшие слова нечётных произведений
 				const vec_t lowOdd = _mm_shuffle_epi32(_mm_shuffle_epi32(productOdd, 0x08), 0x10);
 				// Множители, обращающие младшие слова чётных произведений в кратные q
-				const vec_t factorEven = ::__ants_multiply_even64__(lowEven, inverse);
+				const vec_t factorEven = ::__nts_multiply_even64__(lowEven, inverse);
 				// Множители нечётных произведений
-				const vec_t factorOdd = ::__ants_multiply_even64__(lowOdd, inverse);
+				const vec_t factorOdd = ::__nts_multiply_even64__(lowOdd, inverse);
 				// Кратные q чётных мест: младшие слова множителей на чётных позициях
-				const vec_t multipleEven = ::__ants_multiply_even64__(_mm_shuffle_epi32(_mm_shuffle_epi32(factorEven, 0x08), 0x10), modulus);
+				const vec_t multipleEven = ::__nts_multiply_even64__(_mm_shuffle_epi32(_mm_shuffle_epi32(factorEven, 0x08), 0x10), modulus);
 				// Кратные q нечётных мест
-				const vec_t multipleOdd = ::__ants_multiply_even64__(_mm_shuffle_epi32(_mm_shuffle_epi32(factorOdd, 0x08), 0x10), modulus);
+				const vec_t multipleOdd = ::__nts_multiply_even64__(_mm_shuffle_epi32(_mm_shuffle_epi32(factorOdd, 0x08), 0x10), modulus);
 				// Разности чётных произведений с кратными q: старшие слова и есть итог
 				const vec_t resultEven = _mm_sub_epi64(productEven, multipleEven);
 				// Разности нечётных произведений
@@ -513,7 +514,7 @@ namespace {
 			 * @return       вектор [a0 a1 b0 b1]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_take_low64__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_take_low64__(const vec_t first, const vec_t second) noexcept {
 				// Выводим младшие половины рядом
 				return _mm_unpacklo_epi64(first, second);
 			}
@@ -525,7 +526,7 @@ namespace {
 			 * @return       вектор [a2 a3 b2 b3]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_take_high64__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_take_high64__(const vec_t first, const vec_t second) noexcept {
 				// Выводим старшие половины рядом
 				return _mm_unpackhi_epi64(first, second);
 			}
@@ -537,9 +538,9 @@ namespace {
 			 * @return       вектор [a0 a2 b0 b2]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_take_even32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_take_even32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим чётные места вперёд
-				return ::__ants_take_low64__(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
+				return ::__nts_take_low64__(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
 			}
 			/**
 			 * @brief Функция сборки нечётных мест двух векторов
@@ -549,9 +550,9 @@ namespace {
 			 * @return       вектор [a1 a3 b1 b3]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_take_odd32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_take_odd32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим нечётные места вперёд
-				return ::__ants_take_high64__(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
+				return ::__nts_take_high64__(_mm_shuffle_epi32(first, 0xD8), _mm_shuffle_epi32(second, 0xD8));
 			}
 			/**
 			 * @brief Функция переплетения младших пар мест двух векторов
@@ -561,7 +562,7 @@ namespace {
 			 * @return       вектор [a0 b0 a1 b1]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_interleave_low32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_interleave_low32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение младших пар
 				return _mm_unpacklo_epi32(first, second);
 			}
@@ -573,14 +574,14 @@ namespace {
 			 * @return       вектор [a2 b2 a3 b3]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_interleave_high32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_interleave_high32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение старших пар
 				return _mm_unpackhi_epi32(first, second);
 			}
 		/**
 		 * Ветвь NEON: те же операции над 128-разрядными векторами ARM64
 		 */
-		#elif defined(__ANTS_MLDSA_NEON__)
+		#elif defined(__NTS_MLDSA_NEON__)
 			/**
 			 * Создаём тип данных вектора в 128 разрядов: четыре 32-разрядных места (NEON)
 			 */
@@ -593,7 +594,7 @@ namespace {
 			 * @return     вектор четырёх коэффициентов
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_load_vector__(const void * data) noexcept {
+			static __NTS_INLINE__ vec_t __nts_load_vector__(const void * data) noexcept {
 				// Выводим вектор четырёх коэффициентов
 				return vld1q_s32(static_cast <const int32_t *> (data));
 			}
@@ -604,7 +605,7 @@ namespace {
 			 * @param value  записываемый вектор
 			 *
 			 */
-			static __ANTS_INLINE__ void __ants_store_vector__(void * result, const vec_t value) noexcept {
+			static __NTS_INLINE__ void __nts_store_vector__(void * result, const vec_t value) noexcept {
 				// Записываем вектор четырёх коэффициентов
 				vst1q_s32(static_cast <int32_t *> (result), value);
 			}
@@ -615,7 +616,7 @@ namespace {
 			 * @return      вектор с заполненными местами
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_broadcast32__(const int32_t value) noexcept {
+			static __NTS_INLINE__ vec_t __nts_broadcast32__(const int32_t value) noexcept {
 				// Выводим вектор с заполненными местами
 				return vdupq_n_s32(value);
 			}
@@ -627,7 +628,7 @@ namespace {
 			 * @return       суммы мест
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_add32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_add32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим суммы мест
 				return vaddq_s32(first, second);
 			}
@@ -639,7 +640,7 @@ namespace {
 			 * @return       разности мест
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_subtract32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_subtract32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим разности мест
 				return vsubq_s32(first, second);
 			}
@@ -655,7 +656,7 @@ namespace {
 			 * @return       произведения мест с приведением Монтгомери
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_multiply_montgomery__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_multiply_montgomery__(const vec_t first, const vec_t second) noexcept {
 				// Произведения чётных мест
 				const int64x2_t productEven = vmull_s32(vget_low_s32(first), vget_low_s32(second));
 				// Произведения нечётных мест
@@ -683,7 +684,7 @@ namespace {
 			 * @return       вектор [a0 a1 b0 b1]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_take_low64__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_take_low64__(const vec_t first, const vec_t second) noexcept {
 				// Выводим младшие половины рядом
 				return vcombine_s32(vget_low_s32(first), vget_low_s32(second));
 			}
@@ -695,7 +696,7 @@ namespace {
 			 * @return       вектор [a2 a3 b2 b3]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_take_high64__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_take_high64__(const vec_t first, const vec_t second) noexcept {
 				// Выводим старшие половины рядом
 				return vcombine_s32(vget_high_s32(first), vget_high_s32(second));
 			}
@@ -707,7 +708,7 @@ namespace {
 			 * @return       вектор [a0 a2 b0 b2]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_take_even32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_take_even32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим чётные места вперёд
 				return vuzp1q_s32(first, second);
 			}
@@ -719,7 +720,7 @@ namespace {
 			 * @return       вектор [a1 a3 b1 b3]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_take_odd32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_take_odd32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим нечётные места вперёд
 				return vuzp2q_s32(first, second);
 			}
@@ -731,7 +732,7 @@ namespace {
 			 * @return       вектор [a0 b0 a1 b1]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_interleave_low32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_interleave_low32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение младших пар
 				return vzip1q_s32(first, second);
 			}
@@ -743,7 +744,7 @@ namespace {
 			 * @return       вектор [a2 b2 a3 b3]
 			 *
 			 */
-			static __ANTS_INLINE__ vec_t __ants_interleave_high32__(const vec_t first, const vec_t second) noexcept {
+			static __NTS_INLINE__ vec_t __nts_interleave_high32__(const vec_t first, const vec_t second) noexcept {
 				// Выводим переплетение старших пар
 				return vzip2q_s32(first, second);
 			}
@@ -762,11 +763,11 @@ namespace {
 	 * @return признак того, что векторные команды машина исполняет честно
 	 *
 	 */
-	static bool __ants_vectors__() noexcept {
+	static bool __nts_vectors__() noexcept {
 		/**
 		 * Готовность ветви SSE2 выясняется по заявке AVX машины
 		 */
-		#if defined(__ANTS_MLDSA_SSE2__)
+		#if defined(__NTS_MLDSA_SSE2__)
 			// Выводим готовность по заявке AVX: умолчательная модель QEMU не заявляет его, а всякое настоящее железо x86-64 заявляет
 			return machine::has(machine::feature_t::AVX);
 		/**
@@ -781,7 +782,7 @@ namespace {
 	/**
 	 * Векторное тело существует лишь на векторном пути
 	 */
-	#if defined(__ANTS_MLDSA_VECTOR__)
+	#if defined(__NTS_MLDSA_VECTOR__)
 		/**
 		 * @brief Функция прямого NTT многочлена векторными слоями
 		 *
@@ -792,7 +793,7 @@ namespace {
 		 * @param poly многочлен, переводится в область NTT на месте
 		 *
 		 */
-		static void __ants_forward_vector__(int32_t * poly) noexcept {
+		static void __nts_forward_vector__(int32_t * poly) noexcept {
 			// Место в таблице степеней
 			size_t index = 0;
 			// Таблица степеней в векторном чтении
@@ -806,18 +807,18 @@ namespace {
 				 */
 				for(size_t start = 0; start < N; start += (2 * length)){
 					// Степень слоя по всем местам
-					const vec_t zeta = ::__ants_broadcast32__(table[++index]);
+					const vec_t zeta = ::__nts_broadcast32__(table[++index]);
 					/**
 					 * Перебираем четвёрки пар участка
 					 */
 					for(size_t j = start; j < (start + length); j += 4){
 						// Произведение степени и вторых коэффициентов пар
-						const vec_t product = ::__ants_multiply_montgomery__(::__ants_load_vector__(poly + j + length), zeta);
+						const vec_t product = ::__nts_multiply_montgomery__(::__nts_load_vector__(poly + j + length), zeta);
 						// Первые коэффициенты пар
-						const vec_t first = ::__ants_load_vector__(poly + j);
+						const vec_t first = ::__nts_load_vector__(poly + j);
 						// Разности и суммы пар
-						::__ants_store_vector__(poly + j + length, ::__ants_subtract32__(first, product));
-						::__ants_store_vector__(poly + j, ::__ants_add32__(first, product));
+						::__nts_store_vector__(poly + j + length, ::__nts_subtract32__(first, product));
+						::__nts_store_vector__(poly + j, ::__nts_add32__(first, product));
 					}
 				}
 			}
@@ -826,37 +827,37 @@ namespace {
 			 */
 			for(size_t i = 0, m = 0; i < N; i += 8, m += 4){
 				// Первый вектор четырёх коэффициентов
-				const vec_t first = ::__ants_load_vector__(poly + i);
+				const vec_t first = ::__nts_load_vector__(poly + i);
 				// Второй вектор четырёх коэффициентов
-				const vec_t second = ::__ants_load_vector__(poly + i + 4);
+				const vec_t second = ::__nts_load_vector__(poly + i + 4);
 				// Слой длины 2: первые пары четвёрок против вторых
-				vec_t low = ::__ants_take_low64__(first, second);
+				vec_t low = ::__nts_take_low64__(first, second);
 				// Старшие половины двух векторов
-				vec_t high = ::__ants_take_high64__(first, second);
+				vec_t high = ::__nts_take_high64__(first, second);
 				// Произведения степеней и вторых пар
-				vec_t product = ::__ants_multiply_montgomery__(high, ::__ants_load_vector__(ZETAS.onward2 + m));
+				vec_t product = ::__nts_multiply_montgomery__(high, ::__nts_load_vector__(ZETAS.onward2 + m));
 				// Разности пар
-				high = ::__ants_subtract32__(low, product);
+				high = ::__nts_subtract32__(low, product);
 				// Суммы пар
-				low = ::__ants_add32__(low, product);
+				low = ::__nts_add32__(low, product);
 				// Порядок памяти восьмёрки: младшие половины
-				const vec_t memoryLow = ::__ants_take_low64__(low, high);
+				const vec_t memoryLow = ::__nts_take_low64__(low, high);
 				// Порядок памяти восьмёрки: старшие половины
-				const vec_t memoryHigh = ::__ants_take_high64__(low, high);
+				const vec_t memoryHigh = ::__nts_take_high64__(low, high);
 				// Чётные места восьмёрки
-				const vec_t even = ::__ants_take_even32__(memoryLow, memoryHigh);
+				const vec_t even = ::__nts_take_even32__(memoryLow, memoryHigh);
 				// Нечётные места восьмёрки
-				const vec_t odd = ::__ants_take_odd32__(memoryLow, memoryHigh);
+				const vec_t odd = ::__nts_take_odd32__(memoryLow, memoryHigh);
 				// Слой длины 1: произведения степеней и нечётных мест
-				product = ::__ants_multiply_montgomery__(odd, ::__ants_load_vector__(ZETAS.onward1 + m));
+				product = ::__nts_multiply_montgomery__(odd, ::__nts_load_vector__(ZETAS.onward1 + m));
 				// Суммы чётных мест
-				low = ::__ants_add32__(even, product);
+				low = ::__nts_add32__(even, product);
 				// Разности чётных мест
-				high = ::__ants_subtract32__(even, product);
+				high = ::__nts_subtract32__(even, product);
 				// Записываем младшую половину восьмёрки в порядок коэффициентов
-				::__ants_store_vector__(poly + i, ::__ants_interleave_low32__(low, high));
+				::__nts_store_vector__(poly + i, ::__nts_interleave_low32__(low, high));
 				// Записываем старшую половину восьмёрки
-				::__ants_store_vector__(poly + i + 4, ::__ants_interleave_high32__(low, high));
+				::__nts_store_vector__(poly + i + 4, ::__nts_interleave_high32__(low, high));
 			}
 		}
 	#endif
@@ -867,7 +868,7 @@ namespace {
 	 * @param poly многочлен, переводится в область NTT на месте
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_forward_portable__(int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_forward_portable__(int32_t * poly) noexcept {
 		// Позиция степени в таблице
 		size_t index = 0;
 		/**
@@ -885,7 +886,7 @@ namespace {
 				 */
 				for(size_t i = start; i < (start + length); i++){
 					// Произведение пары на степень слоя
-					const int32_t term = ::__ants_multiply__(zeta, poly[i + length]);
+					const int32_t term = ::__nts_multiply__(zeta, poly[i + length]);
 					// Бабочка Кули-Тьюки: нижняя половина пары теряет произведение
 					poly[i + length] = (poly[i] - term);
 					// Верхняя половина пары наращивается произведением
@@ -904,27 +905,27 @@ namespace {
 	 * @param poly многочлен, переводится в область NTT на месте
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_forward__(int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_forward__(int32_t * poly) noexcept {
 		/**
 		 * Векторные слои идут лишь готовой машине
 		 */
-		#if defined(__ANTS_MLDSA_VECTOR__)
+		#if defined(__NTS_MLDSA_VECTOR__)
 			// Если векторные слои готовы машине
-			if(::__ants_vectors__()){
+			if(::__nts_vectors__()){
 				// Переводим векторными слоями
-				::__ants_forward_vector__(poly);
+				::__nts_forward_vector__(poly);
 				// Векторные слои перевели многочлен
 				return;
 			}
 		#endif
 		// Переводим переносимыми слоями
-		::__ants_forward_portable__(poly);
+		::__nts_forward_portable__(poly);
 	}
 
 	/**
 	 * Векторное тело существует лишь на векторном пути
 	 */
-	#if defined(__ANTS_MLDSA_VECTOR__)
+	#if defined(__NTS_MLDSA_VECTOR__)
 		/**
 		 * @brief Функция обратного NTT многочлена векторными слоями
 		 *
@@ -935,7 +936,7 @@ namespace {
 		 * @param poly многочлен из области NTT, переводится в обычную форму на месте
 		 *
 		 */
-		static void __ants_backward_vector__(int32_t * poly) noexcept {
+		static void __nts_backward_vector__(int32_t * poly) noexcept {
 			// Место в таблице степеней после хвостовых слоёв
 			size_t index = 64;
 			// Таблица степеней в векторном чтении
@@ -945,37 +946,37 @@ namespace {
 			 */
 			for(size_t i = 0, m = 0; i < N; i += 8, m += 4){
 				// Первый вектор четырёх коэффициентов
-				const vec_t lower = ::__ants_load_vector__(poly + i);
+				const vec_t lower = ::__nts_load_vector__(poly + i);
 				// Второй вектор четырёх коэффициентов
-				const vec_t upper = ::__ants_load_vector__(poly + i + 4);
+				const vec_t upper = ::__nts_load_vector__(poly + i + 4);
 				// Слой длины 1: чётные места восьмёрки
-				const vec_t even = ::__ants_take_even32__(lower, upper);
+				const vec_t even = ::__nts_take_even32__(lower, upper);
 				// Нечётные места восьмёрки
-				const vec_t odd = ::__ants_take_odd32__(lower, upper);
+				const vec_t odd = ::__nts_take_odd32__(lower, upper);
 				// Суммы пар
-				vec_t sum = ::__ants_add32__(even, odd);
+				vec_t sum = ::__nts_add32__(even, odd);
 				// Разности пар
-				const vec_t difference = ::__ants_subtract32__(even, odd);
+				const vec_t difference = ::__nts_subtract32__(even, odd);
 				// Произведения разностей на степени слоя
-				vec_t product = ::__ants_multiply_montgomery__(difference, ::__ants_load_vector__(ZETAS.back1 + m));
+				vec_t product = ::__nts_multiply_montgomery__(difference, ::__nts_load_vector__(ZETAS.back1 + m));
 				// Порядок памяти восьмёрки: младшая половина вперемежку
-				vec_t low = ::__ants_interleave_low32__(sum, product);
+				vec_t low = ::__nts_interleave_low32__(sum, product);
 				// Старшая половина восьмёрки
-				vec_t high = ::__ants_interleave_high32__(sum, product);
+				vec_t high = ::__nts_interleave_high32__(sum, product);
 				// Слой длины 2: первые пары четвёрок
-				const vec_t first = ::__ants_take_low64__(low, high);
+				const vec_t first = ::__nts_take_low64__(low, high);
 				// Вторые пары четвёрок
-				const vec_t second = ::__ants_take_high64__(low, high);
+				const vec_t second = ::__nts_take_high64__(low, high);
 				// Суммы пар слоя
-				sum = ::__ants_add32__(first, second);
+				sum = ::__nts_add32__(first, second);
 				// Разности пар слоя
-				const vec_t spread = ::__ants_subtract32__(first, second);
+				const vec_t spread = ::__nts_subtract32__(first, second);
 				// Произведения разностей на степени слоя
-				product = ::__ants_multiply_montgomery__(spread, ::__ants_load_vector__(ZETAS.back2 + m));
+				product = ::__nts_multiply_montgomery__(spread, ::__nts_load_vector__(ZETAS.back2 + m));
 				// Записываем младшую половину восьмёрки в порядок коэффициентов
-				::__ants_store_vector__(poly + i, ::__ants_take_low64__(sum, product));
+				::__nts_store_vector__(poly + i, ::__nts_take_low64__(sum, product));
 				// Записываем старшую половину восьмёрки
-				::__ants_store_vector__(poly + i + 4, ::__ants_take_high64__(sum, product));
+				::__nts_store_vector__(poly + i + 4, ::__nts_take_high64__(sum, product));
 			}
 			/**
 			 * Перебираем слои длины от 4 до 128
@@ -986,27 +987,27 @@ namespace {
 				 */
 				for(size_t start = 0; start < N; start += (2 * length)){
 					// Степень слоя задом наперёд со знаком минус
-					const vec_t zeta = ::__ants_broadcast32__(static_cast <int32_t> (Q) - table[--index]);
+					const vec_t zeta = ::__nts_broadcast32__(static_cast <int32_t> (Q) - table[--index]);
 					/**
 					 * Перебираем четвёрки пар участка
 					 */
 					for(size_t j = start; j < (start + length); j += 4){
 						// Пара коэффициентов
-						const vec_t first = ::__ants_load_vector__(poly + j), second = ::__ants_load_vector__(poly + j + length);
+						const vec_t first = ::__nts_load_vector__(poly + j), second = ::__nts_load_vector__(poly + j + length);
 						// Бабочка Джентльмена-Санда: сумма вперёд, разность к степени
-						::__ants_store_vector__(poly + j, ::__ants_add32__(first, second));
-						::__ants_store_vector__(poly + j + length, ::__ants_multiply_montgomery__(::__ants_subtract32__(first, second), zeta));
+						::__nts_store_vector__(poly + j, ::__nts_add32__(first, second));
+						::__nts_store_vector__(poly + j + length, ::__nts_multiply_montgomery__(::__nts_subtract32__(first, second), zeta));
 					}
 				}
 			}
 			// Итоговый масштаб 2^56 по всем коэффициентам
-			const vec_t scale = ::__ants_broadcast32__(static_cast <int32_t> (ZETAS.factor));
+			const vec_t scale = ::__nts_broadcast32__(static_cast <int32_t> (ZETAS.factor));
 			/**
 			 * Перебираем четвёрки коэффициентов
 			 */
 			for(size_t i = 0; i < N; i += 4)
 				// Коэффициент снимает масштаб 256 и переводит произведение из формы Монтгомери
-				::__ants_store_vector__(poly + i, ::__ants_multiply_montgomery__(::__ants_load_vector__(poly + i), scale));
+				::__nts_store_vector__(poly + i, ::__nts_multiply_montgomery__(::__nts_load_vector__(poly + i), scale));
 		}
 	#endif
 
@@ -1020,7 +1021,7 @@ namespace {
 	 * @param poly многочлен из области NTT, переводится в обычную форму на месте
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_backward_portable__(int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_backward_portable__(int32_t * poly) noexcept {
 		// Позиция степени в таблице
 		size_t index = N;
 		/**
@@ -1044,7 +1045,7 @@ namespace {
 					// Нижняя половина пары есть разность
 					poly[i + length] = (term - poly[i + length]);
 					// Разность приводится к степени слоя
-					poly[i + length] = ::__ants_multiply__(zeta, poly[i + length]);
+					poly[i + length] = ::__nts_multiply__(zeta, poly[i + length]);
 				}
 			}
 		}
@@ -1053,7 +1054,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < N; i++)
 			// Коэффициент снимает масштаб 256 и переводит произведение из формы Монтгомери
-			poly[i] = ::__ants_multiply__(static_cast <int32_t> (ZETAS.factor), poly[i]);
+			poly[i] = ::__nts_multiply__(static_cast <int32_t> (ZETAS.factor), poly[i]);
 	}
 	/**
 	 * @brief Функция обратного NTT многочлена
@@ -1065,27 +1066,27 @@ namespace {
 	 * @param poly многочлен из области NTT, переводится в обычную форму на месте
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_backward__(int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_backward__(int32_t * poly) noexcept {
 		/**
 		 * Векторные слои идут лишь готовой машине
 		 */
-		#if defined(__ANTS_MLDSA_VECTOR__)
+		#if defined(__NTS_MLDSA_VECTOR__)
 			// Если векторные слои готовы машине
-			if(::__ants_vectors__()){
+			if(::__nts_vectors__()){
 				// Переводим векторными слоями
-				::__ants_backward_vector__(poly);
+				::__nts_backward_vector__(poly);
 				// Векторные слои перевели многочлен
 				return;
 			}
 		#endif
 		// Переводим переносимыми слоями
-		::__ants_backward_portable__(poly);
+		::__nts_backward_portable__(poly);
 	}
 
 	/**
 	 * Векторное тело существует лишь на векторном пути
 	 */
-	#if defined(__ANTS_MLDSA_VECTOR__)
+	#if defined(__NTS_MLDSA_VECTOR__)
 		/**
 		 * @brief Функция произведения многочленов векторными слоями
 		 *
@@ -1094,13 +1095,13 @@ namespace {
 		 * @param result произведение в области
 		 *
 		 */
-		static __ANTS_INLINE__ void __ants_pointwise_vector__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+		static __NTS_INLINE__ void __nts_pointwise_vector__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 			/**
 			 * Перебираем четвёрки коэффициентов
 			 */
 			for(size_t i = 0; i < N; i += 4)
 				// Произведение коэффициентов в области NTT
-				::__ants_store_vector__(result + i, ::__ants_multiply_montgomery__(::__ants_load_vector__(first + i), ::__ants_load_vector__(second + i)));
+				::__nts_store_vector__(result + i, ::__nts_multiply_montgomery__(::__nts_load_vector__(first + i), ::__nts_load_vector__(second + i)));
 		}
 	#endif
 
@@ -1112,13 +1113,13 @@ namespace {
 	 * @param result произведение в области
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_pointwise_portable__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_pointwise_portable__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
 		 * Перебираем коэффициенты
 		 */
 		for(size_t i = 0; i < N; i++)
 			// Произведение коэффициентов в области NTT
-			result[i] = ::__ants_multiply__(first[i], second[i]);
+			result[i] = ::__nts_multiply__(first[i], second[i]);
 	}
 	/**
 	 * @brief Функция произведения многочленов в области NTT по коэффициентам
@@ -1132,21 +1133,21 @@ namespace {
 	 * @param result произведение в области
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_pointwise__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_pointwise__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
 		 * Векторные слои идут лишь готовой машине
 		 */
-		#if defined(__ANTS_MLDSA_VECTOR__)
+		#if defined(__NTS_MLDSA_VECTOR__)
 			// Если векторные слои готовы машине
-			if(::__ants_vectors__()){
+			if(::__nts_vectors__()){
 				// Перемножаем векторными слоями
-				::__ants_pointwise_vector__(first, second, result);
+				::__nts_pointwise_vector__(first, second, result);
 				// Векторные слои перемножили многочлены
 				return;
 			}
 		#endif
 		// Перемножаем переносимыми слоями
-		::__ants_pointwise_portable__(first, second, result);
+		::__nts_pointwise_portable__(first, second, result);
 	}
 	/**
 	 * @brief Функция нормализации коэффициентов многочлена к [0, q)
@@ -1157,7 +1158,7 @@ namespace {
 	 * @param poly многочлен, нормализуется на месте
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_reduce_all__(int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_reduce_all__(int32_t * poly) noexcept {
 		/**
 		 * Приводим коэффициенты к [0, q)
 		 */
@@ -1176,7 +1177,7 @@ namespace {
 	 * @param result сумма
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_add__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_add__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
 		 * Складываем коэффициенты
 		 */
@@ -1192,7 +1193,7 @@ namespace {
 	 * @param result разность
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_subtract__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_subtract__(const int32_t * first, const int32_t * second, int32_t * result) noexcept {
 		/**
 		 * Вычитаем коэффициенты
 		 */
@@ -1233,7 +1234,7 @@ namespace {
 	 * @return    параметры набора, нули у несуществующего набора
 	 *
 	 */
-	static constexpr params_t __ants_params__(const sign::Mldsa::set_t set) noexcept {
+	static constexpr params_t __nts_params__(const sign::Mldsa::set_t set) noexcept {
 		/**
 		 * Определяем набор параметров
 		 */
@@ -1258,7 +1259,7 @@ namespace {
 	/**
 	 * Поглощение и выжимание словами нужно лишь параллельному ядру губок Keccak
 	 */
-	#if defined(__ANTS_KECCAK_X4__)
+	#if defined(__NTS_KECCAK_X4__)
 		/**
 		 * @brief Функция чтения 64-разрядного слова байтами от младшего
 		 *
@@ -1266,7 +1267,7 @@ namespace {
 		 * @return     слово из восьми байтов
 		 *
 		 */
-		static __ANTS_INLINE__ uint64_t __ants_word_load__(const uint8_t * data) noexcept {
+		static __NTS_INLINE__ uint64_t __nts_word_load__(const uint8_t * data) noexcept {
 			// Слово из восьми байтов
 			uint64_t word = 0;
 			/**
@@ -1285,7 +1286,7 @@ namespace {
 		 * @param result место, в которое помещаются байты слова
 		 *
 		 */
-		static __ANTS_INLINE__ void __ants_word_store__(const uint64_t word, uint8_t * result) noexcept {
+		static __NTS_INLINE__ void __nts_word_store__(const uint64_t word, uint8_t * result) noexcept {
 			/**
 			 * Перебираем байты слова
 			 */
@@ -1298,7 +1299,7 @@ namespace {
 	/**
 	 * Опрос готовности параллельного ядра Keccak-x4
 	 */
-	#if defined(__ANTS_KECCAK_X4__)
+	#if defined(__NTS_KECCAK_X4__)
 		/**
 		 * @brief Функция проверки готовности параллельного ядра губок
 		 *
@@ -1308,7 +1309,7 @@ namespace {
 		 * @return признак готовности ядра четырёх состояний
 		 *
 		 */
-		static __ANTS_INLINE__ bool __ants_sponges4__() noexcept {
+		static __NTS_INLINE__ bool __nts_sponges4__() noexcept {
 			/**
 			 * Признак AVX2 опрашиваем только на x86-64, где команды есть
 			 */
@@ -1328,7 +1329,7 @@ namespace {
 	/**
 	 * Параллельный разворот зёрен губками Keccak-x4
 	 */
-	#if defined(__ANTS_KECCAK_X4__)
+	#if defined(__NTS_KECCAK_X4__)
 		/**
 		 * @brief Функция параллельной выборки четырёх многочленов матрицы в области NTT
 		 *
@@ -1344,7 +1345,7 @@ namespace {
 		 * @param outs    места, в которые помещаются четыре многочлена
 		 *
 		 */
-		static void __ants_expand_a4__(const uint8_t * rho, const uint8_t indices[4][2], int32_t * const outs[4]) noexcept {
+		static void __nts_expand_a4__(const uint8_t * rho, const uint8_t indices[4][2], int32_t * const outs[4]) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -1358,7 +1359,7 @@ namespace {
 				 */
 				for(size_t i = 0; i < 4; i++)
 					// Складываем очередное слово зерна
-					states[k][i] ^= ::__ants_word_load__(rho + (i * 8));
+					states[k][i] ^= ::__nts_word_load__(rho + (i * 8));
 				// Складываем пару индексов матрицы
 				states[k][4] ^= (indices[k][0] | (static_cast <uint64_t> (indices[k][1]) << 8));
 			}
@@ -1398,7 +1399,7 @@ namespace {
 					 */
 					for(size_t i = 0; i < (168 / 8); i++)
 						// Записываем очередное слово блока
-						::__ants_word_store__(states[k][i], blocks[k] + (i * 8));
+						::__nts_word_store__(states[k][i], blocks[k] + (i * 8));
 				/**
 				 * Разбираем тройки байтов блока каждой губкой
 				 */
@@ -1431,7 +1432,7 @@ namespace {
 	 * @param poly   многочлен в области NTT
 	 *
 	 */
-	static void __ants_expand_a__(const uint8_t * rho, const uint8_t row, const uint8_t column, int32_t * poly) noexcept {
+	static void __nts_expand_a__(const uint8_t * rho, const uint8_t row, const uint8_t column, int32_t * poly) noexcept {
 		// Поток SHAKE128 над ρ ‖ столбец ‖ строка
 		digest::keccak_t xof(digest::sha3_t::SHAKE128);
 		// Подаём зерно матрицы в поток
@@ -1480,13 +1481,13 @@ namespace {
 	 * @param matrix  место, в которое помещаются многочлены матрицы строками подряд
 	 *
 	 */
-	static void __ants_matrix_expand__(const uint8_t * rho, const size_t rows, const size_t columns, const size_t stride, int32_t * const matrix) noexcept {
+	static void __nts_matrix_expand__(const uint8_t * rho, const size_t rows, const size_t columns, const size_t stride, int32_t * const matrix) noexcept {
 		/**
 		 * Параллельный разворот матрицы губками Keccak-x4
 		 */
-		#if defined(__ANTS_KECCAK_X4__)
+		#if defined(__NTS_KECCAK_X4__)
 			// Если параллельное ядро губок готово
-			if(::__ants_sponges4__()){
+			if(::__nts_sponges4__()){
 				// Число многочленов матрицы
 				const size_t total = rows * columns;
 				// Линейная позиция многочлена: строка за строкой
@@ -1513,14 +1514,14 @@ namespace {
 						outs[j] = (matrix + (((linear / columns) * stride) + (linear % columns)) * N);
 					}
 					// Выбираем четыре многочлена разом
-					::__ants_expand_a4__(rho, indices, outs);
+					::__nts_expand_a4__(rho, indices, outs);
 				}
 				/**
 				 * Перебираем хвостовые многочлены
 				 */
 				for(; index < total; index++)
 					// Выбираем многочлен одной губкой
-					::__ants_expand_a__(rho, static_cast <uint8_t> (index / columns), static_cast <uint8_t> (index % columns), matrix + (((index / columns) * stride) + (index % columns)) * N);
+					::__nts_expand_a__(rho, static_cast <uint8_t> (index / columns), static_cast <uint8_t> (index % columns), matrix + (((index / columns) * stride) + (index % columns)) * N);
 				// Матрица развёрнута губками четвёрками
 				return;
 			}
@@ -1534,7 +1535,7 @@ namespace {
 			 */
 			for(size_t column = 0; column < columns; column++)
 				// Многочлен матрицы из зерна ρ
-				::__ants_expand_a__(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), matrix + (((row * stride) + column) * N));
+				::__nts_expand_a__(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), matrix + (((row * stride) + column) * N));
 	}
 	/**
 	 * @brief Функция выборки многочлена секрета с коэффициентами из [−η, η]
@@ -1545,7 +1546,7 @@ namespace {
 	 * @param poly     многочлен секрета
 	 *
 	 */
-	static void __ants_expand_s__(const uint8_t * rhoprime, const uint16_t nonce, const uint8_t eta, int32_t * poly) noexcept {
+	static void __nts_expand_s__(const uint8_t * rhoprime, const uint16_t nonce, const uint8_t eta, int32_t * poly) noexcept {
 		// Поток SHAKE256 над ρ′ ‖ номер многочлена младшим байтом вперёд
 		digest::keccak_t xof(digest::sha3_t::SHAKE256);
 		// Подаём зерно секрета в поток
@@ -1624,7 +1625,7 @@ namespace {
 	/**
 	 * Параллельная выборка секретов доступна при параллельном ядре губок Keccak
 	 */
-	#if defined(__ANTS_KECCAK_X4__)
+	#if defined(__NTS_KECCAK_X4__)
 		/**
 		 * @brief Функция параллельной выборки четырёх многочленов секрета
 		 *
@@ -1641,7 +1642,7 @@ namespace {
 		 * @param outs     места, в которые помещаются четыре многочлена
 		 *
 		 */
-		static void __ants_expand_s4__(const uint8_t * rhoprime, const uint16_t nonces[4], const uint8_t eta, int32_t * const outs[4]) noexcept {
+		static void __nts_expand_s4__(const uint8_t * rhoprime, const uint16_t nonces[4], const uint8_t eta, int32_t * const outs[4]) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -1655,7 +1656,7 @@ namespace {
 				 */
 				for(size_t i = 0; i < 8; i++)
 					// Складываем очередное слово зерна
-					states[k][i] ^= ::__ants_word_load__(rhoprime + (i * 8));
+					states[k][i] ^= ::__nts_word_load__(rhoprime + (i * 8));
 				// Складываем номер многочлена младшим байтом вперёд
 				states[k][8] ^= (static_cast <uint64_t> (nonces[k] & 0xFF) | (static_cast <uint64_t> (nonces[k] >> 8) << 8));
 			}
@@ -1695,7 +1696,7 @@ namespace {
 					 */
 					for(size_t i = 0; i < (136 / 8); i++)
 						// Записываем очередное слово блока
-						::__ants_word_store__(states[k][i], blocks[k] + (i * 8));
+						::__nts_word_store__(states[k][i], blocks[k] + (i * 8));
 				/**
 				 * Разбираем полубайты блока каждой губкой без ветвления по данным: коэффициент пишется всегда, счётчик растёт лишь у принятых полубайтов
 				 */
@@ -1771,13 +1772,13 @@ namespace {
 	 * @param s2       вектор секрета s2
 	 *
 	 */
-	static void __ants_expand_secrets__(const uint8_t * rhoprime, const size_t lengthS1, const size_t lengthS2, const uint8_t eta, int32_t s1[7][N], int32_t s2[8][N]) noexcept {
+	static void __nts_expand_secrets__(const uint8_t * rhoprime, const size_t lengthS1, const size_t lengthS2, const uint8_t eta, int32_t s1[7][N], int32_t s2[8][N]) noexcept {
 		/**
 		 * Если параллельное ядро губок готово, секреты выбираются четвёрками губок
 		 */
-		#if defined(__ANTS_KECCAK_X4__)
+		#if defined(__NTS_KECCAK_X4__)
 			// Если параллельное ядро губок готово
-			if(::__ants_sponges4__()){
+			if(::__nts_sponges4__()){
 				// Места всех многочленов секрета: сначала s1, затем s2
 				int32_t * outs[15];
 				// Число многочленов секрета
@@ -1814,7 +1815,7 @@ namespace {
 						group[j] = (((index + j) < count) ? outs[index + j] : idle);
 					}
 					// Выбираем четыре многочлена разом
-					::__ants_expand_s4__(rhoprime, nonces, eta, group);
+					::__nts_expand_s4__(rhoprime, nonces, eta, group);
 				}
 				// Затираем запасной буфер
 				sys::wipe(idle, sizeof(idle));
@@ -1827,13 +1828,13 @@ namespace {
 		 */
 		for(size_t i = 0; i < lengthS1; i++)
 			// Многочлен секрета s1 из зерна ρ′
-			::__ants_expand_s__(rhoprime, static_cast <uint16_t> (i), eta, s1[i]);
+			::__nts_expand_s__(rhoprime, static_cast <uint16_t> (i), eta, s1[i]);
 		/**
 		 * Перебираем многочлены s2
 		 */
 		for(size_t i = 0; i < lengthS2; i++)
 			// Многочлен секрета s2 из зерна ρ′
-			::__ants_expand_s__(rhoprime, static_cast <uint16_t> (lengthS1 + i), eta, s2[i]);
+			::__nts_expand_s__(rhoprime, static_cast <uint16_t> (lengthS1 + i), eta, s2[i]);
 	}
 	/**
 	 * @brief Функция выборки маски подписи с коэффициентами из (−γ1, γ1]
@@ -1844,7 +1845,7 @@ namespace {
 	 * @param poly   многочлен маски
 	 *
 	 */
-	static void __ants_expand_mask__(const uint8_t * rhodbl, const uint16_t nonce, const uint32_t gamma1, int32_t * poly) noexcept {
+	static void __nts_expand_mask__(const uint8_t * rhodbl, const uint16_t nonce, const uint32_t gamma1, int32_t * poly) noexcept {
 		// Поток SHAKE256 над ρ″ ‖ номер многочлена младшим байтом вперёд
 		digest::keccak_t xof(digest::sha3_t::SHAKE256);
 		// Подаём зерно маски в поток
@@ -1928,7 +1929,7 @@ namespace {
 	 * @param poly многочлен вызова с τ коэффициентами ±1
 	 *
 	 */
-	static void __ants_sample_in_ball__(const uint8_t * seed, const size_t size, const uint8_t tau, int32_t * poly) noexcept {
+	static void __nts_sample_in_ball__(const uint8_t * seed, const size_t size, const uint8_t tau, int32_t * poly) noexcept {
 		// Поток SHAKE256 над зерном вызова
 		digest::keccak_t xof(digest::sha3_t::SHAKE256);
 		// Подаём зерно вызова в поток
@@ -1996,7 +1997,7 @@ namespace {
 	 * @return       старшая часть из [0, (q − 1)/(2γ2) − 1]
 	 *
 	 */
-	static int32_t __ants_decompose__(const int32_t value, const uint32_t gamma2, int32_t & low) noexcept {
+	static int32_t __nts_decompose__(const int32_t value, const uint32_t gamma2, int32_t & low) noexcept {
 		// Старшая часть округлением к ближайшему кратному 2γ2
 		int32_t high = ((value + 127) >> 7);
 		// Если граница младшей части γ2 = (q − 1)/32
@@ -2027,7 +2028,7 @@ namespace {
 	 * @return      старшая часть productOdd из [0, 2^10)
 	 *
 	 */
-	static __ANTS_INLINE__ int32_t __ants_power2round__(const int32_t value, int32_t & low) noexcept {
+	static __NTS_INLINE__ int32_t __nts_power2round__(const int32_t value, int32_t & low) noexcept {
 		// Старшая часть округлением вверх к 2^13
 		const int32_t high = ((value + ((1 << 12) - 1)) >> 13);
 		// Младшая часть вычитанием старшей
@@ -2043,11 +2044,11 @@ namespace {
 	 * @return      скорректированная старшая часть из [0, (q − 1)/(2γ2) − 1]
 	 *
 	 */
-	static __ANTS_INLINE__ int32_t __ants_use_hint__(const int32_t value, const uint32_t hint, const uint32_t gamma2) noexcept {
+	static __NTS_INLINE__ int32_t __nts_use_hint__(const int32_t value, const uint32_t hint, const uint32_t gamma2) noexcept {
 		// Младшая часть разложения
 		int32_t low = 0;
 		// Разложение коэффициента на части
-		const int32_t high = ::__ants_decompose__(value, gamma2, low);
+		const int32_t high = ::__nts_decompose__(value, gamma2, low);
 		// Если бит подсказки нулевой
 		if(hint == 0)
 			// Без подсказки старшая часть не меняется
@@ -2067,7 +2068,7 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_bitpack__(const uint32_t * poly, const size_t bits, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_bitpack__(const uint32_t * poly, const size_t bits, uint8_t * result) noexcept {
 		// Число занятых разрядов окна
 		size_t used = 0;
 		// Накопитель разрядов
@@ -2101,7 +2102,7 @@ namespace {
 	 * @param poly многочлен со значениями из [0, 2^bits)
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_bitunpack__(const uint8_t * data, const size_t bits, uint32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_bitunpack__(const uint8_t * data, const size_t bits, uint32_t * poly) noexcept {
 		// Число разрядов в окне
 		size_t used = 0;
 		// Накопитель разрядов окна
@@ -2134,7 +2135,7 @@ namespace {
 	 * @param result место записи, 320 байтов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_pack_t1__(const int32_t * poly, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_pack_t1__(const int32_t * poly, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2144,7 +2145,7 @@ namespace {
 			// Коэффициент в беззнаковую форму
 			work[i] = static_cast <uint32_t> (poly[i]);
 		// Записываем по 10 разрядов на коэффициент
-		::__ants_bitpack__(work, 10, result);
+		::__nts_bitpack__(work, 10, result);
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
@@ -2155,11 +2156,11 @@ namespace {
 	 * @param poly многочлен productOdd
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_unpack_t1__(const uint8_t * data, int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_unpack_t1__(const uint8_t * data, int32_t * poly) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		// Читаем по 10 разрядов на коэффициент
-		::__ants_bitunpack__(data, 10, work);
+		::__nts_bitunpack__(data, 10, work);
 		/**
 		 * Переводим коэффициенты в знаковую форму
 		 */
@@ -2176,7 +2177,7 @@ namespace {
 	 * @param result место записи, 416 байтов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_pack_t0__(const int32_t * poly, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_pack_t0__(const int32_t * poly, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2186,7 +2187,7 @@ namespace {
 			// Коэффициент из (−2^12, 2^12] в беззнаковую форму 2^12 − productEven
 			work[i] = static_cast <uint32_t> ((1 << 12) - poly[i]);
 		// Записываем по 13 разрядов на коэффициент
-		::__ants_bitpack__(work, 13, result);
+		::__nts_bitpack__(work, 13, result);
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
@@ -2197,11 +2198,11 @@ namespace {
 	 * @param poly многочлен productEven
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_unpack_t0__(const uint8_t * data, int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_unpack_t0__(const uint8_t * data, int32_t * poly) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		// Читаем по 13 разрядов на коэффициент
-		::__ants_bitunpack__(data, 13, work);
+		::__nts_bitunpack__(data, 13, work);
 		/**
 		 * Переводим коэффициенты в знаковую форму
 		 */
@@ -2219,7 +2220,7 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_pack_s__(const int32_t * poly, const uint8_t eta, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_pack_s__(const int32_t * poly, const uint8_t eta, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2229,7 +2230,7 @@ namespace {
 			// Коэффициент из [−η, η] в беззнаковую форму η − s
 			work[i] = static_cast <uint32_t> (eta - poly[i]);
 		// Записываем по 3 либо 4 разряда на коэффициент
-		::__ants_bitpack__(work, ((eta == 2) ? 3 : 4), result);
+		::__nts_bitpack__(work, ((eta == 2) ? 3 : 4), result);
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
@@ -2242,13 +2243,13 @@ namespace {
 	 * @return     признак кода записи за границей 2η (гнилая запись ключа)
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t __ants_unpack_s__(const uint8_t * data, const uint8_t eta, int32_t * poly) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_unpack_s__(const uint8_t * data, const uint8_t eta, int32_t * poly) noexcept {
 		// Признак гнилой записи: коды выше 2η из выборки стандарта не выходят
 		uint32_t reject = 0;
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		// Читаем по 3 либо 4 разряда на коэффициент
-		::__ants_bitunpack__(data, ((eta == 2) ? 3 : 4), work);
+		::__nts_bitunpack__(data, ((eta == 2) ? 3 : 4), work);
 		/**
 		 * Разбираем коды коэффициентов
 		 */
@@ -2271,7 +2272,7 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_pack_z__(const int32_t * poly, const uint32_t gamma1, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_pack_z__(const int32_t * poly, const uint32_t gamma1, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2281,7 +2282,7 @@ namespace {
 			// Коэффициент из (−γ1, γ1] в беззнаковую форму γ1 − z
 			work[i] = static_cast <uint32_t> (gamma1 - poly[i]);
 		// Записываем по 18 либо 20 разрядов на коэффициент
-		::__ants_bitpack__(work, ((gamma1 == (1u << 17)) ? 18 : 20), result);
+		::__nts_bitpack__(work, ((gamma1 == (1u << 17)) ? 18 : 20), result);
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
@@ -2293,11 +2294,11 @@ namespace {
 	 * @param poly   многочлен ответа
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_unpack_z__(const uint8_t * data, const uint32_t gamma1, int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_unpack_z__(const uint8_t * data, const uint32_t gamma1, int32_t * poly) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		// Читаем по 18 либо 20 разрядов на коэффициент
-		::__ants_bitunpack__(data, ((gamma1 == (1u << 17)) ? 18 : 20), work);
+		::__nts_bitunpack__(data, ((gamma1 == (1u << 17)) ? 18 : 20), work);
 		/**
 		 * Переводим коэффициенты в знаковую форму
 		 */
@@ -2315,7 +2316,7 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_encode_w1__(const int32_t * poly, const uint32_t gamma2, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_encode_w1__(const int32_t * poly, const uint32_t gamma2, uint8_t * result) noexcept {
 		// Рабочий многочлен беззнаковых коэффициентов
 		uint32_t work[N];
 		/**
@@ -2325,7 +2326,7 @@ namespace {
 			// Старшая часть в беззнаковую форму
 			work[i] = static_cast <uint32_t> (poly[i]);
 		// Записываем по 4 либо 6 разрядов на коэффициент
-		::__ants_bitpack__(work, ((gamma2 == ((Q - 1) / 32)) ? 4 : 6), result);
+		::__nts_bitpack__(work, ((gamma2 == ((Q - 1) / 32)) ? 4 : 6), result);
 		// Затираем рабочий многочлен
 		sys::wipe(work, sizeof(work));
 	}
@@ -2337,7 +2338,7 @@ namespace {
 	 * @return      ненольное значение, если модуль какого-то коэффициента не меньше границы
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t __ants_overflow__(const int32_t * poly, const int32_t bound) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_overflow__(const int32_t * poly, const int32_t bound) noexcept {
 		// Накопитель признака превышения
 		uint32_t result = 0;
 		/**
@@ -2364,13 +2365,13 @@ namespace {
 	 * @param result  вектор из rows многочленов в области NTT
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_matrix_vector__(const int32_t * matrix, const int32_t * vector, const uint8_t rows, const uint8_t columns, int32_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_matrix_vector__(const int32_t * matrix, const int32_t * vector, const uint8_t rows, const uint8_t columns, int32_t * result) noexcept {
 		/**
 		 * Перебираем строки результата
 		 */
 		for(size_t row = 0; row < rows; row++){
 			// Первое произведение строки
-			::__ants_pointwise__(matrix + ((row * columns) * N), vector, result + (row * N));
+			::__nts_pointwise__(matrix + ((row * columns) * N), vector, result + (row * N));
 			/**
 			 * Остальные слагаемые строки накапливаются
 			 */
@@ -2378,9 +2379,9 @@ namespace {
 				// Рабочий многочлен произведения
 				int32_t term[N];
 				// Произведение столбца строки на многочлен вектора
-				::__ants_pointwise__(matrix + (((row * columns) + column) * N), vector + (column * N), term);
+				::__nts_pointwise__(matrix + (((row * columns) + column) * N), vector + (column * N), term);
 				// Накопление произведения в строке итога
-				::__ants_add__(result + (row * N), term, result + (row * N));
+				::__nts_add__(result + (row * N), term, result + (row * N));
 				// Затираем рабочий многочлен
 				sys::wipe(term, sizeof(term));
 			}
@@ -2395,7 +2396,7 @@ namespace {
 	 * @param secret место для записи ключа подписи ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ productEven
 	 *
 	 */
-	static void __ants_keygen__(const params_t & setup, const uint8_t * seed, uint8_t * key, uint8_t * secret) noexcept {
+	static void __nts_keygen__(const params_t & setup, const uint8_t * seed, uint8_t * key, uint8_t * secret) noexcept {
 		// Расширение зерна: (ρ, ρ′, K) = H(ξ ‖ k ‖ l, 128)
 		uint8_t expanded[128];
 		{
@@ -2419,11 +2420,11 @@ namespace {
 		// Матрица A в области NTT и секретные векторы s1, s2
 		int32_t matrix[8][7][N];
 		// Матрица из зерна ρ: четыре губки разом, хвост по одной
-		::__ants_matrix_expand__(rho, setup.rows, setup.columns, 7, &matrix[0][0][0]);
+		::__nts_matrix_expand__(rho, setup.rows, setup.columns, 7, &matrix[0][0][0]);
 		// Секретные векторы s1 и s2
 		int32_t s1[7][N], s2[8][N];
 		// Секреты из зерна ρ′
-		::__ants_expand_secrets__(rhoprime, setup.columns, setup.rows, setup.eta, s1, s2);
+		::__nts_expand_secrets__(rhoprime, setup.columns, setup.rows, setup.eta, s1, s2);
 		// t = NTT⁻¹(A ∘ NTT(s1)) + s2 по строкам матрицы
 		int32_t t[8][N];
 		{
@@ -2436,14 +2437,14 @@ namespace {
 				// Копия многочлена секрета для перевода в область
 				::memcpy(domain[i], s1[i], sizeof(domain[i]));
 				// Многочлен секрета в области NTT
-				::__ants_forward__(domain[i]);
+				::__nts_forward__(domain[i]);
 			}
 			/**
 			 * Вычисляем строки t произведением матрицы на секрет
 			 */
 			for(size_t row = 0; row < setup.rows; row++){
 				// Первое произведение строки матрицы
-				::__ants_pointwise__(matrix[row][0], domain[0], t[row]);
+				::__nts_pointwise__(matrix[row][0], domain[0], t[row]);
 				/**
 				 * Перебираем столбцы строки
 				 */
@@ -2451,18 +2452,18 @@ namespace {
 					// Рабочий многочлен произведения
 					int32_t term[N];
 					// Произведение столбца строки на многочлен секрета
-					::__ants_pointwise__(matrix[row][column], domain[column], term);
+					::__nts_pointwise__(matrix[row][column], domain[column], term);
 					// Накопление произведения в строке t
-					::__ants_add__(t[row], term, t[row]);
+					::__nts_add__(t[row], term, t[row]);
 					// Затираем рабочий многочлен
 					sys::wipe(term, sizeof(term));
 				}
 				// Строка t в обычную форму
-				::__ants_backward__(t[row]);
+				::__nts_backward__(t[row]);
 				// Строка t дополняется секретом s2
-				::__ants_add__(t[row], s2[row], t[row]);
+				::__nts_add__(t[row], s2[row], t[row]);
 				// Коэффициенты строки t к [0, q)
-				::__ants_reduce_all__(t[row]);
+				::__nts_reduce_all__(t[row]);
 			}
 			// Затираем образ секрета в области NTT
 			sys::wipe(domain, sizeof(domain));
@@ -2480,9 +2481,9 @@ namespace {
 			 */
 			for(size_t i = 0; i < N; i++)
 				// Коэффициент t раскладывается на productOdd и productEven
-				t[row][i] = ::__ants_power2round__(t[row][i], productEven[row][i]);
+				t[row][i] = ::__nts_power2round__(t[row][i], productEven[row][i]);
 			// Записываем строку productOdd в ключ проверки
-			::__ants_pack_t1__(t[row], (key + 32 + (row * 320)));
+			::__nts_pack_t1__(t[row], (key + 32 + (row * 320)));
 		}
 		// Трассировка открытого ключа: tr = H(ρ ‖ productOdd, 64)
 		uint8_t trace[64];
@@ -2513,7 +2514,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < setup.columns; i++){
 			// Записываем многочлен секрета s1
-			::__ants_pack_s__(s1[i], setup.eta, out);
+			::__nts_pack_s__(s1[i], setup.eta, out);
 			// Продвигаем позицию записи на размер записи секрета
 			out += ((setup.eta == 2) ? 96 : 128);
 		}
@@ -2522,7 +2523,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < setup.rows; i++){
 			// Записываем многочлен секрета s2
-			::__ants_pack_s__(s2[i], setup.eta, out);
+			::__nts_pack_s__(s2[i], setup.eta, out);
 			// Продвигаем позицию записи на размер записи секрета
 			out += ((setup.eta == 2) ? 96 : 128);
 		}
@@ -2531,7 +2532,7 @@ namespace {
 		 */
 		for(size_t row = 0; row < setup.rows; row++){
 			// Записываем строку младших частей productEven
-			::__ants_pack_t0__(productEven[row], out);
+			::__nts_pack_t0__(productEven[row], out);
 			// Продвигаем позицию записи на 416 байтов
 			out += 416;
 		}
@@ -2562,7 +2563,7 @@ namespace {
 	 * @param result  место для записи подписи c~ ‖ z ‖ h
 	 *
 	 */
-	static void __ants_signing__(const params_t & setup, const uint8_t * secret, const uint8_t * rnd, const view_t & message, const view_t & context, uint8_t * result) noexcept {
+	static void __nts_signing__(const params_t & setup, const uint8_t * secret, const uint8_t * rnd, const view_t & message, const view_t & context, uint8_t * result) noexcept {
 		// Зерно матрицы ρ из записи ключа
 		const uint8_t * rho = secret;
 		// Ключ случайности K из записи ключа
@@ -2610,38 +2611,38 @@ namespace {
 		 */
 		for(size_t i = 0; i < setup.columns; i++){
 			// Читаем многочлен секрета s1
-			std::ignore = ::__ants_unpack_s__(packed, setup.eta, s1[i]);
+			std::ignore = ::__nts_unpack_s__(packed, setup.eta, s1[i]);
 			// Продвигаем позицию чтения на размер записи секрета
 			packed += ((setup.eta == 2) ? 96 : 128);
 			// Многочлен s1 в область NTT
-			::__ants_forward__(s1[i]);
+			::__nts_forward__(s1[i]);
 		}
 		/**
 		 * Читаем многочлены s2
 		 */
 		for(size_t i = 0; i < setup.rows; i++){
 			// Читаем многочлен секрета s2
-			std::ignore = ::__ants_unpack_s__(packed, setup.eta, s2[i]);
+			std::ignore = ::__nts_unpack_s__(packed, setup.eta, s2[i]);
 			// Продвигаем позицию чтения на размер записи секрета
 			packed += ((setup.eta == 2) ? 96 : 128);
 			// Многочлен s2 в область NTT
-			::__ants_forward__(s2[i]);
+			::__nts_forward__(s2[i]);
 		}
 		/**
 		 * Читаем строки productEven
 		 */
 		for(size_t i = 0; i < setup.rows; i++){
 			// Читаем строку младших частей productEven
-			::__ants_unpack_t0__(packed, productEven[i]);
+			::__nts_unpack_t0__(packed, productEven[i]);
 			// Продвигаем позицию чтения на 416 байтов
 			packed += 416;
 			// Многочлен productEven в область NTT
-			::__ants_forward__(productEven[i]);
+			::__nts_forward__(productEven[i]);
 		}
 		// Матрица A в области NTT строится заново из ρ (укладка строк подряд по l многочленов)
 		int32_t matrix[8 * 7 * N];
 		// Матрица из зерна ρ: четыре губки разом, хвост по одной
-		::__ants_matrix_expand__(rho, setup.rows, setup.columns, setup.columns, matrix);
+		::__nts_matrix_expand__(rho, setup.rows, setup.columns, setup.columns, matrix);
 		// Признак готовности подписи
 		uint32_t ready = 0;
 		// Счётчик попыток подписи
@@ -2657,24 +2658,24 @@ namespace {
 			 */
 			for(size_t i = 0; i < setup.columns; i++){
 				// Многочлен маски y из зерна ρ″ с номером попытки
-				::__ants_expand_mask__(rhodbl, static_cast <uint16_t> ((attempt * setup.columns) + i), setup.gamma1, y[i]);
+				::__nts_expand_mask__(rhodbl, static_cast <uint16_t> ((attempt * setup.columns) + i), setup.gamma1, y[i]);
 				// Копия маски для перевода в область
 				::memcpy(domain[i], y[i], sizeof(domain[i]));
 				// Многочлен маски в области NTT
-				::__ants_forward__(domain[i]);
+				::__nts_forward__(domain[i]);
 			}
 			// w = NTT⁻¹(A ∘ NTT(y)) по строкам матрицы
 			int32_t w[8][N];
 			// Произведение матрицы на маску в области NTT
-			::__ants_matrix_vector__(matrix, domain[0], setup.rows, setup.columns, w[0]);
+			::__nts_matrix_vector__(matrix, domain[0], setup.rows, setup.columns, w[0]);
 			/**
 			 * Переводим строки w в обычную форму
 			 */
 			for(size_t row = 0; row < setup.rows; row++){
 				// Строка w в обычную форму
-				::__ants_backward__(w[row]);
+				::__nts_backward__(w[row]);
 				// Коэффициенты строки w к [0, q)
-				::__ants_reduce_all__(w[row]);
+				::__nts_reduce_all__(w[row]);
 			}
 			// Размер записи старших частей на многочлен
 			size_t w1size = 0;
@@ -2694,9 +2695,9 @@ namespace {
 					 */
 					for(size_t i = 0; i < N; i++)
 						// Коэффициент w раскладывается, старшая часть в lowOdd
-						lowOdd[i] = ::__ants_decompose__(w[row][i], setup.gamma2, low);
+						lowOdd[i] = ::__nts_decompose__(w[row][i], setup.gamma2, low);
 					// Записываем старшие части строки
-					::__ants_encode_w1__(lowOdd, setup.gamma2, encoded[row]);
+					::__nts_encode_w1__(lowOdd, setup.gamma2, encoded[row]);
 					// Затираем многочлен старших частей
 					sys::wipe(lowOdd, sizeof(lowOdd));
 				}
@@ -2720,9 +2721,9 @@ namespace {
 			// Вызов c из шара
 			int32_t c[N];
 			// Многочлен вызова из шара по зерну c~
-			::__ants_sample_in_ball__(challenge, setup.challenge, setup.tau, c);
+			::__nts_sample_in_ball__(challenge, setup.challenge, setup.tau, c);
 			// Вызов в область NTT
-			::__ants_forward__(c);
+			::__nts_forward__(c);
 			// z = y + c·s1 в свободной форме: суммы малы и в приведении не нуждаются
 			int32_t z[7][N];
 			/**
@@ -2732,11 +2733,11 @@ namespace {
 				// Рабочий многочлен произведения
 				int32_t term[N];
 				// Произведение вызова на многочлен секрета s1
-				::__ants_pointwise__(c, s1[i], term);
+				::__nts_pointwise__(c, s1[i], term);
 				// Произведение в обычную форму
-				::__ants_backward__(term);
+				::__nts_backward__(term);
 				// Ответ z есть сумма маски и произведения
-				::__ants_add__(y[i], term, z[i]);
+				::__nts_add__(y[i], term, z[i]);
 				// Затираем рабочий многочлен
 				sys::wipe(term, sizeof(term));
 			}
@@ -2747,7 +2748,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < setup.columns; i++)
 				// Превышение границы ответом отклоняет попытку
-				reject |= ::__ants_overflow__(z[i], static_cast <int32_t> (setup.gamma1 - setup.beta));
+				reject |= ::__nts_overflow__(z[i], static_cast <int32_t> (setup.gamma1 - setup.beta));
 			// Многочлены подсказки по строкам
 			int32_t hints[8][N];
 			// Младшие части resultEven по строкам
@@ -2759,15 +2760,15 @@ namespace {
 				// Рабочие многочлены произведений
 				int32_t term[N], ct0[N];
 				// Произведение вызова на многочлен секрета s2
-				::__ants_pointwise__(c, s2[row], term);
+				::__nts_pointwise__(c, s2[row], term);
 				// Произведение c·s2 в обычную форму
-				::__ants_backward__(term);
+				::__nts_backward__(term);
 				// Произведение вызова на младшие части productEven
-				::__ants_pointwise__(c, productEven[row], ct0);
+				::__nts_pointwise__(c, productEven[row], ct0);
 				// Произведение c·productEven в обычную форму
-				::__ants_backward__(ct0);
+				::__nts_backward__(ct0);
 				// Превышение границы произведением c·productEven отклоняет попытку
-				reject |= ::__ants_overflow__(ct0, static_cast <int32_t> (setup.gamma2));
+				reject |= ::__nts_overflow__(ct0, static_cast <int32_t> (setup.gamma2));
 				/**
 				 * Разлагаем разность и сумму по коэффициентам
 				 */
@@ -2777,7 +2778,7 @@ namespace {
 					// Младшая часть разложения разности
 					int32_t low = 0;
 					// Старшая часть разности w − c·s2
-					const int32_t high1 = ::__ants_decompose__(value, setup.gamma2, low);
+					const int32_t high1 = ::__nts_decompose__(value, setup.gamma2, low);
 					// Младшая часть разности в resultEven
 					resultEven[row][i] = low;
 					// Подсказка: старшая часть меняется от добавления c·productEven
@@ -2785,7 +2786,7 @@ namespace {
 					// Младшая часть разложения суммы
 					int32_t low2 = 0;
 					// Старшая часть суммы с произведением c·productEven
-					const int32_t high2 = ::__ants_decompose__(corrected, setup.gamma2, low2);
+					const int32_t high2 = ::__nts_decompose__(corrected, setup.gamma2, low2);
 					// Подсказка выставляется при смене старшей части
 					hints[row][i] = ((high1 != high2) ? 1 : 0);
 				}
@@ -2799,7 +2800,7 @@ namespace {
 			 */
 			for(size_t row = 0; row < setup.rows; row++)
 				// Превышение границы младшими частями отклоняет попытку
-				reject |= ::__ants_overflow__(resultEven[row], static_cast <int32_t> (setup.gamma2 - setup.beta));
+				reject |= ::__nts_overflow__(resultEven[row], static_cast <int32_t> (setup.gamma2 - setup.beta));
 			// Вес подсказки: число единиц по всем строкам
 			uint32_t weight = 0;
 			/**
@@ -2832,7 +2833,7 @@ namespace {
 				 */
 				for(size_t i = 0; i < setup.columns; i++){
 					// Записываем многочлен ответа z
-					::__ants_pack_z__(z[i], setup.gamma1, out);
+					::__nts_pack_z__(z[i], setup.gamma1, out);
 					// Продвигаем позицию записи на размер записи ответа
 					out += ((setup.gamma1 == (1u << 17)) ? 576 : 640);
 				}
@@ -2913,7 +2914,7 @@ namespace {
 	 * @return          признак того, что подпись сошлась
 	 *
 	 */
-	static bool __ants_checking__(const params_t & setup, const uint8_t * key, const view_t & message, const view_t & context, const uint8_t * signature) noexcept {
+	static bool __nts_checking__(const params_t & setup, const uint8_t * key, const view_t & message, const view_t & context, const uint8_t * signature) noexcept {
 		// Зерно матрицы ρ из записи ключа
 		const uint8_t * rho = key;
 		// Трассировка ключа проверки: tr = H(ρ ‖ productOdd, 64)
@@ -2957,13 +2958,13 @@ namespace {
 		 */
 		for(size_t i = 0; i < setup.columns; i++){
 			// Читаем многочлен ответа z
-			::__ants_unpack_z__(packed, setup.gamma1, z[i]);
+			::__nts_unpack_z__(packed, setup.gamma1, z[i]);
 			// Продвигаем позицию чтения на размер записи ответа
 			packed += ((setup.gamma1 == (1u << 17)) ? 576 : 640);
 			// Ответ за границей γ1 − β отвергается
-			reject |= ::__ants_overflow__(z[i], static_cast <int32_t> (setup.gamma1 - setup.beta));
+			reject |= ::__nts_overflow__(z[i], static_cast <int32_t> (setup.gamma1 - setup.beta));
 			// Многочлен z в область NTT
-			::__ants_forward__(z[i]);
+			::__nts_forward__(z[i]);
 		}
 		// Запись индексов и счётчиков подсказки
 		const uint8_t * indices = packed;
@@ -3023,18 +3024,18 @@ namespace {
 		// Вызов c из шара
 		int32_t c[N];
 		// Многочлен вызова из шара по зерну c~
-		::__ants_sample_in_ball__(challenge, setup.challenge, setup.tau, c);
+		::__nts_sample_in_ball__(challenge, setup.challenge, setup.tau, c);
 		// Вызов в область NTT
-		::__ants_forward__(c);
+		::__nts_forward__(c);
 		// w′ = NTT⁻¹(A ∘ NTT(z) − c ∘ NTT(productOdd · 2^13)) по строкам матрицы
 		int32_t w[8][N];
 		{
 			// Матрица из ρ ключа (укладка строк подряд по l многочленов)
 			int32_t matrix[8 * 7 * N];
 			// Многочлены матрицы из зерна ρ: плашмя четвёрками губок, хвост по одной
-			::__ants_matrix_expand__(rho, setup.rows, setup.columns, setup.columns, matrix);
+			::__nts_matrix_expand__(rho, setup.rows, setup.columns, setup.columns, matrix);
 			// Произведение матрицы на ответ в области NTT
-			::__ants_matrix_vector__(matrix, z[0], setup.rows, setup.columns, w[0]);
+			::__nts_matrix_vector__(matrix, z[0], setup.rows, setup.columns, w[0]);
 			// Затираем матрицу
 			sys::wipe(matrix, sizeof(matrix));
 		}
@@ -3045,7 +3046,7 @@ namespace {
 			// Рабочий многочлен productOdd
 			int32_t term[N];
 			// Читаем строку productOdd из ключа проверки
-			::__ants_unpack_t1__((key + 32 + (row * 320)), term);
+			::__nts_unpack_t1__((key + 32 + (row * 320)), term);
 			/**
 			 * productOdd · 2^13 простым масштабом коэффициентов перед переходом в область
 			 */
@@ -3053,17 +3054,17 @@ namespace {
 				// Коэффициент productOdd масштабируется на 2^13
 				term[i] <<= 13;
 			// Многочлен productOdd в область NTT
-			::__ants_forward__(term);
+			::__nts_forward__(term);
 			// Произведение вызова на productOdd в области
 			int32_t product[N];
 			// Произведение вызова на многочлен productOdd
-			::__ants_pointwise__(c, term, product);
+			::__nts_pointwise__(c, term, product);
 			// Вычитание произведения из строки w′
-			::__ants_subtract__(w[row], product, w[row]);
+			::__nts_subtract__(w[row], product, w[row]);
 			// Строка w′ в обычную форму
-			::__ants_backward__(w[row]);
+			::__nts_backward__(w[row]);
 			// Коэффициенты строки w′ к [0, q)
-			::__ants_reduce_all__(w[row]);
+			::__nts_reduce_all__(w[row]);
 			// Затираем рабочий многочлен productOdd
 			sys::wipe(term, sizeof(term));
 			// Затираем произведение
@@ -3085,9 +3086,9 @@ namespace {
 				 */
 				for(size_t i = 0; i < N; i++)
 					// Коэффициент w′ с применённой подсказкой
-					w[row][i] = ::__ants_use_hint__(w[row][i], static_cast <uint32_t> (hints[row][i]), setup.gamma2);
+					w[row][i] = ::__nts_use_hint__(w[row][i], static_cast <uint32_t> (hints[row][i]), setup.gamma2);
 				// Записываем старшие части строки
-				::__ants_encode_w1__(w[row], setup.gamma2, encoded[row]);
+				::__nts_encode_w1__(w[row], setup.gamma2, encoded[row]);
 			}
 			// Запись короче при γ2 = (q − 1)/32: 128 байтов вместо 192
 			w1size = ((setup.gamma2 == ((Q - 1) / 32)) ? 128 : 192);
@@ -3144,7 +3145,7 @@ namespace {
 	 * @return       признак того, что трассировка tr сошлась с пересчитанной из частей записи
 	 *
 	 */
-	static bool __ants_consistent__(const params_t & setup, const uint8_t * secret, uint8_t * key) noexcept {
+	static bool __nts_consistent__(const params_t & setup, const uint8_t * secret, uint8_t * key) noexcept {
 		// Зерно матрицы ρ из записи ключа
 		const uint8_t * rho = secret;
 		// Записанная трассировка ключа проверки
@@ -3160,7 +3161,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < setup.columns; i++){
 			// Читаем многочлен секрета s1 с контролем кодов
-			malformed |= ::__ants_unpack_s__(packed, setup.eta, s1[i]);
+			malformed |= ::__nts_unpack_s__(packed, setup.eta, s1[i]);
 			// Продвигаем позицию чтения на размер записи секрета
 			packed += ((setup.eta == 2) ? 96 : 128);
 		}
@@ -3169,7 +3170,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < setup.rows; i++){
 			// Читаем многочлен секрета s2 с контролем кодов
-			malformed |= ::__ants_unpack_s__(packed, setup.eta, s2[i]);
+			malformed |= ::__nts_unpack_s__(packed, setup.eta, s2[i]);
 			// Продвигаем позицию чтения на размер записи секрета
 			packed += ((setup.eta == 2) ? 96 : 128);
 		}
@@ -3185,37 +3186,37 @@ namespace {
 				// Копия многочлена секрета для перевода в область
 				::memcpy(domain[i], s1[i], sizeof(domain[i]));
 				// Многочлен секрета в области NTT
-				::__ants_forward__(domain[i]);
+				::__nts_forward__(domain[i]);
 			}
 			/**
 			 * Вычисляем строки t произведением матрицы на секрет
 			 */
 			for(size_t row = 0; row < setup.rows; row++){
 				// Первый многочлен строки матрицы из зерна ρ
-				::__ants_expand_a__(rho, static_cast <uint8_t> (row), 0, expanded);
+				::__nts_expand_a__(rho, static_cast <uint8_t> (row), 0, expanded);
 				// Первое произведение строки матрицы
-				::__ants_pointwise__(expanded, domain[0], t[row]);
+				::__nts_pointwise__(expanded, domain[0], t[row]);
 				/**
 				 * Перебираем столбцы строки
 				 */
 				for(size_t column = 1; column < setup.columns; column++){
 					// Многочлен столбца строки матрицы из зерна ρ
-					::__ants_expand_a__(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), expanded);
+					::__nts_expand_a__(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), expanded);
 					// Рабочий многочлен произведения
 					int32_t term[N];
 					// Произведение столбца строки на многочлен секрета
-					::__ants_pointwise__(expanded, domain[column], term);
+					::__nts_pointwise__(expanded, domain[column], term);
 					// Накопление произведения в строке t
-					::__ants_add__(t[row], term, t[row]);
+					::__nts_add__(t[row], term, t[row]);
 					// Затираем рабочий многочлен
 					sys::wipe(term, sizeof(term));
 				}
 				// Строка t в обычную форму
-				::__ants_backward__(t[row]);
+				::__nts_backward__(t[row]);
 				// Строка t дополняется секретом s2
-				::__ants_add__(t[row], s2[row], t[row]);
+				::__nts_add__(t[row], s2[row], t[row]);
 				// Коэффициенты строки t к [0, q)
-				::__ants_reduce_all__(t[row]);
+				::__nts_reduce_all__(t[row]);
 			}
 			// Затираем образ секрета в области NTT
 			sys::wipe(domain, sizeof(domain));
@@ -3238,9 +3239,9 @@ namespace {
 				 */
 				for(size_t i = 0; i < N; i++)
 					// Коэффициент t раскладывается на productOdd и productEven
-					t[row][i] = ::__ants_power2round__(t[row][i], productEven[i]);
+					t[row][i] = ::__nts_power2round__(t[row][i], productEven[i]);
 				// Записываем строку productOdd в ключ проверки
-				::__ants_pack_t1__(t[row], (key + 32 + (row * 320)));
+				::__nts_pack_t1__(t[row], (key + 32 + (row * 320)));
 			}
 			// Затираем младшие части
 			sys::wipe(productEven, sizeof(productEven));
@@ -3404,11 +3405,11 @@ bool sign::Mldsa::generate(const set_t set, const view_t & seed, uint8_t * key, 
 	// Результат работы
 	bool result = false;
 	// Параметры набора существуют и зерно верной длины
-	const params_t setup = ::__ants_params__(set);
+	const params_t setup = ::__nts_params__(set);
 	// Если набор существует и зерно верной длины
 	if((result = ((setup.rows != 0) && (seed.size == SEED_SIZE)))){
 		// Вырабатываем ключ из зерна
-		::__ants_keygen__(setup, static_cast <const uint8_t *> (seed.data), key, secret);
+		::__nts_keygen__(setup, static_cast <const uint8_t *> (seed.data), key, secret);
 		// Ключ проверки в состояние модуля
 		::memcpy(this->_pkey, key, publicSize(set));
 		// Ключ подписи в состояние модуля
@@ -3436,13 +3437,13 @@ bool sign::Mldsa::generate(const set_t set, uint8_t * key, uint8_t * secret) noe
 	// Результат работы
 	bool result = false;
 	// Параметры набора существуют
-	if(::__ants_params__(set).rows != 0){
+	if(::__nts_params__(set).rows != 0){
 		// Зерно из источника случайности
 		uint8_t seed[SEED_SIZE];
 		// Если источник случайности выдал зерно
 		if((result = entropy::bytes(seed, sizeof(seed)))){
 			// Вырабатываем ключ из зерна
-			::__ants_keygen__(::__ants_params__(set), seed, key, secret);
+			::__nts_keygen__(::__nts_params__(set), seed, key, secret);
 			// Ключ проверки в состояние модуля
 			::memcpy(this->_pkey, key, publicSize(set));
 			// Ключ подписи в состояние модуля
@@ -3473,13 +3474,13 @@ bool sign::Mldsa::secret(const set_t set, const view_t & secret) noexcept {
 	// Результат работы
 	bool result = false;
 	// Параметры набора существуют и запись верной длины
-	const params_t setup = ::__ants_params__(set);
+	const params_t setup = ::__nts_params__(set);
 	// Если набор существует и запись верной длины
 	if((setup.rows != 0) && (secret.size == secretSize(set))){
 		// Подлинность записи проверяется пересчётом трассировки из её частей
 		uint8_t check[2592];
 		// Пересчёт трассировки из частей записи
-		result = ::__ants_consistent__(setup, static_cast <const uint8_t *> (secret.data), check);
+		result = ::__nts_consistent__(setup, static_cast <const uint8_t *> (secret.data), check);
 		// Если запись подлинная, ключи в состояние модуля
 		if(result){
 			// Ключ подписи в состояние модуля
@@ -3511,7 +3512,7 @@ bool sign::Mldsa::key(const set_t set, const view_t & key) noexcept {
 	// Результат работы
 	bool result = false;
 	// Параметры набора существуют и запись верной длины
-	if((::__ants_params__(set).rows != 0) && (key.size == publicSize(set))){
+	if((::__nts_params__(set).rows != 0) && (key.size == publicSize(set))){
 		// Если ключ подписи установлен, поданный обязан совпасть с выведенным
 		if(this->_secret && (this->_set == set))
 			// Сравниваем поданный открытый ключ с выведенным из секретного
@@ -3568,7 +3569,7 @@ bool sign::Mldsa::make(const view_t & message, const view_t & context, uint8_t *
 		// Если источник случайности выдал случайность подписи
 		if((outcome = entropy::bytes(rnd, sizeof(rnd))))
 			// Выработка подписи из случайности источника
-			::__ants_signing__(::__ants_params__(this->_set), this->_key, rnd, message, context, result);
+			::__nts_signing__(::__nts_params__(this->_set), this->_key, rnd, message, context, result);
 		// Затираем случайность
 		sys::wipe(rnd, sizeof(rnd));
 	}
@@ -3591,7 +3592,7 @@ bool sign::Mldsa::make(const view_t & rnd, const view_t & message, const view_t 
 	// Ключ подписи установлен, случайность и контекст допустимой длины
 	if((outcome = (this->_secret && (rnd.size == SEED_SIZE) && (context.size <= 255))))
 		// Выработка подписи из заданной случайности
-		::__ants_signing__(::__ants_params__(this->_set), this->_key, static_cast <const uint8_t *> (rnd.data), message, context, result);
+		::__nts_signing__(::__nts_params__(this->_set), this->_key, static_cast <const uint8_t *> (rnd.data), message, context, result);
 	// Выводим признак успешности
 	return outcome;
 }
@@ -3610,7 +3611,7 @@ bool sign::Mldsa::check(const view_t & message, const view_t & context, const vi
 	// Ключ проверки установлен, подпись и контекст допустимой длины
 	if(this->_public && (signature.size == signatureSize(this->_set)) && (context.size <= 255))
 		// Проверка подписи по ключу проверки
-		result = ::__ants_checking__(::__ants_params__(this->_set), this->_pkey, message, context, static_cast <const uint8_t *> (signature.data));
+		result = ::__nts_checking__(::__nts_params__(this->_set), this->_pkey, message, context, static_cast <const uint8_t *> (signature.data));
 	// Выводим признак успешности
 	return result;
 }

@@ -190,7 +190,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool argon2(const argon_params_t & params, const view_t & password, const view_t & salt, const view_t & secret, const view_t & associated, uint8_t * result, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool argon2(const argon_params_t & params, const view_t & password, const view_t & salt, const view_t & secret, const view_t & associated, uint8_t * result, const size_t size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Запись Argon2 в строке PHC: параметры, соль и необязательный выход
@@ -248,7 +248,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool phc(const string & text, argon_record_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ bool phc(const string & text, argon_record_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи строки PHC
@@ -273,7 +273,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool phc(const argon_record_t & record, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ bool phc(const argon_record_t & record, string & result) noexcept;
 	};
 };
 

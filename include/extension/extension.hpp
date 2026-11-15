@@ -254,7 +254,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool hybrid(const group_t group) noexcept;
+		__NTS_SHARED_EXPORT__ bool hybrid(const group_t group) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины модуля группы конечного поля RFC 7919
@@ -270,7 +270,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t finite(const group_t group) noexcept;
+		__NTS_SHARED_EXPORT__ size_t finite(const group_t group) noexcept;
 
 		/**
 		 * \~russian
@@ -461,7 +461,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Share {
+		typedef struct __NTS_SHARED_EXPORT__ Share {
 			// Группа обмена ключами, которой принадлежит открытая часть ключа
 			group_t group;
 			// Открытая часть ключа обмена
@@ -515,7 +515,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Identity {
+		typedef struct __NTS_SHARED_EXPORT__ Identity {
 			// Опознаватель заранее разделённого ключа
 			view_t identity;
 			// Скрытый возраст билета, выдавшего ключ
@@ -574,7 +574,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const char * curve(const group_t group) noexcept;
+		__NTS_SHARED_EXPORT__ const char * curve(const group_t group) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения опознавателя кривой схемы подписи
@@ -596,7 +596,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const char * curve(const scheme_t scheme) noexcept;
+		__NTS_SHARED_EXPORT__ const char * curve(const scheme_t scheme) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины ключа схемы подписи
@@ -612,7 +612,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t length(const scheme_t scheme) noexcept;
+		__NTS_SHARED_EXPORT__ size_t length(const scheme_t scheme) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины доли ключа группы обмена ключами
@@ -636,7 +636,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t length(const group_t group) noexcept;
+		__NTS_SHARED_EXPORT__ size_t length(const group_t group) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения хеша схемы подписи
@@ -659,7 +659,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ digest::hash_t hash(const scheme_t scheme) noexcept;
+		__NTS_SHARED_EXPORT__ digest::hash_t hash(const scheme_t scheme) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня поддерживаемых изданий протокола
@@ -681,7 +681,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t versions(const view_t & data, vector <uint16_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t versions(const view_t & data, vector <uint16_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня поддерживаемых изданий протокола
@@ -699,7 +699,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t versions(const vector <uint16_t> & versions, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t versions(const vector <uint16_t> & versions, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора выбранного издания протокола
@@ -721,7 +721,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t version(const view_t & data, uint16_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t version(const view_t & data, uint16_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления выбранного издания протокола
@@ -739,7 +739,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t version(const uint16_t version, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t version(const uint16_t version, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня поддерживаемых групп обмена ключами
@@ -761,7 +761,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t groups(const view_t & data, vector <group_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t groups(const view_t & data, vector <group_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня поддерживаемых групп обмена ключами
@@ -779,7 +779,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t groups(const vector <group_t> & groups, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t groups(const vector <group_t> & groups, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня поддерживаемых схем подписи
@@ -801,7 +801,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t schemes(const view_t & data, vector <scheme_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t schemes(const view_t & data, vector <scheme_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня поддерживаемых схем подписи
@@ -819,7 +819,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t schemes(const vector <scheme_t> & schemes, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t schemes(const vector <scheme_t> & schemes, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня видов сертификатов certificate_type
@@ -843,7 +843,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t certtypes(const view_t & data, vector <cert_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t certtypes(const view_t & data, vector <cert_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня видов сертификатов certificate_type
@@ -861,7 +861,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t certtypes(const vector <cert_t> & types, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t certtypes(const vector <cert_t> & types, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня профилей защиты RTP use_srtp
@@ -889,7 +889,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t profiles(const view_t & data, vector <uint16_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t profiles(const view_t & data, vector <uint16_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня профилей защиты RTP use_srtp
@@ -913,7 +913,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t profiles(const vector <uint16_t> & profiles, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t profiles(const vector <uint16_t> & profiles, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня записей точек кривой ec_point_formats
@@ -939,7 +939,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t formats(const view_t & data, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t formats(const view_t & data, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня записей точек кривой ec_point_formats
@@ -957,7 +957,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t formats(const vector <uint8_t> & formats, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t formats(const vector <uint8_t> & formats, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня открытых частей ключей обмена
@@ -981,7 +981,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t shares(const view_t & data, vector <share_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t shares(const view_t & data, vector <share_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня открытых частей ключей обмена
@@ -999,7 +999,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t shares(const vector <share_t> & shares, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t shares(const vector <share_t> & shares, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора открытой части ключа обмена сервера
@@ -1023,7 +1023,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t share(const view_t & data, share_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t share(const view_t & data, share_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления открытой части ключа обмена сервера
@@ -1041,7 +1041,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t share(const share_t & share, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t share(const share_t & share, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора выбранной сервером группы обмена ключами
@@ -1065,7 +1065,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t selected(const view_t & data, group_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t selected(const view_t & data, group_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления выбранной сервером группы обмена ключами
@@ -1083,7 +1083,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t selected(const group_t group, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t selected(const group_t group, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня способов обмена с заранее разделённым ключом
@@ -1105,7 +1105,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t modes(const view_t & data, vector <regime_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t modes(const view_t & data, vector <regime_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня способов обмена с заранее разделённым ключом
@@ -1123,7 +1123,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t modes(const vector <regime_t> & modes, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t modes(const vector <regime_t> & modes, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора метки возврата состояния сервера
@@ -1147,7 +1147,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t cookie(const view_t & data, view_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t cookie(const view_t & data, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления метки возврата состояния сервера
@@ -1165,7 +1165,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t cookie(const view_t & cookie, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t cookie(const view_t & cookie, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора имени запрашиваемого узла
@@ -1189,7 +1189,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t name(const view_t & data, view_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t name(const view_t & data, view_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления имени запрашиваемого узла
@@ -1207,7 +1207,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t name(const view_t & name, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t name(const view_t & name, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня прикладных протоколов
@@ -1235,7 +1235,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t protocols(const view_t & data, vector <string> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t protocols(const view_t & data, vector <string> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня прикладных протоколов
@@ -1257,7 +1257,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t protocols(const vector <string> & protocols, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t protocols(const vector <string> & protocols, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора выбранного прикладного протокола
@@ -1281,7 +1281,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t protocol(const view_t & data, string & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t protocol(const view_t & data, string & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления выбранного прикладного протокола
@@ -1299,7 +1299,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t protocol(const string & protocol, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t protocol(const string & protocol, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора предложения заранее разделённых ключей
@@ -1336,7 +1336,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t identities(const view_t & data, vector <identity_t> & result, vector <view_t> & binders, size_t & truncation) noexcept;
+		__NTS_SHARED_EXPORT__ error_t identities(const view_t & data, vector <identity_t> & result, vector <view_t> & binders, size_t & truncation) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления предложения заранее разделённых ключей
@@ -1362,7 +1362,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t identities(const vector <identity_t> & identities, const vector <view_t> & binders, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t identities(const vector <identity_t> & identities, const vector <view_t> & binders, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора выбранного сервером заранее разделённого ключа
@@ -1380,7 +1380,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t chosen(const view_t & data, uint16_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t chosen(const view_t & data, uint16_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления выбранного сервером заранее разделённого ключа
@@ -1398,7 +1398,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t chosen(const uint16_t chosen, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t chosen(const uint16_t chosen, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора предела упреждающих данных билета
@@ -1424,7 +1424,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t early(const view_t & data, uint32_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t early(const view_t & data, uint32_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления предела упреждающих данных билета
@@ -1442,7 +1442,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t early(const uint32_t limit, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t early(const uint32_t limit, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня меток времени подписанного сертификата
@@ -1468,7 +1468,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t timestamps(const view_t & data, vector <vector <uint8_t>> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t timestamps(const view_t & data, vector <vector <uint8_t>> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня меток времени подписанного сертификата
@@ -1486,7 +1486,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t timestamps(const vector <vector <uint8_t>> & entries, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t timestamps(const vector <vector <uint8_t>> & entries, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня доверенных удостоверяющих центров
@@ -1512,7 +1512,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t authorities(const view_t & data, vector <vector <uint8_t>> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t authorities(const view_t & data, vector <vector <uint8_t>> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня доверенных удостоверяющих центров
@@ -1530,7 +1530,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t authorities(const vector <vector <uint8_t>> & names, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t authorities(const vector <vector <uint8_t>> & names, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня протоколов выработки NPN, объявленного сервером
@@ -1554,7 +1554,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t negotiation(const view_t & data, vector <string> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t negotiation(const view_t & data, vector <string> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня протоколов выработки NPN
@@ -1572,7 +1572,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t negotiation(const vector <string> & protocols, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t negotiation(const vector <string> & protocols, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора перечня алгоритмов сжатия цепочки сертификатов
@@ -1603,7 +1603,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t algorithms(const view_t & data, vector <uint16_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t algorithms(const view_t & data, vector <uint16_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня алгоритмов сжатия цепочки сертификатов
@@ -1627,7 +1627,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t algorithms(const vector <uint16_t> & algorithms, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t algorithms(const vector <uint16_t> & algorithms, vector <uint8_t> & result) noexcept;
 	};
 };
 

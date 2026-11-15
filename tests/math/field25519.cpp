@@ -463,7 +463,7 @@ TEST(Field25519Test, Swap) {
 /**
  * Под x86-64 ядра шага лестницы по столбцам на MULQ сличаются с ядрами на C++
  */
-#if defined(__ANTS_FIELD25519_COLUMNS__)
+#if defined(__NTS_FIELD25519_COLUMNS__)
 /**
  * @brief Проверка ядер по столбцам на MULQ против ядер на C++
  *

@@ -137,7 +137,7 @@
 /**
  * Если сборка ведётся под ARM64
  */
-#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -150,7 +150,7 @@
 		/**
 		 * Атрибут цели не нужен
 		 */
-		#define __ANTS_SHA256_TARGET__
+		#define __NTS_SHA256_TARGET__
 	/**
 	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
 	 */
@@ -158,7 +158,7 @@
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_SHA256_TARGET__
+		#define __NTS_SHA256_TARGET__
 	/**
 	 * Если собиратель clang
 	 */
@@ -166,7 +166,7 @@
 		/**
 		 * Разрешаем команды расширения одной функции
 		 */
-		#define __ANTS_SHA256_TARGET__ __attribute__((target("crypto")))
+		#define __NTS_SHA256_TARGET__ __attribute__((target("crypto")))
 	/**
 	 * Если собиратель GCC
 	 */
@@ -174,13 +174,13 @@
 		/**
 		 * Разрешаем команды расширения одной функции
 		 */
-		#define __ANTS_SHA256_TARGET__ __attribute__((target("+crypto")))
+		#define __NTS_SHA256_TARGET__ __attribute__((target("+crypto")))
 	#endif
 
 	/**
 	 * Объявляем наличие ветви команд SHA-256
 	 */
-	#define __ANTS_SHA256_ARM__ 1
+	#define __NTS_SHA256_ARM__ 1
 
 	/**
 	 * Если расширение SHA-512 уже разрешено ключами сборки
@@ -189,7 +189,7 @@
 		/**
 		 * Атрибут цели не нужен
 		 */
-		#define __ANTS_SHA512_TARGET__
+		#define __NTS_SHA512_TARGET__
 	/**
 	 * Если собиратель Microsoft Visual C++: атрибута цели у него нет
 	 */
@@ -197,7 +197,7 @@
 		/**
 		 * Атрибут цели не нужен, а сама ветвь под этим собирателем закрыта ниже
 		 */
-		#define __ANTS_SHA512_TARGET__
+		#define __NTS_SHA512_TARGET__
 	/**
 	 * Если собиратель clang
 	 */
@@ -205,7 +205,7 @@
 		/**
 		 * Разрешаем команды расширения одной функции: SHA-512 идёт в составе sha3
 		 */
-		#define __ANTS_SHA512_TARGET__ __attribute__((target("sha3")))
+		#define __NTS_SHA512_TARGET__ __attribute__((target("sha3")))
 	/**
 	 * Если собиратель GCC
 	 */
@@ -213,7 +213,7 @@
 		/**
 		 * Разрешаем команды расширения одной функции: SHA-512 идёт в составе sha3
 		 */
-		#define __ANTS_SHA512_TARGET__ __attribute__((target("+sha3")))
+		#define __NTS_SHA512_TARGET__ __attribute__((target("+sha3")))
 	#endif
 
 	/**
@@ -224,7 +224,7 @@
 		/**
 		 * Объявляем наличие ветви команд SHA-512
 		 */
-		#define __ANTS_SHA512_ARM__ 1
+		#define __NTS_SHA512_ARM__ 1
 	#endif
 #endif
 
@@ -233,7 +233,7 @@
  * у него нет, ядра SHA-2 идут внутренними функциями SSE2/SSSE3; переносимый путь остаётся
  * для прочих собирателей и под запретом команд
  */
-#if defined(__ANTS_MSVC_X64__) && !defined(ANTS_NO_MACHINE) && !defined(__ANTS_ASAN_UNOPTIMIZED__)
+#if defined(__NTS_MSVC_X64__) && !defined(ANTS_NO_MACHINE) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 	/**
 	 * Подключаем заголовочный файл внутренних функций x86-64
 	 */
@@ -242,7 +242,7 @@
 	/**
 	 * Объявляем наличие ветви ядер SHA-2 на интринсиках
 	 */
-	#define __ANTS_SHA2_X86_64_MSVC__ 1
+	#define __NTS_SHA2_X86_64_MSVC__ 1
 #endif
 
 /**
@@ -321,7 +321,7 @@ namespace {
 	/**
 	 * Если есть ядра x86-64
 	 */
-	#if defined(__ANTS_SHA2_X86_64__)
+	#if defined(__NTS_SHA2_X86_64__)
 		/**
 		 * @brief Таблица круговых постоянных SHA-256 под парные ядра AVX2
 		 *
@@ -463,7 +463,7 @@ namespace {
 		/**
 		 * Объявляем логику от трёх слов одной командой у SHA-512
 		 */
-		#define __ANTS_SHA512_PLOG__ 1
+		#define __NTS_SHA512_PLOG__ 1
 	#endif
 
 	/**
@@ -481,11 +481,11 @@ namespace {
 	 * @return      разряд, установленный хотя бы в двух словах из трёх
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t majority([[maybe_unused]] const uint64_t a, const uint64_t b, [[maybe_unused]] const uint64_t c, [[maybe_unused]] const uint64_t fresh, [[maybe_unused]] const uint64_t stale) noexcept {
+	static __NTS_INLINE__ uint64_t majority([[maybe_unused]] const uint64_t a, const uint64_t b, [[maybe_unused]] const uint64_t c, [[maybe_unused]] const uint64_t fresh, [[maybe_unused]] const uint64_t stale) noexcept {
 		/**
 		 * Если логика от трёх слов идёт одной командой
 		 */
-		#if defined(__ANTS_SHA512_PLOG__)
+		#if defined(__NTS_SHA512_PLOG__)
 			// Выводим большинство одной командой: таблица 0xE8 - разряд, установленный хотя бы в двух словах
 			return static_cast <uint64_t> (__builtin_e2k_plog(0xE8, a, b, c));
 		/**
@@ -504,7 +504,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t rotr(const uint32_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint32_t rotr(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value >> count) | (value << (32 - count)));
 	}
@@ -516,7 +516,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t rotr(const uint64_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint64_t rotr(const uint64_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value >> count) | (value << (64 - count)));
 	}
@@ -534,7 +534,7 @@ namespace {
 		/**
 		 * Объявляем чтение слов одной командой с перестановкой байтов
 		 */
-		#define __ANTS_SHA2_SWAP__ 1
+		#define __NTS_SHA2_SWAP__ 1
 
 		/**
 		 * Слово в 32 разряда по любому адресу, совместимое по памяти с любым типом
@@ -554,11 +554,11 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t load64(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint64_t load64(const uint8_t * data) noexcept {
 		/**
 		 * Если слово читается одной командой с перестановкой байтов
 		 */
-		#if defined(__ANTS_SHA2_SWAP__)
+		#if defined(__NTS_SHA2_SWAP__)
 			// Выводим слово, прочитанное разом и переставленное от старшего байта
 			return __builtin_bswap64(* reinterpret_cast <const aliased64_t *> (data));
 		/**
@@ -581,11 +581,11 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store32(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store32(const uint32_t value, uint8_t * data) noexcept {
 		/**
 		 * Если слово пишется одной командой с перестановкой байтов
 		 */
-		#if defined(__ANTS_SHA2_SWAP__)
+		#if defined(__NTS_SHA2_SWAP__)
 			// Записываем слово разом, переставив байты от старшего
 			(* reinterpret_cast <aliased32_t *> (data)) = __builtin_bswap32(value);
 		/**
@@ -609,11 +609,11 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void store64(const uint64_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void store64(const uint64_t value, uint8_t * data) noexcept {
 		/**
 		 * Если слово пишется одной командой с перестановкой байтов
 		 */
-		#if defined(__ANTS_SHA2_SWAP__)
+		#if defined(__NTS_SHA2_SWAP__)
 			// Записываем слово разом, переставив байты от старшего
 			(* reinterpret_cast <aliased64_t *> (data)) = __builtin_bswap64(value);
 		/**
@@ -650,7 +650,7 @@ namespace {
 	 * @param stale сумма a ^ b прежнего круга: она же b ^ c этого
 	 *
 	 */
-	static __ANTS_INLINE__ void round256(const uint32_t a, const uint32_t b, uint32_t & d, const uint32_t e, const uint32_t f, const uint32_t g, uint32_t & h, const uint32_t k, const uint32_t w, uint32_t & fresh, const uint32_t stale) noexcept {
+	static __NTS_INLINE__ void round256(const uint32_t a, const uint32_t b, uint32_t & d, const uint32_t e, const uint32_t f, const uint32_t g, uint32_t & h, const uint32_t k, const uint32_t w, uint32_t & fresh, const uint32_t stale) noexcept {
 		// Большая сигма первая от переменной e
 		const uint32_t s1 = (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25));
 		// Функция выбора по переменной e
@@ -685,7 +685,7 @@ namespace {
 	 * @return    слово расписания круга
 	 *
 	 */
-	static __ANTS_INLINE__ uint32_t expand256(uint32_t & w0, const uint32_t w1, const uint32_t w9, const uint32_t w14) noexcept {
+	static __NTS_INLINE__ uint32_t expand256(uint32_t & w0, const uint32_t w1, const uint32_t w9, const uint32_t w14) noexcept {
 		// Малая сигма нулевая от слова пятнадцатью позициями раньше
 		const uint32_t s0 = (rotr(w1, 7) ^ rotr(w1, 18) ^ (w1 >> 3));
 		// Малая сигма первая от слова двумя позициями раньше
@@ -732,7 +732,7 @@ namespace {
 	 * @param expand признак того, что слова расписания вырабатываются на ходу
 	 *
 	 */
-	static __ANTS_INLINE__ void eight256(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d, uint32_t & e, uint32_t & f, uint32_t & g, uint32_t & h, const uint32_t * k, uint32_t & x0, uint32_t & x1, uint32_t & p0, uint32_t & p1, uint32_t & p2, uint32_t & p3, uint32_t & p4, uint32_t & p5, uint32_t & p6, uint32_t & p7, uint32_t & p8, uint32_t & p9, uint32_t & p10, uint32_t & p11, uint32_t & p12, uint32_t & p13, uint32_t & p14, uint32_t & p15, const bool expand) noexcept {
+	static __NTS_INLINE__ void eight256(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d, uint32_t & e, uint32_t & f, uint32_t & g, uint32_t & h, const uint32_t * k, uint32_t & x0, uint32_t & x1, uint32_t & p0, uint32_t & p1, uint32_t & p2, uint32_t & p3, uint32_t & p4, uint32_t & p5, uint32_t & p6, uint32_t & p7, uint32_t & p8, uint32_t & p9, uint32_t & p10, uint32_t & p11, uint32_t & p12, uint32_t & p13, uint32_t & p14, uint32_t & p15, const bool expand) noexcept {
 		// Восемь кругов восьмёрки, переменные не сдвигаются
 		round256(a, b, d, e, f, g, h, k[0], (expand ? expand256(p0, p1, p9, p14) : p0), x1, x0);
 		round256(h, a, c, d, e, f, g, k[1], (expand ? expand256(p1, p2, p10, p15) : p1), x0, x1);
@@ -768,7 +768,7 @@ namespace {
 	 * @param stale сумма a ^ b прежнего круга: она же b ^ c этого
 	 *
 	 */
-	static __ANTS_INLINE__ void round512(const uint64_t a, const uint64_t b, const uint64_t c, uint64_t & d, const uint64_t e, const uint64_t f, const uint64_t g, uint64_t & h, const uint64_t k, const uint64_t w, uint64_t & fresh, const uint64_t stale) noexcept {
+	static __NTS_INLINE__ void round512(const uint64_t a, const uint64_t b, const uint64_t c, uint64_t & d, const uint64_t e, const uint64_t f, const uint64_t g, uint64_t & h, const uint64_t k, const uint64_t w, uint64_t & fresh, const uint64_t stale) noexcept {
 		// Большая сигма первая от переменной e
 		const uint64_t s1 = (rotr(e, 14) ^ rotr(e, 18) ^ rotr(e, 41));
 		// Функция выбора по переменной e
@@ -803,7 +803,7 @@ namespace {
 	 * @return    слово расписания круга
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t expand512(uint64_t & w0, const uint64_t w1, const uint64_t w9, const uint64_t w14) noexcept {
+	static __NTS_INLINE__ uint64_t expand512(uint64_t & w0, const uint64_t w1, const uint64_t w9, const uint64_t w14) noexcept {
 		// Малая сигма нулевая от слова пятнадцатью позициями раньше
 		const uint64_t s0 = (rotr(w1, 1) ^ rotr(w1, 8) ^ (w1 >> 7));
 		// Малая сигма первая от слова двумя позициями раньше
@@ -850,7 +850,7 @@ namespace {
 	 * @param expand признак того, что слова расписания вырабатываются на ходу
 	 *
 	 */
-	static __ANTS_INLINE__ void eight512(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t * k, uint64_t & x0, uint64_t & x1, uint64_t & p0, uint64_t & p1, uint64_t & p2, uint64_t & p3, uint64_t & p4, uint64_t & p5, uint64_t & p6, uint64_t & p7, uint64_t & p8, uint64_t & p9, uint64_t & p10, uint64_t & p11, uint64_t & p12, uint64_t & p13, uint64_t & p14, uint64_t & p15, const bool expand) noexcept {
+	static __NTS_INLINE__ void eight512(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t * k, uint64_t & x0, uint64_t & x1, uint64_t & p0, uint64_t & p1, uint64_t & p2, uint64_t & p3, uint64_t & p4, uint64_t & p5, uint64_t & p6, uint64_t & p7, uint64_t & p8, uint64_t & p9, uint64_t & p10, uint64_t & p11, uint64_t & p12, uint64_t & p13, uint64_t & p14, uint64_t & p15, const bool expand) noexcept {
 		// Восемь кругов восьмёрки, переменные не сдвигаются
 		round512(a, b, c, d, e, f, g, h, k[0], (expand ? expand512(p0, p1, p9, p14) : p0), x1, x0);
 		round512(h, a, b, c, d, e, f, g, k[1], (expand ? expand512(p1, p2, p10, p15) : p1), x0, x1);
@@ -865,7 +865,7 @@ namespace {
 	/**
 	 * Если есть ветвь команд SHA-256 расширения ARMv8 и собиратель даёт вставку на ассемблере
 	 */
-	#if defined(__ANTS_SHA256_ARM__) && !defined(_MSC_VER)
+	#if defined(__NTS_SHA256_ARM__) && !defined(_MSC_VER)
 		/**
 		 * @brief Функция разбора пачки блоков в 64 байта командами SHA256H, SHA256H2, SHA256SU0 и SHA256SU1
 		 *
@@ -884,7 +884,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __ANTS_SHA256_TARGET__ void compressArm(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_SHA256_TARGET__ void compressArm(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
@@ -1055,7 +1055,7 @@ namespace {
 	/**
 	 * Если есть ветвь команд SHA-256 расширения ARMv8 и собиратель вставки на ассемблере не даёт
 	 */
-	#if defined(__ANTS_SHA256_ARM__) && defined(_MSC_VER)
+	#if defined(__NTS_SHA256_ARM__) && defined(_MSC_VER)
 		/**
 		 * @brief Четыре круга SHA-256 командами SHA256H и SHA256H2 с расширением расписания
 		 *
@@ -1076,7 +1076,7 @@ namespace {
 		 * @param extend признак того, что расписание ещё расширяется
 		 *
 		 */
-		#define __ANTS_SHA256_STEP__(cur, next, far, last, k, extend) { \
+		#define __NTS_SHA256_STEP__(cur, next, far, last, k, extend) { \
 			/* Слова четвёрки, сложенные с постоянными четырёх кругов */ \
 			const uint32x4_t sum = vaddq_u32(cur, vld1q_u32(K256 + (k))); \
 			/* Если расписание ещё расширяется */ \
@@ -1101,7 +1101,7 @@ namespace {
 		 * @return     четвёрка слов
 		 *
 		 */
-		static __ANTS_INLINE__ __ANTS_SHA256_TARGET__ uint32x4_t quadruple(const uint8_t * data) noexcept {
+		static __NTS_INLINE__ __NTS_SHA256_TARGET__ uint32x4_t quadruple(const uint8_t * data) noexcept {
 			// Выводим четвёрку слов с обращённым порядком байтов внутри каждого слова
 			return vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(data)));
 		}
@@ -1119,7 +1119,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __ANTS_SHA256_TARGET__ void compressArm(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_SHA256_TARGET__ void compressArm(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
@@ -1149,13 +1149,13 @@ namespace {
 					// Номер первой постоянной прохода
 					const size_t k = (i * 16);
 					// Четвёрки кругов 1…4, 17…20, 33…36 и 49…52
-					__ANTS_SHA256_STEP__(w0, w1, w2, w3, k, extend)
+					__NTS_SHA256_STEP__(w0, w1, w2, w3, k, extend)
 					// Четвёрки кругов 5…8, 21…24, 37…40 и 53…56
-					__ANTS_SHA256_STEP__(w1, w2, w3, w0, k + 4, extend)
+					__NTS_SHA256_STEP__(w1, w2, w3, w0, k + 4, extend)
 					// Четвёрки кругов 9…12, 25…28, 41…44 и 57…60
-					__ANTS_SHA256_STEP__(w2, w3, w0, w1, k + 8, extend)
+					__NTS_SHA256_STEP__(w2, w3, w0, w1, k + 8, extend)
 					// Четвёрки кругов 13…16, 29…32, 45…48 и 61…64
-					__ANTS_SHA256_STEP__(w3, w0, w1, w2, k + 12, extend)
+					__NTS_SHA256_STEP__(w3, w0, w1, w2, k + 12, extend)
 				}
 				// Складываем итог блока с прежним значением хеша
 				abcd = vaddq_u32(abcd, abcd0);
@@ -1178,7 +1178,7 @@ namespace {
 	/**
 	 * Если сборка ведётся под x86-64 собирателем Microsoft Visual C++
 	 */
-	#if defined(__ANTS_SHA2_X86_64_MSVC__)
+	#if defined(__NTS_SHA2_X86_64_MSVC__)
 		/**
 		 * @brief Маски перестановки байтов SHA-256: разворот слов и две укладки младших половин
 		 *
@@ -1201,7 +1201,7 @@ namespace {
 		 * @param w   слово расписания, уже сложенное с постоянной круга
 		 *
 		 */
-		static __ANTS_INLINE__ void round256(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d, uint32_t & e, uint32_t & f, uint32_t & g, uint32_t & h, const uint32_t w) noexcept {
+		static __NTS_INLINE__ void round256(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d, uint32_t & e, uint32_t & f, uint32_t & g, uint32_t & h, const uint32_t w) noexcept {
 			// Сигма единицы и выбор над e, f, g
 			const uint32_t s1 = ((e >> 6) | (e << 26)) ^ ((e >> 11) | (e << 21)) ^ ((e >> 25) | (e << 7));
 			// Выбор: (e & f) ^ (~e & g)
@@ -1224,7 +1224,7 @@ namespace {
 		 * @param w   слово расписания, уже сложенное с постоянной круга
 		 *
 		 */
-		static __ANTS_INLINE__ void round512(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t w) noexcept {
+		static __NTS_INLINE__ void round512(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t w) noexcept {
 			// Сигма единицы и выбор над e, f, g
 			const uint64_t s1 = ((e >> 14) | (e << 50)) ^ ((e >> 18) | (e << 46)) ^ ((e >> 41) | (e << 23));
 			// Выбор: (e & f) ^ (~e & g)
@@ -1472,7 +1472,7 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блока
 	 *
 	 */
-	static __ANTS_INLINE__ void compress256(const uint8_t * block, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void compress256(const uint8_t * block, uint64_t * hash) noexcept {
 		// Кольцо слов расписания: шестнадцать именованных слов, дальнейшие вырабатываются на ходу
 		uint32_t w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15;
 		// Пара слов блока 0 и 1 одним чтением от старшего байта
@@ -1547,7 +1547,7 @@ namespace {
 	/**
 	 * Если есть ветвь команд SHA-512 расширения ARMv8.2
 	 */
-	#if defined(__ANTS_SHA512_ARM__)
+	#if defined(__NTS_SHA512_ARM__)
 		/**
 		 * @brief Два круга SHA-512 командами SHA512H, SHA512H2, SHA512SU0 и SHA512SU1
 		 *
@@ -1570,7 +1570,7 @@ namespace {
 		 * @param extend признак того, что расписание ещё расширяется
 		 *
 		 */
-		#define __ANTS_SHA512_STEP__(t, p1, p2, p3, m, k, n, f, e1, e2, extend) { \
+		#define __NTS_SHA512_STEP__(t, p1, p2, p3, m, k, n, f, e1, e2, extend) { \
 			/* Слова расписания, сложенные с постоянными двух кругов */ \
 			const uint64x2_t sum = vaddq_u64(m, vld1q_u64(K512 + (k))); \
 			/* Сумма с переставленными половинами, сложенная с парой-целью */ \
@@ -1594,7 +1594,7 @@ namespace {
 		 * @return     пара слов
 		 *
 		 */
-		static __ANTS_INLINE__ __ANTS_SHA512_TARGET__ uint64x2_t pair(const uint8_t * data) noexcept {
+		static __NTS_INLINE__ __NTS_SHA512_TARGET__ uint64x2_t pair(const uint8_t * data) noexcept {
 			// Выводим пару слов с обращённым порядком байтов внутри каждого слова
 			return vreinterpretq_u64_u8(vrev64q_u8(vld1q_u8(data)));
 		}
@@ -1612,7 +1612,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __ANTS_SHA512_TARGET__ void compressArm512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_SHA512_TARGET__ void compressArm512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Пары состояния: ab, cd, ef и gh
 			uint64x2_t ab = vld1q_u64(hash), cd = vld1q_u64(hash + 2);
 			// Пары состояния: ab, cd, ef и gh
@@ -1636,21 +1636,21 @@ namespace {
 					// Номер первой постоянной прохода
 					const size_t k = (i * 16);
 					// Круги первый и второй прохода
-					__ANTS_SHA512_STEP__(gh, ef, cd, ab, m0, k, m1, m7, m4, m5, extend)
+					__NTS_SHA512_STEP__(gh, ef, cd, ab, m0, k, m1, m7, m4, m5, extend)
 					// Круги третий и четвёртый прохода
-					__ANTS_SHA512_STEP__(ef, cd, ab, gh, m1, k + 2, m2, m0, m5, m6, extend)
+					__NTS_SHA512_STEP__(ef, cd, ab, gh, m1, k + 2, m2, m0, m5, m6, extend)
 					// Круги пятый и шестой прохода
-					__ANTS_SHA512_STEP__(cd, ab, gh, ef, m2, k + 4, m3, m1, m6, m7, extend)
+					__NTS_SHA512_STEP__(cd, ab, gh, ef, m2, k + 4, m3, m1, m6, m7, extend)
 					// Круги седьмой и восьмой прохода
-					__ANTS_SHA512_STEP__(ab, gh, ef, cd, m3, k + 6, m4, m2, m7, m0, extend)
+					__NTS_SHA512_STEP__(ab, gh, ef, cd, m3, k + 6, m4, m2, m7, m0, extend)
 					// Круги девятый и десятый прохода
-					__ANTS_SHA512_STEP__(gh, ef, cd, ab, m4, k + 8, m5, m3, m0, m1, extend)
+					__NTS_SHA512_STEP__(gh, ef, cd, ab, m4, k + 8, m5, m3, m0, m1, extend)
 					// Круги одиннадцатый и двенадцатый прохода
-					__ANTS_SHA512_STEP__(ef, cd, ab, gh, m5, k + 10, m6, m4, m1, m2, extend)
+					__NTS_SHA512_STEP__(ef, cd, ab, gh, m5, k + 10, m6, m4, m1, m2, extend)
 					// Круги тринадцатый и четырнадцатый прохода
-					__ANTS_SHA512_STEP__(cd, ab, gh, ef, m6, k + 12, m7, m5, m2, m3, extend)
+					__NTS_SHA512_STEP__(cd, ab, gh, ef, m6, k + 12, m7, m5, m2, m3, extend)
 					// Круги пятнадцатый и шестнадцатый прохода
-					__ANTS_SHA512_STEP__(ab, gh, ef, cd, m7, k + 14, m0, m6, m3, m4, extend)
+					__NTS_SHA512_STEP__(ab, gh, ef, cd, m7, k + 14, m0, m6, m3, m4, extend)
 				}
 				// Складываем итог блока с прежним значением хеша
 				ab = vaddq_u64(ab, ab0);
@@ -1687,7 +1687,7 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блока
 	 *
 	 */
-	static __ANTS_INLINE__ void compress512(const uint8_t * block, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void compress512(const uint8_t * block, uint64_t * hash) noexcept {
 		// Слово блока 0 от старшего байта
 		uint64_t w0 = load64(block + 0);
 		// Слово блока 1 от старшего байта
@@ -1766,11 +1766,11 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блоков
 	 *
 	 */
-	static __ANTS_INLINE__ void blocks256(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void blocks256(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		/**
 		 * Если есть ветвь команд SHA-256 расширения ARMv8
 		 */
-		#if defined(__ANTS_SHA256_ARM__)
+		#if defined(__NTS_SHA256_ARM__)
 			// Если машина хеширует командами
 			if(machine::has(machine::feature_t::SHA256)){
 				// Разбор пачки командами
@@ -1782,7 +1782,7 @@ namespace {
 		/**
 		 * Если есть ядра на интринсиках x86-64 под Microsoft Visual C++
 		 */
-		#if defined(__ANTS_SHA2_X86_64_MSVC__)
+		#if defined(__NTS_SHA2_X86_64_MSVC__)
 			// Если перестановка байтов SSSE3 есть
 			if(machine::has(machine::feature_t::SSSE3)){
 				// Разбор пачки ядром на интринсиках
@@ -1794,7 +1794,7 @@ namespace {
 		/**
 		 * Если есть ядра на ассемблере x86-64
 		 */
-		#if defined(__ANTS_SHA2_X86_64__)
+		#if defined(__NTS_SHA2_X86_64__)
 			// Если перестановка байтов SSSE3 есть
 			if(machine::has(machine::feature_t::SSSE3)){
 				// Значение хеша словами в 32 разряда
@@ -1849,11 +1849,11 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блоков
 	 *
 	 */
-	static __ANTS_INLINE__ void blocks512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void blocks512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		/**
 		 * Если есть ветвь команд SHA-512 расширения ARMv8.2
 		 */
-		#if defined(__ANTS_SHA512_ARM__)
+		#if defined(__NTS_SHA512_ARM__)
 			// Если машина хеширует командами
 			if(machine::has(machine::feature_t::SHA512)){
 				// Разбор пачки командами
@@ -1865,7 +1865,7 @@ namespace {
 		/**
 		 * Если есть ядра на интринсиках x86-64 под Microsoft Visual C++
 		 */
-		#if defined(__ANTS_SHA2_X86_64_MSVC__)
+		#if defined(__NTS_SHA2_X86_64_MSVC__)
 			// Если перестановка байтов SSSE3 есть
 			if(machine::has(machine::feature_t::SSSE3)){
 				// Разбор пачки ядром на интринсиках
@@ -1877,7 +1877,7 @@ namespace {
 		/**
 		 * Если есть ядра на ассемблере x86-64
 		 */
-		#if defined(__ANTS_SHA2_X86_64__)
+		#if defined(__NTS_SHA2_X86_64__)
 			// Если перестановка байтов SSSE3 есть
 			if(machine::has(machine::feature_t::SSSE3)){
 				// Если есть AVX2 и BMI2
@@ -1916,7 +1916,7 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блоков
 	 *
 	 */
-	static __ANTS_INLINE__ void blocks(const size_t width, const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void blocks(const size_t width, const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		// Если хеш вырабатывается над словами в 64 разряда
 		if(width == 128)
 			// Разбор пачки преобразованием SHA-512

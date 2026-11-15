@@ -229,7 +229,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Alert {
+		typedef struct __NTS_SHARED_EXPORT__ Alert {
 			// Уровень извещения
 			level_t level;
 			// Описание извещения
@@ -287,7 +287,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, alert_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, alert_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи извещения
@@ -309,7 +309,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const alert_t & alert, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const alert_t & alert, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки известности описания извещения
@@ -325,7 +325,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool known(const description_t description) noexcept;
+		__NTS_SHARED_EXPORT__ bool known(const description_t description) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки смертельности извещения
@@ -349,7 +349,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool fatal(const alert_t & alert) noexcept;
+		__NTS_SHARED_EXPORT__ bool fatal(const alert_t & alert) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки, объявлено ли описание извещения смертельным всегда
@@ -375,7 +375,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool grave(const description_t description) noexcept;
+		__NTS_SHARED_EXPORT__ bool grave(const description_t description) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения названия описания извещения
@@ -398,7 +398,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ const char * name(const description_t description) noexcept;
+		__NTS_SHARED_EXPORT__ const char * name(const description_t description) noexcept;
 	};
 };
 

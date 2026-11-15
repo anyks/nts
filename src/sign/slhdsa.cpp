@@ -40,6 +40,7 @@
 /**
  * Стандартный заголовочный файл
  */
+#include <tuple>
 #include <cstring>
 
 /**
@@ -132,7 +133,7 @@ namespace {
 	 * @return    параметры набора, нулевые у несуществующего
 	 *
 	 */
-	static constexpr params_t __ants_params__(const sign::SLH_DSA::set_t set) noexcept {
+	static constexpr params_t __nts_params__(const sign::SLH_DSA::set_t set) noexcept {
 		/**
 		 * Выбираем параметры набора по его значению
 		 */
@@ -202,7 +203,7 @@ namespace {
 	 * @param adrs обнуляемый адрес хеширования
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_zero__(adrs_t adrs) noexcept {
+	static __NTS_INLINE__ void __nts_zero__(adrs_t adrs) noexcept {
 		// Обнуляем все байты адреса
 		::memset(adrs, 0, sizeof(adrs_t));
 	}
@@ -213,7 +214,7 @@ namespace {
 	 * @param src копируемый адрес хеширования
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_copy_adrs__(adrs_t dst, const adrs_t src) noexcept {
+	static __NTS_INLINE__ void __nts_copy_adrs__(adrs_t dst, const adrs_t src) noexcept {
 		// Копируем адрес целиком
 		::memcpy(dst, src, sizeof(adrs_t));
 	}
@@ -225,7 +226,7 @@ namespace {
 	 * @param layer номер слоя гипердерева, от нуля до d − 1
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_set_layer__(const params_t & setup, adrs_t adrs, const uint32_t layer) noexcept {
+	static __NTS_INLINE__ void __nts_set_layer__(const params_t & setup, adrs_t adrs, const uint32_t layer) noexcept {
 		// У семейства SHAKE слой занимает четыре байта старшим байтом вперёд
 		if(setup.family == FAMILY_SHAKE){
 			// Старший байт слоя
@@ -247,7 +248,7 @@ namespace {
 	 * @param tree  номер дерева внутри слоя, до 64 разрядов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_set_tree__(const params_t & setup, adrs_t adrs, const uint64_t tree) noexcept {
+	static __NTS_INLINE__ void __nts_set_tree__(const params_t & setup, adrs_t adrs, const uint64_t tree) noexcept {
 		// У семейства SHAKE дерево лежит в последних восьми байтах поля двенадцати
 		const size_t offset = ((setup.family == FAMILY_SHAKE) ? 8 : 1);
 		/**
@@ -266,7 +267,7 @@ namespace {
 	 *              3 лист FORS, 4 корни FORS, 5 секрет WOTS+, 6 секрет FORS
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_set_type__(const params_t & setup, adrs_t adrs, const uint32_t type) noexcept {
+	static __NTS_INLINE__ void __nts_set_type__(const params_t & setup, adrs_t adrs, const uint32_t type) noexcept {
 		// У семейства SHAKE вид занимает четыре байта старшим байтом вперёд
 		if(setup.family == FAMILY_SHAKE){
 			// Старший байт вида
@@ -295,7 +296,7 @@ namespace {
 	 * @param keypair номер пары ключа WOTS+ в дереве
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_set_keypair__(const params_t & setup, adrs_t adrs, const uint32_t keypair) noexcept {
+	static __NTS_INLINE__ void __nts_set_keypair__(const params_t & setup, adrs_t adrs, const uint32_t keypair) noexcept {
 		// Смещение пары ключа в адресе
 		const size_t offset = ((setup.family == FAMILY_SHAKE) ? 20 : 10);
 		/**
@@ -313,7 +314,7 @@ namespace {
 	 * @param src   адрес-источник копии пары
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_copy_keypair__(const params_t & setup, adrs_t dst, const adrs_t src) noexcept {
+	static __NTS_INLINE__ void __nts_copy_keypair__(const params_t & setup, adrs_t dst, const adrs_t src) noexcept {
 		// Смещение пары ключа в адресе
 		const size_t offset = ((setup.family == FAMILY_SHAKE) ? 20 : 10);
 		// Копируем четыре байта пары
@@ -327,7 +328,7 @@ namespace {
 	 * @param chain номер цепочки WOTS+ либо высота узла дерева
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_set_chain__(const params_t & setup, adrs_t adrs, const uint32_t chain) noexcept {
+	static __NTS_INLINE__ void __nts_set_chain__(const params_t & setup, adrs_t adrs, const uint32_t chain) noexcept {
 		// Смещение цепочки в адресе
 		const size_t offset = ((setup.family == FAMILY_SHAKE) ? 24 : 14);
 		/**
@@ -345,7 +346,7 @@ namespace {
 	 * @param step  номер шага цепочки либо индекс узла или листа
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_set_step__(const params_t & setup, adrs_t adrs, const uint32_t step) noexcept {
+	static __NTS_INLINE__ void __nts_set_step__(const params_t & setup, adrs_t adrs, const uint32_t step) noexcept {
 		// Смещение шага в адресе
 		const size_t offset = ((setup.family == FAMILY_SHAKE) ? 28 : 18);
 		/**
@@ -362,7 +363,7 @@ namespace {
 	 * @return      длина адреса в байтах: 32 у SHAKE, 22 у SHA2
 	 *
 	 */
-	static __ANTS_INLINE__ size_t __ants_adrs_size__(const params_t & setup) noexcept {
+	static __NTS_INLINE__ size_t __nts_adrs_size__(const params_t & setup) noexcept {
 		// Длина адреса: тридцать два у SHAKE, двадцать два у SHA2
 		return ((setup.family == FAMILY_SHAKE) ? 32 : 22);
 	}
@@ -376,7 +377,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_compress_single__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const view_t & value, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_compress_single__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const view_t & value, uint8_t * out) noexcept {
 		// У семейства SHAKE все функции строятся губкой SHAKE256
 		if(setup.family == FAMILY_SHAKE){
 			// Губка выработки значения
@@ -384,7 +385,7 @@ namespace {
 			// Подаём открытое зерно ключа
 			xof.update(view_t(pkSeed, setup.security));
 			// Подаём адрес
-			xof.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			xof.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём сжимаемое значение
 			xof.update(value);
 			// Выжимаем результат нужной длины
@@ -402,7 +403,7 @@ namespace {
 			// Подаём добивку зерна нулями
 			sha.update(view_t(padding, (64 - setup.security)));
 			// Подаём адрес
-			sha.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			sha.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём сжимаемое значение
 			sha.update(value);
 			// Доводим хеш до конца
@@ -424,7 +425,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __ants_compress_pair__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const uint8_t * first, const uint8_t * second, uint8_t * out) noexcept {
+	static void __nts_compress_pair__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const uint8_t * first, const uint8_t * second, uint8_t * out) noexcept {
 		// У семейства SHAKE все функции строятся губкой SHAKE256
 		if(setup.family == FAMILY_SHAKE){
 			// Губка выработки значения
@@ -432,7 +433,7 @@ namespace {
 			// Подаём открытое зерно ключа
 			xof.update(view_t(pkSeed, setup.security));
 			// Подаём адрес
-			xof.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			xof.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём первое значение
 			xof.update(view_t(first, setup.security));
 			// Подаём второе значение
@@ -452,7 +453,7 @@ namespace {
 			// Подаём добивку зерна нулями
 			sha.update(view_t(padding, (128 - setup.security)));
 			// Подаём адрес
-			sha.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			sha.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём первое значение
 			sha.update(view_t(first, setup.security));
 			// Подаём второе значение
@@ -476,7 +477,7 @@ namespace {
 			// Подаём добивку зерна нулями
 			sha.update(view_t(padding, (64 - setup.security)));
 			// Подаём адрес
-			sha.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			sha.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём первое значение
 			sha.update(view_t(first, setup.security));
 			// Подаём второе значение
@@ -499,7 +500,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __ants_compress_wide__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const view_t & value, uint8_t * out) noexcept {
+	static void __nts_compress_wide__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const view_t & value, uint8_t * out) noexcept {
 		// У семейства SHAKE все функции строятся губкой SHAKE256
 		if(setup.family == FAMILY_SHAKE){
 			// Губка выработки значения
@@ -507,7 +508,7 @@ namespace {
 			// Подаём открытое зерно ключа
 			xof.update(view_t(pkSeed, setup.security));
 			// Подаём адрес
-			xof.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			xof.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём сжимаемое значение
 			xof.update(value);
 			// Выжимаем результат нужной длины
@@ -525,7 +526,7 @@ namespace {
 			// Подаём добивку зерна нулями
 			sha.update(view_t(padding, (128 - setup.security)));
 			// Подаём адрес
-			sha.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			sha.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём сжимаемое значение
 			sha.update(value);
 			// Доводим хеш до конца
@@ -547,7 +548,7 @@ namespace {
 			// Подаём добивку зерна нулями
 			sha.update(view_t(padding, (64 - setup.security)));
 			// Подаём адрес
-			sha.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			sha.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём сжимаемое значение
 			sha.update(value);
 			// Доводим хеш до конца
@@ -568,7 +569,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __ants_prf__(const params_t & setup, const uint8_t * pkSeed, const uint8_t * skSeed, const adrs_t adrs, uint8_t * out) noexcept {
+	static void __nts_prf__(const params_t & setup, const uint8_t * pkSeed, const uint8_t * skSeed, const adrs_t adrs, uint8_t * out) noexcept {
 		// У семейства SHAKE все функции строятся губкой SHAKE256
 		if(setup.family == FAMILY_SHAKE){
 			// Губка выработки значения
@@ -576,7 +577,7 @@ namespace {
 			// Подаём открытое зерно ключа
 			xof.update(view_t(pkSeed, setup.security));
 			// Подаём адрес
-			xof.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			xof.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём секретное зерно ключа
 			xof.update(view_t(skSeed, setup.security));
 			// Выжимаем результат нужной длины
@@ -594,7 +595,7 @@ namespace {
 			// Подаём добивку зерна нулями
 			sha.update(view_t(padding, (64 - setup.security)));
 			// Подаём адрес
-			sha.update(view_t(adrs, ::__ants_adrs_size__(setup)));
+			sha.update(view_t(adrs, ::__nts_adrs_size__(setup)));
 			// Подаём секретное зерно ключа
 			sha.update(view_t(skSeed, setup.security));
 			// Доводим хеш до конца
@@ -614,7 +615,7 @@ namespace {
 	 * @param size длина результата в байтах
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_mgf1__(const digest::sha_t sha, const view_t & seed, uint8_t * out, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_mgf1__(const digest::sha_t sha, const view_t & seed, uint8_t * out, const size_t size) noexcept {
 		// Набранная длина результата
 		size_t done = 0;
 		// Полный хеш очередного счётчика
@@ -661,7 +662,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_wots_chain__(const params_t & setup, const uint8_t * pkSeed, const uint8_t * in, const size_t start, const size_t steps, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_wots_chain__(const params_t & setup, const uint8_t * pkSeed, const uint8_t * in, const size_t start, const size_t steps, adrs_t adrs, uint8_t * out) noexcept {
 		// Без шагов значение переносится как есть
 		if(steps == 0){
 			// Значение переносится без изменений
@@ -670,17 +671,17 @@ namespace {
 			return;
 		}
 		// Первый шаг со входного значения
-		::__ants_set_step__(setup, adrs, static_cast <uint32_t> (start));
+		::__nts_set_step__(setup, adrs, static_cast <uint32_t> (start));
 		// Вырабатываем первое значение цепочки
-		::__ants_compress_single__(setup, pkSeed, adrs, view_t(in, setup.security), out);
+		::__nts_compress_single__(setup, pkSeed, adrs, view_t(in, setup.security), out);
 		/**
 		 * Остальные шаги по цепочке
 		 */
 		for(size_t j = (start + 1); j < (start + steps); j++){
 			// Адрес очередного шага
-			::__ants_set_step__(setup, adrs, static_cast <uint32_t> (j));
+			::__nts_set_step__(setup, adrs, static_cast <uint32_t> (j));
 			// Вырабатываем следующее значение цепочки
-			::__ants_compress_single__(setup, pkSeed, adrs, view_t(out, setup.security), out);
+			::__nts_compress_single__(setup, pkSeed, adrs, view_t(out, setup.security), out);
 		}
 	}
 	/**
@@ -693,7 +694,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __ants_wots_pk_gen__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static void __nts_wots_pk_gen__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Число цепочек ключа: 2n значений сообщения и 3 контрольных
 		const size_t len = ((2 * setup.security) + CHECKSUM);
 		// Значения концов всех цепочек
@@ -703,36 +704,36 @@ namespace {
 		// Адреса секретного значения и цепочки
 		adrs_t skAdrs, chain;
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(skAdrs, adrs);
+		::__nts_copy_adrs__(skAdrs, adrs);
 		// Вид адреса секретного значения
-		::__ants_set_type__(setup, skAdrs, 5);
+		::__nts_set_type__(setup, skAdrs, 5);
 		// Пара ключа в адресе значения
-		::__ants_copy_keypair__(setup, skAdrs, adrs);
+		::__nts_copy_keypair__(setup, skAdrs, adrs);
 		/**
 		 * Проходим по всем цепочкам ключа
 		 */
 		for(size_t i = 0; i < len; i++){
 			// Адрес цепочки в адресе значения
-			::__ants_set_chain__(setup, skAdrs, static_cast <uint32_t> (i));
+			::__nts_set_chain__(setup, skAdrs, static_cast <uint32_t> (i));
 			// Секрет цепочки из секретного зерна
-			::__ants_prf__(setup, pkSeed, skSeed, skAdrs, sk);
+			::__nts_prf__(setup, pkSeed, skSeed, skAdrs, sk);
 			// Копируем исходный адрес
-			::__ants_copy_adrs__(chain, adrs);
+			::__nts_copy_adrs__(chain, adrs);
 			// Адрес цепочки
-			::__ants_set_chain__(setup, chain, static_cast <uint32_t> (i));
+			::__nts_set_chain__(setup, chain, static_cast <uint32_t> (i));
 			// Конец цепочки по всем шагам
-			::__ants_wots_chain__(setup, pkSeed, sk, 0, (CHAIN - 1), chain, (values + (i * setup.security)));
+			::__nts_wots_chain__(setup, pkSeed, sk, 0, (CHAIN - 1), chain, (values + (i * setup.security)));
 		}
 		// Адрес открытого ключа
 		adrs_t pkAdrs;
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(pkAdrs, adrs);
+		::__nts_copy_adrs__(pkAdrs, adrs);
 		// Вид адреса открытого ключа
-		::__ants_set_type__(setup, pkAdrs, 1);
+		::__nts_set_type__(setup, pkAdrs, 1);
 		// Пара ключа в адресе ключа
-		::__ants_copy_keypair__(setup, pkAdrs, adrs);
+		::__nts_copy_keypair__(setup, pkAdrs, adrs);
 		// Выжимаем открытый ключ из концов всех цепочек
-		::__ants_compress_wide__(setup, pkSeed, pkAdrs, view_t(values, (len * setup.security)), out);
+		::__nts_compress_wide__(setup, pkSeed, pkAdrs, view_t(values, (len * setup.security)), out);
 		// Затираем значения концов цепочек
 		sys::wipe(values, sizeof(values));
 		// Затираем секретное значение цепочки
@@ -752,7 +753,7 @@ namespace {
 	 * @param out   место полубайтов сообщения и контрольной суммы, 2n + 3 значений
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_wots_message__(const params_t & setup, const uint8_t * msg, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_wots_message__(const params_t & setup, const uint8_t * msg, uint8_t * out) noexcept {
 		/**
 		 * Сообщение раскладывается на 2n полубайтов, старший вперёд
 		 */
@@ -791,11 +792,11 @@ namespace {
 	 * @return       место за записанной подписью
 	 *
 	 */
-	static uint8_t * __ants_wots_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static uint8_t * __nts_wots_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Полубайты сообщения и контрольной суммы
 		uint8_t nibbles[67];
 		// Раскладываем сообщение на полубайты
-		::__ants_wots_message__(setup, msg, nibbles);
+		::__nts_wots_message__(setup, msg, nibbles);
 		// Число цепочек подписи
 		const size_t len = ((2 * setup.security) + CHECKSUM);
 		// Секретное значение цепочки
@@ -803,25 +804,25 @@ namespace {
 		// Адреса секретного значения и цепочки
 		adrs_t skAdrs, chain;
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(skAdrs, adrs);
+		::__nts_copy_adrs__(skAdrs, adrs);
 		// Вид адреса секретного значения
-		::__ants_set_type__(setup, skAdrs, 5);
+		::__nts_set_type__(setup, skAdrs, 5);
 		// Пара ключа в адресе значения
-		::__ants_copy_keypair__(setup, skAdrs, adrs);
+		::__nts_copy_keypair__(setup, skAdrs, adrs);
 		/**
 		 * Проходим по всем цепочкам подписи
 		 */
 		for(size_t i = 0; i < len; i++){
 			// Адрес цепочки в адресе значения
-			::__ants_set_chain__(setup, skAdrs, static_cast <uint32_t> (i));
+			::__nts_set_chain__(setup, skAdrs, static_cast <uint32_t> (i));
 			// Секрет цепочки из секретного зерна
-			::__ants_prf__(setup, pkSeed, skSeed, skAdrs, sk);
+			::__nts_prf__(setup, pkSeed, skSeed, skAdrs, sk);
 			// Копируем исходный адрес
-			::__ants_copy_adrs__(chain, adrs);
+			::__nts_copy_adrs__(chain, adrs);
 			// Адрес цепочки
-			::__ants_set_chain__(setup, chain, static_cast <uint32_t> (i));
+			::__nts_set_chain__(setup, chain, static_cast <uint32_t> (i));
 			// Подпись цепочки по числу шагов полубайта
-			::__ants_wots_chain__(setup, pkSeed, sk, 0, nibbles[i], chain, out);
+			::__nts_wots_chain__(setup, pkSeed, sk, 0, nibbles[i], chain, out);
 			// Сдвигаем место записи на значение
 			out += setup.security;
 		}
@@ -848,7 +849,7 @@ namespace {
 	 * @return       место за прочитанной подписью
 	 *
 	 */
-	static const uint8_t * __ants_wots_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint8_t * msg, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static const uint8_t * __nts_wots_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint8_t * msg, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Адрес цепочки
 		adrs_t chain;
 		// Полубайты сообщения и контрольной суммы
@@ -856,7 +857,7 @@ namespace {
 		// Значения концов всех цепочек
 		uint8_t values[MAX_N * 67];
 		// Раскладываем сообщение на полубайты
-		::__ants_wots_message__(setup, msg, nibbles);
+		::__nts_wots_message__(setup, msg, nibbles);
 		// Число цепочек подписи
 		const size_t len = ((2 * setup.security) + CHECKSUM);
 		/**
@@ -864,24 +865,24 @@ namespace {
 		 */
 		for(size_t i = 0; i < len; i++){
 			// Копируем исходный адрес
-			::__ants_copy_adrs__(chain, adrs);
+			::__nts_copy_adrs__(chain, adrs);
 			// Адрес цепочки
-			::__ants_set_chain__(setup, chain, static_cast <uint32_t> (i));
+			::__nts_set_chain__(setup, chain, static_cast <uint32_t> (i));
 			// Конец цепочки доигрывается от значения подписи до верха
-			::__ants_wots_chain__(setup, pkSeed, sig, nibbles[i], ((CHAIN - 1) - nibbles[i]), chain, (values + (i * setup.security)));
+			::__nts_wots_chain__(setup, pkSeed, sig, nibbles[i], ((CHAIN - 1) - nibbles[i]), chain, (values + (i * setup.security)));
 			// Сдвигаем чтение подписи на значение
 			sig += setup.security;
 		}
 		// Адрес открытого ключа
 		adrs_t pkAdrs;
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(pkAdrs, adrs);
+		::__nts_copy_adrs__(pkAdrs, adrs);
 		// Вид адреса открытого ключа
-		::__ants_set_type__(setup, pkAdrs, 1);
+		::__nts_set_type__(setup, pkAdrs, 1);
 		// Пара ключа в адресе ключа
-		::__ants_copy_keypair__(setup, pkAdrs, adrs);
+		::__nts_copy_keypair__(setup, pkAdrs, adrs);
 		// Выжимаем открытый ключ из концов всех цепочек
-		::__ants_compress_wide__(setup, pkSeed, pkAdrs, view_t(values, (len * setup.security)), out);
+		::__nts_compress_wide__(setup, pkSeed, pkAdrs, view_t(values, (len * setup.security)), out);
 		// Затираем полубайты сообщения
 		sys::wipe(nibbles, sizeof(nibbles));
 		// Затираем значения концов цепочек
@@ -905,15 +906,15 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __ants_xmss_node__(const params_t & setup, const uint8_t * skSeed, const uint32_t node, const uint32_t height, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static void __nts_xmss_node__(const params_t & setup, const uint8_t * skSeed, const uint32_t node, const uint32_t height, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Лист дерева: открытый ключ WOTS+ пары под номером узла
 		if(height == 0){
 			// Вид адреса листа дерева
-			::__ants_set_type__(setup, adrs, 0);
+			::__nts_set_type__(setup, adrs, 0);
 			// Пара ключа листа дерева
-			::__ants_set_keypair__(setup, adrs, node);
+			::__nts_set_keypair__(setup, adrs, node);
 			// Вырабатываем открытый ключ пары
-			::__ants_wots_pk_gen__(setup, skSeed, pkSeed, adrs, out);
+			::__nts_wots_pk_gen__(setup, skSeed, pkSeed, adrs, out);
 		// Узел выше листа: значение выжимается из пары детей
 		} else {
 			// Значения детей узла
@@ -921,21 +922,21 @@ namespace {
 			// Адрес детей узла
 			adrs_t children;
 			// Копируем исходный адрес
-			::__ants_copy_adrs__(children, adrs);
+			::__nts_copy_adrs__(children, adrs);
 			// Вычисляем значение левого ребёнка
-			::__ants_xmss_node__(setup, skSeed, (2 * node), (height - 1), pkSeed, children, left);
+			::__nts_xmss_node__(setup, skSeed, (2 * node), (height - 1), pkSeed, children, left);
 			// Копируем исходный адрес
-			::__ants_copy_adrs__(children, adrs);
+			::__nts_copy_adrs__(children, adrs);
 			// Вычисляем значение правого ребёнка
-			::__ants_xmss_node__(setup, skSeed, ((2 * node) + 1), (height - 1), pkSeed, children, right);
+			::__nts_xmss_node__(setup, skSeed, ((2 * node) + 1), (height - 1), pkSeed, children, right);
 			// Вид адреса узла дерева
-			::__ants_set_type__(setup, adrs, 2);
+			::__nts_set_type__(setup, adrs, 2);
 			// Высота узла в адресе
-			::__ants_set_chain__(setup, adrs, height);
+			::__nts_set_chain__(setup, adrs, height);
 			// Индекс узла в адресе
-			::__ants_set_step__(setup, adrs, node);
+			::__nts_set_step__(setup, adrs, node);
 			// Вырабатываем значение узла
-			::__ants_compress_pair__(setup, pkSeed, adrs, left, right, out);
+			::__nts_compress_pair__(setup, pkSeed, adrs, left, right, out);
 			// Затираем значение левого ребёнка
 			sys::wipe(left, sizeof(left));
 			// Затираем значение правого ребёнка
@@ -955,17 +956,17 @@ namespace {
 	 * @return       место за записанной подписью
 	 *
 	 */
-	static uint8_t * __ants_xmss_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint32_t leaf, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static uint8_t * __nts_xmss_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint32_t leaf, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Адрес подписи WOTS+
 		adrs_t wots;
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(wots, adrs);
+		::__nts_copy_adrs__(wots, adrs);
 		// Вид адреса подписи
-		::__ants_set_type__(setup, wots, 0);
+		::__nts_set_type__(setup, wots, 0);
 		// Пара ключа в адресе подписи
-		::__ants_set_keypair__(setup, wots, leaf);
+		::__nts_set_keypair__(setup, wots, leaf);
 		// Подпись WOTS+ сообщения
-		uint8_t * result = ::__ants_wots_sign__(setup, msg, skSeed, pkSeed, wots, out);
+		uint8_t * result = ::__nts_wots_sign__(setup, msg, skSeed, pkSeed, wots, out);
 		// Путь из h′ узлов: брат узла на каждом уровне
 		uint32_t node = leaf;
 		/**
@@ -973,7 +974,7 @@ namespace {
 		 */
 		for(uint32_t height = 0; height < setup.xmssHeight; height++){
 			// Вырабатываем брата узла уровня
-			::__ants_xmss_node__(setup, skSeed, (node ^ 1), height, pkSeed, adrs, result);
+			::__nts_xmss_node__(setup, skSeed, (node ^ 1), height, pkSeed, adrs, result);
 			// Сдвигаем место записи на значение
 			result += setup.security;
 			// Поднимаемся к родителю узла
@@ -997,7 +998,7 @@ namespace {
 	 * @return       место за прочитанной подписью
 	 *
 	 */
-	static const uint8_t * __ants_xmss_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint32_t leaf, const uint8_t * msg, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static const uint8_t * __nts_xmss_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint32_t leaf, const uint8_t * msg, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Адрес подписи WOTS+
 		adrs_t wots;
 		// Адрес дерева
@@ -1005,39 +1006,39 @@ namespace {
 		// Начинаем путь с пары ключа
 		uint32_t node = leaf;
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(wots, adrs);
+		::__nts_copy_adrs__(wots, adrs);
 		// Вид адреса подписи
-		::__ants_set_type__(setup, wots, 0);
+		::__nts_set_type__(setup, wots, 0);
 		// Пара ключа в адресе подписи
-		::__ants_set_keypair__(setup, wots, leaf);
+		::__nts_set_keypair__(setup, wots, leaf);
 		// Открытый ключ WOTS+ из подписи
-		const uint8_t * result = ::__ants_wots_pk_from_sig__(setup, sig, msg, pkSeed, wots, out);
+		const uint8_t * result = ::__nts_wots_pk_from_sig__(setup, sig, msg, pkSeed, wots, out);
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(tree, adrs);
+		::__nts_copy_adrs__(tree, adrs);
 		// Вид адреса узла дерева
-		::__ants_set_type__(setup, tree, 2);
+		::__nts_set_type__(setup, tree, 2);
 		/**
 		 * Поднимаемся по уровням дерева
 		 */
 		for(uint32_t height = 0; height < setup.xmssHeight; height++){
 			// Высота узла в адресе
-			::__ants_set_chain__(setup, tree, (height + 1));
+			::__nts_set_chain__(setup, tree, (height + 1));
 			// Узел складывается с братом пути по стороне индекса
 			if((node & 1) == 0){
 				// Поднимаемся к родителю узла
 				node >>= 1;
 				// Индекс родителя в адресе
-				::__ants_set_step__(setup, tree, node);
+				::__nts_set_step__(setup, tree, node);
 				// Значение складывается с братом справа
-				::__ants_compress_pair__(setup, pkSeed, tree, out, result, out);
+				::__nts_compress_pair__(setup, pkSeed, tree, out, result, out);
 			// Нечётный узел: брат пути лежит слева
 			} else {
 				// Поднимаемся к родителю узла
 				node = (node - 1) >> 1;
 				// Индекс родителя в адресе
-				::__ants_set_step__(setup, tree, node);
+				::__nts_set_step__(setup, tree, node);
 				// Значение складывается с братом слева
-				::__ants_compress_pair__(setup, pkSeed, tree, result, out, out);
+				::__nts_compress_pair__(setup, pkSeed, tree, result, out, out);
 			}
 			// Сдвигаем чтение подписи на значение
 			result += setup.security;
@@ -1060,19 +1061,19 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_fors_secret__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, const adrs_t adrs, const uint32_t id, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_fors_secret__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, const adrs_t adrs, const uint32_t id, uint8_t * out) noexcept {
 		// Адрес секретного значения
 		adrs_t skAdrs;
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(skAdrs, adrs);
+		::__nts_copy_adrs__(skAdrs, adrs);
 		// Вид адреса секретного значения
-		::__ants_set_type__(setup, skAdrs, 6);
+		::__nts_set_type__(setup, skAdrs, 6);
 		// Пара ключа в адресе значения
-		::__ants_copy_keypair__(setup, skAdrs, adrs);
+		::__nts_copy_keypair__(setup, skAdrs, adrs);
 		// Индекс значения в адресе
-		::__ants_set_step__(setup, skAdrs, id);
+		::__nts_set_step__(setup, skAdrs, id);
 		// Вырабатываем секретное значение
-		::__ants_prf__(setup, pkSeed, skSeed, skAdrs, out);
+		::__nts_prf__(setup, pkSeed, skSeed, skAdrs, out);
 		// Затираем адрес значения
 		sys::wipe(skAdrs, sizeof(skAdrs));
 	}
@@ -1088,19 +1089,19 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __ants_fors_node__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, const uint32_t node, const uint32_t height, uint8_t * out) noexcept {
+	static void __nts_fors_node__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, const uint32_t node, const uint32_t height, uint8_t * out) noexcept {
 		// Лист дерева: значение выжимается из секретного значения
 		if(height == 0){
 			// Секретное значение листа
 			uint8_t sk[MAX_N];
 			// Вырабатываем секретное значение
-			::__ants_fors_secret__(setup, skSeed, pkSeed, adrs, node, sk);
+			::__nts_fors_secret__(setup, skSeed, pkSeed, adrs, node, sk);
 			// Высота листа в адресе
-			::__ants_set_chain__(setup, adrs, 0);
+			::__nts_set_chain__(setup, adrs, 0);
 			// Индекс листа в адресе
-			::__ants_set_step__(setup, adrs, node);
+			::__nts_set_step__(setup, adrs, node);
 			// Вырабатываем значение листа
-			::__ants_compress_single__(setup, pkSeed, adrs, view_t(sk, setup.security), out);
+			::__nts_compress_single__(setup, pkSeed, adrs, view_t(sk, setup.security), out);
 			// Затираем секретное значение
 			sys::wipe(sk, sizeof(sk));
 		// Узел выше листа: значение выжимается из пары детей
@@ -1110,19 +1111,19 @@ namespace {
 			// Значения детей узла
 			uint8_t left[MAX_N], right[MAX_N];
 			// Копируем исходный адрес
-			::__ants_copy_adrs__(children, adrs);
+			::__nts_copy_adrs__(children, adrs);
 			// Вычисляем значение левого ребёнка
-			::__ants_fors_node__(setup, skSeed, pkSeed, children, (2 * node), (height - 1), left);
+			::__nts_fors_node__(setup, skSeed, pkSeed, children, (2 * node), (height - 1), left);
 			// Копируем исходный адрес
-			::__ants_copy_adrs__(children, adrs);
+			::__nts_copy_adrs__(children, adrs);
 			// Вычисляем значение правого ребёнка
-			::__ants_fors_node__(setup, skSeed, pkSeed, children, ((2 * node) + 1), (height - 1), right);
+			::__nts_fors_node__(setup, skSeed, pkSeed, children, ((2 * node) + 1), (height - 1), right);
 			// Высота узла в адресе
-			::__ants_set_chain__(setup, adrs, height);
+			::__nts_set_chain__(setup, adrs, height);
 			// Индекс узла в адресе
-			::__ants_set_step__(setup, adrs, node);
+			::__nts_set_step__(setup, adrs, node);
 			// Вырабатываем значение узла
-			::__ants_compress_pair__(setup, pkSeed, adrs, left, right, out);
+			::__nts_compress_pair__(setup, pkSeed, adrs, left, right, out);
 			// Затираем значение левого ребёнка
 			sys::wipe(left, sizeof(left));
 			// Затираем значение правого ребёнка
@@ -1138,7 +1139,7 @@ namespace {
 	 * @param count число значений
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_base2b__(const uint8_t * in, const uint32_t width, uint32_t * out, const size_t count) noexcept {
+	static __NTS_INLINE__ void __nts_base2b__(const uint8_t * in, const uint32_t width, uint32_t * out, const size_t count) noexcept {
 		// Набранные разряды и накопленное значение
 		uint32_t bits = 0, total = 0;
 		// Маска разрядов значения
@@ -1176,7 +1177,7 @@ namespace {
 	 * @return       место за записанной подписью
 	 *
 	 */
-	static __ANTS_INLINE__ uint8_t * __ants_fors_sign__(const params_t & setup, const uint8_t * digest, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ uint8_t * __nts_fors_sign__(const params_t & setup, const uint8_t * digest, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Смещение леса по уровням: каждое дерево занимает свою полосу индексов
 		uint32_t forest = 0;
 		// Значения листьев по k деревьям
@@ -1184,7 +1185,7 @@ namespace {
 		// Секретное значение листа
 		uint8_t value[MAX_N];
 		// Раскладываем дайджест на индексы листьев
-		::__ants_base2b__(digest, setup.forsLevels, ids, setup.forsTrees);
+		::__nts_base2b__(digest, setup.forsLevels, ids, setup.forsTrees);
 		/**
 		 * Проходим по всем деревьям леса
 		 */
@@ -1192,7 +1193,7 @@ namespace {
 			// Индекс листа дерева
 			uint32_t node = ids[tree];
 			// Секретное значение листа
-			::__ants_fors_secret__(setup, skSeed, pkSeed, adrs, (node + forest), value);
+			::__nts_fors_secret__(setup, skSeed, pkSeed, adrs, (node + forest), value);
 			// Записываем секретное значение листа
 			::memcpy(out, value, setup.security);
 			// Сдвигаем место записи на значение
@@ -1204,7 +1205,7 @@ namespace {
 			 */
 			for(uint32_t height = 0; height < setup.forsLevels; height++){
 				// Вырабатываем брата узла уровня
-				::__ants_fors_node__(setup, skSeed, pkSeed, adrs, ((node ^ 1) + offset), height, out);
+				::__nts_fors_node__(setup, skSeed, pkSeed, adrs, ((node ^ 1) + offset), height, out);
 				// Сдвигаем место записи на значение
 				out += setup.security;
 				// Поднимаемся к родителю узла
@@ -1232,7 +1233,7 @@ namespace {
 	 * @return       место за прочитанной подписью
 	 *
 	 */
-	static const uint8_t * __ants_fors_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint8_t * digest, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static const uint8_t * __nts_fors_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint8_t * digest, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Смещение леса по деревьям
 		uint32_t forest = 0;
 		// Значения листьев по k деревьям
@@ -1240,7 +1241,7 @@ namespace {
 		// Корни всех деревьев леса
 		uint8_t roots[MAX_K * MAX_N];
 		// Раскладываем дайджест на индексы листьев
-		::__ants_base2b__(digest, setup.forsLevels, ids, setup.forsTrees);
+		::__nts_base2b__(digest, setup.forsLevels, ids, setup.forsTrees);
 		/**
 		 * Проходим по всем деревьям леса
 		 */
@@ -1252,11 +1253,11 @@ namespace {
 			// Место корня дерева
 			uint8_t * node0 = (roots + (tree * setup.security));
 			// Высота листа в адресе
-			::__ants_set_chain__(setup, adrs, 0);
+			::__nts_set_chain__(setup, adrs, 0);
 			// Индекс листа в адресе
-			::__ants_set_step__(setup, adrs, node);
+			::__nts_set_step__(setup, adrs, node);
 			// Лист из значения подписи
-			::__ants_compress_single__(setup, pkSeed, adrs, view_t(sig, setup.security), node0);
+			::__nts_compress_single__(setup, pkSeed, adrs, view_t(sig, setup.security), node0);
 			// Сдвигаем чтение подписи на значение
 			sig += setup.security;
 			// Место очередного узла дерева
@@ -1266,23 +1267,23 @@ namespace {
 			 */
 			for(uint32_t height = 0; height < setup.forsLevels; height++){
 				// Высота узла в адресе
-				::__ants_set_chain__(setup, adrs, (height + 1));
+				::__nts_set_chain__(setup, adrs, (height + 1));
 				// Узел складывается с братом пути по стороне индекса
 				if((id & 1) == 0){
 					// Поднимаемся к родителю узла
 					node >>= 1;
 					// Индекс родителя в адресе
-					::__ants_set_step__(setup, adrs, node);
+					::__nts_set_step__(setup, adrs, node);
 					// Значение складывается с братом справа
-					::__ants_compress_pair__(setup, pkSeed, adrs, node0, sig, node1);
+					::__nts_compress_pair__(setup, pkSeed, adrs, node0, sig, node1);
 				// Нечётный лист: брат пути лежит слева
 				} else {
 					// Поднимаемся к родителю листа
 					node = (node - 1) >> 1;
 					// Индекс родителя в адресе
-					::__ants_set_step__(setup, adrs, node);
+					::__nts_set_step__(setup, adrs, node);
 					// Значение складывается с братом слева
-					::__ants_compress_pair__(setup, pkSeed, adrs, sig, node0, node1);
+					::__nts_compress_pair__(setup, pkSeed, adrs, sig, node0, node1);
 				}
 				// Сдвигаем чтение подписи на значение
 				sig += setup.security;
@@ -1295,13 +1296,13 @@ namespace {
 		// Адрес открытого ключа
 		adrs_t pkAdrs;
 		// Копируем исходный адрес
-		::__ants_copy_adrs__(pkAdrs, adrs);
+		::__nts_copy_adrs__(pkAdrs, adrs);
 		// Вид адреса открытого ключа
-		::__ants_set_type__(setup, pkAdrs, 4);
+		::__nts_set_type__(setup, pkAdrs, 4);
 		// Пара ключа в адресе ключа
-		::__ants_copy_keypair__(setup, pkAdrs, adrs);
+		::__nts_copy_keypair__(setup, pkAdrs, adrs);
 		// Выжимаем открытый ключ FORS из корней всех деревьев
-		::__ants_compress_wide__(setup, pkSeed, pkAdrs, view_t(roots, (setup.forsTrees * setup.security)), out);
+		::__nts_compress_wide__(setup, pkSeed, pkAdrs, view_t(roots, (setup.forsTrees * setup.security)), out);
 		// Затираем корни всех деревьев
 		sys::wipe(roots, sizeof(roots));
 		// Затираем адрес открытого ключа
@@ -1322,11 +1323,11 @@ namespace {
 	 * @return       место за записанной подписью
 	 *
 	 */
-	static __ANTS_INLINE__ uint8_t * __ants_ht_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint8_t * pkSeed, uint64_t tree, uint32_t leaf, uint8_t * out) noexcept {
+	static __NTS_INLINE__ uint8_t * __nts_ht_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint8_t * pkSeed, uint64_t tree, uint32_t leaf, uint8_t * out) noexcept {
 		// Адрес дерева слоя
 		adrs_t adrs;
 		// Обнуляем адрес
-		::__ants_zero__(adrs);
+		::__nts_zero__(adrs);
 		// Подписываемое слоем значение: сперва корень FORS
 		uint8_t root[MAX_N];
 		// Копируем сообщение в подписываемое значение
@@ -1338,17 +1339,17 @@ namespace {
 		 */
 		for(uint32_t layer = 0; layer < setup.hypertrees; layer++){
 			// Адрес слоя в адресе
-			::__ants_set_layer__(setup, adrs, layer);
+			::__nts_set_layer__(setup, adrs, layer);
 			// Адрес дерева в адресе
-			::__ants_set_tree__(setup, adrs, tree);
+			::__nts_set_tree__(setup, adrs, tree);
 			// Запоминаем начало подписи слоя
 			uint8_t * layerSig = out;
 			// Подписываем значение деревом слоя
-			out = ::__ants_xmss_sign__(setup, root, skSeed, leaf, pkSeed, adrs, out);
+			out = ::__nts_xmss_sign__(setup, root, skSeed, leaf, pkSeed, adrs, out);
 			// Корень следующего слоя - открытый ключ только что подписанного дерева
 			if(layer < (static_cast <uint32_t> (setup.hypertrees) - 1)){
 				// Восстанавливаем корень подписанного дерева
-				std::ignore = ::__ants_xmss_pk_from_sig__(setup, layerSig, leaf, root, pkSeed, adrs, root);
+				std::ignore = ::__nts_xmss_pk_from_sig__(setup, layerSig, leaf, root, pkSeed, adrs, root);
 				// Пара следующего слоя из дерева
 				leaf = (tree & mask);
 				// Дерево поднимается на слой выше
@@ -1375,11 +1376,11 @@ namespace {
 	 * @return       признак того, что гипердерево сошлось с корнем
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_ht_verify__(const params_t & setup, const uint8_t * msg, const uint8_t * sig, const uint8_t * pkSeed, uint64_t tree, uint32_t leaf, const uint8_t * pkRoot) noexcept {
+	static __NTS_INLINE__ bool __nts_ht_verify__(const params_t & setup, const uint8_t * msg, const uint8_t * sig, const uint8_t * pkSeed, uint64_t tree, uint32_t leaf, const uint8_t * pkRoot) noexcept {
 		// Адрес дерева слоя
 		adrs_t adrs;
 		// Обнуляем адрес
-		::__ants_zero__(adrs);
+		::__nts_zero__(adrs);
 		// Проверяемое слоем значение: сперва корень FORS
 		uint8_t node[MAX_N];
 		// Копируем сообщение в проверяемое значение
@@ -1391,11 +1392,11 @@ namespace {
 		 */
 		for(uint32_t layer = 0; layer < setup.hypertrees; layer++){
 			// Адрес слоя в адресе
-			::__ants_set_layer__(setup, adrs, layer);
+			::__nts_set_layer__(setup, adrs, layer);
 			// Адрес дерева в адресе
-			::__ants_set_tree__(setup, adrs, tree);
+			::__nts_set_tree__(setup, adrs, tree);
 			// Восстанавливаем корень дерева слоя
-			sig = ::__ants_xmss_pk_from_sig__(setup, sig, leaf, node, pkSeed, adrs, node);
+			sig = ::__nts_xmss_pk_from_sig__(setup, sig, leaf, node, pkSeed, adrs, node);
 			// Пара следующего слоя из дерева
 			leaf = (tree & mask);
 			// Дерево поднимается на слой выше
@@ -1418,7 +1419,7 @@ namespace {
 	 * @return     целое число
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t __ants_bytes_to_int__(const uint8_t * in, const size_t size) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_bytes_to_int__(const uint8_t * in, const size_t size) noexcept {
 		// Накопленное значение
 		uint64_t result = 0;
 		/**
@@ -1439,15 +1440,15 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_pk_root__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_pk_root__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, uint8_t * out) noexcept {
 		// Адрес дерева верхнего слоя
 		adrs_t adrs;
 		// Обнуляем адрес
-		::__ants_zero__(adrs);
+		::__nts_zero__(adrs);
 		// Адрес верхнего слоя
-		::__ants_set_layer__(setup, adrs, (setup.hypertrees - 1));
+		::__nts_set_layer__(setup, adrs, (setup.hypertrees - 1));
 		// Вырабатываем корень вершиной дерева
-		::__ants_xmss_node__(setup, skSeed, 0, setup.xmssHeight, pkSeed, adrs, out);
+		::__nts_xmss_node__(setup, skSeed, 0, setup.xmssHeight, pkSeed, adrs, out);
 		// Затираем адрес
 		sys::wipe(adrs, sizeof(adrs));
 	}
@@ -1460,11 +1461,11 @@ namespace {
 	 * @param secret место ключа подписи: SK.seed ‖ SK.prf ‖ PK.seed ‖ PK.root (4n байтов)
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_keygen__(const params_t & setup, const uint8_t * seed, uint8_t * key, uint8_t * secret) noexcept {
+	static __NTS_INLINE__ void __nts_keygen__(const params_t & setup, const uint8_t * seed, uint8_t * key, uint8_t * secret) noexcept {
 		// Запись ключа подписи: зерно целиком в первые три значения
 		::memcpy(secret, seed, (3 * setup.security));
 		// Корень ключа вычисляется вершиной дерева верхнего слоя
-		::__ants_pk_root__(setup, (secret), (secret + (2 * setup.security)), (secret + (3 * setup.security)));
+		::__nts_pk_root__(setup, (secret), (secret + (2 * setup.security)), (secret + (3 * setup.security)));
 		// Ключ проверки: PK.seed ‖ PK.root
 		::memcpy(key, (secret + (2 * setup.security)), (2 * setup.security));
 	}
@@ -1479,7 +1480,7 @@ namespace {
 	 * @param result  место записи подписи: R ‖ FORS ‖ HT
 	 *
 	 */
-	static void __ants_signing__(const params_t & setup, const uint8_t * secret, const uint8_t * rnd, const view_t & message, const view_t & context, uint8_t * result) noexcept {
+	static void __nts_signing__(const params_t & setup, const uint8_t * secret, const uint8_t * rnd, const view_t & message, const view_t & context, uint8_t * result) noexcept {
 		// Накопитель отличия случайности от нулей
 		uint32_t noisy = 0;
 		// Секретное зерно ключа
@@ -1602,7 +1603,7 @@ namespace {
 					std::ignore = sha.finish((seed + (2 * setup.security)), length);
 				}
 				// Порождаем дайджест из зерна
-				::__ants_mgf1__(((setup.family == FAMILY_SHA2_35) ? digest::sha_t::SHA512 : digest::sha_t::SHA256), view_t(seed, ((2 * setup.security) + length)), messageDigest, setup.message);
+				::__nts_mgf1__(((setup.family == FAMILY_SHA2_35) ? digest::sha_t::SHA512 : digest::sha_t::SHA256), view_t(seed, ((2 * setup.security) + length)), messageDigest, setup.message);
 				// Затираем зерно порождения
 				sys::wipe(seed, sizeof(seed));
 			}
@@ -1614,9 +1615,9 @@ namespace {
 		// Длина индекса пары в байтах
 		const size_t leafLen = ((setup.xmssHeight + 7) >> 3);
 		// Индекс дерева из дайджеста
-		const uint64_t tree = (::__ants_bytes_to_int__((messageDigest + mdLen), treeLen) & ((~static_cast <uint64_t> (0)) >> (64 - ((setup.hypertrees * setup.xmssHeight) - setup.xmssHeight))));
+		const uint64_t tree = (::__nts_bytes_to_int__((messageDigest + mdLen), treeLen) & ((~static_cast <uint64_t> (0)) >> (64 - ((setup.hypertrees * setup.xmssHeight) - setup.xmssHeight))));
 		// Индекс пары ключа из дайджеста
-		const uint32_t leaf = static_cast <uint32_t> (::__ants_bytes_to_int__((messageDigest + mdLen + treeLen), leafLen) & ((static_cast <uint64_t> (1) << setup.xmssHeight) - 1));
+		const uint32_t leaf = static_cast <uint32_t> (::__nts_bytes_to_int__((messageDigest + mdLen + treeLen), leafLen) & ((static_cast <uint64_t> (1) << setup.xmssHeight) - 1));
 		// Запись подписи: R ‖ FORS ‖ HT
 		uint8_t * out = result;
 		// Записываем случайность подписи
@@ -1626,23 +1627,23 @@ namespace {
 		// Адрес дерева подписи
 		adrs_t adrs;
 		// Обнуляем адрес
-		::__ants_zero__(adrs);
+		::__nts_zero__(adrs);
 		// Адрес дерева в адресе
-		::__ants_set_tree__(setup, adrs, tree);
+		::__nts_set_tree__(setup, adrs, tree);
 		// Вид адреса дерева подписи
-		::__ants_set_type__(setup, adrs, 3);
+		::__nts_set_type__(setup, adrs, 3);
 		// Пара ключа в адресе
-		::__ants_set_keypair__(setup, adrs, leaf);
+		::__nts_set_keypair__(setup, adrs, leaf);
 		// Запоминаем начало подписи FORS
 		uint8_t * fors = out;
 		// Подписываем дайджест лесом FORS
-		out = ::__ants_fors_sign__(setup, messageDigest, skSeed, pkSeed, adrs, out);
+		out = ::__nts_fors_sign__(setup, messageDigest, skSeed, pkSeed, adrs, out);
 		// Корень FORS из только что выработанной подписи
 		uint8_t pkFors[MAX_N];
 		// Восстанавливаем корень FORS из подписи
-		std::ignore = ::__ants_fors_pk_from_sig__(setup, fors, messageDigest, pkSeed, adrs, pkFors);
+		std::ignore = ::__nts_fors_pk_from_sig__(setup, fors, messageDigest, pkSeed, adrs, pkFors);
 		// Подписываем корень FORS гипердеревом
-		std::ignore = ::__ants_ht_sign__(setup, pkFors, skSeed, pkSeed, tree, leaf, out);
+		std::ignore = ::__nts_ht_sign__(setup, pkFors, skSeed, pkSeed, tree, leaf, out);
 		// Затираем случайность подписи
 		sys::wipe(randomness, sizeof(randomness));
 		// Затираем дайджест сообщения
@@ -1663,7 +1664,7 @@ namespace {
 	 * @return          признак того, что подпись сошлась
 	 *
 	 */
-	static bool __ants_checking__(const params_t & setup, const uint8_t * key, const view_t & message, const view_t & context, const uint8_t * signature) noexcept {
+	static bool __nts_checking__(const params_t & setup, const uint8_t * key, const view_t & message, const view_t & context, const uint8_t * signature) noexcept {
 		// Открытое зерно ключа
 		const uint8_t * pkSeed = key;
 		// Корень ключа проверки
@@ -1724,7 +1725,7 @@ namespace {
 					std::ignore = sha.finish((seed + (2 * setup.security)), length);
 				}
 				// Порождаем дайджест из зерна
-				::__ants_mgf1__(((setup.family == FAMILY_SHA2_35) ? digest::sha_t::SHA512 : digest::sha_t::SHA256), view_t(seed, ((2 * setup.security) + length)), messageDigest, setup.message);
+				::__nts_mgf1__(((setup.family == FAMILY_SHA2_35) ? digest::sha_t::SHA512 : digest::sha_t::SHA256), view_t(seed, ((2 * setup.security) + length)), messageDigest, setup.message);
 				// Затираем зерно порождения
 				sys::wipe(seed, sizeof(seed));
 			}
@@ -1736,27 +1737,27 @@ namespace {
 		// Длина индекса пары в байтах
 		const size_t leafLen = ((setup.xmssHeight + 7) >> 3);
 		// Индекс дерева из дайджеста
-		const uint64_t tree = (::__ants_bytes_to_int__((messageDigest + mdLen), treeLen) & ((~static_cast <uint64_t> (0)) >> (64 - ((setup.hypertrees * setup.xmssHeight) - setup.xmssHeight))));
+		const uint64_t tree = (::__nts_bytes_to_int__((messageDigest + mdLen), treeLen) & ((~static_cast <uint64_t> (0)) >> (64 - ((setup.hypertrees * setup.xmssHeight) - setup.xmssHeight))));
 		// Индекс пары ключа из дайджеста
-		const uint32_t leaf = static_cast <uint32_t> (::__ants_bytes_to_int__((messageDigest + mdLen + treeLen), leafLen) & ((static_cast <uint64_t> (1) << setup.xmssHeight) - 1));
+		const uint32_t leaf = static_cast <uint32_t> (::__nts_bytes_to_int__((messageDigest + mdLen + treeLen), leafLen) & ((static_cast <uint64_t> (1) << setup.xmssHeight) - 1));
 		// Адрес дерева подписи
 		adrs_t adrs;
 		// Обнуляем адрес
-		::__ants_zero__(adrs);
+		::__nts_zero__(adrs);
 		// Адрес дерева в адресе
-		::__ants_set_tree__(setup, adrs, tree);
+		::__nts_set_tree__(setup, adrs, tree);
 		// Вид адреса дерева подписи
-		::__ants_set_type__(setup, adrs, 3);
+		::__nts_set_type__(setup, adrs, 3);
 		// Пара ключа в адресе
-		::__ants_set_keypair__(setup, adrs, leaf);
+		::__nts_set_keypair__(setup, adrs, leaf);
 		// Подпись за случайностью
 		const uint8_t * sig = (signature + setup.security);
 		// Корень FORS из подписи
 		uint8_t pkFors[MAX_N];
 		// Восстанавливаем корень FORS из подписи
-		sig = ::__ants_fors_pk_from_sig__(setup, sig, messageDigest, pkSeed, adrs, pkFors);
+		sig = ::__nts_fors_pk_from_sig__(setup, sig, messageDigest, pkSeed, adrs, pkFors);
 		// Гипердерево обязано сойтись с корнем ключа проверки
-		const bool result = ::__ants_ht_verify__(setup, pkFors, sig, pkSeed, tree, leaf, pkRoot);
+		const bool result = ::__nts_ht_verify__(setup, pkFors, sig, pkSeed, tree, leaf, pkRoot);
 		// Затираем дайджест сообщения
 		sys::wipe(messageDigest, sizeof(messageDigest));
 		// Затираем корень FORS
@@ -1774,11 +1775,11 @@ namespace {
 	 * @return       признак того, что корень записи сходится с пересчитанным из зерна
 	 *
 	 */
-	static __ANTS_INLINE__ bool __ants_consistent__(const params_t & setup, const uint8_t * secret) noexcept {
+	static __NTS_INLINE__ bool __nts_consistent__(const params_t & setup, const uint8_t * secret) noexcept {
 		// Корень, пересчитанный из зерна записи
 		uint8_t root[MAX_N];
 		// Пересчитываем корень из зерна записи
-		::__ants_pk_root__(setup, secret, (secret + (2 * setup.security)), root);
+		::__nts_pk_root__(setup, secret, (secret + (2 * setup.security)), root);
 		// Сличаем корень с записанным в записи
 		const bool result = (::memcmp(root, (secret + (3 * setup.security)), setup.security) == 0);
 		// Затираем пересчитанный корень
@@ -1860,7 +1861,7 @@ void sign::SLH_DSA::clear() noexcept {
  */
 size_t sign::SLH_DSA::seedSize(const set_t set) noexcept {
 	// Размер зерна порождения: три значения по n байтов
-	return (3 * ::__ants_params__(set).security);
+	return (3 * ::__nts_params__(set).security);
 }
 /**
  * @brief Метод получения размера ключа подписи набора в байтах
@@ -1871,7 +1872,7 @@ size_t sign::SLH_DSA::seedSize(const set_t set) noexcept {
  */
 size_t sign::SLH_DSA::secretSize(const set_t set) noexcept {
 	// Размер ключа подписи: четыре значения по n байтов
-	return (4 * ::__ants_params__(set).security);
+	return (4 * ::__nts_params__(set).security);
 }
 /**
  * @brief Метод получения размера ключа проверки набора в байтах
@@ -1882,7 +1883,7 @@ size_t sign::SLH_DSA::secretSize(const set_t set) noexcept {
  */
 size_t sign::SLH_DSA::publicSize(const set_t set) noexcept {
 	// Размер ключа проверки: два значения по n байтов
-	return (2 * ::__ants_params__(set).security);
+	return (2 * ::__nts_params__(set).security);
 }
 /**
  * @brief Метод получения размера подписи набора в байтах
@@ -1893,7 +1894,7 @@ size_t sign::SLH_DSA::publicSize(const set_t set) noexcept {
  */
 size_t sign::SLH_DSA::signatureSize(const set_t set) noexcept {
 	// Размер подписи набора из таблицы параметров
-	return ::__ants_params__(set).signature;
+	return ::__nts_params__(set).signature;
 }
 /**
  * @brief Метод порождения долговременного ключа подписи из зерна
@@ -1909,11 +1910,11 @@ bool sign::SLH_DSA::generate(const set_t set, const view_t & seed, uint8_t * key
 	// Результат работы
 	bool result = false;
 	// Получаем параметры набора
-	const params_t setup = ::__ants_params__(set);
+	const params_t setup = ::__nts_params__(set);
 	// Набор существует и зерно верной длины
 	if((setup.security != 0) && (seed.size == (3 * setup.security))){
 		// Порождаем ключ из зерна
-		::__ants_keygen__(setup, static_cast <const uint8_t *> (seed.data), key, secret);
+		::__nts_keygen__(setup, static_cast <const uint8_t *> (seed.data), key, secret);
 		// Порождение ключа прошло успешно
 		result = true;
 	}
@@ -1933,7 +1934,7 @@ bool sign::SLH_DSA::generate(const set_t set, uint8_t * key, uint8_t * secret) n
 	// Результат работы
 	bool result = false;
 	// Получаем параметры набора
-	const params_t setup = ::__ants_params__(set);
+	const params_t setup = ::__nts_params__(set);
 	// Набор параметров существует
 	if(setup.security != 0){
 		// Зерно порождения из источника случайности
@@ -1941,7 +1942,7 @@ bool sign::SLH_DSA::generate(const set_t set, uint8_t * key, uint8_t * secret) n
 		// Зерно порождается источником случайности
 		if(entropy::bytes(seed, (3 * setup.security))){
 			// Порождаем ключ из зерна
-			::__ants_keygen__(setup, seed, key, secret);
+			::__nts_keygen__(setup, seed, key, secret);
 			// Порождение ключа прошло успешно
 			result = true;
 		}
@@ -1963,11 +1964,11 @@ bool sign::SLH_DSA::secret(const set_t set, const view_t & secret) noexcept {
 	// Результат работы
 	bool result = false;
 	// Получаем параметры набора
-	const params_t setup = ::__ants_params__(set);
+	const params_t setup = ::__nts_params__(set);
 	// Набор существует и запись верной длины
 	if((setup.security != 0) && (secret.size == (4 * setup.security))){
 		// Подлинность записи проверяется пересчётом корня из зерна записи
-		if(::__ants_consistent__(setup, static_cast <const uint8_t *> (secret.data))){
+		if(::__nts_consistent__(setup, static_cast <const uint8_t *> (secret.data))){
 			// Запоминаем запись ключа подписи
 			::memcpy(this->_key, secret.data, (4 * setup.security));
 			// Запоминаем запись ключа проверки
@@ -1997,7 +1998,7 @@ bool sign::SLH_DSA::key(const set_t set, const view_t & key) noexcept {
 	// Результат работы
 	bool result = false;
 	// Получаем параметры набора
-	const params_t setup = ::__ants_params__(set);
+	const params_t setup = ::__nts_params__(set);
 	// Набор существует и запись верной длины
 	if((setup.security != 0) && (key.size == (2 * setup.security))){
 		// Если ключ подписи установлен, поданный обязан совпасть с записанным
@@ -2033,9 +2034,9 @@ bool sign::SLH_DSA::key(uint8_t * result, const size_t size) const noexcept {
 	// Результат работы
 	bool outcome = false;
 	// Ключ проверки установлен и места хватает
-	if((outcome = (this->_public && (size >= (2 * ::__ants_params__(this->_set).security)))))
+	if((outcome = (this->_public && (size >= (2 * ::__nts_params__(this->_set).security)))))
 		// Выводим ключ проверки
-		::memcpy(result, this->_pkey, (2 * ::__ants_params__(this->_set).security));
+		::memcpy(result, this->_pkey, (2 * ::__nts_params__(this->_set).security));
 	// Выводим признак успешности
 	return outcome;
 }
@@ -2058,7 +2059,7 @@ bool sign::SLH_DSA::make(const view_t & message, const view_t & context, uint8_t
 		// Случайность порождается источником
 		if((outcome = entropy::bytes(rnd, sizeof(rnd))))
 			// Вырабатываем подпись
-			::__ants_signing__(::__ants_params__(this->_set), this->_key, rnd, message, context, result);
+			::__nts_signing__(::__nts_params__(this->_set), this->_key, rnd, message, context, result);
 		// Затираем случайность подписи
 		sys::wipe(rnd, sizeof(rnd));
 	}
@@ -2081,7 +2082,7 @@ bool sign::SLH_DSA::make(const view_t & rnd, const view_t & message, const view_
 	// Ключ подписи установлен, случайность верной длины и контекст в пределе
 	if((outcome = (this->_secret && (rnd.size == 32) && (context.size < 256))))
 		// Вырабатываем подпись
-		::__ants_signing__(::__ants_params__(this->_set), this->_key, static_cast <const uint8_t *> (rnd.data), message, context, result);
+		::__nts_signing__(::__nts_params__(this->_set), this->_key, static_cast <const uint8_t *> (rnd.data), message, context, result);
 	// Выводим признак успешности
 	return outcome;
 }
@@ -2098,11 +2099,11 @@ bool sign::SLH_DSA::check(const view_t & message, const view_t & context, const 
 	// Результат работы
 	bool result = false;
 	// Получаем параметры набора
-	const params_t setup = ::__ants_params__(this->_set);
+	const params_t setup = ::__nts_params__(this->_set);
 	// Ключ проверки установлен и запись верной длины
 	if(this->_public && (signature.size == setup.signature) && (context.size < 256))
 		// Проверяем подпись
-		result = ::__ants_checking__(setup, this->_pkey, message, context, static_cast <const uint8_t *> (signature.data));
+		result = ::__nts_checking__(setup, this->_pkey, message, context, static_cast <const uint8_t *> (signature.data));
 	// Выводим признак схождения
 	return result;
 }

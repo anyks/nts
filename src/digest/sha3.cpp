@@ -93,7 +93,7 @@ namespace {
 	/**
 	 * Круговой сдвиг нужен лишь переносимой перестановке
 	 */
-	#if !defined(__ANTS_KECCAK_X86_64__) && !defined(__ANTS_KECCAK_AARCH64__)
+	#if !defined(__NTS_KECCAK_X86_64__) && !defined(__NTS_KECCAK_AARCH64__)
 		/**
 		 * @brief Функция кругового сдвига полосы влево
 		 *
@@ -117,7 +117,7 @@ namespace {
 	 *       байтом вперёд; на прочих запись верна по определению раздела 3.1.2 FIPS 202
 	 *
 	 */
-	static __ANTS_INLINE__ uint64_t word(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint64_t word(const uint8_t * data) noexcept {
 		/**
 		 * На машинах с младшим байтом вперёд полоса лежит в памяти как есть, и копия
 		 * восьми байтов обращается в одну загрузку у clang и gcc. У lcc на Эльбрусе memcpy
@@ -151,7 +151,7 @@ namespace {
 	 * @param result место, в которое помещаются байты
 	 *
 	 */
-	static __ANTS_INLINE__ void bytes(const uint64_t lane, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void bytes(const uint64_t lane, uint8_t * result) noexcept {
 		/**
 			 * На машинах с младшим байтом вперёд полоса пишется в память как есть
 			 */
@@ -180,7 +180,7 @@ void nts::digest::Keccak::permute() noexcept {
 	/**
 	 * Ядро на ассемблере x86-64 либо на командах SHA-3 AArch64 (решение 4)
 	 */
-	#if defined(__ANTS_KECCAK_X86_64__) || defined(__ANTS_KECCAK_AARCH64__)
+	#if defined(__NTS_KECCAK_X86_64__) || defined(__NTS_KECCAK_AARCH64__)
 		// Перестановка ядром на ассемблере
 		kernel::keccak(this->_state, IOTA);
 	/**

@@ -77,7 +77,7 @@ namespace {
 	 *          одним байтом, а x - само число от старшего байта к младшему
 	 *
 	 */
-	void __ants_left_encode__(const uint64_t value, vector <uint8_t> & result) {
+	void __nts_left_encode__(const uint64_t value, vector <uint8_t> & result) {
 		// Число значащих байтов записываемого числа
 		size_t width = 1;
 		/**
@@ -105,7 +105,7 @@ namespace {
 	 *          байта к младшему, а n - длина записи числа одним байтом
 	 *
 	 */
-	void __ants_right_encode__(const uint64_t value, vector <uint8_t> & result) {
+	void __nts_right_encode__(const uint64_t value, vector <uint8_t> & result) {
 		// Число значащих байтов записываемого числа
 		size_t width = 1;
 		/**
@@ -132,9 +132,9 @@ namespace {
 	 * @details Раздел 2.2 SP 800-185: запись есть left_encode(длина в разрядах) ‖ строка
 	 *
 	 */
-	void __ants_encode_string__(const view_t & data, vector <uint8_t> & result) {
+	void __nts_encode_string__(const view_t & data, vector <uint8_t> & result) {
 		// Записываем длину строки в разрядах
-		__ants_left_encode__(static_cast <uint64_t> (data.size) * 8, result);
+		__nts_left_encode__(static_cast <uint64_t> (data.size) * 8, result);
 		// Записываем саму строку
 		result.insert(result.end(), data.data, data.data + data.size);
 	}
@@ -153,7 +153,7 @@ namespace {
 		// Длина записи до дополнения: длина префикса скорости и длина строки
 		const size_t before = (result.size() + 2 + data.size);
 		// Записываем скорость разновидности: у скоростей Keccak запись всегда двухбайтовая
-		__ants_left_encode__(static_cast <uint64_t> (rate), result);
+		__nts_left_encode__(static_cast <uint64_t> (rate), result);
 		// Записываем саму строку
 		result.insert(result.end(), data.data, data.data + data.size);
 		// Дописываем нули до длины записи, кратной скорости
@@ -216,9 +216,9 @@ bool nts::digest::cshake(const sha3_t type, const view_t & data, const view_t & 
 		// Накопитель записи имени и настройки
 		vector <uint8_t> both;
 		// Записываем имя функции
-		::__ants_encode_string__(name, both);
+		::__nts_encode_string__(name, both);
 		// Записываем настройку потребителя
-		::__ants_encode_string__(custom, both);
+		::__nts_encode_string__(custom, both);
 		// Записываем строку имени и настройки дополнением до кратности скорости
 		::bytepad(view_t(both.data(), both.size()), rate(kind), prefix);
 		// Объект губки настраиваемой разновидности
@@ -265,13 +265,13 @@ bool nts::digest::kmac(const sha3_t type, const view_t & key, const view_t & dat
 		// Накопитель записи ключа
 		vector <uint8_t> encoded;
 		// Записываем ключ имитовставки
-		::__ants_encode_string__(key, encoded);
+		::__nts_encode_string__(key, encoded);
 		// Записываем строку ключа дополнением до кратности скорости
 		::bytepad(view_t(encoded.data(), encoded.size()), rate(kind), message);
 		// Записываем сообщение
 		message.insert(message.end(), data.data, data.data + data.size);
 		// Записываем длину имитовставки в разрядах
-		::__ants_right_encode__(static_cast <uint64_t> (size) * 8, message);
+		::__nts_right_encode__(static_cast <uint64_t> (size) * 8, message);
 		// Имя функции имитовставки
 		const view_t naming(reinterpret_cast <const uint8_t *> (::KMAC), ::strlen(::KMAC));
 		// Выводим итог вычисления cSHAKE с именем «KMAC»
@@ -316,13 +316,13 @@ bool nts::digest::kmacxof(const sha3_t type, const view_t & key, const view_t & 
 		// Накопитель записи ключа
 		vector <uint8_t> encoded;
 		// Записываем ключ имитовставки
-		::__ants_encode_string__(key, encoded);
+		::__nts_encode_string__(key, encoded);
 		// Записываем строку ключа дополнением до кратности скорости
 		::bytepad(view_t(encoded.data(), encoded.size()), rate(kind), message);
 		// Записываем сообщение
 		message.insert(message.end(), data.data, data.data + data.size);
 		// Записываем нулевую длину итога: раздел 4.3.1 SP 800-185
-		::__ants_right_encode__(0, message);
+		::__nts_right_encode__(0, message);
 		// Имя функции имитовставки
 		const view_t naming(reinterpret_cast <const uint8_t *> (::KMAC), ::strlen(::KMAC));
 		// Выводим итог вычисления cSHAKE с именем «KMAC»

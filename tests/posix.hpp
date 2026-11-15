@@ -25,12 +25,12 @@
  *
  */
 
-#ifndef __ANTS_TESTS_POSIX__
+#ifndef __NTS_TESTS_POSIX__
 	/**
 	 * @brief Метка однократного включения заголовка
 	 *
 	 */
-	#define __ANTS_TESTS_POSIX__
+	#define __NTS_TESTS_POSIX__
 /**
  * @brief Ветка MSVC: недостающие имена POSIX доопределяются ниже, чтобы проверки не ветвились по собирателю
  *

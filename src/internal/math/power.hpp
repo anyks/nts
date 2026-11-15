@@ -75,11 +75,11 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_MATH_POWER__
+#ifndef __NTS_INTERNAL_MATH_POWER__
 /**
  * Объявляем сторожевой макрос заголовка
  */
-#define __ANTS_INTERNAL_MATH_POWER__
+#define __NTS_INTERNAL_MATH_POWER__
 
 /**
  * Стандартные заголовочные файлы
@@ -96,7 +96,7 @@
 /**
  * Векторный путь доступен gcc и clang на x86-64; прочие сборки используют обычные ядра
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Заголовочный файл векторных команд
 	 */
@@ -104,7 +104,7 @@
 	/**
 	 * Признак наличия степени на AVX2 для шестнадцати слов
 	 */
-	#define __ANTS_POWER16_AVX2__
+	#define __NTS_POWER16_AVX2__
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -131,7 +131,7 @@
 				 *       собиратель вправе использовать повторно, второй читается самой командой
 				 *
 				 */
-				__attribute__((target("avx2"), always_inline)) static __ANTS_INLINE__ __m256i term29Avx2(const __m256i first, const uint64_t * second) noexcept {
+				__attribute__((target("avx2"), always_inline)) static __NTS_INLINE__ __m256i term29Avx2(const __m256i first, const uint64_t * second) noexcept {
 					// Место четырёх произведений
 					__m256i result;
 					// Читаем четыре слова без промежуточного вектора в кадре стека

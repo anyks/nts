@@ -128,7 +128,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t encapsulation(const kem_t kem) noexcept;
+		__NTS_SHARED_EXPORT__ size_t encapsulation(const kem_t kem) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины ключа декапсуляции набора
@@ -144,7 +144,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t decapsulation(const kem_t kem) noexcept;
+		__NTS_SHARED_EXPORT__ size_t decapsulation(const kem_t kem) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция получения длины шифртекста набора
@@ -160,7 +160,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t ciphertext(const kem_t kem) noexcept;
+		__NTS_SHARED_EXPORT__ size_t ciphertext(const kem_t kem) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки ключа инкапсуляции
@@ -186,7 +186,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool validate(const kem_t kem, const view_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ bool validate(const kem_t kem, const view_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки пары ключей из зерна
@@ -214,7 +214,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool generate(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept;
+		__NTS_SHARED_EXPORT__ bool generate(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция выработки пары ключей на случайном зерне
@@ -234,7 +234,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool generate(const kem_t kem, uint8_t * key, uint8_t * secret) noexcept;
+		__NTS_SHARED_EXPORT__ bool generate(const kem_t kem, uint8_t * key, uint8_t * secret) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция инкапсуляции на заданном сообщении
@@ -264,7 +264,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encapsulate(const kem_t kem, const view_t & key, const view_t & message, uint8_t * cipher, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool encapsulate(const kem_t kem, const view_t & key, const view_t & message, uint8_t * cipher, uint8_t * shared) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция инкапсуляции на случайном сообщении
@@ -286,7 +286,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encapsulate(const kem_t kem, const view_t & key, uint8_t * cipher, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool encapsulate(const kem_t kem, const view_t & key, uint8_t * cipher, uint8_t * shared) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция декапсуляции
@@ -318,7 +318,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool decapsulate(const kem_t kem, const view_t & secret, const view_t & cipher, uint8_t * shared) noexcept;
+		__NTS_SHARED_EXPORT__ bool decapsulate(const kem_t kem, const view_t & secret, const view_t & cipher, uint8_t * shared) noexcept;
 	};
 };
 

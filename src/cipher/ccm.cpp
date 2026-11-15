@@ -36,7 +36,7 @@
 /**
  * Если сборка ведётся под ARM64
  */
-#if (defined(__aarch64__) || defined(__ANTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -49,7 +49,7 @@
 		/**
 		 * Атрибут цели не нужен
 		 */
-		#define __ANTS_CCM_TARGET__
+		#define __NTS_CCM_TARGET__
 	/**
 	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
 	 */
@@ -57,7 +57,7 @@
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_CCM_TARGET__
+		#define __NTS_CCM_TARGET__
 	/**
 	 * Если собиратель clang
 	 */
@@ -65,7 +65,7 @@
 		/**
 		 * Разрешаем команды расширения одной функции
 		 */
-		#define __ANTS_CCM_TARGET__ __attribute__((target("crypto")))
+		#define __NTS_CCM_TARGET__ __attribute__((target("crypto")))
 	/**
 	 * Если собиратель GCC
 	 */
@@ -73,17 +73,17 @@
 		/**
 		 * Разрешаем команды расширения одной функции
 		 */
-		#define __ANTS_CCM_TARGET__ __attribute__((target("+crypto")))
+		#define __NTS_CCM_TARGET__ __attribute__((target("+crypto")))
 	#endif
 
 	/**
 	 * Объявляем наличие ветви слитного прохода командами машины
 	 */
-	#define __ANTS_CCM_ARM__ 1
+	#define __NTS_CCM_ARM__ 1
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC
  */
-#elif (defined(__x86_64__) || defined(__e2k__) || defined(__ANTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__e2k__) || defined(__NTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд x86-64
 	 */
@@ -96,7 +96,7 @@
 		/**
 		 * Атрибут цели не нужен
 		 */
-		#define __ANTS_CCM_TARGET__
+		#define __NTS_CCM_TARGET__
 	/**
 	 * Если собиратель Microsoft Visual C++: внутренние функции расширения доступны ему без ключей
 	 */
@@ -104,7 +104,7 @@
 		/**
 		 * Атрибута цели у собирателя нет, и он не нужен
 		 */
-		#define __ANTS_CCM_TARGET__
+		#define __NTS_CCM_TARGET__
 	/**
 	 * Иначе разрешаем команды расширения одной функции атрибутом цели
 	 */
@@ -112,13 +112,13 @@
 		/**
 		 * Разрешаем команды расширения слитного прохода одной функции
 		 */
-		#define __ANTS_CCM_TARGET__ __attribute__((target("aes,sse2")))
+		#define __NTS_CCM_TARGET__ __attribute__((target("aes,sse2")))
 	#endif
 
 	/**
 	 * Объявляем наличие ветви слитного прохода командами машины
 	 */
-	#define __ANTS_CCM_X86__ 1
+	#define __NTS_CCM_X86__ 1
 #endif
 
 /**
@@ -134,7 +134,7 @@
 	/**
 	 * Объявляем перестановку байтов слова в шестьдесят четыре разряда
 	 */
-	#define __ANTS_BSWAP64__(value) ::_byteswap_uint64(value)
+	#define __NTS_BSWAP64__(value) ::_byteswap_uint64(value)
 /**
  * Для собирателей семейства GCC и Эльбруса
  */
@@ -142,7 +142,7 @@
 	/**
 	 * Объявляем перестановку байтов слова в шестьдесят четыре разряда
 	 */
-	#define __ANTS_BSWAP64__(value) __builtin_bswap64(value)
+	#define __NTS_BSWAP64__(value) __builtin_bswap64(value)
 #endif
 
 /**
@@ -514,11 +514,11 @@ namespace {
 	/**
 	 * Если есть ветвь слитного прохода командами машины
 	 */
-	#if defined(__ANTS_CCM_ARM__) || defined(__ANTS_CCM_X86__)
+	#if defined(__NTS_CCM_ARM__) || defined(__NTS_CCM_X86__)
 		/**
 		 * Если есть ветвь команд AES расширения ARMv8
 		 */
-		#if defined(__ANTS_CCM_ARM__)
+		#if defined(__NTS_CCM_ARM__)
 			/**
 			 * @brief Функция слитного прохода командами AESE и AESMC: имитовставка CBC и гамма счётчика чередуются кругами
 			 *
@@ -539,7 +539,7 @@ namespace {
 			 * @param blocks  число целых блоков сообщения
 			 *
 			 */
-			static __ANTS_CCM_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
+			static __NTS_CCM_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
 				// Состояние имитовставки держится вектором на весь проход
 				uint8x16_t state = vld1q_u8(record);
 				// Номер блока счётчика от старшего байта: у блока A_1 равен единице
@@ -569,7 +569,7 @@ namespace {
 					// Записываем итог блока: шифртекст при зашифровании, открытый текст при расшифровании
 					vst1q_u8(result, (sealing ? veorq_u8(plain, stream) : plain));
 					// Блок счётчика гаммы следующего блока: номер растёт от старшего байта
-					uint8x16_t lane = vreinterpretq_u8_u64(vsetq_lane_u64(__ANTS_BSWAP64__(tail + b + 1), vreinterpretq_u64_u8(vld1q_u8(counter)), 1));
+					uint8x16_t lane = vreinterpretq_u8_u64(vsetq_lane_u64(__NTS_BSWAP64__(tail + b + 1), vreinterpretq_u64_u8(vld1q_u8(counter)), 1));
 					// Складываем открытый текст с состоянием имитовставки
 					state = veorq_u8(state, plain);
 					/**
@@ -619,7 +619,7 @@ namespace {
 			 * @param blocks  число целых блоков сообщения
 			 *
 			 */
-			static __ANTS_CCM_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
+			static __NTS_CCM_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
 				// Состояние имитовставки держится вектором на весь проход
 				__m128i state = _mm_loadu_si128(reinterpret_cast <const __m128i *> (record));
 				// Первый раундовый ключ
@@ -657,7 +657,7 @@ namespace {
 					// Записываем итог блока: шифртекст при зашифровании, открытый текст при расшифровании
 					_mm_storeu_si128(reinterpret_cast <__m128i *> (result), (sealing ? _mm_xor_si128(plain, stream) : plain));
 					// Блок счётчика гаммы следующего блока: номер растёт от старшего байта
-					__m128i lane = _mm_xor_si128(_mm_set_epi64x(static_cast <int64_t> (__ANTS_BSWAP64__(tail + b + 1)), static_cast <int64_t> (head)), first);
+					__m128i lane = _mm_xor_si128(_mm_set_epi64x(static_cast <int64_t> (__NTS_BSWAP64__(tail + b + 1)), static_cast <int64_t> (head)), first);
 					// Складываем открытый текст с состоянием имитовставки и первым ключом
 					state = _mm_xor_si128(_mm_xor_si128(state, plain), first);
 					/**
@@ -707,7 +707,7 @@ namespace {
 			/**
 			 * Если есть ветвь команд AES расширения ARMv8
 			 */
-			#if defined(__ANTS_CCM_ARM__)
+			#if defined(__NTS_CCM_ARM__)
 				// Слитный проход командами ARMv8
 				fusedArm(block.schedule, block.rounds, record, item, sealing, source, result, blocks);
 			/**
@@ -833,7 +833,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 	/**
 	 * Если есть ветвь слитного прохода командами машины
 	 */
-	#if defined(__ANTS_CCM_ARM__) || defined(__ANTS_CCM_X86__)
+	#if defined(__NTS_CCM_ARM__) || defined(__NTS_CCM_X86__)
 		// Если базовый шифр несёт расписание для слитных ядер (AES с командами машины)
 		if(this->_block.schedule != nullptr){
 			// Значение имитовставки сообщения
@@ -986,7 +986,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 	/**
 	 * Если есть ветвь слитного прохода командами машины
 	 */
-	#if defined(__ANTS_CCM_ARM__) || defined(__ANTS_CCM_X86__)
+	#if defined(__NTS_CCM_ARM__) || defined(__NTS_CCM_X86__)
 		// Если базовый шифр несёт расписание для слитных ядер (AES с командами машины)
 		if(this->_block.schedule != nullptr){
 			// Значение имитовставки сообщения

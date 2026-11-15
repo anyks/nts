@@ -117,7 +117,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Ecdsa {
+		typedef class __NTS_SHARED_EXPORT__ Ecdsa {
 			private:
 				// Признак того, что ключ подписи установлен
 				bool _secret;
@@ -477,7 +477,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encode(const view_t & raw, uint8_t * der, size_t & size) noexcept;
+		__NTS_SHARED_EXPORT__ bool encode(const view_t & raw, uint8_t * der, size_t & size) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция записи подписи ECDSA в виде ASN.1 DER
@@ -503,7 +503,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool encode(const view_t & raw, vector <uint8_t> & der) noexcept;
+		__NTS_SHARED_EXPORT__ bool encode(const view_t & raw, vector <uint8_t> & der) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора подписи ECDSA из записи ASN.1 DER
@@ -531,7 +531,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool decode(const view_t & der, uint8_t * raw, const size_t size) noexcept;
+		__NTS_SHARED_EXPORT__ bool decode(const view_t & der, uint8_t * raw, const size_t size) noexcept;
 	};
 };
 

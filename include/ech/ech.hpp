@@ -165,7 +165,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Suite {
+		typedef struct __NTS_SHARED_EXPORT__ Suite {
 			// Функция вывода ключей
 			hpke::kdf_t kdf;
 			// Шифр с проверкой целостности
@@ -217,7 +217,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Config {
+		typedef struct __NTS_SHARED_EXPORT__ Config {
 			// Опознаватель конфигурации
 			uint8_t id;
 			// Наибольшая длина имени узла, на которую рассчитано заполнение
@@ -255,7 +255,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Hello {
+		typedef struct __NTS_SHARED_EXPORT__ Hello {
 			// Признак внутреннего вида: тело пусто
 			bool inner;
 			// Опознаватель конфигурации
@@ -301,7 +301,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, vector <config_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, vector <config_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора одной конфигурации ECHConfig
@@ -319,7 +319,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, config_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, config_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления одной конфигурации ECHConfig
@@ -337,7 +337,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const config_t & config, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const config_t & config, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления перечня конфигураций ECHConfigList
@@ -355,7 +355,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const vector <config_t> & configs, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const vector <config_t> & configs, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора тела расширения encrypted_client_hello
@@ -373,7 +373,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t parse(const view_t & data, hello_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t parse(const view_t & data, hello_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления тела расширения encrypted_client_hello
@@ -391,7 +391,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t build(const hello_t & hello, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t build(const hello_t & hello, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления привязки HPKE конфигурации
@@ -409,7 +409,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t binding(const view_t & config, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t binding(const view_t & config, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция подсчёта заполнения закодированного внутреннего приветствия
@@ -435,7 +435,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ size_t padding(const size_t named, const size_t maximum, const size_t encoded) noexcept;
+		__NTS_SHARED_EXPORT__ size_t padding(const size_t named, const size_t maximum, const size_t encoded) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция кодирования внутреннего приветствия EncodedClientHelloInner
@@ -463,7 +463,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция кодирования внутреннего приветствия с выбором записи
@@ -487,7 +487,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, const bool datagram, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t encode(const hello::client_t & inner, const vector <uint16_t> & outsourced, const size_t padding, const bool datagram, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция восстановления внутреннего приветствия из закодированного
@@ -518,7 +518,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decode(const view_t & encoded, const hello::client_t & outer, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decode(const view_t & encoded, const hello::client_t & outer, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция восстановления внутреннего приветствия с выбором записи
@@ -540,7 +540,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t decode(const view_t & encoded, const hello::client_t & outer, const bool datagram, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t decode(const view_t & encoded, const hello::client_t & outer, const bool datagram, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления добавочных данных внешнего приветствия ClientHelloOuterAAD
@@ -564,7 +564,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t redact(const view_t & body, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t redact(const view_t & body, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция составления связанных данных из внешнего приветствия с выбором записи
@@ -584,7 +584,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t redact(const view_t & body, const bool datagram, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t redact(const view_t & body, const bool datagram, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция вычисления подтверждения принятия ECH
@@ -614,7 +614,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool confirmation(const digest::hash_t algorithm, const view_t & random, const view_t & transcript, const bool retry, uint8_t * result) noexcept;
+		__NTS_SHARED_EXPORT__ bool confirmation(const digest::hash_t algorithm, const view_t & random, const view_t & transcript, const bool retry, uint8_t * result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки, признаётся ли набор HPKE конфигурации
@@ -632,7 +632,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ bool supported(const hpke::kem_t kem, const suite_t & suite) noexcept;
+		__NTS_SHARED_EXPORT__ bool supported(const hpke::kem_t kem, const suite_t & suite) noexcept;
 	};
 };
 

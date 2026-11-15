@@ -241,7 +241,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Status {
+		typedef struct __NTS_SHARED_EXPORT__ Status {
 			// Статус ответа
 			status_t status;
 			// Строки статуса в кодировке UTF-8
@@ -278,7 +278,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Header {
+		typedef struct __NTS_SHARED_EXPORT__ Header {
 			// Издание протокола (2 - cmp2000)
 			int64_t pvno;
 			// Просмотр записи GeneralName отправителя
@@ -339,7 +339,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Message {
+		typedef class __NTS_SHARED_EXPORT__ Message {
 			private:
 				// Причина последнего отказа
 				error_t _error;
@@ -529,7 +529,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Request {
+		typedef struct __NTS_SHARED_EXPORT__ Request {
 			// Опознаватель запроса certReqId
 			int64_t id;
 			// Просмотр записи шаблона сертификата CertTemplate
@@ -559,7 +559,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Response {
+		typedef struct __NTS_SHARED_EXPORT__ Response {
 			// Опознаватель запроса certReqId
 			int64_t id;
 			// Сведения о статусе
@@ -593,7 +593,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Info {
+		typedef struct __NTS_SHARED_EXPORT__ Info {
 			// Опознаватель вида сведений infoType
 			string oid;
 			// Просмотр записи значения infoValue целиком, пустой при отсутствии
@@ -617,7 +617,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t requests(const view_t & body, vector <request_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t requests(const view_t & body, vector <request_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора ответа о сертификатах CertRepMessage
@@ -637,7 +637,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t response(const view_t & body, vector <view_t> & caPubs, vector <response_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t response(const view_t & body, vector <view_t> & caPubs, vector <response_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора сведений о статусе PKIStatusInfo
@@ -655,7 +655,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t statusInfo(const asn1::element_t & element, status_info_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t statusInfo(const asn1::element_t & element, status_info_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора общих сведений GenMsgContent/GenRepContent
@@ -673,7 +673,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t infos(const view_t & body, vector <info_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t infos(const view_t & body, vector <info_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -684,7 +684,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Challenge {
+		typedef struct __NTS_SHARED_EXPORT__ Challenge {
 			// Опознаватель алгоритма односторонней функции, пустой при отсутствии
 			string owf;
 			// Просмотр содержимого свидетеля witness
@@ -702,7 +702,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Recovery {
+		typedef struct __NTS_SHARED_EXPORT__ Recovery {
 			// Сведения о статусе
 			status_info_t status;
 			// Просмотр записи нового сертификата подписи newSigCert, пустой при отсутствии
@@ -722,7 +722,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Revoked {
+		typedef struct __NTS_SHARED_EXPORT__ Revoked {
 			// Сведения о статусах
 			vector <status_info_t> statuses;
 			// Просмотры записей опознавателей сертификатов revCerts (CertId)
@@ -740,7 +740,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Announcement {
+		typedef struct __NTS_SHARED_EXPORT__ Announcement {
 			// Статус отзыва
 			status_t status;
 			// Просмотр записи опознавателя сертификата CertId
@@ -772,7 +772,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef struct __ANTS_SHARED_EXPORT__ Poll {
+		typedef struct __NTS_SHARED_EXPORT__ Poll {
 			// Опознаватель запроса certReqId
 			int64_t id;
 			// Время ожидания в секундах checkAfter (для pollRep), ноль для pollReq
@@ -808,7 +808,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t challenges(const view_t & body, vector <challenge_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t challenges(const view_t & body, vector <challenge_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора ответов подтверждения владения POPODecKeyRespContent
@@ -826,7 +826,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t challengeAnswers(const view_t & body, vector <int64_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t challengeAnswers(const view_t & body, vector <int64_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора ответа восстановления ключа KeyRecRepContent
@@ -844,7 +844,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t recovery(const view_t & body, recovery_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t recovery(const view_t & body, recovery_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора ответа отзыва RevRepContent
@@ -862,7 +862,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t revoked(const view_t & body, revoked_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t revoked(const view_t & body, revoked_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора объявления обновления ключа ЦС CAKeyUpdAnnContent
@@ -884,7 +884,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t caKeyUpdate(const view_t & body, view_t & oldWithNew, view_t & newWithOld, view_t & newWithNew) noexcept;
+		__NTS_SHARED_EXPORT__ error_t caKeyUpdate(const view_t & body, view_t & oldWithNew, view_t & newWithOld, view_t & newWithNew) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора объявления отзыва RevAnnContent
@@ -902,7 +902,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t announcement(const view_t & body, announcement_t & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t announcement(const view_t & body, announcement_t & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора записей списков отзыва CRLAnnContent
@@ -920,7 +920,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t crlAnnouncement(const view_t & body, vector <view_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t crlAnnouncement(const view_t & body, vector <view_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора вложенных сообщений NestedMessageContent
@@ -938,7 +938,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t nested(const view_t & body, vector <view_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t nested(const view_t & body, vector <view_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция разбора опроса PollReqContent/PollRepContent
@@ -956,7 +956,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t poll(const view_t & body, vector <poll_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t poll(const view_t & body, vector <poll_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -975,7 +975,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t directoryName(const view_t & name, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t directoryName(const view_t & name, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1012,7 +1012,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t request(const body_t kind, const view_t & sender, const view_t & recipient, const vector <view_t> & templates, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t request(const body_t kind, const view_t & sender, const view_t & recipient, const vector <view_t> & templates, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения с телом запросов сертификатов под защитой PBM
@@ -1042,7 +1042,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t request(const body_t kind, const view_t & sender, const view_t & recipient, const vector <view_t> & templates, const view_t & kid, const view_t & password, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t request(const body_t kind, const view_t & sender, const view_t & recipient, const vector <view_t> & templates, const view_t & kid, const view_t & password, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1063,7 +1063,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t certTemplate(const view_t & subject, const view_t & key, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t certTemplate(const view_t & subject, const view_t & key, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1090,7 +1090,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t certConfirm(const view_t & sender, const view_t & recipient, const vector <view_t> & hashes, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t certConfirm(const view_t & sender, const view_t & recipient, const vector <view_t> & hashes, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения pkiConf
@@ -1114,7 +1114,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t confirm(const view_t & sender, const view_t & recipient, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t confirm(const view_t & sender, const view_t & recipient, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1143,7 +1143,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t revoke(const view_t & sender, const view_t & recipient, const view_t & issuer, const view_t & serial, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t revoke(const view_t & sender, const view_t & recipient, const view_t & issuer, const view_t & serial, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1170,7 +1170,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t general(const view_t & sender, const view_t & recipient, const vector <info_t> & infos, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t general(const view_t & sender, const view_t & recipient, const vector <info_t> & infos, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1199,7 +1199,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t respond(const body_t kind, const view_t & sender, const view_t & recipient, const vector <response_t> & responses, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t respond(const body_t kind, const view_t & sender, const view_t & recipient, const vector <response_t> & responses, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1226,7 +1226,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t failure(const view_t & sender, const view_t & recipient, const status_info_t & status, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t failure(const view_t & sender, const view_t & recipient, const status_info_t & status, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1253,7 +1253,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t requestPkcs10(const view_t & sender, const view_t & recipient, const view_t & csr, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t requestPkcs10(const view_t & sender, const view_t & recipient, const view_t & csr, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения popdecc (вызовы подтверждения владения)
@@ -1279,7 +1279,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t challenge(const view_t & sender, const view_t & recipient, const vector <challenge_t> & challenges, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t challenge(const view_t & sender, const view_t & recipient, const vector <challenge_t> & challenges, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения popdecr (ответы подтверждения владения)
@@ -1305,7 +1305,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t challengeReply(const view_t & sender, const view_t & recipient, const vector <int64_t> & answers, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t challengeReply(const view_t & sender, const view_t & recipient, const vector <int64_t> & answers, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения krp (ответ восстановления ключа)
@@ -1331,7 +1331,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t recovered(const view_t & sender, const view_t & recipient, const recovery_t & recovery, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t recovered(const view_t & sender, const view_t & recipient, const recovery_t & recovery, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения rp (ответ отзыва)
@@ -1357,7 +1357,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t revoked(const view_t & sender, const view_t & recipient, const vector <status_info_t> & statuses, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t revoked(const view_t & sender, const view_t & recipient, const vector <status_info_t> & statuses, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения ckuann (объявление обновления ключа ЦС)
@@ -1387,7 +1387,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t caKeyUpdate(const view_t & sender, const view_t & recipient, const view_t & oldWithNew, const view_t & newWithOld, const view_t & newWithNew, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t caKeyUpdate(const view_t & sender, const view_t & recipient, const view_t & oldWithNew, const view_t & newWithOld, const view_t & newWithNew, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения cann (объявление сертификата)
@@ -1413,7 +1413,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t announce(const view_t & sender, const view_t & recipient, const view_t & certificate, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t announce(const view_t & sender, const view_t & recipient, const view_t & certificate, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения rann (объявление отзыва)
@@ -1439,7 +1439,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t announceRevocation(const view_t & sender, const view_t & recipient, const announcement_t & announcement, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t announceRevocation(const view_t & sender, const view_t & recipient, const announcement_t & announcement, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения crlann (объявление списков отзыва)
@@ -1465,7 +1465,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t announceCrls(const view_t & sender, const view_t & recipient, const vector <view_t> & crls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t announceCrls(const view_t & sender, const view_t & recipient, const vector <view_t> & crls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения nested (вложенные сообщения)
@@ -1491,7 +1491,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t nest(const view_t & sender, const view_t & recipient, const vector <view_t> & messages, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t nest(const view_t & sender, const view_t & recipient, const vector <view_t> & messages, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения pollReq (запрос опроса)
@@ -1517,7 +1517,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t pollRequest(const view_t & sender, const view_t & recipient, const vector <int64_t> & ids, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t pollRequest(const view_t & sender, const view_t & recipient, const vector <int64_t> & ids, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция сборки сообщения pollRep (ответ опроса)
@@ -1543,7 +1543,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t pollReply(const view_t & sender, const view_t & recipient, const vector <poll_t> & polls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
+		__NTS_SHARED_EXPORT__ error_t pollReply(const view_t & sender, const view_t & recipient, const vector <poll_t> & polls, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept;
 
 		/**
 		 * \~russian
@@ -1562,7 +1562,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const message_t & message, const x509::key_t & key) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const message_t & message, const x509::key_t & key) noexcept;
 		/**
 		 * \~russian
 		 * @brief Функция проверки защиты сообщения парольной имитовставкой PBM
@@ -1580,7 +1580,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		__ANTS_SHARED_EXPORT__ error_t verify(const message_t & message, const view_t & password) noexcept;
+		__NTS_SHARED_EXPORT__ error_t verify(const message_t & message, const view_t & password) noexcept;
 	};
 };
 
