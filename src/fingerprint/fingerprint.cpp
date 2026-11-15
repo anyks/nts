@@ -843,209 +843,218 @@ namespace {
 	 *
 	 */
 	static __NTS_INLINE__ fingerprint::error_t __nts_decode__(fingerprint::extension_t & extension) noexcept {
-		// Тело расширения
-		const view_t data(extension.data.data(), extension.data.size());
-		// Признак того, что вид расширения есть значение GREASE
-		extension.grease = fingerprint::grease(extension.type);
-		// Если расширение есть значение GREASE: тело его произвольно
-		if(extension.grease)
+		/**
+		 * Выполняем перехват ошибок
+		 */
+		try {
+			// Тело расширения
+			const view_t data(extension.data.data(), extension.data.size());
+			// Признак того, что вид расширения есть значение GREASE
+			extension.grease = fingerprint::grease(extension.type);
+			// Если расширение есть значение GREASE: тело его произвольно
+			if(extension.grease)
+				// Выводим успешность разбора
+				return fingerprint::error_t::NONE;
+			/**
+			 * Определяем вид расширения
+			 */
+			switch(extension.type){
+				// Имя запрашиваемого узла
+				case static_cast <uint16_t> (extension::type_t::NAME): {
+					// Имя узла
+					view_t name;
+					// Если имя узла разобрать не удалось
+					if(extension::name(data, name) != extension::error_t::NONE)
+						// Выводим отказ разбора
+						return ::__nts_rendered__(extension::name(data, name));
+					// Добавляем имя узла в перечень
+					extension.names.push_back(string(reinterpret_cast <const char *> (name.data), name.size));
+				} break;
+				// Запрос состояния сертификата: первый байт есть вид состояния
+				case static_cast <uint16_t> (extension::type_t::STATUS): {
+					// Если тело пусто
+					if(data.size < 1)
+						// Выводим отказ разбора
+						return fingerprint::error_t::EXTENSION;
+					// Запоминаем вид состояния
+					extension.value = data.data[0];
+				} break;
+				// Группы обмена ключами
+				case static_cast <uint16_t> (extension::type_t::GROUPS):
+					// Выводим итог разбора перечня групп
+					return ::__nts_rendered__(extension::groups(data, extension.groups));
+				// Записи точек кривой
+				case static_cast <uint16_t> (extension::type_t::FORMATS):
+					// Выводим итог разбора перечня записей точек
+					return ::__nts_rendered__(extension::formats(data, extension.formats));
+				// Схемы подписи
+				case static_cast <uint16_t> (extension::type_t::SCHEMES):
+				// Схемы подписи сертификата
+				case WIRE_CERTIFIED:
+				// Схемы подписи делегированных полномочий
+				case WIRE_DELEGATED:
+					// Выводим итог разбора перечня схем
+					return ::__nts_rendered__(extension::schemes(data, extension.schemes));
+				// Прикладные протоколы
+				case static_cast <uint16_t> (extension::type_t::PROTOCOLS):
+				// Прикладные настройки ALPS новой точкой кода
+				case static_cast <uint16_t> (extension::type_t::SETTINGS):
+				// Прикладные настройки ALPS прежней точкой кода
+				case static_cast <uint16_t> (extension::type_t::SETTINGS_OLD):
+					// Выводим итог разбора перечня протоколов
+					return (::__nts_naming__(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
+				/**
+				 * Выработка следующего протокола: тело того же вида, что у прикладных протоколов,
+				 * но пустое тело допустимо - клиент лишь заявляет о поддержке выработки
+				 */
+				case static_cast <uint16_t> (extension::type_t::NEGOTIATION): {
+					// Если тело пусто: заявление о поддержке, перечня нет
+					if(data.size == 0)
+						// Выводим успешность разбора
+						return fingerprint::error_t::NONE;
+					// Выводим итог разбора перечня протоколов
+					return (::__nts_naming__(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
+				}
+				// Алгоритмы сжатия цепочки
+				case static_cast <uint16_t> (extension::type_t::COMPRESS): {
+					// Перечень опознавателей алгоритмов
+					vector <uint16_t> list;
+					// Если перечень алгоритмов разобрать не удалось
+					if(extension::algorithms(data, list) != extension::error_t::NONE)
+						// Выводим отказ разбора
+						return ::__nts_rendered__(extension::algorithms(data, list));
+					/**
+					 * Перебираем опознаватели алгоритмов
+					 */
+					for(size_t i = 0; i < list.size(); i++)
+						// Добавляем алгоритм в перечень
+						extension.algorithms.push_back(static_cast <extension::compression_t> (list[i]));
+				} break;
+				// Заранее разделённые ключи
+				case static_cast <uint16_t> (extension::type_t::SECRET): {
+					// Опознаватели ключей
+					vector <extension::identity_t> identities;
+					// Привязки ключей
+					vector <view_t> binders;
+					// Длина усечения переписки
+					size_t truncation = 0;
+					// Если опознаватели разобрать не удалось
+					if(extension::identities(data, identities, binders, truncation) != extension::error_t::NONE)
+						// Выводим отказ разбора
+						return ::__nts_rendered__(extension::identities(data, identities, binders, truncation));
+					/**
+					 * Перебираем опознаватели ключей
+					 */
+					for(size_t i = 0; i < identities.size(); i++){
+						// Опознаватель ключа профиля
+						fingerprint::identity_t identity;
+						// Переносим скрытый возраст билета
+						identity.age = identities[i].age;
+						// Переносим опознаватель ключа
+						identity.identity.assign(identities[i].identity.data, identities[i].identity.data + identities[i].identity.size);
+						// Добавляем опознаватель в перечень
+						extension.identities.push_back(identity);
+					}
+				} break;
+				// Упреждающие данные: в приветствии клиента тело пусто, в билете - предел
+				case static_cast <uint16_t> (extension::type_t::EARLY): {
+					// Если тело несёт предел упреждения
+					if(data.size == 4)
+						// Запоминаем предел упреждения
+						extension.value = ::__nts_tetrad__(data.data);
+					// Если тело не пусто и не предел
+					else if(data.size != 0)
+						// Выводим отказ разбора
+						return fingerprint::error_t::EXTENSION;
+				} break;
+				// Издания протокола
+				case static_cast <uint16_t> (extension::type_t::VERSIONS):
+					// Выводим итог разбора перечня изданий
+					return ::__nts_rendered__(extension::versions(data, extension.versions));
+				// Способы обмена заранее разделённым ключом
+				case static_cast <uint16_t> (extension::type_t::MODES):
+					// Выводим итог разбора перечня способов
+					return ::__nts_rendered__(extension::modes(data, extension.modes));
+				// Открытые части ключей обмена
+				case static_cast <uint16_t> (extension::type_t::SHARE): {
+					// Доли ключей
+					vector <extension::share_t> shares;
+					// Если доли разобрать не удалось
+					if(extension::shares(data, shares) != extension::error_t::NONE)
+						// Выводим отказ разбора
+						return ::__nts_rendered__(extension::shares(data, shares));
+					/**
+					 * Перебираем доли ключей
+					 */
+					for(size_t i = 0; i < shares.size(); i++){
+						// Доля ключа профиля
+						fingerprint::share_t share;
+						// Переносим группу доли
+						share.group = shares[i].group;
+						// Переносим открытую часть ключа
+						share.key.assign(shares[i].key.data, shares[i].key.data + shares[i].key.size);
+						// Добавляем долю в перечень
+						extension.shares.push_back(share);
+					}
+				} break;
+				// Предел длины куска: один байт кода
+				case WIRE_FRAGMENT:
+				// Сердцебиение: один байт режима
+				case WIRE_HEARTBEAT: {
+					// Если тело не в один байт
+					if(data.size != 1)
+						// Выводим отказ разбора
+						return fingerprint::error_t::EXTENSION;
+					// Запоминаем байт тела: код предела либо режим сердцебиения
+					extension.value = data.data[0];
+				} break;
+				// Профили SRTP: перечень с двухбайтовой длиной и MKI следом
+				case WIRE_SRTP:
+					// Выводим итог разбора перечня профилей
+					return (::__nts_valuing__(data, true, extension.values) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
+				// Заполнение: значимо лишь длиной
+				case WIRE_PADDING:
+					// Запоминаем длину заполнения
+					extension.value = static_cast <uint32_t> (data.size);
+				break;
+				// Предел размера записи: два байта
+				case WIRE_LIMIT: {
+					// Если тело не в два байта
+					if(data.size != 2)
+						// Выводим отказ разбора
+						return fingerprint::error_t::EXTENSION;
+					// Запоминаем предел записи
+					extension.value = ::__nts_twain__(data.data);
+				} break;
+				// Виды расширений, вынесенных наружу ECH: перечень с однобайтовой длиной
+				case WIRE_OUTER: {
+					// Если тело короче длины перечня
+					if(data.size < 1)
+						// Выводим отказ разбора
+						return fingerprint::error_t::EXTENSION;
+					// Длина перечня
+					const size_t length = data.data[0];
+					// Если перечень в тело не входит либо длина нечётна
+					if(((length + 1) != data.size) || ((length % 2) != 0))
+						// Выводим отказ разбора
+						return fingerprint::error_t::EXTENSION;
+					/**
+					 * Перебираем виды расширений
+					 */
+					for(size_t i = 0; i < length; i += 2)
+						// Добавляем вид расширения в перечень
+						extension.values.push_back(::__nts_twain__(data.data + 1 + i));
+				} break;
+			}
 			// Выводим успешность разбора
 			return fingerprint::error_t::NONE;
 		/**
-		 * Определяем вид расширения
+		 * Выполняем перехват ошибок
 		 */
-		switch(extension.type){
-			// Имя запрашиваемого узла
-			case static_cast <uint16_t> (extension::type_t::NAME): {
-				// Имя узла
-				view_t name;
-				// Если имя узла разобрать не удалось
-				if(extension::name(data, name) != extension::error_t::NONE)
-					// Выводим отказ разбора
-					return ::__nts_rendered__(extension::name(data, name));
-				// Добавляем имя узла в перечень
-				extension.names.push_back(string(reinterpret_cast <const char *> (name.data), name.size));
-			} break;
-			// Запрос состояния сертификата: первый байт есть вид состояния
-			case static_cast <uint16_t> (extension::type_t::STATUS): {
-				// Если тело пусто
-				if(data.size < 1)
-					// Выводим отказ разбора
-					return fingerprint::error_t::EXTENSION;
-				// Запоминаем вид состояния
-				extension.value = data.data[0];
-			} break;
-			// Группы обмена ключами
-			case static_cast <uint16_t> (extension::type_t::GROUPS):
-				// Выводим итог разбора перечня групп
-				return ::__nts_rendered__(extension::groups(data, extension.groups));
-			// Записи точек кривой
-			case static_cast <uint16_t> (extension::type_t::FORMATS):
-				// Выводим итог разбора перечня записей точек
-				return ::__nts_rendered__(extension::formats(data, extension.formats));
-			// Схемы подписи
-			case static_cast <uint16_t> (extension::type_t::SCHEMES):
-			// Схемы подписи сертификата
-			case WIRE_CERTIFIED:
-			// Схемы подписи делегированных полномочий
-			case WIRE_DELEGATED:
-				// Выводим итог разбора перечня схем
-				return ::__nts_rendered__(extension::schemes(data, extension.schemes));
-			// Прикладные протоколы
-			case static_cast <uint16_t> (extension::type_t::PROTOCOLS):
-			// Прикладные настройки ALPS новой точкой кода
-			case static_cast <uint16_t> (extension::type_t::SETTINGS):
-			// Прикладные настройки ALPS прежней точкой кода
-			case static_cast <uint16_t> (extension::type_t::SETTINGS_OLD):
-				// Выводим итог разбора перечня протоколов
-				return (::__nts_naming__(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
-			/**
-			 * Выработка следующего протокола: тело того же вида, что у прикладных протоколов,
-			 * но пустое тело допустимо - клиент лишь заявляет о поддержке выработки
-			 */
-			case static_cast <uint16_t> (extension::type_t::NEGOTIATION): {
-				// Если тело пусто: заявление о поддержке, перечня нет
-				if(data.size == 0)
-					// Выводим успешность разбора
-					return fingerprint::error_t::NONE;
-				// Выводим итог разбора перечня протоколов
-				return (::__nts_naming__(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
-			}
-			// Алгоритмы сжатия цепочки
-			case static_cast <uint16_t> (extension::type_t::COMPRESS): {
-				// Перечень опознавателей алгоритмов
-				vector <uint16_t> list;
-				// Если перечень алгоритмов разобрать не удалось
-				if(extension::algorithms(data, list) != extension::error_t::NONE)
-					// Выводим отказ разбора
-					return ::__nts_rendered__(extension::algorithms(data, list));
-				/**
-				 * Перебираем опознаватели алгоритмов
-				 */
-				for(size_t i = 0; i < list.size(); i++)
-					// Добавляем алгоритм в перечень
-					extension.algorithms.push_back(static_cast <extension::compression_t> (list[i]));
-			} break;
-			// Заранее разделённые ключи
-			case static_cast <uint16_t> (extension::type_t::SECRET): {
-				// Опознаватели ключей
-				vector <extension::identity_t> identities;
-				// Привязки ключей
-				vector <view_t> binders;
-				// Длина усечения переписки
-				size_t truncation = 0;
-				// Если опознаватели разобрать не удалось
-				if(extension::identities(data, identities, binders, truncation) != extension::error_t::NONE)
-					// Выводим отказ разбора
-					return ::__nts_rendered__(extension::identities(data, identities, binders, truncation));
-				/**
-				 * Перебираем опознаватели ключей
-				 */
-				for(size_t i = 0; i < identities.size(); i++){
-					// Опознаватель ключа профиля
-					fingerprint::identity_t identity;
-					// Переносим скрытый возраст билета
-					identity.age = identities[i].age;
-					// Переносим опознаватель ключа
-					identity.identity.assign(identities[i].identity.data, identities[i].identity.data + identities[i].identity.size);
-					// Добавляем опознаватель в перечень
-					extension.identities.push_back(identity);
-				}
-			} break;
-			// Упреждающие данные: в приветствии клиента тело пусто, в билете - предел
-			case static_cast <uint16_t> (extension::type_t::EARLY): {
-				// Если тело несёт предел упреждения
-				if(data.size == 4)
-					// Запоминаем предел упреждения
-					extension.value = ::__nts_tetrad__(data.data);
-				// Если тело не пусто и не предел
-				else if(data.size != 0)
-					// Выводим отказ разбора
-					return fingerprint::error_t::EXTENSION;
-			} break;
-			// Издания протокола
-			case static_cast <uint16_t> (extension::type_t::VERSIONS):
-				// Выводим итог разбора перечня изданий
-				return ::__nts_rendered__(extension::versions(data, extension.versions));
-			// Способы обмена заранее разделённым ключом
-			case static_cast <uint16_t> (extension::type_t::MODES):
-				// Выводим итог разбора перечня способов
-				return ::__nts_rendered__(extension::modes(data, extension.modes));
-			// Открытые части ключей обмена
-			case static_cast <uint16_t> (extension::type_t::SHARE): {
-				// Доли ключей
-				vector <extension::share_t> shares;
-				// Если доли разобрать не удалось
-				if(extension::shares(data, shares) != extension::error_t::NONE)
-					// Выводим отказ разбора
-					return ::__nts_rendered__(extension::shares(data, shares));
-				/**
-				 * Перебираем доли ключей
-				 */
-				for(size_t i = 0; i < shares.size(); i++){
-					// Доля ключа профиля
-					fingerprint::share_t share;
-					// Переносим группу доли
-					share.group = shares[i].group;
-					// Переносим открытую часть ключа
-					share.key.assign(shares[i].key.data, shares[i].key.data + shares[i].key.size);
-					// Добавляем долю в перечень
-					extension.shares.push_back(share);
-				}
-			} break;
-			// Предел длины куска: один байт кода
-			case WIRE_FRAGMENT:
-			// Сердцебиение: один байт режима
-			case WIRE_HEARTBEAT: {
-				// Если тело не в один байт
-				if(data.size != 1)
-					// Выводим отказ разбора
-					return fingerprint::error_t::EXTENSION;
-				// Запоминаем байт тела: код предела либо режим сердцебиения
-				extension.value = data.data[0];
-			} break;
-			// Профили SRTP: перечень с двухбайтовой длиной и MKI следом
-			case WIRE_SRTP:
-				// Выводим итог разбора перечня профилей
-				return (::__nts_valuing__(data, true, extension.values) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
-			// Заполнение: значимо лишь длиной
-			case WIRE_PADDING:
-				// Запоминаем длину заполнения
-				extension.value = static_cast <uint32_t> (data.size);
-			break;
-			// Предел размера записи: два байта
-			case WIRE_LIMIT: {
-				// Если тело не в два байта
-				if(data.size != 2)
-					// Выводим отказ разбора
-					return fingerprint::error_t::EXTENSION;
-				// Запоминаем предел записи
-				extension.value = ::__nts_twain__(data.data);
-			} break;
-			// Виды расширений, вынесенных наружу ECH: перечень с однобайтовой длиной
-			case WIRE_OUTER: {
-				// Если тело короче длины перечня
-				if(data.size < 1)
-					// Выводим отказ разбора
-					return fingerprint::error_t::EXTENSION;
-				// Длина перечня
-				const size_t length = data.data[0];
-				// Если перечень в тело не входит либо длина нечётна
-				if(((length + 1) != data.size) || ((length % 2) != 0))
-					// Выводим отказ разбора
-					return fingerprint::error_t::EXTENSION;
-				/**
-				 * Перебираем виды расширений
-				 */
-				for(size_t i = 0; i < length; i += 2)
-					// Добавляем вид расширения в перечень
-					extension.values.push_back(::__nts_twain__(data.data + 1 + i));
-			} break;
-			// Прочие расширения хранятся сырым телом
-			default: break;
+		} catch(const std::bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return fingerprint::error_t::MEMORY;
 		}
-		// Выводим успешность разбора
-		return fingerprint::error_t::NONE;
 	}
 	/**
 	 * @brief Функция переноса разобранного приветствия в профиль
@@ -1056,52 +1065,63 @@ namespace {
 	 *
 	 */
 	static __NTS_INLINE__ fingerprint::error_t __nts_transfer__(const hello::client_t & greeting, fingerprint::profile_t & profile) noexcept {
-		// Переносим издание приветствия
-		profile.version = greeting.version;
-		// Переносим случайное значение приветствия
-		::memcpy(profile.random, greeting.random, fingerprint::FINGERPRINT_RANDOM);
-		// Переносим опознаватель связи
-		profile.session = greeting.session;
-		// Переносим метку возврата состояния
-		profile.cookie = greeting.cookie;
-		// Переносим способы сжатия
-		profile.methods = greeting.methods;
 		/**
-		 * Перебираем наборы шифрования
+		 * Выполняем перехват ошибок
 		 */
-		for(size_t i = 0; i < greeting.suites.size(); i++){
-			// Если набор есть значение GREASE
-			if(fingerprint::grease(greeting.suites[i]))
-				// Отмечаем, что приветствие несёт значения GREASE
-				profile.grease = true;
-			// Добавляем набор в профиль числом по проводу
-			profile.suites.push_back(static_cast <protect::suite_t> (greeting.suites[i]));
-		}
+		try {
+			// Переносим издание приветствия
+			profile.version = greeting.version;
+			// Переносим случайное значение приветствия
+			::memcpy(profile.random, greeting.random, fingerprint::FINGERPRINT_RANDOM);
+			// Переносим опознаватель связи
+			profile.session = greeting.session;
+			// Переносим метку возврата состояния
+			profile.cookie = greeting.cookie;
+			// Переносим способы сжатия
+			profile.methods = greeting.methods;
+			/**
+			 * Перебираем наборы шифрования
+			 */
+			for(size_t i = 0; i < greeting.suites.size(); i++){
+				// Если набор есть значение GREASE
+				if(fingerprint::grease(greeting.suites[i]))
+					// Отмечаем, что приветствие несёт значения GREASE
+					profile.grease = true;
+				// Добавляем набор в профиль числом по проводу
+				profile.suites.push_back(static_cast <protect::suite_t> (greeting.suites[i]));
+			}
+			/**
+			 * Перебираем расширения приветствия
+			 */
+			for(size_t i = 0; i < greeting.extensions.size(); i++){
+				// Расширение профиля
+				fingerprint::extension_t extension;
+				// Переносим вид расширения
+				extension.type = greeting.extensions[i].type;
+				// Переносим тело расширения
+				extension.data.assign(greeting.extensions[i].data.data, greeting.extensions[i].data.data + greeting.extensions[i].data.size);
+				// Отказ разбора тела расширения
+				const fingerprint::error_t failure = ::__nts_decode__(extension);
+				// Если тело расширения разобрать не удалось
+				if(failure != fingerprint::error_t::NONE)
+					// Выводим отказ разбора расширения
+					return failure;
+				// Если расширение есть значение GREASE
+				if(extension.grease)
+					// Отмечаем, что приветствие несёт значения GREASE
+					profile.grease = true;
+				// Добавляем расширение в профиль
+				profile.extensions.push_back(extension);
+			}
+			// Выводим успешность переноса
+			return fingerprint::error_t::NONE;
 		/**
-		 * Перебираем расширения приветствия
+		 * Выполняем перехват ошибок
 		 */
-		for(size_t i = 0; i < greeting.extensions.size(); i++){
-			// Расширение профиля
-			fingerprint::extension_t extension;
-			// Переносим вид расширения
-			extension.type = greeting.extensions[i].type;
-			// Переносим тело расширения
-			extension.data.assign(greeting.extensions[i].data.data, greeting.extensions[i].data.data + greeting.extensions[i].data.size);
-			// Отказ разбора тела расширения
-			const fingerprint::error_t failure = ::__nts_decode__(extension);
-			// Если тело расширения разобрать не удалось
-			if(failure != fingerprint::error_t::NONE)
-				// Выводим отказ разбора расширения
-				return failure;
-			// Если расширение есть значение GREASE
-			if(extension.grease)
-				// Отмечаем, что приветствие несёт значения GREASE
-				profile.grease = true;
-			// Добавляем расширение в профиль
-			profile.extensions.push_back(extension);
+		} catch(const std::bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return fingerprint::error_t::MEMORY;
 		}
-		// Выводим успешность переноса
-		return fingerprint::error_t::NONE;
 	}
 	/**
 	 * @brief Функция перевода отказа разбора приветствия в отказ модуля
@@ -1504,10 +1524,10 @@ namespace {
 	 *
 	 */
 	static __NTS_INLINE__ void __nts_ordering__(const uint8_t * data, const size_t size, string & result) noexcept {
+		// Имя заголовка
+		string name = "";
 		// Смещение внутри блока
 		size_t offset = 0;
-		// Имя заголовка
-		string name;
 		/**
 		 * Перебираем записи блока заголовков
 		 */
@@ -1624,129 +1644,140 @@ namespace {
 	 *
 	 */
 	static fingerprint::error_t __nts_unpacking__(const view_t & data, size_t & offset, fingerprint::profile_t & result) noexcept {
-		// Сбрасываем профиль
-		result = fingerprint::profile_t();
-		// Размер неизменной части профиля
-		static constexpr size_t FIXED = (1 + 2 + 2 + 2 + 8 + 2 + 4 + fingerprint::FINGERPRINT_RANDOM + 1);
-		// Если неизменная часть в снимок не входит
-		if((offset + FIXED) > data.size)
-			// Выводим отказ снимка
-			return fingerprint::error_t::FORMAT;
-		// Если признаки профиля несут неведомые разряды
-		if((data.data[offset] & ~0x03) != 0)
-			// Выводим отказ снимка
-			return fingerprint::error_t::FORMAT;
-		// Читаем признак значений GREASE
-		result.grease = ((data.data[offset] & 0x01) != 0);
-		// Читаем признак дейтаграмм
-		result.datagram = ((data.data[offset] & 0x02) != 0);
-		// Переходим за признаки
-		offset += 1;
-		// Читаем издание слоя записей
-		result.record = ::__nts_twain__(data.data + offset);
-		// Читаем издание приветствия
-		result.version = ::__nts_twain__(data.data + offset + 2);
-		// Читаем пору записи
-		result.epoch = ::__nts_twain__(data.data + offset + 4);
-		// Читаем порядковый номер записи
-		result.sequence = ::__nts_octet__(data.data + offset + 6);
-		// Читаем порядковый номер сообщения
-		result.message = ::__nts_twain__(data.data + offset + 14);
-		// Читаем длину тела приветствия
-		result.length = ::__nts_tetrad__(data.data + offset + 16);
-		// Переходим к случайному значению
-		offset += 20;
-		// Читаем случайное значение приветствия
-		::memcpy(result.random, data.data + offset, fingerprint::FINGERPRINT_RANDOM);
-		// Переходим за случайное значение
-		offset += fingerprint::FINGERPRINT_RANDOM;
-		// Длина опознавателя связи
-		size_t length = data.data[offset++];
-		// Если опознаватель связи в снимок не входит либо длиннее дозволенного
-		if((length > fingerprint::FINGERPRINT_SESSION) || ((offset + length + 1) > data.size))
-			// Выводим отказ снимка
-			return fingerprint::error_t::FORMAT;
-		// Читаем опознаватель связи
-		result.session.assign(data.data + offset, data.data + offset + length);
-		// Переходим за опознаватель связи
-		offset += length;
-		// Длина метки возврата
-		length = data.data[offset++];
-		// Если метка возврата в снимок не входит
-		if((offset + length + 2) > data.size)
-			// Выводим отказ снимка
-			return fingerprint::error_t::FORMAT;
-		// Читаем метку возврата
-		result.cookie.assign(data.data + offset, data.data + offset + length);
-		// Переходим за метку возврата
-		offset += length;
-		// Число наборов шифрования
-		size_t count = ::__nts_twain__(data.data + offset);
-		// Переходим за число наборов
-		offset += 2;
-		// Снимок без наборов негоден - зеркально dump() и Store::add
-		if(count == 0)
-			// Выводим отказ пустого профиля
-			return fingerprint::error_t::EMPTY;
-		// Если наборы в снимок не входят
-		if((offset + (count * 2) + 1) > data.size)
-			// Выводим отказ снимка
-			return fingerprint::error_t::FORMAT;
 		/**
-		 * Перебираем наборы шифрования
+		 * Выполняем перехват ошибок
 		 */
-		for(size_t i = 0; i < count; i++, offset += 2)
-			// Читаем набор шифрования
-			result.suites.push_back(static_cast <protect::suite_t> (::__nts_twain__(data.data + offset)));
-		// Число способов сжатия
-		length = data.data[offset++];
-		// Если способы сжатия в снимок не входят
-		if((offset + length + 2) > data.size)
-			// Выводим отказ снимка
-			return fingerprint::error_t::FORMAT;
-		// Читаем способы сжатия
-		result.methods.assign(data.data + offset, data.data + offset + length);
-		// Переходим за способы сжатия
-		offset += length;
-		// Число расширений
-		count = ::__nts_twain__(data.data + offset);
-		// Переходим за число расширений
-		offset += 2;
-		/**
-		 * Перебираем расширения
-		 */
-		for(size_t i = 0; i < count; i++){
-			// Если заголовок расширения в снимок не входит
-			if((offset + 4) > data.size)
+		try {
+			// Сбрасываем профиль
+			result = fingerprint::profile_t();
+			// Размер неизменной части профиля
+			static constexpr size_t FIXED = (1 + 2 + 2 + 2 + 8 + 2 + 4 + fingerprint::FINGERPRINT_RANDOM + 1);
+			// Если неизменная часть в снимок не входит
+			if((offset + FIXED) > data.size)
 				// Выводим отказ снимка
 				return fingerprint::error_t::FORMAT;
-			// Расширение профиля
-			fingerprint::extension_t extension;
-			// Читаем вид расширения
-			extension.type = ::__nts_twain__(data.data + offset);
-			// Длина тела расширения
-			length = ::__nts_twain__(data.data + offset + 2);
-			// Переходим к телу расширения
-			offset += 4;
-			// Если тело расширения в снимок не входит
-			if((offset + length) > data.size)
+			// Если признаки профиля несут неведомые разряды
+			if((data.data[offset] & ~0x03) != 0)
 				// Выводим отказ снимка
 				return fingerprint::error_t::FORMAT;
-			// Читаем тело расширения
-			extension.data.assign(data.data + offset, data.data + offset + length);
-			// Переходим за тело расширения
+			// Читаем признак значений GREASE
+			result.grease = ((data.data[offset] & 0x01) != 0);
+			// Читаем признак дейтаграмм
+			result.datagram = ((data.data[offset] & 0x02) != 0);
+			// Переходим за признаки
+			offset += 1;
+			// Читаем издание слоя записей
+			result.record = ::__nts_twain__(data.data + offset);
+			// Читаем издание приветствия
+			result.version = ::__nts_twain__(data.data + offset + 2);
+			// Читаем пору записи
+			result.epoch = ::__nts_twain__(data.data + offset + 4);
+			// Читаем порядковый номер записи
+			result.sequence = ::__nts_octet__(data.data + offset + 6);
+			// Читаем порядковый номер сообщения
+			result.message = ::__nts_twain__(data.data + offset + 14);
+			// Читаем длину тела приветствия
+			result.length = ::__nts_tetrad__(data.data + offset + 16);
+			// Переходим к случайному значению
+			offset += 20;
+			// Читаем случайное значение приветствия
+			::memcpy(result.random, data.data + offset, fingerprint::FINGERPRINT_RANDOM);
+			// Переходим за случайное значение
+			offset += fingerprint::FINGERPRINT_RANDOM;
+			// Длина опознавателя связи
+			size_t length = data.data[offset++];
+			// Если опознаватель связи в снимок не входит либо длиннее дозволенного
+			if((length > fingerprint::FINGERPRINT_SESSION) || ((offset + length + 1) > data.size))
+				// Выводим отказ снимка
+				return fingerprint::error_t::FORMAT;
+			// Читаем опознаватель связи
+			result.session.assign(data.data + offset, data.data + offset + length);
+			// Переходим за опознаватель связи
 			offset += length;
-			// Отказ разбора тела расширения
-			const fingerprint::error_t failure = ::__nts_decode__(extension);
-			// Если тело расширения разобрать не удалось
-			if(failure != fingerprint::error_t::NONE)
-				// Выводим отказ разбора расширения
-				return failure;
-			// Добавляем расширение в профиль
-			result.extensions.push_back(extension);
+			// Длина метки возврата
+			length = data.data[offset++];
+			// Если метка возврата в снимок не входит
+			if((offset + length + 2) > data.size)
+				// Выводим отказ снимка
+				return fingerprint::error_t::FORMAT;
+			// Читаем метку возврата
+			result.cookie.assign(data.data + offset, data.data + offset + length);
+			// Переходим за метку возврата
+			offset += length;
+			// Число наборов шифрования
+			size_t count = ::__nts_twain__(data.data + offset);
+			// Переходим за число наборов
+			offset += 2;
+			// Снимок без наборов негоден - зеркально dump() и Store::add
+			if(count == 0)
+				// Выводим отказ пустого профиля
+				return fingerprint::error_t::EMPTY;
+			// Если наборы в снимок не входят
+			if((offset + (count * 2) + 1) > data.size)
+				// Выводим отказ снимка
+				return fingerprint::error_t::FORMAT;
+			/**
+			 * Перебираем наборы шифрования
+			 */
+			for(size_t i = 0; i < count; i++, offset += 2)
+				// Читаем набор шифрования
+				result.suites.push_back(static_cast <protect::suite_t> (::__nts_twain__(data.data + offset)));
+			// Число способов сжатия
+			length = data.data[offset++];
+			// Если способы сжатия в снимок не входят
+			if((offset + length + 2) > data.size)
+				// Выводим отказ снимка
+				return fingerprint::error_t::FORMAT;
+			// Читаем способы сжатия
+			result.methods.assign(data.data + offset, data.data + offset + length);
+			// Переходим за способы сжатия
+			offset += length;
+			// Число расширений
+			count = ::__nts_twain__(data.data + offset);
+			// Переходим за число расширений
+			offset += 2;
+			/**
+			 * Перебираем расширения
+			 */
+			for(size_t i = 0; i < count; i++){
+				// Если заголовок расширения в снимок не входит
+				if((offset + 4) > data.size)
+					// Выводим отказ снимка
+					return fingerprint::error_t::FORMAT;
+				// Расширение профиля
+				fingerprint::extension_t extension;
+				// Читаем вид расширения
+				extension.type = ::__nts_twain__(data.data + offset);
+				// Длина тела расширения
+				length = ::__nts_twain__(data.data + offset + 2);
+				// Переходим к телу расширения
+				offset += 4;
+				// Если тело расширения в снимок не входит
+				if((offset + length) > data.size)
+					// Выводим отказ снимка
+					return fingerprint::error_t::FORMAT;
+				// Читаем тело расширения
+				extension.data.assign(data.data + offset, data.data + offset + length);
+				// Переходим за тело расширения
+				offset += length;
+				// Отказ разбора тела расширения
+				const fingerprint::error_t failure = ::__nts_decode__(extension);
+				// Если тело расширения разобрать не удалось
+				if(failure != fingerprint::error_t::NONE)
+					// Выводим отказ разбора расширения
+					return failure;
+				// Добавляем расширение в профиль
+				result.extensions.push_back(extension);
+			}
+			// Выводим успешность чтения
+			return fingerprint::error_t::NONE;
+		/**
+		 * Выполняем перехват ошибок
+		 */
+		} catch(const std::bad_alloc &) {
+			// Выводим отказ нехватки памяти
+			return fingerprint::error_t::MEMORY;
 		}
-		// Выводим успешность чтения
-		return fingerprint::error_t::NONE;
 	}
 };
 
