@@ -1440,10 +1440,10 @@ namespace {
 		const uint8_t indices[2] = {column, row};
 		// Подаём индексы в поток
 		xof.update(view_t(indices, sizeof(indices)));
-		// Число набранных коэффициентов
-		size_t count = 0;
 		// Поток выжимается блоками по 168 байтов (56 троек): тройки не рвутся по краям
 		uint8_t block[168];
+		// Число набранных коэффициентов
+		[[maybe_unused]] size_t count = 0;
 		/**
 		 * Выбираем блоки потока до заполнения многочлена
 		 */
@@ -1469,8 +1469,6 @@ namespace {
 		}
 		// Затираем рабочий блок потока
 		sys::wipe(block, sizeof(block));
-		// Счёт набранных коэффициентов не выводится наружу
-		(void) count;
 	}
 	/**
 	 * @brief Функция выборки матрицы целиком: четыре губки параллельным ядром, хвост по одной
@@ -1856,7 +1854,7 @@ namespace {
 		// Подаём номер в поток
 		xof.update(view_t(suffix, sizeof(suffix)));
 		// Число набранных коэффициентов
-		size_t count = 0;
+		[[maybe_unused]] size_t count = 0;
 		// Если граница маски γ1 = 2^17
 		if(gamma1 == (1u << 17)){
 			// Поток выжимается блоками по 144 байта (16 девяток по четыре коэффициента на 18 разрядов)
@@ -1920,8 +1918,6 @@ namespace {
 			// Затираем рабочий блок потока
 			sys::wipe(block, sizeof(block));
 		}
-		// Счёт набранных коэффициентов не выводится наружу
-		(void) count;
 	}
 	/**
 	 * @brief Функция выборки вызова из шара с τ единицами
@@ -1942,7 +1938,7 @@ namespace {
 		// Накопитель разрядов знаков
 		uint64_t bits = 0;
 		// Выжимаем восемь байтов знаков
-		(void) xof.squeeze(signs, sizeof(signs));
+		std::ignore = xof.squeeze(signs, sizeof(signs));
 		/**
 		 * Собираем знаки восьми байтов в слово
 		 */
@@ -1968,7 +1964,7 @@ namespace {
 			// Дочитываем поток порциями
 			if(used == sizeof(buffer)){
 				// Выжимаем очередную порцию потока
-				(void) xof.squeeze(buffer, sizeof(buffer));
+				std::ignore = xof.squeeze(buffer, sizeof(buffer));
 				// Чтение буфера с начала
 				used = 0;
 			}
@@ -2412,7 +2408,7 @@ namespace {
 			// Подаём размерности в поток
 			xof.update(view_t(dimensions, sizeof(dimensions)));
 			// Выжимаем 128 байтов расширения зерна
-			(void) xof.squeeze(expanded, sizeof(expanded));
+			std::ignore = xof.squeeze(expanded, sizeof(expanded));
 		}
 		// Зерно матрицы ρ
 		const uint8_t * rho = expanded;
@@ -2496,7 +2492,7 @@ namespace {
 			// Подаём запись ρ ‖ productOdd в поток
 			xof.update(view_t(key, (32 + (setup.rows * 320))));
 			// Выжимаем трассировку ключа проверки
-			(void) xof.squeeze(trace, sizeof(trace));
+			std::ignore = xof.squeeze(trace, sizeof(trace));
 		}
 		// Позиция записи ключа подписи
 		uint8_t * out = secret;
@@ -2589,7 +2585,7 @@ namespace {
 			// Подаём сообщение в поток
 			xof.update(message);
 			// Выжимаем вычисляемое сообщение μ
-			(void) xof.squeeze(mu, sizeof(mu));
+			std::ignore = xof.squeeze(mu, sizeof(mu));
 		}
 		// Случайность маски: ρ″ = H(K ‖ rnd ‖ μ, 64)
 		uint8_t rhodbl[64];
@@ -2603,7 +2599,7 @@ namespace {
 			// Подаём вычисляемое сообщение в поток
 			xof.update(view_t(mu, sizeof(mu)));
 			// Выжимаем зерно маски ρ″
-			(void) xof.squeeze(rhodbl, sizeof(rhodbl));
+			std::ignore = xof.squeeze(rhodbl, sizeof(rhodbl));
 		}
 		// Позиция записи секретов в ключе подписи
 		const uint8_t * packed = (secret + 128);
@@ -2614,7 +2610,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < setup.columns; i++){
 			// Читаем многочлен секрета s1
-			(void) ::__ants_unpack_s__(packed, setup.eta, s1[i]);
+			std::ignore = ::__ants_unpack_s__(packed, setup.eta, s1[i]);
 			// Продвигаем позицию чтения на размер записи секрета
 			packed += ((setup.eta == 2) ? 96 : 128);
 			// Многочлен s1 в область NTT
@@ -2625,7 +2621,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < setup.rows; i++){
 			// Читаем многочлен секрета s2
-			(void) ::__ants_unpack_s__(packed, setup.eta, s2[i]);
+			std::ignore = ::__ants_unpack_s__(packed, setup.eta, s2[i]);
 			// Продвигаем позицию чтения на размер записи секрета
 			packed += ((setup.eta == 2) ? 96 : 128);
 			// Многочлен s2 в область NTT
@@ -2717,7 +2713,7 @@ namespace {
 					// Подаём запись старших частей строки в поток
 					xof.update(view_t(encoded[row], w1size));
 				// Выжимаем зерно вызова
-				(void) xof.squeeze(challenge, setup.challenge);
+				std::ignore = xof.squeeze(challenge, setup.challenge);
 				// Затираем записи старших частей
 				sys::wipe(encoded, sizeof(encoded));
 			}
@@ -2928,7 +2924,7 @@ namespace {
 			// Подаём запись ρ ‖ productOdd в поток
 			xof.update(view_t(key, (32 + (setup.rows * 320))));
 			// Выжимаем трассировку ключа проверки
-			(void) xof.squeeze(trace, sizeof(trace));
+			std::ignore = xof.squeeze(trace, sizeof(trace));
 		}
 		// Вычисляемое сообщение μ = H(tr ‖ 0x00 ‖ длина контекста ‖ контекст ‖ сообщение, 64)
 		uint8_t mu[64];
@@ -2946,7 +2942,7 @@ namespace {
 			// Подаём сообщение в поток
 			xof.update(message);
 			// Выжимаем вычисляемое сообщение μ
-			(void) xof.squeeze(mu, sizeof(mu));
+			std::ignore = xof.squeeze(mu, sizeof(mu));
 		}
 		// Зерно вызова c~ из записи подписи
 		const uint8_t * challenge = signature;
@@ -3106,7 +3102,7 @@ namespace {
 				// Подаём запись старших частей строки в поток
 				xof.update(view_t(encoded[row], w1size));
 			// Выжимаем ожидаемое зерно вызова
-			(void) xof.squeeze(expected, setup.challenge);
+			std::ignore = xof.squeeze(expected, setup.challenge);
 			// Затираем записи старших частей
 			sys::wipe(encoded, sizeof(encoded));
 		}
@@ -3253,7 +3249,7 @@ namespace {
 			// Подаём запись ρ ‖ productOdd в поток
 			xof.update(view_t(key, (32 + (setup.rows * 320))));
 			// Выжимаем пересчитанную трассировку
-			(void) xof.squeeze(expected, sizeof(expected));
+			std::ignore = xof.squeeze(expected, sizeof(expected));
 		}
 		// Сличаем трассировку с записанной, гнилая запись отвергается
 		const bool result = ((malformed == 0) && (::memcmp(expected, trace, sizeof(expected)) == 0));

@@ -268,14 +268,14 @@ namespace {
 	/**
 	 * Наборы SLH-DSA по месту опознавателя: сперва SHA2, затем SHAKE (раздел 4 RFC 9909)
 	 */
-	static const sign::slhdsa_t::set_t SLHDSA_SETS[12] = {
+	static const sign::slh_dsa_t::set_t SLHDSA_SETS[12] = {
 		// Наборы SHA2 со 128-битной стойкостью: малое и полное дерево
-		sign::slhdsa_t::set_t::SHA2_128S, sign::slhdsa_t::set_t::SHA2_128F,
-		sign::slhdsa_t::set_t::SHA2_192S, sign::slhdsa_t::set_t::SHA2_192F,
-		sign::slhdsa_t::set_t::SHA2_256S, sign::slhdsa_t::set_t::SHA2_256F,
-		sign::slhdsa_t::set_t::SHAKE_128S, sign::slhdsa_t::set_t::SHAKE_128F,
-		sign::slhdsa_t::set_t::SHAKE_192S, sign::slhdsa_t::set_t::SHAKE_192F,
-		sign::slhdsa_t::set_t::SHAKE_256S, sign::slhdsa_t::set_t::SHAKE_256F
+		sign::slh_dsa_t::set_t::SHA2_128S, sign::slh_dsa_t::set_t::SHA2_128F,
+		sign::slh_dsa_t::set_t::SHA2_192S, sign::slh_dsa_t::set_t::SHA2_192F,
+		sign::slh_dsa_t::set_t::SHA2_256S, sign::slh_dsa_t::set_t::SHA2_256F,
+		sign::slh_dsa_t::set_t::SHAKE_128S, sign::slh_dsa_t::set_t::SHAKE_128F,
+		sign::slh_dsa_t::set_t::SHAKE_192S, sign::slh_dsa_t::set_t::SHAKE_192F,
+		sign::slh_dsa_t::set_t::SHAKE_256S, sign::slh_dsa_t::set_t::SHAKE_256F
 	};
 
 	/**
@@ -1349,9 +1349,9 @@ namespace {
 	 * @return       отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t slhdsa(const nts::x509::key_t & key, sign::slhdsa_t & slhdsa) noexcept {
+	static nts::x509::error_t slhdsa(const nts::x509::key_t & key, sign::slh_dsa_t & slhdsa) noexcept {
 		// Набор параметров по опознавателю алгоритма
-		sign::slhdsa_t::set_t set = sign::slhdsa_t::set_t::NONE;
+		sign::slh_dsa_t::set_t set = sign::slh_dsa_t::set_t::NONE;
 		/**
 		 * Перебор опознавателей наборов SLH-DSA
 		 */
@@ -1364,7 +1364,7 @@ namespace {
 			}
 		}
 		// Если алгоритм открытого ключа не SLH-DSA
-		if(set == sign::slhdsa_t::set_t::NONE)
+		if(set == sign::slh_dsa_t::set_t::NONE)
 			// Выводим отказ ключа чужого алгоритма
 			return nts::x509::error_t::KEY;
 		// Если ключ несёт настройки, которых у алгоритма нет: раздел 4 RFC 9909
@@ -1372,7 +1372,7 @@ namespace {
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		// Если запись открытого ключа занимает неполное число байтов либо не той длины
-		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::slhdsa_t::publicSize(set)))
+		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::slh_dsa_t::publicSize(set)))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		// Выводим итог установки открытого ключа подписавшей стороны
@@ -1389,7 +1389,7 @@ namespace {
 	 */
 	static nts::x509::error_t slhdsa(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
-		sign::slhdsa_t slhdsa;
+		sign::slh_dsa_t slhdsa;
 		// Итог заведения открытого ключа
 		const nts::x509::error_t established = ::slhdsa(key, slhdsa);
 		// Если открытый ключ завести не удалось
@@ -1397,7 +1397,7 @@ namespace {
 			// Выводим отказ заведения открытого ключа
 			return established;
 		// Если подпись не занимает положенной набором длины
-		if(signature.size != sign::slhdsa_t::signatureSize(slhdsa.set()))
+		if(signature.size != sign::slh_dsa_t::signatureSize(slhdsa.set()))
 			// Выводим отказ проверки подписи
 			return nts::x509::error_t::SIGNATURE;
 		// Выводим итог проверки подписи: хеша нет, подписано само содержимое, контекст пуст

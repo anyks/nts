@@ -1673,11 +1673,11 @@ int main(int argc, char * argv[]) noexcept {
 		sm2.check(view_t(hash, 32), view_t(sm2Sealing, sizeof(sm2Sealing)));
 	});
 	// Набор подписи SLH-DSA
-	const sign::slhdsa_t::set_t slhSet = sign::slhdsa_t::set_t::SHA2_128S;
+	const sign::slh_dsa_t::set_t slhSet = sign::slh_dsa_t::set_t::SHA2_128S;
 	// Объект электронной подписи SLH-DSA
-	sign::slhdsa_t slhdsa;
+	sign::slh_dsa_t slhdsa;
 	// Ключ проверки, ключ подписи и подпись SLH-DSA
-	vector <uint8_t> slhKey(sign::slhdsa_t::publicSize(slhSet)), slhSecret(sign::slhdsa_t::secretSize(slhSet)), slhSealing(sign::slhdsa_t::signatureSize(slhSet));
+	vector <uint8_t> slhKey(sign::slh_dsa_t::publicSize(slhSet)), slhSecret(sign::slh_dsa_t::secretSize(slhSet)), slhSealing(sign::slh_dsa_t::signatureSize(slhSet));
 	/**
 	 * Замеряемая работа обязана удаваться: молчаливый отказ меряется мгновением
 	 *

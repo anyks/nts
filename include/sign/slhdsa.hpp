@@ -105,7 +105,7 @@ namespace nts {
 		 *
 		 * \~
 		 */
-		typedef class __ANTS_SHARED_EXPORT__ Slhdsa {
+		typedef class __ANTS_SHARED_EXPORT__ SLH_DSA {
 			public:
 				/**
 				 * \~russian
@@ -118,31 +118,31 @@ namespace nts {
 				 */
 				enum class set_t : uint8_t {
 					// Набор не установлен
-					NONE        = 0x00, /*!< \~russian Набор не установлен \~english The set is not set \~ */
+					NONE = 0x00, /*!< \~russian Набор не установлен \~english The set is not set \~ */
 					// SLH-DSA-SHA2-128s
-					SHA2_128S   = 0x01, /*!< \~russian SLH-DSA-SHA2-128s \~english SLH-DSA-SHA2-128s \~ */
+					SHA2_128S = 0x01, /*!< \~russian SLH-DSA-SHA2-128s \~english SLH-DSA-SHA2-128s \~ */
 					// SLH-DSA-SHAKE-128s
-					SHAKE_128S  = 0x02, /*!< \~russian SLH-DSA-SHAKE-128s \~english SLH-DSA-SHAKE-128s \~ */
+					SHAKE_128S = 0x02, /*!< \~russian SLH-DSA-SHAKE-128s \~english SLH-DSA-SHAKE-128s \~ */
 					// SLH-DSA-SHA2-128f
-					SHA2_128F   = 0x03, /*!< \~russian SLH-DSA-SHA2-128f \~english SLH-DSA-SHA2-128f \~ */
+					SHA2_128F = 0x03, /*!< \~russian SLH-DSA-SHA2-128f \~english SLH-DSA-SHA2-128f \~ */
 					// SLH-DSA-SHAKE-128f
-					SHAKE_128F  = 0x04, /*!< \~russian SLH-DSA-SHAKE-128f \~english SLH-DSA-SHAKE-128f \~ */
+					SHAKE_128F = 0x04, /*!< \~russian SLH-DSA-SHAKE-128f \~english SLH-DSA-SHAKE-128f \~ */
 					// SLH-DSA-SHA2-192s
-					SHA2_192S   = 0x05, /*!< \~russian SLH-DSA-SHA2-192s \~english SLH-DSA-SHA2-192s \~ */
+					SHA2_192S = 0x05, /*!< \~russian SLH-DSA-SHA2-192s \~english SLH-DSA-SHA2-192s \~ */
 					// SLH-DSA-SHAKE-192s
-					SHAKE_192S  = 0x06, /*!< \~russian SLH-DSA-SHAKE-192s \~english SLH-DSA-SHAKE-192s \~ */
+					SHAKE_192S = 0x06, /*!< \~russian SLH-DSA-SHAKE-192s \~english SLH-DSA-SHAKE-192s \~ */
 					// SLH-DSA-SHA2-192f
-					SHA2_192F   = 0x07, /*!< \~russian SLH-DSA-SHA2-192f \~english SLH-DSA-SHA2-192f \~ */
+					SHA2_192F = 0x07, /*!< \~russian SLH-DSA-SHA2-192f \~english SLH-DSA-SHA2-192f \~ */
 					// SLH-DSA-SHAKE-192f
-					SHAKE_192F  = 0x08, /*!< \~russian SLH-DSA-SHAKE-192f \~english SLH-DSA-SHAKE-192f \~ */
+					SHAKE_192F = 0x08, /*!< \~russian SLH-DSA-SHAKE-192f \~english SLH-DSA-SHAKE-192f \~ */
 					// SLH-DSA-SHA2-256s
-					SHA2_256S   = 0x09, /*!< \~russian SLH-DSA-SHA2-256s \~english SLH-DSA-SHA2-256s \~ */
+					SHA2_256S = 0x09, /*!< \~russian SLH-DSA-SHA2-256s \~english SLH-DSA-SHA2-256s \~ */
 					// SLH-DSA-SHAKE-256s
-					SHAKE_256S  = 0x0A, /*!< \~russian SLH-DSA-SHAKE-256s \~english SLH-DSA-SHAKE-256s \~ */
+					SHAKE_256S = 0x0A, /*!< \~russian SLH-DSA-SHAKE-256s \~english SLH-DSA-SHAKE-256s \~ */
 					// SLH-DSA-SHA2-256f
-					SHA2_256F   = 0x0B, /*!< \~russian SLH-DSA-SHA2-256f \~english SLH-DSA-SHA2-256f \~ */
+					SHA2_256F = 0x0B, /*!< \~russian SLH-DSA-SHA2-256f \~english SLH-DSA-SHA2-256f \~ */
 					// SLH-DSA-SHAKE-256f
-					SHAKE_256F  = 0x0C  /*!< \~russian SLH-DSA-SHAKE-256f \~english SLH-DSA-SHAKE-256f \~ */
+					SHAKE_256F = 0x0C  /*!< \~russian SLH-DSA-SHAKE-256f \~english SLH-DSA-SHAKE-256f \~ */
 				};
 			private:
 				/**
@@ -506,7 +506,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				Slhdsa() noexcept;
+				explicit SLH_DSA() noexcept;
 				/**
 				 * \~russian
 				 * @brief Деструктор
@@ -516,8 +516,8 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				~Slhdsa() noexcept;
-		} slhdsa_t;
+				~SLH_DSA() noexcept;
+		} slh_dsa_t;
 	};
 };
 

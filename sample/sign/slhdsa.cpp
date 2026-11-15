@@ -88,13 +88,13 @@ int main(int argc, char * argv[]) noexcept {
 	// Не используем параметры приложения
 	(void) argv;
 	// Выбранный набор параметров подписи образца
-	const sign::slhdsa_t::set_t set = sign::slhdsa_t::set_t::SHA2_128S;
+	const sign::slh_dsa_t::set_t set = sign::slh_dsa_t::set_t::SHA2_128S;
 	// Объект электронной подписи SLH-DSA
-	sign::slhdsa_t sign;
+	sign::slh_dsa_t sign;
 	// Место, в которое помещается открытый ключ проверки подписи
-	vector <uint8_t> key(sign::slhdsa_t::publicSize(set));
+	vector <uint8_t> key(sign::slh_dsa_t::publicSize(set));
 	// Место, в которое помещается закрытый ключ подписи
-	vector <uint8_t> secret(sign::slhdsa_t::secretSize(set));
+	vector <uint8_t> secret(sign::slh_dsa_t::secretSize(set));
 	/**
 	 * Выполняем порождение ключевой пары
 	 *
@@ -127,7 +127,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Подписываемое сообщение образца
 	const char * message = "Сообщение, которое требуется подписать";
 	// Место, в которое помещается подпись сообщения
-	vector <uint8_t> signature(sign::slhdsa_t::signatureSize(set));
+	vector <uint8_t> signature(sign::slh_dsa_t::signatureSize(set));
 	/**
 	 * Выполняем подписание сообщения
 	 *

@@ -178,7 +178,7 @@
 						// Место под остаток
 						uint64_t remainder = 0;
 						// Остаток из внутренней функции деления
-						(void) ::_udiv128(this->hi % divisor, this->lo, divisor, &remainder);
+						std::ignore = ::_udiv128(this->hi % divisor, this->lo, divisor, &remainder);
 						// Возвращаем остаток
 						return Wide(remainder, 0);
 					/**

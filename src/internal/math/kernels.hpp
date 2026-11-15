@@ -1229,9 +1229,7 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void nistmultiply4(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова модуля регистровому ядру не нужны
-					(void) modulus;
+				static __ANTS_INLINE__ void nistmultiply4(const uint64_t * first, const uint64_t * second, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Умножение регистровым ядром с записью итога
 					put <4> (multiplynist4r(fetch <4> (first), fetch <4> (second)), result);
 				}
@@ -1243,9 +1241,7 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __ANTS_INLINE__ void nistsquare4(const uint64_t * value, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова модуля регистровому ядру не нужны
-					(void) modulus;
+				static __ANTS_INLINE__ void nistsquare4(const uint64_t * value, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Возведение в квадрат регистровым ядром с записью итога
 					put <4> (squarenist4r(fetch <4> (value)), result);
 				}
@@ -1259,9 +1255,7 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void multiplyminus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова модуля регистровому ядру не нужны
-					(void) modulus;
+				static __ANTS_INLINE__ void multiplyminus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Умножение регистровым ядром с записью итога
 					put <4> (multiplyminus4r(fetch <4> (first), fetch <4> (second), tail), result);
 				}
@@ -1274,9 +1268,7 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __ANTS_INLINE__ void squareminus4(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова модуля регистровому ядру не нужны
-					(void) modulus;
+				static __ANTS_INLINE__ void squareminus4(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Возведение в квадрат регистровым ядром с записью итога
 					put <4> (squareminus4r(fetch <4> (value), tail), result);
 				}
@@ -1544,9 +1536,7 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void multiplyminus8(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова модуля ядру не нужны
-					(void) modulus;
+				static __ANTS_INLINE__ void multiplyminus8(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Слова первого сомножителя, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
 					uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3], a4 = first[4], a5 = first[5], a6 = first[6], a7 = first[7];
 					// Окно накопителя, временные и слово второго сомножителя
@@ -1569,9 +1559,7 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __ANTS_INLINE__ void squareminus8(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова модуля ядру не нужны
-					(void) modulus;
+				static __ANTS_INLINE__ void squareminus8(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Треугольник произведений разных слов
 					uint64_t q[16];
 					// Слова числа, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
@@ -1897,9 +1885,7 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __ANTS_INLINE__ void nistmultiply4(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова модуля заложены в тело приведения
-					(void) modulus;
+				static __ANTS_INLINE__ void nistmultiply4(const uint64_t * first, const uint64_t * second, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Слова накопителя, старшее слово модуля, временное и слово второго сомножителя
 					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t, m;
 					// Умножение Монтгомери ядром на ассемблере
@@ -1926,9 +1912,7 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __ANTS_INLINE__ void nistsquare4(const uint64_t * value, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова модуля заложены в тело приведения
-					(void) modulus;
+				static __ANTS_INLINE__ void nistsquare4(const uint64_t * value, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Слова полного квадрата и слово переноса
 					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
 					// Возведение в квадрат Монтгомери ядром на ассемблере

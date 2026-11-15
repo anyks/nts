@@ -316,7 +316,7 @@ namespace {
 	 *       прежней сборкой: ядер на MULX у них нет, а вторая сборка тех же формул стоила им 1…2 %
 	 *
 	 */
-	static bool mulxReady(const math::Modulus::layout_t & layout) noexcept {
+	static bool mulxReady([[maybe_unused]] const math::Modulus::layout_t & layout) noexcept {
 		/**
 		 * Ядра на MULX и ADCX/ADOX есть лишь под x86-64 с GCC и clang и лишь у простого P-256
 		 */
@@ -327,8 +327,6 @@ namespace {
 		 * Иначе выводим признак без опоры на машину
 		 */
 		#else
-			// Ядра от машины не зависят
-			(void) layout;
 			// Выводим признак отсутствия ядер MULX с ADCX/ADOX
 			return false;
 		#endif
@@ -1292,9 +1290,7 @@ namespace {
 	 *
 	 */
 	template <size_t WORDS, bool ADX>
-	static __ANTS_INLINE__ void gathering(const Fast <WORDS, ADX> & f, const uint64_t * row, const size_t words, const uint64_t index, Triple <math::kernel::Words <WORDS>> & chosen) noexcept {
-		// Число слов координаты заложено в арифметику
-		(void) words;
+	static __ANTS_INLINE__ void gathering(const Fast <WORDS, ADX> & f, const uint64_t * row, [[maybe_unused]] const size_t words, const uint64_t index, Triple <math::kernel::Words <WORDS>> & chosen) noexcept {
 		// Выборка строки: кратные от первого, координаты подряд
 		f.gather(row, (2 * WORDS), TABLES_MULTIPLES, 1, index, chosen.x.w, (2 * WORDS));
 	}

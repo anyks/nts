@@ -128,64 +128,64 @@ static std::vector <std::string> fields(const std::string & line) noexcept {
  * @return     набор параметров
  *
  */
-static sign::Slhdsa::set_t layout(const std::string & name) noexcept {
+static sign::SLH_DSA::set_t layout(const std::string & name) noexcept {
 	// Запись набора sha2-128s
 	if(name == "sha2-128s"){
 		// Краткие подписи SHA2 на 128 бит стойкости
-		return sign::Slhdsa::set_t::SHA2_128S;
+		return sign::SLH_DSA::set_t::SHA2_128S;
 	}
 	// Запись набора shake-128s
 	if(name == "shake-128s"){
 		// Краткие подписи SHAKE на 128 бит стойкости
-		return sign::Slhdsa::set_t::SHAKE_128S;
+		return sign::SLH_DSA::set_t::SHAKE_128S;
 	}
 	// Запись набора sha2-128f
 	if(name == "sha2-128f"){
 		// Быстрые подписи SHA2 на 128 бит стойкости
-		return sign::Slhdsa::set_t::SHA2_128F;
+		return sign::SLH_DSA::set_t::SHA2_128F;
 	}
 	// Запись набора shake-128f
 	if(name == "shake-128f"){
 		// Быстрые подписи SHAKE на 128 бит стойкости
-		return sign::Slhdsa::set_t::SHAKE_128F;
+		return sign::SLH_DSA::set_t::SHAKE_128F;
 	}
 	// Запись набора sha2-192s
 	if(name == "sha2-192s"){
 		// Краткие подписи SHA2 на 192 бита стойкости
-		return sign::Slhdsa::set_t::SHA2_192S;
+		return sign::SLH_DSA::set_t::SHA2_192S;
 	}
 	// Запись набора shake-192s
 	if(name == "shake-192s"){
 		// Краткие подписи SHAKE на 192 бита стойкости
-		return sign::Slhdsa::set_t::SHAKE_192S;
+		return sign::SLH_DSA::set_t::SHAKE_192S;
 	}
 	// Запись набора sha2-192f
 	if(name == "sha2-192f"){
 		// Быстрые подписи SHA2 на 192 бита стойкости
-		return sign::Slhdsa::set_t::SHA2_192F;
+		return sign::SLH_DSA::set_t::SHA2_192F;
 	}
 	// Запись набора shake-192f
 	if(name == "shake-192f"){
 		// Быстрые подписи SHAKE на 192 бита стойкости
-		return sign::Slhdsa::set_t::SHAKE_192F;
+		return sign::SLH_DSA::set_t::SHAKE_192F;
 	}
 	// Запись набора sha2-256s
 	if(name == "sha2-256s"){
 		// Краткие подписи SHA2 на 256 бит стойкости
-		return sign::Slhdsa::set_t::SHA2_256S;
+		return sign::SLH_DSA::set_t::SHA2_256S;
 	}
 	// Запись набора shake-256s
 	if(name == "shake-256s"){
 		// Краткие подписи SHAKE на 256 бит стойкости
-		return sign::Slhdsa::set_t::SHAKE_256S;
+		return sign::SLH_DSA::set_t::SHAKE_256S;
 	}
 	// Запись набора sha2-256f
 	if(name == "sha2-256f"){
 		// Быстрые подписи SHA2 на 256 бит стойкости
-		return sign::Slhdsa::set_t::SHA2_256F;
+		return sign::SLH_DSA::set_t::SHA2_256F;
 	}
 	// Выводим набор SHAKE-256f
-	return sign::Slhdsa::set_t::SHAKE_256F;
+	return sign::SLH_DSA::set_t::SHAKE_256F;
 }
 
 /**
@@ -228,13 +228,13 @@ TEST(SlhdsaTest, Keygen) {
 		// Разбираем поля строки набора
 		ASSERT_EQ(parts.size(), 4u);
 		// Набор параметров строки
-		const sign::Slhdsa::set_t set = layout(parts[0]);
+		const sign::SLH_DSA::set_t set = layout(parts[0]);
 		// Зерно, ключ проверки и ключ подписи примера
 		const std::vector <uint8_t> seed = bytes(parts[1]), pub = bytes(parts[2]), priv = bytes(parts[3]);
 		// Места выработанных ключей
 		std::vector <uint8_t> key(pub.size()), secret(priv.size());
 		// Модуль подписи
-		sign::Slhdsa slhdsa;
+		sign::SLH_DSA slhdsa;
 		// Выполняем выработку ключа из зерна примера
 		ASSERT_TRUE(slhdsa.generate(set, view_t(seed.data(), seed.size()), key.data(), secret.data()));
 		// Сверяем ключи с примером побайтно
@@ -271,20 +271,20 @@ TEST(SlhdsaTest, Siggen) {
 		// Разбираем поля строки набора
 		ASSERT_GE(parts.size(), 6u);
 		// Набор параметров строки
-		const sign::Slhdsa::set_t set = layout(parts[0]);
+		const sign::SLH_DSA::set_t set = layout(parts[0]);
 		// Ключ подписи, сообщение, контекст и подпись примера
 		const std::vector <uint8_t> priv = bytes(parts[2]), msg = bytes(parts[3]), ctx = bytes(parts[4]), want = bytes(parts[5]);
 		// Модули подписи и проверки
-		sign::Slhdsa signer, verifier;
+		sign::SLH_DSA signer, verifier;
 		// Выполняем установку ключа подписи примера
 		ASSERT_TRUE(signer.secret(set, view_t(priv.data(), priv.size())));
 		// Ключ проверки из установленного ключа подписи
-		std::vector <uint8_t> pub(sign::Slhdsa::publicSize(set));
+		std::vector <uint8_t> pub(sign::SLH_DSA::publicSize(set));
 		// Выполняем получение и установку ключа проверки
 		ASSERT_TRUE(signer.key(pub.data(), pub.size()));
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
 		// Место выработанной подписи
-		std::vector <uint8_t> signature(sign::Slhdsa::signatureSize(set));
+		std::vector <uint8_t> signature(sign::SLH_DSA::signatureSize(set));
 		// Случайность сценария: нули у детерминированной, энтропия у помеченной e
 		uint8_t rnd[32] = {};
 		// Если сценарий с тестовой энтропией
@@ -331,11 +331,11 @@ TEST(SlhdsaTest, Sigver) {
 		// Разбираем поля строки набора
 		ASSERT_EQ(parts.size(), 6u);
 		// Набор параметров строки
-		const sign::Slhdsa::set_t set = layout(parts[0]);
+		const sign::SLH_DSA::set_t set = layout(parts[0]);
 		// Ключ проверки, сообщение, контекст и подпись примера
 		const std::vector <uint8_t> pub = bytes(parts[2]), msg = bytes(parts[3]), ctx = bytes(parts[4]), sig = bytes(parts[5]);
 		// Модуль проверки
-		sign::Slhdsa verifier;
+		sign::SLH_DSA verifier;
 		// Выполняем установку ключа проверки примера
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
 		// Выполняем сличение подписи примера с ожидаемым ответом
@@ -355,22 +355,22 @@ TEST(SlhdsaTest, Round) {
 	// Сообщение круга подписи
 	const std::string text = "сообщение круга подписи SLH-DSA";
 	// Наборы параметров круга
-	static const sign::Slhdsa::set_t SUITS[] = {
-		sign::Slhdsa::set_t::SHA2_128S, sign::Slhdsa::set_t::SHAKE_128S,
-		sign::Slhdsa::set_t::SHA2_128F, sign::Slhdsa::set_t::SHAKE_128F,
-		sign::Slhdsa::set_t::SHA2_192S, sign::Slhdsa::set_t::SHAKE_192S,
-		sign::Slhdsa::set_t::SHA2_192F, sign::Slhdsa::set_t::SHAKE_192F,
-		sign::Slhdsa::set_t::SHA2_256S, sign::Slhdsa::set_t::SHAKE_256S,
-		sign::Slhdsa::set_t::SHA2_256F, sign::Slhdsa::set_t::SHAKE_256F
+	static const sign::SLH_DSA::set_t SUITS[] = {
+		sign::SLH_DSA::set_t::SHA2_128S, sign::SLH_DSA::set_t::SHAKE_128S,
+		sign::SLH_DSA::set_t::SHA2_128F, sign::SLH_DSA::set_t::SHAKE_128F,
+		sign::SLH_DSA::set_t::SHA2_192S, sign::SLH_DSA::set_t::SHAKE_192S,
+		sign::SLH_DSA::set_t::SHA2_192F, sign::SLH_DSA::set_t::SHAKE_192F,
+		sign::SLH_DSA::set_t::SHA2_256S, sign::SLH_DSA::set_t::SHAKE_256S,
+		sign::SLH_DSA::set_t::SHA2_256F, sign::SLH_DSA::set_t::SHAKE_256F
 	};
 	/**
 	 * Выполняем перебор наборов параметров
 	 */
 	for(auto set : SUITS){
 		// Модули подписи и проверки
-		sign::Slhdsa signer, verifier;
+		sign::SLH_DSA signer, verifier;
 		// Места записей ключей
-		std::vector <uint8_t> pub(sign::Slhdsa::publicSize(set)), priv(sign::Slhdsa::secretSize(set));
+		std::vector <uint8_t> pub(sign::SLH_DSA::publicSize(set)), priv(sign::SLH_DSA::secretSize(set));
 		// Выполняем порождение ключа из источника случайности
 		ASSERT_TRUE(signer.generate(set, pub.data(), priv.data()));
 		// Выполняем установку ключа подписи и ключа проверки
@@ -378,10 +378,10 @@ TEST(SlhdsaTest, Round) {
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
 		// Набор, размер и предел подписи после установки
 		EXPECT_EQ(signer.set(), set);
-		EXPECT_EQ(signer.size(), sign::Slhdsa::signatureSize(set));
-		EXPECT_EQ(signer.limit(), sign::Slhdsa::signatureSize(set));
+		EXPECT_EQ(signer.size(), sign::SLH_DSA::signatureSize(set));
+		EXPECT_EQ(signer.limit(), sign::SLH_DSA::signatureSize(set));
 		// Место подписи
-		std::vector <uint8_t> signature(sign::Slhdsa::signatureSize(set));
+		std::vector <uint8_t> signature(sign::SLH_DSA::signatureSize(set));
 		// Выполняем выработку подписи от источника случайности
 		ASSERT_TRUE(signer.make(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), view_t(nullptr, 0), signature.data()));
 		// Выполняем сличение подписи
@@ -403,7 +403,7 @@ TEST(SlhdsaTest, Round) {
 		// Сброс модуля снимает ключи
 		signer.clear();
 		// Набор после сброса обязан стать пустым
-		EXPECT_EQ(signer.set(), sign::Slhdsa::set_t::NONE);
+		EXPECT_EQ(signer.set(), sign::SLH_DSA::set_t::NONE);
 		EXPECT_EQ(signer.size(), 0u);
 	}
 }

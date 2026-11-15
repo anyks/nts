@@ -17369,7 +17369,7 @@ bool nts::internal::Engine::etm() const noexcept {
  */
 void nts::internal::Engine::vault(const vector <uint8_t> & secret) noexcept {
 	// Заведение ключа билетов из секрета хранителем: отказ оставляет ключ прежним
-	(void) this->_keeper.stash(view_t(secret.data(), secret.size()));
+	std::ignore = this->_keeper.stash(view_t(secret.data(), secret.size()));
 }
 /**
  * @brief Метод суждения клиента о сокращённом рукопожатии по первому сообщению за приветствием сервера

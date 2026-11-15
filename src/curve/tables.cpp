@@ -41,13 +41,7 @@
  *              которой не заготовлены
  *
  */
-const nts::curve::precomputed_t * nts::curve::precomputed(const uint64_t * x, const uint64_t * y, const size_t words) noexcept {
-	// Заглушаем неиспользуемые доводы
-	(void) x;
-	// Заглушаем неиспользуемый довод второй координаты
-	(void) y;
-	// Заглушаем неиспользуемый довод числа слов
-	(void) words;
+const nts::curve::precomputed_t * nts::curve::precomputed([[maybe_unused]] const uint64_t * x, [[maybe_unused]] const uint64_t * y, [[maybe_unused]] const size_t words) noexcept {
 	// Выводим отсутствие заготовленных кратных
 	return nullptr;
 }

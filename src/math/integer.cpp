@@ -3742,14 +3742,7 @@ namespace {
 	 *       RSA-1024 стоили 28 тактов на умножение - 3,5 % степени (решение 15 шапки)
 	 *
 	 */
-	static __ANTS_INLINE__ void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch, const bool adx) noexcept {
-		/**
-		 * Признак машины выбирает ядра лишь под x86-64 с GCC и clang
-		 */
-		#if !(defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__))
-			// Вне x86-64 выбор ядра от признака не зависит
-			(void) adx;
-		#endif
+	static __ANTS_INLINE__ void montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch, [[maybe_unused]] const bool adx) noexcept {
 		/**
 		 * Квадрат ширины, кратной восьми, идёт блочным ядром: под AArch64 всегда, под x86-64 при
 		 * расширениях BMI2 и ADX у машины (решение 8 шапки): три четверти умножений и окно

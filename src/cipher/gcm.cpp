@@ -1255,7 +1255,7 @@ namespace {
  * @return        признак того, что ход выполнен: без расписания ключа AES либо команд машины - отказ, и путь идёт порознь
  *
  */
-bool nts::cipher::Gcm::travel(const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+bool nts::cipher::Gcm::travel([[maybe_unused]] const bool sealing, [[maybe_unused]] const uint8_t * source, [[maybe_unused]] uint8_t * result, [[maybe_unused]] const size_t chunks) noexcept {
 	/**
 	 * Если есть ветвь машинного умножения
 	 */
@@ -1301,14 +1301,6 @@ bool nts::cipher::Gcm::travel(const bool sealing, const uint8_t * source, uint8_
 	 * Иначе ветви машинного умножения нет
 	 */
 	#else
-		// Довод способа без ветви машины не используется
-		(void) sealing;
-		// Довод источника без ветви машины не используется
-		(void) source;
-		// Довод итога без ветви машины не используется
-		(void) result;
-		// Довод числа восьмёрок без ветви машины не используется
-		(void) chunks;
 		// Выводим отказ слитого хода: ветви машины нет
 		return false;
 	#endif
@@ -1382,7 +1374,7 @@ void nts::cipher::Gcm::multiply(uint8_t * value) const noexcept {
  * @return            признак того, что машина умножает командами и восьмёрки сложены
  *
  */
-bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks, const size_t count) const noexcept {
+bool nts::cipher::Gcm::aggregate([[maybe_unused]] uint8_t * accumulator, [[maybe_unused]] const uint8_t * blocks, [[maybe_unused]] const size_t count) const noexcept {
 	/**
 	 * Если есть ветвь машинного умножения PMULL
 	 */
@@ -1426,12 +1418,6 @@ bool nts::cipher::Gcm::aggregate(uint8_t * accumulator, const uint8_t * blocks, 
 			return true;
 		}
 	#endif
-	// Довод накопителя без ветви команд не используется
-	(void) accumulator;
-	// Довод блоков без ветви команд не используется
-	(void) blocks;
-	// Довод числа восьмёрок без ветви команд не используется
-	(void) count;
 	// Выводим отсутствие ветви команд
 	return false;
 }

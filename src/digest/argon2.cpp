@@ -40,6 +40,7 @@
 /**
  * Стандартные заголовочные файлы
  */
+#include <memory>
 #include <cstring>
 #include <cstdlib>
 
@@ -54,6 +55,11 @@
  * Подключаем заголовочный файл модуля
  */
 #include <digest/argon2.hpp>
+
+/**
+ * Используем стандартное пространство имён
+ */
+using namespace std;
 
 /**
  * @brief Служебные объекты модуля
@@ -508,7 +514,7 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 	/**
 	 * Выполняем перехват ошибок
 	 */
-	} catch(const std::bad_alloc &) {
+	} catch(const bad_alloc &) {
 		// Стираем нулевой хеш H0
 		wipe(h0, sizeof(h0));
 		// Отвергаем вызов: матрице не хватило памяти

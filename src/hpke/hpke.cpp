@@ -1405,7 +1405,7 @@ namespace {
 		// Подаём метку способа
 		hash.update(view_t(hybridlabel(kem), hybridmark(kem)));
 		// Снимаем итог
-		(void) hash.finish(result, MLKEM_SHARED_SIZE);
+		std::ignore = hash.finish(result, MLKEM_SHARED_SIZE);
 	}
 	/**
 	 * @brief Функция проверки допустимости режима работы
@@ -1420,9 +1420,9 @@ namespace {
 		 */
 		switch(static_cast <uint8_t> (mode)){
 			// Известные режимы
-			case static_cast <uint8_t> (regime_t::BASE):
 			case static_cast <uint8_t> (regime_t::PSK):
 			case static_cast <uint8_t> (regime_t::AUTH):
+			case static_cast <uint8_t> (regime_t::BASE):
 			case static_cast <uint8_t> (regime_t::AUTH_PSK):
 				// Выводим допустимость
 				return true;

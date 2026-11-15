@@ -2019,14 +2019,6 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
 /**
  * @brief Метод снятия дополнения и имитовставки с расшифрованного текста записи CBC за постоянное время
  *
- * @param sequence порядковый номер записи
- * @param version  издание протокола из заголовка записи
- * @param type     вид содержимого записи
- * @param plain    расшифрованный текст записи: содержимое, имитовставка (MAC-then-encrypt) и дополнение
- * @param length   длина расшифрованного текста
- * @param total    место, в которое помещается длина открытого содержимого
- * @return         маска годности: 0xFF при сошедшихся дополнении и имитовставке, 0x00 иначе
- *
  * @details Таблица масок суждения, все за постоянное время:
  *          - good    = atleast(length, padding + 1 + covered): дополнение с байтом длины и имитовставкой умещается;
  *          - inside  = atleast(declared, i): байт с номером i от конца входит в дополнение;
@@ -2034,7 +2026,15 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
  *          - same(j, total + k): байт открытого текста с номером j лежит на месте байта k имитовставки;
  *          - same(diff, 0): ожидаемая и принятая имитовставки сошлись по всем байтам.
  *          Ветвей по секрету нет: перебор дополнения идёт по окну в CBC_PADDING байтов, извлечение
- *          имитовставки - по окну в MAC + CBC_PADDING байтов, а сжатия хеша выравниваются холостыми
+ *          имитовставки - по окну в MAC + CBC_PADDING байтов, а сжатия хеша выравниваются холостыми.
+ *
+ * @param sequence порядковый номер записи
+ * @param version  издание протокола из заголовка записи
+ * @param type     вид содержимого записи
+ * @param plain    расшифрованный текст записи: содержимое, имитовставка (MAC-then-encrypt) и дополнение
+ * @param length   длина расшифрованного текста
+ * @param total    место, в которое помещается длина открытого содержимого
+ * @return         маска годности: 0xFF при сошедшихся дополнении и имитовставке, 0x00 иначе
  *
  */
 uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record::version_t version, const record::type_t type, const uint8_t * plain, const size_t length, size_t & total) noexcept {
@@ -2111,7 +2111,7 @@ uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record:
 	// Место, в которое помещается итог холостого хеширования
 	uint8_t discarded[PROTECT_MAC];
 	// Снимаем итог холостого хеширования: он никуда не идёт
-	(void) idle.finish(discarded, width);
+	std::ignore = idle.finish(discarded, width);
 	/**
 	 * Начало окна извлечения принятой имитовставки: наибольшая длина дополнения с байтом
 	 * длины и имитовставкой от конца открытого текста; длина окна зависит лишь от длины

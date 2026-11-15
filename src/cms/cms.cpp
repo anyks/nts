@@ -51,160 +51,151 @@ namespace {
 	using namespace nts;
 
 	/**
-	 * Опознаватель содержимого id-data: раздел 4 RFC 5652
+	 * Длина ключа шифрования содержимого AES-256
 	 */
-	static const char * OID_DATA = "1.2.840.113549.1.7.1";
-
-	/**
-	 * Опознаватель содержимого id-signedData: раздел 5 RFC 5652
-	 */
-	static const char * OID_SIGNED = "1.2.840.113549.1.7.2";
-
-	/**
-	 * Опознаватель содержимого id-envelopedData: раздел 6 RFC 5652
-	 */
-	static const char * OID_ENVELOPED = "1.2.840.113549.1.7.3";
-
-	/**
-	 * Опознаватель содержимого id-digestedData: раздел 7 RFC 5652
-	 */
-	static const char * OID_DIGESTED = "1.2.840.113549.1.7.5";
-
-	/**
-	 * Опознаватель содержимого id-encryptedData: раздел 8 RFC 5652
-	 */
-	static const char * OID_ENCRYPTED = "1.2.840.113549.1.7.6";
-
-	/**
-	 * Опознаватель содержимого id-authenticatedData: раздел 9 RFC 5652
-	 */
-	static const char * OID_AUTHENTICATED = "1.2.840.113549.1.9.16.1.2";
-
-	/**
-	 * Опознаватель атрибута contentType: раздел 11.1 RFC 5652
-	 */
-	static const char * OID_CONTENT_TYPE = "1.2.840.113549.1.9.3";
-
-	/**
-	 * Опознаватель атрибута messageDigest: раздел 11.2 RFC 5652
-	 */
-	static const char * OID_MESSAGE_DIGEST = "1.2.840.113549.1.9.4";
-
-	/**
-	 * Опознаватель открытого ключа RSA: RFC 8017
-	 */
-	static const char * OID_RSA = "1.2.840.113549.1.1.1";
-
-	/**
-	 * Опознаватели алгоритмов хеша: раздел 2.1 RFC 4055 и приложение B RFC 8017
-	 */
-	static const char * OID_SHA1 = "1.3.14.3.2.26";
-	// Опознаватель хеша SHA-224
-	static const char * OID_SHA224 = "2.16.840.1.101.3.4.2.4";
-	// Опознаватель хеша SHA-256
-	static const char * OID_SHA256 = "2.16.840.1.101.3.4.2.1";
-	// Опознаватель хеша SHA-384
-	static const char * OID_SHA384 = "2.16.840.1.101.3.4.2.2";
-	// Опознаватель хеша SHA-512
-	static const char * OID_SHA512 = "2.16.840.1.101.3.4.2.3";
-
-	/**
-	 * Опознаватели подписи RSA PKCS #1 v1.5: раздел 5 RFC 4055
-	 */
-	static const char * OID_SHA1_RSA = "1.2.840.113549.1.1.5";
-	// Опознаватель подписи RSA с хешем SHA-224
-	static const char * OID_SHA224_RSA = "1.2.840.113549.1.1.14";
-	// Опознаватель подписи RSA с хешем SHA-256
-	static const char * OID_SHA256_RSA = "1.2.840.113549.1.1.11";
-	// Опознаватель подписи RSA с хешем SHA-384
-	static const char * OID_SHA384_RSA = "1.2.840.113549.1.1.12";
-	// Опознаватель подписи RSA с хешем SHA-512
-	static const char * OID_SHA512_RSA = "1.2.840.113549.1.1.13";
-
-	/**
-	 * Опознаватели подписи ECDSA: раздел 3.2 RFC 5758
-	 */
-	static const char * OID_SHA224_ECDSA = "1.2.840.10045.4.3.1";
-	// Опознаватель подписи ECDSA с хешем SHA-256
-	static const char * OID_SHA256_ECDSA = "1.2.840.10045.4.3.2";
-	// Опознаватель подписи ECDSA с хешем SHA-384
-	static const char * OID_SHA384_ECDSA = "1.2.840.10045.4.3.3";
-	// Опознаватель подписи ECDSA с хешем SHA-512
-	static const char * OID_SHA512_ECDSA = "1.2.840.10045.4.3.4";
-
-	/**
-	 * Опознаватель подписи Ed25519: раздел 3 RFC 8410
-	 */
-	static const char * OID_ED25519 = "1.3.101.112";
-
-	/**
-	 * Опознаватели подписи ML-DSA: раздел 4 RFC 9881
-	 */
-	static const char * OID_MLDSA44 = "2.16.840.1.101.3.4.3.17";
-	// Опознаватель подписи ML-DSA-65
-	static const char * OID_MLDSA65 = "2.16.840.1.101.3.4.3.18";
-	// Опознаватель подписи ML-DSA-87
-	static const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
-
-	/**
-	 * Опознаватели шифров AES-CBC трёх длин ключа: раздел 4 RFC 8018
-	 */
-	static const char * OID_AES128_CBC = "2.16.840.1.101.3.4.1.2";
-	// Опознаватель шифра AES-192-CBC
-	static const char * OID_AES192_CBC = "2.16.840.1.101.3.4.1.22";
-	// Опознаватель шифра AES-256-CBC
-	static const char * OID_AES256_CBC = "2.16.840.1.101.3.4.1.42";
-
-	/**
-	 * Опознаватели шифров AES-KW трёх длин ключа: RFC 3394
-	 */
-	static const char * OID_AES128_WRAP = "2.16.840.1.101.3.4.1.5";
-	// Опознаватель шифра AES-192-KW
-	static const char * OID_AES192_WRAP = "2.16.840.1.101.3.4.1.25";
-	// Опознаватель шифра AES-256-KW
-	static const char * OID_AES256_WRAP = "2.16.840.1.101.3.4.1.45";
-
-	/**
-	 * Опознаватели HKDF с хешами SHA-2: раздел 3 RFC 8619
-	 */
-	static const char * OID_HKDF_SHA256 = "2.16.840.1.101.114.1.6.2";
-
-	/**
-	 * Опознаватели алгоритмов имитовставки HMAC: раздел 4 RFC 4231
-	 */
-	static const char * OID_HMAC_SHA1 = "1.3.6.1.5.5.8.1.2";
-	// Опознаватель имитовставки HMAC с хешем SHA-224
-	static const char * OID_HMAC_SHA224 = "1.2.840.113549.2.8";
-	// Опознаватель имитовставки HMAC с хешем SHA-256
-	static const char * OID_HMAC_SHA256 = "1.2.840.113549.2.9";
-	// Опознаватель имитовставки HMAC с хешем SHA-384
-	static const char * OID_HMAC_SHA384 = "1.2.840.113549.2.10";
-	// Опознаватель имитовставки HMAC с хешем SHA-512
-	static const char * OID_HMAC_SHA512 = "1.2.840.113549.2.11";
-
-	/**
-	 * Опознаватель сведений о получателе KEM в обёртке OtherRecipientInfo: раздел 3 RFC 9629
-	 */
-	static const char * OID_ORI_KEM = "1.2.840.113549.1.9.16.13.3";
-
-	/**
-	 * Опознаватели алгоритмов ML-KEM: CSOR по FIPS 203
-	 */
-	static const char * OID_MLKEM512 = "2.16.840.1.101.3.4.4.1";
-	// Опознаватель алгоритма ML-KEM-768
-	static const char * OID_MLKEM768 = "2.16.840.1.101.3.4.4.2";
-	// Опознаватель алгоритма ML-KEM-1024
-	static const char * OID_MLKEM1024 = "2.16.840.1.101.3.4.4.3";
-
+	static constexpr size_t CEK = 32;
 	/**
 	 * Длина блока и синхропосылки AES-CBC
 	 */
 	static constexpr size_t BLOCK = cipher::AES_BLOCK;
 
 	/**
-	 * Длина ключа шифрования содержимого AES-256
+	 * Опознаватель открытого ключа RSA: RFC 8017
 	 */
-	static constexpr size_t CEK = 32;
+	static constexpr const char * OID_RSA = "1.2.840.113549.1.1.1";
+	/**
+	 * Опознаватель содержимого id-data: раздел 4 RFC 5652
+	 */
+	static constexpr const char * OID_DATA = "1.2.840.113549.1.7.1";
+	/**
+	 * Опознаватель содержимого id-signedData: раздел 5 RFC 5652
+	 */
+	static constexpr const char * OID_SIGNED = "1.2.840.113549.1.7.2";
+	/**
+	 * Опознаватель содержимого id-digestedData: раздел 7 RFC 5652
+	 */
+	static constexpr const char * OID_DIGESTED = "1.2.840.113549.1.7.5";
+	/**
+	 * Опознаватель содержимого id-envelopedData: раздел 6 RFC 5652
+	 */
+	static constexpr const char * OID_ENVELOPED = "1.2.840.113549.1.7.3";
+	/**
+	 * Опознаватель содержимого id-encryptedData: раздел 8 RFC 5652
+	 */
+	static constexpr const char * OID_ENCRYPTED = "1.2.840.113549.1.7.6";
+	/**
+	 * Опознаватель атрибута contentType: раздел 11.1 RFC 5652
+	 */
+	static constexpr const char * OID_CONTENT_TYPE = "1.2.840.113549.1.9.3";
+	/**
+	 * Опознаватель атрибута messageDigest: раздел 11.2 RFC 5652
+	 */
+	static constexpr const char * OID_MESSAGE_DIGEST = "1.2.840.113549.1.9.4";
+	/**
+	 * Опознаватель содержимого id-authenticatedData: раздел 9 RFC 5652
+	 */
+	static constexpr const char * OID_AUTHENTICATED = "1.2.840.113549.1.9.16.1.2";
+
+	/**
+	 * Опознаватели алгоритмов хеша: раздел 2.1 RFC 4055 и приложение B RFC 8017
+	 */
+	static constexpr const char * OID_SHA1 = "1.3.14.3.2.26";
+	// Опознаватель хеша SHA-224
+	static constexpr const char * OID_SHA224 = "2.16.840.1.101.3.4.2.4";
+	// Опознаватель хеша SHA-256
+	static constexpr const char * OID_SHA256 = "2.16.840.1.101.3.4.2.1";
+	// Опознаватель хеша SHA-384
+	static constexpr const char * OID_SHA384 = "2.16.840.1.101.3.4.2.2";
+	// Опознаватель хеша SHA-512
+	static constexpr const char * OID_SHA512 = "2.16.840.1.101.3.4.2.3";
+
+	/**
+	 * Опознаватели подписи RSA PKCS #1 v1.5: раздел 5 RFC 4055
+	 */
+	static constexpr const char * OID_SHA1_RSA = "1.2.840.113549.1.1.5";
+	// Опознаватель подписи RSA с хешем SHA-224
+	static constexpr const char * OID_SHA224_RSA = "1.2.840.113549.1.1.14";
+	// Опознаватель подписи RSA с хешем SHA-256
+	static constexpr const char * OID_SHA256_RSA = "1.2.840.113549.1.1.11";
+	// Опознаватель подписи RSA с хешем SHA-384
+	static constexpr const char * OID_SHA384_RSA = "1.2.840.113549.1.1.12";
+	// Опознаватель подписи RSA с хешем SHA-512
+	static constexpr const char * OID_SHA512_RSA = "1.2.840.113549.1.1.13";
+
+	/**
+	 * Опознаватели подписи ECDSA: раздел 3.2 RFC 5758
+	 */
+	static constexpr const char * OID_SHA224_ECDSA = "1.2.840.10045.4.3.1";
+	// Опознаватель подписи ECDSA с хешем SHA-256
+	static constexpr const char * OID_SHA256_ECDSA = "1.2.840.10045.4.3.2";
+	// Опознаватель подписи ECDSA с хешем SHA-384
+	static constexpr const char * OID_SHA384_ECDSA = "1.2.840.10045.4.3.3";
+	// Опознаватель подписи ECDSA с хешем SHA-512
+	static constexpr const char * OID_SHA512_ECDSA = "1.2.840.10045.4.3.4";
+
+	/**
+	 * Опознаватель подписи Ed25519: раздел 3 RFC 8410
+	 */
+	static constexpr const char * OID_ED25519 = "1.3.101.112";
+
+	/**
+	 * Опознаватели алгоритмов имитовставки HMAC: раздел 4 RFC 4231
+	 */
+	static constexpr const char * OID_HMAC_SHA1 = "1.3.6.1.5.5.8.1.2";
+	// Опознаватель имитовставки HMAC с хешем SHA-224
+	static constexpr const char * OID_HMAC_SHA224 = "1.2.840.113549.2.8";
+	// Опознаватель имитовставки HMAC с хешем SHA-256
+	static constexpr const char * OID_HMAC_SHA256 = "1.2.840.113549.2.9";
+	// Опознаватель имитовставки HMAC с хешем SHA-384
+	static constexpr const char * OID_HMAC_SHA384 = "1.2.840.113549.2.10";
+	// Опознаватель имитовставки HMAC с хешем SHA-512
+	static constexpr const char * OID_HMAC_SHA512 = "1.2.840.113549.2.11";
+
+	/**
+	 * Опознаватели подписи ML-DSA: раздел 4 RFC 9881
+	 */
+	static constexpr const char * OID_MLDSA44 = "2.16.840.1.101.3.4.3.17";
+	// Опознаватель подписи ML-DSA-65
+	static constexpr const char * OID_MLDSA65 = "2.16.840.1.101.3.4.3.18";
+	// Опознаватель подписи ML-DSA-87
+	static constexpr const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
+
+	/**
+	 * Опознаватели алгоритмов ML-KEM: CSOR по FIPS 203
+	 */
+	static constexpr const char * OID_MLKEM512 = "2.16.840.1.101.3.4.4.1";
+	// Опознаватель алгоритма ML-KEM-768
+	static constexpr const char * OID_MLKEM768 = "2.16.840.1.101.3.4.4.2";
+	// Опознаватель алгоритма ML-KEM-1024
+	static constexpr const char * OID_MLKEM1024 = "2.16.840.1.101.3.4.4.3";
+
+	/**
+	 * Опознаватели шифров AES-CBC трёх длин ключа: раздел 4 RFC 8018
+	 */
+	static constexpr const char * OID_AES128_CBC = "2.16.840.1.101.3.4.1.2";
+	// Опознаватель шифра AES-192-CBC
+	static constexpr const char * OID_AES192_CBC = "2.16.840.1.101.3.4.1.22";
+	// Опознаватель шифра AES-256-CBC
+	static constexpr const char * OID_AES256_CBC = "2.16.840.1.101.3.4.1.42";
+
+	/**
+	 * Опознаватели шифров AES-KW трёх длин ключа: RFC 3394
+	 */
+	static constexpr const char * OID_AES128_WRAP = "2.16.840.1.101.3.4.1.5";
+	// Опознаватель шифра AES-192-KW
+	static constexpr const char * OID_AES192_WRAP = "2.16.840.1.101.3.4.1.25";
+	// Опознаватель шифра AES-256-KW
+	static constexpr const char * OID_AES256_WRAP = "2.16.840.1.101.3.4.1.45";
+
+	/**
+	 * Опознаватель сведений о получателе KEM в обёртке OtherRecipientInfo: раздел 3 RFC 9629
+	 */
+	static constexpr const char * OID_ORI_KEM = "1.2.840.113549.1.9.16.13.3";
+
+	/**
+	 * Опознаватели HKDF с хешами SHA-2: раздел 3 RFC 8619
+	 */
+	static constexpr const char * OID_HKDF_SHA256 = "2.16.840.1.101.114.1.6.2";
 
 	/**
 	 * @brief Функция перевода отказа разборщика ASN.1 в отказ модуля
@@ -380,11 +371,16 @@ namespace {
 	 */
 	static digest::hash_t hashOf(const string & oid) noexcept {
 		// Выводим алгоритм хеша по его опознавателю
-		if(oid == OID_SHA1) return digest::hash_t::SHA1;
-		if(oid == OID_SHA224) return digest::hash_t::SHA224;
-		if(oid == OID_SHA256) return digest::hash_t::SHA256;
-		if(oid == OID_SHA384) return digest::hash_t::SHA384;
-		if(oid == OID_SHA512) return digest::hash_t::SHA512;
+		if(oid == OID_SHA1)
+			return digest::hash_t::SHA1;
+		if(oid == OID_SHA224)
+			return digest::hash_t::SHA224;
+		if(oid == OID_SHA256)
+			return digest::hash_t::SHA256;
+		if(oid == OID_SHA384)
+			return digest::hash_t::SHA384;
+		if(oid == OID_SHA512)
+			return digest::hash_t::SHA512;
 		// Выводим отсутствие алгоритма
 		return digest::hash_t::NONE;
 	}
@@ -400,11 +396,16 @@ namespace {
 		 * Выводим опознаватель по алгоритму хеша
 		 */
 		switch(hash){
-			case digest::hash_t::SHA1: return OID_SHA1;
-			case digest::hash_t::SHA224: return OID_SHA224;
-			case digest::hash_t::SHA256: return OID_SHA256;
-			case digest::hash_t::SHA384: return OID_SHA384;
-			case digest::hash_t::SHA512: return OID_SHA512;
+			case digest::hash_t::SHA1:
+				return OID_SHA1;
+			case digest::hash_t::SHA224:
+				return OID_SHA224;
+			case digest::hash_t::SHA256:
+				return OID_SHA256;
+			case digest::hash_t::SHA384:
+				return OID_SHA384;
+			case digest::hash_t::SHA512:
+				return OID_SHA512;
 			default: return nullptr;
 		}
 	}
@@ -421,11 +422,16 @@ namespace {
 	 */
 	static const char * rsaSignatureOf(const string & digest) noexcept {
 		// Выводим опознаватель подписи по опознавателю хеша
-		if(digest == OID_SHA1) return OID_SHA1_RSA;
-		if(digest == OID_SHA224) return OID_SHA224_RSA;
-		if(digest == OID_SHA256) return OID_SHA256_RSA;
-		if(digest == OID_SHA384) return OID_SHA384_RSA;
-		if(digest == OID_SHA512) return OID_SHA512_RSA;
+		if(digest == OID_SHA1)
+			return OID_SHA1_RSA;
+		if(digest == OID_SHA224)
+			return OID_SHA224_RSA;
+		if(digest == OID_SHA256)
+			return OID_SHA256_RSA;
+		if(digest == OID_SHA384)
+			return OID_SHA384_RSA;
+		if(digest == OID_SHA512)
+			return OID_SHA512_RSA;
 		// Выводим отсутствие опознавателя
 		return nullptr;
 	}
@@ -448,11 +454,16 @@ namespace {
 				 * Выводим опознаватель по хешу
 				 */
 				switch(hash){
-					case digest::hash_t::SHA1: return OID_SHA1_RSA;
-					case digest::hash_t::SHA224: return OID_SHA224_RSA;
-					case digest::hash_t::SHA256: return OID_SHA256_RSA;
-					case digest::hash_t::SHA384: return OID_SHA384_RSA;
-					case digest::hash_t::SHA512: return OID_SHA512_RSA;
+					case digest::hash_t::SHA1:
+						return OID_SHA1_RSA;
+					case digest::hash_t::SHA224:
+						return OID_SHA224_RSA;
+					case digest::hash_t::SHA256:
+						return OID_SHA256_RSA;
+					case digest::hash_t::SHA384:
+						return OID_SHA384_RSA;
+					case digest::hash_t::SHA512:
+						return OID_SHA512_RSA;
 					default: return nullptr;
 				}
 			// Ключ ECDSA
@@ -461,10 +472,14 @@ namespace {
 				 * Выводим опознаватель по хешу
 				 */
 				switch(hash){
-					case digest::hash_t::SHA224: return OID_SHA224_ECDSA;
-					case digest::hash_t::SHA256: return OID_SHA256_ECDSA;
-					case digest::hash_t::SHA384: return OID_SHA384_ECDSA;
-					case digest::hash_t::SHA512: return OID_SHA512_ECDSA;
+					case digest::hash_t::SHA224:
+						return OID_SHA224_ECDSA;
+					case digest::hash_t::SHA256:
+						return OID_SHA256_ECDSA;
+					case digest::hash_t::SHA384:
+						return OID_SHA384_ECDSA;
+					case digest::hash_t::SHA512:
+						return OID_SHA512_ECDSA;
 					default: return nullptr;
 				}
 			// Ключ Ed25519
@@ -477,9 +492,12 @@ namespace {
 				 * Выводим опознаватель по набору ключа
 				 */
 				switch(signer.mldsa().set()){
-					case sign::mldsa_t::set_t::DSA44: return OID_MLDSA44;
-					case sign::mldsa_t::set_t::DSA65: return OID_MLDSA65;
-					case sign::mldsa_t::set_t::DSA87: return OID_MLDSA87;
+					case sign::mldsa_t::set_t::DSA44:
+						return OID_MLDSA44;
+					case sign::mldsa_t::set_t::DSA65:
+						return OID_MLDSA65;
+					case sign::mldsa_t::set_t::DSA87:
+						return OID_MLDSA87;
 					default: return nullptr;
 				}
 			// Ключ, подписи в CMS не выполняющий
@@ -578,7 +596,6 @@ namespace {
 					// Выводим отказ ключа
 					return nts::cms::error_t::KEY;
 			}
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -604,15 +621,13 @@ namespace {
 			// Выводим отказ записи
 			return false;
 		// Записываем опознаватель алгоритма
-		if(!writer.oid(oid)){
+		if(!writer.oid(oid))
 			// Выводим отказ записи
 			return false;
-		}
 		// Если пустые настройки велено записать
-		if(empty && !writer.nothing()){
+		if(empty && !writer.nothing())
 			// Выводим отказ записи
 			return false;
-		}
 		// Закрываем запись алгоритма и выводим итог записи
 		return writer.close();
 	}
@@ -651,14 +666,13 @@ namespace {
 			// Выводим отказ защиты
 			return false;
 		// Число блоков защищаемого ключа
-		const size_t n = plain.size / 8;
+		const size_t n = (plain.size / 8);
 		/**
 		 * Выполняем перехват ошибок
 		 */
 		try {
 			// Занимаем место под итог: полу-блок целостности и блоки ключа
 			result.assign(plain.size + 8, 0);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -739,7 +753,6 @@ namespace {
 		try {
 			// Занимаем место под итог
 			result.assign(wrapped.size - 8, 0);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -823,9 +836,12 @@ namespace {
 	 */
 	static agreement::kem_t kemOf(const string & oid) noexcept {
 		// Выводим набор параметров по опознавателю
-		if(oid == OID_MLKEM512) return agreement::kem_t::MLKEM512;
-		if(oid == OID_MLKEM768) return agreement::kem_t::MLKEM768;
-		if(oid == OID_MLKEM1024) return agreement::kem_t::MLKEM1024;
+		if(oid == OID_MLKEM512)
+			return agreement::kem_t::MLKEM512;
+		if(oid == OID_MLKEM768)
+			return agreement::kem_t::MLKEM768;
+		if(oid == OID_MLKEM1024)
+			return agreement::kem_t::MLKEM1024;
 		// Выводим отсутствие набора
 		return agreement::kem_t::NONE;
 	}
@@ -841,9 +857,12 @@ namespace {
 		 * Выводим опознаватель по набору параметров
 		 */
 		switch(kem){
-			case agreement::kem_t::MLKEM512: return OID_MLKEM512;
-			case agreement::kem_t::MLKEM768: return OID_MLKEM768;
-			case agreement::kem_t::MLKEM1024: return OID_MLKEM1024;
+			case agreement::kem_t::MLKEM512:
+				return OID_MLKEM512;
+			case agreement::kem_t::MLKEM768:
+				return OID_MLKEM768;
+			case agreement::kem_t::MLKEM1024:
+				return OID_MLKEM1024;
 			default: return nullptr;
 		}
 	}
@@ -930,7 +949,6 @@ namespace {
 			}
 			// Затирание дополненного содержимого
 			nts::sys::wipe(plain.data(), plain.size());
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -1000,7 +1018,6 @@ namespace {
 			}
 			// Усекаем итог до содержимого
 			result.resize(result.size() - padding);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -1024,10 +1041,9 @@ namespace {
 		// Синхропосылка шифрования содержимого
 		uint8_t iv[BLOCK];
 		// Если случайные байты выработать не удалось
-		if(!entropy::bytes(iv, sizeof(iv))){
+		if(!entropy::bytes(iv, sizeof(iv)))
 			// Выводим отказ случайности
 			return nts::cms::error_t::RANDOM;
-		}
 		// Шифротекст содержимого
 		vector <uint8_t> encrypted;
 		// Итог зашифрования содержимого
@@ -1202,7 +1218,6 @@ namespace {
 			const view_t data = wrapper.data();
 			// Переносим запись в итог
 			result.assign(data.data, data.data + data.size);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -1231,7 +1246,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	this->clear();
 	// Если запись пуста
 	if((data.data == nullptr) || (data.size == 0))
-	// Выводим отказ пустой записи
+		// Выводим отказ пустой записи
 		return (this->_error = error_t::EMPTY);
 	// Просмотр содержимого записи ContentInfo
 	view_t body;
@@ -1239,11 +1254,11 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	error_t outcome = contentInfo(data, this->_kind, body);
 	// Если запись ContentInfo разобрать не удалось
 	if(outcome != error_t::NONE)
-	// Выводим отказ разбора
+		// Выводим отказ разбора
 		return (this->_error = outcome);
 	// Если вид содержимого не id-signedData
 	if(this->_kind != OID_SIGNED)
-	// Выводим отказ устройства записи
+		// Выводим отказ устройства записи
 		return (this->_error = error_t::STRUCTURE);
 	// Разборщик содержимого записи SignedData
 	asn1::reader_t reader(body);
@@ -1251,11 +1266,11 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	asn1::element_t element;
 	// Если запись SignedData разобрать не удалось
 	if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed)
-	// Выводим переведённый отказ разбора
+		// Выводим переведённый отказ разбора
 		return (this->_error = translate(reader.err()));
 	// Если после записи остался хвост
 	if(!reader.empty())
-	// Выводим отказ устройства записи
+		// Выводим отказ устройства записи
 		return (this->_error = error_t::STRUCTURE);
 	// Разборщик содержимого записи SignedData
 	asn1::reader_t items(element.content);
@@ -1263,19 +1278,19 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	asn1::element_t field;
 	// Если издание записи разобрать не удалось
 	if(!items.next(asn1::tag_t::INTEGER, field))
-	// Выводим переведённый отказ разбора
+		// Выводим переведённый отказ разбора
 		return (this->_error = translate(items.err()));
 	// Элемент набора алгоритмов хеша
 	asn1::element_t digests;
 	// Если набор алгоритмов хеша разобрать не удалось
 	if(!items.next(asn1::tag_t::SET, digests) || !digests.constructed)
-	// Выводим переведённый отказ разбора
+		// Выводим переведённый отказ разбора
 		return (this->_error = translate(items.err()));
 	// Элемент записи EncapsulatedContentInfo
 	asn1::element_t encapsulated;
 	// Если запись EncapsulatedContentInfo разобрать не удалось
 	if(!items.next(asn1::tag_t::SEQUENCE, encapsulated) || !encapsulated.constructed)
-	// Выводим переведённый отказ разбора
+		// Выводим переведённый отказ разбора
 		return (this->_error = translate(items.err()));
 	{
 		// Разборщик содержимого записи EncapsulatedContentInfo
@@ -1284,13 +1299,13 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 		asn1::element_t kind;
 		// Если опознаватель вида содержимого разобрать не удалось
 		if(!content.next(asn1::tag_t::OBJECT, kind))
-		// Выводим переведённый отказ разбора
+			// Выводим переведённый отказ разбора
 			return (this->_error = translate(content.err()));
 		// Опознаватель вида содержимого
 		string sort;
 		// Если опознаватель вида содержимого разобрать не удалось
 		if((outcome = oidOf(kind, sort)) != error_t::NONE)
-		// Выводим отказ разбора
+			// Выводим отказ разбора
 			return (this->_error = outcome);
 		// Если содержимое вложено в запись
 		if(!content.empty()){
@@ -1298,11 +1313,11 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 			asn1::element_t inside;
 			// Если содержимое разобрать не удалось
 			if(!content.next(inside))
-			// Выводим переведённый отказ разбора
+				// Выводим переведённый отказ разбора
 				return (this->_error = translate(content.err()));
 			// Если содержимое не несёт метку [0] составного вида
 			if(!inside.constructed || (inside.cls != asn1::cls_t::CONTEXT) || (inside.tag != 0))
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return (this->_error = error_t::STRUCTURE);
 			// Разборщик содержимого метки
 			asn1::reader_t holder(inside.content);
@@ -1310,13 +1325,13 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 			asn1::element_t octets;
 			// Если строка байтов содержимого разобрать не удалось
 			if(!holder.next(asn1::tag_t::OCTET_STRING, octets))
-			// Выводим переведённый отказ разбора
+				// Выводим переведённый отказ разбора
 				return (this->_error = translate(holder.err()));
 			// Запоминаем просмотр содержимого
 			this->_content = octets.content;
 			// Если после содержимого остался хвост
 			if(!content.empty())
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return (this->_error = error_t::STRUCTURE);
 		}
 	}
@@ -1328,7 +1343,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 		asn1::element_t next;
 		// Если очередное поле разобрать не удалось
 		if(!items.next(next))
-		// Выводим переведённый отказ разбора
+			// Выводим переведённый отказ разбора
 			return (this->_error = translate(items.err()));
 		// Набор сертификатов несёт метку [0]
 		if(next.constructed && (next.cls == asn1::cls_t::CONTEXT) && (next.tag == 0)){
@@ -1342,7 +1357,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 				asn1::element_t certificate;
 				// Если запись сертификата разобрать не удалось
 				if(!certificates.next(certificate))
-				// Выводим переведённый отказ разбора
+					// Выводим переведённый отказ разбора
 					return (this->_error = translate(certificates.err()));
 				/**
 				 * Выполняем перехват ошибок
@@ -1350,21 +1365,20 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 				try {
 					// Запоминаем просмотр записи сертификата целиком
 					this->_certificates.push_back(certificate.element);
-				// Если памяти под итог не хватило
 				/**
 				 * Выполняем перехват ошибок
 				 */
 				} catch(const std::bad_alloc &) {
-				// Выводим отказ памяти
+					// Выводим отказ памяти
 					return (this->_error = error_t::MEMORY);
 				}
 			}
 		// Набор списков отзыва несёт метку [1]: пропускаем
-		} else if(next.constructed && (next.cls == asn1::cls_t::CONTEXT) && (next.tag == 1)){
+		} else if(next.constructed && (next.cls == asn1::cls_t::CONTEXT) && (next.tag == 1))
 			// Списки отзыва модулем не рассматриваются
 			continue;
 		// Набор сведений о подписывающих
-		} else if(next.constructed && (next.cls == asn1::cls_t::UNIVERSAL) && (next.tag == static_cast <uint32_t> (asn1::tag_t::SET))){
+		else if(next.constructed && (next.cls == asn1::cls_t::UNIVERSAL) && (next.tag == static_cast <uint32_t> (asn1::tag_t::SET))){
 			// Разборщик содержимого набора подписывающих
 			asn1::reader_t signers(next.content);
 			/**
@@ -1375,7 +1389,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 				asn1::element_t info;
 				// Если запись SignerInfo разобрать не удалось
 				if(!signers.next(asn1::tag_t::SEQUENCE, info) || !info.constructed)
-				// Выводим переведённый отказ разбора
+					// Выводим переведённый отказ разбора
 					return (this->_error = translate(signers.err()));
 				// Сведения о подписывающем
 				signer_info_t signer;
@@ -1386,34 +1400,34 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 					asn1::element_t version;
 					// Если издание записи разобрать не удалось
 					if(!fields.next(asn1::tag_t::INTEGER, version))
-					// Выводим переведённый отказ разбора
+						// Выводим переведённый отказ разбора
 						return (this->_error = translate(fields.err()));
 					// Элемент записи IssuerAndSerialNumber
 					asn1::element_t sid;
 					// Если запись IssuerAndSerialNumber разобрать не удалось
 					if(!fields.next(asn1::tag_t::SEQUENCE, sid))
-					// Выводим переведённый отказ разбора
+						// Выводим переведённый отказ разбора
 						return (this->_error = translate(fields.err()));
 					// Если запись IssuerAndSerialNumber разобрать не удалось
 					if((outcome = issuerAndSerial(sid, signer.issuer, signer.serial)) != error_t::NONE)
-					// Выводим отказ разбора
+						// Выводим отказ разбора
 						return (this->_error = outcome);
 					// Элемент записи алгоритма хеша
 					asn1::element_t algorithm;
 					// Если запись алгоритма хеша разобрать не удалось
 					if(!fields.next(asn1::tag_t::SEQUENCE, algorithm))
-					// Выводим переведённый отказ разбора
+						// Выводим переведённый отказ разбора
 						return (this->_error = translate(fields.err()));
 					// Просмотр настроек алгоритма хеша
 					view_t settings;
 					// Если запись алгоритма хеша разобрать не удалось
 					if((outcome = algorithmIdentifier(algorithm, signer.digest, settings)) != error_t::NONE)
-					// Выводим отказ разбора
+						// Выводим отказ разбора
 						return (this->_error = outcome);
 					// Элемент записи алгоритма подписи
 					asn1::element_t signature;
 					// Если подписанные атрибуты записаны
-					bool attributed = false;
+					[[maybe_unused]] bool attributed = false;
 					// Если очередное поле - подписанные атрибуты
 					{
 						// Разборщик копии для заглядывания вперёд
@@ -1432,22 +1446,20 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 					}
 					// Если запись алгоритма подписи разобрать не удалось
 					if(!fields.next(asn1::tag_t::SEQUENCE, signature))
-					// Выводим переведённый отказ разбора
+						// Выводим переведённый отказ разбора
 						return (this->_error = translate(fields.err()));
 					// Если запись алгоритма подписи разобрать не удалось
 					if((outcome = algorithmIdentifier(signature, signer.algorithm, signer.parameters)) != error_t::NONE)
-					// Выводим отказ разбора
+						// Выводим отказ разбора
 						return (this->_error = outcome);
 					// Элемент подписи
 					asn1::element_t value;
 					// Если подпись разобрать не удалось
 					if(!fields.next(asn1::tag_t::OCTET_STRING, value))
-					// Выводим переведённый отказ разбора
+						// Выводим переведённый отказ разбора
 						return (this->_error = translate(fields.err()));
 					// Запоминаем просмотр подписи
 					signer.signature = value.content;
-					// Признак атрибутов запомнен выше; неподписанные атрибуты [1] пропускаем
-					(void) attributed;
 				}
 				/**
 				 * Выполняем перехват ошибок
@@ -1455,19 +1467,16 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 				try {
 					// Запоминаем сведения о подписывающем
 					this->_signers.push_back(signer);
-				// Если памяти под итог не хватило
 				/**
 				 * Выполняем перехват ошибок
 				 */
 				} catch(const std::bad_alloc &) {
-				// Выводим отказ памяти
+					// Выводим отказ памяти
 					return (this->_error = error_t::MEMORY);
 				}
 			}
-		// Поле чужого вида
-		} else
-		// Выводим отказ устройства записи
-			return (this->_error = error_t::STRUCTURE);
+		// Поле чужого вида, выводим отказ устройства записи
+		} else return (this->_error = error_t::STRUCTURE);
 	}
 	// Выводим успешность разбора записи
 	return error_t::NONE;
