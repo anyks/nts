@@ -36,6 +36,10 @@
  */
 #include <hello/hello.hpp>
 #include <digest/hash.hpp>
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
 #include <fingerprint/fingerprint.hpp>
 
 /**
@@ -99,7 +103,6 @@ namespace {
 	 * Вид сообщения рукопожатия: приветствие клиента
 	 */
 	static constexpr uint8_t GREETING = 0x01;
-
 	/**
 	 * Вид записи: рукопожатие
 	 */
@@ -108,12 +111,11 @@ namespace {
 	/**
 	 * Метка и издание снимка профиля
 	 */
-	static const uint8_t STAMP[] = {'A', 'N', 'T', 'S', 'F', 'P'};
-
+	static constexpr uint8_t STAMP[] = {'A', 'N', 'T', 'S', 'F', 'P'};
 	/**
 	 * Предисловие потока HTTP/2
 	 */
-	static const uint8_t PREFACE[] = {
+	static constexpr uint8_t PREFACE[] = {
 		// Магия предисловия протокола HTTP/2
 		'P', 'R', 'I', ' ', '*', ' ', 'H', 'T', 'T', 'P', '/', '2', '.', '0',
 		'\r', '\n', '\r', '\n', 'S', 'M', '\r', '\n', '\r', '\n'
@@ -134,7 +136,7 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static uint16_t twain(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint16_t __nts_twain__(const uint8_t * data) noexcept {
 		// Выводим число из двух байтов
 		return static_cast <uint16_t> ((static_cast <uint16_t> (data[0]) << 8) | static_cast <uint16_t> (data[1]));
 	}
@@ -145,9 +147,12 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static uint32_t triad(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_triad__(const uint8_t * data) noexcept {
 		// Выводим число из трёх байтов
-		return ((static_cast <uint32_t> (data[0]) << 16) | (static_cast <uint32_t> (data[1]) << 8) | static_cast <uint32_t> (data[2]));
+		return (
+			(static_cast <uint32_t> (data[0]) << 16) |
+			(static_cast <uint32_t> (data[1]) << 8) | static_cast <uint32_t> (data[2])
+		);
 	}
 	/**
 	 * @brief Функция чтения числа в четыре байта старшим байтом вперёд
@@ -156,9 +161,13 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static uint32_t tetrad(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_tetrad__(const uint8_t * data) noexcept {
 		// Выводим число из четырёх байтов
-		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) | (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
+		return (
+			(static_cast <uint32_t> (data[0]) << 24) |
+			(static_cast <uint32_t> (data[1]) << 16) |
+			(static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3])
+		);
 	}
 	/**
 	 * @brief Функция чтения числа в восемь байтов старшим байтом вперёд
@@ -167,9 +176,12 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static uint64_t octet(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_octet__(const uint8_t * data) noexcept {
 		// Выводим число из восьми байтов
-		return ((static_cast <uint64_t> (tetrad(data)) << 32) | static_cast <uint64_t> (tetrad(data + 4)));
+		return (
+			(static_cast <uint64_t> (::__nts_tetrad__(data)) << 32) |
+			static_cast <uint64_t> (::__nts_tetrad__(data + 4))
+		);
 	}
 	/**
 	 * @brief Функция дописывания числа старшим байтом вперёд в накопитель
@@ -179,9 +191,9 @@ namespace {
 	 * @param result накопитель
 	 *
 	 */
-	static void inscribe(const uint64_t value, const size_t width, vector <uint8_t> & result) {
+	static __NTS_INLINE__ void __nts_inscribe__(const uint64_t value, const size_t width, vector <uint8_t> & result) noexcept {
 		/**
-		 * Выполняем перебор байтов числа от старшего к младшему
+		 * Перебираем байты числа от старшего к младшему
 		 */
 		for(size_t i = width; i > 0; i--)
 			// Дописываем очередной байт числа
@@ -194,7 +206,7 @@ namespace {
 	 * @param result строка, к которой дописывается запись
 	 *
 	 */
-	static void decimal(const uint64_t value, string & result) {
+	static __NTS_INLINE__ void __nts_decimal__(const uint64_t value, string & result) noexcept {
 		// Место, в которое помещается запись числа
 		char buffer[24];
 		// Составляем десятичную запись числа
@@ -211,7 +223,7 @@ namespace {
 	 * @param result строка, к которой дописывается запись
 	 *
 	 */
-	static void quartet(const uint16_t value, string & result) {
+	static __NTS_INLINE__ void __nts_quartet__(const uint16_t value, string & result) noexcept {
 		// Место, в которое помещается запись числа
 		char buffer[8];
 		// Составляем шестнадцатеричную запись числа
@@ -229,11 +241,11 @@ namespace {
 	 * @param result строка, к которой дописывается запись
 	 *
 	 */
-	static void hexed(const uint8_t * data, const size_t size, string & result) {
+	static __NTS_INLINE__ void __nts_hexed__(const uint8_t * data, const size_t size, string & result) noexcept {
 		// Знаки шестнадцатеричной записи
-		static const char DIGITS[] = "0123456789abcdef";
+		static constexpr char DIGITS[] = "0123456789abcdef";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байты
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Дописываем старшую половину байта
@@ -252,7 +264,7 @@ namespace {
 	 * @return          результат хеширования
 	 *
 	 */
-	static bool digesting(const digest::hash_t algorithm, const string & text, const size_t count, string & result) {
+	static __NTS_INLINE__ bool __nts_digesting__(const digest::hash_t algorithm, const string & text, const size_t count, string & result) noexcept {
 		// Место, в которое помещается хеш
 		uint8_t hash[64];
 		// Размер хеша алгоритма
@@ -262,7 +274,7 @@ namespace {
 			// Выводим отказ хеширования
 			return false;
 		// Дописываем запись хеша
-		hexed(hash, ((count == 0) || (count > size)) ? size : count, result);
+		::__nts_hexed__(hash, ((count == 0) || (count > size)) ? size : count, result);
 		// Выводим успешность хеширования
 		return true;
 	}
@@ -275,9 +287,9 @@ namespace {
 	 * @param result    строка, к которой дописывается перечень
 	 *
 	 */
-	static void listing(const vector <uint16_t> & values, const char separator, const bool wide, string & result) {
+	static __NTS_INLINE__ void __nts_listing__(const vector <uint16_t> & values, const char separator, const bool wide, string & result) noexcept {
 		/**
-		 * Выполняем перебор чисел
+		 * Перебираем числа
 		 */
 		for(size_t i = 0; i < values.size(); i++){
 			// Если число не первое
@@ -287,9 +299,9 @@ namespace {
 			// Если запись шестнадцатеричная
 			if(wide)
 				// Дописываем шестнадцатеричную запись числа
-				quartet(values[i], result);
+				::__nts_quartet__(values[i], result);
 			// Если запись десятичная
-			else decimal(values[i], result);
+			else ::__nts_decimal__(values[i], result);
 		}
 	}
 	/**
@@ -299,9 +311,9 @@ namespace {
 	 * @param result строка, к которой дописывается перечень
 	 *
 	 */
-	static void marking(const vector <uint16_t> & values, string & result) {
+	static __NTS_INLINE__ void __nts_marking__(const vector <uint16_t> & values, string & result) noexcept {
 		/**
-		 * Выполняем перебор значений
+		 * Перебираем значения
 		 */
 		for(size_t i = 0; i < values.size(); i++){
 			// Если значение не первое
@@ -313,7 +325,7 @@ namespace {
 				// Дописываем пометку GREASE
 				result.append("GREASE");
 			// Если значение обычное
-			else decimal(values[i], result);
+			else ::__nts_decimal__(values[i], result);
 		}
 	}
 	/**
@@ -324,9 +336,9 @@ namespace {
 	 * @return        найденное расширение либо nullptr
 	 *
 	 */
-	static const fingerprint::extension_t * seek(const fingerprint::profile_t & profile, const uint16_t type) noexcept {
+	static __NTS_INLINE__ const fingerprint::extension_t * __nts_seek__(const fingerprint::profile_t & profile, const uint16_t type) noexcept {
 		/**
-		 * Выполняем перебор расширений профиля
+		 * Перебираем расширения профиля
 		 */
 		for(size_t i = 0; i < profile.extensions.size(); i++){
 			// Если вид расширения совпал
@@ -344,7 +356,7 @@ namespace {
 	 * @return      запись вида "0x%04X"
 	 *
 	 */
-	static string __nts_hex16__(const uint16_t value) noexcept {
+	static __NTS_INLINE__ string __nts_hex16__(const uint16_t value) noexcept {
 		// Место записи числа
 		char buffer[8];
 		// Составляем запись числа
@@ -359,7 +371,7 @@ namespace {
 	 * @return      запись вида "0x%02X"
 	 *
 	 */
-	static string __nts_hex8__(const uint8_t value) noexcept {
+	static __NTS_INLINE__ string __nts_hex8__(const uint8_t value) noexcept {
 		// Место записи числа
 		char buffer[6];
 		// Составляем запись числа
@@ -374,7 +386,7 @@ namespace {
 	 * @return   имя алгоритма сжатия
 	 *
 	 */
-	static const char * __nts_compress_alg_name__(const uint8_t id) noexcept {
+	static constexpr const char * __nts_compress_alg_name__(const uint8_t id) noexcept {
 		/**
 		 * Определяем имя для кода алгоритма сжатия
 		 */
@@ -396,7 +408,7 @@ namespace {
 	 * @return        имя издания протокола
 	 *
 	 */
-	static const char * __nts_tls_version_name__(const uint16_t version) noexcept {
+	static constexpr const char * __nts_tls_version_name__(const uint16_t version) noexcept {
 		// Если версия является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(version))
 			// Возвращаем строку "GREASE" для GREASE версий
@@ -432,7 +444,7 @@ namespace {
 	 * @return    имя группы обмена ключами
 	 *
 	 */
-	static const char * __nts_group_name__(const uint16_t gid) noexcept {
+	static constexpr const char * __nts_group_name__(const uint16_t gid) noexcept {
 		// Если код группы является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(gid))
 			// Возвращаем строку "GREASE" для GREASE кодов групп
@@ -480,7 +492,7 @@ namespace {
 	 * @return   имя схемы подписи
 	 *
 	 */
-	static const char * __nts_signature_name__(const uint16_t id) noexcept {
+	static constexpr const char * __nts_signature_name__(const uint16_t id) noexcept {
 		// Если код схемы подписи является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(id))
 			// Возвращаем строку "GREASE" для GREASE кодов схем подписи
@@ -538,7 +550,7 @@ namespace {
 	 * @return   имя набора шифрования
 	 *
 	 */
-	static const char * __nts_cipher_name__(const uint16_t id) noexcept {
+	static constexpr const char * __nts_cipher_name__(const uint16_t id) noexcept {
 		// Если код набора является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(id))
 			// Возвращаем строку "GREASE" для GREASE кодов наборов
@@ -606,7 +618,7 @@ namespace {
 	 * @return     имя расширения
 	 *
 	 */
-	static const char * __nts_extension_name__(const uint16_t type) noexcept {
+	static constexpr const char * __nts_extension_name__(const uint16_t type) noexcept {
 		// Если код расширения является GREASE, возвращаем "GREASE"
 		if(fingerprint::grease(type))
 			// Возвращаем строку "GREASE" для GREASE кодов расширений
@@ -708,7 +720,7 @@ namespace {
 	 * @return     число доверенных центров
 	 *
 	 */
-	static size_t __nts_ca_count__(const vector <uint8_t> & data) noexcept {
+	static __NTS_INLINE__ size_t __nts_ca_count__(const vector <uint8_t> & data) noexcept {
 		// Если тело короче длины перечня
 		if(data.size() < 2)
 			// Выводим отсутствие центров
@@ -718,7 +730,7 @@ namespace {
 		// Число доверенных центров
 		size_t count = 0;
 		/**
-		 * Выполняем обход перечня имен
+		 * Обходим перечень имен
 		 */
 		while(offset < data.size()){
 			// Если длина имени оборвана
@@ -726,7 +738,7 @@ namespace {
 				// Обрыв: возвращаем то, что насчитано
 				return count;
 			// Длина имени
-			const size_t length = twain(data.data() + offset);
+			const size_t length = ::__nts_twain__(data.data() + offset);
 			// Переходим к имени
 			offset += 2;
 			// Если имя оборвано
@@ -749,13 +761,13 @@ namespace {
 	 * @return       результат разбора
 	 *
 	 */
-	static bool naming(const view_t & data, vector <string> & result) {
+	static __NTS_INLINE__ bool __nts_naming__(const view_t & data, vector <string> & result) noexcept {
 		// Если тело короче длины перечня
 		if(data.size < 2)
 			// Выводим отказ разбора
 			return false;
 		// Длина перечня
-		const size_t length = twain(data.data);
+		const size_t length = ::__nts_twain__(data.data);
 		// Если перечень в тело не входит либо за ним идут лишние байты
 		if((length + 2) != data.size)
 			// Выводим отказ разбора
@@ -763,7 +775,7 @@ namespace {
 		// Смещение внутри перечня
 		size_t offset = 2;
 		/**
-		 * Выполняем перебор строк перечня
+		 * Перебираем строки перечня
 		 */
 		while(offset < data.size){
 			// Длина очередной строки
@@ -789,23 +801,23 @@ namespace {
 	 * @return       результат разбора
 	 *
 	 */
-	static bool valuing(const view_t & data, const bool tail, vector <uint16_t> & result) {
+	static __NTS_INLINE__ bool __nts_valuing__(const view_t & data, const bool tail, vector <uint16_t> & result) noexcept {
 		// Если тело короче длины перечня
 		if(data.size < 2)
 			// Выводим отказ разбора
 			return false;
 		// Длина перечня
-		const size_t length = twain(data.data);
+		const size_t length = ::__nts_twain__(data.data);
 		// Если перечень в тело не входит, длина нечётна либо за ним недопустимые байты
 		if(((length + 2) > data.size) || ((length % 2) != 0) || (!tail && ((length + 2) != data.size)))
 			// Выводим отказ разбора
 			return false;
 		/**
-		 * Выполняем перебор значений перечня
+		 * Перебираем значения перечня
 		 */
 		for(size_t i = 0; i < length; i += 2)
 			// Добавляем значение в перечень
-			result.push_back(twain(data.data + 2 + i));
+			result.push_back(::__nts_twain__(data.data + 2 + i));
 		// Выводим успешность разбора
 		return true;
 	}
@@ -816,9 +828,12 @@ namespace {
 	 * @return      отказ модуля
 	 *
 	 */
-	static fingerprint::error_t rendered(const extension::error_t error) noexcept {
+	static constexpr fingerprint::error_t __nts_rendered__(const extension::error_t error) noexcept {
 		// Нехватка памяти передаётся своим кодом, прочие отказы означают порченое расширение
-		return ((error == extension::error_t::NONE) ? fingerprint::error_t::NONE : ((error == extension::error_t::MEMORY) ? fingerprint::error_t::MEMORY : fingerprint::error_t::EXTENSION));
+		return (
+			(error == extension::error_t::NONE) ? fingerprint::error_t::NONE :
+			((error == extension::error_t::MEMORY) ? fingerprint::error_t::MEMORY : fingerprint::error_t::EXTENSION)
+		);
 	}
 	/**
 	 * @brief Функция разбора тела расширения в поля профиля
@@ -827,7 +842,7 @@ namespace {
 	 * @return          отказ разбора: NONE, EXTENSION либо MEMORY
 	 *
 	 */
-	static fingerprint::error_t decode(fingerprint::extension_t & extension) {
+	static __NTS_INLINE__ fingerprint::error_t __nts_decode__(fingerprint::extension_t & extension) noexcept {
 		// Тело расширения
 		const view_t data(extension.data.data(), extension.data.size());
 		// Признак того, что вид расширения есть значение GREASE
@@ -847,7 +862,7 @@ namespace {
 				// Если имя узла разобрать не удалось
 				if(extension::name(data, name) != extension::error_t::NONE)
 					// Выводим отказ разбора
-					return rendered(extension::name(data, name));
+					return ::__nts_rendered__(extension::name(data, name));
 				// Добавляем имя узла в перечень
 				extension.names.push_back(string(reinterpret_cast <const char *> (name.data), name.size));
 			} break;
@@ -863,11 +878,11 @@ namespace {
 			// Группы обмена ключами
 			case static_cast <uint16_t> (extension::type_t::GROUPS):
 				// Выводим итог разбора перечня групп
-				return rendered(extension::groups(data, extension.groups));
+				return ::__nts_rendered__(extension::groups(data, extension.groups));
 			// Записи точек кривой
 			case static_cast <uint16_t> (extension::type_t::FORMATS):
 				// Выводим итог разбора перечня записей точек
-				return rendered(extension::formats(data, extension.formats));
+				return ::__nts_rendered__(extension::formats(data, extension.formats));
 			// Схемы подписи
 			case static_cast <uint16_t> (extension::type_t::SCHEMES):
 			// Схемы подписи сертификата
@@ -875,7 +890,7 @@ namespace {
 			// Схемы подписи делегированных полномочий
 			case WIRE_DELEGATED:
 				// Выводим итог разбора перечня схем
-				return rendered(extension::schemes(data, extension.schemes));
+				return ::__nts_rendered__(extension::schemes(data, extension.schemes));
 			// Прикладные протоколы
 			case static_cast <uint16_t> (extension::type_t::PROTOCOLS):
 			// Прикладные настройки ALPS новой точкой кода
@@ -883,16 +898,18 @@ namespace {
 			// Прикладные настройки ALPS прежней точкой кода
 			case static_cast <uint16_t> (extension::type_t::SETTINGS_OLD):
 				// Выводим итог разбора перечня протоколов
-				return (naming(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
-			// Выработка следующего протокола: тело того же вида, что у прикладных протоколов,
-			// но пустое тело допустимо - клиент лишь заявляет о поддержке выработки
+				return (::__nts_naming__(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
+			/**
+			 * Выработка следующего протокола: тело того же вида, что у прикладных протоколов,
+			 * но пустое тело допустимо - клиент лишь заявляет о поддержке выработки
+			 */
 			case static_cast <uint16_t> (extension::type_t::NEGOTIATION): {
 				// Если тело пусто: заявление о поддержке, перечня нет
 				if(data.size == 0)
 					// Выводим успешность разбора
 					return fingerprint::error_t::NONE;
 				// Выводим итог разбора перечня протоколов
-				return (naming(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
+				return (::__nts_naming__(data, extension.protocols) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
 			}
 			// Алгоритмы сжатия цепочки
 			case static_cast <uint16_t> (extension::type_t::COMPRESS): {
@@ -901,9 +918,9 @@ namespace {
 				// Если перечень алгоритмов разобрать не удалось
 				if(extension::algorithms(data, list) != extension::error_t::NONE)
 					// Выводим отказ разбора
-					return rendered(extension::algorithms(data, list));
+					return ::__nts_rendered__(extension::algorithms(data, list));
 				/**
-				 * Выполняем перебор опознавателей алгоритмов
+				 * Перебираем опознаватели алгоритмов
 				 */
 				for(size_t i = 0; i < list.size(); i++)
 					// Добавляем алгоритм в перечень
@@ -920,9 +937,9 @@ namespace {
 				// Если опознаватели разобрать не удалось
 				if(extension::identities(data, identities, binders, truncation) != extension::error_t::NONE)
 					// Выводим отказ разбора
-					return rendered(extension::identities(data, identities, binders, truncation));
+					return ::__nts_rendered__(extension::identities(data, identities, binders, truncation));
 				/**
-				 * Выполняем перебор опознавателей ключей
+				 * Перебираем опознаватели ключей
 				 */
 				for(size_t i = 0; i < identities.size(); i++){
 					// Опознаватель ключа профиля
@@ -940,7 +957,7 @@ namespace {
 				// Если тело несёт предел упреждения
 				if(data.size == 4)
 					// Запоминаем предел упреждения
-					extension.value = tetrad(data.data);
+					extension.value = ::__nts_tetrad__(data.data);
 				// Если тело не пусто и не предел
 				else if(data.size != 0)
 					// Выводим отказ разбора
@@ -949,11 +966,11 @@ namespace {
 			// Издания протокола
 			case static_cast <uint16_t> (extension::type_t::VERSIONS):
 				// Выводим итог разбора перечня изданий
-				return rendered(extension::versions(data, extension.versions));
+				return ::__nts_rendered__(extension::versions(data, extension.versions));
 			// Способы обмена заранее разделённым ключом
 			case static_cast <uint16_t> (extension::type_t::MODES):
 				// Выводим итог разбора перечня способов
-				return rendered(extension::modes(data, extension.modes));
+				return ::__nts_rendered__(extension::modes(data, extension.modes));
 			// Открытые части ключей обмена
 			case static_cast <uint16_t> (extension::type_t::SHARE): {
 				// Доли ключей
@@ -961,9 +978,9 @@ namespace {
 				// Если доли разобрать не удалось
 				if(extension::shares(data, shares) != extension::error_t::NONE)
 					// Выводим отказ разбора
-					return rendered(extension::shares(data, shares));
+					return ::__nts_rendered__(extension::shares(data, shares));
 				/**
-				 * Выполняем перебор долей ключей
+				 * Перебираем доли ключей
 				 */
 				for(size_t i = 0; i < shares.size(); i++){
 					// Доля ключа профиля
@@ -990,7 +1007,7 @@ namespace {
 			// Профили SRTP: перечень с двухбайтовой длиной и MKI следом
 			case WIRE_SRTP:
 				// Выводим итог разбора перечня профилей
-				return (valuing(data, true, extension.values) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
+				return (::__nts_valuing__(data, true, extension.values) ? fingerprint::error_t::NONE : fingerprint::error_t::EXTENSION);
 			// Заполнение: значимо лишь длиной
 			case WIRE_PADDING:
 				// Запоминаем длину заполнения
@@ -1003,7 +1020,7 @@ namespace {
 					// Выводим отказ разбора
 					return fingerprint::error_t::EXTENSION;
 				// Запоминаем предел записи
-				extension.value = twain(data.data);
+				extension.value = ::__nts_twain__(data.data);
 			} break;
 			// Виды расширений, вынесенных наружу ECH: перечень с однобайтовой длиной
 			case WIRE_OUTER: {
@@ -1018,11 +1035,11 @@ namespace {
 					// Выводим отказ разбора
 					return fingerprint::error_t::EXTENSION;
 				/**
-				 * Выполняем перебор видов расширений
+				 * Перебираем виды расширений
 				 */
 				for(size_t i = 0; i < length; i += 2)
 					// Добавляем вид расширения в перечень
-					extension.values.push_back(twain(data.data + 1 + i));
+					extension.values.push_back(::__nts_twain__(data.data + 1 + i));
 			} break;
 			// Прочие расширения хранятся сырым телом
 			default: break;
@@ -1038,7 +1055,7 @@ namespace {
 	 * @return         отказ переноса
 	 *
 	 */
-	static fingerprint::error_t transfer(const hello::client_t & greeting, fingerprint::profile_t & profile) {
+	static __NTS_INLINE__ fingerprint::error_t __nts_transfer__(const hello::client_t & greeting, fingerprint::profile_t & profile) noexcept {
 		// Переносим издание приветствия
 		profile.version = greeting.version;
 		// Переносим случайное значение приветствия
@@ -1050,7 +1067,7 @@ namespace {
 		// Переносим способы сжатия
 		profile.methods = greeting.methods;
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t i = 0; i < greeting.suites.size(); i++){
 			// Если набор есть значение GREASE
@@ -1061,7 +1078,7 @@ namespace {
 			profile.suites.push_back(static_cast <protect::suite_t> (greeting.suites[i]));
 		}
 		/**
-		 * Выполняем перебор расширений приветствия
+		 * Перебираем расширения приветствия
 		 */
 		for(size_t i = 0; i < greeting.extensions.size(); i++){
 			// Расширение профиля
@@ -1071,7 +1088,7 @@ namespace {
 			// Переносим тело расширения
 			extension.data.assign(greeting.extensions[i].data.data, greeting.extensions[i].data.data + greeting.extensions[i].data.size);
 			// Отказ разбора тела расширения
-			const fingerprint::error_t failure = decode(extension);
+			const fingerprint::error_t failure = ::__nts_decode__(extension);
 			// Если тело расширения разобрать не удалось
 			if(failure != fingerprint::error_t::NONE)
 				// Выводим отказ разбора расширения
@@ -1093,7 +1110,7 @@ namespace {
 	 * @return      отказ модуля
 	 *
 	 */
-	static fingerprint::error_t translate(const hello::error_t error) noexcept {
+	static constexpr fingerprint::error_t __nts_translate__(const hello::error_t error) noexcept {
 		/**
 		 * Определяем отказ разбора приветствия
 		 */
@@ -1145,7 +1162,7 @@ namespace {
 	 * @return         отказ разбора
 	 *
 	 */
-	static fingerprint::error_t examine(const view_t & data, const bool datagram, fingerprint::profile_t & result) {
+	static fingerprint::error_t __nts_examine__(const view_t & data, const bool datagram, fingerprint::profile_t & result) noexcept {
 		// Сбрасываем профиль
 		result = fingerprint::profile_t();
 		// Запоминаем устройство заголовков
@@ -1165,7 +1182,7 @@ namespace {
 				// Выводим отказ обрыва
 				return fingerprint::error_t::HUNGRY;
 			// Запоминаем издание слоя записей
-			result.record = twain(data.data + 1);
+			result.record = ::__nts_twain__(data.data + 1);
 			// Если издание записи не отвечает устройству заголовков
 			if(datagram != ((result.record == EDITION_DTLS10) || (result.record == EDITION_DTLS12) || (result.record == EDITION_DTLS13)))
 				// Выводим отказ записи
@@ -1175,13 +1192,13 @@ namespace {
 			// Если запись идёт поверх дейтаграмм
 			if(datagram){
 				// Запоминаем пору записи
-				result.epoch = twain(data.data + 3);
+				result.epoch = ::__nts_twain__(data.data + 3);
 				// Запоминаем порядковый номер записи
-				result.sequence = ((static_cast <uint64_t> (twain(data.data + 5)) << 32) | static_cast <uint64_t> (tetrad(data.data + 7)));
+				result.sequence = ((static_cast <uint64_t> (::__nts_twain__(data.data + 5)) << 32) | static_cast <uint64_t> (::__nts_tetrad__(data.data + 7)));
 				// Запоминаем длину записи
-				length = twain(data.data + 11);
+				length = ::__nts_twain__(data.data + 11);
 			// Если запись идёт потоком
-			} else length = twain(data.data + 3);
+			} else length = ::__nts_twain__(data.data + 3);
 			// Если тело записи оборвано
 			if((header + length) > data.size)
 				// Выводим отказ обрыва
@@ -1210,13 +1227,13 @@ namespace {
 			// Выводим отказ сообщения
 			return fingerprint::error_t::MESSAGE;
 		// Запоминаем длину тела приветствия
-		result.length = triad(data.data + offset + 1);
+		result.length = ::__nts_triad__(data.data + offset + 1);
 		// Если сообщение идёт внутри записи дейтаграммы
 		if(header == HEADER_DATAGRAM){
 			// Запоминаем порядковый номер сообщения
-			result.message = twain(data.data + offset + 4);
+			result.message = ::__nts_twain__(data.data + offset + 4);
 			// Если сообщение нарезано на куски: отпечаток снимается лишь с цельного
-			if((triad(data.data + offset + 6) != 0) || (triad(data.data + offset + 9) != result.length))
+			if((::__nts_triad__(data.data + offset + 6) != 0) || (::__nts_triad__(data.data + offset + 9) != result.length))
 				// Выводим отказ обрыва
 				return fingerprint::error_t::HUNGRY;
 		}
@@ -1233,13 +1250,13 @@ namespace {
 		// Разобранное приветствие клиента
 		hello::client_t greeting;
 		// Отказ разбора приветствия
-		const fingerprint::error_t failure = translate(hello::parse(view_t(data.data + offset, result.length), greeting, datagram));
+		const fingerprint::error_t failure = ::__nts_translate__(hello::parse(view_t(data.data + offset, result.length), greeting, datagram));
 		// Если приветствие разобрать не удалось
 		if(failure != fingerprint::error_t::NONE)
 			// Выводим отказ разбора
 			return failure;
 		// Выводим итог переноса приветствия в профиль
-		return transfer(greeting, result);
+		return ::__nts_transfer__(greeting, result);
 	}
 	/**
 	 * @brief Функция подсчёта старшего издания протокола профиля
@@ -1248,15 +1265,15 @@ namespace {
 	 * @return        старшее издание из supported_versions без GREASE либо издание приветствия
 	 *
 	 */
-	static uint16_t eldest(const fingerprint::profile_t & profile) noexcept {
+	static __NTS_INLINE__ uint16_t __nts_eldest__(const fingerprint::profile_t & profile) noexcept {
 		// Старшее издание
 		uint16_t result = profile.version;
 		// Расширение изданий протокола
-		const fingerprint::extension_t * extension = seek(profile, static_cast <uint16_t> (extension::type_t::VERSIONS));
+		const fingerprint::extension_t * extension = ::__nts_seek__(profile, static_cast <uint16_t> (extension::type_t::VERSIONS));
 		// Если расширение изданий есть
 		if(extension != nullptr){
 			/**
-			 * Выполняем перебор изданий
+			 * Перебираем издания
 			 */
 			for(size_t i = 0; i < extension->versions.size(); i++){
 				// Если издание не GREASE и старше найденного
@@ -1275,7 +1292,7 @@ namespace {
 	 * @return        два знака издания
 	 *
 	 */
-	static const char * lettered(const uint16_t edition) noexcept {
+	static constexpr const char * __nts_lettered__(const uint16_t edition) noexcept {
 		/**
 		 * Определяем издание протокола
 		 */
@@ -1307,7 +1324,7 @@ namespace {
 	 * @param result   строка, к которой дописываются знаки
 	 *
 	 */
-	static void abbreviated(const string & protocol, string & result) {
+	static __NTS_INLINE__ void __nts_abbreviated__(const string & protocol, string & result) noexcept {
 		// Если протокола нет
 		if(protocol.empty()){
 			// Дописываем знаки отсутствия
@@ -1340,7 +1357,7 @@ namespace {
 	 * @param result строка, к которой дописывается счётчик
 	 *
 	 */
-	static void counted(const size_t count, string & result) {
+	static __NTS_INLINE__ void __nts_counted__(const size_t count, string & result) noexcept {
 		// Место, в которое помещается запись счётчика
 		char buffer[4];
 		// Составляем запись счётчика с пределом
@@ -1360,7 +1377,7 @@ namespace {
 	 * @return       прочитанное целое
 	 *
 	 */
-	static uint32_t packed(const uint8_t * data, const size_t size, size_t & offset, const uint8_t width) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_packed__(const uint8_t * data, const size_t size, size_t & offset, const uint8_t width) noexcept {
 		// Если блок кончился
 		if(offset >= size)
 			// Выводим ноль
@@ -1376,7 +1393,7 @@ namespace {
 		// Сдвиг очередной семёрки разрядов
 		uint32_t shift = 0;
 		/**
-		 * Выполняем перебор байтов продолжения
+		 * Перебираем байты продолжения
 		 */
 		while(offset < size){
 			// Очередной байт продолжения
@@ -1402,7 +1419,7 @@ namespace {
 	 * @param result строка, в которую помещается незакодированное значение (пусто при кодировании Хаффмана)
 	 *
 	 */
-	static void worded(const uint8_t * data, const size_t size, size_t & offset, string & result) {
+	static __NTS_INLINE__ void __nts_worded__(const uint8_t * data, const size_t size, size_t & offset, string & result) noexcept {
 		// Сбрасываем строку
 		result.clear();
 		// Если блок кончился
@@ -1412,7 +1429,7 @@ namespace {
 		// Признак кодирования Хаффмана
 		const bool huffman = ((data[offset] & 0x80) != 0);
 		// Длина строки
-		const size_t length = packed(data, size, offset, 7);
+		const size_t length = ::__nts_packed__(data, size, offset, 7);
 		// Если строка в блок не входит
 		if((offset + length) > size){
 			// Переходим к концу блока
@@ -1434,7 +1451,7 @@ namespace {
 	 * @return      буква псевдозаголовка либо ноль
 	 *
 	 */
-	static char indexed(const uint32_t index) noexcept {
+	static constexpr char __nts_indexed__(const uint32_t index) noexcept {
 		/**
 		 * Определяем индекс статической таблицы
 		 */
@@ -1458,7 +1475,7 @@ namespace {
 	 * @return     буква псевдозаголовка либо ноль
 	 *
 	 */
-	static char named(const string & name) noexcept {
+	static constexpr char __nts_named__(const string & name) noexcept {
 		// Если имя есть :authority
 		if(name.compare(":authority") == 0)
 			// Выводим букву
@@ -1486,13 +1503,13 @@ namespace {
 	 * @param result строка букв псевдозаголовков в порядке появления
 	 *
 	 */
-	static void ordering(const uint8_t * data, const size_t size, string & result) {
+	static __NTS_INLINE__ void __nts_ordering__(const uint8_t * data, const size_t size, string & result) noexcept {
 		// Смещение внутри блока
 		size_t offset = 0;
 		// Имя заголовка
 		string name;
 		/**
-		 * Выполняем перебор записей блока заголовков
+		 * Перебираем записи блока заголовков
 		 */
 		while(offset < size){
 			// Первый байт записи
@@ -1502,11 +1519,11 @@ namespace {
 			// Если запись есть индексированное поле
 			if((lead & 0x80) != 0)
 				// Определяем букву по индексу
-				letter = indexed(packed(data, size, offset, 7));
+				letter = ::__nts_indexed__(::__nts_packed__(data, size, offset, 7));
 			// Если запись есть изменение размера таблицы
-			else if((lead & 0xE0) == 0x20){
+			else if((lead & 0xE0) == 0x20) {
 				// Пропускаем размер таблицы
-				packed(data, size, offset, 5);
+				::__nts_packed__(data, size, offset, 5);
 				// Переходим к следующей записи
 				continue;
 			// Если запись есть поле с буквальным значением
@@ -1514,20 +1531,20 @@ namespace {
 				// Ширина префикса индекса имени
 				const uint8_t width = (((lead & 0xC0) == 0x40) ? 6 : 4);
 				// Индекс имени
-				const uint32_t index = packed(data, size, offset, width);
+				const uint32_t index = ::__nts_packed__(data, size, offset, width);
 				// Если имя задано индексом
 				if(index > 0)
 					// Определяем букву по индексу
-					letter = indexed(index);
+					letter = ::__nts_indexed__(index);
 				// Если имя задано буквально
 				else {
 					// Читаем имя
-					worded(data, size, offset, name);
+					::__nts_worded__(data, size, offset, name);
 					// Определяем букву по имени
-					letter = named(name);
+					letter = ::__nts_named__(name);
 				}
 				// Пропускаем тело значения, продвигая разбор за него
-				worded(data, size, offset, name);
+				::__nts_worded__(data, size, offset, name);
 			}
 			// Если запись не псевдозаголовок: псевдозаголовки идут первыми, дальше искать нечего
 			if(letter == '\0')
@@ -1546,53 +1563,53 @@ namespace {
 	 * @param result  накопитель снимка
 	 *
 	 */
-	static void packing(const fingerprint::profile_t & profile, vector <uint8_t> & result) {
+	static __NTS_INLINE__ void __nts_packing__(const fingerprint::profile_t & profile, vector <uint8_t> & result) noexcept {
 		// Дописываем признаки профиля
 		result.push_back(static_cast <uint8_t> ((profile.grease ? 0x01 : 0x00) | (profile.datagram ? 0x02 : 0x00)));
 		// Дописываем издание слоя записей
-		inscribe(profile.record, 2, result);
+		::__nts_inscribe__(profile.record, 2, result);
 		// Дописываем издание приветствия
-		inscribe(profile.version, 2, result);
+		::__nts_inscribe__(profile.version, 2, result);
 		// Дописываем пору записи
-		inscribe(profile.epoch, 2, result);
+		::__nts_inscribe__(profile.epoch, 2, result);
 		// Дописываем порядковый номер записи
-		inscribe(profile.sequence, 8, result);
+		::__nts_inscribe__(profile.sequence, 8, result);
 		// Дописываем порядковый номер сообщения
-		inscribe(profile.message, 2, result);
+		::__nts_inscribe__(profile.message, 2, result);
 		// Дописываем длину тела приветствия
-		inscribe(profile.length, 4, result);
+		::__nts_inscribe__(profile.length, 4, result);
 		// Дописываем случайное значение приветствия
 		result.insert(result.end(), profile.random, profile.random + fingerprint::FINGERPRINT_RANDOM);
 		// Дописываем длину опознавателя связи
-		inscribe(profile.session.size(), 1, result);
+		::__nts_inscribe__(profile.session.size(), 1, result);
 		// Дописываем опознаватель связи
 		result.insert(result.end(), profile.session.begin(), profile.session.end());
 		// Дописываем длину метки возврата
-		inscribe(profile.cookie.size(), 1, result);
+		::__nts_inscribe__(profile.cookie.size(), 1, result);
 		// Дописываем метку возврата
 		result.insert(result.end(), profile.cookie.begin(), profile.cookie.end());
 		// Дописываем число наборов шифрования
-		inscribe(profile.suites.size(), 2, result);
+		::__nts_inscribe__(profile.suites.size(), 2, result);
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t i = 0; i < profile.suites.size(); i++)
 			// Дописываем набор шифрования
-			inscribe(static_cast <uint16_t> (profile.suites[i]), 2, result);
+			::__nts_inscribe__(static_cast <uint16_t> (profile.suites[i]), 2, result);
 		// Дописываем число способов сжатия
-		inscribe(profile.methods.size(), 1, result);
+		::__nts_inscribe__(profile.methods.size(), 1, result);
 		// Дописываем способы сжатия
 		result.insert(result.end(), profile.methods.begin(), profile.methods.end());
 		// Дописываем число расширений
-		inscribe(profile.extensions.size(), 2, result);
+		::__nts_inscribe__(profile.extensions.size(), 2, result);
 		/**
-		 * Выполняем перебор расширений
+		 * Перебираем расширения
 		 */
 		for(size_t i = 0; i < profile.extensions.size(); i++){
 			// Дописываем вид расширения
-			inscribe(profile.extensions[i].type, 2, result);
+			::__nts_inscribe__(profile.extensions[i].type, 2, result);
 			// Дописываем длину тела расширения
-			inscribe(profile.extensions[i].data.size(), 2, result);
+			::__nts_inscribe__(profile.extensions[i].data.size(), 2, result);
 			// Дописываем тело расширения
 			result.insert(result.end(), profile.extensions[i].data.begin(), profile.extensions[i].data.end());
 		}
@@ -1606,7 +1623,7 @@ namespace {
 	 * @return       отказ чтения
 	 *
 	 */
-	static fingerprint::error_t unpacking(const view_t & data, size_t & offset, fingerprint::profile_t & result) {
+	static fingerprint::error_t __nts_unpacking__(const view_t & data, size_t & offset, fingerprint::profile_t & result) noexcept {
 		// Сбрасываем профиль
 		result = fingerprint::profile_t();
 		// Размер неизменной части профиля
@@ -1626,17 +1643,17 @@ namespace {
 		// Переходим за признаки
 		offset += 1;
 		// Читаем издание слоя записей
-		result.record = twain(data.data + offset);
+		result.record = ::__nts_twain__(data.data + offset);
 		// Читаем издание приветствия
-		result.version = twain(data.data + offset + 2);
+		result.version = ::__nts_twain__(data.data + offset + 2);
 		// Читаем пору записи
-		result.epoch = twain(data.data + offset + 4);
+		result.epoch = ::__nts_twain__(data.data + offset + 4);
 		// Читаем порядковый номер записи
-		result.sequence = octet(data.data + offset + 6);
+		result.sequence = ::__nts_octet__(data.data + offset + 6);
 		// Читаем порядковый номер сообщения
-		result.message = twain(data.data + offset + 14);
+		result.message = ::__nts_twain__(data.data + offset + 14);
 		// Читаем длину тела приветствия
-		result.length = tetrad(data.data + offset + 16);
+		result.length = ::__nts_tetrad__(data.data + offset + 16);
 		// Переходим к случайному значению
 		offset += 20;
 		// Читаем случайное значение приветствия
@@ -1664,7 +1681,7 @@ namespace {
 		// Переходим за метку возврата
 		offset += length;
 		// Число наборов шифрования
-		size_t count = twain(data.data + offset);
+		size_t count = ::__nts_twain__(data.data + offset);
 		// Переходим за число наборов
 		offset += 2;
 		// Снимок без наборов негоден - зеркально dump() и Store::add
@@ -1676,11 +1693,11 @@ namespace {
 			// Выводим отказ снимка
 			return fingerprint::error_t::FORMAT;
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t i = 0; i < count; i++, offset += 2)
 			// Читаем набор шифрования
-			result.suites.push_back(static_cast <protect::suite_t> (twain(data.data + offset)));
+			result.suites.push_back(static_cast <protect::suite_t> (::__nts_twain__(data.data + offset)));
 		// Число способов сжатия
 		length = data.data[offset++];
 		// Если способы сжатия в снимок не входят
@@ -1692,11 +1709,11 @@ namespace {
 		// Переходим за способы сжатия
 		offset += length;
 		// Число расширений
-		count = twain(data.data + offset);
+		count = ::__nts_twain__(data.data + offset);
 		// Переходим за число расширений
 		offset += 2;
 		/**
-		 * Выполняем перебор расширений
+		 * Перебираем расширения
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Если заголовок расширения в снимок не входит
@@ -1706,9 +1723,9 @@ namespace {
 			// Расширение профиля
 			fingerprint::extension_t extension;
 			// Читаем вид расширения
-			extension.type = twain(data.data + offset);
+			extension.type = ::__nts_twain__(data.data + offset);
 			// Длина тела расширения
-			length = twain(data.data + offset + 2);
+			length = ::__nts_twain__(data.data + offset + 2);
 			// Переходим к телу расширения
 			offset += 4;
 			// Если тело расширения в снимок не входит
@@ -1720,7 +1737,7 @@ namespace {
 			// Переходим за тело расширения
 			offset += length;
 			// Отказ разбора тела расширения
-			const fingerprint::error_t failure = decode(extension);
+			const fingerprint::error_t failure = ::__nts_decode__(extension);
 			// Если тело расширения разобрать не удалось
 			if(failure != fingerprint::error_t::NONE)
 				// Выводим отказ разбора расширения
@@ -1822,9 +1839,13 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, profile_t
 	 */
 	try {
 		// Если байты начинаются записью с изданием поверх дейтаграмм: устройство определяется по ней
-		const bool datagram = ((data.data != nullptr) && (data.size >= 3) && (data.data[0] == HANDSHAKE) && ((twain(data.data + 1) == EDITION_DTLS10) || (twain(data.data + 1) == EDITION_DTLS12) || (twain(data.data + 1) == EDITION_DTLS13)));
+		const bool datagram = (
+			(data.data != nullptr) && (data.size >= 3) &&
+			(data.data[0] == HANDSHAKE) && ((::__nts_twain__(data.data + 1) == EDITION_DTLS10) ||
+			(::__nts_twain__(data.data + 1) == EDITION_DTLS12) || (::__nts_twain__(data.data + 1) == EDITION_DTLS13))
+		);
 		// Выводим итог разбора
-		return examine(data, datagram, result);
+		return ::__nts_examine__(data, datagram, result);
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -1850,7 +1871,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, profile_t
 	 */
 	try {
 		// Выводим итог разбора
-		return examine(data, datagram, result);
+		return ::__nts_examine__(data, datagram, result);
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -1883,29 +1904,29 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		// Переносим издание слоя записей
 		result.record = profile.record;
 		// Подсчитываем согласуемое издание
-		result.negotiated = eldest(profile);
+		result.negotiated = ::__nts_eldest__(profile);
 		// Составляем запись случайного значения
-		hexed(profile.random, FINGERPRINT_RANDOM, result.random);
+		::__nts_hexed__(profile.random, FINGERPRINT_RANDOM, result.random);
 		// Составляем запись опознавателя связи
-		hexed(profile.session.data(), profile.session.size(), result.session);
+		::__nts_hexed__(profile.session.data(), profile.session.size(), result.session);
 		// Расширение групп эллиптических кривых
-		const extension_t * groups = seek(profile, static_cast <uint16_t> (extension::type_t::GROUPS));
+		const extension_t * groups = ::__nts_seek__(profile, static_cast <uint16_t> (extension::type_t::GROUPS));
 		// Расширение форматов точек
-		const extension_t * formats = seek(profile, static_cast <uint16_t> (extension::type_t::FORMATS));
+		const extension_t * formats = ::__nts_seek__(profile, static_cast <uint16_t> (extension::type_t::FORMATS));
 		// Расширение схем подписи
-		const extension_t * schemes = seek(profile, static_cast <uint16_t> (extension::type_t::SCHEMES));
+		const extension_t * schemes = ::__nts_seek__(profile, static_cast <uint16_t> (extension::type_t::SCHEMES));
 		// Расширение прикладных протоколов
-		const extension_t * protocols = seek(profile, static_cast <uint16_t> (extension::type_t::PROTOCOLS));
+		const extension_t * protocols = ::__nts_seek__(profile, static_cast <uint16_t> (extension::type_t::PROTOCOLS));
 		// Расширение имени сервера
-		const extension_t * name = seek(profile, static_cast <uint16_t> (extension::type_t::NAME));
+		const extension_t * name = ::__nts_seek__(profile, static_cast <uint16_t> (extension::type_t::NAME));
 		// Расширение поддерживаемых изданий
-		const extension_t * versions = seek(profile, static_cast <uint16_t> (extension::type_t::VERSIONS));
+		const extension_t * versions = ::__nts_seek__(profile, static_cast <uint16_t> (extension::type_t::VERSIONS));
 		// Расширение режимов рукопожатия
-		const extension_t * modes = seek(profile, static_cast <uint16_t> (extension::type_t::MODES));
+		const extension_t * modes = ::__nts_seek__(profile, static_cast <uint16_t> (extension::type_t::MODES));
 		// Перечни чисел по проводу без GREASE и с GREASE
 		vector <uint16_t> suites, suitesAll, extensions, extensionsAll, curves, curvesAll, signatures, signaturesAll, points, editions;
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t i = 0; i < profile.suites.size(); i++){
 			// Набор по проводу
@@ -1918,7 +1939,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 				suites.push_back(suite);
 		}
 		/**
-		 * Выполняем перебор расширений
+		 * Перебираем расширения
 		 */
 		for(size_t i = 0; i < profile.extensions.size(); i++){
 			// Добавляем вид расширения в полный перечень
@@ -1931,7 +1952,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		// Если расширение групп есть
 		if(groups != nullptr){
 			/**
-			 * Выполняем перебор групп
+			 * Перебираем группы
 			 */
 			for(size_t i = 0; i < groups->groups.size(); i++){
 				// Группа по проводу
@@ -1947,7 +1968,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		// Если расширение схем есть
 		if(schemes != nullptr){
 			/**
-			 * Выполняем перебор схем
+			 * Перебираем схемы
 			 */
 			for(size_t i = 0; i < schemes->schemes.size(); i++){
 				// Схема по проводу
@@ -1963,7 +1984,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		// Если расширение записей точек есть
 		if(formats != nullptr){
 			/**
-			 * Выполняем перебор записей точек
+			 * Перебираем записи точек
 			 */
 			for(size_t i = 0; i < formats->formats.size(); i++)
 				// Добавляем запись точки в перечень
@@ -1978,25 +1999,25 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		 */
 		{
 			// Дописываем издание приветствия
-			decimal(profile.version, result.ja3);
+			::__nts_decimal__(profile.version, result.ja3);
 			// Дописываем разделитель
 			result.ja3.push_back(',');
 			// Дописываем наборы
-			listing(suites, '-', false, result.ja3);
+			::__nts_listing__(suites, '-', false, result.ja3);
 			// Дописываем разделитель
 			result.ja3.push_back(',');
 			// Дописываем расширения
-			listing(extensions, '-', false, result.ja3);
+			::__nts_listing__(extensions, '-', false, result.ja3);
 			// Дописываем разделитель
 			result.ja3.push_back(',');
 			// Дописываем группы
-			listing(curves, '-', false, result.ja3);
+			::__nts_listing__(curves, '-', false, result.ja3);
 			// Дописываем разделитель
 			result.ja3.push_back(',');
 			// Дописываем записи точек
-			listing(points, '-', false, result.ja3);
+			::__nts_listing__(points, '-', false, result.ja3);
 			// Если хеш JA3 выработать не удалось
-			if(!digesting(digest::hash_t::MD5, result.ja3, 0, result.ja3hash))
+			if(!::__nts_digesting__(digest::hash_t::MD5, result.ja3, 0, result.ja3hash))
 				// Выводим отказ памяти
 				return error_t::MEMORY;
 		}
@@ -2006,21 +2027,21 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		 */
 		{
 			// Признак переноса QUIC: расширение параметров переноса
-			const bool quic = ((seek(profile, 0x0039) != nullptr) || (seek(profile, 0xFFA5) != nullptr));
+			const bool quic = ((::__nts_seek__(profile, 0x0039) != nullptr) || (::__nts_seek__(profile, 0xFFA5) != nullptr));
 			// Заголовок отпечатка
 			string prefix;
 			// Дописываем букву переноса
 			prefix.push_back(quic ? 'q' : (profile.datagram ? 'd' : 't'));
 			// Дописываем издание протокола
-			prefix.append(lettered(result.negotiated));
+			prefix.append(::__nts_lettered__(result.negotiated));
 			// Дописываем признак имени узла
 			prefix.push_back(((name != nullptr) && !name->names.empty()) ? 'd' : 'i');
 			// Дописываем число наборов
-			counted(suites.size(), prefix);
+			::__nts_counted__(suites.size(), prefix);
 			// Дописываем число расширений
-			counted(extensions.size(), prefix);
+			::__nts_counted__(extensions.size(), prefix);
 			// Дописываем знаки прикладного протокола
-			abbreviated(((protocols != nullptr) && !protocols->protocols.empty()) ? protocols->protocols.front() : string(), prefix);
+			::__nts_abbreviated__(((protocols != nullptr) && !protocols->protocols.empty()) ? protocols->protocols.front() : string(), prefix);
 			// Сортированные наборы
 			vector <uint16_t> sortedSuites = suites;
 			// Сортируем наборы по значению
@@ -2028,7 +2049,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 			// Сортированные расширения без имени узла и прикладных протоколов
 			vector <uint16_t> sortedExtensions;
 			/**
-			 * Выполняем перебор расширений без GREASE
+			 * Перебираем расширения без GREASE
 			 */
 			for(size_t i = 0; i < extensions.size(); i++){
 				// Если расширение не есть имя узла и не прикладные протоколы
@@ -2041,15 +2062,15 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 			// Записи перечней
 			string suitesText, extensionsText, signaturesText, originalSuites, originalExtensions;
 			// Составляем запись сортированных наборов
-			listing(sortedSuites, ',', true, suitesText);
+			::__nts_listing__(sortedSuites, ',', true, suitesText);
 			// Составляем запись сортированных расширений
-			listing(sortedExtensions, ',', true, extensionsText);
+			::__nts_listing__(sortedExtensions, ',', true, extensionsText);
 			// Составляем запись схем подписи в порядке провода
-			listing(signatures, ',', true, signaturesText);
+			::__nts_listing__(signatures, ',', true, signaturesText);
 			// Составляем запись наборов в порядке провода
-			listing(suites, ',', true, originalSuites);
+			::__nts_listing__(suites, ',', true, originalSuites);
 			// Составляем запись расширений в порядке провода
-			listing(extensions, ',', true, originalExtensions);
+			::__nts_listing__(extensions, ',', true, originalExtensions);
 			// Запись расширений со схемами
 			string combined = extensionsText;
 			// Если схемы подписи есть
@@ -2077,7 +2098,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 				// Дописываем нулевой хеш
 				result.ja4.append("000000000000");
 			// Если хеш наборов выработать не удалось
-			else if(!digesting(digest::hash_t::SHA256, suitesText, 6, result.ja4))
+			else if(!::__nts_digesting__(digest::hash_t::SHA256, suitesText, 6, result.ja4))
 				// Выводим отказ памяти
 				return error_t::MEMORY;
 			// Дописываем разделитель
@@ -2087,7 +2108,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 				// Дописываем нулевой хеш
 				result.ja4.append("000000000000");
 			// Если хеш расширений выработать не удалось
-			else if(!digesting(digest::hash_t::SHA256, combined, 6, result.ja4))
+			else if(!::__nts_digesting__(digest::hash_t::SHA256, combined, 6, result.ja4))
 				// Выводим отказ памяти
 				return error_t::MEMORY;
 		}
@@ -2096,50 +2117,50 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 		 */
 		{
 			// Дописываем издания протокола
-			marking(editions, result.peetprint);
+			::__nts_marking__(editions, result.peetprint);
 			// Дописываем разделитель
 			result.peetprint.push_back('|');
 			// Дописываем число способов сжатия с единицей
-			decimal(profile.methods.size() + 1, result.peetprint);
+			::__nts_decimal__(profile.methods.size() + 1, result.peetprint);
 			// Дописываем разделитель
 			result.peetprint.push_back('-');
 			// Дописываем число способов сжатия
-			decimal(profile.methods.size(), result.peetprint);
+			::__nts_decimal__(profile.methods.size(), result.peetprint);
 			/**
-			 * Выполняем перебор способов сжатия
+			 * Перебираем способы сжатия
 			 */
 			for(size_t i = 0; i < profile.methods.size(); i++){
 				// Дописываем разделитель
 				result.peetprint.push_back('.');
 				// Дописываем способ сжатия
-				decimal(profile.methods[i], result.peetprint);
+				::__nts_decimal__(profile.methods[i], result.peetprint);
 			}
 			// Дописываем разделитель
 			result.peetprint.push_back('|');
 			// Дописываем группы
-			marking(curvesAll, result.peetprint);
+			::__nts_marking__(curvesAll, result.peetprint);
 			// Дописываем разделитель
 			result.peetprint.push_back('|');
 			// Дописываем схемы подписи
-			marking(signaturesAll, result.peetprint);
+			::__nts_marking__(signaturesAll, result.peetprint);
 			// Дописываем разделитель
 			result.peetprint.push_back('|');
 			// Дописываем число записей точек
-			decimal(points.size(), result.peetprint);
+			::__nts_decimal__(points.size(), result.peetprint);
 			// Дописываем разделитель
 			result.peetprint.push_back('|');
 			// Дописываем число способов обмена ключом
-			decimal((modes != nullptr) ? modes->modes.size() : 0, result.peetprint);
+			::__nts_decimal__((modes != nullptr) ? modes->modes.size() : 0, result.peetprint);
 			// Дописываем разделитель
 			result.peetprint.push_back('|');
 			// Дописываем наборы
-			marking(suitesAll, result.peetprint);
+			::__nts_marking__(suitesAll, result.peetprint);
 			// Дописываем разделитель
 			result.peetprint.push_back('|');
 			// Дописываем расширения
-			marking(extensionsAll, result.peetprint);
+			::__nts_marking__(extensionsAll, result.peetprint);
 			// Если хеш PeetPrint выработать не удалось
-			if(!digesting(digest::hash_t::MD5, result.peetprint, 0, result.peethash))
+			if(!::__nts_digesting__(digest::hash_t::MD5, result.peetprint, 0, result.peethash))
 				// Выводим отказ памяти
 				return error_t::MEMORY;
 		}
@@ -2169,13 +2190,13 @@ bool nts::fingerprint::browser(const imprint_t & imprint) noexcept {
 /**
  * @brief Функция печати профиля человеку
  *
- * @param profile печатаемый профиль
- * @param result  строка, в которую помещается печать
- * @return        отказ печати
- *
  * @details Форма печати перенесена из AWH: слой записей, заголовок рукопожатия,
  *          приветствие, наборы, способы сжатия, расширения с подробностями
  *          по виду и вычисленные отпечатки с выводом «похож на обозреватель».
+ *
+ * @param profile печатаемый профиль
+ * @param result  строка, в которую помещается печать
+ * @return        отказ печати
  *
  */
 nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, string & result) noexcept {
@@ -2250,7 +2271,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 			// Запись случайного значения
 			string random;
 			// Составляем запись случайного значения
-			hexed(profile.random, FINGERPRINT_RANDOM, random);
+			::__nts_hexed__(profile.random, FINGERPRINT_RANDOM, random);
 			// Возвращаем случайное значение
 			out << "    Random         : " << random << endl;
 			// Если опознаватель связи есть
@@ -2258,7 +2279,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 				// Запись опознавателя связи
 				string session;
 				// Составляем запись опознавателя связи
-				hexed(profile.session.data(), profile.session.size(), session);
+				::__nts_hexed__(profile.session.data(), profile.session.size(), session);
 				// Возвращаем опознаватель связи
 				out << "    Session ID     : " << session << endl;
 			// Если опознавателя связи нет, выводим пометку
@@ -2268,7 +2289,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 				// Запись метки возврата
 				string cookie;
 				// Составляем запись метки возврата
-				hexed(profile.cookie.data(), profile.cookie.size(), cookie);
+				::__nts_hexed__(profile.cookie.data(), profile.cookie.size(), cookie);
 				// Возвращаем метку возврата
 				out << "    DTLS Cookie    : " << cookie << endl;
 			}
@@ -2695,9 +2716,9 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 			// Десятичные записи изданий
 			string recV, negV;
 			// Составляем десятичную запись издания записи
-			decimal(imp.record, recV);
+			::__nts_decimal__(imp.record, recV);
 			// Составляем десятичную запись согласуемого издания
-			decimal(imp.negotiated, negV);
+			::__nts_decimal__(imp.negotiated, negV);
 			// Издания протокола
 			out << "    TLS Record Version     : " << recV << "  (" << ::__nts_hex16__(imp.record) << ")  =  " << ::__nts_tls_version_name__(imp.record) << endl;
 			// Печатаем согласуемое издание протокола
@@ -2773,17 +2794,17 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 		// Признаки встреченных кадров
 		bool settled = false, headed = false;
 		/**
-		 * Выполняем перебор кадров потока
+		 * Перебираем кадры потока
 		 */
 		while(((offset + 9) <= data.size) && !headed){
 			// Длина тела кадра
-			const size_t length = triad(data.data + offset);
+			const size_t length = ::__nts_triad__(data.data + offset);
 			// Вид кадра
 			const uint8_t type = data.data[offset + 3];
 			// Признаки кадра
 			const uint8_t flags = data.data[offset + 4];
 			// Опознаватель потока кадра
-			const uint32_t stream = (tetrad(data.data + offset + 5) & 0x7FFFFFFF);
+			const uint32_t stream = (::__nts_tetrad__(data.data + offset + 5) & 0x7FFFFFFF);
 			// Переходим к телу кадра
 			offset += 9;
 			// Если тело кадра в поток не входит
@@ -2801,15 +2822,15 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 					// Если кадр несёт настройки связи, а не подтверждение
 					if((stream == 0) && ((flags & 0x01) == 0)){
 						/**
-						 * Выполняем перебор настроек
+						 * Перебираем настройки
 						 */
 						for(size_t i = 0; (i + 6) <= length; i += 6){
 							// Настройка согласования
 							setting_t setting;
 							// Читаем опознаватель настройки
-							setting.id = twain(body + i);
+							setting.id = ::__nts_twain__(body + i);
 							// Читаем значение настройки
-							setting.value = tetrad(body + i + 2);
+							setting.value = ::__nts_tetrad__(body + i + 2);
 							// Добавляем настройку в перечень
 							result.settings.push_back(setting);
 						}
@@ -2822,7 +2843,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 					// Если кадр относится к связи
 					if((stream == 0) && (length >= 4))
 						// Читаем прибавку окна
-						result.window = (tetrad(body) & 0x7FFFFFFF);
+						result.window = (::__nts_tetrad__(body) & 0x7FFFFFFF);
 				} break;
 				// Кадр приоритета
 				case FRAME_PRIORITY: {
@@ -2835,7 +2856,7 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 						// Читаем признак исключительности
 						priority.exclusive = ((body[0] & 0x80) != 0);
 						// Читаем зависимость
-						priority.dependency = (tetrad(body) & 0x7FFFFFFF);
+						priority.dependency = (::__nts_tetrad__(body) & 0x7FFFFFFF);
 						// Читаем вес
 						priority.weight = body[4];
 						// Добавляем приоритет в перечень
@@ -2861,12 +2882,10 @@ nts::fingerprint::error_t nts::fingerprint::parse(const view_t & data, stream_t 
 					// Если блок заголовков есть
 					if(start < stop)
 						// Разбираем порядок псевдозаголовков
-						ordering(body + start, stop - start, result.pseudo);
+						::__nts_ordering__(body + start, stop - start, result.pseudo);
 					// Отмечаем, что заголовки встречены
 					headed = true;
 				} break;
-				// Прочие кадры пропускаются
-				default: break;
 			}
 			// Переходим за тело кадра
 			offset += length;
@@ -2903,7 +2922,7 @@ nts::fingerprint::error_t nts::fingerprint::akamai(const stream_t & stream, stri
 			// Выводим отказ пустого профиля
 			return error_t::EMPTY;
 		/**
-		 * Выполняем перебор настроек
+		 * Перебираем настройки
 		 */
 		for(size_t i = 0; i < stream.settings.size(); i++){
 			// Если настройка не первая
@@ -2911,20 +2930,20 @@ nts::fingerprint::error_t nts::fingerprint::akamai(const stream_t & stream, stri
 				// Дописываем разделитель
 				result.push_back(';');
 			// Дописываем опознаватель настройки
-			decimal(stream.settings[i].id, result);
+			::__nts_decimal__(stream.settings[i].id, result);
 			// Дописываем разделитель
 			result.push_back(':');
 			// Дописываем значение настройки
-			decimal(stream.settings[i].value, result);
+			::__nts_decimal__(stream.settings[i].value, result);
 		}
 		// Дописываем разделитель
 		result.push_back('|');
 		// Дописываем прибавку окна
-		decimal(stream.window, result);
+		::__nts_decimal__(stream.window, result);
 		// Дописываем разделитель
 		result.push_back('|');
 		/**
-		 * Выполняем перебор приоритетов
+		 * Перебираем приоритеты
 		 */
 		for(size_t i = 0; i < stream.priorities.size(); i++){
 			// Если приоритет не первый
@@ -2932,24 +2951,24 @@ nts::fingerprint::error_t nts::fingerprint::akamai(const stream_t & stream, stri
 				// Дописываем разделитель
 				result.push_back(',');
 			// Дописываем поток
-			decimal(stream.priorities[i].stream, result);
+			::__nts_decimal__(stream.priorities[i].stream, result);
 			// Дописываем разделитель
 			result.push_back(':');
 			// Дописываем признак исключительности
-			decimal(stream.priorities[i].exclusive ? 1 : 0, result);
+			::__nts_decimal__(stream.priorities[i].exclusive ? 1 : 0, result);
 			// Дописываем разделитель
 			result.push_back(':');
 			// Дописываем зависимость
-			decimal(stream.priorities[i].dependency, result);
+			::__nts_decimal__(stream.priorities[i].dependency, result);
 			// Дописываем разделитель
 			result.push_back(':');
 			// Дописываем настоящий вес
-			decimal(static_cast <uint32_t> (stream.priorities[i].weight) + 1, result);
+			::__nts_decimal__(static_cast <uint32_t> (stream.priorities[i].weight) + 1, result);
 		}
 		// Дописываем разделитель
 		result.push_back('|');
 		/**
-		 * Выполняем перебор букв псевдозаголовков
+		 * Перебираем буквы псевдозаголовков
 		 */
 		for(size_t i = 0; i < stream.pseudo.size(); i++){
 			// Если буква не первая
@@ -2991,11 +3010,12 @@ nts::fingerprint::error_t nts::fingerprint::dump(const profile_t & profile, vect
 			// Выводим отказ пустого профиля
 			return error_t::EMPTY;
 		// Если перечни профиля в ширины снимка не входят
-		if((profile.session.size() > FINGERPRINT_SESSION) || (profile.cookie.size() > 0xFF) || (profile.suites.size() > 0xFFFF) || (profile.methods.size() > 0xFF) || (profile.extensions.size() > 0xFFFF))
+		if((profile.session.size() > FINGERPRINT_SESSION) || (profile.cookie.size() > 0xFF) ||
+		   (profile.suites.size() > 0xFFFF) || (profile.methods.size() > 0xFF) || (profile.extensions.size() > 0xFFFF))
 			// Выводим отказ снимка
 			return error_t::FORMAT;
 		/**
-		 * Выполняем перебор расширений
+		 * Перебираем расширения
 		 */
 		for(size_t i = 0; i < profile.extensions.size(); i++){
 			// Если тело расширения в ширину снимка не входит
@@ -3014,9 +3034,9 @@ nts::fingerprint::error_t nts::fingerprint::dump(const profile_t & profile, vect
 		// Место длины профиля
 		const size_t place = result.size();
 		// Дописываем место под длину профиля
-		inscribe(0, 4, result);
+		::__nts_inscribe__(0, 4, result);
 		// Дописываем профиль
-		packing(profile, result);
+		::__nts_packing__(profile, result);
 		// Длина профиля
 		const size_t length = (result.size() - place - 4);
 		// Записываем длину профиля
@@ -3073,7 +3093,7 @@ nts::fingerprint::error_t nts::fingerprint::load(const view_t & data, profile_t 
 		// Смещение внутри снимка: за меткой, изданием, числом и опознавателем
 		size_t offset = (sizeof(STAMP) + 3);
 		// Длина профиля
-		const size_t length = tetrad(data.data + offset);
+		const size_t length = ::__nts_tetrad__(data.data + offset);
 		// Переходим к профилю
 		offset += 4;
 		// Если профиль в снимок не входит либо за ним идут лишние байты
@@ -3081,7 +3101,7 @@ nts::fingerprint::error_t nts::fingerprint::load(const view_t & data, profile_t 
 			// Выводим отказ снимка
 			return error_t::FORMAT;
 		// Отказ чтения профиля
-		const error_t failure = unpacking(data, offset, result);
+		const error_t failure = ::__nts_unpacking__(data, offset, result);
 		// Если профиль прочитать не удалось
 		if(failure != error_t::NONE){
 			// Сбрасываем профиль
@@ -3129,7 +3149,7 @@ nts::fingerprint::id_t nts::fingerprint::Store::add(const profile_t & profile) n
 		// Переносим профиль
 		entry.profile = profile;
 		/**
-		 * Выполняем перебор возможных опознавателей
+		 * Перебираем возможные опознаватели
 		 */
 		for(id_t id = 1; id != 0; id++){
 			// Если опознаватель свободен
@@ -3161,7 +3181,7 @@ nts::fingerprint::id_t nts::fingerprint::Store::add(const profile_t & profile) n
  */
 bool nts::fingerprint::Store::remove(const id_t id) noexcept {
 	/**
-	 * Выполняем перебор записей хранилища
+	 * Перебираем записи хранилища
 	 */
 	for(size_t i = 0; i < this->_entries.size(); i++){
 		// Если опознаватель совпал
@@ -3184,7 +3204,7 @@ bool nts::fingerprint::Store::remove(const id_t id) noexcept {
  */
 const nts::fingerprint::profile_t * nts::fingerprint::Store::get(const id_t id) const noexcept {
 	/**
-	 * Выполняем перебор записей хранилища
+	 * Перебираем записи хранилища
 	 */
 	for(size_t i = 0; i < this->_entries.size(); i++){
 		// Если опознаватель совпал
@@ -3210,7 +3230,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::list(vector <id_t> & result) 
 		// Сбрасываем перечень
 		result.clear();
 		/**
-		 * Выполняем перебор записей хранилища
+		 * Перебираем записи хранилища
 		 */
 		for(size_t i = 0; i < this->_entries.size(); i++)
 			// Добавляем опознаватель в перечень
@@ -3280,7 +3300,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::dump(vector <uint8_t> & resul
 		// Дописываем число профилей
 		result.push_back(static_cast <uint8_t> (this->_entries.size()));
 		/**
-		 * Выполняем перебор записей хранилища
+		 * Перебираем записи хранилища
 		 */
 		for(size_t i = 0; i < this->_entries.size(); i++){
 			// Снимок одного профиля
@@ -3342,7 +3362,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noe
 		// Читаемые записи
 		vector <entry_t> entries;
 		/**
-		 * Выполняем перебор профилей снимка
+		 * Перебираем профили снимка
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Если заголовок профиля в снимок не входит
@@ -3354,7 +3374,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noe
 			// Читаем опознаватель профиля
 			entry.id = data.data[offset];
 			// Длина профиля
-			const size_t length = tetrad(data.data + offset + 1);
+			const size_t length = ::__nts_tetrad__(data.data + offset + 1);
 			// Переходим к профилю
 			offset += 5;
 			// Если профиль в снимок не входит либо опознаватель нулевой
@@ -3364,7 +3384,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noe
 			// Конец профиля
 			const size_t stop = (offset + length);
 			// Отказ чтения профиля
-			const error_t failure = unpacking(data, offset, entry.profile);
+			const error_t failure = ::__nts_unpacking__(data, offset, entry.profile);
 			// Если профиль прочитать не удалось
 			if(failure != error_t::NONE)
 				// Выводим отказ чтения
@@ -3374,7 +3394,7 @@ nts::fingerprint::error_t nts::fingerprint::Store::load(const view_t & data) noe
 				// Выводим отказ снимка
 				return error_t::FORMAT;
 			/**
-			 * Выполняем перебор уже прочитанных записей
+			 * Перебираем уже прочитанные записи
 			 */
 			for(size_t j = 0; j < entries.size(); j++){
 				// Если опознаватель повторён
