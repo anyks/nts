@@ -564,7 +564,7 @@ namespace {
 	 * @return        отказ разбора числа
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_smallInteger__(const asn1::element_t & element, int64_t & result) noexcept {
+	static __NTS_INLINE__ error_t __nts_small_integer__(const asn1::element_t & element, int64_t & result) noexcept {
 		// Итог разбора целого числа
 		const asn1::error_t outcome = asn1::integer(element, result);
 		// Выводим переведённый отказ разбора, если он есть
@@ -668,7 +668,7 @@ namespace {
 	 * @return          отказ разбора опознавателя алгоритма
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_algorithmIdentifier__(asn1::reader_t & reader, string & algorithm, asn1::element_t & params, bool & present) noexcept {
+	static __NTS_INLINE__ error_t __nts_algorithm_identifier__(asn1::reader_t & reader, string & algorithm, asn1::element_t & params, bool & present) noexcept {
 		// Сбрасываем признак наличия настроек
 		present = false;
 		// Набор алгоритма
@@ -716,7 +716,7 @@ namespace {
 	 * @return       отказ разбора настроек
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_gostParameters__(const asn1::element_t & params, key_t & key) noexcept {
+	static __NTS_INLINE__ error_t __nts_gost_parameters__(const asn1::element_t & params, key_t & key) noexcept {
 		// Если настройки записаны не набором
 		if(!::__nts_tagged__(params, asn1::cls_t::UNIVERSAL, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), true))
 			// Выводим отказ алгоритма
@@ -763,7 +763,7 @@ namespace {
 	 * @return       отказ записи набора алгоритма
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_algorithmIdentifier__(asn1::writer_t & writer, const key_t & key) noexcept {
+	static __NTS_INLINE__ error_t __nts_algorithm_identifier__(asn1::writer_t & writer, const key_t & key) noexcept {
 		// Открываем набор алгоритма
 		writer.open(asn1::tag_t::SEQUENCE);
 		/**
@@ -837,7 +837,7 @@ namespace {
 	 * @return      отказ установки кривой
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_curveOf__(const key_t & key, curve::curve_t & curve) noexcept {
+	static __NTS_INLINE__ error_t __nts_curve_of__(const key_t & key, curve::curve_t & curve) noexcept {
 		// Если кривую по опознавателю установить не удалось
 		if(key.oid.empty() || !curve::parameters(key.oid, curve))
 			// Выводим отказ кривой
@@ -855,7 +855,7 @@ namespace {
 	 * @return      отказ разбора точки
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_pointOf__(const view_t & data, const curve::curve_t & curve, vector <uint8_t> & x, vector <uint8_t> & y) noexcept {
+	static __NTS_INLINE__ error_t __nts_point_of__(const view_t & data, const curve::curve_t & curve, vector <uint8_t> & x, vector <uint8_t> & y) noexcept {
 		// Размер координаты точки кривой
 		const size_t size = curve.size();
 		// Если запись точки не несёт признака несжатой записи и двух координат
@@ -938,7 +938,7 @@ namespace {
 	 * @return    отказ проверки ключа
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_checkRSA__(const key_t & key) noexcept {
+	static __NTS_INLINE__ error_t __nts_check_rsa__(const key_t & key) noexcept {
 		// Примитив RSA, которым проверяется ключ
 		sign::rsa_t rsa;
 		// Если ключ примитивом не принят
@@ -966,7 +966,7 @@ namespace {
 			// Если выводится ключ RSA
 			case static_cast <uint8_t> (kind_t::RSA):
 				// Выводим итог проверки согласованности составляющих
-				return ::__nts_checkRSA__(key);
+				return ::__nts_check_rsa__(key);
 			// Если выводится ключ EC либо ГОСТ
 			case static_cast <uint8_t> (kind_t::EC):
 			case static_cast <uint8_t> (kind_t::GOST): {
@@ -1174,7 +1174,7 @@ namespace {
 	 * @return      отказ разбора набора
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_rsaIntegers__(const view_t & der, const size_t count, vector <uint8_t> ** items) noexcept {
+	static __NTS_INLINE__ error_t __nts_rsa_integers__(const view_t & der, const size_t count, vector <uint8_t> ** items) noexcept {
 		// Набор верхней записи
 		asn1::element_t sequence;
 		// Итог разбора верхней записи
@@ -1200,7 +1200,7 @@ namespace {
 				// Издание записи
 				int64_t version = -1;
 				// Итог разбора издания записи
-				outcome = ::__nts_smallInteger__(field, version);
+				outcome = ::__nts_small_integer__(field, version);
 				// Если издание записи разобрать не удалось
 				if(outcome != error_t::NONE)
 					// Выводим отказ разбора
@@ -1234,11 +1234,11 @@ namespace {
 	 * @return    отказ разбора записи
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_rsaPublic__(const view_t & der, key_t & key) noexcept {
+	static __NTS_INLINE__ error_t __nts_rsa_public__(const view_t & der, key_t & key) noexcept {
 		// Места составляющих открытого ключа
 		vector <uint8_t> * items[] = {&key.n, &key.e};
 		// Итог разбора набора целых чисел
-		const error_t outcome = ::__nts_rsaIntegers__(der, 2, items);
+		const error_t outcome = ::__nts_rsa_integers__(der, 2, items);
 		// Если набор разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
@@ -1246,7 +1246,7 @@ namespace {
 		// Устанавливаем вид ключа
 		key.kind = kind_t::RSA;
 		// Выводим итог проверки согласованности составляющих
-		return ::__nts_checkRSA__(key);
+		return ::__nts_check_rsa__(key);
 	}
 	/**
 	 * @brief Функция разбора записи RSAPrivateKey
@@ -1256,11 +1256,11 @@ namespace {
 	 * @return    отказ разбора записи
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_rsaSecret__(const view_t & der, key_t & key) noexcept {
+	static __NTS_INLINE__ error_t __nts_rsa_secret__(const view_t & der, key_t & key) noexcept {
 		// Места составляющих секретного ключа: издание записи места не имеет
 		vector <uint8_t> * items[] = {nullptr, &key.n, &key.e, &key.d, &key.p, &key.q, &key.dP, &key.dQ, &key.qInv};
 		// Итог разбора набора целых чисел
-		const error_t outcome = ::__nts_rsaIntegers__(der, 9, items);
+		const error_t outcome = ::__nts_rsa_integers__(der, 9, items);
 		// Если набор разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
@@ -1268,7 +1268,7 @@ namespace {
 		// Устанавливаем вид ключа
 		key.kind = kind_t::RSA;
 		// Выводим итог проверки согласованности составляющих
-		return ::__nts_checkRSA__(key);
+		return ::__nts_check_rsa__(key);
 	}
 	/**
 	 * @brief Функция записи набора целых чисел RSA
@@ -1279,7 +1279,7 @@ namespace {
 	 * @return       отказ записи набора
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_rsaIntegers__(const key_t & key, const bool secret, asn1::writer_t & writer) noexcept {
+	static __NTS_INLINE__ error_t __nts_rsa_integers__(const key_t & key, const bool secret, asn1::writer_t & writer) noexcept {
 		// Если ключ не RSA либо не несёт нужной части
 		if((key.kind != kind_t::RSA) || key.n.empty() || key.e.empty() || (secret && !key.secret()))
 			// Выводим отказ пустого ключа
@@ -1319,7 +1319,7 @@ namespace {
 	 * @return        отказ разбора записи
 	 *
 	 */
-	static error_t __nts_ecSecret__(const view_t & der, const bool wrapped, key_t & key) noexcept {
+	static error_t __nts_ec_secret__(const view_t & der, const bool wrapped, key_t & key) noexcept {
 		// Набор верхней записи
 		asn1::element_t sequence;
 		// Итог разбора верхней записи
@@ -1339,7 +1339,7 @@ namespace {
 		// Издание записи
 		int64_t version = -1;
 		// Итог разбора издания записи
-		outcome = ::__nts_smallInteger__(element, version);
+		outcome = ::__nts_small_integer__(element, version);
 		// Если издание записи разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
@@ -1415,7 +1415,7 @@ namespace {
 				// Кривая ключа
 				curve::curve_t curve;
 				// Итог установки кривой
-				outcome = ::__nts_curveOf__(key, curve);
+				outcome = ::__nts_curve_of__(key, curve);
 				// Если кривую установить не удалось
 				if(outcome != error_t::NONE)
 					// Выводим отказ установки
@@ -1441,7 +1441,7 @@ namespace {
 					// Выводим отказ разбора
 					return ((parsed == asn1::error_t::NONE) ? error_t::STRUCTURE : ::__nts_translate__(parsed));
 				// Итог разбора точки открытого ключа
-				outcome = ::__nts_pointOf__(bytes, curve, key.x, key.y);
+				outcome = ::__nts_point_of__(bytes, curve, key.x, key.y);
 				// Если точку открытого ключа разобрать не удалось
 				if(outcome != error_t::NONE)
 					// Выводим отказ разбора
@@ -1473,7 +1473,7 @@ namespace {
 	 * @return       отказ записи
 	 *
 	 */
-	static error_t __nts_ecSecret__(const key_t & key, const bool named, asn1::writer_t & writer) noexcept {
+	static error_t __nts_ec_secret__(const key_t & key, const bool named, asn1::writer_t & writer) noexcept {
 		// Если ключ не EC либо не несёт нужной части
 		if((key.kind != kind_t::EC) || !key.secret() || key.x.empty() || key.y.empty())
 			// Выводим отказ пустого ключа
@@ -1481,7 +1481,7 @@ namespace {
 		// Кривая ключа
 		curve::curve_t curve;
 		// Итог установки кривой
-		const error_t outcome = ::__nts_curveOf__(key, curve);
+		const error_t outcome = ::__nts_curve_of__(key, curve);
 		// Если кривую установить не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ установки
@@ -1554,7 +1554,7 @@ namespace {
 	 * @return     отказ разбора записи
 	 *
 	 */
-	static __NTS_INLINE__ error_t __nts_seedSecret__(const view_t & der, const kind_t kind, key_t & key) noexcept {
+	static __NTS_INLINE__ error_t __nts_seed_secret__(const view_t & der, const kind_t kind, key_t & key) noexcept {
 		// Если запись не передана
 		if((der.data == nullptr) || (der.size == 0))
 			// Выводим отказ устройства записи
@@ -1598,7 +1598,7 @@ namespace {
 	 * @return          отказ разбора записи
 	 *
 	 */
-	static error_t __nts_mldsaSecret__(const view_t & der, const string & algorithm, key_t & key) noexcept {
+	static error_t __nts_mldsa_secret__(const view_t & der, const string & algorithm, key_t & key) noexcept {
 		// Если запись не передана
 		if((der.data == nullptr) || (der.size == 0))
 			// Выводим отказ устройства записи
@@ -1747,7 +1747,7 @@ namespace {
 	 * @return    отказ разбора записи
 	 *
 	 */
-	static error_t __nts_gostSecret__(const view_t & der, key_t & key) noexcept {
+	static error_t __nts_gost_secret__(const view_t & der, key_t & key) noexcept {
 		// Если запись не передана
 		if((der.data == nullptr) || (der.size == 0))
 			// Выводим отказ устройства записи
@@ -1855,7 +1855,7 @@ namespace {
 		// Кривая ключа
 		curve::curve_t curve;
 		// Итог установки кривой
-		const error_t outcome = ::__nts_curveOf__(key, curve);
+		const error_t outcome = ::__nts_curve_of__(key, curve);
 		// Если кривую установить не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ установки
@@ -1953,7 +1953,7 @@ namespace {
 	 * @return       отказ записи
 	 *
 	 */
-	static error_t __nts_secretBody__(const key_t & key, asn1::writer_t & writer) noexcept {
+	static error_t __nts_secret_body__(const key_t & key, asn1::writer_t & writer) noexcept {
 		// Если секретной части нет
 		if(!key.secret())
 			// Выводим отказ пустого ключа
@@ -1965,11 +1965,11 @@ namespace {
 			// Если записывается ключ RSA
 			case static_cast <uint8_t> (kind_t::RSA):
 				// Выводим итог записи RSAPrivateKey
-				return ::__nts_rsaIntegers__(key, true, writer);
+				return ::__nts_rsa_integers__(key, true, writer);
 			// Если записывается ключ EC
 			case static_cast <uint8_t> (kind_t::EC):
 				// Выводим итог записи ECPrivateKey без повторения кривой
-				return ::__nts_ecSecret__(key, false, writer);
+				return ::__nts_ec_secret__(key, false, writer);
 			// Если записывается ключ Ed25519 либо X25519
 			case static_cast <uint8_t> (kind_t::ED25519):
 			case static_cast <uint8_t> (kind_t::X25519): {
@@ -2027,7 +2027,7 @@ namespace {
 				// Кривая ключа
 				curve::curve_t curve;
 				// Итог установки кривой
-				const error_t outcome = ::__nts_curveOf__(key, curve);
+				const error_t outcome = ::__nts_curve_of__(key, curve);
 				// Если кривую установить не удалось
 				if(outcome != error_t::NONE)
 					// Выводим отказ установки
@@ -2092,7 +2092,7 @@ namespace {
 		// Признак наличия настроек алгоритма
 		bool present = false;
 		// Итог разбора алгоритма выработки ключа
-		error_t outcome = ::__nts_algorithmIdentifier__(items, algorithm, element, present);
+		error_t outcome = ::__nts_algorithm_identifier__(items, algorithm, element, present);
 		// Если алгоритм выработки ключа разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
@@ -2120,7 +2120,7 @@ namespace {
 		// Число оборотов из записи
 		int64_t count = 0;
 		// Итог разбора числа оборотов
-		outcome = ::__nts_smallInteger__(element, count);
+		outcome = ::__nts_small_integer__(element, count);
 		// Если число оборотов разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
@@ -2146,7 +2146,7 @@ namespace {
 			// Если настройка есть длина ключа
 			if(::__nts_tagged__(element, asn1::cls_t::UNIVERSAL, static_cast <uint32_t> (asn1::tag_t::INTEGER), false)){
 				// Итог разбора длины ключа
-				outcome = ::__nts_smallInteger__(element, length);
+				outcome = ::__nts_small_integer__(element, length);
 				// Если длину ключа разобрать не удалось
 				if(outcome != error_t::NONE)
 					// Выводим отказ разбора
@@ -2211,7 +2211,7 @@ namespace {
 				return error_t::CIPHER;
 		}
 		// Итог разбора шифра
-		outcome = ::__nts_algorithmIdentifier__(items, algorithm, element, present);
+		outcome = ::__nts_algorithm_identifier__(items, algorithm, element, present);
 		// Если шифр разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
@@ -2489,7 +2489,7 @@ namespace {
 	 * @return    алгоритм хеша, NONE у неизвестной имитовставки
 	 *
 	 */
-	static __NTS_INLINE__ digest::hash_t __nts_hmacOf__(const string & oid) noexcept {
+	static __NTS_INLINE__ digest::hash_t __nts_hmac_of__(const string & oid) noexcept {
 		// Если опознаватель - HMAC-SHA1 либо сам SHA-1 DigestInfo
 		if((oid.compare(OID_HMAC_SHA1) == 0) || (oid.compare(OID_DIGEST_SHA1) == 0))
 			// Выводим алгоритм SHA-1
@@ -2894,7 +2894,7 @@ bool nts::keys::Key::load(sign::ecdsa_t & ecdsa, curve::curve_t & curve) const n
 	// Сброс примитива
 	ecdsa.clear();
 	// Если ключ не EC либо кривую по опознавателю установить не удалось
-	if((this->kind != kind_t::EC) || (::__nts_curveOf__(* this, curve) != error_t::NONE))
+	if((this->kind != kind_t::EC) || (::__nts_curve_of__(* this, curve) != error_t::NONE))
 		// Выводим отказ установки
 		return false;
 	// Если кривую в примитив установить не удалось
@@ -2921,7 +2921,7 @@ bool nts::keys::Key::load(sign::sm2_t & sm2Sign, curve::curve_t & curve, const v
 	// Сброс примитива
 	sm2Sign.clear();
 	// Если ключ не SM2 либо кривую по опознавателю установить не удалось
-	if((this->kind != kind_t::SM2) || (::__nts_curveOf__(* this, curve) != error_t::NONE))
+	if((this->kind != kind_t::SM2) || (::__nts_curve_of__(* this, curve) != error_t::NONE))
 		// Выводим отказ установки
 		return false;
 	// Если кривую в примитив установить не удалось
@@ -2989,7 +2989,7 @@ bool nts::keys::Key::load(sign::gost_t & gost, curve::curve_t & curve) const noe
 	// Сброс примитива
 	gost.clear();
 	// Если ключ не ГОСТ либо кривую по опознавателю установить не удалось
-	if((this->kind != kind_t::GOST) || (::__nts_curveOf__(* this, curve) != error_t::NONE))
+	if((this->kind != kind_t::GOST) || (::__nts_curve_of__(* this, curve) != error_t::NONE))
 		// Выводим отказ установки
 		return false;
 	// Если кривую в примитив установить не удалось
@@ -3483,7 +3483,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 	// Настройки алгоритма ключа
 	asn1::element_t params;
 	// Итог разбора алгоритма ключа
-	outcome = ::__nts_algorithmIdentifier__(fields, algorithm, params, present);
+	outcome = ::__nts_algorithm_identifier__(fields, algorithm, params, present);
 	// Если алгоритм ключа разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -3519,13 +3519,13 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 			// Выводим отказ алгоритма
 			return error_t::ALGORITHM;
 		// Разбор RSAPublicKey
-		outcome = ::__nts_rsaPublic__(bytes, key);
+		outcome = ::__nts_rsa_public__(bytes, key);
 	// Если ключ id-RSASSA-PSS
 	} else if(algorithm.compare(OID_RSAPSS) == 0) {
 		/**
 		 * Настройки RSASSA-PSS по разделу 3.1 RFC 4055 вольны отсутствовать: разбору ключа они не мешают
 		 */
-		outcome = ::__nts_rsaPublic__(bytes, key);
+		outcome = ::__nts_rsa_public__(bytes, key);
 	// Если ключ EC
 	} else if(algorithm.compare(OID_EC) == 0) {
 		// Если кривая не именованная: раздел 2.1.1 RFC 5480
@@ -3541,7 +3541,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		// Кривая ключа
 		curve::curve_t curve;
 		// Итог установки кривой
-		outcome = ::__nts_curveOf__(key, curve);
+		outcome = ::__nts_curve_of__(key, curve);
 		// Если кривую установить не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ установки
@@ -3549,7 +3549,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		// Устанавливаем вид ключа: ключ на кривой curveSM2 есть ключ SM2, прочие EC - ECDSA
 		key.kind = ((key.oid.compare(OID_SM2) == 0) ? kind_t::SM2 : kind_t::EC);
 		// Разбор несжатой точки
-		outcome = ::__nts_pointOf__(bytes, curve, key.x, key.y);
+		outcome = ::__nts_point_of__(bytes, curve, key.x, key.y);
 	// Если ключ SM2
 	} else if(algorithm.compare(OID_SM2) == 0) {
 		// Если настройки записаны: GB/T 32918 их не несёт, кривая curveSM2 подразумевается
@@ -3561,7 +3561,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		// Кривая ключа
 		curve::curve_t curve;
 		// Итог установки кривой
-		outcome = ::__nts_curveOf__(key, curve);
+		outcome = ::__nts_curve_of__(key, curve);
 		// Если кривую установить не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ установки
@@ -3569,7 +3569,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		// Устанавливаем вид ключа
 		key.kind = kind_t::SM2;
 		// Разбор несжатой точки
-		outcome = ::__nts_pointOf__(bytes, curve, key.x, key.y);
+		outcome = ::__nts_point_of__(bytes, curve, key.x, key.y);
 	// Если ключ Ed25519 либо X25519
 	} else if((algorithm.compare(OID_ED25519) == 0) || (algorithm.compare(OID_X25519) == 0)) {
 		// Если настройки записаны: раздел 3 RFC 8410 их запрещает
@@ -3629,7 +3629,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		// Устанавливаем опознаватель алгоритма: обмен памяти не выделяет
 		key.algorithm.swap(algorithm);
 		// Итог разбора настроек ключа
-		outcome = ::__nts_gostParameters__(params, key);
+		outcome = ::__nts_gost_parameters__(params, key);
 		// Если настройки ключа разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
@@ -3669,7 +3669,7 @@ nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vect
 		// Если записывается ключ RSA
 		case static_cast <uint8_t> (kind_t::RSA):
 			// Собираем RSAPublicKey
-			outcome = ::__nts_rsaIntegers__(key, false, body);
+			outcome = ::__nts_rsa_integers__(key, false, body);
 		break;
 		// Если записывается ключ EC
 		case static_cast <uint8_t> (kind_t::EC): {
@@ -3752,7 +3752,7 @@ nts::keys::error_t nts::keys::encodeSubjectPublicKeyInfo(const key_t & key, vect
 	// Открываем набор записи
 	writer.open(asn1::tag_t::SEQUENCE);
 	// Итог записи набора алгоритма
-	outcome = ::__nts_algorithmIdentifier__(writer, key);
+	outcome = ::__nts_algorithm_identifier__(writer, key);
 	// Если набор алгоритма записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
@@ -3796,7 +3796,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 	// Издание записи
 	int64_t version = -1;
 	// Итог разбора издания записи
-	outcome = ::__nts_smallInteger__(element, version);
+	outcome = ::__nts_small_integer__(element, version);
 	// Если издание записи разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -3814,7 +3814,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 	// Признак наличия настроек алгоритма
 	bool present = false;
 	// Итог разбора алгоритма ключа
-	outcome = ::__nts_algorithmIdentifier__(fields, algorithm, params, present);
+	outcome = ::__nts_algorithm_identifier__(fields, algorithm, params, present);
 	// Если алгоритм ключа разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -3881,13 +3881,13 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			// Выводим отказ алгоритма
 			return error_t::ALGORITHM;
 		// Разбор RSAPrivateKey
-		outcome = ::__nts_rsaSecret__(body, key);
+		outcome = ::__nts_rsa_secret__(body, key);
 	// Если ключ id-RSASSA-PSS
 	} else if(algorithm.compare(OID_RSAPSS) == 0) {
 		/**
 		 * Настройки RSASSA-PSS по разделу 3.1 RFC 4055 вольны отсутствовать: разбору ключа они не мешают
 		 */
-		outcome = ::__nts_rsaSecret__(body, key);
+		outcome = ::__nts_rsa_secret__(body, key);
 	// Если ключ EC
 	} else if(algorithm.compare(OID_EC) == 0) {
 		// Если кривая не именованная
@@ -3901,7 +3901,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			// Выводим отказ разбора
 			return outcome;
 		// Разбор ECPrivateKey внутри обёртки
-		outcome = ::__nts_ecSecret__(body, true, key);
+		outcome = ::__nts_ec_secret__(body, true, key);
 		// Если ключ разобран, а кривая его - curveSM2: вид ключа есть SM2, а не ECDSA
 		if((outcome == error_t::NONE) && (key.oid.compare(OID_SM2) == 0))
 			// Устанавливаем вид ключа
@@ -3911,13 +3911,13 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			// Кривая ключа
 			curve::curve_t curve;
 			// Итог установки кривой
-			outcome = ::__nts_curveOf__(key, curve);
+			outcome = ::__nts_curve_of__(key, curve);
 			// Записанные координаты открытого ключа
 			vector <uint8_t> x, y;
 			// Если кривая установлена
 			if(outcome == error_t::NONE)
 				// Разбор несжатой точки
-				outcome = ::__nts_pointOf__(opened, curve, x, y);
+				outcome = ::__nts_point_of__(opened, curve, x, y);
 			// Если точка разобрана, а с выведенной не сошлась
 			if((outcome == error_t::NONE) && (!::__nts_same__(x, key.x) || !::__nts_same__(y, key.y)))
 				// Устанавливаем отказ негодного значения
@@ -3932,7 +3932,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		// Запоминаем опознаватель кривой curveSM2
 		key.oid = OID_SM2;
 		// Разбор ECPrivateKey внутри обёртки
-		outcome = ::__nts_ecSecret__(body, true, key);
+		outcome = ::__nts_ec_secret__(body, true, key);
 		// Если ключ разобран, вид его - SM2
 		if(outcome == error_t::NONE)
 			// Устанавливаем вид ключа
@@ -3942,13 +3942,13 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			// Кривая ключа
 			curve::curve_t curve;
 			// Итог установки кривой
-			outcome = ::__nts_curveOf__(key, curve);
+			outcome = ::__nts_curve_of__(key, curve);
 			// Записанные координаты открытого ключа
 			vector <uint8_t> x, y;
 			// Если кривая установлена
 			if(outcome == error_t::NONE)
 				// Разбор несжатой точки
-				outcome = ::__nts_pointOf__(opened, curve, x, y);
+				outcome = ::__nts_point_of__(opened, curve, x, y);
 			// Если точка разобрана, а с выведенной не сошлась
 			if((outcome == error_t::NONE) && (!::__nts_same__(x, key.x) || !::__nts_same__(y, key.y)))
 				// Устанавливаем отказ негодного значения
@@ -3968,7 +3968,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 				return error_t::MEMORY;
 		}
 		// Разбор зерна
-		outcome = ::__nts_seedSecret__(body, ((algorithm.compare(OID_ED25519) == 0) ? kind_t::ED25519 : kind_t::X25519), key);
+		outcome = ::__nts_seed_secret__(body, ((algorithm.compare(OID_ED25519) == 0) ? kind_t::ED25519 : kind_t::X25519), key);
 	// Если ключ Ed448
 	} else if(algorithm.compare(OID_ED448) == 0) {
 		// Если настройки записаны: раздел 3 RFC 8410 их запрещает
@@ -4015,7 +4015,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		// Устанавливаем опознаватель алгоритма: обмен памяти не выделяет
 		key.algorithm.swap(algorithm);
 		// Разбор секретного ключа
-		outcome = ::__nts_mldsaSecret__(body, key.algorithm, key);
+		outcome = ::__nts_mldsa_secret__(body, key.algorithm, key);
 		// Если ключ разобран, а обёртка несёт открытый ключ, а с выведенным не сошёлся
 		if((outcome == error_t::NONE) && (opened.data != nullptr) &&
 		  ((opened.size != key.key.size()) || (::memcmp(opened.data, key.key.data(), key.key.size()) != 0)))
@@ -4030,13 +4030,13 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 		// Устанавливаем опознаватель алгоритма: обмен памяти не выделяет
 		key.algorithm.swap(algorithm);
 		// Итог разбора настроек ключа
-		outcome = ::__nts_gostParameters__(params, key);
+		outcome = ::__nts_gost_parameters__(params, key);
 		// Если настройки ключа разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
 		// Разбор секретного ключа
-		outcome = ::__nts_gostSecret__(body, key);
+		outcome = ::__nts_gost_secret__(body, key);
 		// Если ключ разобран, а опознаватель алгоритма с кривой не согласован
 		if((outcome == error_t::NONE) && !::__nts_gost_algorithm__(key))
 			// Устанавливаем отказ алгоритма
@@ -4068,7 +4068,7 @@ nts::keys::error_t nts::keys::encodePrivateKeyInfo(const key_t & key, vector <ui
 	// Записчик тела секретного ключа
 	asn1::writer_t body;
 	// Итог сборки тела секретного ключа
-	error_t outcome = ::__nts_secretBody__(key, body);
+	error_t outcome = ::__nts_secret_body__(key, body);
 	// Если тело секретного ключа собрать не удалось
 	if(outcome != error_t::NONE){
 		// Затирание буфера записчика
@@ -4083,7 +4083,7 @@ nts::keys::error_t nts::keys::encodePrivateKeyInfo(const key_t & key, vector <ui
 	// Записываем издание записи: открытого ключа обёртка не несёт
 	writer.integer(0);
 	// Итог записи набора алгоритма
-	outcome = ::__nts_algorithmIdentifier__(writer, key);
+	outcome = ::__nts_algorithm_identifier__(writer, key);
 	// Если набор алгоритма записать не удалось
 	if(outcome != error_t::NONE){
 		// Затирание буфера записчика
@@ -4118,7 +4118,7 @@ nts::keys::error_t nts::keys::decodeECPrivateKey(const view_t & der, key_t & res
 	// Разбираемый ключ
 	key_t key;
 	// Итог разбора ECPrivateKey с кривой внутри
-	const error_t outcome = ::__nts_ecSecret__(der, false, key);
+	const error_t outcome = ::__nts_ec_secret__(der, false, key);
 	// Если ключ разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -4140,7 +4140,7 @@ nts::keys::error_t nts::keys::encodeECPrivateKey(const key_t & key, vector <uint
 	// Записчик записи
 	asn1::writer_t writer;
 	// Итог сборки ECPrivateKey с кривой внутри
-	error_t outcome = ::__nts_ecSecret__(key, true, writer);
+	error_t outcome = ::__nts_ec_secret__(key, true, writer);
 	// Если запись собрана
 	if(outcome == error_t::NONE)
 		// Завершение записи
@@ -4164,7 +4164,7 @@ nts::keys::error_t nts::keys::decodeRSAPrivateKey(const view_t & der, key_t & re
 	// Разбираемый ключ
 	key_t key;
 	// Итог разбора RSAPrivateKey
-	const error_t outcome = ::__nts_rsaSecret__(der, key);
+	const error_t outcome = ::__nts_rsa_secret__(der, key);
 	// Если ключ разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -4186,7 +4186,7 @@ nts::keys::error_t nts::keys::encodeRSAPrivateKey(const key_t & key, vector <uin
 	// Записчик записи
 	asn1::writer_t writer;
 	// Итог сборки RSAPrivateKey
-	error_t outcome = ::__nts_rsaIntegers__(key, true, writer);
+	error_t outcome = ::__nts_rsa_integers__(key, true, writer);
 	// Если запись собрана
 	if(outcome == error_t::NONE)
 		// Завершение записи
@@ -4210,7 +4210,7 @@ nts::keys::error_t nts::keys::decodeRSAPublicKey(const view_t & der, key_t & res
 	// Разбираемый ключ
 	key_t key;
 	// Итог разбора RSAPublicKey
-	const error_t outcome = ::__nts_rsaPublic__(der, key);
+	const error_t outcome = ::__nts_rsa_public__(der, key);
 	// Если ключ разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -4232,7 +4232,7 @@ nts::keys::error_t nts::keys::encodeRSAPublicKey(const key_t & key, vector <uint
 	// Записчик записи
 	asn1::writer_t writer;
 	// Итог сборки RSAPublicKey
-	const error_t outcome = ::__nts_rsaIntegers__(key, false, writer);
+	const error_t outcome = ::__nts_rsa_integers__(key, false, writer);
 	// Если запись собрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ сборки
@@ -4269,7 +4269,7 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 	// Признак наличия настроек схемы
 	bool present = false;
 	// Итог разбора схемы защиты
-	outcome = ::__nts_algorithmIdentifier__(fields, algorithm, params, present);
+	outcome = ::__nts_algorithm_identifier__(fields, algorithm, params, present);
 	// Если схему защиты разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -4415,7 +4415,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 	// Издание записи
 	int64_t version = -1;
 	// Итог разбора издания записи
-	outcome = ::__nts_smallInteger__(element, version);
+	outcome = ::__nts_small_integer__(element, version);
 	// Если издание записи разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -4507,7 +4507,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			// Выводим отказ разбора
 			return outcome;
 		// Устанавливаем алгоритм хеша имитовставки
-		macHash = ::__nts_hmacOf__(algorithm);
+		macHash = ::__nts_hmac_of__(algorithm);
 		// Если алгоритм хеша неизвестен
 		if(macHash == digest::hash_t::NONE)
 			// Выводим отказ схемы
@@ -4533,7 +4533,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			// Число оборотов из записи
 			int64_t count = 0;
 			// Итог разбора числа оборотов
-			outcome = ::__nts_smallInteger__(element, count);
+			outcome = ::__nts_small_integer__(element, count);
 			// Если число оборотов разобрать не удалось
 			if(outcome != error_t::NONE)
 				// Выводим отказ разбора
@@ -4754,7 +4754,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			// Признак наличия настроек схемы
 			bool present = false;
 			// Итог разбора схемы защиты
-			outcome = ::__nts_algorithmIdentifier__(info, scheme, params, present);
+			outcome = ::__nts_algorithm_identifier__(info, scheme, params, present);
 			// Если схему защиты разобрать не удалось
 			if(outcome != error_t::NONE){
 				// Затирание строки пароля
