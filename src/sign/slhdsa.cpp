@@ -1088,7 +1088,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static __ANTS_INLINE__ void __ants_fors_node__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, const uint32_t node, const uint32_t height, uint8_t * out) noexcept {
+	static void __ants_fors_node__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, const uint32_t node, const uint32_t height, uint8_t * out) noexcept {
 		// Лист дерева: значение выжимается из секретного значения
 		if(height == 0){
 			// Секретное значение листа
@@ -1105,10 +1105,10 @@ namespace {
 			sys::wipe(sk, sizeof(sk));
 		// Узел выше листа: значение выжимается из пары детей
 		} else {
-			// Значения детей узла
-			uint8_t left[MAX_N], right[MAX_N];
 			// Адрес детей узла
 			adrs_t children;
+			// Значения детей узла
+			uint8_t left[MAX_N], right[MAX_N];
 			// Копируем исходный адрес
 			::__ants_copy_adrs__(children, adrs);
 			// Вычисляем значение левого ребёнка
@@ -1346,7 +1346,7 @@ namespace {
 			// Подписываем значение деревом слоя
 			out = ::__ants_xmss_sign__(setup, root, skSeed, leaf, pkSeed, adrs, out);
 			// Корень следующего слоя - открытый ключ только что подписанного дерева
-			if(layer < (setup.hypertrees - 1)){
+			if(layer < (static_cast <uint32_t> (setup.hypertrees) - 1)){
 				// Восстанавливаем корень подписанного дерева
 				std::ignore = ::__ants_xmss_pk_from_sig__(setup, layerSig, leaf, root, pkSeed, adrs, root);
 				// Пара следующего слоя из дерева
