@@ -112,7 +112,262 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
+	/**
+	 * Пространство имён модуля
+	 */
+	using namespace nts::protect;
 
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
+
+	/**
+	 * Создаём тип данных отказа модуля
+	 */
+	using error_t = protect::error_t;
+
+	/**
+	 * Длина блока AES и явного вектора замены наборов CBC: раздел 6.2.3.2 RFC 5246
+	 */
+	static constexpr size_t CBC_BLOCK = 16;
+	/**
+	 * Длина дополнения хешей с полем длины сообщения: FIPS 180-4
+	 */
+	static constexpr size_t CBC_TRAILER = 9;
+	/**
+	 * Длина соли одноразового значения наборов AES-GCM издания TLS 1.2: раздел 3 RFC 5288
+	 */
+	static constexpr size_t LEGACY_SALT = 4;
+	/**
+	 * Длина метки целостности наборов AES-GCM и ChaCha20-Poly1305
+	 */
+	static constexpr size_t CLASSIC_TAG = 16;
+	/**
+	 * Наибольшая длина дополнения записи CBC вместе с байтом длины: раздел 6.2.3.2 RFC 5246
+	 */
+	static constexpr size_t CBC_PADDING = 256;
+	/**
+	 * Длина явной части одноразового значения наборов AES-GCM издания TLS 1.2: раздел 3 RFC 5288
+	 */
+	static constexpr size_t LEGACY_EXPLICIT = 8;
+	/**
+	 * Длина вектора замены наборов AES-GCM по разделу 5.3 RFC 8446
+	 */
+	static constexpr size_t CLASSIC_VECTOR = 12;
+	/**
+	 * Длина блока сжатия хешей имитовставки SHA-1 и SHA-256: FIPS 180-4
+	 */
+	static constexpr size_t CBC_COMPRESSION = 64;
+	/**
+	 * Длина связанных данных записи издания TLS 1.2: порядковый номер, вид содержимого,
+	 * издание протокола и длина открытого содержимого (раздел 6.2.3.3 RFC 5246)
+	 */
+	static constexpr size_t LEGACY_ASSOCIATED = 13;
+	/**
+	 * Предел записей на одном ключе AES-GCM: около 2^24,5 по разделу 5.5 RFC 8446
+	 */
+	static constexpr uint64_t CLASSIC_LIMIT = 23726566ULL;
+	/**
+	 * Разряды порядкового номера записи поверх дейтаграмм: раздел 4.1 RFC 6347 отводит
+	 * номеру сорок восемь разрядов, а старшие шестнадцать несут пору ключей
+	 */
+	static constexpr uint64_t LEGACY_ORDINAL = 0xFFFFFFFFFFFFULL;
+	/**
+	 * Предел записей на одном ключе ChaCha20-Poly1305: 2^62, раздел 5.5 RFC 8446 предела
+	 * не ставит, а недостижимый предел держит заслон номеров живым вдали от переполнения
+	 */
+	static constexpr uint64_t STREAM_LIMIT = 0x3FFFFFFFFFFFFFFFULL;
+	/**
+	 * Метки ярусов построения TLSTREE
+	 */
+	static const char * LEVELS[3] = {"level1", "level2", "level3"};
+
+	/**
+	 * @brief Структура описания набора шифрования
+	 *
+	 */
+	typedef struct Sample {
+		// Признак набора SM4-CCM с режимом CCM по RFC 3610 вместо GCM
+		bool ccm = false;
+		// Признак набора издания TLS 1.2 с защитой записей по разделу 6.2.3.3 RFC 5246
+		bool legacy = false;
+		// Признак набора ChaCha20-Poly1305 без базового блочного шифра
+		bool stream = false;
+		// Признак классического набора без построения TLSTREE
+		bool classic = false;
+		// Длина ключа набора
+		size_t key = 0;
+		// Длина метки целостности записи набора
+		size_t tag = 0;
+		// Длина вектора замены набора
+		size_t size = 0;
+		// Наибольший порядковый номер записи набора
+		uint64_t limit = 0;
+		// Набор шифрования
+		suite_t suite = suite_t::NONE;
+		// Алгоритм подписи, требуемый набором TLS 1.2 от сертификата
+		signer_t signer = signer_t::NONE;
+		// Хеш имитовставки набора CBC, NONE у наборов AEAD
+		digest::hash_t mac = digest::hash_t::NONE;
+		// Хеш расписания ключей набора
+		digest::hash_t hash = digest::hash_t::NONE;
+		// Способ обмена ключами набора TLS 1.2
+		exchange_t exchange = exchange_t::NONE;
+		// Постоянные обрезания порядкового номера по ярусам построения
+		uint64_t masks[3] = {0, 0, 0};
+	} sample_t;
+	
+	/**
+	 * @brief Создаём таблицу наборов шифрования
+	 *
+	 */
+	static constexpr sample_t SAMPLES[37] = {
+		// Наборы ГОСТ с построением TLSTREE и режимом MGM
+		{false, false, false, false, 32, 16,          16,             0xFFFFFFFFFFFFFFFFULL, suite_t::KUZNYECHIK_MGM_L,         signer_t::NONE, digest::hash_t::NONE, digest::hash_t::STREEBOG256, exchange_t::NONE, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}},
+		{false, false, false, false, 32, 8,           8,              0xFFFFFFFFFFFFFFFFULL, suite_t::MAGMA_MGM_L,              signer_t::NONE, digest::hash_t::NONE, digest::hash_t::STREEBOG256, exchange_t::NONE, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}},
+		{false, false, false, false, 32, 16,          16,             0x000003FFFFFFFFFFULL, suite_t::KUZNYECHIK_MGM_S,         signer_t::NONE, digest::hash_t::NONE, digest::hash_t::STREEBOG256, exchange_t::NONE, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}},
+		{false, false, false, false, 32, 8,           8,              0x0000007FFFFFFFFFULL, suite_t::MAGMA_MGM_S,              signer_t::NONE, digest::hash_t::NONE, digest::hash_t::STREEBOG256, exchange_t::NONE, {0xFFFFFFFFFC000000ULL, 0xFFFFFFFFFFFFE000ULL, 0xFFFFFFFFFFFFFFFFULL}},
+		{false, false, false, true,  16, CLASSIC_TAG, CLASSIC_VECTOR, CLASSIC_LIMIT,         suite_t::AES_128_GCM_SHA256,       signer_t::NONE, digest::hash_t::NONE, digest::hash_t::SHA256,      exchange_t::NONE, {0ULL, 0ULL, 0ULL}},
+		{false, false, false, true,  32, CLASSIC_TAG, CLASSIC_VECTOR, CLASSIC_LIMIT,         suite_t::AES_256_GCM_SHA384,       signer_t::NONE, digest::hash_t::NONE, digest::hash_t::SHA384,      exchange_t::NONE, {0ULL, 0ULL, 0ULL}},
+		{false, false, true,  true,  32, CLASSIC_TAG, CLASSIC_VECTOR, STREAM_LIMIT,          suite_t::CHACHA20_POLY1305_SHA256, signer_t::NONE, digest::hash_t::NONE, digest::hash_t::SHA256,      exchange_t::NONE, {0ULL, 0ULL, 0ULL}},
+		/**
+		 * Наборы SM семейства по RFC 8998: SM4-GCM и SM4-CCM с расписанием на SM3,
+		 * вектор замены в двенадцать байтов, ключ и метка по шестнадцать; предел
+		 * записей тот же 2^24,5, что у AES-GCM (раздел 5.5 RFC 8446)
+		 */
+		{false, false, false, true, 16, CLASSIC_TAG, CLASSIC_VECTOR, CLASSIC_LIMIT, suite_t::SM4_GCM_SM3, signer_t::NONE, digest::hash_t::NONE, digest::hash_t::SM3, exchange_t::NONE, {0ULL, 0ULL, 0ULL}},
+		{true,  false, false, true, 16, CLASSIC_TAG, CLASSIC_VECTOR, CLASSIC_LIMIT, suite_t::SM4_CCM_SM3, signer_t::NONE, digest::hash_t::NONE, digest::hash_t::SM3, exchange_t::NONE, {0ULL, 0ULL, 0ULL}},
+		/**
+		 * Наборы TLS 1.2 (RFC 5289, RFC 7905): у AES-GCM вектор замены занимает четыре байта
+		 * соли (раздел 3 RFC 5288), у ChaCha20-Poly1305 - двенадцать (раздел 2 RFC 7905).
+		 * Предел записей AES-GCM тот же 2^24,5 (раздел 5.5 RFC 8446): граница стойкости
+		 * шифра не зависит от способа сложения одноразового значения, а смены ключей в
+		 * TLS 1.2 нет - дойдя до предела, связь закрывается извещением close_notify
+		 */
+		{false, true, false, true, 16, CLASSIC_TAG, LEGACY_SALT,    CLASSIC_LIMIT, suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256,       signer_t::ECDSA, digest::hash_t::NONE, digest::hash_t::SHA256, exchange_t::ECDHE, {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, CLASSIC_TAG, LEGACY_SALT,    CLASSIC_LIMIT, suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384,       signer_t::ECDSA, digest::hash_t::NONE, digest::hash_t::SHA384, exchange_t::ECDHE, {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, CLASSIC_TAG, LEGACY_SALT,    CLASSIC_LIMIT, suite_t::ECDHE_RSA_AES_128_GCM_SHA256,         signer_t::RSA,   digest::hash_t::NONE, digest::hash_t::SHA256, exchange_t::ECDHE, {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, CLASSIC_TAG, LEGACY_SALT,    CLASSIC_LIMIT, suite_t::ECDHE_RSA_AES_256_GCM_SHA384,         signer_t::RSA,   digest::hash_t::NONE, digest::hash_t::SHA384, exchange_t::ECDHE, {0ULL, 0ULL, 0ULL}},
+		{false, true, true,  true, 32, CLASSIC_TAG, CLASSIC_VECTOR, STREAM_LIMIT,  suite_t::ECDHE_RSA_CHACHA20_POLY1305_SHA256,   signer_t::RSA,   digest::hash_t::NONE, digest::hash_t::SHA256, exchange_t::ECDHE, {0ULL, 0ULL, 0ULL}},
+		{false, true, true,  true, 32, CLASSIC_TAG, CLASSIC_VECTOR, STREAM_LIMIT,  suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256, signer_t::ECDSA, digest::hash_t::NONE, digest::hash_t::SHA256, exchange_t::ECDHE, {0ULL, 0ULL, 0ULL}},
+		/**
+		 * Наборы CBC издания TLS 1.2 (раздел 6.2.3.2 RFC 5246, RFC 5289, RFC 8422, RFC 4279, RFC 5489):
+		 * вектор замены явный и в ключевой материал не входит (размер вектора ноль), длина
+		 * «метки» есть длина имитовставки HMAC на хеше набора, PRF всюду на SHA-256; предел
+		 * записей 2^62 - режим CBC предела стойкости по номеру не ставит, а недостижимый предел
+		 * держит заслон номеров живым. Наборы обмена RSA на AES-GCM устроены как ECDHE-наборы
+		 */
+		{false, true, false, true, 16, 32,          0,              STREAM_LIMIT,  suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256,     signer_t::ECDSA, digest::hash_t::SHA256, digest::hash_t::SHA256, exchange_t::ECDHE,     {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, 32,          0,              STREAM_LIMIT,  suite_t::ECDHE_RSA_AES_128_CBC_SHA256,       signer_t::RSA,   digest::hash_t::SHA256, digest::hash_t::SHA256, exchange_t::ECDHE,     {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, 20,          0,              STREAM_LIMIT,  suite_t::ECDHE_ECDSA_AES_128_CBC_SHA,        signer_t::ECDSA, digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::ECDHE,     {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, 20,          0,              STREAM_LIMIT,  suite_t::ECDHE_ECDSA_AES_256_CBC_SHA,        signer_t::ECDSA, digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::ECDHE,     {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, 20,          0,              STREAM_LIMIT,  suite_t::ECDHE_RSA_AES_128_CBC_SHA,          signer_t::RSA,   digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::ECDHE,     {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, 20,          0,              STREAM_LIMIT,  suite_t::ECDHE_RSA_AES_256_CBC_SHA,          signer_t::RSA,   digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::ECDHE,     {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, CLASSIC_TAG, LEGACY_SALT,    CLASSIC_LIMIT, suite_t::DHE_RSA_AES_128_GCM_SHA256,         signer_t::RSA,   digest::hash_t::NONE,   digest::hash_t::SHA256, exchange_t::DHE,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, CLASSIC_TAG, LEGACY_SALT,    CLASSIC_LIMIT, suite_t::DHE_RSA_AES_256_GCM_SHA384,         signer_t::RSA,   digest::hash_t::NONE,   digest::hash_t::SHA384, exchange_t::DHE,       {0ULL, 0ULL, 0ULL}},
+		{false, true, true,  true, 32, CLASSIC_TAG, CLASSIC_VECTOR, STREAM_LIMIT,  suite_t::DHE_RSA_CHACHA20_POLY1305_SHA256,   signer_t::RSA,   digest::hash_t::NONE,   digest::hash_t::SHA256, exchange_t::DHE,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, 20,          0,              STREAM_LIMIT,  suite_t::DHE_RSA_AES_128_CBC_SHA,            signer_t::RSA,   digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::DHE,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, 20,          0,              STREAM_LIMIT,  suite_t::DHE_RSA_AES_256_CBC_SHA,            signer_t::RSA,   digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::DHE,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, 20,          0,              STREAM_LIMIT,  suite_t::RSA_AES_128_CBC_SHA,                signer_t::RSA,   digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::RSA,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, 20,          0,              STREAM_LIMIT,  suite_t::RSA_AES_256_CBC_SHA,                signer_t::RSA,   digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::RSA,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, 32,          0,              STREAM_LIMIT,  suite_t::RSA_AES_128_CBC_SHA256,             signer_t::RSA,   digest::hash_t::SHA256, digest::hash_t::SHA256, exchange_t::RSA,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, 32,          0,              STREAM_LIMIT,  suite_t::RSA_AES_256_CBC_SHA256,             signer_t::RSA,   digest::hash_t::SHA256, digest::hash_t::SHA256, exchange_t::RSA,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, CLASSIC_TAG, LEGACY_SALT,    CLASSIC_LIMIT, suite_t::RSA_AES_128_GCM_SHA256,             signer_t::RSA,   digest::hash_t::NONE,   digest::hash_t::SHA256, exchange_t::RSA,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, CLASSIC_TAG, LEGACY_SALT,    CLASSIC_LIMIT, suite_t::RSA_AES_256_GCM_SHA384,             signer_t::RSA,   digest::hash_t::NONE,   digest::hash_t::SHA384, exchange_t::RSA,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, 20,          0,              STREAM_LIMIT,  suite_t::PSK_AES_128_CBC_SHA,                signer_t::NONE,  digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::PSK,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, 20,          0,              STREAM_LIMIT,  suite_t::PSK_AES_256_CBC_SHA,                signer_t::NONE,  digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::PSK,       {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 16, 20,          0,              STREAM_LIMIT,  suite_t::ECDHE_PSK_AES_128_CBC_SHA,          signer_t::NONE,  digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::ECDHE_PSK, {0ULL, 0ULL, 0ULL}},
+		{false, true, false, true, 32, 20,          0,              STREAM_LIMIT,  suite_t::ECDHE_PSK_AES_256_CBC_SHA,          signer_t::NONE,  digest::hash_t::SHA1,   digest::hash_t::SHA256, exchange_t::ECDHE_PSK, {0ULL, 0ULL, 0ULL}},
+		{false, true, true,  true, 32, CLASSIC_TAG, CLASSIC_VECTOR, STREAM_LIMIT,  suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, signer_t::NONE,  digest::hash_t::NONE,   digest::hash_t::SHA256, exchange_t::ECDHE_PSK, {0ULL, 0ULL, 0ULL}}
+	};
+
+	/**
+	 * @brief Функция розыска описания набора шифрования
+	 *
+	 * @param suite разыскиваемый набор шифрования
+	 * @return      описание набора шифрования либо nullptr у неизвестного набора
+	 *
+	 */
+	static constexpr const sample_t * __nts_search__(const suite_t suite) noexcept {
+		/**
+		 * Перебираем описания наборов шифрования в поисках данного
+		 */
+		for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
+			// Если описание набора шифрования найдено
+			if(SAMPLES[i].suite == suite)
+				// Выводим найденное описание набора шифрования
+				return &SAMPLES[i];
+		}
+		// Выводим отсутствие описания набора шифрования
+		return nullptr;
+	}
+	/**
+	 * @brief Функция получения маски равенства двух чисел за постоянное время
+	 *
+	 * @param first  первое число
+	 * @param second второе число
+	 * @return       0xFF при равенстве чисел, 0x00 иначе
+	 *
+	 */
+	static constexpr uint8_t __nts_same__(const size_t first, const size_t second) noexcept {
+		// Различие чисел
+		const uint64_t diff = (static_cast <uint64_t> (first) ^ static_cast <uint64_t> (second));
+		// Выводим маску равенства: старший разряд выражения единичен лишь у нулевого различия
+		return static_cast <uint8_t> (0xFF & (0 - (((diff - 1) & ~diff) >> 63)));
+	}
+	/**
+	 * @brief Функция получения маски «первое не меньше второго» за постоянное время
+	 *
+	 * @note Числа не превосходят 2^32: разность двух таких чисел в старший разряд не уходит
+	 *
+	 * @param first  первое число
+	 * @param second второе число
+	 * @return       0xFF при первом не меньшем второго, 0x00 иначе
+	 *
+	 */
+	static constexpr uint8_t __nts_atleast__(const size_t first, const size_t second) noexcept {
+		// Разность чисел: старший разряд единичен при первом меньшем второго
+		const uint64_t diff = (static_cast <uint64_t> (first) - static_cast <uint64_t> (second));
+		// Выводим маску: обращённый старший разряд, размноженный на весь байт
+		return static_cast <uint8_t> (0xFF & (0 - ((~diff) >> 63)));
+	}
+	/**
+	 * @brief Функция счёта сжатий хеша с блоком в 64 байта, покрывающих имитовставку HMAC
+	 *
+	 * @details Внутренний хеш HMAC обрабатывает блок ключа, сообщение, байт дополнения и
+	 *          восемь байтов длины; число сжатий есть их сумма, округлённая вверх до блока.
+	 *
+	 * @param length длина сообщения имитовставки без ключевого блока
+	 * @return       число сжатий внутреннего хеша HMAC
+	 *
+	 */
+	static constexpr size_t __nts_compressions__(const size_t length) noexcept {
+		// Выводим число сжатий, покрывающих ключевой блок, сообщение и дополнение
+		return ((CBC_COMPRESSION + length + CBC_TRAILER + (CBC_COMPRESSION - 1)) / CBC_COMPRESSION);
+	}
+	/**
+	 * @brief Функция записи числа в сетевом порядке байтов
+	 *
+	 * @param value  записываемое число
+	 * @param result место, в которое помещается запись числа
+	 *
+	 */
+	static __NTS_INLINE__ void __nts_number__(const uint64_t value, uint8_t * result) noexcept {
+		/**
+		 * Записываем число байт за байтом от старшего к младшему
+		 */
+		for(size_t i = 0; i < 8; i++)
+			// Записываем очередной байт числа от старшего к младшему
+			result[i] = static_cast <uint8_t> ((value >> ((7 - i) * 8)) & 0xFF);
+	}
+	/**
+	 * @brief Прототип функции поточного наложения защиты на запись: содержимое, истинный вид и дополнение шифруются прямо из места вызова
+	 *
+	 * @tparam T тип заведённого примитива AEAD
+	 *
+	 */
+	template <typename T>
 	/**
 	 * @brief Функция поточного наложения защиты на запись: содержимое, истинный вид и дополнение шифруются прямо из места вызова
 	 *
@@ -126,8 +381,7 @@ namespace {
 	 * @return           признак успешности наложения защиты
 	 *
 	 */
-	template <typename T>
-	static bool sealing(T & aead, const view_t & associated, const view_t & data, const size_t total, const record::type_t type, const size_t padding, uint8_t * cipher) noexcept {
+	static __NTS_INLINE__ bool __nts_sealing__(T & aead, const view_t & associated, const view_t & data, const size_t total, const record::type_t type, const size_t padding, uint8_t * cipher) noexcept {
 		// Если связанные данные подать не удалось
 		if(!aead.associate(associated))
 			// Выводим отказ наложения защиты
@@ -147,7 +401,7 @@ namespace {
 		// Нулевые байты дополнения: шифруются кусками, чтобы не занимать память под всё дополнение
 		static const uint8_t ZEROS[256] = {0};
 		/**
-		 * Выполняем шифрование дополнения кусками
+		 * Шифруем дополнение кусками по статическому буферу нулей
 		 */
 		for(size_t rest = padding; rest > 0;){
 			// Длина очередного куска дополнения
@@ -164,257 +418,6 @@ namespace {
 		// Выводим итог выработки метки целостности следом за шифртекстом
 		return aead.finish(cipher + offset);
 	}
-
-	/**
-	 * Пространство имён модуля
-	 */
-	using namespace nts::protect;
-
-	/**
-	 * Отказы модуля
-	 */
-	typedef protect::error_t error_t;
-
-	/**
-	 * Метки ярусов построения TLSTREE
-	 */
-	static const char * LEVELS[3] = {"level1", "level2", "level3"};
-
-	/**
-	 * Длина вектора замены наборов AES-GCM по разделу 5.3 RFC 8446
-	 */
-	static constexpr size_t CLASSIC_VECTOR = 12;
-
-	/**
-	 * Длина метки целостности наборов AES-GCM и ChaCha20-Poly1305
-	 */
-	static constexpr size_t CLASSIC_TAG = 16;
-
-	/**
-	 * Предел записей на одном ключе AES-GCM: около 2^24,5 по разделу 5.5 RFC 8446
-	 */
-	static constexpr uint64_t CLASSIC_LIMIT = 23726566ULL;
-
-	/**
-	 * Длина соли одноразового значения наборов AES-GCM издания TLS 1.2: раздел 3 RFC 5288
-	 */
-	static constexpr size_t LEGACY_SALT = 4;
-
-	/**
-	 * Длина явной части одноразового значения наборов AES-GCM издания TLS 1.2: раздел 3 RFC 5288
-	 */
-	static constexpr size_t LEGACY_EXPLICIT = 8;
-
-	/**
-	 * Длина связанных данных записи издания TLS 1.2: порядковый номер, вид содержимого,
-	 * издание протокола и длина открытого содержимого (раздел 6.2.3.3 RFC 5246)
-	 */
-	static constexpr size_t LEGACY_ASSOCIATED = 13;
-	/**
-	 * Разряды порядкового номера записи поверх дейтаграмм: раздел 4.1 RFC 6347 отводит
-	 * номеру сорок восемь разрядов, а старшие шестнадцать несут пору ключей
-	 */
-	static constexpr uint64_t LEGACY_ORDINAL = 0xFFFFFFFFFFFFULL;
-
-	/**
-	 * Предел записей на одном ключе ChaCha20-Poly1305: 2^62, раздел 5.5 RFC 8446 предела
-	 * не ставит, а недостижимый предел держит заслон номеров живым вдали от переполнения
-	 */
-	static constexpr uint64_t STREAM_LIMIT = 0x3FFFFFFFFFFFFFFFULL;
-
-	/**
-	 * Длина блока AES и явного вектора замены наборов CBC: раздел 6.2.3.2 RFC 5246
-	 */
-	static constexpr size_t CBC_BLOCK = 16;
-
-	/**
-	 * Наибольшая длина дополнения записи CBC вместе с байтом длины: раздел 6.2.3.2 RFC 5246
-	 */
-	static constexpr size_t CBC_PADDING = 256;
-
-	/**
-	 * Длина блока сжатия хешей имитовставки SHA-1 и SHA-256: FIPS 180-4
-	 */
-	static constexpr size_t CBC_COMPRESSION = 64;
-	/**
-	 * Длина дополнения хешей с полем длины сообщения: FIPS 180-4
-	 */
-	static constexpr size_t CBC_TRAILER = 9;
-
-	/**
-	 * @brief Описание набора шифрования
-	 *
-	 */
-	static const struct Sample {
-		// Набор шифрования
-		suite_t suite;
-		// Признак классического набора без построения TLSTREE
-		bool classic;
-		// Признак набора ChaCha20-Poly1305 без базового блочного шифра
-		bool stream;
-		// Постоянные обрезания порядкового номера по ярусам построения
-		uint64_t masks[3];
-		// Наибольший порядковый номер записи набора
-		uint64_t limit;
-		// Длина вектора замены набора
-		size_t size;
-		// Длина ключа набора
-		size_t key;
-		// Длина метки целостности записи набора
-		size_t tag;
-		// Хеш расписания ключей набора
-		digest::hash_t hash;
-		// Признак набора издания TLS 1.2 с защитой записей по разделу 6.2.3.3 RFC 5246
-		bool legacy;
-		// Признак набора SM4-CCM с режимом CCM по RFC 3610 вместо GCM
-		bool ccm;
-		// Алгоритм подписи, требуемый набором TLS 1.2 от сертификата
-		signer_t signer;
-		// Способ обмена ключами набора TLS 1.2
-		exchange_t exchange;
-		// Хеш имитовставки набора CBC, NONE у наборов AEAD
-		digest::hash_t mac;
-	} SAMPLES[37] = {
-		// Наборы ГОСТ с построением TLSTREE и режимом MGM
-		{suite_t::KUZNYECHIK_MGM_L,         false, false, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}, 0xFFFFFFFFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::MAGMA_MGM_L,              false, false, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}, 0xFFFFFFFFFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::KUZNYECHIK_MGM_S,         false, false, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}, 0x000003FFFFFFFFFFULL, 16, 32, 16, digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::MAGMA_MGM_S,              false, false, {0xFFFFFFFFFC000000ULL, 0xFFFFFFFFFFFFE000ULL, 0xFFFFFFFFFFFFFFFFULL}, 0x0000007FFFFFFFFFULL, 8,  32, 8,  digest::hash_t::STREEBOG256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::AES_128_GCM_SHA256,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SHA256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::AES_256_GCM_SHA384,       true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA384, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::CHACHA20_POLY1305_SHA256, true,  true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT,  CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		/**
-		 * Наборы SM семейства по RFC 8998: SM4-GCM и SM4-CCM с расписанием на SM3,
-		 * вектор замены в двенадцать байтов, ключ и метка по шестнадцать; предел
-		 * записей тот же 2^24,5, что у AES-GCM (раздел 5.5 RFC 8446)
-		 */
-		{suite_t::SM4_GCM_SM3,                true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SM3, false, false, signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		{suite_t::SM4_CCM_SM3,                true,  false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, CLASSIC_VECTOR, 16, CLASSIC_TAG, digest::hash_t::SM3, false, true,  signer_t::NONE, exchange_t::NONE, digest::hash_t::NONE},
-		/**
-		 * Наборы TLS 1.2 (RFC 5289, RFC 7905): у AES-GCM вектор замены занимает четыре байта
-		 * соли (раздел 3 RFC 5288), у ChaCha20-Poly1305 - двенадцать (раздел 2 RFC 7905).
-		 * Предел записей AES-GCM тот же 2^24,5 (раздел 5.5 RFC 8446): граница стойкости
-		 * шифра не зависит от способа сложения одноразового значения, а смены ключей в
-		 * TLS 1.2 нет - дойдя до предела, связь закрывается извещением close_notify
-		 */
-		{suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384,       true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, false, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_RSA_AES_128_GCM_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    16, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_RSA_AES_256_GCM_SHA384,         true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT,    32, CLASSIC_TAG, digest::hash_t::SHA384, true, false, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_RSA_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		{suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256, true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE, digest::hash_t::NONE},
-		/**
-		 * Наборы CBC издания TLS 1.2 (раздел 6.2.3.2 RFC 5246, RFC 5289, RFC 8422, RFC 4279, RFC 5489):
-		 * вектор замены явный и в ключевой материал не входит (размер вектора ноль), длина
-		 * «метки» есть длина имитовставки HMAC на хеше набора, PRF всюду на SHA-256; предел
-		 * записей 2^62 - режим CBC предела стойкости по номеру не ставит, а недостижимый предел
-		 * держит заслон номеров живым. Наборы обмена RSA на AES-GCM устроены как ECDHE-наборы
-		 */
-		{suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256,       true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA256},
-		{suite_t::ECDHE_RSA_AES_128_CBC_SHA256,         true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA256},
-		{suite_t::ECDHE_ECDSA_AES_128_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
-		{suite_t::ECDHE_ECDSA_AES_256_CBC_SHA,          true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::ECDSA, exchange_t::ECDHE,     digest::hash_t::SHA1},
-		{suite_t::ECDHE_RSA_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
-		{suite_t::ECDHE_RSA_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::ECDHE,     digest::hash_t::SHA1},
-		{suite_t::DHE_RSA_AES_128_GCM_SHA256,           true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 16, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::NONE},
-		{suite_t::DHE_RSA_AES_256_GCM_SHA384,           true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 32, CLASSIC_TAG, digest::hash_t::SHA384, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::NONE},
-		{suite_t::DHE_RSA_CHACHA20_POLY1305_SHA256,     true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::NONE},
-		{suite_t::DHE_RSA_AES_128_CBC_SHA,              true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::SHA1},
-		{suite_t::DHE_RSA_AES_256_CBC_SHA,              true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::DHE, digest::hash_t::SHA1},
-		{suite_t::RSA_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
-		{suite_t::RSA_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA1},
-		{suite_t::RSA_AES_128_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 32, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
-		{suite_t::RSA_AES_256_CBC_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 32, digest::hash_t::SHA256, true, false, signer_t::RSA,   exchange_t::RSA,       digest::hash_t::SHA256},
-		{suite_t::RSA_AES_128_GCM_SHA256,               true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 16, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::RSA, exchange_t::RSA, digest::hash_t::NONE},
-		{suite_t::RSA_AES_256_GCM_SHA384,               true, false, {0ULL, 0ULL, 0ULL}, CLASSIC_LIMIT, LEGACY_SALT, 32, CLASSIC_TAG, digest::hash_t::SHA384, true, false, signer_t::RSA, exchange_t::RSA, digest::hash_t::NONE},
-		{suite_t::PSK_AES_128_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::NONE,  exchange_t::PSK,       digest::hash_t::SHA1},
-		{suite_t::PSK_AES_256_CBC_SHA,                  true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::NONE,  exchange_t::PSK,       digest::hash_t::SHA1},
-		{suite_t::ECDHE_PSK_AES_128_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 16, 20, digest::hash_t::SHA256, true, false, signer_t::NONE,  exchange_t::ECDHE_PSK, digest::hash_t::SHA1},
-		{suite_t::ECDHE_PSK_AES_256_CBC_SHA,            true, false, {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, 0, 32, 20, digest::hash_t::SHA256, true, false, signer_t::NONE,  exchange_t::ECDHE_PSK, digest::hash_t::SHA1},
-		{suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256,   true, true,  {0ULL, 0ULL, 0ULL}, STREAM_LIMIT, CLASSIC_VECTOR, 32, CLASSIC_TAG, digest::hash_t::SHA256, true, false, signer_t::NONE, exchange_t::ECDHE_PSK, digest::hash_t::NONE}
-	};
-
-	/**
-	 * @brief Функция розыска описания набора шифрования
-	 *
-	 * @param suite разыскиваемый набор шифрования
-	 * @return      описание набора шифрования либо nullptr у неизвестного набора
-	 *
-	 */
-	static const Sample * search(const suite_t suite) noexcept {
-		/**
-		 * Выполняем перебор описаний наборов шифрования
-		 */
-		for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
-			// Если описание набора шифрования найдено
-			if(SAMPLES[i].suite == suite)
-				// Выводим найденное описание набора шифрования
-				return &SAMPLES[i];
-		}
-		// Выводим отсутствие описания набора шифрования
-		return nullptr;
-	}
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
-	/**
-	 * @brief Функция записи числа в сетевом порядке байтов
-	 *
-	 * @param value  записываемое число
-	 * @param result место, в которое помещается запись числа
-	 *
-	 */
-	static void number(const uint64_t value, uint8_t * result) noexcept {
-		/**
-		 * Выполняем перебор байтов записываемого числа
-		 */
-		for(size_t i = 0; i < 8; i++)
-			// Записываем очередной байт числа от старшего к младшему
-			result[i] = static_cast <uint8_t> ((value >> ((7 - i) * 8)) & 0xFF);
-	}
-	/**
-	 * @brief Функция получения маски равенства двух чисел за постоянное время
-	 *
-	 * @param first  первое число
-	 * @param second второе число
-	 * @return       0xFF при равенстве чисел, 0x00 иначе
-	 *
-	 */
-	static uint8_t same(const size_t first, const size_t second) noexcept {
-		// Различие чисел
-		const uint64_t diff = (static_cast <uint64_t> (first) ^ static_cast <uint64_t> (second));
-		// Выводим маску равенства: старший разряд выражения единичен лишь у нулевого различия
-		return static_cast <uint8_t> (0xFF & (0 - (((diff - 1) & ~diff) >> 63)));
-	}
-	/**
-	 * @brief Функция получения маски «первое не меньше второго» за постоянное время
-	 *
-	 * @param first  первое число
-	 * @param second второе число
-	 * @return       0xFF при первом не меньшем второго, 0x00 иначе
-	 *
-	 * @note Числа не превосходят 2^32: разность двух таких чисел в старший разряд не уходит
-	 *
-	 */
-	static uint8_t atleast(const size_t first, const size_t second) noexcept {
-		// Разность чисел: старший разряд единичен при первом меньшем второго
-		const uint64_t diff = (static_cast <uint64_t> (first) - static_cast <uint64_t> (second));
-		// Выводим маску: обращённый старший разряд, размноженный на весь байт
-		return static_cast <uint8_t> (0xFF & (0 - ((~diff) >> 63)));
-	}
-	/**
-	 * @brief Функция счёта сжатий хеша с блоком в 64 байта, покрывающих имитовставку HMAC
-	 *
-	 * @param length длина сообщения имитовставки без ключевого блока
-	 * @return       число сжатий внутреннего хеша HMAC
-	 *
-	 * @details Внутренний хеш HMAC обрабатывает блок ключа, сообщение, байт дополнения и
-	 *          восемь байтов длины; число сжатий есть их сумма, округлённая вверх до блока
-	 *
-	 */
-	static size_t compressions(const size_t length) noexcept {
-		// Выводим число сжатий, покрывающих ключевой блок, сообщение и дополнение
-		return ((CBC_COMPRESSION + length + CBC_TRAILER + (CBC_COMPRESSION - 1)) / CBC_COMPRESSION);
-	}
 };
 
 /**
@@ -426,7 +429,7 @@ namespace {
  */
 size_t nts::protect::block(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим длину вектора замены набора шифрования
 	return ((sample != nullptr) ? sample->size : 0);
 }
@@ -439,7 +442,7 @@ size_t nts::protect::block(const suite_t suite) noexcept {
  */
 size_t nts::protect::key(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим длину ключа набора шифрования
 	return ((sample != nullptr) ? sample->key : 0);
 }
@@ -452,7 +455,7 @@ size_t nts::protect::key(const suite_t suite) noexcept {
  */
 size_t nts::protect::tag(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим длину метки целостности набора шифрования
 	return ((sample != nullptr) ? sample->tag : 0);
 }
@@ -465,7 +468,7 @@ size_t nts::protect::tag(const suite_t suite) noexcept {
  */
 nts::digest::hash_t nts::protect::hash(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим хеш расписания ключей набора шифрования
 	return ((sample != nullptr) ? sample->hash : digest::hash_t::NONE);
 }
@@ -478,7 +481,7 @@ nts::digest::hash_t nts::protect::hash(const suite_t suite) noexcept {
  */
 uint64_t nts::protect::limit(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим наибольший порядковый номер записи набора шифрования
 	return ((sample != nullptr) ? sample->limit : 0);
 }
@@ -491,7 +494,7 @@ uint64_t nts::protect::limit(const suite_t suite) noexcept {
  */
 bool nts::protect::legacy(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим признак набора издания TLS 1.2
 	return ((sample != nullptr) && sample->legacy);
 }
@@ -507,7 +510,7 @@ bool nts::protect::legacy(const suite_t suite) noexcept {
  */
 size_t nts::protect::prefix(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Если набор неизвестен либо принадлежит изданию TLS 1.3
 	if((sample == nullptr) || !sample->legacy)
 		// Выводим отсутствие явной части
@@ -528,7 +531,7 @@ size_t nts::protect::prefix(const suite_t suite) noexcept {
  */
 nts::protect::exchange_t nts::protect::exchange(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим способ обмена ключами набора шифрования
 	return ((sample != nullptr) ? sample->exchange : exchange_t::NONE);
 }
@@ -541,7 +544,7 @@ nts::protect::exchange_t nts::protect::exchange(const suite_t suite) noexcept {
  */
 nts::digest::hash_t nts::protect::mac(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим хеш имитовставки набора шифрования
 	return ((sample != nullptr) ? sample->mac : digest::hash_t::NONE);
 }
@@ -554,7 +557,7 @@ nts::digest::hash_t nts::protect::mac(const suite_t suite) noexcept {
  */
 nts::protect::signer_t nts::protect::signer(const suite_t suite) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Выводим алгоритм подписи набора шифрования
 	return ((sample != nullptr) ? sample->signer : signer_t::NONE);
 }
@@ -574,7 +577,7 @@ bool nts::protect::tree(const suite_t suite, const view_t & key, const uint64_t 
 		// Выводим отказ выработки ключа записи
 		return false;
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Если набор шифрования неизвестен
 	if(sample == nullptr)
 		// Выводим отказ выработки ключа записи
@@ -590,20 +593,20 @@ bool nts::protect::tree(const suite_t suite, const view_t & key, const uint64_t 
 		// Выводим успешность выработки ключа записи
 		return true;
 	}
-	// Место, в которое помещается ключ очередного яруса построения
-	uint8_t buffer[PROTECT_KEY];
-	// Место, в которое помещается затравка очередного яруса построения
-	uint8_t seed[8];
 	// Признак успешности выработки ключа записи
 	bool ok = true;
+	// Место, в которое помещается затравка очередного яруса построения
+	uint8_t seed[8];
+	// Место, в которое помещается ключ очередного яруса построения
+	uint8_t buffer[PROTECT_KEY];
 	// Переносим корневой ключ на место ключа первого яруса
 	::memcpy(buffer, key.data, key.size);
 	/**
-	 * Выполняем перебор ярусов построения TLSTREE
+	 * Поднимаемся по ярусам построения TLSTREE
 	 */
 	for(size_t i = 0; ok && (i < 3); i++){
 		// Записываем порядковый номер записи, обрезанный постоянной яруса
-		number((sequence & sample->masks[i]), seed);
+		::__nts_number__((sequence & sample->masks[i]), seed);
 		// Выработка ключа очередного яруса построения
 		ok = digest::kdf(view_t(buffer, PROTECT_KEY), view_t(reinterpret_cast <const uint8_t *> (LEVELS[i]), ::strlen(LEVELS[i])), view_t(seed, sizeof(seed)), buffer);
 	}
@@ -616,6 +619,7 @@ bool nts::protect::tree(const suite_t suite, const view_t & key, const uint64_t 
 	// Выводим признак успешности выработки ключа записи
 	return ok;
 }
+
 /**
  * @brief Метод подготовки базового шифра к защите записи
  *
@@ -626,7 +630,7 @@ bool nts::protect::tree(const suite_t suite, const view_t & key, const uint64_t 
  */
 nts::protect::error_t nts::protect::Protection::prepare(const uint64_t sequence, cipher::block_t & block) noexcept {
 	// Получаем описание набора шифрования
-	const Sample * sample = search(this->_suite);
+	const sample_t * sample = ::__nts_search__(this->_suite);
 	// Если набор шифрования неизвестен
 	if(sample == nullptr)
 		// Выводим отказ подготовки базового шифра
@@ -669,7 +673,7 @@ nts::protect::error_t nts::protect::Protection::prepare(const uint64_t sequence,
 	// Признак того, что ключ записи требуется выработать заново
 	bool fresh = !this->_ready;
 	/**
-	 * Выполняем перебор ярусов построения TLSTREE
+	 * Проверяем ярусы TLSTREE на изменение обрезанного номера записи
 	 */
 	for(size_t i = 0; !fresh && (i < 3); i++)
 		// Проверяем изменение обрезанного порядкового номера на очередном ярусе
@@ -722,7 +726,7 @@ void nts::protect::Protection::nonce(const uint64_t sequence, uint8_t * result) 
 	// Переносим вектор замены на место одноразового значения
 	::memcpy(result, this->_vector, this->_size);
 	/**
-	 * Выполняем сложение вектора замены с порядковым номером записи: не глубже длины
+	 * Складываем вектор замены с порядковым номером записи: не глубже длины
 	 * вектора - у наборов издания 1.2 он короче восьми байтов (четыре у AES-GCM, ноль у
 	 * CBC), и цикл без границы уходил бы за начало буфера
 	 */
@@ -791,7 +795,7 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 	// Сброс прежнего ключевого материала
 	this->clear();
 	// Получаем описание набора шифрования
-	const Sample * sample = search(suite);
+	const sample_t * sample = ::__nts_search__(suite);
 	// Если набор шифрования неизвестен
 	if(sample == nullptr)
 		// Выводим отказ установки ключевого материала
@@ -914,52 +918,52 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
 void nts::protect::Protection::clear() noexcept {
 	// Затирание корневого ключа направления связи
 	wipe(this->_key, sizeof(this->_key));
+	// Затирание ключа имитовставки направления связи
+	wipe(this->_mac, sizeof(this->_mac));
 	// Затирание вектора замены направления связи
 	wipe(this->_vector, sizeof(this->_vector));
-	// Сброс базового шифра «Магма»
-	this->_magma.clear();
-	// Сброс базового шифра «Кузнечик»
-	this->_kuznyechik.clear();
+	// Сбрасываем признак набора CBC
+	this->_cbc = false;
+	// Сбрасываем порядок «шифрование, затем имитовставка»
+	this->_etm = false;
+	// Сбрасываем готовность защиты записей
+	this->_ready = false;
+	// Сбрасываем признак набора ChaCha20-Poly1305
+	this->_stream = false;
+	// Сбрасываем признак набора издания TLS 1.2
+	this->_legacy = false;
+	// Сбрасываем признак классического набора
+	this->_classic = false;
+	// Сбрасываем длину метки целостности
+	this->_tag = 0;
+	// Сбрасываем длину вектора замены
+	this->_size = 0;
+	// Сбрасываем наибольший порядковый номер записи
+	this->_limit = 0;
+	// Сбрасываем длину ключа набора
+	this->_width = 0;
+	// Сбрасываем порядковый номер выработки ключа записи
+	this->_derived = 0;
+	// Сбрасываем порядковый номер очередной записи
+	this->_sequence = 0;
 	// Сброс базового шифра AES
 	this->_aes.clear();
 	// Сброс базового шифра SM4
 	this->_sm4.clear();
 	// Сброс режима GCM: таблица кратных ключа хеширования затирается
 	this->_gcm.clear();
-	// Сброс режима ChaCha20-Poly1305: ключ и одноразовый ключ имитовставки затираются
-	this->_chachapoly.clear();
 	// Сброс режима CCM
 	this->_mode.clear();
+	// Сброс базового шифра «Магма»
+	this->_magma.clear();
+	// Сброс базового шифра «Кузнечик»
+	this->_kuznyechik.clear();
+	// Сброс режима ChaCha20-Poly1305: ключ и одноразовый ключ имитовставки затираются
+	this->_chachapoly.clear();
 	// Сбрасываем набор шифрования направления связи
 	this->_suite = suite_t::NONE;
-	// Сбрасываем длину вектора замены
-	this->_size = 0;
-	// Сбрасываем длину метки целостности
-	this->_tag = 0;
-	// Сбрасываем длину ключа набора
-	this->_width = 0;
-	// Сбрасываем признак классического набора
-	this->_classic = false;
-	// Сбрасываем признак набора ChaCha20-Poly1305
-	this->_stream = false;
-	// Сбрасываем признак набора издания TLS 1.2
-	this->_legacy = false;
-	// Сбрасываем признак набора CBC
-	this->_cbc = false;
-	// Сбрасываем порядок «шифрование, затем имитовставка»
-	this->_etm = false;
 	// Сбрасываем хеш имитовставки набора
 	this->_digest = digest::hash_t::NONE;
-	// Затирание ключа имитовставки направления связи
-	wipe(this->_mac, sizeof(this->_mac));
-	// Сбрасываем порядковый номер очередной записи
-	this->_sequence = 0;
-	// Сбрасываем наибольший порядковый номер записи
-	this->_limit = 0;
-	// Сбрасываем порядковый номер выработки ключа записи
-	this->_derived = 0;
-	// Сбрасываем готовность защиты записей
-	this->_ready = false;
 }
 /**
  * @brief Метод наложения защиты на запись
@@ -1171,7 +1175,7 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 			// Если заполнение записи установить удалось: ключ режима ставится при заведении ключа
 			if(this->_chachapoly.restart(view_t(nonce, this->_size)))
 				// Наложение шифрования с проверкой целостности: содержимое, вид и дополнение шифруются потоком прямо из места вызова
-				ok = sealing(this->_chachapoly, associated, data, total, type, padding, cipher);
+				ok = ::__nts_sealing__(this->_chachapoly, associated, data, total, type, padding, cipher);
 		// Если набор шифрования - SM4-CCM по RFC 8998
 		} else if(this->_ccm) {
 			// Открытый текст записи вместе с видом содержимого и дополнением: режиму CCM он нужен целиком
@@ -1193,7 +1197,7 @@ nts::protect::error_t nts::protect::Protection::seal(const view_t & associated, 
 			// Если заполнение записи установить удалось: таблица режима построена при заведении ключа
 			if(this->_gcm.restart(view_t(nonce, this->_size)))
 				// Наложение шифрования с проверкой целостности
-				ok = sealing(this->_gcm, associated, data, total, type, padding, cipher);
+				ok = ::__nts_sealing__(this->_gcm, associated, data, total, type, padding, cipher);
 		// Если набор шифрования на алгоритмах ГОСТ
 		} else {
 			// Открытый текст записи вместе с видом содержимого и дополнением: режиму MGM он нужен целиком
@@ -1337,7 +1341,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
 			// Смещение истинного вида содержимого в открытом тексте
 			size_t position = length;
 			/**
-			 * Выполняем пропуск дополнения с конца открытого текста
+			 * Пропускаем нулевое дополнение с конца открытого текста
 			 */
 			while((position > 0) && (plain[position - 1] == 0x00))
 				// Уменьшаем смещение истинного вида содержимого
@@ -1391,7 +1395,7 @@ nts::protect::error_t nts::protect::Protection::open(const view_t & associated, 
  */
 void nts::protect::Protection::associate(const uint64_t sequence, const record::type_t type, const record::version_t version, const size_t length, uint8_t * result) const noexcept {
 	// Записываем порядковый номер записи от старшего байта к младшему
-	number(sequence, result);
+	::__nts_number__(sequence, result);
 	// Записываем вид содержимого записи
 	result[8] = static_cast <uint8_t> (type);
 	/**
@@ -1544,12 +1548,12 @@ nts::protect::error_t nts::protect::Protection::wrap(const uint64_t sequence, co
 		// Раздел 3 RFC 5288: одноразовое значение есть соль и явная часть - порядковый номер записи
 		::memcpy(nonce, this->_vector, LEGACY_SALT);
 		// Записываем явную часть одноразового значения
-		number(sequence, nonce + LEGACY_SALT);
+		::__nts_number__(sequence, nonce + LEGACY_SALT);
 	}
-	// Смещение защищённой записи в накопителе
-	const size_t offset = result.size();
 	// Итог наложения защиты на запись
 	error_t outcome = error_t::NONE;
+	// Смещение защищённой записи в накопителе
+	const size_t offset = result.size();
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -1785,14 +1789,14 @@ bool nts::protect::Protection::etm() const noexcept {
  *
  */
 nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, const record::version_t version, const record::type_t type, const view_t & data, vector <uint8_t> & result) noexcept {
-	// Длина защищаемого содержимого записи
-	const size_t total = ((data.data != nullptr) ? data.size : 0);
-	// Длина имитовставки набора
-	const size_t width = digest::length(this->_digest);
 	// Описание базового шифра записи
 	cipher::block_t block;
 	// Подготовка базового шифра к защите записи
 	const error_t error = this->prepare(sequence, block);
+	// Длина имитовставки набора
+	const size_t width = digest::length(this->_digest);
+	// Длина защищаемого содержимого записи
+	const size_t total = ((data.data != nullptr) ? data.size : 0);
 	// Если базовый шифр подготовить не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ наложения защиты
@@ -1813,10 +1817,10 @@ nts::protect::error_t nts::protect::Protection::chain(const uint64_t sequence, c
 	const size_t padding = ((CBC_BLOCK - (inner % CBC_BLOCK)) % CBC_BLOCK);
 	// Длина шифруемого текста
 	const size_t length = (inner + padding);
-	// Смещение защищённой записи в накопителе
-	const size_t offset = result.size();
 	// Итог наложения защиты на запись
 	error_t outcome = error_t::NONE;
+	// Смещение защищённой записи в накопителе
+	const size_t offset = result.size();
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2025,11 +2029,11 @@ nts::protect::error_t nts::protect::Protection::unchain(const uint64_t sequence,
  * @brief Метод снятия дополнения и имитовставки с расшифрованного текста записи CBC за постоянное время
  *
  * @details Таблица масок суждения, все за постоянное время:
- *          - good    = atleast(length, padding + 1 + covered): дополнение с байтом длины и имитовставкой умещается;
- *          - inside  = atleast(declared, i): байт с номером i от конца входит в дополнение;
- *          - same(plain[length - 1 - i], declared) | ~inside: байт дополнения равен длине либо в дополнение не входит;
- *          - same(j, total + k): байт открытого текста с номером j лежит на месте байта k имитовставки;
- *          - same(diff, 0): ожидаемая и принятая имитовставки сошлись по всем байтам.
+ *          - good    = __nts_atleast__(length, padding + 1 + covered): дополнение с байтом длины и имитовставкой умещается;
+ *          - inside  = __nts_atleast__(declared, i): байт с номером i от конца входит в дополнение;
+ *          - __nts_same__(plain[length - 1 - i], declared) | ~inside: байт дополнения равен длине либо в дополнение не входит;
+ *          - __nts_same__(j, total + k): байт открытого текста с номером j лежит на месте байта k имитовставки;
+ *          - __nts_same__(diff, 0): ожидаемая и принятая имитовставки сошлись по всем байтам.
  *          Ветвей по секрету нет: перебор дополнения идёт по окну в CBC_PADDING байтов, извлечение
  *          имитовставки - по окну в MAC + CBC_PADDING байтов, а сжатия хеша выравниваются холостыми.
  *
@@ -2054,20 +2058,20 @@ uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record:
 	 * умещаться в открытый текст; суждение идёт под маской без ранних выходов, чтобы
 	 * время не выдавало длину дополнения (Lucky13)
 	 */
-	uint8_t good = atleast(length, (padding + 1 + covered));
+	uint8_t good = ::__nts_atleast__(length, (padding + 1 + covered));
 	// Длина дополнения, обращённая в ноль при негодной: дальнейшие расчёты идут по ней
 	const size_t declared = (padding & good);
 	// Наибольшее количество байтов дополнения, доступных сверке: не дальше начала открытого текста
 	const size_t scope = ((length < CBC_PADDING) ? length : CBC_PADDING);
 	/**
-	 * Выполняем сверку всех байтов дополнения: раздел 6.2.3.2 RFC 5246 велит сверять
+	 * Сверяем все байты дополнения: раздел 6.2.3.2 RFC 5246 велит сверять
 	 * каждый байт, а перебор идёт по всему окну независимо от длины дополнения
 	 */
 	for(size_t i = 1; i < scope; i++){
 		// Маска «байт входит в дополнение»: номер с конца не больше объявленной длины
-		const uint8_t inside = atleast(declared, i);
+		const uint8_t inside = ::__nts_atleast__(declared, i);
 		// Учитываем расхождение байта дополнения с объявленной длиной под маской
-		good = static_cast <uint8_t> (good & (same(plain[length - 1 - i], declared) | static_cast <uint8_t> (~inside)));
+		good = static_cast <uint8_t> (good & (::__nts_same__(plain[length - 1 - i], declared) | static_cast <uint8_t> (~inside)));
 	}
 	// Вычисляем длину открытого содержимого записи
 	total = (length - declared - 1 - covered);
@@ -2075,12 +2079,12 @@ uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record:
 	if(this->_etm)
 		// Выводим маску годности дополнения
 		return good;
-	// Место, в которое помещаются связанные данные записи
-	uint8_t associated[LEGACY_ASSOCIATED];
 	// Место, в которое помещается ожидаемая имитовставка записи
 	uint8_t expected[PROTECT_MAC];
 	// Место, в которое помещается принятая имитовставка записи
 	uint8_t received[PROTECT_MAC];
+	// Место, в которое помещаются связанные данные записи
+	uint8_t associated[LEGACY_ASSOCIATED];
 	// Обнуляем ожидаемую имитовставку
 	::memset(expected, 0, sizeof(expected));
 	// Обнуляем принятую имитовставку
@@ -2102,13 +2106,13 @@ uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record:
 	 * наибольшей длины сжатия отрабатываются вхолостую, и время выработки имитовставки
 	 * перестаёт выдавать длину дополнения (RFC 7366 раздел 2 отсылает к тому же приёму)
 	 */
-	const size_t extra = (compressions(LEGACY_ASSOCIATED + (length - 1 - covered)) - compressions(LEGACY_ASSOCIATED + total));
+	const size_t extra = (::__nts_compressions__(LEGACY_ASSOCIATED + (length - 1 - covered)) - ::__nts_compressions__(LEGACY_ASSOCIATED + total));
 	// Объект холостого хеширования
 	digest::hasher_t idle(this->_digest);
 	// Блок холостого хеширования
 	const uint8_t filler[CBC_COMPRESSION] = {0};
 	/**
-	 * Выполняем холостые сжатия хеша
+	 * Прогоняем холостые сжатия хеша до выравнивания окна
 	 */
 	for(size_t i = 0; i < extra; i++)
 		// Подаём блок холостому хешированию
@@ -2124,26 +2128,26 @@ uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record:
 	 */
 	const size_t window = ((length > (width + CBC_PADDING)) ? (length - width - CBC_PADDING) : 0);
 	/**
-	 * Выполняем извлечение принятой имитовставки перебором окна под маской совпадения номера
+	 * Извлекаем принятую имитовставку перебором окна под маской совпадения номера
 	 */
 	for(size_t j = window; j < length; j++){
 		/**
-		 * Выполняем перебор байтов имитовставки
+		 * Перебираем байты извлекаемой имитовставки
 		 */
 		for(size_t k = 0; k < width; k++)
 			// Учитываем байт открытого текста под маской совпадения номера
-			received[k] = static_cast <uint8_t> (received[k] | (plain[j] & same(j, (total + k))));
+			received[k] = static_cast <uint8_t> (received[k] | (plain[j] & ::__nts_same__(j, (total + k))));
 	}
 	// Маска расхождения имитовставок
 	uint8_t diff = 0;
 	/**
-	 * Выполняем сличение имитовставок за постоянное время
+	 * Сличаем имитовставки побайтово за постоянное время
 	 */
 	for(size_t k = 0; k < width; k++)
 		// Накапливаем расхождение очередных байтов
 		diff = static_cast <uint8_t> (diff | (expected[k] ^ received[k]));
 	// Учитываем схождение имитовставок и их выработку в итоговом признаке
-	good = static_cast <uint8_t> (good & same(diff, 0) & produced);
+	good = static_cast <uint8_t> (good & ::__nts_same__(diff, 0) & produced);
 	// Затирание ожидаемой имитовставки
 	wipe(expected, sizeof(expected));
 	// Затирание принятой имитовставки
@@ -2155,7 +2159,11 @@ uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record:
  * @brief Конструктор
  *
  */
-nts::protect::Protection::Protection() noexcept : _ready(false), _suite(suite_t::NONE), _size(0), _tag(0), _width(0), _classic(false), _stream(false), _legacy(false), _cbc(false), _etm(false), _digest(digest::hash_t::NONE), _sequence(0), _limit(0), _derived(0) {
+nts::protect::Protection::Protection() noexcept :
+ _cbc(false), _ccm(false), _etm(false), _ready(false),
+ _legacy(false), _stream(false), _classic(false),
+ _tag(0), _size(0), _width(0), _limit(0), _derived(0), _sequence(0),
+ _suite(suite_t::NONE), _digest(digest::hash_t::NONE) {
 	// Обнуляем корневой ключ направления связи
 	::memset(this->_key, 0, sizeof(this->_key));
 	// Обнуляем вектор замены направления связи

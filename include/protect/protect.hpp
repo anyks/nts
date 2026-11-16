@@ -117,7 +117,22 @@ namespace nts {
 		 * \~
 		 */
 		static constexpr size_t PROTECT_KEY = 32;
-
+		/**
+		 * \~russian
+		 * @brief Наибольшая длина ключа имитовставки набора шифрования CBC в байтах
+		 *
+		 * @details Раздел 6.2.3.2 RFC 5246: ключ имитовставки равен по длине хешу набора -
+		 *          двадцать байтов у SHA-1, тридцать два у SHA-256
+		 *
+		 * \~english
+		 * @brief Greatest length of the key of the authentication code of a CBC cipher suite in bytes
+		 *
+		 * @details The section 6.2.3.2 of RFC 5246: the key of the authentication code equals the hash of the
+		 *          suite by the length - twenty bytes at SHA-1, thirty two at SHA-256
+		 *
+		 * \~
+		 */
+		static constexpr size_t PROTECT_MAC = 32;
 		/**
 		 * \~russian
 		 * @brief Наибольшая длина вектора замены набора шифрования в байтах
@@ -140,21 +155,62 @@ namespace nts {
 
 		/**
 		 * \~russian
-		 * @brief Наибольшая длина ключа имитовставки набора шифрования CBC в байтах
+		 * @brief Алгоритмы подписи, которых набор шифрования TLS 1.2 требует от сертификата
 		 *
-		 * @details Раздел 6.2.3.2 RFC 5246: ключ имитовставки равен по длине хешу набора -
-		 *          двадцать байтов у SHA-1, тридцать два у SHA-256
+		 * @details Раздел 2 RFC 8422: у наборов ECDHE_ECDSA сертификат несёт ключ ECDSA либо
+		 *          EdDSA, у наборов ECDHE_RSA - ключ RSA; наборы TLS 1.3 подписи в имени не
+		 *          несут вовсе.
 		 *
 		 * \~english
-		 * @brief Greatest length of the key of the authentication code of a CBC cipher suite in bytes
+		 * @brief Signature algorithms a TLS 1.2 cipher suite requires from the certificate
 		 *
-		 * @details The section 6.2.3.2 of RFC 5246: the key of the authentication code equals the hash of the
-		 *          suite by the length - twenty bytes at SHA-1, thirty two at SHA-256
+		 * @details The section 2 of RFC 8422: at the ECDHE_ECDSA suites the certificate carries an ECDSA or
+		 *          an EdDSA key, at the ECDHE_RSA suites - an RSA key; the TLS 1.3 suites do not carry a
+		 *          signature in the name at all.
 		 *
 		 * \~
 		 */
-		static constexpr size_t PROTECT_MAC = 32;
-
+		enum class signer_t : uint8_t {
+			// Набор подписи не требует
+			NONE = 0x00, /*!< \~russian Набор подписи не требует \~english The suite does not require a signature \~ */
+			// Подпись ECDSA либо EdDSA
+			ECDSA = 0x01, /*!< \~russian Подпись ECDSA либо EdDSA \~english An ECDSA or an EdDSA signature \~ */
+			// Подпись RSA
+			RSA = 0x02  /*!< \~russian Подпись RSA \~english An RSA signature \~ */
+		};
+		/**
+		 * \~russian
+		 * @brief Способы обмена ключами наборов шифрования TLS 1.2
+		 *
+		 * @details Раздел 7.4.3 RFC 5246, RFC 8422, RFC 4279 и RFC 5489: набор именует и
+		 *          способ выработки общего значения обмена - мимолётные ключи на кривой,
+		 *          шифрование случайного значения ключом RSA сертификата, заранее
+		 *          разделённый ключ либо его сочетание с мимолётными ключами.
+		 *
+		 * \~english
+		 * @brief Ways of the key exchange of the TLS 1.2 cipher suites
+		 *
+		 * @details The section 7.4.3 of RFC 5246, RFC 8422, RFC 4279 and RFC 5489: a suite names the way of the
+		 *          derivation of the shared value of the exchange as well - ephemeral keys on a curve, the
+		 *          encryption of a random value by the RSA key of the certificate, a pre-shared key or its
+		 *          combination with the ephemeral keys.
+		 *
+		 * \~
+		 */
+		enum class exchange_t : uint8_t {
+			// Набор обмена ключами издания 1.2 не ведёт
+			NONE = 0x00, /*!< \~russian Набор обмена ключами издания 1.2 не ведёт \~english The suite does not conduct the key exchange of the 1.2 edition \~ */
+			// Мимолётные ключи на кривой с подписью сертификатом
+			ECDHE = 0x01, /*!< \~russian Мимолётные ключи на кривой с подписью сертификатом \~english Ephemeral keys on a curve with a signature by the certificate \~ */
+			// Мимолётные ключи конечного поля с подписью сертификатом
+			DHE = 0x05, /*!< \~russian Мимолётные ключи конечного поля с подписью сертификатом \~english Ephemeral keys of a finite field with a signature by the certificate \~ */
+			// Шифрование общего значения ключом RSA сертификата
+			RSA = 0x02, /*!< \~russian Шифрование общего значения ключом RSA сертификата \~english The encryption of the shared value by the RSA key of the certificate \~ */
+			// Заранее разделённый ключ без сертификата
+			PSK = 0x03, /*!< \~russian Заранее разделённый ключ без сертификата \~english A pre-shared key without a certificate \~ */
+			// Мимолётные ключи на кривой с заранее разделённым ключом
+			ECDHE_PSK = 0x04  /*!< \~russian Мимолётные ключи на кривой с заранее разделённым ключом \~english Ephemeral keys on a curve with a pre-shared key \~ */
+		};
 		/**
 		 * \~russian
 		 * @brief Отказы защиты записей
@@ -166,23 +222,22 @@ namespace nts {
 		 */
 		enum class error_t : uint8_t {
 			// Отказа нет
-			NONE     = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
+			NONE = 0x00, /*!< \~russian Отказа нет \~english There is no failure \~ */
 			// Набор шифрования ещё не установлен
-			STATE    = 0x01, /*!< \~russian Набор шифрования ещё не установлен \~english The cipher suite is not set yet \~ */
+			STATE = 0x01, /*!< \~russian Набор шифрования ещё не установлен \~english The cipher suite is not set yet \~ */
 			// Длина содержимого записи выходит за дозволенные пределы
-			LENGTH   = 0x02, /*!< \~russian Длина содержимого записи выходит за дозволенные пределы \~english The length of the content of the record goes beyond the allowed limits \~ */
+			LENGTH = 0x02, /*!< \~russian Длина содержимого записи выходит за дозволенные пределы \~english The length of the content of the record goes beyond the allowed limits \~ */
 			// Порядковые номера записей на этом ключе исчерпаны
 			SEQUENCE = 0x03, /*!< \~russian Порядковые номера записей на этом ключе исчерпаны \~english The sequence numbers of the records under this key are exhausted \~ */
 			// Метка целостности записи не сошлась
-			TAG      = 0x04, /*!< \~russian Метка целостности записи не сошлась \~english The authentication tag of the record did not match \~ */
+			TAG = 0x04, /*!< \~russian Метка целостности записи не сошлась \~english The authentication tag of the record did not match \~ */
 			// Вид содержимого записи протоколом не определён
-			TYPE     = 0x05, /*!< \~russian Вид содержимого записи протоколом не определён \~english The type of the content of the record is not defined by the protocol \~ */
+			TYPE = 0x05, /*!< \~russian Вид содержимого записи протоколом не определён \~english The type of the content of the record is not defined by the protocol \~ */
 			// Базовый шифр набора отработать не смог
-			CIPHER   = 0x06, /*!< \~russian Базовый шифр набора отработать не смог \~english The base cipher of the suite was unable to work \~ */
+			CIPHER = 0x06, /*!< \~russian Базовый шифр набора отработать не смог \~english The base cipher of the suite was unable to work \~ */
 			// Памяти под итог не хватило
-			MEMORY   = 0x07  /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
+			MEMORY = 0x07  /*!< \~russian Памяти под итог не хватило \~english There was not enough memory for the outcome \~ */
 		};
-
 		/**
 		 * \~russian
 		 * @brief Наборы шифрования протокола TLS 1.3
@@ -190,7 +245,7 @@ namespace nts {
 		 * @details Наборы ГОСТ различаются базовым шифром и тем, как часто сменяется ключ
 		 *          записи: у наборов с буквой L смена редкая, у наборов с буквой S - частая.
 		 *          Классические наборы раздела B.4 RFC 8446 различаются шифром записей (AES-GCM
-		 *          либо ChaCha20-Poly1305), длиной ключа и хешем расписания ключей
+		 *          либо ChaCha20-Poly1305), длиной ключа и хешем расписания ключей.
 		 *
 		 * @note Значения, здесь не перечисленные, в перечнях встречной стороны пропускаются
 		 *       молча (RFC 8701): набор неведомый - не набор негодный
@@ -202,7 +257,7 @@ namespace nts {
 		 *          changed: at the suites with the letter L the change is rare, at the suites with
 		 *          the letter S it is frequent. The classic suites of the section B.4 of RFC 8446
 		 *          differ by the cipher of the records (AES-GCM or ChaCha20-Poly1305), by the length
-		 *          of the key and by the hash of the key schedule
+		 *          of the key and by the hash of the key schedule.
 		 *
 		 * @note The values not listed here are skipped silently in the lists of the peer (RFC 8701):
 		 *       an unknown suite is not an invalid suite
@@ -211,15 +266,15 @@ namespace nts {
 		 */
 		enum class suite_t : uint16_t {
 			// Набор шифрования не установлен
-			NONE             = 0x0000, /*!< \~russian Набор шифрования не установлен \~english The cipher suite is not set \~ */
+			NONE = 0x0000, /*!< \~russian Набор шифрования не установлен \~english The cipher suite is not set \~ */
 			// «Кузнечик» в режиме MGM с редкой сменой ключа записи
 			KUZNYECHIK_MGM_L = 0xC103, /*!< \~russian «Кузнечик» в режиме MGM с редкой сменой ключа записи \~english «Kuznyechik» in the MGM mode with a rare change of the key of a record \~ */
 			// «Магма» в режиме MGM с редкой сменой ключа записи
-			MAGMA_MGM_L      = 0xC104, /*!< \~russian «Магма» в режиме MGM с редкой сменой ключа записи \~english «Magma» in the MGM mode with a rare change of the key of a record \~ */
+			MAGMA_MGM_L = 0xC104, /*!< \~russian «Магма» в режиме MGM с редкой сменой ключа записи \~english «Magma» in the MGM mode with a rare change of the key of a record \~ */
 			// «Кузнечик» в режиме MGM с частой сменой ключа записи
 			KUZNYECHIK_MGM_S = 0xC105, /*!< \~russian «Кузнечик» в режиме MGM с частой сменой ключа записи \~english «Kuznyechik» in the MGM mode with a frequent change of the key of a record \~ */
 			// «Магма» в режиме MGM с частой сменой ключа записи
-			MAGMA_MGM_S      = 0xC106, /*!< \~russian «Магма» в режиме MGM с частой сменой ключа записи \~english «Magma» in the MGM mode with a frequent change of the key of a record \~ */
+			MAGMA_MGM_S = 0xC106, /*!< \~russian «Магма» в режиме MGM с частой сменой ключа записи \~english «Magma» in the MGM mode with a frequent change of the key of a record \~ */
 			// AES-128 в режиме GCM с расписанием на SHA-256
 			AES_128_GCM_SHA256 = 0x1301, /*!< \~russian AES-128 в режиме GCM с расписанием на SHA-256 \~english AES-128 in the GCM mode with the schedule on SHA-256 \~ */
 			// AES-256 в режиме GCM с расписанием на SHA-384
@@ -231,121 +286,61 @@ namespace nts {
 			// SM4 в режиме CCM с расписанием на SM3 (RFC 8998)
 			SM4_CCM_SM3 = 0x00C7, /*!< \~russian SM4 в режиме CCM с расписанием на SM3 (RFC 8998) \~english SM4 in the CCM mode with the schedule on SM3 (RFC 8998) \~ */
 			// TLS 1.2: ECDHE с подписью ECDSA, AES-128-GCM, PRF на SHA-256 (RFC 5289)
-			ECDHE_ECDSA_AES_128_GCM_SHA256       = 0xC02B, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
+			ECDHE_ECDSA_AES_128_GCM_SHA256 = 0xC02B, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
 			// TLS 1.2: ECDHE с подписью ECDSA, AES-256-GCM, PRF на SHA-384 (RFC 5289)
-			ECDHE_ECDSA_AES_256_GCM_SHA384       = 0xC02C, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-256-GCM, PRF на SHA-384 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-256-GCM, the PRF on SHA-384 (RFC 5289) \~ */
+			ECDHE_ECDSA_AES_256_GCM_SHA384 = 0xC02C, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-256-GCM, PRF на SHA-384 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-256-GCM, the PRF on SHA-384 (RFC 5289) \~ */
 			// TLS 1.2: ECDHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (RFC 5289)
-			ECDHE_RSA_AES_128_GCM_SHA256         = 0xC02F, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
+			ECDHE_RSA_AES_128_GCM_SHA256 = 0xC02F, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-GCM, the PRF on SHA-256 (RFC 5289) \~ */
 			// TLS 1.2: ECDHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (RFC 5289)
-			ECDHE_RSA_AES_256_GCM_SHA384         = 0xC030, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-256-GCM, the PRF on SHA-384 (RFC 5289) \~ */
+			ECDHE_RSA_AES_256_GCM_SHA384 = 0xC030, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-256-GCM, the PRF on SHA-384 (RFC 5289) \~ */
 			// TLS 1.2: ECDHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905)
-			ECDHE_RSA_CHACHA20_POLY1305_SHA256   = 0xCCA8, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with an RSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
+			ECDHE_RSA_CHACHA20_POLY1305_SHA256 = 0xCCA8, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with an RSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
 			// TLS 1.2: ECDHE с подписью ECDSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905)
 			ECDHE_ECDSA_CHACHA20_POLY1305_SHA256 = 0xCCA9, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with an ECDSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
 			// TLS 1.2: ECDHE с подписью ECDSA, AES-128-CBC, HMAC-SHA256 (RFC 5289)
-			ECDHE_ECDSA_AES_128_CBC_SHA256       = 0xC023, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~ */
+			ECDHE_ECDSA_AES_128_CBC_SHA256 = 0xC023, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~ */
 			// TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA256 (RFC 5289)
-			ECDHE_RSA_AES_128_CBC_SHA256         = 0xC027, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~ */
+			ECDHE_RSA_AES_128_CBC_SHA256 = 0xC027, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-CBC, HMAC-SHA256 (RFC 5289) \~ */
 			// TLS 1.2: ECDHE с подписью ECDSA, AES-128-CBC, HMAC-SHA1 (RFC 8422)
-			ECDHE_ECDSA_AES_128_CBC_SHA          = 0xC009, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			ECDHE_ECDSA_AES_128_CBC_SHA = 0xC009, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~ */
 			// TLS 1.2: ECDHE с подписью ECDSA, AES-256-CBC, HMAC-SHA1 (RFC 8422)
-			ECDHE_ECDSA_AES_256_CBC_SHA          = 0xC00A, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			ECDHE_ECDSA_AES_256_CBC_SHA = 0xC00A, /*!< \~russian TLS 1.2: ECDHE с подписью ECDSA, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an ECDSA signature, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~ */
 			// TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (RFC 8422)
-			ECDHE_RSA_AES_128_CBC_SHA            = 0xC013, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			ECDHE_RSA_AES_128_CBC_SHA = 0xC013, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an RSA signature, AES-128-CBC, HMAC-SHA1 (RFC 8422) \~ */
 			// TLS 1.2: ECDHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (RFC 8422)
-			ECDHE_RSA_AES_256_CBC_SHA            = 0xC014, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an RSA signature, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~ */
+			ECDHE_RSA_AES_256_CBC_SHA = 0xC014, /*!< \~russian TLS 1.2: ECDHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~english TLS 1.2: ECDHE with an RSA signature, AES-256-CBC, HMAC-SHA1 (RFC 8422) \~ */
 			// TLS 1.2: DHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (раздел A.5 RFC 5246)
-			DHE_RSA_AES_128_GCM_SHA256           = 0x009E, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-128-GCM, the PRF on SHA-256 (the appendix A.5 of RFC 5246) \~ */
+			DHE_RSA_AES_128_GCM_SHA256 = 0x009E, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-128-GCM, PRF на SHA-256 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-128-GCM, the PRF on SHA-256 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: DHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (раздел A.5 RFC 5246)
-			DHE_RSA_AES_256_GCM_SHA384           = 0x009F, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-256-GCM, the PRF on SHA-384 (the appendix A.5 of RFC 5246) \~ */
+			DHE_RSA_AES_256_GCM_SHA384 = 0x009F, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-256-GCM, PRF на SHA-384 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-256-GCM, the PRF on SHA-384 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: DHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905)
-			DHE_RSA_CHACHA20_POLY1305_SHA256     = 0xCCAA, /*!< \~russian TLS 1.2: DHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: DHE with an RSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
+			DHE_RSA_CHACHA20_POLY1305_SHA256 = 0xCCAA, /*!< \~russian TLS 1.2: DHE с подписью RSA, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: DHE with an RSA signature, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
 			// TLS 1.2: DHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246)
-			DHE_RSA_AES_128_CBC_SHA              = 0x0033, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-128-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
+			DHE_RSA_AES_128_CBC_SHA = 0x0033, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-128-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: DHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246)
-			DHE_RSA_AES_256_CBC_SHA              = 0x0039, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-256-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
+			DHE_RSA_AES_256_CBC_SHA = 0x0039, /*!< \~russian TLS 1.2: DHE с подписью RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: DHE with an RSA signature, AES-256-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246)
-			RSA_AES_128_CBC_SHA                  = 0x002F, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-128-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
+			RSA_AES_128_CBC_SHA = 0x002F, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-128-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246)
-			RSA_AES_256_CBC_SHA                  = 0x0035, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-256-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
+			RSA_AES_256_CBC_SHA = 0x0035, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA1 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-256-CBC, HMAC-SHA1 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA256 (раздел A.5 RFC 5246)
-			RSA_AES_128_CBC_SHA256               = 0x003C, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA256 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-128-CBC, HMAC-SHA256 (the appendix A.5 of RFC 5246) \~ */
+			RSA_AES_128_CBC_SHA256 = 0x003C, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-CBC, HMAC-SHA256 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-128-CBC, HMAC-SHA256 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA256 (раздел A.5 RFC 5246)
-			RSA_AES_256_CBC_SHA256               = 0x003D, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA256 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-256-CBC, HMAC-SHA256 (the appendix A.5 of RFC 5246) \~ */
+			RSA_AES_256_CBC_SHA256 = 0x003D, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-CBC, HMAC-SHA256 (раздел A.5 RFC 5246) \~english TLS 1.2: the RSA key exchange, AES-256-CBC, HMAC-SHA256 (the appendix A.5 of RFC 5246) \~ */
 			// TLS 1.2: обмен ключами RSA, AES-128-GCM, PRF на SHA-256 (RFC 5288)
-			RSA_AES_128_GCM_SHA256               = 0x009C, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-GCM, PRF на SHA-256 (RFC 5288) \~english TLS 1.2: the RSA key exchange, AES-128-GCM, the PRF on SHA-256 (RFC 5288) \~ */
+			RSA_AES_128_GCM_SHA256 = 0x009C, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-128-GCM, PRF на SHA-256 (RFC 5288) \~english TLS 1.2: the RSA key exchange, AES-128-GCM, the PRF on SHA-256 (RFC 5288) \~ */
 			// TLS 1.2: обмен ключами RSA, AES-256-GCM, PRF на SHA-384 (RFC 5288)
-			RSA_AES_256_GCM_SHA384               = 0x009D, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-GCM, PRF на SHA-384 (RFC 5288) \~english TLS 1.2: the RSA key exchange, AES-256-GCM, the PRF on SHA-384 (RFC 5288) \~ */
+			RSA_AES_256_GCM_SHA384 = 0x009D, /*!< \~russian TLS 1.2: обмен ключами RSA, AES-256-GCM, PRF на SHA-384 (RFC 5288) \~english TLS 1.2: the RSA key exchange, AES-256-GCM, the PRF on SHA-384 (RFC 5288) \~ */
 			// TLS 1.2: заранее разделённый ключ, AES-128-CBC, HMAC-SHA1 (RFC 4279)
-			PSK_AES_128_CBC_SHA                  = 0x008C, /*!< \~russian TLS 1.2: заранее разделённый ключ, AES-128-CBC, HMAC-SHA1 (RFC 4279) \~english TLS 1.2: a pre-shared key, AES-128-CBC, HMAC-SHA1 (RFC 4279) \~ */
+			PSK_AES_128_CBC_SHA = 0x008C, /*!< \~russian TLS 1.2: заранее разделённый ключ, AES-128-CBC, HMAC-SHA1 (RFC 4279) \~english TLS 1.2: a pre-shared key, AES-128-CBC, HMAC-SHA1 (RFC 4279) \~ */
 			// TLS 1.2: заранее разделённый ключ, AES-256-CBC, HMAC-SHA1 (RFC 4279)
-			PSK_AES_256_CBC_SHA                  = 0x008D, /*!< \~russian TLS 1.2: заранее разделённый ключ, AES-256-CBC, HMAC-SHA1 (RFC 4279) \~english TLS 1.2: a pre-shared key, AES-256-CBC, HMAC-SHA1 (RFC 4279) \~ */
+			PSK_AES_256_CBC_SHA = 0x008D, /*!< \~russian TLS 1.2: заранее разделённый ключ, AES-256-CBC, HMAC-SHA1 (RFC 4279) \~english TLS 1.2: a pre-shared key, AES-256-CBC, HMAC-SHA1 (RFC 4279) \~ */
 			// TLS 1.2: ECDHE с заранее разделённым ключом, AES-128-CBC, HMAC-SHA1 (RFC 5489)
-			ECDHE_PSK_AES_128_CBC_SHA            = 0xC035, /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, AES-128-CBC, HMAC-SHA1 (RFC 5489) \~english TLS 1.2: ECDHE with a pre-shared key, AES-128-CBC, HMAC-SHA1 (RFC 5489) \~ */
+			ECDHE_PSK_AES_128_CBC_SHA = 0xC035, /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, AES-128-CBC, HMAC-SHA1 (RFC 5489) \~english TLS 1.2: ECDHE with a pre-shared key, AES-128-CBC, HMAC-SHA1 (RFC 5489) \~ */
 			// TLS 1.2: ECDHE с заранее разделённым ключом, AES-256-CBC, HMAC-SHA1 (RFC 5489)
-			ECDHE_PSK_AES_256_CBC_SHA            = 0xC036, /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, AES-256-CBC, HMAC-SHA1 (RFC 5489) \~english TLS 1.2: ECDHE with a pre-shared key, AES-256-CBC, HMAC-SHA1 (RFC 5489) \~ */
+			ECDHE_PSK_AES_256_CBC_SHA = 0xC036, /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, AES-256-CBC, HMAC-SHA1 (RFC 5489) \~english TLS 1.2: ECDHE with a pre-shared key, AES-256-CBC, HMAC-SHA1 (RFC 5489) \~ */
 			// TLS 1.2: ECDHE с заранее разделённым ключом, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905)
-			ECDHE_PSK_CHACHA20_POLY1305_SHA256   = 0xCCAC  /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with a pre-shared key, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
-		};
-
-		/**
-		 * \~russian
-		 * @brief Алгоритмы подписи, которых набор шифрования TLS 1.2 требует от сертификата
-		 *
-		 * @details Раздел 2 RFC 8422: у наборов ECDHE_ECDSA сертификат несёт ключ ECDSA либо
-		 *          EdDSA, у наборов ECDHE_RSA - ключ RSA; наборы TLS 1.3 подписи в имени не
-		 *          несут вовсе
-		 *
-		 * \~english
-		 * @brief Signature algorithms a TLS 1.2 cipher suite requires from the certificate
-		 *
-		 * @details The section 2 of RFC 8422: at the ECDHE_ECDSA suites the certificate carries an ECDSA or
-		 *          an EdDSA key, at the ECDHE_RSA suites - an RSA key; the TLS 1.3 suites do not carry a
-		 *          signature in the name at all
-		 *
-		 * \~
-		 */
-		enum class signer_t : uint8_t {
-			// Набор подписи не требует
-			NONE  = 0x00, /*!< \~russian Набор подписи не требует \~english The suite does not require a signature \~ */
-			// Подпись ECDSA либо EdDSA
-			ECDSA = 0x01, /*!< \~russian Подпись ECDSA либо EdDSA \~english An ECDSA or an EdDSA signature \~ */
-			// Подпись RSA
-			RSA   = 0x02  /*!< \~russian Подпись RSA \~english An RSA signature \~ */
-		};
-
-		/**
-		 * \~russian
-		 * @brief Способы обмена ключами наборов шифрования TLS 1.2
-		 *
-		 * @details Раздел 7.4.3 RFC 5246, RFC 8422, RFC 4279 и RFC 5489: набор именует и
-		 *          способ выработки общего значения обмена - мимолётные ключи на кривой,
-		 *          шифрование случайного значения ключом RSA сертификата, заранее
-		 *          разделённый ключ либо его сочетание с мимолётными ключами
-		 *
-		 * \~english
-		 * @brief Ways of the key exchange of the TLS 1.2 cipher suites
-		 *
-		 * @details The section 7.4.3 of RFC 5246, RFC 8422, RFC 4279 and RFC 5489: a suite names the way of the
-		 *          derivation of the shared value of the exchange as well - ephemeral keys on a curve, the
-		 *          encryption of a random value by the RSA key of the certificate, a pre-shared key or its
-		 *          combination with the ephemeral keys
-		 *
-		 * \~
-		 */
-		enum class exchange_t : uint8_t {
-			// Набор обмена ключами издания 1.2 не ведёт
-			NONE      = 0x00, /*!< \~russian Набор обмена ключами издания 1.2 не ведёт \~english The suite does not conduct the key exchange of the 1.2 edition \~ */
-			// Мимолётные ключи на кривой с подписью сертификатом
-			ECDHE     = 0x01, /*!< \~russian Мимолётные ключи на кривой с подписью сертификатом \~english Ephemeral keys on a curve with a signature by the certificate \~ */
-			// Мимолётные ключи конечного поля с подписью сертификатом
-			DHE       = 0x05, /*!< \~russian Мимолётные ключи конечного поля с подписью сертификатом \~english Ephemeral keys of a finite field with a signature by the certificate \~ */
-			// Шифрование общего значения ключом RSA сертификата
-			RSA       = 0x02, /*!< \~russian Шифрование общего значения ключом RSA сертификата \~english The encryption of the shared value by the RSA key of the certificate \~ */
-			// Заранее разделённый ключ без сертификата
-			PSK       = 0x03, /*!< \~russian Заранее разделённый ключ без сертификата \~english A pre-shared key without a certificate \~ */
-			// Мимолётные ключи на кривой с заранее разделённым ключом
-			ECDHE_PSK = 0x04  /*!< \~russian Мимолётные ключи на кривой с заранее разделённым ключом \~english Ephemeral keys on a curve with a pre-shared key \~ */
+			ECDHE_PSK_CHACHA20_POLY1305_SHA256 = 0xCCAC  /*!< \~russian TLS 1.2: ECDHE с заранее разделённым ключом, ChaCha20-Poly1305, PRF на SHA-256 (RFC 7905) \~english TLS 1.2: ECDHE with a pre-shared key, ChaCha20-Poly1305, the PRF on SHA-256 (RFC 7905) \~ */
 		};
 
 		/**
@@ -606,9 +601,10 @@ namespace nts {
 		 * \~
 		 */
 		__NTS_SHARED_EXPORT__ bool tree(const suite_t suite, const view_t & key, const uint64_t sequence, uint8_t * result) noexcept;
+
 		/**
 		 * \~russian
-		 * @brief Защита записей одного направления связи
+		 * @brief Класс защиты записей одного направления связи
 		 *
 		 * @details Объект хранит ключевой материал одного направления и порядковый номер
 		 *          записи, который сам растёт с каждой защищённой либо снятой записью. Для
@@ -618,7 +614,7 @@ namespace nts {
 		 *       снятие принимает то, что выдал сборщик слоя записей
 		 *
 		 * \~english
-		 * @brief Protection of the records of a single direction of a connection
+		 * @brief Protection class of records of one direction of communication
 		 *
 		 * @details The object stores the key material of a single direction and the sequence number
 		 *          of a record, which grows on its own with every protected or unprotected record. A
@@ -632,76 +628,61 @@ namespace nts {
 		 */
 		typedef class __NTS_SHARED_EXPORT__ Protection {
 			private:
-				// Признак того, что ключевой материал установлен
-				bool _ready;
-			private:
-				// Набор шифрования, которым защищаются записи
-				suite_t _suite;
-			private:
-				// Длина вектора замены набора шифрования
-				size_t _size;
-			private:
-				// Длина метки целостности записи набора шифрования
-				size_t _tag;
-			private:
-				// Длина ключа набора шифрования
-				size_t _width;
-			private:
-				// Признак классического набора шифрования AES-GCM либо ChaCha20-Poly1305
-				bool _classic;
-			private:
-				// Признак набора ChaCha20-Poly1305, обходящегося без базового блочного шифра
-				bool _stream;
-			private:
-				// Признак набора издания TLS 1.2 с защитой записей по разделу 6.2.3.3 RFC 5246
-				bool _legacy;
-			private:
 				// Признак набора CBC с имитовставкой по разделу 6.2.3.2 RFC 5246
 				bool _cbc;
 				// Признак набора SM4-CCM с режимом CCM по RFC 3610 вместо GCM
 				bool _ccm;
 				// Признак порядка «шифрование, затем имитовставка» по RFC 7366
 				bool _etm;
-				// Хеш имитовставки набора CBC
-				digest::hash_t _digest;
-				// Ключ имитовставки направления связи
-				uint8_t _mac[PROTECT_MAC];
+				// Признак того, что ключевой материал установлен
+				bool _ready;
+				// Признак набора издания TLS 1.2 с защитой записей по разделу 6.2.3.3 RFC 5246
+				bool _legacy;
+				// Признак набора ChaCha20-Poly1305, обходящегося без базового блочного шифра
+				bool _stream;
+				// Признак классического набора шифрования AES-GCM либо ChaCha20-Poly1305
+				bool _classic;
 			private:
-				// Порядковый номер очередной записи
-				uint64_t _sequence;
+				// Длина метки целостности записи набора шифрования
+				size_t _tag;
+				// Длина вектора замены набора шифрования
+				size_t _size;
+				// Длина ключа набора шифрования
+				size_t _width;
 			private:
 				// Наибольший порядковый номер записи набора шифрования
 				uint64_t _limit;
-			private:
 				// Порядковый номер записи, на котором выработан ключ записи
 				uint64_t _derived;
+				// Порядковый номер очередной записи
+				uint64_t _sequence;
 			private:
-				// Корневой ключ направления связи
-				uint8_t _key[PROTECT_KEY];
-			private:
-				// Вектор замены направления связи
-				uint8_t _vector[PROTECT_VECTOR];
-			private:
-				// Объект базового шифра «Магма»
-				cipher::magma_t _magma;
-			private:
-				// Объект базового шифра «Кузнечик»
-				cipher::kuznyechik_t _kuznyechik;
+				// Набор шифрования, которым защищаются записи
+				suite_t _suite;
+				// Хеш имитовставки набора CBC
+				digest::hash_t _digest;
 			private:
 				// Объект базового шифра AES классических наборов
 				cipher::aes_t _aes;
-			private:
 				// Объект базового шифра SM4 наборов RFC 8998
 				cipher::sm4_t _sm4;
-			private:
 				// Объект режима GCM классических наборов: таблица кратных ключа хеширования строится один раз на ключ
 				cipher::gcm_t _gcm;
-			private:
+				// Объект режима CCM набора SM4-CCM
+				cipher::ccm_t _mode;
+				// Объект базового шифра «Магма»
+				cipher::magma_t _magma;
+				// Объект базового шифра «Кузнечик»
+				cipher::kuznyechik_t _kuznyechik;
 				// Объект режима ChaCha20-Poly1305: одноразовый ключ имитовставки вырабатывается заново лишь сменой заполнения
 				cipher::chachapoly_t _chachapoly;
 			private:
-				// Объект режима CCM набора SM4-CCM
-				cipher::ccm_t _mode;
+				// Корневой ключ направления связи
+				uint8_t _key[PROTECT_KEY];
+				// Ключ имитовставки направления связи
+				uint8_t _mac[PROTECT_MAC];
+				// Вектор замены направления связи
+				uint8_t _vector[PROTECT_VECTOR];
 			private:
 				/**
 				 * \~russian
@@ -1299,7 +1280,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				Protection() noexcept;
+				explicit Protection() noexcept;
 				/**
 				 * \~russian
 				 * @brief Деструктор
