@@ -469,7 +469,7 @@ namespace {
 	 *
 	 * @param group  группа
 	 * @param secret показатель
-	 * @return       число разрядов перебора: объявленная длина показателя группы либо длина поданного, если он шире
+	 * @return       количество разрядов перебора: объявленная длина показателя группы либо длина поданного, если он шире
 	 *
 	 */
 	static size_t sweep(const group_t * group, const view_t & secret) noexcept {
@@ -617,7 +617,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * r
 	base.word(2);
 	/**
 	 * Возводим образующую в показатель: окно возведения выбирается масками за постоянное
-	 * время, а число шагов идёт по ширине показателя, не модуля - у показателя в 256…448
+	 * время, а количество шагов идёт по ширине показателя, не модуля - у показателя в 256…448
 	 * разрядов шаги по ширине модуля в 8192 разряда стоили бы секунду на рукопожатие;
 	 * своя сторона ставит старший разряд показателя, и ширина его постоянна
 	 */
@@ -712,7 +712,7 @@ bool nts::agreement::pairffdhe(const size_t size, uint8_t * secret, uint8_t * ke
 		// Выводим отрицательный результат - ключ не выработан
 		return false;
 	}
-	// Ставим старший разряд показателя: ширина показателя постоянна, и число шагов возведения её не выдаёт
+	// Ставим старший разряд показателя: ширина показателя постоянна, и количество шагов возведения её не выдаёт
 	secret[0] |= 0x80;
 	// Если открытый ключ выработать не удалось
 	if(!ffdhe(size, view_t(secret, group->exponent), key)){
@@ -787,7 +787,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	if(!inside(base, one, edge) || !inside(power, one, edge))
 		// Выводим отрицательный результат - значения вне границ
 		return false;
-	// Число разрядов перебора по длине поданного показателя
+	// Количество разрядов перебора по длине поданного показателя
 	const size_t bits = (secret.size * 8);
 	// Возводим образующую в показатель
 	bool ok = value.power(base, power, modulus, bits);
@@ -842,7 +842,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	if(!inside(base, one, edge) || !inside(power, one, edge) || !inside(peer, one, edge))
 		// Выводим отрицательный результат - значения вне границ
 		return false;
-	// Число разрядов перебора по длине поданного показателя
+	// Количество разрядов перебора по длине поданного показателя
 	const size_t bits = (secret.size * 8);
 	// Возводим ключ встречной стороны в свой показатель
 	bool ok = value.power(peer, power, modulus, bits);

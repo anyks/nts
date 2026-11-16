@@ -259,7 +259,7 @@ namespace nts {
 			 * @brief Функция разбора ключа openssh-key-v1
 			 *
 			 * @details Формат: магия «openssh-key-v1\0», ciphername, kdfname, kdfoptions,
-			 *          число ключей, открытые ключи, зашифрованный либо открытый блок
+			 *          количество ключей, открытые ключи, зашифрованный либо открытый блок
 			 *          секретных ключей. Поддерживаются ciphername «none» и «aes256-ctr»,
 			 *          kdfname «none» и «bcrypt»
 			 *

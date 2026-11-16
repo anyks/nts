@@ -399,7 +399,7 @@ namespace {
 	 * @param remainders  таблица остатков вынесенного байта
 	 * @param accumulator накопитель многочлена в порядке GCM, заменяемый итогом
 	 * @param blocks      блоки подряд
-	 * @param count       число блоков: не меньше одного
+	 * @param count       количество блоков: не меньше одного
 	 *
 	 */
 	static void absorbTable(const uint64_t (* table)[2], const uint16_t * remainders, uint8_t * accumulator, const uint8_t * blocks, size_t count) noexcept {
@@ -571,14 +571,14 @@ namespace {
 		 * @brief Функция слитого хода режима: гамма счётчика AES и хеш GHASH по восемь блоков в одном проходе
 		 *
 		 * @param keys        расписание ключа зашифрования AES
-		 * @param rounds      число кругов AES
+		 * @param rounds      количество кругов AES
 		 * @param counter     блок счётчика: младшие 32 разряда растут от старшего байта и продвигаются на пройденные блоки
 		 * @param powers      степени ключа хеширования от восьмой до первой, отражённые
 		 * @param accumulator накопитель хеша
 		 * @param sealing     признак зашифрования: хеш берётся от итога, при расшифровании - от источника
 		 * @param source      источник: открытый текст либо шифртекст
 		 * @param result      место, в которое записывается итог той же длины
-		 * @param chunks      число восьмёрок блоков
+		 * @param chunks      количество восьмёрок блоков
 		 *
 		 */
 		static __NTS_FUSED_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
@@ -876,7 +876,7 @@ namespace {
 			 * @param powers      степени ключа хеширования от восьмой до первой, сдвинутые, с суммами половин
 			 * @param accumulator накопитель многочлена в порядке GCM, заменяемый итогом
 			 * @param blocks      восьмёрки блоков подряд
-			 * @param count       число восьмёрок: не меньше одной
+			 * @param count       количество восьмёрок: не меньше одной
 			 *
 			 */
 			static void aggregateVexX86(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks, size_t count) noexcept {
@@ -1005,14 +1005,14 @@ namespace {
 		 * @brief Функция слитого хода режима: гамма счётчика AES-NI и хеш GHASH по восемь блоков в одном проходе
 		 *
 		 * @param keys        расписание ключа зашифрования AES
-		 * @param rounds      число кругов AES
+		 * @param rounds      количество кругов AES
 		 * @param counter     блок счётчика: младшие 32 разряда растут от старшего байта и продвигаются на пройденные блоки
 		 * @param powers      степени ключа хеширования от восьмой до первой, сдвинутые, с суммами половин
 		 * @param accumulator накопитель хеша
 		 * @param sealing     признак зашифрования: хеш берётся от итога, при расшифровании - от источника
 		 * @param source      источник: открытый текст либо шифртекст
 		 * @param result      место, в которое записывается итог той же длины
-		 * @param chunks      число восьмёрок блоков
+		 * @param chunks      количество восьмёрок блоков
 		 *
 		 */
 		static __NTS_FUSED_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
@@ -1173,14 +1173,14 @@ namespace {
 		 * @param sealing     признак зашифрования
 		 * @param source      исходные данные
 		 * @param result      место под итог
-		 * @param chunks      число восьмёрок: не меньше одной
+		 * @param chunks      количество восьмёрок: не меньше одной
 		 * @return            признак успешности хода
 		 *
 		 */
 		static bool stitched(const block_t & block, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
 			// Кадр ядра
 			alignas(16) uint8_t frame[kernel::FRAME];
-			// Число восьмёрок, проведённых гаммой шифра
+			// Количество восьмёрок, проведённых гаммой шифра
 			size_t first = 0;
 			// При зашифровании прежней восьмёрки итога у первой нет: её ведёт гамма шифра
 			if(sealing){
@@ -1251,7 +1251,7 @@ namespace {
  * @param sealing признак зашифрования: хеш берётся от итога, при расшифровании - от источника
  * @param source  источник целыми восьмёрками блоков
  * @param result  место, в которое записывается итог той же длины
- * @param chunks  число восьмёрок блоков
+ * @param chunks  количество восьмёрок блоков
  * @return        признак того, что ход выполнен: без расписания ключа AES либо команд машины - отказ, и путь идёт порознь
  *
  */
@@ -1370,7 +1370,7 @@ void nts::cipher::Gcm::multiply(uint8_t * value) const noexcept {
  *
  * @param accumulator накопитель многочлена, заменяемый итогом
  * @param blocks      восьмёрки блоков подряд
- * @param count       число восьмёрок: не меньше одной
+ * @param count       количество восьмёрок: не меньше одной
  * @return            признак того, что машина умножает командами и восьмёрки сложены
  *
  */
@@ -1425,7 +1425,7 @@ bool nts::cipher::Gcm::aggregate([[maybe_unused]] uint8_t * accumulator, [[maybe
  * @brief Метод сложения байтов в накопитель многочлена GHASH
  *
  * @param data складываемые байты
- * @param size число складываемых байтов
+ * @param size количество складываемых байтов
  *
  */
 void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept {
@@ -1439,15 +1439,15 @@ void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept 
 	const uint8_t * cursor = data;
 	// Если неполный блок уже копится
 	if(this->_filled > 0){
-		// Число байтов, дополняющих неполный блок
+		// Количество байтов, дополняющих неполный блок
 		const size_t taken = (((16 - this->_filled) < left) ? (16 - this->_filled) : left);
 		// Переносим байты в неполный блок
 		::memcpy(this->_pending + this->_filled, cursor, taken);
-		// Увеличиваем число накопленных байтов
+		// Увеличиваем количество накопленных байтов
 		this->_filled += taken;
 		// Сдвигаем позицию чтения
 		cursor += taken;
-		// Уменьшаем число не сложенных байтов
+		// Уменьшаем количество не сложенных байтов
 		left -= taken;
 		// Если блок так и остался неполным
 		if(this->_filled < 16)
@@ -1461,7 +1461,7 @@ void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept 
 			this->_accumulator[i] ^= this->_pending[i];
 		// Умножаем накопитель на ключ хеширования
 		this->multiply(this->_accumulator);
-		// Сбрасываем число накопленных байтов
+		// Сбрасываем количество накопленных байтов
 		this->_filled = 0;
 	}
 	// Признак умножения командами машины
@@ -1475,25 +1475,25 @@ void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept 
 	#endif
 	// Если впереди хотя бы восьмёрка целых блоков, а машина умножает командами
 	if(commands && (left >= 128)){
-		// Число восьмёрок целых блоков
+		// Количество восьмёрок целых блоков
 		const size_t groups = (left / 128);
 		// Если восьмёрки сложены одним вызовом по одному приведению на восьмёрку
 		if(this->aggregate(this->_accumulator, cursor, groups)){
 			// Сдвигаем позицию чтения
 			cursor += (groups * 128);
-			// Уменьшаем число не сложенных байтов
+			// Уменьшаем количество не сложенных байтов
 			left -= (groups * 128);
 		}
 	}
 	// Если умножение идёт таблицей и впереди хотя бы целый блок
 	if(!commands && (left >= 16)){
-		// Число целых блоков
+		// Количество целых блоков
 		const size_t whole = (left / 16);
 		// Сложение целых блоков одним проходом с накопителем в регистрах
 		absorbTable(this->_table, this->_remainders, this->_accumulator, cursor, whole);
 		// Сдвигаем позицию чтения
 		cursor += (whole * 16);
-		// Уменьшаем число не сложенных байтов
+		// Уменьшаем количество не сложенных байтов
 		left -= (whole * 16);
 	}
 	/**
@@ -1510,14 +1510,14 @@ void nts::cipher::Gcm::absorb(const uint8_t * data, const size_t size) noexcept 
 		this->multiply(this->_accumulator);
 		// Сдвигаем позицию чтения
 		cursor += 16;
-		// Уменьшаем число не сложенных байтов
+		// Уменьшаем количество не сложенных байтов
 		left -= 16;
 	}
 	// Если остался хвост короче блока
 	if(left > 0){
 		// Переносим хвост в неполный блок
 		::memcpy(this->_pending, cursor, left);
-		// Запоминаем число накопленных байтов
+		// Запоминаем количество накопленных байтов
 		this->_filled = left;
 	}
 }
@@ -1538,7 +1538,7 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 	uint8_t * output = result;
 	// Если остаток блока гаммы не израсходован
 	if(this->_rest > 0){
-		// Число байтов, покрываемых остатком
+		// Количество байтов, покрываемых остатком
 		const size_t taken = ((this->_rest < left) ? this->_rest : left);
 		// Позиция остатка внутри блока гаммы
 		const size_t index = (16 - this->_rest);
@@ -1552,7 +1552,7 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 		cursor += taken;
 		// Сдвигаем позицию записи
 		output += taken;
-		// Уменьшаем число не покрытых байтов
+		// Уменьшаем количество не покрытых байтов
 		left -= taken;
 		// Уменьшаем остаток блока гаммы
 		this->_rest -= taken;
@@ -1566,7 +1566,7 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 	 * Выполняем покрытие данных гаммой по тридцать два блока
 	 */
 	while(left > 0){
-		// Число блоков гаммы: до тридцати двух
+		// Количество блоков гаммы: до тридцати двух
 		const size_t count = (((left + 15) / 16) < 32) ? ((left + 15) / 16) : 32;
 		// Если шифр умеет вырабатывать гамму по многу блоков
 		if(this->_block.stream != nullptr){
@@ -1578,11 +1578,8 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 				return false;
 			}
 			/**
-			 * Выполняем продвижение счётчика на выработанные блоки
-			 */
-			/**
-			 * Сдвигаем счётчик на число блоков числом, а не побайтно: младшие четыре
-			 * байта идут от старшего и по кругу, как и у побайтового переноса
+			 * Сдвигаем счётчик сразу на количество выработанных блоков, а не побайтно:
+			 * младшие четыре байта идут от старшего и по кругу, как и у побайтового переноса
 			 */
 			const uint32_t tail = ((static_cast <uint32_t> (this->_counter[12]) << 24) | (static_cast <uint32_t> (this->_counter[13]) << 16) | (static_cast <uint32_t> (this->_counter[14]) << 8) | static_cast <uint32_t> (this->_counter[15])) + static_cast <uint32_t> (count);
 			// Записываем сдвинутый счётчик от старшего байта
@@ -1617,9 +1614,9 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 				}
 			}
 		}
-		// Число байтов, покрываемых выработанной гаммой
+		// Количество байтов, покрываемых выработанной гаммой
 		const size_t taken = ((left < (count * 16)) ? left : (count * 16));
-		// Число целых слов накладываемой гаммы
+		// Количество целых слов накладываемой гаммы
 		const size_t whole = (taken / 8);
 		/**
 		 * Выполняем наложение гаммы словами по восемь байтов: побайтовое наложение
@@ -1649,14 +1646,14 @@ bool nts::cipher::Gcm::cover(const view_t & source, uint8_t * result) noexcept {
 		if(taken < (count * 16)){
 			// Сохраняем последний блок гаммы остатком
 			::memcpy(this->_gamma, gamma + ((count - 1) * 16), 16);
-			// Запоминаем число неизрасходованных байтов остатка
+			// Запоминаем количество неизрасходованных байтов остатка
 			this->_rest = ((count * 16) - taken);
 		}
 		// Сдвигаем позицию чтения
 		cursor += taken;
 		// Сдвигаем позицию записи
 		output += taken;
-		// Уменьшаем число не покрытых байтов
+		// Уменьшаем количество не покрытых байтов
 		left -= taken;
 	}
 	// Затирание гаммы
@@ -1681,7 +1678,7 @@ void nts::cipher::Gcm::digest(uint8_t * result) noexcept {
 			this->_accumulator[i] ^= this->_pending[i];
 		// Умножаем накопитель на ключ хеширования
 		this->multiply(this->_accumulator);
-		// Сбрасываем число накопленных байтов
+		// Сбрасываем количество накопленных байтов
 		this->_filled = 0;
 	}
 	// Блок длин: разряды связанных данных и шифртекста
@@ -1742,7 +1739,7 @@ void nts::cipher::Gcm::reset() noexcept {
 	this->_direction = 0;
 	// Сбрасываем остаток блока гаммы
 	this->_rest = 0;
-	// Сбрасываем число накопленных байтов неполного блока
+	// Сбрасываем количество накопленных байтов неполного блока
 	this->_filled = 0;
 	// Сбрасываем длину связанных данных
 	this->_associated = 0;
@@ -1790,7 +1787,7 @@ bool nts::cipher::Gcm::proceed(const uint8_t direction) noexcept {
 					this->_accumulator[i] ^= this->_pending[i];
 				// Умножаем накопитель на ключ хеширования
 				this->multiply(this->_accumulator);
-				// Сбрасываем число накопленных байтов
+				// Сбрасываем количество накопленных байтов
 				this->_filled = 0;
 			}
 			// Запоминаем направление потока

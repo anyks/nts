@@ -80,7 +80,7 @@ namespace {
 	 */
 	static constexpr size_t SLICES = 4;
 	/**
-	 * Число слов в блоке
+	 * Количество слов в блоке
 	 */
 	static constexpr size_t WORDS = 128;
 	/**
@@ -151,7 +151,7 @@ namespace {
 			// Начинаем хеш, подаём длину и вход, снимаем итог
 			return (hasher.start(digest::blake_t::BLAKE2B, size, view_t()) && hasher.update(view_t(length, sizeof(length))) && hasher.update(data) && hasher.finish(result, size));
 		}
-		// Число полных шагов по 32 байта
+		// Количество полных шагов по 32 байта
 		const size_t steps = (((size + 31) / 32) - 2);
 		// Текущее значение V
 		uint8_t current[digest::BLAKE2B_LENGTH];
@@ -198,7 +198,7 @@ namespace {
 	 * @brief Функция кругового сдвига вправо
 	 *
 	 * @param word  сдвигаемое слово
-	 * @param count число разрядов сдвига
+	 * @param count количество разрядов сдвига
 	 * @return      слово, сдвинутое по кругу вправо
 	 *
 	 */
@@ -470,7 +470,7 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 	if(kind > 2)
 		// Отвергаем неизвестную разновидность
 		return false;
-	// Число блоков: округление вниз до кратного 4·p
+	// Количество блоков: округление вниз до кратного 4·p
 	const size_t blocks = (static_cast <size_t> (params.memory) / (4 * params.lanes)) * (4 * params.lanes);
 	// Длина дорожки
 	const size_t lane = (blocks / params.lanes);
@@ -487,7 +487,7 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 		::__nts_quartet__(params.lanes, numbers);
 		// Длина метки T
 		::__nts_quartet__(static_cast <uint32_t> (size), numbers + 4);
-		// Число блоков памяти m
+		// Количество блоков памяти m
 		::__nts_quartet__(params.memory, numbers + 8);
 		// Число проходов t
 		::__nts_quartet__(params.passes, numbers + 12);
@@ -577,7 +577,7 @@ bool nts::digest::argon2(const argon_params_t & params, const view_t & password,
 					input.words[1] = track;
 					// Номер среза
 					input.words[2] = slice;
-					// Число блоков памяти
+					// Количество блоков памяти
 					input.words[3] = blocks;
 					// Число проходов
 					input.words[4] = params.passes;

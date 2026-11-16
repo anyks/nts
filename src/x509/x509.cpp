@@ -43,10 +43,6 @@
 using namespace std;
 
 /**
- * @brief Основное пространство имён
- *
- */
-/**
  * @brief Внутренние служебные объекты
  *
  */
@@ -651,7 +647,7 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 					if(item.constructed)
 						// Запоминаем причину отказа
 						return (this->_error = error_t::STRUCTURE);
-					// Число неиспользуемых разрядов опознавателя
+					// Количество неиспользуемых разрядов опознавателя
 					uint8_t bits = 0;
 					// Просмотр записи опознавателя
 					view_t value;
@@ -816,7 +812,7 @@ void nts::x509::Certificate::clear() noexcept {
 	this->_subjectUID = view_t();
 	// Сбрасываем просмотр параметров ключа
 	this->_parameters = view_t();
-	// Сбрасываем число неиспользуемых разрядов подписи
+	// Сбрасываем количество неиспользуемых разрядов подписи
 	this->_unused = 0;
 	// Сбрасываем опознаватели алгоритма подписи
 	this->_algorithm.clear();
@@ -883,12 +879,12 @@ const nts::view_t & nts::x509::Certificate::number() const noexcept {
 /**
  * @brief Метод извлечения подписи сертификата
  *
- * @param unused число неиспользуемых разрядов последнего байта подписи
+ * @param unused количество неиспользуемых разрядов последнего байта подписи
  * @return       просмотр записи подписи
  *
  */
 const nts::view_t & nts::x509::Certificate::sign(uint8_t & unused) const noexcept {
-	// Запоминаем число неиспользуемых разрядов последнего байта подписи
+	// Запоминаем количество неиспользуемых разрядов последнего байта подписи
 	unused = this->_unused;
 	// Выводим подпись сертификата
 	return this->_signature;
@@ -1257,7 +1253,7 @@ nts::x509::error_t nts::x509::usage(const extension_t & extension, uint16_t & re
 		return error_t::STRUCTURE;
 	// Просмотр записи разрядов назначения ключа
 	view_t view;
-	// Число неиспользуемых разрядов последнего байта
+	// Количество неиспользуемых разрядов последнего байта
 	uint8_t unused = 0;
 	// Извлечение разрядов назначения ключа
 	if(asn1::bits(item, view, unused) != asn1::error_t::NONE)

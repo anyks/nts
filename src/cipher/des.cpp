@@ -324,8 +324,8 @@ namespace {
 	 *
 	 * @param value  переставляемое значение
 	 * @param table  таблица перестановки (номера разрядов от единицы)
-	 * @param output число разрядов результата
-	 * @param input  число разрядов значения
+	 * @param output количество разрядов результата
+	 * @param input  количество разрядов значения
 	 * @return       переставленное значение
 	 *
 	 */
@@ -516,7 +516,7 @@ bool nts::cipher::Des::key(const view_t & key) noexcept {
 	if((key.data == nullptr) || ((key.size != DES_KEY) && (key.size != DES3_KEY)))
 		// Выводим отказ установки ключа
 		return false;
-	// Число ключей DES по длине ключа
+	// Количество ключей DES по длине ключа
 	this->_keys = (key.size / DES_KEY);
 	/**
 	 * Выполняем перебор ключей DES
@@ -538,7 +538,7 @@ void nts::cipher::Des::clear() noexcept {
 	wipe(this->_rounds, sizeof(this->_rounds));
 	// Сбрасываем признак установленного ключа
 	this->_ready = false;
-	// Сбрасываем число ключей
+	// Сбрасываем количество ключей
 	this->_keys = 0;
 }
 /**

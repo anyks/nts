@@ -424,7 +424,7 @@ void nts::cipher::decipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr)
  *
  * @param ctx    контекст Blowfish
  * @param data   данные (массив uint32)
- * @param blocks число блоков по 8 байтов
+ * @param blocks количество блоков по 8 байтов
  *
  */
 void nts::cipher::encrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept {
@@ -444,7 +444,7 @@ void nts::cipher::encrypt(const blowfish_t * ctx, uint32_t * data, const size_t 
  *
  * @param ctx    контекст Blowfish
  * @param data   данные (массив uint32)
- * @param blocks число блоков по 8 байтов
+ * @param blocks количество блоков по 8 байтов
  *
  */
 void nts::cipher::decrypt(const blowfish_t * ctx, uint32_t * data, const size_t blocks) noexcept {

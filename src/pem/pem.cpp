@@ -645,7 +645,7 @@ pem::error_t nts::pem::encode(const block_t & block, string & result) noexcept {
 		size_t width = 0;
 		// Длина тела записи знаками основания: каждая тройка байтов записывается четвёркой знаков
 		const size_t body = (((block.data.size() + 2) / 3) * 4);
-		// Число строк тела записи, каждая из которых закрывается переводом строки
+		// Количество строк тела записи, каждая из которых закрывается переводом строки
 		const size_t lines = ((body + (PEM_WIDTH - 1)) / PEM_WIDTH);
 		// Длина текста записи целиком: рамки с меткой, тело и переводы строк
 		const size_t length = ((sizeof(OPENING) - 1) + (sizeof(CLOSING) - 1) + (2 * block.label.size()) + (2 * (sizeof(FENCE) - 1)) + 2 + body + lines);

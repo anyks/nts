@@ -68,7 +68,7 @@ namespace {
 	using namespace nts;
 
 	/**
-	 * Число значений цепочки WOTS+ (w = 16)
+	 * Количество значений цепочки WOTS+ (w = 16)
 	 */
 	static constexpr size_t CHAIN = 16;
 	/**
@@ -84,7 +84,7 @@ namespace {
 	 */
 	static constexpr size_t MAX_K = 35;
 	/**
-	 * Число контрольных полубайтов WOTS+
+	 * Количество контрольных полубайтов WOTS+
 	 */
 	static constexpr size_t CHECKSUM = 3;
 
@@ -101,7 +101,7 @@ namespace {
 		uint8_t security = 0;
 		// Число деревьев FORS k
 		uint8_t forsTrees = 0;
-		// Число уровней дерева FORS a
+		// Количество уровней дерева FORS a
 		uint8_t forsLevels = 0;
 		// Число деревьев гипердерева d
 		uint8_t hypertrees = 0;
@@ -657,7 +657,7 @@ namespace {
 	 * @param pkSeed открытое зерно ключа
 	 * @param in     входное значение, n байтов
 	 * @param start  индекс начала цепочки
-	 * @param steps  число шагов от начала
+	 * @param steps  количество шагов от начала
 	 * @param adrs   адрес хеширования вида WOTS_HASH с адресом цепочки
 	 * @param out    место результата, n байтов
 	 *
@@ -687,7 +687,7 @@ namespace {
 	/**
 	 * @brief Функция выработки открытого ключа WOTS+ (алгоритм 6 FIPS 205)
 	 *
-	 * @param setup  параметры набора (длина значения n задаёт число цепочек ключа)
+	 * @param setup  параметры набора (длина значения n задаёт количество цепочек ключа)
 	 * @param skSeed секретное зерно ключа
 	 * @param pkSeed открытое зерно ключа
 	 * @param adrs   адрес хеширования слоя, дерева и пары ключа
@@ -695,7 +695,7 @@ namespace {
 	 *
 	 */
 	static void __nts_wots_pk_gen__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
-		// Число цепочек ключа: 2n значений сообщения и 3 контрольных
+		// Количество цепочек ключа: 2n значений сообщения и 3 контрольных
 		const size_t len = ((2 * setup.security) + CHECKSUM);
 		// Значения концов всех цепочек
 		uint8_t values[MAX_N * 67];
@@ -797,7 +797,7 @@ namespace {
 		uint8_t nibbles[67];
 		// Раскладываем сообщение на полубайты
 		::__nts_wots_message__(setup, msg, nibbles);
-		// Число цепочек подписи
+		// Количество цепочек подписи
 		const size_t len = ((2 * setup.security) + CHECKSUM);
 		// Секретное значение цепочки
 		uint8_t sk[MAX_N];
@@ -821,7 +821,7 @@ namespace {
 			::__nts_copy_adrs__(chain, adrs);
 			// Адрес цепочки
 			::__nts_set_chain__(setup, chain, static_cast <uint32_t> (i));
-			// Подпись цепочки по числу шагов полубайта
+			// Подпись цепочки по количеству шагов полубайта
 			::__nts_wots_chain__(setup, pkSeed, sk, 0, nibbles[i], chain, out);
 			// Сдвигаем место записи на значение
 			out += setup.security;
@@ -858,7 +858,7 @@ namespace {
 		uint8_t values[MAX_N * 67];
 		// Раскладываем сообщение на полубайты
 		::__nts_wots_message__(setup, msg, nibbles);
-		// Число цепочек подписи
+		// Количество цепочек подписи
 		const size_t len = ((2 * setup.security) + CHECKSUM);
 		/**
 		 * Проходим по всем цепочкам подписи
@@ -1080,7 +1080,7 @@ namespace {
 	/**
 	 * @brief Функция вычисления узла дерева FORS (алгоритм 15 FIPS 205)
 	 *
-	 * @param setup  параметры набора (число уровней a и длина значения n)
+	 * @param setup  параметры набора (количество уровней a и длина значения n)
 	 * @param skSeed секретное зерно ключа
 	 * @param pkSeed открытое зерно ключа
 	 * @param adrs   адрес хеширования вида FORS_TREE с парой ключа
@@ -1136,7 +1136,7 @@ namespace {
 	 * @param in    дайджест, первые (k·a + 7) / 8 байтов
 	 * @param width разрядность одного значения
 	 * @param out   место count значений по width разрядов
-	 * @param count число значений
+	 * @param count количество значений
 	 *
 	 */
 	static __NTS_INLINE__ void __nts_base2b__(const uint8_t * in, const uint32_t width, uint32_t * out, const size_t count) noexcept {
@@ -1313,7 +1313,7 @@ namespace {
 	/**
 	 * @brief Функция подписи гипердерева (алгоритм 12 FIPS 205)
 	 *
-	 * @param setup  параметры набора (число слоёв d и высота дерева h′)
+	 * @param setup  параметры набора (количество слоёв d и высота дерева h′)
 	 * @param msg    сообщение, n байтов
 	 * @param skSeed секретное зерно ключа
 	 * @param pkSeed открытое зерно ключа
@@ -1366,7 +1366,7 @@ namespace {
 	/**
 	 * @brief Функция проверки подписи гипердерева (алгоритм 13 FIPS 205)
 	 *
-	 * @param setup  параметры набора (число слоёв d и высота дерева h′)
+	 * @param setup  параметры набора (количество слоёв d и высота дерева h′)
 	 * @param msg    сообщение, n байтов
 	 * @param sig    подпись гипердерева: d подписей XMSS
 	 * @param pkSeed открытое зерно ключа
@@ -1415,7 +1415,7 @@ namespace {
 	 * @brief Функция получения целого из байтов старшим байтом вперёд
 	 *
 	 * @param in   байты числа старшим байтом вперёд
-	 * @param size число байтов числа
+	 * @param size количество байтов числа
 	 * @return     целое число
 	 *
 	 */

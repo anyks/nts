@@ -143,7 +143,7 @@ namespace nts {
 			bool (* chain)(const void * cipher, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept;
 			// Расписание ключа зашифрования AES для слитых ядер режимов: у прочих шифров и без команд машины пусто
 			const uint8_t * schedule;
-			// Число кругов AES при заданном расписании
+			// Количество кругов AES при заданном расписании
 			size_t rounds;
 			/**
 			 * \~russian

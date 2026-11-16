@@ -376,13 +376,6 @@ const char * nts::extension::curve(const group_t group) noexcept {
  * @return      признак того, что группа есть гибрид с инкапсуляцией ключа
  *
  */
-/**
- * @brief Функция проверки принадлежности группы гибридам с инкапсуляцией ключа
- *
- * @param group проверяемая группа обмена ключами
- * @return      признак того, что группа есть гибрид с инкапсуляцией ключа
- *
- */
 bool nts::extension::hybrid(const group_t group) noexcept {
 	// Выводим признак гибрида: X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024 либо curveSM2MLKEM768
 	return ((group == group_t::X25519MLKEM768) || (group == group_t::SECP256R1MLKEM768) || (group == group_t::SECP384R1MLKEM1024) || (group == group_t::CURVESM2MLKEM768));

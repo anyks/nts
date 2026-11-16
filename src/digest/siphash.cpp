@@ -42,7 +42,7 @@ namespace {
 	 * @brief Функция кругового сдвига влево
 	 *
 	 * @param word  слово
-	 * @param count число разрядов
+	 * @param count количество разрядов
 	 * @return      сдвинутое слово
 	 *
 	 */
@@ -70,7 +70,7 @@ namespace {
 	 * @brief Функция чтения слова от младшего байта
 	 *
 	 * @param data байты
-	 * @param size число байтов (до восьми)
+	 * @param size количество байтов (до восьми)
 	 * @return     слово
 	 *
 	 */
@@ -115,7 +115,7 @@ bool nts::digest::siphash(const view_t & key, const view_t & data, uint8_t * res
 	if(size == 16)
 		// Складываем признак длины 128 разрядов
 		v[1] ^= 0xEE;
-	// Число полных слов сообщения
+	// Количество полных слов сообщения
 	const size_t whole = (data.size / 8);
 	/**
 	 * Выполняем перебор полных слов сообщения

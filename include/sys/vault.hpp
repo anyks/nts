@@ -621,7 +621,7 @@ namespace nts {
 				 * \~russian
 				 * @brief Метод выделения памяти
 				 *
-				 * @param count число значений
+				 * @param count количество значений
 				 * @return      адрес памяти
 				 *
 				 * \~english
@@ -651,7 +651,7 @@ namespace nts {
 				 * @brief Метод освобождения памяти с затиранием
 				 *
 				 * @param data  адрес памяти
-				 * @param count число значений
+				 * @param count количество значений
 				 *
 				 * \~english
 				 * @brief Method of the deallocation of the memory with the wiping

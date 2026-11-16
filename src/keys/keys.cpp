@@ -119,7 +119,7 @@ namespace {
 	 */
 	static constexpr size_t CURVE25519 = 32;
 	/**
-	 * Наибольшее число итераций PBKDF2, принимаемое из недоверенной записи
+	 * Наибольшее количество итераций PBKDF2, принимаемое из недоверенной записи
 	 */
 	static constexpr int64_t PBKDF2_MOST = 10000000;
 	/**
@@ -1169,7 +1169,7 @@ namespace {
 	 * @brief Функция разбора набора целых чисел RSA
 	 *
 	 * @param der   разбираемая запись
-	 * @param count ожидаемое число целых чисел
+	 * @param count ожидаемое количество целых чисел
 	 * @param items места, в которые помещаются числа
 	 * @return      отказ разбора набора
 	 *
@@ -1292,7 +1292,7 @@ namespace {
 			writer.integer(0);
 		// Составляющие ключа в порядке записи
 		const vector <uint8_t> * items[] = {&key.n, &key.e, &key.d, &key.p, &key.q, &key.dP, &key.dQ, &key.qInv};
-		// Число записываемых составляющих
+		// Количество записываемых составляющих
 		const size_t count = (secret ? 8 : 2);
 		/**
 		 * Записываем составляющие ключа в запись подряд
@@ -1432,7 +1432,7 @@ namespace {
 					return error_t::STRUCTURE;
 				// Просмотр байтов открытого ключа
 				view_t bytes;
-				// Число неиспользуемых разрядов последнего байта
+				// Количество неиспользуемых разрядов последнего байта
 				uint8_t unused = 0;
 				// Итог разбора строки битов
 				const asn1::error_t parsed = asn1::bits(element, bytes, unused);
@@ -2071,7 +2071,7 @@ namespace {
 	 *
 	 * @param params     разбираемые настройки схемы
 	 * @param salt       место, в которое помещается просмотр соли
-	 * @param iterations место, в которое помещается число оборотов
+	 * @param iterations место, в которое помещается количество оборотов
 	 * @param prf        место, в которое помещается алгоритм имитовставки
 	 * @param bits       место, в которое помещается длина ключа шифра в разрядах
 	 * @param synchro    место, в которое помещается просмотр синхропосылки
@@ -2113,23 +2113,23 @@ namespace {
 			return error_t::CIPHER;
 		// Устанавливаем просмотр соли
 		salt = element.content;
-		// Если число оборотов разобрать не удалось
+		// Если количество оборотов разобрать не удалось
 		if(!kdf.next(asn1::tag_t::INTEGER, element))
 			// Выводим переведённый отказ разбора
 			return ::__nts_translate__(kdf.err());
-		// Число оборотов из записи
+		// Количество оборотов из записи
 		int64_t count = 0;
-		// Итог разбора числа оборотов
+		// Итог разбора количества оборотов
 		outcome = ::__nts_small_integer__(element, count);
-		// Если число оборотов разобрать не удалось
+		// Если количество оборотов разобрать не удалось
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Если число оборотов не укладывается в дозволенное: потолок 10^7 (openssl по умолчанию 2048), запись с 2^32 - 1 стоила бы часы на один разбор
+		// Если количество оборотов не укладывается в дозволенное: потолок 10^7 (openssl по умолчанию 2048), запись с 2^32 - 1 стоила бы часы на один разбор
 		if((count < 1) || (count > PBKDF2_MOST))
 			// Выводим отказ схемы
 			return error_t::CIPHER;
-		// Устанавливаем число оборотов
+		// Устанавливаем количество оборотов
 		iterations = static_cast <uint32_t> (count);
 		// Имитовставка по умолчанию: раздел A.2 RFC 8018
 		prf = digest::hash_t::SHA1;
@@ -2332,7 +2332,7 @@ namespace {
 	 * @param algorithm  алгоритм хеширования
 	 * @param password   пароль строкой BMPString
 	 * @param salt       соль выработки ключа
-	 * @param iterations число оборотов
+	 * @param iterations количество оборотов
 	 * @param id         признак назначения ключа
 	 * @param result     место, в которое помещается ключ
 	 * @param size       длина ключа в байтах
@@ -2352,7 +2352,7 @@ namespace {
 		vector <uint8_t> passkey;
 		// Дополнение признака назначения до блока
 		vector <uint8_t> diversifier;
-		// Число блоков хеша в материале
+		// Количество блоков хеша в материале
 		const size_t blocks = ((size + length - 1) / length);
 		/**
 		 * Выполняем перехват ошибок
@@ -2360,7 +2360,7 @@ namespace {
 		try {
 			// Заполняем дополнение признака назначения
 			diversifier.assign(block, id);
-			// Число блоков дополнения соли
+			// Количество блоков дополнения соли
 			const size_t salting = (block * ((salt.size + block - 1) / block));
 			// Заполняем дополнение соли повторением
 			salted.assign(salting, 0);
@@ -2372,7 +2372,7 @@ namespace {
 				for(size_t i = 0; i < salting; i++)
 					// Переносим очередной байт соли
 					salted[i] = salt.data[i % salt.size];
-			// Число блоков дополнения пароля
+			// Количество блоков дополнения пароля
 			const size_t passing = (block * ((password.size + block - 1) / block));
 			// Если пароль задан
 			if(password.size > 0){
@@ -2433,7 +2433,7 @@ namespace {
 		 * Проходим блоки материала до нужного номера
 		 */
 		for(size_t b = 0; b < blocks; b++){
-			// Число байтов, записываемых из очередного блока
+			// Количество байтов, записываемых из очередного блока
 			const size_t taken = (((size - written) < length) ? (size - written) : length);
 			// Переносим очередной кусок материала
 			::memcpy(result + written, item, taken);
@@ -2526,7 +2526,7 @@ namespace {
 	static error_t __nts_undress__(const asn1::element_t & params, const view_t & encrypted, const view_t & password, vector <uint8_t> & plain) noexcept {
 		// Просмотр соли
 		view_t salt;
-		// Число оборотов выработки ключа
+		// Количество оборотов выработки ключа
 		uint32_t iterations = 0;
 		// Алгоритм имитовставки
 		digest::hash_t prf = digest::hash_t::NONE;
@@ -2540,7 +2540,7 @@ namespace {
 		if(outcome != error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Если шифртекст не занимает целого числа блоков
+		// Если шифртекст не занимает целого количества блоков
 		if((encrypted.size < BLOCK) || ((encrypted.size % BLOCK) != 0))
 			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
@@ -3500,7 +3500,7 @@ nts::keys::error_t nts::keys::decodeSubjectPublicKeyInfo(const view_t & der, key
 		return error_t::STRUCTURE;
 	// Просмотр байтов открытого ключа
 	view_t bytes;
-	// Число неиспользуемых разрядов последнего байта
+	// Количество неиспользуемых разрядов последнего байта
 	uint8_t unused = 0;
 	// Итог разбора строки битов
 	const asn1::error_t parsed = asn1::bits(element, bytes, unused);
@@ -3855,7 +3855,7 @@ nts::keys::error_t nts::keys::decodePrivateKeyInfo(const view_t & der, key_t & r
 			if(version != 1)
 				// Выводим отказ устройства записи
 				return error_t::STRUCTURE;
-			// Число неиспользуемых разрядов последнего байта
+			// Количество неиспользуемых разрядов последнего байта
 			uint8_t unused = 0;
 			// Строка битов открытого ключа: метка неявная, разбирается как строка битов
 			asn1::element_t bits = element;
@@ -4280,7 +4280,7 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 		return error_t::CIPHER;
 	// Просмотр соли
 	view_t salt;
-	// Число оборотов выработки ключа
+	// Количество оборотов выработки ключа
 	uint32_t iterations = 0;
 	// Алгоритм имитовставки
 	digest::hash_t prf = digest::hash_t::NONE;
@@ -4306,7 +4306,7 @@ nts::keys::error_t nts::keys::decodeEncryptedPrivateKeyInfo(const view_t & der, 
 		return error_t::STRUCTURE;
 	// Просмотр шифртекста
 	const view_t encrypted = element.content;
-	// Если шифртекст не занимает целого числа блоков
+	// Если шифртекст не занимает целого количества блоков
 	if((encrypted.size < BLOCK) || ((encrypted.size % BLOCK) != 0))
 		// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
@@ -4466,7 +4466,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 	const view_t safe = element.content;
 	// Признак наличия имитовставки записи
 	bool macPresent = false;
-	// Число оборотов имитовставки записи
+	// Количество оборотов имитовставки записи
 	uint32_t macIterations = 0;
 	// Алгоритм хеша имитовставки записи
 	digest::hash_t macHash = digest::hash_t::NONE;
@@ -4524,27 +4524,27 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
 			return ::__nts_translate__(mac.err());
 		// Устанавливаем просмотр соли имитовставки
 		macSalt = element.content;
-		// Если число оборотов записано
+		// Если количество оборотов записано
 		if(!mac.empty()){
-			// Если число оборотов разобрать не удалось
+			// Если количество оборотов разобрать не удалось
 			if(!mac.next(asn1::tag_t::INTEGER, element))
 				// Выводим переведённый отказ разбора
 				return ::__nts_translate__(mac.err());
-			// Число оборотов из записи
+			// Количество оборотов из записи
 			int64_t count = 0;
-			// Итог разбора числа оборотов
+			// Итог разбора количества оборотов
 			outcome = ::__nts_small_integer__(element, count);
-			// Если число оборотов разобрать не удалось
+			// Если количество оборотов разобрать не удалось
 			if(outcome != error_t::NONE)
 				// Выводим отказ разбора
 				return outcome;
-			// Если число оборотов не укладывается в дозволенное
+			// Если количество оборотов не укладывается в дозволенное
 			if((count < 1) || (count > PBKDF2_MOST))
 				// Выводим отказ схемы
 				return error_t::CIPHER;
-			// Устанавливаем число оборотов
+			// Устанавливаем количество оборотов
 			macIterations = static_cast <uint32_t> (count);
-		// Иначе число оборотов по умолчанию: раздел 6.1 RFC 7292
+		// Иначе количество оборотов по умолчанию: раздел 6.1 RFC 7292
 		} else macIterations = 1;
 		// Если после сведений имитовставки остался хвост
 		if(!mac.empty())
@@ -4894,7 +4894,7 @@ nts::keys::error_t nts::keys::decodePkcs12(const view_t & der, const view_t & pa
  * @param password   пароль последовательностью октетов
  * @param result     место, в которое помещается запись в кодировке DER
  * @param bits       длина ключа AES в разрядах: 128, 192 либо 256
- * @param iterations число оборотов PBKDF2, не меньше одного
+ * @param iterations количество оборотов PBKDF2, не меньше одного
  * @return           отказ записи
  *
  */
@@ -5013,7 +5013,7 @@ nts::keys::error_t nts::keys::encodeEncryptedPrivateKeyInfo(const key_t & key, c
 	writer.open(asn1::tag_t::SEQUENCE);
 	// Записываем соль
 	writer.octets(view_t(salt, sizeof(salt)));
-	// Записываем число оборотов
+	// Записываем количество оборотов
 	writer.integer(static_cast <int64_t> (iterations));
 	// Открываем набор имитовставки
 	writer.open(asn1::tag_t::SEQUENCE);
@@ -5105,7 +5105,7 @@ nts::keys::error_t nts::keys::decode(const string & text, const view_t & passwor
  * @param result     текст, в который помещается итог записи
  * @param password   пароль последовательностью октетов, нужен лишь зашифрованной записи
  * @param bits       длина ключа AES в разрядах у зашифрованной записи
- * @param iterations число оборотов PBKDF2 у зашифрованной записи
+ * @param iterations количество оборотов PBKDF2 у зашифрованной записи
  * @return           отказ записи
  *
  */

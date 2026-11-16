@@ -92,7 +92,7 @@ namespace {
 	 * @brief Функция кругового сдвига слова вправо в заданной ширине
 	 *
 	 * @param word  сдвигаемое слово
-	 * @param count число разрядов сдвига
+	 * @param count количество разрядов сдвига
 	 * @param wide  признак ширины в 64 разряда
 	 * @return      сдвинутое слово
 	 *
@@ -285,7 +285,7 @@ bool nts::digest::Blake2::start(const blake_t type, const size_t length, const v
 	this->_length = length;
 	// Сбрасываем признак снятия итога
 	this->_finished = false;
-	// Сбрасываем число байтов незавершённого блока
+	// Сбрасываем количество байтов незавершённого блока
 	this->_size = 0;
 	// Сбрасываем счётчик байтов
 	this->_count[0] = 0;

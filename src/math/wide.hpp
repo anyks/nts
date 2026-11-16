@@ -65,18 +65,27 @@
 			 *
 			 */
 			typedef struct Wide {
-				// Младшее и старшее слова
-				uint64_t lo, hi;
+				// Младшее и старшее слова числа
+				uint64_t low, high;
 				/**
-				 * @brief Метод Усечение к младшему слову
+				 * @brief Оператор усечения к младшему слову
+				 *
+				 * @return младшее слово числа
 				 *
 				 */
 				explicit operator uint64_t() const noexcept {
-					// Отдаём младшее слово произведения
-					return this->lo;
+					// Отдаём младшее слово числа
+					return this->low;
 				}
 				/**
-				 * @brief Умножение на слово: старшее слово произведения из внутренней функции
+				 * @brief Умножение на слово
+				 *
+				 * @details Старшее слово произведения берётся внутренней функцией собирателя
+				 *          (_umul128 у x64, __umulh у ARM64), к нему прибавляется вклад
+				 *          старшего слова числа.
+				 *
+				 * @param other множитель-слово
+				 * @return      произведение числа на слово
 				 *
 				 */
 				Wide operator * (const uint64_t other) const noexcept {
@@ -87,89 +96,172 @@
 					 */
 					#if defined(_M_X64)
 						// Младшее слово из внутренней функции
-						result.lo = ::_umul128(this->lo, other, &result.hi);
+						result.low = ::_umul128(this->low, other, &result.high);
 					/**
 					 * Для иных архитектур
 					 */
 					#else
 						// Младшее слово из действия слов
-						result.lo = (this->lo * other);
+						result.low = (this->low * other);
 						// Старшее слово из внутренней функции
-						result.hi = ::__umulh(this->lo, other);
+						result.high = ::__umulh(this->low, other);
 					#endif
 					// Добавляем вклад старшего слова
-					result.hi += (this->hi * other);
+					result.high += (this->high * other);
 					// Возвращаем произведение
 					return result;
 				}
 				/**
-				 * @brief Сложение
+				 * @brief Сложение двух чисел
+				 *
+				 * @param other слагаемое-число двойной разрядности
+				 * @return      сумма двух чисел
 				 *
 				 */
 				Wide operator + (const Wide & other) const noexcept {
 					// Складываем слова попарно
-					Wide result(this->lo + other.lo, this->hi + other.hi);
+					Wide result(this->low + other.low, this->high + other.high);
 					// Перенос уходит в старшее слово
-					if(result.lo < other.lo) result.hi++;
+					if(result.low < other.low)
+						// Увеличиваем старшее слово на перенос
+						result.high++;
 					// Возвращаем итог попарного сложения слов
 					return result;
 				}
-				// Сложение со словом через приведение
-				Wide operator + (const uint64_t other) const noexcept { return ((* this) + Wide(other)); }
-				// Прибавление числа
-				Wide & operator += (const Wide & other) noexcept { (* this) = ((* this) + other); return (* this); }
-				// Прибавление слова
-				Wide & operator += (const uint64_t other) noexcept { (* this) = ((* this) + other); return (* this); }
-				// Сложение слова с числом в обратном порядке
-				friend Wide operator + (const uint64_t first, const Wide & second) noexcept { return (second + first); }
+				/**
+				 * @brief Сложение со словом
+				 *
+				 * @details Слово приводится к числу двойной разрядности и складывается
+				 *          сложением двух чисел.
+				 *
+				 * @param other слагаемое-слово
+				 * @return      сумма числа со словом
+				 *
+				 */
+				Wide operator + (const uint64_t other) const noexcept {
+					// Складываем через приведение слова к числу двойной разрядности
+					return ((* this) + Wide(other));
+				}
+				/**
+				 * @brief Прибавление числа
+				 *
+				 * @param other прибавляемое число двойной разрядности
+				 * @return      ссылка на само число после прибавления
+				 *
+				 */
+				Wide & operator += (const Wide & other) noexcept {
+					// Прибавляем число сложением двух чисел
+					(* this) = ((* this) + other);
+					// Возвращаем ссылку на само число
+					return (* this);
+				}
+				/**
+				 * @brief Прибавление слова
+				 *
+				 * @param other прибавляемое слово
+				 * @return      ссылка на само число после прибавления
+				 *
+				 */
+				Wide & operator += (const uint64_t other) noexcept {
+					// Прибавляем слово сложением со словом
+					(* this) = ((* this) + other);
+					// Возвращаем ссылку на само число
+					return (* this);
+				}
+				/**
+				 * @brief Сложение слова с числом, когда слово стоит слева
+				 *
+				 * @param first  слагаемое-слово, стоящее слева
+				 * @param second слагаемое-число, стоящее справа
+				 * @return       сумма слова с числом
+				 *
+				 */
+				friend Wide operator + (const uint64_t first, const Wide & second) noexcept {
+					// Складываем сложением числа со словом в обратном порядке
+					return (second + first);
+				}
 				/**
 				 * @brief Вычитание слова с заёмом из старшего слова
+				 *
+				 * @param other вычитаемое слово
+				 * @return      разность числа и слова
 				 *
 				 */
 				Wide operator - (const uint64_t other) const noexcept {
 					// Вычитаем слово из младшего слова
-					Wide result(this->lo - other, this->hi);
+					Wide result(this->low - other, this->high);
 					// Заём уходит из старшего слова
-					if(this->lo < other) result.hi--;
+					if(this->low < other)
+						// Уменьшаем старшее слово на заём
+						result.high--;
 					// Возвращаем разность
 					return result;
 				}
 				/**
-				 * @brief Сдвиги
+				 * @brief Сдвиг вправо
+				 *
+				 * @param shift количество разрядов сдвига
+				 * @return      число, сдвинутое вправо
 				 *
 				 */
-				Wide operator >> (const int shift) const noexcept {
+				Wide operator >> (const int32_t shift) const noexcept {
 					// Нулевой сдвиг ничего не меняет
-					if(shift == 0) return (* this);
+					if(shift == 0)
+						// Отдаём само число без изменений
+						return (* this);
 					// Сдвиг на ширину слова и более
-					if(shift >= 64) return Wide(this->hi >> (shift - 64), 0);
+					if(shift >= 64)
+						// Хвост старшего слова становится младшим словом итога
+						return Wide(this->high >> (shift - 64), 0);
 					// Сдвиг внутри пары слов
-					return Wide((this->lo >> shift) | (this->hi << (64 - shift)), this->hi >> shift);
-				}
-				// Сдвиг влево
-				Wide operator << (const int shift) const noexcept {
-					// Нулевой сдвиг ничего не меняет
-					if(shift == 0) return (* this);
-					// Сдвиг на ширину слова и более
-					if(shift >= 64) return Wide(0, this->lo << (shift - 64));
-					// Сдвиг внутри пары слов
-					return Wide(this->lo << shift, (this->hi << shift) | (this->lo >> (64 - shift)));
+					return Wide((this->low >> shift) | (this->high << (64 - shift)), this->high >> shift);
 				}
 				/**
-				 * @brief Маска и объединение по младшему слову
+				 * @brief Сдвиг влево
+				 *
+				 * @param shift количество разрядов сдвига
+				 * @return      число, сдвинутое влево
+				 *
+				 */
+				Wide operator << (const int32_t shift) const noexcept {
+					// Нулевой сдвиг ничего не меняет
+					if(shift == 0)
+						// Отдаём само число без изменений
+						return (* this);
+					// Сдвиг на ширину слова и более
+					if(shift >= 64)
+						// Младшее слово становится старшим словом итога
+						return Wide(0, this->low << (shift - 64));
+					// Сдвиг внутри пары слов
+					return Wide(this->low << shift, (this->high << shift) | (this->low >> (64 - shift)));
+				}
+				/**
+				 * @brief Наложение маски на младшее слово
+				 *
+				 * @details Разряды младшего слова остаются лишь там, где в маске стоит
+				 *          единица; старшее слово обнуляется.
+				 *
+				 * @param mask маска, накладываемая на младшее слово числа
+				 * @return     число с замаскированным младшим словом и нулевым старшим словом
 				 *
 				 */
 				Wide operator & (const uint64_t mask) const noexcept {
-					return Wide(this->lo & mask, 0);
+					// Накладываем маску на младшее слово, старшее слово обнуляем
+					return Wide(this->low & mask, 0);
 				}
 				/**
-				 * @brief Объединение по младнему слову
-				 * 
-				 * @param bits 
-				 * @return Wide 
+				 * @brief Побитовое объединение со словом
+				 *
+				 * @details Разряды слова объединяются с разрядами младшего слова числа,
+				 *          старшее слово остаётся без изменений.
+				 *
+				 * @param bits слово, разряды которого объединяются с младшим словом числа
+				 * @return     число с объединёнными разрядами младшего слова
+				 *
 				 */
 				Wide operator | (const uint64_t bits) const noexcept {
-					return Wide(this->lo | bits, this->hi);
+					// Объединяем разряды слова с младшим словом, старшее слово не трогаем
+					return Wide(this->low | bits, this->high);
 				}
 				/**
 				 * @brief Остаток от деления на слово
@@ -177,6 +269,9 @@
 				 * @details Зовётся лишь при старшем слове меньше делителя (остаток вдвигает
 				 *          слово за словом), потому у x64 довольно _udiv128; у ARM64 внутренней
 				 *          функции нет, и остаток берётся делением столбиком по разрядам.
+				 *
+				 * @param divisor делитель-слово
+				 * @return        остаток от деления числа на слово
 				 *
 				 */
 				Wide operator % (const uint64_t divisor) const noexcept {
@@ -187,7 +282,7 @@
 						// Место под остаток
 						uint64_t remainder = 0;
 						// Остаток из внутренней функции деления
-						std::ignore = ::_udiv128(this->hi % divisor, this->lo, divisor, &remainder);
+						std::ignore = ::_udiv128(this->high % divisor, this->low, divisor, &remainder);
 						// Возвращаем остаток
 						return Wide(remainder, 0);
 					/**
@@ -195,45 +290,50 @@
 					 */
 					#else
 						// Начинаем со старшего слова
-						uint64_t remainder = (this->hi % divisor);
+						uint64_t remainder = (this->high % divisor);
 						/**
 						 * @brief Вдвигаем слово за словом
 						 *
 						 */
-						for(int i = 63; i >= 0; i--){
+						for(int32_t i = 63; i >= 0; i--){
 							// Очередной разряд младшего слова
-							const uint64_t bit = ((this->lo >> i) & 1u);
+							const uint64_t bit = ((this->low >> i) & 1u);
 							// Перенос из старшего разряда остатка
 							const uint64_t carry = (remainder >> 63);
 							// Вдвигаем разряд в остаток
 							remainder = ((remainder << 1) | bit);
 							// Вычитаем делитель при переносе либо достижении
-							if(carry || (remainder >= divisor)) remainder -= divisor;
+							if(carry || (remainder >= divisor))
+								// Гасим делитель из остатка
+								remainder -= divisor;
 						}
 						// Возвращаем остаток
 						return Wide(remainder, 0);
 					#endif
 				}
 				/**
-				 * @brief Конструктор
+				 * @brief Конструктор нулевого числа
 				 *
 				 */
-				Wide() noexcept : lo(0), hi(0) {}
+				Wide() noexcept :
+				 low(0), high(0) {}
 				/**
-				 * @brief Конструктор
+				 * @brief Конструктор числа из слова
 				 *
-				 * @param value
+				 * @param value начальное значение младшего слова, старшее слово нулевое
 				 *
 				 */
-				Wide(const uint64_t value) noexcept : lo(value), hi(0) {}
+				Wide(const uint64_t value) noexcept :
+				 low(value), high(0) {}
 				/**
-				 * @brief Конструктор
+				 * @brief Конструктор числа из пары слов
 				 *
-				 * @param lo
-				 * @param hi
+				 * @param low  младшее слово числа
+				 * @param high старшее слово числа
 				 *
 				 */
-				Wide(const uint64_t lo, const uint64_t hi) noexcept : lo(lo), hi(hi) {}
+				Wide(const uint64_t low, const uint64_t high) noexcept :
+				 low(low), high(high) {}
 			} wide_t;
 		};
 	};
@@ -255,7 +355,7 @@
 			 * @brief Целое число двойной разрядности
 			 *
 			 */
-			typedef __uint128_t wide_t;
+			using wide_t = __uint128_t;
 		};
 	};
 #endif

@@ -103,13 +103,13 @@ context::error_t nts::server::Context::heartbeat(const view_t & payload) noexcep
 	return this->_engine->heartbeat(payload);
 }
 /**
- * @brief Метод получения числа принятых ответов на свои запросы сердцебиения
+ * @brief Метод получения количества принятых ответов на свои запросы сердцебиения
  *
- * @return число ответов с ожидаемой нагрузкой
+ * @return количество ответов с ожидаемой нагрузкой
  *
  */
 size_t nts::server::Context::pulses() const noexcept {
-	// Выводим число ответов движка либо ноль
+	// Выводим количество ответов движка либо ноль
 	return ((this->_engine != nullptr) ? this->_engine->pulses() : 0);
 }
 /**
@@ -1024,7 +1024,7 @@ bool nts::server::Context::accepted() const noexcept {
  * @brief Метод установки порядка смены ключей по счётчику записей
  *
  * @param automatic сменяет ли движок ключи сам по счётчику записей
- * @param records   число записей направления, по которому идёт смена
+ * @param records   количество записей направления, по которому идёт смена
  *
  */
 void nts::server::Context::renewal(const bool automatic, const uint64_t records) noexcept {
@@ -1037,7 +1037,7 @@ void nts::server::Context::renewal(const bool automatic, const uint64_t records)
  * @brief Метод получения счётчика записей направления связи
  *
  * @param incoming запрашивается ли направление собеседника
- * @return         число записей направления на текущих ключах
+ * @return         количество записей направления на текущих ключах
  *
  */
 uint64_t nts::server::Context::sequence(const bool incoming) const noexcept {
@@ -1250,19 +1250,19 @@ context::error_t nts::server::Context::elapsed() noexcept {
 /**
  * @brief Метод получения числа молча отброшенных записей и дейтаграмм
  *
- * @return число отброшенных записей и дейтаграмм
+ * @return количество отброшенных записей и дейтаграмм
  * @param reason причина отброса
  *
  */
 uint64_t nts::server::Context::discarded() const noexcept {
-	// Выводим число отброшенных записей и дейтаграмм
+	// Выводим количество отброшенных записей и дейтаграмм
 	return (this->_engine != nullptr ? this->_engine->discarded() : 0);
 }
 /**
  * @brief Метод получения числа отброшенного по причине
  *
  * @param reason причина отброса
- * @return       число записей и дейтаграмм, отброшенных по этой причине
+ * @return       количество записей и дейтаграмм, отброшенных по этой причине
  *
  */
 uint64_t nts::server::Context::discarded(const datagram::reason_t reason) const noexcept {

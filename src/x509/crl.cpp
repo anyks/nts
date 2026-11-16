@@ -737,7 +737,7 @@ void nts::x509::Revocations::clear() noexcept {
 	this->_body = view_t();
 	// Сбрасываем запись подписи
 	this->_signature = view_t();
-	// Сбрасываем число неиспользованных разрядов подписи
+	// Сбрасываем количество неиспользованных разрядов подписи
 	this->_unused = 0;
 	// Сбрасываем алгоритм подписи
 	this->_algorithm.clear();
@@ -782,12 +782,12 @@ const nts::view_t & nts::x509::Revocations::body() const noexcept {
 /**
  * @brief Метод извлечения подписи списка
  *
- * @param unused число неиспользуемых разрядов последнего байта подписи
+ * @param unused количество неиспользуемых разрядов последнего байта подписи
  * @return       просмотр записи подписи
  *
  */
 const nts::view_t & nts::x509::Revocations::sign(uint8_t & unused) const noexcept {
-	// Выводим число неиспользуемых разрядов последнего байта подписи
+	// Выводим количество неиспользуемых разрядов последнего байта подписи
 	unused = this->_unused;
 	// Выводим просмотр записи подписи
 	return this->_signature;
@@ -902,7 +902,7 @@ nts::x509::Revocations::Revocations() noexcept : _error(error_t::NONE), _unused(
  *
  */
 nts::x509::error_t nts::x509::verify(const crl_t & crl, const nts::x509::key_t & key) noexcept {
-	// Число неиспользуемых разрядов последнего байта подписи
+	// Количество неиспользуемых разрядов последнего байта подписи
 	uint8_t unused = 0;
 	// Получаем подпись проверяемого списка
 	const view_t & signature = crl.sign(unused);

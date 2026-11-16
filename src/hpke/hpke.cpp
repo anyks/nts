@@ -118,7 +118,7 @@ namespace {
 	 */
 	static constexpr size_t SCALAR_SIZE = 66;
 	/**
-	 * Число кругов перестановки Keccak-f[1600]
+	 * Количество кругов перестановки Keccak-f[1600]
 	 */
 	static constexpr size_t KECCAK_ROUNDS = 24;
 	/**
@@ -168,7 +168,7 @@ namespace {
 	 * @brief Функция кругового сдвига полосы влево
 	 *
 	 * @param lane  сдвигаемая полоса
-	 * @param count число разрядов сдвига
+	 * @param count количество разрядов сдвига
 	 * @return      сдвинутая полоса
 	 *
 	 */
@@ -183,7 +183,7 @@ namespace {
 	 *          кругов TurboSHAKE - это последние двенадцать кругов Keccak-f[1600].
 	 *
 	 * @param state  состояние в двадцать пять полос по 64 разряда
-	 * @param rounds число кругов: 24 у Keccak-f[1600], 12 у Keccak-p[1600, 12] TurboSHAKE
+	 * @param rounds количество кругов: 24 у Keccak-f[1600], 12 у Keccak-p[1600, 12] TurboSHAKE
 	 *
 	 */
 	static __NTS_INLINE__ void __nts_permute__(uint64_t * state, const size_t rounds) noexcept {
@@ -235,7 +235,7 @@ namespace {
 				// Шаг θ: то же сложение для пятого столбца
 				a04 ^= term4; a09 ^= term4; a14 ^= term4; a19 ^= term4; a24 ^= term4;
 				/**
-				 * Шаги ρ и π: полоса (x, y) сдвигается на своё число разрядов и переносится на
+				 * Шаги ρ и π: полоса (x, y) сдвигается на своё количество разрядов и переносится на
 				 * место (y, 2x + 3y mod 5) - подстановка выписана по разделам 3.2.2 и 3.2.3
 				 */
 				b00 = a00; b10 = ::__nts_spin__(a01, 1); b20 = ::__nts_spin__(a02, 62); b05 = ::__nts_spin__(a03, 28); b15 = ::__nts_spin__(a04, 27);
@@ -329,13 +329,13 @@ namespace {
 	 *
 	 */
 	static __NTS_INLINE__ void __nts_xof__(const kdf_t kdf, const view_t * pieces, const size_t count, uint8_t * result, const size_t size) noexcept {
-		// Число байтов незавершённого блока
+		// Количество байтов незавершённого блока
 		size_t filled = 0;
 		// Состояние губки: двадцать пять полос по 64 разряда
 		uint64_t state[25];
 		// Обнуляем состояние губки
 		::memset(state, 0, sizeof(state));
-		// Число кругов перестановки: 24 у SHAKE, 12 у TurboSHAKE
+		// Количество кругов перестановки: 24 у SHAKE, 12 у TurboSHAKE
 		const size_t rounds = (((kdf == kdf_t::SHAKE128) || (kdf == kdf_t::SHAKE256)) ? 24 : 12);
 		// Скорость губки: 168 байтов у SHAKE128, 136 у SHAKE256
 		const size_t rate = (((kdf == kdf_t::SHAKE128) || (kdf == kdf_t::TURBOSHAKE128)) ? 168 : 136);
@@ -378,7 +378,7 @@ namespace {
 				left -= part;
 			}
 		}
-		// Число выжатых из блока байтов
+		// Количество выжатых из блока байтов
 		size_t offset = 0;
 		// Число оставшихся байтов итога
 		size_t left = size;
@@ -576,7 +576,7 @@ namespace {
 		::__nts_inscribe__(static_cast <uint16_t> (size), width);
 		// Предыдущий блок растяжения
 		uint8_t previous[HASH_SIZE];
-		// Число выданных байтов
+		// Количество выданных байтов
 		size_t offset = 0;
 		// Номер блока растяжения
 		uint8_t counter = 0;
@@ -631,7 +631,7 @@ namespace {
 			const size_t part = (((size - offset) < length) ? (size - offset) : length);
 			// Копируем часть блока в материал
 			::memcpy(result + offset, previous, part);
-			// Сдвигаем число выданных байтов
+			// Сдвигаем количество выданных байтов
 			offset += part;
 		}
 		// Стираем предыдущий блок
@@ -2296,7 +2296,7 @@ nts::hpke::error_t nts::hpke::Context::setup(const suite_t & suite, const regime
 			// Сдвигаем смещение
 			offset += secrets[i].size;
 		}
-		// Число байтов секретов
+		// Количество байтов секретов
 		const size_t pooledsize = offset;
 		// Сбрасываем смещение
 		offset = 0;

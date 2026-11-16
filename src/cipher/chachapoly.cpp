@@ -104,7 +104,7 @@ namespace {
  *
  */
 bool nts::cipher::Chachapoly::pad(const uint64_t size) noexcept {
-	// Число байтов сверх целого блока
+	// Количество байтов сверх целого блока
 	const size_t rest = static_cast <size_t> (size % POLY1305_TAG);
 	// Если поданные байты кратны блоку
 	if(rest == 0)

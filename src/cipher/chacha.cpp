@@ -220,7 +220,7 @@ namespace {
 	 * @brief Функция циклического вращения слова влево
 	 *
 	 * @param value вращаемое слово
-	 * @param count число разрядов вращения от одного до тридцати одного
+	 * @param count количество разрядов вращения от одного до тридцати одного
 	 * @return      вращённое слово
 	 *
 	 */
@@ -230,13 +230,13 @@ namespace {
 	}
 
 	/**
-	 * @brief Число блоков гаммы в пачке векторов в 128 разрядов
+	 * @brief Количество блоков гаммы в пачке векторов в 128 разрядов
 	 *
 	 */
 	static constexpr size_t PACK4 = 4;
 
 	/**
-	 * @brief Число блоков гаммы в пачке из двух четвёрок NEON либо векторов в 256 разрядов
+	 * @brief Количество блоков гаммы в пачке из двух четвёрок NEON либо векторов в 256 разрядов
 	 *
 	 */
 	static constexpr size_t PACK8 = 8;
@@ -246,7 +246,7 @@ namespace {
 	 */
 	#if defined(__NTS_CHACHA_NEON__)
 		/**
-		 * @brief Число блоков гаммы в пачке NEON из двух четвёрок векторами и двух блоков скалярно
+		 * @brief Количество блоков гаммы в пачке NEON из двух четвёрок векторами и двух блоков скалярно
 		 *
 		 */
 		static constexpr size_t PACK10 = 10;
@@ -1211,7 +1211,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 			 * Выполняем покрытие пачками: по восемь блоков у AVX2, затем хвост по четыре
 			 */
 			for(size_t pack = (avx2 ? PACK8 : PACK4); pack >= PACK4; pack -= PACK4){
-				// Число блоков до переполнения счётчика: не меньше одного
+				// Количество блоков до переполнения счётчика: не меньше одного
 				const uint64_t room = ((static_cast <uint64_t> (UINT32_MAX) - this->_state[12]) + 1);
 				// Число пачек, умещающихся в данные
 				size_t count = (left / (pack * CHACHA_BLOCK));
@@ -1233,7 +1233,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				kernel::chacha4xssse3(this->_state, frame, cursor, output, count);
 				// Иначе обходимся сдвигами
 				else kernel::chacha4xsse2(this->_state, frame, cursor, output, count);
-				// Число покрытых блоков: не больше умещающихся в счётчик
+				// Количество покрытых блоков: не больше умещающихся в счётчик
 				const uint64_t blocks = (static_cast <uint64_t> (count) * pack);
 				// Продвигаем счётчик на покрытые блоки: при исчерпании обращается в ноль
 				this->_state[12] = static_cast <uint32_t> (this->_state[12] + blocks);
@@ -1245,7 +1245,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				cursor += (blocks * CHACHA_BLOCK);
 				// Сдвигаем позицию записи
 				output += (blocks * CHACHA_BLOCK);
-				// Уменьшаем число не покрытых байтов
+				// Уменьшаем количество не покрытых байтов
 				left -= (blocks * CHACHA_BLOCK);
 				// Запоминаем вызов ядра
 				used = true;
@@ -1281,7 +1281,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				cursor += (PACK8 * CHACHA_BLOCK);
 				// Сдвигаем позицию записи
 				output += (PACK8 * CHACHA_BLOCK);
-				// Уменьшаем число не покрытых байтов
+				// Уменьшаем количество не покрытых байтов
 				left -= (PACK8 * CHACHA_BLOCK);
 			}
 		}
@@ -1328,7 +1328,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				cursor += (PACK8 * CHACHA_BLOCK);
 				// Сдвигаем позицию записи
 				output += (PACK8 * CHACHA_BLOCK);
-				// Уменьшаем число не покрытых байтов
+				// Уменьшаем количество не покрытых байтов
 				left -= (PACK8 * CHACHA_BLOCK);
 			}
 		}
@@ -1377,7 +1377,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				cursor += (PACK4 * CHACHA_BLOCK);
 				// Сдвигаем позицию записи
 				output += (PACK4 * CHACHA_BLOCK);
-				// Уменьшаем число не покрытых байтов
+				// Уменьшаем количество не покрытых байтов
 				left -= (PACK4 * CHACHA_BLOCK);
 			}
 		}
@@ -1529,7 +1529,7 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 	uint8_t * output = result;
 	// Если остаток блока гаммы не израсходован
 	if(this->_rest > 0){
-		// Число байтов, покрываемых остатком
+		// Количество байтов, покрываемых остатком
 		const size_t taken = ((this->_rest < left) ? this->_rest : left);
 		// Позиция остатка внутри блока гаммы
 		const size_t index = (CHACHA_BLOCK - this->_rest);
@@ -1543,7 +1543,7 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 		cursor += taken;
 		// Сдвигаем позицию записи
 		output += taken;
-		// Уменьшаем число не покрытых байтов
+		// Уменьшаем количество не покрытых байтов
 		left -= taken;
 		// Уменьшаем остаток блока гаммы
 		this->_rest -= taken;
@@ -1564,7 +1564,7 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 		this->generate(this->_gamma);
 		// Продвигаем счётчик блока
 		this->advance();
-		// Число байтов, покрываемых выработанным блоком
+		// Количество байтов, покрываемых выработанным блоком
 		const size_t taken = ((left < CHACHA_BLOCK) ? left : CHACHA_BLOCK);
 		/**
 		 * Выполняем наложение гаммы
@@ -1572,13 +1572,13 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 		for(size_t i = 0; i < taken; i++)
 			// Складываем очередной байт с гаммой
 			output[i] = static_cast <uint8_t> (cursor[i] ^ this->_gamma[i]);
-		// Запоминаем число неизрасходованных байтов остатка
+		// Запоминаем количество неизрасходованных байтов остатка
 		this->_rest = (CHACHA_BLOCK - taken);
 		// Сдвигаем позицию чтения
 		cursor += taken;
 		// Сдвигаем позицию записи
 		output += taken;
-		// Уменьшаем число не покрытых байтов
+		// Уменьшаем количество не покрытых байтов
 		left -= taken;
 	}
 	// Выводим успешность зашифрования

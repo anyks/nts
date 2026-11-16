@@ -77,7 +77,7 @@ bool nts::digest::kdf(const view_t & key, const view_t & label, const view_t & s
 		return false;
 	// Слитная строка, на которой вырабатывается производный ключ
 	uint8_t buffer[(KDF_LIMIT * 2) + 4];
-	// Число уже записанных байтов слитной строки
+	// Количество уже записанных байтов слитной строки
 	size_t offset = 0;
 	// Записываем порядковый номер части производного ключа
 	buffer[offset++] = 0x01;
@@ -85,7 +85,7 @@ bool nts::digest::kdf(const view_t & key, const view_t & label, const view_t & s
 	if((label.data != nullptr) && (label.size > 0)){
 		// Записываем метку назначения производного ключа
 		::memcpy(buffer + offset, label.data, label.size);
-		// Увеличиваем число записанных байтов слитной строки
+		// Увеличиваем количество записанных байтов слитной строки
 		offset += label.size;
 	}
 	// Записываем разделитель метки и затравки
@@ -94,7 +94,7 @@ bool nts::digest::kdf(const view_t & key, const view_t & label, const view_t & s
 	if((seed.data != nullptr) && (seed.size > 0)){
 		// Записываем затравку выработки производного ключа
 		::memcpy(buffer + offset, seed.data, seed.size);
-		// Увеличиваем число записанных байтов слитной строки
+		// Увеличиваем количество записанных байтов слитной строки
 		offset += seed.size;
 	}
 	// Записываем старший байт длины вырабатываемого ключа в разрядах
@@ -132,7 +132,7 @@ bool nts::digest::snmpv3(const hash_t algorithm, const view_t & password, const 
 	uint8_t buffer[64];
 	// Место пароля в очередном повторе
 	size_t index = 0;
-	// Число уже поданных байтов
+	// Количество уже поданных байтов
 	size_t count = 0;
 	/**
 	 * Приложение A.2 RFC 3414: пароль повторяется до одного мегабайта и хешируется
@@ -201,7 +201,7 @@ bool nts::digest::prfplus(const hash_t algorithm, const view_t & key, const view
 		return false;
 	// Место звена цепочки T
 	uint8_t link[64];
-	// Число уже выработанных байтов итога
+	// Количество уже выработанных байтов итога
 	size_t offset = 0;
 	// Порядковый номер звена цепочки
 	uint8_t round = 1;

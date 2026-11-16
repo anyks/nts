@@ -77,7 +77,7 @@ namespace nts {
 		 * @param salt   соль
 		 * @param key    место, в которое помещается выработанный ключ
 		 * @param keylen длина вырабатываемого ключа в байтах
-		 * @param rounds число кругов
+		 * @param rounds количество кругов
 		 * @return       признак успешности выработки ключа
 		 *
 		 * \~english

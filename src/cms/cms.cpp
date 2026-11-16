@@ -665,7 +665,7 @@ namespace {
 		if((plain.size < 16) || ((plain.size % 8) != 0))
 			// Выводим отказ защиты
 			return false;
-		// Число блоков защищаемого ключа
+		// Количество блоков защищаемого ключа
 		const size_t n = (plain.size / 8);
 		/**
 		 * Выполняем перехват ошибок
@@ -745,7 +745,7 @@ namespace {
 		if((wrapped.size < 24) || ((wrapped.size % 8) != 0))
 			// Выводим отказ снятия защиты
 			return false;
-		// Число блоков ключа
+		// Количество блоков ключа
 		const size_t n = wrapped.size / 8 - 1;
 		/**
 		 * Выполняем перехват ошибок
@@ -992,7 +992,7 @@ namespace {
 			if(!chaining.decrypt(encrypted, result.data()))
 				// Выводим отказ расшифрования
 				return nts::cms::error_t::KEY;
-			// Число байтов дополнения по PKCS #7
+			// Количество байтов дополнения по PKCS #7
 			const uint8_t padding = result.back();
 			// Если дополнение негодно
 			if((padding == 0) || (padding > BLOCK)){

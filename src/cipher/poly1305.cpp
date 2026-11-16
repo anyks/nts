@@ -436,7 +436,7 @@ namespace {
 		 * @param r1     старшая конечность множителя
 		 * @param s1     старшая конечность с четвертью: r1 + r1 / 4
 		 * @param data   складываемые байты
-		 * @param blocks число блоков: не меньше одного
+		 * @param blocks количество блоков: не меньше одного
 		 * @param hibit  старший разряд блока: единица у целого, ноль у дополненного
 		 *
 		 */
@@ -792,7 +792,7 @@ namespace {
 		 * @param h1     средняя конечность накопителя, заменяемая итогом
 		 * @param h2     старшая конечность накопителя, заменяемая итогом
 		 * @param data   складываемые байты
-		 * @param groups число восьмёрок блоков: не меньше одной
+		 * @param groups количество восьмёрок блоков: не меньше одной
 		 *
 		 */
 		static void absorbNeon(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
@@ -1017,7 +1017,7 @@ namespace {
 		 * @param h1     средняя конечность накопителя, заменяемая итогом
 		 * @param h2     старшая конечность накопителя, заменяемая итогом
 		 * @param data   складываемые байты
-		 * @param groups число восьмёрок блоков: не меньше одной
+		 * @param groups количество восьмёрок блоков: не меньше одной
 		 *
 		 */
 		static __NTS_POLY1305_AVX2_TARGET__ void absorbAvx2(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
@@ -1201,7 +1201,7 @@ namespace {
  * @brief Метод сложения целых блоков в накопитель
  *
  * @param data складываемые байты, кратные блоку
- * @param size число складываемых байтов
+ * @param size количество складываемых байтов
  * @param last признак последнего неполного блока без старшего разряда
  *
  */
@@ -1267,13 +1267,13 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 						absorbKernelAvx2(this->_table, h0, h1, h2, cursor, groups);
 						// Сдвигаем позицию чтения
 						cursor += (groups * 64);
-						// Уменьшаем число не сложенных байтов
+						// Уменьшаем количество не сложенных байтов
 						left -= (groups * 64);
 					/**
 					 * Если ядра AVX2 на ассемблере нет
 					 */
 					#else
-						// Число восьмёрок блоков
+						// Количество восьмёрок блоков
 						const size_t groups = (left / 128);
 						/**
 						 * Если есть ветвь команд NEON
@@ -1290,7 +1290,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 						#endif
 						// Сдвигаем позицию чтения
 						cursor += (groups * 128);
-						// Уменьшаем число не сложенных байтов
+						// Уменьшаем количество не сложенных байтов
 						left -= (groups * 128);
 					#endif
 				}
@@ -1308,7 +1308,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 			if(left >= POLY1305_TAG){
 				// Конечности накопителя под ядро
 				uint64_t limbs[3] = {h0, h1, h2};
-				// Число целых блоков
+				// Количество целых блоков
 				const size_t blocks = (left / POLY1305_TAG);
 				// Складываем блоки ядром
 				blocksX86(limbs, r0, r1, s1, cursor, blocks, hibit);
@@ -1320,7 +1320,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 				h2 = limbs[2];
 				// Сдвигаем позицию чтения
 				cursor += (blocks * POLY1305_TAG);
-				// Уменьшаем число не сложенных байтов
+				// Уменьшаем количество не сложенных байтов
 				left -= (blocks * POLY1305_TAG);
 			}
 		#endif
@@ -1368,7 +1368,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 			h2 += static_cast <uint64_t> (sum >> 64);
 			// Сдвигаем позицию чтения
 			cursor += POLY1305_TAG;
-			// Уменьшаем число не сложенных байтов
+			// Уменьшаем количество не сложенных байтов
 			left -= POLY1305_TAG;
 		}
 		// Записываем младшую конечность накопителя
@@ -1422,7 +1422,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 			reduce(product, h);
 			// Сдвигаем позицию чтения
 			cursor += (2 * POLY1305_TAG);
-			// Уменьшаем число не сложенных байтов
+			// Уменьшаем количество не сложенных байтов
 			left -= (2 * POLY1305_TAG);
 		}
 		/**
@@ -1447,7 +1447,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 			reduce(product, h);
 			// Сдвигаем позицию чтения
 			cursor += POLY1305_TAG;
-			// Уменьшаем число не сложенных байтов
+			// Уменьшаем количество не сложенных байтов
 			left -= POLY1305_TAG;
 		}
 		/**
@@ -1544,7 +1544,7 @@ void nts::cipher::Poly1305::clear() noexcept {
 	this->_ready = false;
 	// Сбрасываем готовность степеней множителя
 	this->_prepared = false;
-	// Сбрасываем число накопленных байтов
+	// Сбрасываем количество накопленных байтов
 	this->_filled = 0;
 	// Начало секретных полей: степени множителя
 	uint8_t * first = reinterpret_cast <uint8_t *> (this->_powers);
@@ -1579,15 +1579,15 @@ bool nts::cipher::Poly1305::update(const view_t & source) noexcept {
 	const uint8_t * cursor = source.data;
 	// Если неполный блок уже копится
 	if(this->_filled > 0){
-		// Число байтов, дополняющих неполный блок
+		// Количество байтов, дополняющих неполный блок
 		const size_t taken = (((POLY1305_TAG - this->_filled) < left) ? (POLY1305_TAG - this->_filled) : left);
 		// Переносим байты в неполный блок
 		::memcpy(this->_pending + this->_filled, cursor, taken);
-		// Увеличиваем число накопленных байтов
+		// Увеличиваем количество накопленных байтов
 		this->_filled += taken;
 		// Сдвигаем позицию чтения
 		cursor += taken;
-		// Уменьшаем число не сложенных байтов
+		// Уменьшаем количество не сложенных байтов
 		left -= taken;
 		// Если блок так и остался неполным
 		if(this->_filled < POLY1305_TAG)
@@ -1595,10 +1595,10 @@ bool nts::cipher::Poly1305::update(const view_t & source) noexcept {
 			return true;
 		// Сложение собранного блока
 		this->absorb(this->_pending, POLY1305_TAG, false);
-		// Сбрасываем число накопленных байтов
+		// Сбрасываем количество накопленных байтов
 		this->_filled = 0;
 	}
-	// Число байтов целых блоков
+	// Количество байтов целых блоков
 	const size_t whole = (left - (left % POLY1305_TAG));
 	// Если целые блоки есть
 	if(whole > 0){
@@ -1606,14 +1606,14 @@ bool nts::cipher::Poly1305::update(const view_t & source) noexcept {
 		this->absorb(cursor, whole, false);
 		// Сдвигаем позицию чтения
 		cursor += whole;
-		// Уменьшаем число не сложенных байтов
+		// Уменьшаем количество не сложенных байтов
 		left -= whole;
 	}
 	// Если остался хвост короче блока
 	if(left > 0){
 		// Переносим хвост в неполный блок
 		::memcpy(this->_pending, cursor, left);
-		// Запоминаем число накопленных байтов
+		// Запоминаем количество накопленных байтов
 		this->_filled = left;
 	}
 	// Выводим успешность подачи
@@ -1643,7 +1643,7 @@ bool nts::cipher::Poly1305::finish(uint8_t * tag) noexcept {
 			this->_pending[i] = 0x00;
 		// Сложение дополненного блока без старшего разряда
 		this->absorb(this->_pending, POLY1305_TAG, true);
-		// Сбрасываем число накопленных байтов
+		// Сбрасываем количество накопленных байтов
 		this->_filled = 0;
 	}
 	/**

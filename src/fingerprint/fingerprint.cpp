@@ -279,7 +279,7 @@ namespace {
 	 * @brief Функция дописывания шестнадцатеричной записи байтов к строке
 	 *
 	 * @param data   записываемые байты
-	 * @param size   число байтов
+	 * @param size   количество байтов
 	 * @param result строка, к которой дописывается запись
 	 * @return       отказ шага: нехватка памяти либо отказ разбора
 	 *
@@ -315,7 +315,7 @@ namespace {
 	 *
 	 * @param algorithm алгоритм хеширования
 	 * @param text      хешируемая строка
-	 * @param count     число байтов хеша, выдаваемых записью (ноль - все)
+	 * @param count     количество байтов хеша, выдаваемых записью (ноль - все)
 	 * @param result    строка, к которой дописывается запись хеша
 	 * @return          результат хеширования
 	 *
@@ -826,7 +826,7 @@ namespace {
 	 * @brief Функция подсчёта доверенных центров в теле certificate_authorities
 	 *
 	 * @param data тело расширения: двухбайтовая длина перечня, далее имена с двухбайтовыми длинами
-	 * @return     число доверенных центров
+	 * @return     количество доверенных центров
 	 *
 	 */
 	static __NTS_INLINE__ size_t __nts_ca_count__(const vector <uint8_t> & data) noexcept {
@@ -836,7 +836,7 @@ namespace {
 			return 0;
 		// Смещение внутри тела: за двухбайтовой длиной перечня
 		size_t offset = 2;
-		// Число доверенных центров
+		// Количество доверенных центров
 		size_t count = 0;
 		/**
 		 * Обходим перечень имен
@@ -859,7 +859,7 @@ namespace {
 			// Считаем центр
 			count++;
 		}
-		// Выводим число доверенных центров
+		// Выводим количество доверенных центров
 		return count;
 	}
 	/**
@@ -1839,7 +1839,7 @@ namespace {
 				return fingerprint::error_t::MEMORY;
 			// Дописываем способы сжатия
 			result.insert(result.end(), profile.methods.begin(), profile.methods.end());
-			// Дописываем число расширений
+			// Дописываем количество расширений
 			if(::__nts_inscribe__(profile.extensions.size(), 2, result) != fingerprint::error_t::NONE)
 				// Выводим отказ нехватки памяти
 				return fingerprint::error_t::MEMORY;
@@ -1966,9 +1966,9 @@ namespace {
 			result.methods.assign(data.data + offset, data.data + offset + length);
 			// Переходим за способы сжатия
 			offset += length;
-			// Число расширений
+			// Количество расширений
 			count = ::__nts_twain__(data.data + offset);
-			// Переходим за число расширений
+			// Переходим за количество расширений
 			offset += 2;
 			/**
 			 * Перебираем расширения
@@ -2322,7 +2322,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 			if(::__nts_counted__(suites.size(), prefix) != fingerprint::error_t::NONE)
 				// Выводим отказ нехватки памяти
 				return fingerprint::error_t::MEMORY;
-			// Дописываем число расширений
+			// Дописываем количество расширений
 			if(::__nts_counted__(extensions.size(), prefix) != fingerprint::error_t::NONE)
 				// Выводим отказ нехватки памяти
 				return fingerprint::error_t::MEMORY;
@@ -2411,7 +2411,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 				return hashed;
 		}
 		/**
-		 * PeetPrint: издания | сжатие | группы | схемы | число записей точек | число способов PSK | наборы | расширения, GREASE словом
+		 * PeetPrint: издания | сжатие | группы | схемы | количество записей точек | число способов PSK | наборы | расширения, GREASE словом
 		 */
 		{
 			// Дописываем издания протокола
@@ -2455,7 +2455,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 				return fingerprint::error_t::MEMORY;
 			// Дописываем разделитель
 			result.peetprint.push_back('|');
-			// Дописываем число записей точек
+			// Дописываем количество записей точек
 			if(::__nts_decimal__(points.size(), result.peetprint) != fingerprint::error_t::NONE)
 				// Выводим отказ нехватки памяти
 				return fingerprint::error_t::MEMORY;
@@ -3619,7 +3619,7 @@ bool nts::fingerprint::Store::empty() const noexcept {
  *
  */
 size_t nts::fingerprint::Store::size() const noexcept {
-	// Выводим число записей
+	// Выводим количество записей
 	return this->_entries.size();
 }
 /**

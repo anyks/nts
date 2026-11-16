@@ -147,7 +147,7 @@ namespace {
 	 *
 	 * @param cipher  объект блочного шифра
 	 * @param sources зашифровываемые блоки подряд
-	 * @param blocks  число блоков
+	 * @param blocks  количество блоков
 	 * @param results место, в которое помещаются зашифрованные блоки
 	 * @return        признак успешности зашифрования
 	 *
@@ -161,7 +161,7 @@ namespace {
 	 *
 	 * @param cipher  объект блочного шифра
 	 * @param sources зашифровываемые блоки подряд
-	 * @param blocks  число блоков
+	 * @param blocks  количество блоков
 	 * @param results место, в которое помещаются зашифрованные блоки
 	 * @return        признак успешности зашифрования
 	 *
@@ -175,7 +175,7 @@ namespace {
 	 *
 	 * @param cipher  объект блочного шифра
 	 * @param sources зашифровываемые блоки подряд
-	 * @param blocks  число блоков
+	 * @param blocks  количество блоков
 	 * @param results место, в которое помещаются зашифрованные блоки
 	 * @return        признак успешности зашифрования
 	 *
@@ -189,7 +189,7 @@ namespace {
 	 *
 	 * @param cipher  объект блочного шифра
 	 * @param counter начальный блок счётчика
-	 * @param blocks  число блоков гаммы
+	 * @param blocks  количество блоков гаммы
 	 * @param source  исходные данные, на которые гамма накладывается: пусто, если нужна сама гамма
 	 * @param result  место, в которое помещается гамма либо исходные данные под ней
 	 * @return        признак успешности выработки
@@ -674,9 +674,9 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		while((source.size - offset) >= 16){
 			// Младшие 32 разряда счётчика от старшего байта
 			const uint32_t tail = ((static_cast <uint32_t> (this->_counter[12]) << 24) | (static_cast <uint32_t> (this->_counter[13]) << 16) | (static_cast <uint32_t> (this->_counter[14]) << 8) | static_cast <uint32_t> (this->_counter[15]));
-			// Число блоков до переполнения младших четырёх байтов
+			// Количество блоков до переполнения младших четырёх байтов
 			const uint64_t room = ((static_cast <uint64_t> (UINT32_MAX) - tail) + 1);
-			// Число блоков вызова: целые блоки сообщения
+			// Количество блоков вызова: целые блоки сообщения
 			size_t count = ((source.size - offset) / 16);
 			// Если вызов дошёл бы до переполнения младших байтов
 			if(static_cast <uint64_t> (count) > room)
@@ -876,7 +876,7 @@ bool nts::cipher::Output::start(const block_t & block, const view_t & iv, const 
 	if(gamma > block.size)
 		// Выводим отказ запуска режима работы
 		return false;
-	// Если синхропосылка не занимает целого числа блоков шифра
+	// Если синхропосылка не занимает целого количества блоков шифра
 	if((iv.data == nullptr) || (iv.size < block.size) || ((iv.size % block.size) != 0) || (iv.size > MODE_REGISTER))
 		// Выводим отказ запуска режима работы
 		return false;
@@ -1016,7 +1016,7 @@ bool nts::cipher::Chaining::start(const block_t & block, const view_t & iv) noex
 	if(!suitable(block))
 		// Выводим отказ запуска режима работы
 		return false;
-	// Если синхропосылка не занимает целого числа блоков шифра
+	// Если синхропосылка не занимает целого количества блоков шифра
 	if((iv.data == nullptr) || (iv.size < block.size) || ((iv.size % block.size) != 0) || (iv.size > MODE_REGISTER))
 		// Выводим отказ запуска режима работы
 		return false;

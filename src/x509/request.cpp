@@ -1215,7 +1215,7 @@ void nts::x509::Request::clear() noexcept {
 	this->_signature = view_t();
 	// Сбрасываем просмотр настроек подписи
 	this->_parameters = view_t();
-	// Сбрасываем число неиспользуемых разрядов подписи
+	// Сбрасываем количество неиспользуемых разрядов подписи
 	this->_unused = 0;
 	// Сбрасываем опознаватель алгоритма подписи
 	this->_algorithm.clear();
@@ -1252,12 +1252,12 @@ const nts::view_t & nts::x509::Request::body() const noexcept {
 /**
  * @brief Метод извлечения подписи запроса
  *
- * @param unused число неиспользуемых разрядов последнего байта подписи
+ * @param unused количество неиспользуемых разрядов последнего байта подписи
  * @return       просмотр записи подписи
  *
  */
 const nts::view_t & nts::x509::Request::sign(uint8_t & unused) const noexcept {
-	// Запоминаем число неиспользуемых разрядов последнего байта подписи
+	// Запоминаем количество неиспользуемых разрядов последнего байта подписи
 	unused = this->_unused;
 	// Выводим подпись запроса
 	return this->_signature;
@@ -1491,11 +1491,11 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
  *
  */
 nts::x509::error_t nts::x509::verify(const request_t & request, const nts::x509::key_t & key) noexcept {
-	// Число неиспользуемых разрядов последнего байта подписи
+	// Количество неиспользуемых разрядов последнего байта подписи
 	uint8_t unused = 0;
 	// Получаем подпись проверяемого запроса
 	const view_t & signature = request.sign(unused);
-	// Если подпись запроса занимает неполное число байтов
+	// Если подпись запроса занимает неполное количество байтов
 	if(unused != 0)
 		// Выводим отказ проверки подписи запроса
 		return error_t::SIGNATURE;

@@ -243,7 +243,7 @@ void nts::cipher::Stream::clear() noexcept {
 	this->_tag = 0;
 	// Сбрасываем длину вектора
 	this->_head = 0;
-	// Сбрасываем число накопленных байтов вектора
+	// Сбрасываем количество накопленных байтов вектора
 	this->_gathered = 0;
 	// Затирание вектора
 	wipe(this->_vector, sizeof(this->_vector));
@@ -312,15 +312,15 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 	const uint8_t * cursor = source.data;
 	// Если вектор ещё не собран из головы потока
 	if(this->_gathered < this->_head){
-		// Число байтов, дополняющих вектор
+		// Количество байтов, дополняющих вектор
 		const size_t taken = (((this->_head - this->_gathered) < left) ? (this->_head - this->_gathered) : left);
 		// Переносим байты в вектор
 		::memcpy(this->_vector + this->_gathered, cursor, taken);
-		// Увеличиваем число накопленных байтов вектора
+		// Увеличиваем количество накопленных байтов вектора
 		this->_gathered += taken;
 		// Сдвигаем позицию чтения
 		cursor += taken;
-		// Уменьшаем число не разобранных байтов
+		// Уменьшаем количество не разобранных байтов
 		left -= taken;
 		// Если вектор так и не собран
 		if(this->_gathered < this->_head)
@@ -345,7 +345,7 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 		// Выводим итог
 		return passed;
 	}
-	// Число байтов, заведомо не задевающих метку
+	// Количество байтов, заведомо не задевающих метку
 	const size_t release = (((this->_tail.size() + left) > this->_tag) ? ((this->_tail.size() + left) - this->_tag) : 0);
 	// Если выдавать нечего
 	if(release == 0){
@@ -365,7 +365,7 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 		// Выводим успешность подачи: выдача пуста
 		return true;
 	}
-	// Число выдаваемых байтов из удерживаемого хвоста
+	// Количество выдаваемых байтов из удерживаемого хвоста
 	const size_t held = ((release < this->_tail.size()) ? release : this->_tail.size());
 	// Если из хвоста выдаётся хоть байт и пропустить его не удалось: режим уже продвинут, поток негоден
 	if((held > 0) && !this->pass(view_t(this->_tail.data(), held), result)){
@@ -374,7 +374,7 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 		// Выводим отказ подачи
 		return false;
 	}
-	// Число выдаваемых байтов из куска
+	// Количество выдаваемых байтов из куска
 	const size_t fresh = (release - held);
 	// Если из куска выдаётся хоть байт и пропустить его не удалось
 	if((fresh > 0) && !this->pass(view_t(cursor, fresh), result)){

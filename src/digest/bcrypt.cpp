@@ -59,7 +59,7 @@ namespace {
 	 * @brief Параметры bcrypt
 	 *
 	 */
-	// Число слов хеша
+	// Количество слов хеша
 	constexpr size_t BCRYPT_WORDS = 8;
 	// Размер хеша в байтах
 	constexpr size_t BCRYPT_HASHSIZE = BCRYPT_WORDS * 4;
@@ -136,7 +136,7 @@ namespace {
  * @param salt   соль
  * @param key    место, в которое помещается выработанный ключ
  * @param keylen длина вырабатываемого ключа в байтах
- * @param rounds число кругов
+ * @param rounds количество кругов
  * @return       признак успешности выработки ключа
  *
  */
@@ -147,13 +147,13 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 	   key == nullptr || keylen == 0 || rounds < 1)
 		// Выводим отказ негодных параметров
 		return false;
-	// Число блоков выхода
+	// Количество блоков выхода
 	const size_t stride = (keylen + BCRYPT_HASHSIZE - 1) / BCRYPT_HASHSIZE;
 	// Длина блока выхода в байтах
 	size_t amt = (keylen + stride - 1) / stride;
 	// Первоначальная длина ключа для проверки места назначения
 	const size_t origkeylen = keylen;
-	// Число байтов ключа, ещё не выработанных
+	// Количество байтов ключа, ещё не выработанных
 	size_t remaining = keylen;
 	// Хеш пароля
 	uint8_t sha2pass[SHA512_SIZE];
@@ -222,7 +222,7 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 		}
 		// Перемешивание выходных байтов
 		const size_t currentAmt = (amt < remaining) ? amt : remaining;
-		// Число байтов блока, перенесённых в ключ
+		// Количество байтов блока, перенесённых в ключ
 		size_t i;
 		/**
 		 * Выполняем перебор байтов блока в пределах длины

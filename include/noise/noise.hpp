@@ -183,7 +183,7 @@ namespace nts {
 		static constexpr size_t MESSAGES_MAX = 4;
 		/**
 		 * \~russian
-		 * @brief Наибольшее число знаков в одном сообщении узора
+		 * @brief Наибольшее количество знаков в одном сообщении узора
 		 *
 		 * \~english
 		 * @brief Largest number of tokens in one message of a pattern
@@ -625,7 +625,7 @@ namespace nts {
 		 * @param pattern узор рукопожатия
 		 * @param index   номер сообщения от нуля
 		 * @param result  указатель на знаки
-		 * @param count   число знаков
+		 * @param count   количество знаков
 		 * @return        признак того, что сообщение есть
 		 *
 		 * \~english
@@ -647,7 +647,7 @@ namespace nts {
 		 * @param pattern   узор рукопожатия
 		 * @param initiator признак предсообщения инициатора (иначе - отвечающего)
 		 * @param result    указатель на знаки
-		 * @param count     число знаков
+		 * @param count     количество знаков
 		 * @return          признак того, что узор знаком
 		 *
 		 * \~english

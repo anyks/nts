@@ -506,7 +506,7 @@ nts::record::error_t nts::record::Writer::push(const type_t type, const version_
 	header.version = version;
 	// Место, в которое записывается заголовок очередной записи
 	uint8_t buffer[RECORD_HEADER];
-	// Число уже нарезанных на записи байтов данных
+	// Количество уже нарезанных на записи байтов данных
 	size_t offset = 0;
 	/**
 	 * Выполняем перехват ошибок
@@ -534,7 +534,7 @@ nts::record::error_t nts::record::Writer::push(const type_t type, const version_
 			if(header.size > 0)
 				// Добавление содержимого очередной записи в накопитель
 				this->_buffer.insert(this->_buffer.end(), (data.data + offset), (data.data + offset + header.size));
-			// Увеличиваем число уже нарезанных на записи байтов данных
+			// Увеличиваем количество уже нарезанных на записи байтов данных
 			offset += header.size;
 		// Нарезка до тех пор, пока данные не кончатся
 		} while(offset < total);

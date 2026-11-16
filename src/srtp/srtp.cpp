@@ -127,7 +127,7 @@ namespace {
 		::memcpy(counter, salt.data, salt.size);
 		// Накладываем метку на седьмой байт (метка ‖ шесть нулевых байтов индекса)
 		counter[7] ^= label;
-		// Число блоков ключевого потока
+		// Количество блоков ключевого потока
 		const size_t blocks = (size + BLOCK - 1) / BLOCK;
 		// Блок гаммы
 		uint8_t gamma[BLOCK];
@@ -323,7 +323,7 @@ namespace {
 		::memcpy(counter, iv, BLOCK);
 		// Блок гаммы
 		uint8_t gamma[BLOCK];
-		// Число полных блоков содержимого
+		// Количество полных блоков содержимого
 		const size_t whole = source.size / BLOCK;
 		/**
 		 * Проходим по полным блокам

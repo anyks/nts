@@ -573,17 +573,6 @@ namespace {
 			multiply64(first, second, result);
 	}
 	/**
-	 * @brief Функция записи длины строки в разрядах
-	 *
-	 * @details Преобразование len раздела 3 RFC 9058: длина в разрядах записывается
-	 *          в половину блока от старшего байта к младшему
-	 *
-	 * @param size размер строки в байтах
-	 * @param data место, в которое записывается длина строки
-	 * @param half размер половины блока шифра
-	 *
-	 */
-	/**
 	 * @brief Функция проверки того, что длины укладываются в блок длин метки
 	 *
 	 * @param associated длина связанных данных в байтах
@@ -676,7 +665,7 @@ bool nts::cipher::Galois::reset() noexcept {
 	this->_direction = 0;
 	// Сбрасываем остаток блока гаммы
 	this->_rest = 0;
-	// Сбрасываем число накопленных байтов неполного блока метки
+	// Сбрасываем количество накопленных байтов неполного блока метки
 	this->_filled = 0;
 	// Сбрасываем длину связанных данных
 	this->_associated = 0;
@@ -772,7 +761,7 @@ bool nts::cipher::Galois::flush() noexcept {
 		return true;
 	// Поглощение неполного блока: остаток его за заполнением обнулён
 	const bool ok = this->mark(this->_pending);
-	// Сбрасываем число накопленных байтов неполного блока метки
+	// Сбрасываем количество накопленных байтов неполного блока метки
 	this->_filled = 0;
 	// Затирание неполного блока метки
 	wipe(this->_pending, sizeof(this->_pending));
@@ -811,7 +800,7 @@ bool nts::cipher::Galois::mark(const uint8_t * data) noexcept {
  * @brief Метод сложения части сообщения в накопитель метки
  *
  * @param data поглощаемые байты
- * @param size число поглощаемых байтов
+ * @param size количество поглощаемых байтов
  * @return     признак успешности сложения
  *
  */
@@ -828,11 +817,11 @@ bool nts::cipher::Galois::absorb(const uint8_t * data, const size_t size) noexce
 	const size_t step = this->_block.size;
 	// Если неполный блок метки копится
 	if(this->_filled > 0){
-		// Число байтов, дополняющих неполный блок до целого
+		// Количество байтов, дополняющих неполный блок до целого
 		const size_t taken = (((step - this->_filled) < size) ? (step - this->_filled) : size);
 		// Дописываем байты в неполный блок метки
 		::memcpy(this->_pending + this->_filled, data, taken);
-		// Увеличиваем число накопленных байтов неполного блока метки
+		// Увеличиваем количество накопленных байтов неполного блока метки
 		this->_filled += taken;
 		// Сдвигаем позицию чтения поглощаемых байтов
 		offset += taken;
@@ -840,7 +829,7 @@ bool nts::cipher::Galois::absorb(const uint8_t * data, const size_t size) noexce
 		if(this->_filled == step){
 			// Поглощение целого блока
 			ok = this->mark(this->_pending);
-			// Сбрасываем число накопленных байтов неполного блока метки
+			// Сбрасываем количество накопленных байтов неполного блока метки
 			this->_filled = 0;
 			// Затирание неполного блока метки
 			wipe(this->_pending, sizeof(this->_pending));
@@ -900,7 +889,7 @@ bool nts::cipher::Galois::absorb(const uint8_t * data, const size_t size) noexce
 	if(ok && (offset < size)){
 		// Переносим хвост в неполный блок метки
 		::memcpy(this->_pending, data + offset, size - offset);
-		// Запоминаем число накопленных байтов неполного блока метки
+		// Запоминаем количество накопленных байтов неполного блока метки
 		this->_filled = (size - offset);
 	}
 	// Выводим признак успешности сложения
@@ -933,7 +922,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 	uint8_t item[MODE_BLOCK];
 	// Если остаток блока гаммы не израсходован
 	if(this->_rest > 0){
-		// Число байтов, покрываемых остатком
+		// Количество байтов, покрываемых остатком
 		const size_t taken = ((this->_rest < left) ? this->_rest : left);
 		// Позиция остатка внутри блока гаммы
 		const size_t index = (step - this->_rest);
@@ -947,7 +936,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 		cursor += taken;
 		// Сдвигаем позицию записи
 		output += taken;
-		// Уменьшаем число не покрытых байтов
+		// Уменьшаем количество не покрытых байтов
 		left -= taken;
 		// Уменьшаем остаток блока гаммы
 		this->_rest -= taken;
@@ -980,7 +969,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 		cursor += (4 * step);
 		// Сдвигаем позицию записи
 		output += (4 * step);
-		// Уменьшаем число не покрытых байтов
+		// Уменьшаем количество не покрытых байтов
 		left -= (4 * step);
 		// Затирание четырёх значений счётчика
 		wipe(counters, sizeof(counters));
@@ -1007,7 +996,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 			if(count < step){
 				// Сохраняем блок гаммы остатком
 				::memcpy(this->_gamma, item, step);
-				// Запоминаем число неизрасходованных байтов остатка
+				// Запоминаем количество неизрасходованных байтов остатка
 				this->_rest = (step - count);
 			}
 			// Увеличение младшей половины счётчика на единицу
@@ -1016,7 +1005,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 			cursor += count;
 			// Сдвигаем позицию записи
 			output += count;
-			// Уменьшаем число не покрытых байтов
+			// Уменьшаем количество не покрытых байтов
 			left -= count;
 		}
 	}

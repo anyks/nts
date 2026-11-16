@@ -97,7 +97,7 @@ bool nts::noise::Handshake::ready() noexcept {
 		return false;
 	// Знаки и их число
 	const token_t * list = nullptr;
-	// Число знаков
+	// Количество знаков
 	size_t count = 0;
 	/**
 	 * Выполняем проверку, что свой постоянный ключ есть, если узор велит его слать либо принимать skem
@@ -500,7 +500,7 @@ bool nts::noise::Handshake::remote(const view_t & key) noexcept {
  * @brief Метод установки заранее разделённых ключей в порядке появления в узоре
  *
  * @param keys  ключи, каждый ровно PSK байтов
- * @param count число ключей, не больше PSKS_MAX
+ * @param count количество ключей, не больше PSKS_MAX
  * @return      признак того, что ключи установлены
  *
  */
@@ -526,9 +526,9 @@ bool nts::noise::Handshake::psks(const view_t * keys, const size_t count) noexce
 	for(size_t i = 0; i < count; i++)
 		// Записываем ключ
 		::memcpy(this->_psk[i], keys[i].data, PSK);
-	// Запоминаем число ключей
+	// Запоминаем количество ключей
 	this->_pskCount = count;
-	// Сбрасываем число использованных ключей
+	// Сбрасываем количество использованных ключей
 	this->_pskUsed = 0;
 	// Сообщаем об успешной установке предразделённых ключей
 	return true;
@@ -567,7 +567,7 @@ bool nts::noise::Handshake::coinsDeterministic(const view_t * coins, const size_
 		::memcpy(this->_coin[i], coins[i].data, length);
 	// Запоминаем число случайностей
 	this->_coinCount = count;
-	// Сбрасываем число использованных случайностей
+	// Сбрасываем количество использованных случайностей
 	this->_coinUsed = 0;
 	// Сообщаем об успешной установке случайностей
 	return true;
@@ -612,7 +612,7 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 		return false;
 	// Знаки сообщения и их число
 	const token_t * list = nullptr;
-	// Число знаков
+	// Количество знаков
 	size_t count = 0;
 	// Получаем знаки
 	if(!tokens(this->_pattern, this->_index, list, count))
@@ -757,7 +757,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 		return false;
 	// Знаки сообщения и их число
 	const token_t * list = nullptr;
-	// Число знаков
+	// Количество знаков
 	size_t count = 0;
 	// Получаем знаки
 	if(!tokens(this->_pattern, this->_index, list, count))
@@ -1037,13 +1037,13 @@ void nts::noise::Handshake::clear() noexcept {
 	this->_hasRS = false;
 	// Сбрасываем признак чужого временного ключа
 	this->_hasRE = false;
-	// Сбрасываем число ключей
+	// Сбрасываем количество ключей
 	this->_pskCount = 0;
-	// Сбрасываем число использованных ключей
+	// Сбрасываем количество использованных ключей
 	this->_pskUsed = 0;
 	// Сбрасываем число случайностей
 	this->_coinCount = 0;
-	// Сбрасываем число использованных случайностей
+	// Сбрасываем количество использованных случайностей
 	this->_coinUsed = 0;
 	// Сбрасываем длину открытого ключа
 	this->_public = 0;

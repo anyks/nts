@@ -814,7 +814,7 @@ namespace nts {
 		 * @brief Функция разбора ответов подтверждения владения POPODecKeyRespContent
 		 *
 		 * @param body   просмотр содержимого тела (для вида popdecr)
-		 * @param result место, в которое помещаются числа ответов
+		 * @param result место, в которое помещаются количества ответов
 		 * @return       причина отказа либо error_t::NONE
 		 *
 		 * \~english
@@ -1286,7 +1286,7 @@ namespace nts {
 		 *
 		 * @param sender    запись GeneralName отправителя
 		 * @param recipient запись GeneralName получателя
-		 * @param answers   числа ответов
+		 * @param answers   количества ответов
 		 * @param signer    подготовленный секретный ключ защиты подписью
 		 * @param hash      алгоритм хеша подписи
 		 * @param result    место, в которое помещается запись PKIMessage

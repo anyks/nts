@@ -60,7 +60,7 @@ namespace {
  * @param algorithm  алгоритм хеширования имитовставки
  * @param password   пароль, вправе быть пустым
  * @param salt       соль, вправе быть пустой
- * @param iterations число оборотов, не меньше одного
+ * @param iterations количество оборотов, не меньше одного
  * @param result     место, в которое помещается выведенный ключ
  * @param size       требуемая длина ключа, не меньше одного байта
  * @return           признак успешности вывода
@@ -91,7 +91,7 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 	uint8_t round[64];
 	// Накопленный блок ключа
 	uint8_t block[64];
-	// Число уже выведенных байтов ключа
+	// Количество уже выведенных байтов ключа
 	size_t produced = 0;
 	// Признак успешности вывода
 	bool ok = true;
@@ -136,7 +136,7 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 		if(!ok)
 			// Прерываем вывод
 			break;
-		// Число байтов блока, идущих в ключ
+		// Количество байтов блока, идущих в ключ
 		const size_t taken = (((size - produced) < length) ? (size - produced) : length);
 		// Переносим блок в ключ
 		::memcpy(result + produced, block, taken);

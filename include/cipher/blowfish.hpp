@@ -196,7 +196,7 @@ namespace nts {
 		 *
 		 * @param ctx    контекст Blowfish
 		 * @param data   данные (массив uint32)
-		 * @param blocks число блоков по 8 байтов
+		 * @param blocks количество блоков по 8 байтов
 		 *
 		 * \~english
 		 * @brief Function of the encryption of several blocks
@@ -215,7 +215,7 @@ namespace nts {
 		 *
 		 * @param ctx    контекст Blowfish
 		 * @param data   данные (массив uint32)
-		 * @param blocks число блоков по 8 байтов
+		 * @param blocks количество блоков по 8 байтов
 		 *
 		 * \~english
 		 * Function of the decryption of several blocks

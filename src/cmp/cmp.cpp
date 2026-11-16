@@ -110,7 +110,7 @@ namespace {
 	static const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
 
 	/**
-	 * Число повторов односторонней функции PBM по умолчанию
+	 * Количество повторов односторонней функции PBM по умолчанию
 	 */
 	static constexpr int64_t PBM_ITERATIONS = 500;
 
@@ -470,7 +470,7 @@ namespace {
 	 * @param password пароль общего секрета
 	 * @param salt     метка соли из настроек PBM
 	 * @param hash     алгоритм хеша односторонней функции
-	 * @param count    число повторов односторонней функции
+	 * @param count    количество повторов односторонней функции
 	 * @param length   требуемая длина ключа имитовставки в байтах
 	 * @param result   место, в которое помещается ключ
 	 * @return         отказ выработки ключа
@@ -630,15 +630,15 @@ namespace {
 		if(owfHash == digest::hash_t::NONE)
 			// Выводим отказ алгоритма
 			return nts::cmp::error_t::ALGORITHM;
-		// Элемент числа повторов
+		// Элемент количества повторов
 		asn1::element_t iterations;
-		// Если число повторов разобрать не удалось
+		// Если количество повторов разобрать не удалось
 		if(!items.next(asn1::tag_t::INTEGER, iterations))
 			// Выводим переведённый отказ разбора
 			return translate(items.err());
-		// Число повторов односторонней функции
+		// Количество повторов односторонней функции
 		int64_t count = 0;
-		// Если число повторов разобрать не удалось
+		// Если количество повторов разобрать не удалось
 		if(asn1::integer(iterations, count) != asn1::error_t::NONE)
 			// Выводим отказ устройства записи
 			return nts::cmp::error_t::STRUCTURE;
@@ -703,7 +703,7 @@ namespace {
 		if(!writeAlgorithm(writer, hashOid, true))
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
-		// Записываем число повторов
+		// Записываем количество повторов
 		if(!writer.integer(PBM_ITERATIONS))
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
@@ -1695,7 +1695,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					}
 					// Просмотр содержимого строки битов
 					view_t content;
-					// Число неиспользуемых разрядов последнего байта
+					// Количество неиспользуемых разрядов последнего байта
 					uint8_t unused = 0;
 					// Если строку битов разобрать не удалось
 					if(asn1::bits(bits, content, unused) != asn1::error_t::NONE){
@@ -1923,7 +1923,7 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 				return translate(items.err());
 			// Просмотр содержимого строки битов
 			view_t content;
-			// Число неиспользуемых разрядов последнего байта
+			// Количество неиспользуемых разрядов последнего байта
 			uint8_t unused = 0;
 			// Если строку битов разобрать не удалось
 			if(asn1::bits(failure, content, unused) != asn1::error_t::NONE)
@@ -2403,7 +2403,7 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
  * @brief Функция разбора ответов подтверждения владения POPODecKeyRespContent
  *
  * @param body   просмотр содержимого тела (для вида popdecr)
- * @param result место, в которое помещаются числа ответов
+ * @param result место, в которое помещаются количества ответов
  * @return       причина отказа либо error_t::NONE
  *
  */
@@ -2427,7 +2427,7 @@ nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_
 		// Разборщик чисел ответов
 		asn1::reader_t records(set.content);
 		/**
-		 * Разбираем числа ответов
+		 * Разбираем количества ответов
 		 */
 		while(!records.empty()){
 			// Элемент числа ответа
@@ -3777,7 +3777,7 @@ nts::cmp::error_t nts::cmp::challenge(const view_t & sender, const view_t & reci
  *
  * @param sender    запись GeneralName отправителя
  * @param recipient запись GeneralName получателя
- * @param answers   числа ответов
+ * @param answers   количества ответов
  * @param signer    подготовленный секретный ключ защиты подписью
  * @param hash      алгоритм хеша подписи
  * @param result    место, в которое помещается запись PKIMessage
@@ -3788,7 +3788,7 @@ nts::cmp::error_t nts::cmp::challengeReply(const view_t & sender, const view_t &
 	// Записчик содержимого тела
 	asn1::writer_t content;
 	/**
-	 * Переносим числа ответов
+	 * Переносим количества ответов
 	 */
 	for(const int64_t answer : answers){
 		// Записываем число ответа

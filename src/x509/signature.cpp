@@ -521,11 +521,9 @@ namespace {
 		const digest::type_t type = (size == 32 ? digest::type_t::SHORT : digest::type_t::LONG);
 		/**
 		 * Хеш берётся записью вектором: подпись по ГОСТ Р 34.10-2012 толкует его числом,
-		 * а не строкой байтов, и запись эта задана самим стандартом
-		 */
-		/**
-		 * Заслон этот недостижим извне: длина хеша взята размером координаты кривой и
-		 * выработке отвечает, а иных причин отказать у неё нет
+		 * а не строкой байтов, и запись эта задана самим стандартом. Заслон этот
+		 * недостижим извне: длина хеша взята размером координаты кривой и выработке
+		 * отвечает, а иных причин отказать у неё нет
 		 */
 		if(!digest::streebog(type, body, digest, size, digest::order_t::VECTOR))
 			// Выводим отказ проверки подписи
@@ -651,7 +649,7 @@ namespace {
 		if((key.algorithm.compare(RSA_KEY) == 0) && !absent(key.parameters))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
-		// Если запись открытого ключа занимает неполное число байтов
+		// Если запись открытого ключа занимает неполное количество байтов
 		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size == 0))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
@@ -716,7 +714,7 @@ namespace {
 		if(!curve::parameters(oid, curve))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
-		// Если запись открытого ключа занимает неполное число байтов
+		// Если запись открытого ключа занимает неполное количество байтов
 		if((key.unused != 0) || (key.key.data == nullptr))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
@@ -760,7 +758,7 @@ namespace {
 		if((key.parameters.data != nullptr) && (key.parameters.size != 0))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
-		// Если запись открытого ключа занимает неполное число байтов либо не той длины
+		// Если запись открытого ключа занимает неполное количество байтов либо не той длины
 		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::ed25519_t::KEY_SIZE))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
@@ -788,7 +786,7 @@ namespace {
 		if((key.parameters.data != nullptr) && (key.parameters.size != 0))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
-		// Если запись открытого ключа занимает неполное число байтов либо не той длины
+		// Если запись открытого ключа занимает неполное количество байтов либо не той длины
 		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::ed448_t::KEY_SIZE))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
@@ -1021,16 +1019,6 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Функция проверки подписи ECDSA
-	 *
-	 * @param hash      алгоритм хеша подписанного содержимого
-	 * @param content   подписанное содержимое
-	 * @param signature проверяемая подпись в записи SEQUENCE {r, s}
-	 * @param key       сведения об открытом ключе подписавшей стороны
-	 * @return          отказ проверки подписи
-	 *
-	 */
-	/**
 	 * @brief Функция проверки подписи SM2 содержимого открытым ключом
 	 *
 	 * @param content   подписанное содержимое
@@ -1083,7 +1071,7 @@ namespace {
 		if(!curve::parameters(oid, curve))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
-		// Если запись открытого ключа занимает неполное число байтов
+		// Если запись открытого ключа занимает неполное количество байтов
 		if((key.unused != 0) || (key.key.data == nullptr))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
@@ -1309,7 +1297,7 @@ namespace {
 		if((key.parameters.data != nullptr) && (key.parameters.size != 0))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
-		// Если запись открытого ключа занимает неполное число байтов либо не той длины
+		// Если запись открытого ключа занимает неполное количество байтов либо не той длины
 		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::mldsa_t::publicSize(set)))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
@@ -1371,7 +1359,7 @@ namespace {
 		if((key.parameters.data != nullptr) && (key.parameters.size != 0))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
-		// Если запись открытого ключа занимает неполное число байтов либо не той длины
+		// Если запись открытого ключа занимает неполное количество байтов либо не той длины
 		if((key.unused != 0) || (key.key.data == nullptr) || (key.key.size != sign::slh_dsa_t::publicSize(set)))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
@@ -1611,11 +1599,9 @@ nts::x509::error_t nts::x509::check(const key_t & key, const view_t & content, c
 	const digest::type_t type = (curve.size() == 32 ? digest::type_t::SHORT : digest::type_t::LONG);
 	/**
 	 * Хеш берётся записью вектором: подпись по ГОСТ Р 34.10-2012 толкует его числом,
-	 * а не строкой байтов, и запись эта задана самим стандартом
-	 */
-	/**
-	 * Заслон этот недостижим извне: длина хеша взята размером координаты кривой и
-	 * выработке отвечает, а иных причин отказать у неё нет
+	 * а не строкой байтов, и запись эта задана самим стандартом. Заслон этот
+	 * недостижим извне: длина хеша взята размером координаты кривой и выработке
+	 * отвечает, а иных причин отказать у неё нет
 	 */
 	if(!digest::streebog(type, content, digest, curve.size(), digest::order_t::VECTOR))
 		// Выводим отказ проверки подписи содержимого
@@ -1696,11 +1682,11 @@ nts::x509::error_t nts::x509::check(const key_t & key, const digest::hash_t algo
  *
  */
 nts::x509::error_t nts::x509::verify(const certificate_t & certificate, const key_t & key) noexcept {
-	// Число неиспользуемых разрядов последнего байта подписи
+	// Количество неиспользуемых разрядов последнего байта подписи
 	uint8_t unused = 0;
 	// Получаем подпись проверяемого сертификата
 	const view_t & signature = certificate.sign(unused);
-	// Если подпись сертификата занимает неполное число байтов
+	// Если подпись сертификата занимает неполное количество байтов
 	if(unused != 0)
 		// Выводим отказ проверки подписи сертификата
 		return nts::x509::error_t::SIGNATURE;

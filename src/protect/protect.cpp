@@ -2057,7 +2057,7 @@ uint8_t nts::protect::Protection::uncover(const uint64_t sequence, const record:
 	uint8_t good = atleast(length, (padding + 1 + covered));
 	// Длина дополнения, обращённая в ноль при негодной: дальнейшие расчёты идут по ней
 	const size_t declared = (padding & good);
-	// Наибольшее число байтов дополнения, доступных сверке: не дальше начала открытого текста
+	// Наибольшее количество байтов дополнения, доступных сверке: не дальше начала открытого текста
 	const size_t scope = ((length < CBC_PADDING) ? length : CBC_PADDING);
 	/**
 	 * Выполняем сверку всех байтов дополнения: раздел 6.2.3.2 RFC 5246 велит сверять

@@ -80,7 +80,7 @@ namespace {
 	 */
 	constexpr size_t BLOCK_SIZE = 16;
 	/**
-	 * Число кругов bcrypt по умолчанию
+	 * Количество кругов bcrypt по умолчанию
 	 */
 	constexpr size_t DEFAULT_ROUNDS = 16;
 	/**
@@ -344,7 +344,7 @@ namespace {
 				 * Выполняем перехват ошибок
 				 */
 				try {
-					// Число байтов дополнения
+					// Количество байтов дополнения
 					const size_t length = BLOCK_SIZE - (this->_buffer.size() % BLOCK_SIZE);
 					/**
 					 * Проходим по байтам дополнения
@@ -884,9 +884,9 @@ bool nts::keys::ssh::decode(const view_t & data, const view_t & password, key_t 
 	if(!reader.get(kdfoptions))
 		// Выводим отказ разбора
 		return false;
-	// Число ключей
+	// Количество ключей
 	uint32_t nkeys = 0;
-	// Если число ключей прочитать не удалось
+	// Если количество ключей прочитать не удалось
 	if(!reader.get(nkeys))
 		// Выводим отказ разбора
 		return false;
@@ -916,7 +916,7 @@ bool nts::keys::ssh::decode(const view_t & data, const view_t & password, key_t 
 		if((password.data == nullptr) || (password.size == 0))
 			// Выводим отказ разбора
 			return false;
-		// Заводим разборщик параметров: соль + число кругов
+		// Заводим разборщик параметров: соль + количество кругов
 		reader_t kdfreader(kdfoptions.data(), kdfoptions.size());
 		// Соль выработки ключа
 		vector <uint8_t> salt;
@@ -924,9 +924,9 @@ bool nts::keys::ssh::decode(const view_t & data, const view_t & password, key_t 
 		if(!kdfreader.get(salt))
 			// Выводим отказ разбора
 			return false;
-		// Число кругов выработки ключа
+		// Количество кругов выработки ключа
 		uint32_t rounds = 0;
-		// Если число кругов прочитать не удалось
+		// Если количество кругов прочитать не удалось
 		if(!kdfreader.get(rounds))
 			// Выводим отказ разбора
 			return false;
@@ -1042,7 +1042,7 @@ bool nts::keys::ssh::encode(const key_t & key, const string & comment, const vie
 			writer_t kdfwriter(kdfoptions);
 			// Записываем соль
 			kdfwriter.add(salt, sizeof(salt));
-			// Записываем число кругов
+			// Записываем количество кругов
 			kdfwriter.add(DEFAULT_ROUNDS);
 			// Записываем параметры
 			writer.add(kdfoptions);
@@ -1055,7 +1055,7 @@ bool nts::keys::ssh::encode(const key_t & key, const string & comment, const vie
 			// Записываем пустые параметры
 			writer.add(view_t());
 		}
-		// Записываем число ключей
+		// Записываем количество ключей
 		writer.add(1);
 		// Блок открытого ключа
 		vector <uint8_t> pubblock;

@@ -142,12 +142,12 @@ namespace {
 	 * @brief Функция счёта знаков до первого пустого
 	 *
 	 * @param list  знаки
-	 * @param limit предел числа знаков
-	 * @return      число знаков
+	 * @param limit предел количества знаков
+	 * @return      количество знаков
 	 *
 	 */
 	static size_t measure(const token_t * list, const size_t limit) noexcept {
-		// Число знаков
+		// Количество знаков
 		size_t count = 0;
 		/**
 		 * Выполняем счёт знаков
@@ -179,7 +179,7 @@ size_t nts::noise::messages(const pattern_t pattern) noexcept {
  * @param pattern узор рукопожатия
  * @param index   номер сообщения от нуля
  * @param result  указатель на знаки
- * @param count   число знаков
+ * @param count   количество знаков
  * @return        признак того, что сообщение есть
  *
  */
@@ -190,16 +190,16 @@ bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token
 	if((item == nullptr) || (index >= item->count)){
 		// Сбрасываем указатель на знаки сообщения
 		result = nullptr;
-		// Сбрасываем число знаков
+		// Сбрасываем количество знаков
 		count = 0;
 		// Выводим отрицательный результат - узор негоден
 		return false;
 	}
 	// Выводим знаки сообщения
 	result = item->messages[index];
-	// Выводим число знаков сообщения
+	// Выводим количество знаков сообщения
 	count = measure(result, TOKENS_MAX);
-	// Число знаков сообщения выведено
+	// Количество знаков сообщения выведено
 	return true;
 }
 /**
@@ -208,7 +208,7 @@ bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token
  * @param pattern   узор рукопожатия
  * @param initiator признак предсообщения инициатора (иначе - отвечающего)
  * @param result    указатель на знаки
- * @param count     число знаков
+ * @param count     количество знаков
  * @return          признак того, что узор знаком
  *
  */
@@ -219,16 +219,16 @@ bool nts::noise::premessage(const pattern_t pattern, const bool initiator, const
 	if(item == nullptr){
 		// Сбрасываем указатель на знаки предсообщения
 		result = nullptr;
-		// Сбрасываем число знаков
+		// Сбрасываем количество знаков
 		count = 0;
 		// Выводим отрицательный результат - узор негоден
 		return false;
 	}
 	// Выводим знаки предсообщения
 	result = (initiator ? item->initiator : item->responder);
-	// Выводим число знаков предсообщения
+	// Выводим количество знаков предсообщения
 	count = measure(result, 2);
-	// Число знаков предсообщения выведено
+	// Количество знаков предсообщения выведено
 	return true;
 }
 /**

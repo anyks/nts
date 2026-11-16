@@ -4549,7 +4549,7 @@ context::error_t nts::internal::Engine::chain(const view_t & body) noexcept {
 		const hello::extension_t * extension = nullptr;
 		// Сброс прежних ответов о состоянии сертификатов цепочки
 		this->_statuses.clear();
-		// Занимаем место под ответы по числу записей цепочки
+		// Занимаем место под ответы по количеству записей цепочки
 		this->_statuses.resize(certificate.entries.size());
 		/**
 		 * Раздел 4.4.2.1 RFC 8446: ответ о состоянии относится к сертификату своей записи;
@@ -9343,13 +9343,13 @@ context::error_t nts::internal::Engine::heartbeat(const view_t & payload) noexce
 	}
 }
 /**
- * @brief Метод получения числа принятых ответов на свои запросы сердцебиения
+ * @brief Метод получения количества принятых ответов на свои запросы сердцебиения
  *
- * @return число ответов
+ * @return количество ответов
  *
  */
 size_t nts::internal::Engine::pulses() const noexcept {
-	// Выводим число ответов
+	// Выводим количество ответов
 	return this->_pulses;
 }
 /**
@@ -10246,20 +10246,20 @@ void nts::internal::Engine::request(const bool request) noexcept {
  * @brief Метод установки порядка смены ключей по счётчику записей
  *
  * @param automatic сменяет ли движок ключи сам по счётчику записей
- * @param records   число записей направления, по которому идёт смена
+ * @param records   количество записей направления, по которому идёт смена
  *
  */
 void nts::internal::Engine::renewal(const bool automatic, const uint64_t records) noexcept {
 	// Запоминаем порядок смены ключей по счётчику записей
 	this->_automatic = automatic;
-	// Запоминаем число записей направления, по которому сменяются ключи
+	// Запоминаем количество записей направления, по которому сменяются ключи
 	this->_renewal = records;
 }
 /**
  * @brief Метод получения счётчика записей направления связи
  *
  * @param incoming запрашивается ли направление собеседника
- * @return         число записей направления на текущих ключах
+ * @return         количество записей направления на текущих ключах
  *
  */
 uint64_t nts::internal::Engine::sequence(const bool incoming) const noexcept {
@@ -11116,7 +11116,7 @@ void nts::internal::Engine::clear() noexcept {
 	this->_passed = 0;
 	// Сброс признака действующего расширения предела и присланных клиентом значений
 	this->_sizing = 0;
-	// Сбрасываем число принятых ответов на свои запросы сердцебиения
+	// Сбрасываем количество принятых ответов на свои запросы сердцебиения
 	this->_pulses = 0;
 	// Сброс места выбранного ключа в предложении
 	this->_chosen = 0;
@@ -11124,11 +11124,11 @@ void nts::internal::Engine::clear() noexcept {
 	this->_claimed = 0;
 	// Сброс согласованного издания протокола
 	this->_version = 0;
-	// Сброс числа принятых просьб о подтверждении адреса
+	// Сброс количества принятых просьб о подтверждении адреса
 	this->_queries = 0;
 	// Сброс предела упреждающих данных билета
 	this->_granted = 0;
-	// Сброс числа пропущенных записей упреждающих данных
+	// Сброс количества пропущенных записей упреждающих данных
 	this->_skipped = 0;
 	// Сброс алгоритма сжатия отправленной цепочки
 	this->_squeezed = 0;
@@ -15663,7 +15663,7 @@ bool nts::internal::Engine::greased() const noexcept {
 	/**
 	 * @brief Выводим признак вставки значений GREASE по настройке потребителя: профиль отпечатка расставляет свои
 	 *
-	 * @details Точка перекрытия профилем отпечатка: при заданном профиле места и число значений
+	 * @details Точка перекрытия профилем отпечатка: при заданном профиле места и количество значений
 	 *          GREASE берёт профиль, а не признак потребителя - ветвь профиля становится сюда.
 	 *
 	 */
@@ -18547,7 +18547,7 @@ context::error_t nts::internal::Engine::soliciting() noexcept {
 	if(!this->_automatic || this->_asked || this->rotating() || (this->_state != context::state_t::ESTABLISHED))
 		// Выводим успешность: смена ключей не испрашивается
 		return context::error_t::NONE;
-	// Определяем число записей, по которому сменяются ключи
+	// Определяем количество записей, по которому сменяются ключи
 	const uint64_t threshold = ((this->_renewal > 0) ? this->_renewal : (protect::limit(this->_suite) / 2));
 	// Если счётчик записей собеседника до смены ключей не дошёл
 	if(this->sequence(true) < threshold)
@@ -18561,7 +18561,7 @@ context::error_t nts::internal::Engine::soliciting() noexcept {
 /**
  * @brief Метод получения числа молча отброшенных записей и дейтаграмм
  *
- * @return число отброшенных записей и дейтаграмм
+ * @return количество отброшенных записей и дейтаграмм
  *
  */
 uint64_t nts::internal::Engine::discarded() const noexcept {

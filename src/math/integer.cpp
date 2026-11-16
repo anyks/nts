@@ -50,7 +50,7 @@
  *    держит один буфер на все умножения и затирает раз (решение 10).
  *
  *  5. Основание области Монтгомери и его квадрат считаются шестьюдесятью четырьмя
- *    удвоениями и цепочкой квадратов Монтгомери, а не удвоением единицы по числу
+ *    удвоениями и цепочкой квадратов Монтгомери, а не удвоением единицы по количеству
  *    разрядов удвоенного модуля: на тридцати двух словах это 75 удвоений и 11 квадратов
  *    вместо 4096 удвоений, каждое из которых ещё и затирало килобайт разности.
  *    Заведение арифметики RSA-2048 стоило 241 мкс - треть самой подписи - и шло на
@@ -395,17 +395,17 @@ namespace {
 	 */
 	static constexpr size_t SIEVE = 8192;
 	/**
-	 * @brief Число записей таблицы окна возведения в степень
+	 * @brief Количество записей таблицы окна возведения в степень
 	 *
 	 */
 	static constexpr size_t TABLE = (1 << WINDOW);
 	/**
-	 * @brief Число слов накопителя двойной ёмкости
+	 * @brief Количество слов накопителя двойной ёмкости
 	 *
 	 */
 	static constexpr size_t DOUBLE_WORDS = (INTEGER_WORDS * 2);
 	/**
-	 * @brief Число слов знакового числа расширенного алгоритма Евклида
+	 * @brief Количество слов знакового числа расширенного алгоритма Евклида
 	 *
 	 * @details Слово запаса: сумма коэффициента с модулем полной ёмкости выходит
 	 *          за неё на разряд прежде деления на два.
@@ -535,7 +535,7 @@ namespace {
 			data[i] = 0;
 	}
 	/**
-	 * @brief Функция получения числа значимых слов
+	 * @brief Функция получения количества значимых слов
 	 *
 	 * @note Время работы переменное: метод зовётся для модулей и делителей
 	 *
@@ -545,7 +545,7 @@ namespace {
 	 *
 	 */
 	static __NTS_INLINE__ size_t __nts_top__(const uint64_t * data, const size_t count) noexcept {
-		// Число значимых слов
+		// Количество значимых слов
 		size_t result = count;
 		/**
 		 * Перебираем слова от старшего к младшему
@@ -553,7 +553,7 @@ namespace {
 		while((result > 0) && (data[result - 1] == 0))
 			// Отбрасываем нулевое старшее слово
 			result--;
-		// Выводим число значимых слов
+		// Выводим количество значимых слов
 		return result;
 	}
 
@@ -596,21 +596,21 @@ namespace {
 	#endif
 
 	/**
-	 * @brief Функция получения числа значимых разрядов
+	 * @brief Функция получения количества значимых разрядов
 	 *
 	 * @param data  слова числа
 	 * @param count количество слов
-	 * @return      число разрядов до старшего единичного включительно
+	 * @return      количество разрядов до старшего единичного включительно
 	 *
 	 */
 	static __NTS_INLINE__ size_t __nts_width__(const uint64_t * data, const size_t count) noexcept {
-		// Число значимых слов
+		// Количество значимых слов
 		const size_t words = ::__nts_top__(data, count);
 		// Если число равно нулю
 		if(words == 0)
 			// Выводим нулевую ширину
 			return 0;
-		// Число разрядов старшего слова
+		// Количество разрядов старшего слова
 		size_t result = 0;
 		// Старшее значимое слово
 		uint64_t word = data[words - 1];
@@ -623,7 +623,7 @@ namespace {
 			// Сдвигаем слово на разряд
 			word >>= 1;
 		}
-		// Выводим число значимых разрядов
+		// Выводим количество значимых разрядов
 		return (((words - 1) * 64) + result);
 	}
 	/**
@@ -717,7 +717,7 @@ namespace {
 	 * @param dividend  слова делимого
 	 * @param count     количество слов делимого
 	 * @param divisor   слова ненулевого делителя
-	 * @param words     число значимых слов делителя
+	 * @param words     количество значимых слов делителя
 	 * @param quotient  место, в которое помещается частное: count слов, либо nullptr
 	 * @param remainder место, в которое помещается остаток: words + 1 слов
 	 *
@@ -731,7 +731,7 @@ namespace {
 			::__nts_clean__(quotient, count);
 		// Слова разности остатка и делителя
 		uint64_t buffer[INTEGER_WORDS + 1];
-		// Число значимых разрядов делимого
+		// Количество значимых разрядов делимого
 		const size_t bits = ::__nts_width__(dividend, count);
 		/**
 		 * Перебираем разряды делимого от старшего к младшему
@@ -794,11 +794,11 @@ namespace {
 	 * @brief Функция одного прохода приведения Монтгомери на словах за постоянное время
 	 *
 	 * @note Число обращается в (число + m·модуль) / R, где R - основание области по
-	 *       числу слов модуля: итог меньше числа / R + модуль. Ни ветвления, ни адреса
+	 *       количеству слов модуля: итог меньше числа / R + модуль. Ни ветвления, ни адреса
 	 *       обращений от слов числа не зависят
 	 *
 	 * @param buffer  слова приводимого числа с запасом в количество слов модуля и ещё одно
-	 * @param length  число значимых слов приводимого числа
+	 * @param length  количество значимых слов приводимого числа
 	 * @param modulus слова нечётного модуля
 	 * @param count   количество слов модуля
 	 * @param inverse множитель приведения по модулю
@@ -825,7 +825,7 @@ namespace {
 				carry = static_cast <uint64_t> (item >> 64);
 			}
 			/**
-			 * Проводим перенос по всем старшим словам: число шагов
+			 * Проводим перенос по всем старшим словам: количество шагов
 			 * зависит лишь от длины, а не от значения переноса
 			 */
 			for(size_t j = (i + count); j <= (length + count); j++){
@@ -862,7 +862,7 @@ namespace {
 		uint64_t result = word;
 		/**
 		 * Уточняем обратное значение по Ньютону: каждый шаг удваивает
-		 * число верных разрядов, пяти шагов довольно на 64 разряда
+		 * количество верных разрядов, пяти шагов довольно на 64 разряда
 		 */
 		for(size_t i = 0; i < 5; i++)
 			// Уточняем обратное значение
@@ -1600,7 +1600,7 @@ namespace {
 		 *       rbp берётся через собственный кадр вставки: rsp опускается на 192 байта, rbp
 		 *       сохраняется в кадре без push (верхние 128 байт кадра - красная зона вызывающего, 128 байт
 		 *       ниже rsp, занимаемые им без смещения rsp, и не трогаются), операнды "m" читаются лишь до смены rsp и после её возврата. Слоты кадра:
-		 *       0 - rbp, 8 - указатель слова ряда, 16 - число байт модуля, 24 - счётчик полос,
+		 *       0 - rbp, 8 - указатель слова ряда, 16 - количество байт модуля, 24 - счётчик полос,
 		 *       32 - конец второго сомножителя, 40 - множитель приведения по модулю, 48 - накопитель.
 		 *       Ряд отдельным вызовом стоил 76 тактов TSC на 16 словах при 62 у эталона (круг 47),
 		 *       своё расписание полос - 1 009 при 1 002 у bn_mul_mont, перевод - 965 (круг 50)
@@ -1614,7 +1614,7 @@ namespace {
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_multiply_4x__(uint64_t * buffer, const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse) noexcept {
-			// Число байт модуля и число полос без первой
+			// Количество байт модуля и число полос без первой
 			const uint64_t bytes = (count * 8), counter = ((count / 4) - 1);
 			// Конец слов второго сомножителя
 			const uint64_t * bend = (second + count);
@@ -1876,7 +1876,7 @@ namespace {
 				const uint64_t * value;
 				// Слова модуля
 				const uint64_t * modulus;
-				// Число слов модуля
+				// Количество слов модуля
 				uint64_t count;
 				// Множитель приведения по модулю
 				uint64_t inverse;
@@ -2318,10 +2318,10 @@ namespace {
 		 * @note Три прохода, как у ветви AArch64: произведения ниже диагонали блоками по восемь слов
 		 *       (треугольник блока, затем окна остальных слов числа по восемь произведений на слово),
 		 *       удвоение сдвигом с прибавлением квадратов диагонали, приведение по восемь рядов на
-		 *       блок с множителем следующего ряда, считаемым посреди текущего. Слоты кадра: 0 - число
+		 *       блок с множителем следующего ряда, считаемым посреди текущего. Слоты кадра: 0 - количество
 		 *       байт модуля, затем конец модуля; 8 - конец числа, затем конец накопителя; 16 - перенос
 		 *       окна; 24 - указатель окна, затем старший перенос; 32 - множитель приведения по модулю;
-		 *       40 - rbp; 48 - начало накопителя; 56 - минус число байт; 64 … 127 - отложенные
+		 *       40 - rbp; 48 - начало накопителя; 56 - минус количество байт; 64 … 127 - отложенные
 		 *       множители приведения блока; 128 - модуль. Своё расписание проходов стоило 702 такта
 		 *       TSC на 16 словах при 672 у bn_mul_mont, перевод - 651 (круг 50)
 		 *
@@ -3983,7 +3983,7 @@ namespace {
 	 *       2·R квадратами Монтгомери (показатель степени двойки удваивается) и
 	 *       удвоениями по модулю (показатель растёт на единицу) по разрядам числа
 	 *       64·count от следующего за старшим к младшему: на тридцати двух словах это
-	 *       75 удвоений и 11 квадратов вместо 4096 удвоений. Ход зависит лишь от числа
+	 *       75 удвоений и 11 квадратов вместо 4096 удвоений. Ход зависит лишь от количества
 	 *       слов и идёт за постоянное время
 	 *
 	 * @param modulus слова модуля
@@ -4345,15 +4345,15 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Функция получения числа оборотов теста Миллера-Рабина
+	 * @brief Функция получения количества оборотов теста Миллера-Рабина
 	 *
 	 * @note Таблица B.1 FIPS 186-5 для простых сомножителей ключа RSA: пять
 	 *       оборотов на 1024 разряда, четыре на 1536 и 2048. Числа короче
 	 *       1024 разрядов ключом не бывают, для них оборотов берётся больше:
 	 *       вероятность ошибки одного оборота растёт с укорочением числа
 	 *
-	 * @param bits число разрядов проверяемого числа
-	 * @return     число оборотов теста
+	 * @param bits количество разрядов проверяемого числа
+	 * @return     количество оборотов теста
 	 *
 	 */
 	static constexpr size_t __nts_rounds__(const size_t bits) noexcept {
@@ -4741,7 +4741,7 @@ namespace {
 		static __NTS_INLINE__ void __nts_safegcd__(const uint64_t * modulus, const size_t words, const uint64_t factor, const uint64_t * value, uint64_t * result) noexcept {
 			// Число конечностей: ширина модуля, знак и запас в конечность
 			const size_t limbs = ((((64 * words) + 64) / SLICE) + 1);
-			// Число шагов деления по оценке Бернстайна и Янга
+			// Количество шагов деления по оценке Бернстайна и Янга
 			const size_t steps = (((49 * 64 * words) + 57) / 17);
 			// Число пачек шагов деления
 			const size_t batches = ((steps + (SLICE - 1)) / SLICE);
@@ -4800,23 +4800,23 @@ const uint64_t * nts::math::Integer::words() const noexcept {
 	return this->_words;
 }
 /**
- * @brief Метод получения числа значимых разрядов
+ * @brief Метод получения количества значимых разрядов
  *
- * @return число разрядов до старшего единичного включительно, ноль у нуля
+ * @return количество разрядов до старшего единичного включительно, ноль у нуля
  *
  */
 size_t nts::math::Integer::bits() const noexcept {
-	// Выводим число значимых разрядов
+	// Выводим количество значимых разрядов
 	return ::__nts_width__(this->_words, INTEGER_WORDS);
 }
 /**
  * @brief Метод получения размера числа в байтах
  *
- * @return наименьшее число байтов, вмещающее значение, ноль у нуля
+ * @return наименьшее количество байтов, вмещающее значение, ноль у нуля
  *
  */
 size_t nts::math::Integer::size() const noexcept {
-	// Выводим число байтов по числу разрядов
+	// Выводим количество байтов по количеству разрядов
 	return ((this->bits() + 7) / 8);
 }
 /**
@@ -4941,7 +4941,7 @@ bool nts::math::Integer::load(const view_t & data) noexcept {
 	if((data.data == nullptr) && (data.size > 0))
 		// Выводим отрицательный результат - данные пусты
 		return false;
-	// Число ведущих байтов, не умещающихся в ёмкость
+	// Количество ведущих байтов, не умещающихся в ёмкость
 	size_t excess = 0;
 	/**
 	 * Подсчитываем ведущие байты сверх ёмкости
@@ -4957,7 +4957,7 @@ bool nts::math::Integer::load(const view_t & data) noexcept {
 	this->clear();
 	// Номер читаемого слова
 	size_t byte = 0;
-	// Число значимых байтов и номер первого байта, не вошедшего в целые слова
+	// Количество значимых байтов и номер первого байта, не вошедшего в целые слова
 	const size_t total = (data.size - excess);
 	/**
 	 * На машинах с младшим байтом впереди целые слова читаются разом с перестановкой байтов:
@@ -5049,18 +5049,18 @@ bool nts::math::Integer::store(uint8_t * data, const size_t size) const noexcept
 /**
  * @brief Метод выработки случайного числа
  *
- * @param bits число разрядов вырабатываемого числа
+ * @param bits количество разрядов вырабатываемого числа
  * @return     признак успешности выработки
  *
  */
 bool nts::math::Integer::random(const size_t bits) noexcept {
-	// Если число разрядов вне ёмкости
+	// Если количество разрядов вне ёмкости
 	if((bits == 0) || (bits > INTEGER_BITS))
 		// Выводим отрицательный результат - разрядов вне ёмкости
 		return false;
 	// Обнуляем число
 	this->clear();
-	// Число слов, покрывающих разряды
+	// Количество слов, покрывающих разряды
 	const size_t count = ((bits + 63) / 64);
 	// Вырабатываем случайные слова
 	if(!entropy::bytes(reinterpret_cast <uint8_t *> (this->_words), count * sizeof(uint64_t)))
@@ -5068,7 +5068,7 @@ bool nts::math::Integer::random(const size_t bits) noexcept {
 		return false;
 	// Если старшее слово заполнено не целиком
 	if((bits % 64) > 0)
-		// Обрезаем старшее слово по числу разрядов
+		// Обрезаем старшее слово по количеству разрядов
 		this->_words[count - 1] &= ((static_cast <uint64_t> (1) << (bits % 64)) - 1);
 	// Выводим признак успешности
 	return true;
@@ -5106,9 +5106,9 @@ bool nts::math::Integer::subtract(const integer_t & first, const integer_t & sec
  *
  */
 bool nts::math::Integer::multiply(const integer_t & first, const integer_t & second) noexcept {
-	// Число значимых слов сомножителей: произведение стоит их произведение, а не квадрат ёмкости
+	// Количество значимых слов сомножителей: произведение стоит их произведение, а не квадрат ёмкости
 	const size_t count1 = ::__nts_top__(first._words, INTEGER_WORDS), count2 = ::__nts_top__(second._words, INTEGER_WORDS);
-	// Число слов произведения
+	// Количество слов произведения
 	const size_t count = (count1 + count2);
 	// Накопитель произведения двойной ёмкости
 	uint64_t buffer[DOUBLE_WORDS];
@@ -5135,7 +5135,7 @@ bool nts::math::Integer::multiply(const integer_t & first, const integer_t & sec
  * @brief Метод сдвига числа влево
  *
  * @param value сдвигаемое число
- * @param count число разрядов сдвига
+ * @param count количество разрядов сдвига
  *
  */
 void nts::math::Integer::left(const integer_t & value, const size_t count) noexcept {
@@ -5167,7 +5167,7 @@ void nts::math::Integer::left(const integer_t & value, const size_t count) noexc
  * @brief Метод сдвига числа вправо
  *
  * @param value сдвигаемое число
- * @param count число разрядов сдвига
+ * @param count количество разрядов сдвига
  *
  */
 void nts::math::Integer::right(const integer_t & value, const size_t count) noexcept {
@@ -5205,7 +5205,7 @@ void nts::math::Integer::right(const integer_t & value, const size_t count) noex
  *
  */
 bool nts::math::Integer::divide(const integer_t & dividend, const integer_t & divisor, integer_t * remainder) noexcept {
-	// Число значимых слов делителя
+	// Количество значимых слов делителя
 	const size_t words = ::__nts_top__(divisor._words, INTEGER_WORDS);
 	// Если делитель равен нулю
 	if(words == 0)
@@ -5242,7 +5242,7 @@ bool nts::math::Integer::divide(const integer_t & dividend, const integer_t & di
  *
  */
 bool nts::math::Integer::reduce(const integer_t & value, const integer_t & modulus) noexcept {
-	// Число значимых слов модуля
+	// Количество значимых слов модуля
 	const size_t words = ::__nts_top__(modulus._words, INTEGER_WORDS);
 	// Если модуль равен нулю
 	if(words == 0)
@@ -5270,14 +5270,14 @@ bool nts::math::Integer::reduce(const integer_t & value, const integer_t & modul
  *
  */
 bool nts::math::Integer::residue(const integer_t & value, const integer_t & modulus) noexcept {
-	// Число значимых слов модуля
+	// Количество значимых слов модуля
 	const size_t words = ::__nts_top__(modulus._words, INTEGER_WORDS);
 	// Если модуль чётный либо пуст
 	if((words == 0) || ((modulus._words[0] & 1) == 0))
 		// Выводим отрицательный результат - модуль чётный либо пуст
 		return false;
 	/**
-	 * Число значимых слов приводимого числа открыто: оно задано ёмкостью величины
+	 * Количество значимых слов приводимого числа открыто: оно задано ёмкостью величины
 	 * (модулем ключа), а не её значением, оттого по нему допустимо считать проходы
 	 */
 	const size_t counted = ::__nts_top__(value._words, INTEGER_WORDS);
@@ -5431,7 +5431,7 @@ bool nts::math::Integer::submod(const integer_t & first, const integer_t & secon
  *
  */
 bool nts::math::Integer::mulmod(const integer_t & first, const integer_t & second, const integer_t & modulus, const bool secret) noexcept {
-	// Число значимых слов модуля
+	// Количество значимых слов модуля
 	const size_t words = ::__nts_top__(modulus._words, INTEGER_WORDS);
 	// Если модуль равен нулю
 	if(words == 0)
@@ -5508,7 +5508,7 @@ bool nts::math::Integer::mulmod(const integer_t & first, const integer_t & secon
  *
  */
 bool nts::math::Integer::power(const integer_t & base, const integer_t & exponent, const integer_t & modulus, const bool secret) noexcept {
-	// Число значимых слов модуля
+	// Количество значимых слов модуля
 	const size_t words = ::__nts_top__(modulus._words, INTEGER_WORDS);
 	// Если модуль пуст
 	if(words == 0)
@@ -5523,12 +5523,12 @@ bool nts::math::Integer::power(const integer_t & base, const integer_t & exponen
  * @param base     основание, меньшее модуля
  * @param exponent показатель
  * @param modulus  нечётный модуль
- * @param bits     число разрядов показателя, по которым идёт перебор: не меньше его значимых разрядов
+ * @param bits     количество разрядов показателя, по которым идёт перебор: не меньше его значимых разрядов
  * @return         признак успешности
  *
  */
 bool nts::math::Integer::power(const integer_t & base, const integer_t & exponent, const integer_t & modulus, const size_t bits) noexcept {
-	// Число значимых слов модуля
+	// Количество значимых слов модуля
 	const size_t words = ::__nts_top__(modulus._words, INTEGER_WORDS);
 	// Если модуль чётный либо основание не меньше модуля
 	if((words == 0) || ((modulus._words[0] & 1) == 0) || (base.compare(modulus) >= 0))
@@ -5789,7 +5789,7 @@ bool nts::math::Integer::gcd(const integer_t & first, const integer_t & second) 
  *
  */
 bool nts::math::Integer::prime() const noexcept {
-	// Число значимых разрядов
+	// Количество значимых разрядов
 	const size_t bits = this->bits();
 	// Если число меньше двух
 	if(bits < 2)
@@ -5914,7 +5914,7 @@ bool nts::math::Integer::prime() const noexcept {
 		// Признак прохождения оборота
 		bool passed = false;
 		/**
-		 * Возводим степень в квадрат по числу вынесенных двоек
+		 * Возводим степень в квадрат по количеству вынесенных двоек
 		 */
 		for(size_t j = 1; (j < twos) && !passed; j++){
 			// Возводим степень в квадрат
@@ -5961,7 +5961,7 @@ bool nts::math::Montgomery::ready() const noexcept {
 	return this->_ready;
 }
 /**
- * @brief Метод получения числа слов модуля
+ * @brief Метод получения количества слов модуля
  *
  * @return количество слов модуля до старшего ненулевого включительно
  *
@@ -5980,7 +5980,7 @@ size_t nts::math::Montgomery::words() const noexcept {
 bool nts::math::Montgomery::start(const integer_t & modulus) noexcept {
 	// Сбрасываем прежний модуль
 	this->clear();
-	// Число слов модуля
+	// Количество слов модуля
 	const size_t words = ::__nts_top__(modulus._words, INTEGER_WORDS);
 	// Если модуль нулевой либо чётный
 	if((words == 0) || ((modulus._words[0] & 1) == 0))
@@ -6158,9 +6158,9 @@ bool nts::math::Montgomery::power(const integer_t & base, const integer_t & expo
 	if(!this->_ready || (::__nts_beyond__(base._words, INTEGER_WORDS, this->_words * 64) != 0) || !::__nts_smaller__(base._words, this->_modulus, this->_words))
 		// Выходим отказом
 		return false;
-	// Число слов модуля
+	// Количество слов модуля
 	const size_t words = this->_words;
-	// Число разрядов перебора: у секретного показателя вся разрядность слов модуля, у открытого - его значимые разряды
+	// Количество разрядов перебора: у секретного показателя вся разрядность слов модуля, у открытого - его значимые разряды
 	const size_t bits = (secret ? (words * 64) : ::__nts_width__(exponent._words, INTEGER_WORDS));
 	// Если секретный показатель не умещается в слова модуля
 	if(secret && (::__nts_beyond__(exponent._words, INTEGER_WORDS, bits) != 0))
@@ -6324,9 +6324,9 @@ bool nts::math::Montgomery::reduce(const integer_t & value, integer_t & result) 
 	if(!this->_ready)
 		// Выходим отказом
 		return false;
-	// Число слов модуля
+	// Количество слов модуля
 	const size_t words = this->_words;
-	// Число значимых слов числа
+	// Количество значимых слов числа
 	const size_t counted = ::__nts_top__(value._words, INTEGER_WORDS);
 	// Длина накопителя: не меньше длины модуля
 	const size_t length = ((counted > words) ? counted : words);
@@ -6396,7 +6396,7 @@ bool nts::math::Montgomery::invert(const integer_t & value, integer_t & result) 
 	if(!this->_ready || (::__nts_beyond__(value._words, INTEGER_WORDS, this->_words * 64) != 0) || !::__nts_smaller__(value._words, this->_modulus, this->_words))
 		// Выходим отказом
 		return false;
-	// Число слов модуля
+	// Количество слов модуля
 	const size_t words = this->_words;
 	// Слова обратного числа
 	uint64_t inverse[INTEGER_WORDS];

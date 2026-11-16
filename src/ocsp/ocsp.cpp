@@ -455,7 +455,7 @@ namespace {
 	 *
 	 */
 	static ocsp::error_t signed_(const response_t & response, const x509::certificate_t & certificate) noexcept {
-		// Число неиспользуемых разрядов последнего байта подписи
+		// Количество неиспользуемых разрядов последнего байта подписи
 		uint8_t unused = 0;
 		// Получаем подпись ответчика
 		const view_t & signature = response.sign(unused);
@@ -1182,7 +1182,7 @@ void nts::ocsp::Response::clear() noexcept {
 	this->_parameters = view_t(nullptr, 0);
 	// Сбрасываем запись подписи
 	this->_signature = view_t(nullptr, 0);
-	// Сбрасываем число неиспользуемых разрядов подписи
+	// Сбрасываем количество неиспользуемых разрядов подписи
 	this->_unused = 0;
 	// Сбрасываем способ именования ответчика
 	this->_hashed = false;
@@ -1230,12 +1230,12 @@ const view_t & nts::ocsp::Response::body() const noexcept {
 /**
  * @brief Метод извлечения подписи ответчика
  *
- * @param unused число неиспользуемых разрядов последнего байта подписи
+ * @param unused количество неиспользуемых разрядов последнего байта подписи
  * @return       просмотр записи подписи
  *
  */
 const view_t & nts::ocsp::Response::sign(uint8_t & unused) const noexcept {
-	// Выводим число неиспользуемых разрядов подписи
+	// Выводим количество неиспользуемых разрядов подписи
 	unused = this->_unused;
 	// Выводим запись подписи
 	return this->_signature;
@@ -1450,9 +1450,6 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 	 * RFC 6960) вправе нести то же имя владельца, что и издатель, и назван быть им же:
 	 * суд одним ключом издателя по совпадению имени отвергал бы годный ответ
 	 */
-	/**
-	 * Выполняем перебор приложенных сертификатов в поисках ответчика
-	 */
 	for(size_t i = 0; (i < certificates.size()) && (failure == error_t::RESPONDER); i++){
 		// Объект разбора приложенного сертификата
 		x509::certificate_t candidate;
@@ -1554,7 +1551,7 @@ nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, co
 	 * Выполняем перехват ошибок
 	 */
 	try {
-		// Занимаем место под состояния по числу записей цепочки
+		// Занимаем место под состояния по количеству записей цепочки
 		results.assign(chain.size(), status_t::NONE);
 	/**
 	 * Выполняем перехват ошибок

@@ -119,7 +119,7 @@ namespace {
 	 *
 	 * @param value  записываемое число
 	 * @param result место, в которое помещаются байты
-	 * @param size   число байтов записи
+	 * @param size   количество байтов записи
 	 *
 	 */
 	static __NTS_INLINE__ void store(const uint64_t value, uint8_t * result, const size_t size) noexcept {
@@ -134,7 +134,7 @@ namespace {
 	 * @brief Функция чтения числа старшим байтом вперёд
 	 *
 	 * @param data байты числа
-	 * @param size число байтов (до восьми)
+	 * @param size количество байтов (до восьми)
 	 * @return     прочитанное число
 	 *
 	 */
@@ -166,7 +166,7 @@ namespace {
 	static void kdf(Aes & aes, const uint64_t index, uint8_t * result, const size_t size) noexcept {
 		// Блок счётчика и его шифрованный образ
 		uint8_t input[BLOCK], output[BLOCK];
-		// Число блоков выводимого материала
+		// Количество блоков выводимого материала
 		const size_t count = ((size + BLOCK - 1) / BLOCK);
 		/**
 		 * Выполняем перебор блоков выводимого материала
@@ -550,7 +550,7 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 	if((key.data == nullptr) || (key.size != UMAC_KEY) || (nonce.data == nullptr) || (nonce.size == 0) || (nonce.size > BLOCK) || ((size != UMAC_64) && (size != UMAC_128)) || (result == nullptr))
 		// Выводим отказ вычисления
 		return false;
-	// Число итераций по длине итога
+	// Количество итераций по длине итога
 	const size_t iters = (size / 4);
 	// Шифр с ключом связи
 	Aes aes;

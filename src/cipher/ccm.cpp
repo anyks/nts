@@ -276,7 +276,7 @@ namespace {
 				// Запоминаем длину длинной записи
 				prefix = 6;
 			}
-			// Число байтов связанных данных в первом блоке
+			// Количество байтов связанных данных в первом блоке
 			const size_t taken = ((associated.size < (16 - prefix)) ? associated.size : (16 - prefix));
 			// Переносим начало связанных данных в первый блок
 			::memcpy(item + prefix, associated.data, taken);
@@ -369,7 +369,7 @@ namespace {
 		if(block.chain != nullptr){
 			// Временное место шифрблоков цепочки: имитовставка читается из накопителя
 			uint8_t scratch[256];
-			// Число целых блоков открытого текста
+			// Количество целых блоков открытого текста
 			const size_t whole = (source.size & ~static_cast <size_t> (0xF));
 			/**
 			 * Выполняем прогон цепочки сцепления кусками по шестнадцать блоков
@@ -457,13 +457,13 @@ namespace {
 		size_t offset = 0;
 		// Если поле номера блока занимает четыре байта и шифр несёт слитную гамму, целые блоки идут ею
 		if((width == 4) && (block.stream != nullptr)){
-			// Число целых блоков сообщения
+			// Количество целых блоков сообщения
 			const size_t whole = (source.size & ~static_cast <size_t> (0xF));
 			/**
 			 * Выполняем наложение гаммы кусками по шестьдесят четыре блока
 			 */
 			while(offset < whole){
-				// Число блоков в очередном куске гаммы
+				// Количество блоков в очередном куске гаммы
 				const size_t blocks = (((whole - offset) >> 4) > 64) ? 64 : ((whole - offset) >> 4);
 				// Собираем блок счётчика начала очередного куска
 				counter(nonce, length, width, number, item);
@@ -490,7 +490,7 @@ namespace {
 				// Выводим отказ наложения гаммы
 				return false;
 			}
-			// Число байтов сообщения в очередном блоке
+			// Количество байтов сообщения в очередном блоке
 			const size_t taken = (((source.size - offset) < 16) ? (source.size - offset) : 16);
 			/**
 			 * Выполняем наложение гаммы на очередной кусок сообщения
@@ -530,13 +530,13 @@ namespace {
 			 *          гаммы, и оба прохода режима укладываются в один ход по сообщения
 			 *
 			 * @param keys    раундовые ключи байтами в порядке памяти
-			 * @param rounds  число раундов
+			 * @param rounds  количество раундов
 			 * @param record  накопитель имитовставки: на входе значение после начала, на выходе после целых блоков
 			 * @param counter блок счётчика A_1
 			 * @param sealing признак зашифрования: открытый текст берётся из источника, при расшифровании снимается гаммой
 			 * @param source  сообщение: открытый текст при зашифровании, шифртекст при расшифровании
 			 * @param result  место итога: шифртекст при зашифровании, открытый текст при расшифровании
-			 * @param blocks  число целых блоков сообщения
+			 * @param blocks  количество целых блоков сообщения
 			 *
 			 */
 			static __NTS_CCM_TARGET__ void fusedArm(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
@@ -610,13 +610,13 @@ namespace {
 			 *          гаммы, и оба прохода режима укладываются в один ход по сообщения
 			 *
 			 * @param keys    раундовые ключи байтами в порядке памяти
-			 * @param rounds  число раундов
+			 * @param rounds  количество раундов
 			 * @param record  накопитель имитовставки: на входе значение после начала, на выходе после целых блоков
 			 * @param counter блок счётчика A_1
 			 * @param sealing признак зашифрования: открытый текст берётся из источника, при расшифровании снимается гаммой
 			 * @param source  сообщение: открытый текст при зашифровании, шифртекст при расшифровании
 			 * @param result  место итога: шифртекст при зашифровании, открытый текст при расшифровании
-			 * @param blocks  число целых блоков сообщения
+			 * @param blocks  количество целых блоков сообщения
 			 *
 			 */
 			static __NTS_CCM_TARGET__ void fusedX86(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
@@ -695,7 +695,7 @@ namespace {
 		 * @param record  накопитель имитовставки: на входе значение после начала, на выходе после целых блоков
 		 * @param source  сообщение: открытый текст при зашифровании, шифртекст при расшифровании
 		 * @param result  место итога: шифртекст при зашифровании, открытый текст при расшифровании
-		 * @param blocks  число целых блоков сообщения
+		 * @param blocks  количество целых блоков сообщения
 		 * @param sealing признак зашифрования
 		 *
 		 */
@@ -845,7 +845,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 				// Выводим отказ зашифрования
 				return false;
 			}
-			// Число целых блоков сообщения
+			// Количество целых блоков сообщения
 			const size_t whole = (source.size & ~static_cast <size_t> (0xF));
 			// Целые блоки: имитовставка и гамма одним проходом
 			if(whole > 0)
@@ -998,7 +998,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 				// Выводим отказ расшифрования
 				return false;
 			}
-			// Число целых блоков сообщения
+			// Количество целых блоков сообщения
 			const size_t whole = (source.size & ~static_cast <size_t> (0xF));
 			// Целые блоки: открытие гаммой и имитовставка одним проходом
 			if(whole > 0)

@@ -127,7 +127,7 @@ namespace {
 	 * @brief Функция кругового сдвига слова влево
 	 *
 	 * @param value сдвигаемое слово
-	 * @param count число разрядов сдвига
+	 * @param count количество разрядов сдвига
 	 * @return      сдвинутое слово
 	 *
 	 */
@@ -308,9 +308,9 @@ void nts::digest::Ripemd::compress(const uint8_t * block) noexcept {
 void nts::digest::Ripemd::reset() noexcept {
 	// Сбрасываем признак снятого хеша
 	this->_finished = false;
-	// Сбрасываем число байтов незавершённого блока
+	// Сбрасываем количество байтов незавершённого блока
 	this->_size = 0;
-	// Сбрасываем число разобранных байтов
+	// Сбрасываем количество разобранных байтов
 	this->_count = 0;
 	/**
 	 * Выполняем перенос начальных значений хеша
@@ -347,9 +347,9 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 	this->_count += static_cast <uint64_t> (data.size);
 	// Если в накопителе есть незавершённый блок
 	if(this->_size > 0){
-		// Число байтов, которых накопителю не хватает до целого блока
+		// Количество байтов, которых накопителю не хватает до целого блока
 		const size_t needed = (64 - this->_size);
-		// Число байтов, переносимых в накопитель из куска
+		// Количество байтов, переносимых в накопитель из куска
 		const size_t taken = ((left < needed) ? left : needed);
 		/**
 		 * Выполняем перенос байтов куска в накопитель
@@ -361,13 +361,13 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 		this->_size += taken;
 		// Сдвигаем позицию чтения куска
 		cursor += taken;
-		// Уменьшаем число не разобранных байтов
+		// Уменьшаем количество не разобранных байтов
 		left -= taken;
 		// Если блок набрался целиком
 		if(this->_size == 64){
 			// Разбор накопленного блока
 			this->compress(this->_block);
-			// Сбрасываем число байтов незавершённого блока
+			// Сбрасываем количество байтов незавершённого блока
 			this->_size = 0;
 		// Иначе весь кусок ушёл в накопитель, и блок ещё не полон
 		} else return;
@@ -380,7 +380,7 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 		this->compress(cursor);
 		// Сдвигаем позицию чтения куска
 		cursor += 64;
-		// Уменьшаем число не разобранных байтов
+		// Уменьшаем количество не разобранных байтов
 		left -= 64;
 	}
 	/**
@@ -389,7 +389,7 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 	for(size_t i = 0; i < left; i++)
 		// Переносим очередной байт хвоста
 		this->_block[i] = cursor[i];
-	// Запоминаем число байтов незавершённого блока
+	// Запоминаем количество байтов незавершённого блока
 	this->_size = left;
 }
 /**
@@ -405,7 +405,7 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 	if(this->_finished || (result == nullptr) || (size < RIPEMD160))
 		// Выводим отказ снятия хеша
 		return false;
-	// Число разобранных разрядов сообщения
+	// Количество разобранных разрядов сообщения
 	const uint64_t bits = (this->_count << 3);
 	// Записываем байт-отделитель за последним байтом сообщения
 	this->_block[this->_size++] = 0x80;
@@ -419,7 +419,7 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 			this->_block[i] = 0;
 		// Разбор дополненного блока
 		this->compress(this->_block);
-		// Сбрасываем число байтов незавершённого блока
+		// Сбрасываем количество байтов незавершённого блока
 		this->_size = 0;
 	}
 	/**
@@ -444,7 +444,7 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 	wipe(this->_hash, sizeof(this->_hash));
 	// Затирание накопителя незавершённого блока
 	wipe(this->_block, sizeof(this->_block));
-	// Сбрасываем число байтов незавершённого блока
+	// Сбрасываем количество байтов незавершённого блока
 	this->_size = 0;
 	// Запоминаем, что хеш снят
 	this->_finished = true;

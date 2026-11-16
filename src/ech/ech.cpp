@@ -278,7 +278,7 @@ namespace {
 	 *
 	 * @param data    разбираемые байты от начала конфигурации
 	 * @param result  конфигурация
-	 * @param consumed число прочитанных байтов
+	 * @param consumed количество прочитанных байтов
 	 * @return        отказ разбора: VERSION у чужого издания (конфигурация пропущена по длине)
 	 *
 	 */
@@ -297,7 +297,7 @@ namespace {
 		if((4 + length) > data.size)
 			// Выводим отказ обрыва
 			return ech::error_t::HUNGRY;
-		// Запоминаем число прочитанных байтов
+		// Запоминаем количество прочитанных байтов
 		consumed = (4 + length);
 		// Если издание чужое
 		if(version != ech::ECH_VERSION)
@@ -402,7 +402,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 		while(offset < data.size){
 			// Конфигурация ECH
 			config_t config;
-			// Число прочитанных байтов
+			// Количество прочитанных байтов
 			size_t consumed = 0;
 			// Отказ разбора конфигурации
 			const error_t failure = solitary(view_t(data.data + offset, data.size - offset), config, consumed);
@@ -474,7 +474,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, config_t & result) noexce
 	 * Выполняем перехват ошибок
 	 */
 	try {
-		// Число прочитанных байтов
+		// Количество прочитанных байтов
 		size_t consumed = 0;
 		// Если байтов нет
 		if(data.data == nullptr)
@@ -826,7 +826,7 @@ nts::ech::error_t nts::ech::binding(const view_t & config, vector <uint8_t> & re
  * @param named   длина имени узла внутреннего приветствия, ноль без имени
  * @param maximum наибольшая длина имени по конфигурации
  * @param encoded длина закодированного приветствия без заполнения
- * @return        число нулевых байтов заполнения
+ * @return        количество нулевых байтов заполнения
  *
  */
 size_t nts::ech::padding(const size_t named, const size_t maximum, const size_t encoded) noexcept {
@@ -842,7 +842,7 @@ size_t nts::ech::padding(const size_t named, const size_t maximum, const size_t 
  *
  * @param inner      внутреннее приветствие; его опознаватель связи опускается
  * @param outsourced виды расширений, вынесенных во внешнее приветствие подряд (пусто - без сжатия)
- * @param padding    число нулевых байтов заполнения
+ * @param padding    количество нулевых байтов заполнения
  * @param result     накопитель, в который помещается закодированное приветствие
  * @return           отказ кодирования: OUTER, если вынесенные расширения не идут подряд
  *
@@ -856,7 +856,7 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
  *
  * @param inner      внутреннее приветствие
  * @param outsourced виды расширений, выносимых во внешнее приветствие ссылкой
- * @param padding    число нулевых байтов заполнения
+ * @param padding    количество нулевых байтов заполнения
  * @param datagram   признак записи поверх дейтаграмм: тело несёт поле метки возврата состояния (RFC 9147)
  * @param result     накопитель закодированного приветствия
  * @return           отказ кодирования
@@ -905,7 +905,7 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 		}
 		// Место вынесенных расширений во внутреннем приветствии
 		size_t place = inner.extensions.size();
-		// Число вынесенных расширений, встреченных подряд
+		// Количество вынесенных расширений, встреченных подряд
 		size_t carried = 0;
 		/**
 		 * Выполняем перебор расширений внутреннего приветствия

@@ -866,7 +866,7 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
  * @brief Метод зашифрования нескольких независимых блоков разом
  *
  * @param sources зашифровываемые блоки подряд
- * @param blocks  число блоков
+ * @param blocks  количество блоков
  * @param results место, в которое помещаются зашифрованные блоки подряд
  * @return        признак успешности зашифрования
  *

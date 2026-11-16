@@ -180,9 +180,9 @@ namespace nts {
 			public:
 				/**
 				 * \~russian
-				 * @brief Метод получения числа доверенных сертификатов запаса
+				 * @brief Метод получения количества доверенных сертификатов запаса
 				 *
-				 * @return число доверенных сертификатов запаса
+				 * @return количество доверенных сертификатов запаса
 				 *
 				 * \~english
 				 * @brief Method of getting the number of the trusted certificates of the store

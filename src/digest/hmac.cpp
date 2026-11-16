@@ -427,7 +427,7 @@ bool nts::digest::prf(const type_t type, const view_t & key, const view_t & labe
 	 * так задано определение A(0) в разделе 5 RFC 5246
 	 */
 	if((ok = nts::digest::hmac(type, key, view_t(buffer, total), item, length))){
-		// Число уже выработанных байтов последовательности
+		// Количество уже выработанных байтов последовательности
 		size_t offset = 0;
 		/**
 		 * Выполняем выработку последовательности до набора требуемой длины
@@ -452,7 +452,7 @@ bool nts::digest::prf(const type_t type, const view_t & key, const view_t & labe
 			const size_t count = ((size - offset) < length ? (size - offset) : length);
 			// Переносим очередную часть последовательности
 			::memcpy(result + offset, part, count);
-			// Увеличиваем число выработанных байтов последовательности
+			// Увеличиваем количество выработанных байтов последовательности
 			offset += count;
 			// Выработка следующего промежуточного значения
 			ok = nts::digest::hmac(type, key, view_t(item, length), item, length);
@@ -568,7 +568,7 @@ bool nts::digest::prf(const hash_t algorithm, const view_t & key, const view_t &
 	 * так задано определение A(0) в разделе 5 RFC 5246
 	 */
 	bool ok = nts::digest::hmac(algorithm, key, view_t(buffer, total), item, length);
-	// Число уже выработанных байтов последовательности
+	// Количество уже выработанных байтов последовательности
 	size_t offset = 0;
 	/**
 	 * Выполняем выработку последовательности до набора требуемой длины
@@ -586,7 +586,7 @@ bool nts::digest::prf(const hash_t algorithm, const view_t & key, const view_t &
 			const size_t count = ((size - offset) < length ? (size - offset) : length);
 			// Переносим очередную часть последовательности
 			::memcpy(result + offset, part, count);
-			// Увеличиваем число выработанных байтов последовательности
+			// Увеличиваем количество выработанных байтов последовательности
 			offset += count;
 			// Выработка следующего промежуточного значения
 			ok = nts::digest::hmac(algorithm, key, view_t(item, length), item, length);

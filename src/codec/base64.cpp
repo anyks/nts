@@ -129,7 +129,7 @@ namespace {
  *          ядра - двенадцать; шаг спрашивается до разбора входа, чтобы запись
  *          завелась точной длиной
  *
- * @return число байтов шага: двадцать четыре либо двенадцать
+ * @return количество байтов шага: двадцать четыре либо двенадцать
  *
  */
 static size_t stepping() noexcept {
@@ -156,7 +156,7 @@ static size_t stepping() noexcept {
  * @param step     шаг блока из функции шага
  * @param data     кодируемые байты очереди
  * @param result   место, в которое помещаются знаки очереди
- * @param blocks   число полных блоков очереди
+ * @param blocks   количество полных блоков очереди
  * @param alphabet алфавит записи
  *
  */
@@ -234,9 +234,9 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 	result.clear();
 	// Шаг полных блоков: двадцать четыре байта при векторном ядре AVX2, иначе двенадцать
 	const size_t step = stepping();
-	// Число полных блоков шага
+	// Количество полных блоков шага
 	const size_t blocks = (data.size / step);
-	// Число байтов хвоста
+	// Количество байтов хвоста
 	const size_t rest = (data.size - (step * blocks));
 	// Остаётся один либо два байта
 	const size_t odd = (rest % 3);
@@ -267,7 +267,7 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 		if(odd != 0){
 			// Слово из куска с нулевым хвостом старшим вперёд
 			const uint32_t word = ((static_cast <uint32_t> (tail[rest - odd]) << 16) | ((odd > 1) ? (static_cast <uint32_t> (tail[rest - 1]) << 8) : 0));
-			// Число знаков куска: два на байт без одного
+			// Количество знаков куска: два на байт без одного
 			const size_t signs = (odd + 1);
 			/**
 			 * Выполняем перебор знаков куска
@@ -363,9 +363,9 @@ bool nts::codec::rawDecode(const view_t & text, vector <uint8_t> & result, const
 		result.reserve(((text.size / 4) + 1) * 3);
 		// Накопитель тройки байтов
 		uint32_t accumulator = 0;
-		// Число знаков в накопителе
+		// Количество знаков в накопителе
 		size_t gathered = 0;
-		// Число знаков заполнения
+		// Количество знаков заполнения
 		size_t filled = 0;
 		/**
 		 * Выполняем перебор знаков записи
@@ -425,7 +425,7 @@ bool nts::codec::rawDecode(const view_t & text, vector <uint8_t> & result, const
 		// Байты остатка
 		if(gathered != 0)
 			/**
-			 * Число байтов остатка: по три четверти байта на знак без одного
+			 * Количество байтов остатка: по три четверти байта на знак без одного
 			 */
 			for(size_t i = 0; i < (gathered - 1); i++)
 				// Выписываем очередной байт остатка от старших разрядов накопителя

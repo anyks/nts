@@ -237,7 +237,7 @@ bool nts::schedule::derive(const digest::hash_t algorithm, const view_t & secret
 		return false;
 	// Описание назначения выводимого значения
 	uint8_t info[SCHEDULE_LABEL + 6 + 255 + 4];
-	// Число уже записанных байтов описания назначения
+	// Количество уже записанных байтов описания назначения
 	size_t offset = 0;
 	// Записываем старший байт требуемой длины выведенного значения
 	info[offset++] = static_cast <uint8_t> ((size >> 8) & 0xFF);
@@ -247,11 +247,11 @@ bool nts::schedule::derive(const digest::hash_t algorithm, const view_t & secret
 	info[offset++] = static_cast <uint8_t> (::strlen(PREFIX) + label.size);
 	// Записываем приставку протокола метки назначения
 	::memcpy(info + offset, PREFIX, ::strlen(PREFIX));
-	// Увеличиваем число записанных байтов описания назначения
+	// Увеличиваем количество записанных байтов описания назначения
 	offset += ::strlen(PREFIX);
 	// Записываем метку назначения выводимого значения
 	::memcpy(info + offset, label.data, label.size);
-	// Увеличиваем число записанных байтов описания назначения
+	// Увеличиваем количество записанных байтов описания назначения
 	offset += label.size;
 	// Записываем длину привязки выводимого значения
 	info[offset++] = static_cast <uint8_t> (total);
@@ -259,7 +259,7 @@ bool nts::schedule::derive(const digest::hash_t algorithm, const view_t & secret
 	if(total > 0){
 		// Записываем привязку выводимого значения
 		::memcpy(info + offset, context.data, total);
-		// Увеличиваем число записанных байтов описания назначения
+		// Увеличиваем количество записанных байтов описания назначения
 		offset += total;
 	}
 	// Растяжение значения расписания ключей

@@ -91,7 +91,7 @@ namespace {
 	 * @brief Функция чтения числа из сетевого порядка байтов
 	 *
 	 * @param data  читаемая область байтов
-	 * @param width число читаемых байтов
+	 * @param width количество читаемых байтов
 	 * @return      прочитанное число
 	 *
 	 */
@@ -112,7 +112,7 @@ namespace {
 	 *
 	 * @param value  записываемое число
 	 * @param result место, в которое помещается запись числа
-	 * @param width  число записываемых байтов
+	 * @param width  количество записываемых байтов
 	 *
 	 */
 	static void stow(const uint64_t value, uint8_t * result, const size_t width) noexcept {
@@ -691,12 +691,12 @@ bool nts::datagram::mask(const protect::suite_t suite, const view_t & key, const
  *
  * @param expected ожидаемый порядковый номер: следующий за наибольшим принятым
  * @param junior   младшие разряды номера, принесённые заголовком
- * @param bits     число принесённых разрядов: восемь либо шестнадцать
+ * @param bits     количество принесённых разрядов: восемь либо шестнадцать
  * @return         полный порядковый номер, ближайший к ожидаемому
  *
  */
 uint64_t nts::datagram::restore(const uint64_t expected, const uint64_t junior, const size_t bits) noexcept {
-	// Если число разрядов вышло за ширину номера
+	// Если количество разрядов вышло за ширину номера
 	if((bits == 0) || (bits >= 48))
 		// Выводим младшие разряды как есть
 		return junior;

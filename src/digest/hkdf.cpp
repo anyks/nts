@@ -111,7 +111,7 @@ bool nts::digest::expand(const hash_t algorithm, const view_t & key, const view_
 		return false;
 	// Место, в которое записывается очередной блок материала
 	uint8_t block[64];
-	// Число уже выведенных байтов материала
+	// Количество уже выведенных байтов материала
 	size_t produced = 0;
 	// Длина прежнего блока: у первого блока прежнего нет
 	size_t previous = 0;
@@ -135,7 +135,7 @@ bool nts::digest::expand(const hash_t algorithm, const view_t & key, const view_
 		if(!(ok = mac.finish(block, length)))
 			// Прерываем вывод
 			break;
-		// Число байтов блока, идущих в материал
+		// Количество байтов блока, идущих в материал
 		const size_t taken = (((size - produced) < length) ? (size - produced) : length);
 		// Переносим блок в материал
 		::memcpy(result + produced, block, taken);
