@@ -1668,7 +1668,7 @@ namespace {
 	 * @return     буква псевдозаголовка либо ноль
 	 *
 	 */
-	static constexpr char __nts_named__(const string & name) noexcept {
+	static __NTS_INLINE__ char __nts_named__(const string & name) noexcept {
 		// Если имя есть :authority
 		if(name.compare(":authority") == 0)
 			// Выводим букву
