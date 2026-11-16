@@ -395,6 +395,17 @@ namespace {
 		}
 	}
 	/**
+	 * @brief Функция проверки того, что значение есть значение GREASE
+	 *
+	 * @param value проверяемое значение по проводу
+	 * @return      признак значения GREASE
+	 *
+	 */
+	static constexpr bool __nts_tls_grease__(const uint16_t value) noexcept {
+		// Раздел 2 RFC 8701: оба байта равны и младшая половина каждого есть 0xA
+		return (((value & 0x0F0F) == 0x0A0A) && ((value >> 8) == (value & 0xFF)));
+	}
+	/**
 	 * @brief Функция дописывания перечня значений с пометкой GREASE
 	 *
 	 * @param values перечень значений
@@ -416,7 +427,7 @@ namespace {
 					// Дописываем разделитель
 					result.push_back('-');
 				// Если значение есть значение GREASE
-				if(fingerprint::grease(values[i]))
+				if(::__nts_tls_grease__(values[i]))
 					// Дописываем пометку GREASE
 					result.append("GREASE");
 				// Если значение обычное
@@ -519,7 +530,7 @@ namespace {
 	 */
 	static constexpr const char * __nts_tls_version_name__(const uint16_t version) noexcept {
 		// Если версия является GREASE, возвращаем "GREASE"
-		if(fingerprint::grease(version))
+		if(::__nts_tls_grease__(version))
 			// Возвращаем строку "GREASE" для GREASE версий
 			return "[GREASE]";
 		/**
@@ -555,7 +566,7 @@ namespace {
 	 */
 	static constexpr const char * __nts_group_name__(const uint16_t gid) noexcept {
 		// Если код группы является GREASE, возвращаем "GREASE"
-		if(fingerprint::grease(gid))
+		if(::__nts_tls_grease__(gid))
 			// Возвращаем строку "GREASE" для GREASE кодов групп
 			return "[GREASE]";
 		/**
@@ -603,7 +614,7 @@ namespace {
 	 */
 	static constexpr const char * __nts_signature_name__(const uint16_t id) noexcept {
 		// Если код схемы подписи является GREASE, возвращаем "GREASE"
-		if(fingerprint::grease(id))
+		if(::__nts_tls_grease__(id))
 			// Возвращаем строку "GREASE" для GREASE кодов схем подписи
 			return "[GREASE]";
 		/**
@@ -661,7 +672,7 @@ namespace {
 	 */
 	static constexpr const char * __nts_cipher_name__(const uint16_t id) noexcept {
 		// Если код набора является GREASE, возвращаем "GREASE"
-		if(fingerprint::grease(id))
+		if(::__nts_tls_grease__(id))
 			// Возвращаем строку "GREASE" для GREASE кодов наборов
 			return "[GREASE]";
 		/**
@@ -729,7 +740,7 @@ namespace {
 	 */
 	static constexpr const char * __nts_extension_name__(const uint16_t type) noexcept {
 		// Если код расширения является GREASE, возвращаем "GREASE"
-		if(fingerprint::grease(type))
+		if(::__nts_tls_grease__(type))
 			// Возвращаем строку "GREASE" для GREASE кодов расширений
 			return "[GREASE]";
 		/**
@@ -981,7 +992,7 @@ namespace {
 			// Тело расширения
 			const view_t data(extension.data.data(), extension.data.size());
 			// Признак того, что вид расширения есть значение GREASE
-			extension.grease = fingerprint::grease(extension.type);
+			extension.grease = ::__nts_tls_grease__(extension.type);
 			// Если расширение есть значение GREASE: тело его произвольно
 			if(extension.grease)
 				// Выводим успешность разбора
@@ -1215,7 +1226,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < greeting.suites.size(); i++){
 				// Если набор есть значение GREASE
-				if(fingerprint::grease(greeting.suites[i]))
+				if(::__nts_tls_grease__(greeting.suites[i]))
 					// Отмечаем, что приветствие несёт значения GREASE
 					profile.grease = true;
 				// Добавляем набор в профиль числом по проводу
@@ -1428,7 +1439,7 @@ namespace {
 			 */
 			for(size_t i = 0; i < extension->versions.size(); i++){
 				// Если издание не GREASE и старше найденного
-				if(!fingerprint::grease(extension->versions[i]) && (extension->versions[i] > result))
+				if(!::__nts_tls_grease__(extension->versions[i]) && (extension->versions[i] > result))
 					// Запоминаем издание
 					result = extension->versions[i];
 			}
@@ -2088,7 +2099,7 @@ nts::fingerprint::Store::Entry::Entry() noexcept : id(0) {}
  */
 bool nts::fingerprint::grease(const uint16_t value) noexcept {
 	// Раздел 2 RFC 8701: оба байта равны и младшая половина каждого есть 0xA
-	return (((value & 0x0F0F) == 0x0A0A) && ((value >> 8) == (value & 0xFF)));
+	return ::__nts_tls_grease__(value);
 }
 /**
  * @brief Функция разбора записи с приветствием клиента в профиль
@@ -2203,7 +2214,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 			// Добавляем набор в полный перечень
 			suitesAll.push_back(suite);
 			// Если набор не GREASE
-			if(!grease(suite))
+			if(!::__nts_tls_grease__(suite))
 				// Добавляем набор в перечень без GREASE
 				suites.push_back(suite);
 		}
@@ -2229,7 +2240,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 				// Добавляем группу в полный перечень
 				curvesAll.push_back(group);
 				// Если группа не GREASE
-				if(!grease(group))
+				if(!::__nts_tls_grease__(group))
 					// Добавляем группу в перечень без GREASE
 					curves.push_back(group);
 			}
@@ -2245,7 +2256,7 @@ nts::fingerprint::error_t nts::fingerprint::imprint(const profile_t & profile, i
 				// Добавляем схему в полный перечень
 				signaturesAll.push_back(scheme);
 				// Если схема не GREASE
-				if(!grease(scheme))
+				if(!::__nts_tls_grease__(scheme))
 					// Добавляем схему в перечень без GREASE
 					signatures.push_back(scheme);
 			}
@@ -2754,7 +2765,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем запятую для разделения изданий
 							out << ", ";
 						// Если издание есть значение GREASE
-						if(grease(extension.versions[j]))
+						if(::__nts_tls_grease__(extension.versions[j]))
 							// Печатаем маркер GREASE-издания
 							out << "[GREASE]";
 						// Печатаем имя издания по его коду
@@ -2776,7 +2787,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем запятую для разделения групп
 							out << ", ";
 						// Если группа есть значение GREASE
-						if(grease(wire))
+						if(::__nts_tls_grease__(wire))
 							// Печатаем маркер GREASE-группы
 							out << "[GREASE]";
 						// Печатаем имя группы по её коду
@@ -2830,7 +2841,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 						// Печатаем отступы для схем
 						out << "              ";
 						// Если схема есть значение GREASE
-						if(grease(wire))
+						if(::__nts_tls_grease__(wire))
 							// Печатаем маркер GREASE-схемы
 							out << "[GREASE]";
 						// Печатаем имя схемы и её код
@@ -2878,7 +2889,7 @@ nts::fingerprint::error_t nts::fingerprint::print(const profile_t & profile, str
 							// Печатаем запятую для разделения долей
 							out << ", ";
 						// Если группа есть значение GREASE
-						if(grease(wire))
+						if(::__nts_tls_grease__(wire))
 							// Печатаем маркер GREASE-группы и размер ключа
 							out << "[GREASE](" << extension.shares[j].key.size() << "B)";
 						// Печатаем имя группы и размер ключа
