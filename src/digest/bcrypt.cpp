@@ -32,10 +32,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/bcrypt.hpp>
+#include <sys/wipe.hpp>
 #include <digest/sha2.hpp>
 #include <cipher/blowfish.hpp>
-#include <sys/wipe.hpp>
+
+/**
+ * Подключаем заголовочный файлй модуля
+ */
+#include <digest/bcrypt.hpp>
 
 /**
  * Используем стандартное пространство имён
@@ -56,15 +60,17 @@ namespace {
 	using nts::sys::wipe;
 
 	/**
-	 * @brief Параметры bcrypt
-	 *
+	 * Количество слов хеша
 	 */
-	// Количество слов хеша
 	constexpr size_t BCRYPT_WORDS = 8;
-	// Размер хеша в байтах
-	constexpr size_t BCRYPT_HASHSIZE = BCRYPT_WORDS * 4;
-	// Размер хеша SHA-512
+	/**
+	 * Размер хеша SHA-512
+	 */
 	constexpr size_t SHA512_SIZE = 64;
+	/**
+	 * Размер хеша в байтах
+	 */
+	constexpr size_t BCRYPT_HASHSIZE = BCRYPT_WORDS * 4;
 
 	/**
 	 * @brief Функция хеширования bcrypt
@@ -74,37 +80,37 @@ namespace {
 	 * @param out      выходной буфер (32 байта)
 	 *
 	 */
-	void __nts_bcrypt_hash__(const uint8_t * sha2pass, const uint8_t * sha2salt, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_bcrypt_hash__(const uint8_t * sha2pass, const uint8_t * sha2salt, uint8_t * out) noexcept {
 		// Состояние шифра Blowfish
 		cipher::blowfish_t state;
+		// Слова шифртекста для вывода хеша
+		uint32_t cdata[BCRYPT_WORDS];
 		// Накопитель шифртекста магической строки
 		uint8_t ciphertext[BCRYPT_HASHSIZE];
 		// Переносим магическую строку в накопитель
 		::memcpy(ciphertext, "OxychromaticBlowfishSwatDynamite", BCRYPT_HASHSIZE);
-		// Слова шифртекста для вывода хеша
-		uint32_t cdata[BCRYPT_WORDS];
 		// Расширение ключа
 		cipher::init(&state);
 		// Расширяем ключ солью и паролем
 		cipher::expand(&state, sha2salt, SHA512_SIZE, sha2pass, SHA512_SIZE);
 		/**
-		 * Выполняем 64 круга начального расширения состояния
+		 * Прогоняем 64 круга начального расширения состояния солью и паролем
 		 */
 		for(size_t i = 0; i < 64; ++i){
 			// Расширяем состояние солью
 			cipher::expand0(&state, sha2salt, SHA512_SIZE);
 			cipher::expand0(&state, sha2pass, SHA512_SIZE);
 		}
-		// Шифрование массива Экс блока
-		size_t j = 0;
+		// Смещение очередного слова в шифртексте
+		size_t offset = 0;
 		/**
-		 * Выполняем перебор слов накопителя шифртекста
+		 * Переносим шифртекст в накопитель слов по слову
 		 */
 		for(size_t i = 0; i < BCRYPT_WORDS; ++i)
 			// Переносим слово шифртекста в накопитель слов
-			cdata[i] = cipher::stream2word(ciphertext, sizeof(ciphertext), &j);
+			cdata[i] = cipher::stream2word(ciphertext, sizeof(ciphertext), &offset);
 		/**
-		 * Выполняем 64 круга шифрования слов
+		 * Шифруем слова накопителя 64 круга
 		 */
 		for(size_t i = 0; i < 64; ++i)
 			// Шифруем слова накопителя
@@ -122,10 +128,18 @@ namespace {
 			// Младший байт слова
 			out[4 * i + 0] = cdata[i] & 0xff;
 		}
-		// Затирание шифртекста
-		wipe(ciphertext, sizeof(ciphertext));
+		/**
+		 * Затираем слова шифртекста для вывода хеша
+		 */
 		wipe(cdata, sizeof(cdata));
+		/**
+		 * Затираем состояние шифра Blowfish
+		 */
 		wipe(&state, sizeof(state));
+		/**
+		 * Затираем накопитель шифртекста магической строки
+		 */
+		wipe(ciphertext, sizeof(ciphertext));
 	}
 };
 
@@ -155,7 +169,7 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 	const size_t origkeylen = keylen;
 	// Количество байтов ключа, ещё не выработанных
 	size_t remaining = keylen;
-	// Хеш пароля
+	// Буфер хеша пароля
 	uint8_t sha2pass[SHA512_SIZE];
 	{
 		// Хешируем пароль SHA-512
@@ -165,16 +179,16 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 		// Завершаем хеш пароля
 		sha.finish(sha2pass, sizeof(sha2pass));
 	}
-	// Вырабатываем ключ блоками
-	uint8_t out[BCRYPT_HASHSIZE];
-	// Накопитель выхода очередного круга
-	uint8_t tmpout[BCRYPT_HASHSIZE];
-	// Хеш соли SHA-512
-	uint8_t sha2salt[SHA512_SIZE];
 	// Соль со счётчиком блока
 	uint8_t countsalt[4];
+	// Вырабатываем ключ блоками
+	uint8_t out[BCRYPT_HASHSIZE];
+	// Хеш соли SHA-512
+	uint8_t sha2salt[SHA512_SIZE];
+	// Накопитель выхода очередного круга
+	uint8_t tmpout[BCRYPT_HASHSIZE];
 	/**
-	 * Выполняем перебор блоков выхода, пока ключ не выработан
+	 * Вырабатываем ключ блоками до полного заполнения
 	 */
 	for(uint32_t count = 1; remaining > 0; ++count){
 		// Старший байт счётчика блока
@@ -185,7 +199,9 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 		countsalt[2] = (count >> 8) & 0xff;
 		// Младший байт счётчика блока
 		countsalt[3] = count & 0xff;
-		// Первый круг: соль + счётчик
+		/**
+		 * Первый круг: соль + счётчик
+		 */
 		{
 			// Хешируем соль со счётчиком SHA-512
 			digest::Sha2 sha(digest::sha_t::SHA512);
@@ -196,7 +212,7 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 			sha.finish(sha2salt, sizeof(sha2salt));
 		}
 		// Вырабатываем хеш bcrypt блока
-		__nts_bcrypt_hash__(sha2pass, sha2salt, tmpout);
+		::__nts_bcrypt_hash__(sha2pass, sha2salt, tmpout);
 		// Запоминаем выход первого круга
 		::memcpy(out, tmpout, sizeof(out));
 		/**
@@ -212,38 +228,49 @@ bool nts::digest::bcrypt(const view_t & pass, const view_t & salt, uint8_t * key
 				sha.finish(sha2salt, sizeof(sha2salt));
 			}
 			// Вырабатываем хеш bcrypt очередного круга
-			__nts_bcrypt_hash__(sha2pass, sha2salt, tmpout);
+			::__nts_bcrypt_hash__(sha2pass, sha2salt, tmpout);
 			/**
-			 * Выполняем перебор байтов выхода блока
+			 * Свёртываем выход круга с накоплением по XOR
 			 */
 			for(size_t j = 0; j < sizeof(out); ++j)
 				// Накапливаем выход круга по XOR
 				out[j] ^= tmpout[j];
 		}
+		// Количество байтов блока, перенесённых в ключ
+		size_t moved = 0;
 		// Перемешивание выходных байтов
 		const size_t currentAmt = (amt < remaining) ? amt : remaining;
-		// Количество байтов блока, перенесённых в ключ
-		size_t i;
 		/**
-		 * Выполняем перебор байтов блока в пределах длины
+		 * Переносим байты блока в ключ в пределах длины
 		 */
-		for(i = 0; i < currentAmt; ++i){
+		for(moved = 0; moved < currentAmt; ++moved){
 			// Место байта ключа в перемешанном выводе
-			const size_t dest = i * stride + (count - 1);
+			const size_t dest = moved * stride + (count - 1);
 			// Если место вышло за пределы ключа
 			if(dest >= origkeylen)
 				break;
 			// Переносим байт выхода в ключ
-			key[dest] = out[i];
+			key[dest] = out[moved];
 		}
 		// Вычитаем перенесённые байты из остатка ключа
-		remaining -= i;
+		remaining -= moved;
 	}
-	// Затирание пароля
-	wipe(sha2pass, sizeof(sha2pass));
-	wipe(sha2salt, sizeof(sha2salt));
+	/**
+	 * Затираем накопитель ключа блоками
+	 */
 	wipe(out, sizeof(out));
+	/**
+	 * Затираем накопитель выхода очередного круга
+	 */
 	wipe(tmpout, sizeof(tmpout));
+	/**
+	 * Затираем буфер хеша пароля
+	 */
+	wipe(sha2pass, sizeof(sha2pass));
+	/**
+	 * Затираем хеш соли SHA-512
+	 */
+	wipe(sha2salt, sizeof(sha2salt));
 	// Выводим успешность выработки ключа
 	return true;
 }

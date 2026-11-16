@@ -100,8 +100,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <sys/global.hpp>
-#include <math/number.hpp>
 #include <math/wide.hpp>
+#include <math/number.hpp>
 
 /**
  * @brief Основное пространство имён
@@ -1527,61 +1527,73 @@ namespace nts {
 					);
 				}
 				/**
-				 * @brief Функция умножения по модулю вида 2^512 - c на ассемблере
-				 *
-				 * @param first   первый сомножитель
-				 * @param second  второй сомножитель
-				 * @param tail    хвост c модуля
-				 * @param modulus слова модуля: ядру не нужны, вычитание модуля идёт прибавлением хвоста
-				 * @param result  место, в которое помещается произведение
-				 *
+				 * Ядра свёртки несут по 33 операнда в одном asm - сверх жёсткого предела 30
+				 * у GCC изданий до 15 включительно (GCC 15 предел снял); Clang предела не
+				 * имеет. Под GCC до 15 ядра экранируются, и восемь слов идут общим
+				 * переносимым путём произведения со свёрткой
 				 */
-				static __NTS_INLINE__ void multiplyminus8(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
-					// Слова первого сомножителя, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
-					uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3], a4 = first[4], a5 = first[5], a6 = first[6], a7 = first[7];
-					// Окно накопителя, временные и слово второго сомножителя
-					uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
-					// Произведение со свёрткой ядром на ассемблере
-					__asm__ volatile(
-						__NTS_AARCH64_PRODUCT8__
-						__NTS_AARCH64_FOLD8_PRODUCT__
-						: [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3), [a4] "+&r" (a4), [a5] "+&r" (a5), [a6] "+&r" (a6), [a7] "+&r" (a7), [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
-						: [b] "r" (second), [c] "r" (tail), [r] "r" (result)
-						: "cc", "memory"
-					);
-				}
-				/**
-				 * @brief Функция возведения в квадрат по модулю вида 2^512 - c на ассемблере
-				 *
-				 * @param value   возводимое число
-				 * @param tail    хвост c модуля
-				 * @param modulus слова модуля: ядру не нужны
-				 * @param result  место, в которое помещается квадрат
-				 *
-				 */
-				static __NTS_INLINE__ void squareminus8(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
-					// Треугольник произведений разных слов
-					uint64_t q[16];
-					// Слова числа, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
-					uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3], a4 = value[4], a5 = value[5], a6 = value[6], a7 = value[7];
-					// Окно накопителя, временные и слово переноса
-					uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
-					// Накопление треугольника произведений разных слов ядром на ассемблере
-					__asm__ volatile(
-						__NTS_AARCH64_TRIANGLE8__
-						: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3)
-						: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [q] "r" (q)
-						: "cc", "memory"
-					);
-					// Удвоение треугольника, прибавление квадратов слов и свёртку ядром на ассемблере
-					__asm__ volatile(
-						__NTS_AARCH64_DIAGONAL8__
-						__NTS_AARCH64_FOLD8_SQUARE__
-						: [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3), [a4] "+&r" (a4), [a5] "+&r" (a5), [a6] "+&r" (a6), [a7] "+&r" (a7), [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
-						: [q] "r" (q), [c] "r" (tail), [r] "r" (result)
-						: "cc", "memory"
-					);
-				}
+				#if !defined(__GNUC__) || defined(__clang__) || __GNUC__ >= 15
+					/**
+					 * @brief Функция умножения по модулю вида 2^512 - c на ассемблере
+					 *
+					 * @param first   первый сомножитель
+					 * @param second  второй сомножитель
+					 * @param tail    хвост c модуля
+					 * @param modulus слова модуля: ядру не нужны, вычитание модуля идёт прибавлением хвоста
+					 * @param result  место, в которое помещается произведение
+					 *
+					 */
+					static __NTS_INLINE__ void multiplyminus8(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+						// Слова первого сомножителя, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
+						uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3], a4 = first[4], a5 = first[5], a6 = first[6], a7 = first[7];
+						// Окно накопителя, временные и слово второго сомножителя
+						uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+						// Произведение со свёрткой ядром на ассемблере
+						__asm__ volatile(
+							__NTS_AARCH64_PRODUCT8__
+							__NTS_AARCH64_FOLD8_PRODUCT__
+							: [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3), [a4] "+&r" (a4), [a5] "+&r" (a5), [a6] "+&r" (a6), [a7] "+&r" (a7), [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
+							: [b] "r" (second), [c] "r" (tail), [r] "r" (result)
+							: "cc", "memory"
+						);
+					}
+					/**
+					 * @brief Функция возведения в квадрат по модулю вида 2^512 - c на ассемблере
+					 *
+					 * @param value   возводимое число
+					 * @param tail    хвост c модуля
+					 * @param modulus слова модуля: ядру не нужны
+					 * @param result  место, в которое помещается квадрат
+					 *
+					 */
+					static __NTS_INLINE__ void squareminus8(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+						// Треугольник произведений разных слов
+						uint64_t q[16];
+						// Слова числа, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
+						uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3], a4 = value[4], a5 = value[5], a6 = value[6], a7 = value[7];
+						// Окно накопителя, временные и слово переноса
+						uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+						// Накопление треугольника произведений разных слов ядром на ассемблере
+						__asm__ volatile(
+							__NTS_AARCH64_TRIANGLE8__
+							: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3)
+							: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [q] "r" (q)
+							: "cc", "memory"
+						);
+						// Удвоение треугольника, прибавление квадратов слов и свёртку ядром на ассемблере
+						__asm__ volatile(
+							__NTS_AARCH64_DIAGONAL8__
+							__NTS_AARCH64_FOLD8_SQUARE__
+							: [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3), [a4] "+&r" (a4), [a5] "+&r" (a5), [a6] "+&r" (a6), [a7] "+&r" (a7), [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
+							: [q] "r" (q), [c] "r" (tail), [r] "r" (result)
+							: "cc", "memory"
+						);
+					}
+					/**
+					 * Признак наличия ядер на ассемблере для восьми слов
+					 */
+					#define __NTS_AARCH64_KERNELS8__
+				#endif
 				#undef __NTS_AARCH64_PRODUCT8__
 				#undef __NTS_AARCH64_HIGH8_PRODUCT__
 				#undef __NTS_AARCH64_FOLD8_PRODUCT__
@@ -1589,10 +1601,6 @@ namespace nts {
 				#undef __NTS_AARCH64_DIAGONAL8__
 				#undef __NTS_AARCH64_HIGH8_SQUARE__
 				#undef __NTS_AARCH64_FOLD8_SQUARE__
-				/**
-				 * Признак наличия ядер на ассемблере для восьми слов
-				 */
-				#define __NTS_AARCH64_KERNELS8__
 				#undef __NTS_AARCH64_PRODUCT4__
 				#undef __NTS_AARCH64_SQUARE4__
 				/**
@@ -1600,6 +1608,7 @@ namespace nts {
 				 */
 				#define __NTS_AARCH64_KERNELS__
 			#endif
+
 			/**
 			 * Ядра на четыре слова для x86-64 на встроенном ассемблере у gcc и clang: у gcc код
 			 * из __int128 хуже ручного на треть (Astra, gcc 12: умножение 46 → 31,5 нс, квадрат
