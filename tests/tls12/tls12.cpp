@@ -94,7 +94,7 @@ namespace {
 		// Разобранная область байтов
 		vector <uint8_t> result;
 		/**
-		 * Выполняем перебор пар символов записи
+		 * Перебираем пар символов записи
 		 */
 		for(size_t i = 0; text[i] != '\0' && text[i + 1] != '\0'; i += 2)
 			// Добавляем очередной разобранный байт
@@ -129,7 +129,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -138,7 +138,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочки сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -151,22 +151,22 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
-		 * Выполняем перехват ошибок
+		 * Перехватываем ошибок
 		 */
 		try {
 			// Получаем байты, отправляемые клиентом
 			view_t data = client.output();
 			// Если клиенту есть что отправить серверу
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемых байтов
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя клиента
 				client.consume(buffer.size());
-				// Выполняем подачу отправленных байтов серверу
+				// Подаём отправленных байтов серверу
 				server.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -175,17 +175,17 @@ namespace {
 			data = server.output();
 			// Если серверу есть что отправить клиенту
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемых байтов
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя сервера
 				server.consume(buffer.size());
-				// Выполняем подачу отправленных байтов клиенту
+				// Подаём отправленных байтов клиенту
 				client.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
 			}
 		/**
-		 * Выполняем перехват ошибок
+		 * Перехватываем ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим признак того, что байты между сторонами не передавались
@@ -202,18 +202,18 @@ namespace {
 	 * @return       признак того, что байты передавались
 	 *
 	 */
-	bool deliver(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_deliver__(client::context_t & client, server::context_t & server) noexcept {
 		// Получаем байты, отправляемые клиентом
 		const view_t data = client.output();
 		// Если клиенту нечего отправить
 		if(data.size == 0)
 			// Выводим отсутствие передачи
 			return false;
-		// Выполняем перенос отправляемых байтов
+		// Переносим отправляемых байтов
 		const vector <uint8_t> buffer(data.data, data.data + data.size);
 		// Снимаем отправленные байты с накопителя клиента
 		client.consume(buffer.size());
-		// Выполняем подачу отправленных байтов серверу
+		// Подаём отправленных байтов серверу
 		server.push(view_t(buffer.data(), buffer.size()));
 		// Выводим признак передачи
 		return true;
@@ -225,11 +225,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байтов между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	}
@@ -241,15 +241,15 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос прикладного протокола изданием TLS 1.2 по набору ECDHE";
 		// Если отправить прикладные данные клиентом не удалось
 		if(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
+		// Передаём байтов между сторонами связи
+		__nts_converse__(client, server);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
 		// Если получить принятые сервером прикладные данные не удалось
@@ -262,8 +262,8 @@ namespace {
 		if(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
+		// Передаём байтов между сторонами связи
+		__nts_converse__(client, server);
 		// Если получить принятые клиентом прикладные данные не удалось
 		if((client.read(received) != context::error_t::NONE) || (string(received.begin(), received.end()) != answer))
 			// Выводим отказ обмена
@@ -323,7 +323,7 @@ namespace {
 	 * @param mutual     запрашивается ли подлинность клиента
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual) noexcept {
 		// Устанавливаем набор шифрования клиенту
 		client.suites(vector <protect::suite_t> {suite});
 		// Устанавливаем набор шифрования серверу
@@ -353,13 +353,13 @@ namespace {
 	 * @return             признак успешности составления приветствия
 	 *
 	 */
-	bool greeting(const bool master, const protect::suite_t suite, vector <uint8_t> & result, const bool renegotiated, const extension::group_t group) noexcept {
+	bool __nts_greeting__(const bool master, const protect::suite_t suite, vector <uint8_t> & result, const bool renegotiated, const extension::group_t group) noexcept {
 		// Составляемое приветствие клиента
 		hello::client_t hello;
 		// Издание TLS 1.2 заголовком, без перечня изданий - как у чужого клиента
 		hello.version = 0x0303;
 		/**
-		 * Выполняем заполнение случайного значения
+		 * Заполняем случайного значения
 		 */
 		for(size_t i = 0; i < sizeof(hello.random); i++)
 			// Записываем очередной байт
@@ -421,11 +421,11 @@ namespace {
 	 * @return       признак того, что поток нарезан целиком хоть на одну запись
 	 *
 	 */
-	bool slice(const view_t & data, vector <vector <uint8_t>> & result) noexcept {
+	bool __nts_slice__(const view_t & data, vector <vector <uint8_t>> & result) noexcept {
 		// Смещение очередной записи в потоке
 		size_t offset = 0;
 		/**
-		 * Выполняем перебор записей потока
+		 * Перебираем записей потока
 		 */
 		while(offset < data.size){
 			// Заголовок очередной записи
@@ -457,7 +457,7 @@ namespace {
 	 * @return       признак успешности составления записи
 	 *
 	 */
-	bool framed(const handshake::type_t type, const view_t & body, vector <uint8_t> & result) noexcept {
+	bool __nts_framed__(const handshake::type_t type, const view_t & body, vector <uint8_t> & result) noexcept {
 		// Составитель сообщения рукопожатия
 		handshake::writer_t writer;
 		// Если сообщение составить не удалось
@@ -484,11 +484,11 @@ namespace {
 	 * @param result накопитель, в который складывается поток
 	 *
 	 */
-	void join(const vector <vector <uint8_t>> & pieces, vector <uint8_t> & result) noexcept {
+	void __nts_join__(const vector <vector <uint8_t>> & pieces, vector <uint8_t> & result) noexcept {
 		// Сбрасываем накопитель
 		result.clear();
 		/**
-		 * Выполняем перебор записей перечня
+		 * Перебираем записей перечня
 		 */
 		for(size_t i = 0; i < pieces.size(); i++)
 			// Дописываем очередную запись в поток
@@ -503,15 +503,15 @@ namespace {
 	 * @return       признак того, что залп получен и нарезан
 	 *
 	 */
-	bool volley(client::context_t & client, server::context_t & server, vector <vector <uint8_t>> & result) noexcept {
+	bool __nts_volley__(client::context_t & client, server::context_t & server, vector <vector <uint8_t>> & result) noexcept {
 		// Если приветствие клиента серверу не передалось
-		if(!deliver(client, server))
+		if(!__nts_deliver__(client, server))
 			// Выводим отрицательный результат - перенос не удался
 			return false;
 		// Залп сервера
 		const view_t flight = server.output();
 		// Нарезаем залп на записи
-		const bool sliced = slice(flight, result);
+		const bool sliced = __nts_slice__(flight, result);
 		// Снимаем залп с накопителя сервера
 		server.consume(flight.size);
 		// Выводим итог нарезки
@@ -524,7 +524,7 @@ namespace {
 	 * @param delta число байтов, на которое выросли запись и сообщение
 	 *
 	 */
-	void lengthen(vector <uint8_t> & piece, const size_t delta) noexcept {
+	void __nts_lengthen__(vector <uint8_t> & piece, const size_t delta) noexcept {
 		// Длина записи
 		const size_t record = (static_cast <size_t> ((piece[3] << 8) | piece[4]) + delta);
 		// Длина сообщения рукопожатия
@@ -617,9 +617,9 @@ namespace {
 	 * @return      код набора либо ноль
 	 *
 	 */
-	uint16_t coded(const std::string & title) noexcept {
+	uint16_t __nts_coded__(const std::string & title) noexcept {
 		/**
-		 * Выполняем перебор наборов первого круга
+		 * Перебираем наборов первого круга
 		 */
 		for(size_t i = 0; i < (sizeof(SUITES) / sizeof(SUITES[0])); i++){
 			// Если имя совпало
@@ -642,7 +642,7 @@ namespace {
 	 * @return       признак того, что строка начинается с ожидаемого
 	 *
 	 */
-	bool starts(const std::string & line, const char * prefix) noexcept {
+	bool __nts_starts__(const std::string & line, const char * prefix) noexcept {
 		// Выводим итог сличения начала строки байт в байт
 		return (line.compare(0, ::strlen(prefix), prefix) == 0);
 	}
@@ -654,7 +654,7 @@ namespace {
 	 * @return       признак успешности разбора
 	 *
 	 */
-	bool describe(const std::string & path, brief_t & result) noexcept {
+	bool __nts_describe__(const std::string & path, brief_t & result) noexcept {
 		// Читаем описание вектора
 		const vector <uint8_t> text = slurp(path + "/README.md");
 		// Если описание пусто
@@ -666,7 +666,7 @@ namespace {
 		// Начало строки описания
 		size_t offset = 0;
 		/**
-		 * Выполняем перебор строк описания
+		 * Перебираем строк описания
 		 */
 		while(offset < readme.size()){
 			// Ищем конец строки
@@ -680,17 +680,17 @@ namespace {
 			// Переходим к следующей строке
 			offset = (end + 1);
 			// Если строка несёт набор
-			if(starts(line, "Набор: ") || starts(line, "Выбрано на деле: "))
+			if(__nts_starts__(line, "Набор: ") || __nts_starts__(line, "Выбрано на деле: "))
 				// Запоминаем код набора по имени
-				result.suite = coded(line.substr(line.find(": ") + 2));
+				result.suite = __nts_coded__(line.substr(line.find(": ") + 2));
 			// Если строка несёт сертификат
-			else if(starts(line, "Сертификат: ")){
+			else if(__nts_starts__(line, "Сертификат: ")){
 				// Имя файла сертификата
 				const std::string name = line.substr(line.find(": ") + 2);
 				// Запоминаем имя ключа без расширения
 				result.key = name.substr(0, name.find('.'));
 			// Если строка несёт признак расширенного главного секрета
-			} else if(starts(line, "EMS в обмене: "))
+			} else if(__nts_starts__(line, "EMS в обмене: "))
 				// Запоминаем признак
 				result.master = (line.find("да") != std::string::npos);
 			// Если строка несёт обмен ключами
@@ -738,7 +738,7 @@ namespace {
 	 * @return       признак успешности разбора
 	 *
 	 */
-	bool unwind(const vector <uint8_t> & wire, stream_t & result, const bool strict) noexcept {
+	bool __nts_unwind__(const vector <uint8_t> & wire, stream_t & result, const bool strict) noexcept {
 		// Сборщик записей
 		record::reader_t records;
 		// Если поток в сборщик не лёг
@@ -752,7 +752,7 @@ namespace {
 		// Содержимое записи
 		view_t payload;
 		/**
-		 * Выполняем перебор записей потока
+		 * Перебираем записей потока
 		 */
 		while(records.next(header, payload) == record::error_t::NONE){
 			// Если это смена набора шифрования
@@ -789,7 +789,7 @@ namespace {
 			// Тело сообщения
 			view_t body;
 			/**
-			 * Выполняем перебор собранных сообщений
+			 * Перебираем собранных сообщений
 			 */
 			while(messages.next(head, body) == handshake::error_t::NONE){
 				// Сообщение целиком
@@ -814,7 +814,7 @@ namespace {
 	 * @return        вид сообщения либо NONE
 	 *
 	 */
-	handshake::type_t kind(const vector <uint8_t> & message) noexcept {
+	handshake::type_t __nts_kind__(const vector <uint8_t> & message) noexcept {
 		// Заголовок сообщения
 		handshake::header_t header;
 		// Если заголовок разобран
@@ -831,7 +831,7 @@ namespace {
 	 * @return        тело сообщения без заголовка
 	 *
 	 */
-	view_t inner(const vector <uint8_t> & message) noexcept {
+	view_t __nts_inner__(const vector <uint8_t> & message) noexcept {
 		// Если сообщение короче заголовка
 		if(message.size() < handshake::HANDSHAKE_HEADER)
 			// Выводим пустое тело
@@ -849,11 +849,11 @@ namespace {
 	 */
 	const vector <uint8_t> * seek(const vector <vector <uint8_t>> & messages, const handshake::type_t type) noexcept {
 		/**
-		 * Выполняем перебор сообщений
+		 * Перебираем сообщений
 		 */
 		for(size_t i = 0; i < messages.size(); i++){
 			// Если вид совпал
-			if(kind(messages[i]) == type)
+			if(__nts_kind__(messages[i]) == type)
 				// Выводим сообщение
 				return &messages[i];
 		}
@@ -886,7 +886,7 @@ namespace {
 	 * @return       признак успешности разбора
 	 *
 	 */
-	bool dissect(const view_t & data, exchange_t & result) noexcept {
+	bool __nts_dissect__(const view_t & data, exchange_t & result) noexcept {
 		// Тело обязано вместить вид кривой, её номер и длину точки
 		if((data.data == nullptr) || (data.size < 4) || (data.data[0] != 0x03))
 			// Выводим отрицательный результат - данные негодны
@@ -926,7 +926,7 @@ namespace {
 	 * @return          признак того, что подпись сошлась
 	 *
 	 */
-	bool attested(const x509::key_t & key, const uint16_t scheme, const view_t & content, const view_t & signature) noexcept {
+	bool __nts_attested__(const x509::key_t & key, const uint16_t scheme, const view_t & content, const view_t & signature) noexcept {
 		// Если это подпись PKCS #1 v1.5 (младший байт 0x01)
 		if((scheme & 0xFF) == 0x01){
 			// Опознаватель алгоритма sha*WithRSAEncryption
@@ -954,7 +954,7 @@ namespace {
 	 * @return     первый сертификат цепочки либо пустая область
 	 *
 	 */
-	view_t leaf(const view_t & data) noexcept {
+	view_t __nts_leaf__(const view_t & data) noexcept {
 		// Тело обязано вместить длину цепочки и длину сертификата
 		if((data.data == nullptr) || (data.size < 6))
 			// Выводим пустую область
@@ -979,13 +979,13 @@ namespace {
 	 * @return       признак успешности разбора
 	 *
 	 */
-	bool keylog(const std::string & path, vector <uint8_t> & random, vector <uint8_t> & master) noexcept {
+	bool __nts_keylog__(const std::string & path, vector <uint8_t> & random, vector <uint8_t> & master) noexcept {
 		// Открываем ключевой файл
 		std::ifstream file(path + "/keylog.txt");
 		// Метка, случайное значение и секрет в шестнадцатеричной записи
 		std::string label, hexRandom, hexMaster;
 		/**
-		 * Выполняем перебор строк ключевого файла до метки CLIENT_RANDOM
+		 * Перебираем строк ключевого файла до метки CLIENT_RANDOM
 		 */
 		while(file >> label){
 			// Если это искомая метка
@@ -1014,13 +1014,13 @@ namespace {
 	 * @return           признак успешности вычисления
 	 *
 	 */
-	bool completion(const protect::suite_t suite, const vector <uint8_t> & master, const char * label, const vector <vector <uint8_t>> & transcript, uint8_t * result) noexcept {
+	bool __nts_completion__(const protect::suite_t suite, const vector <uint8_t> & master, const char * label, const vector <vector <uint8_t>> & transcript, uint8_t * result) noexcept {
 		// Хеш набора
 		const digest::hash_t algorithm = protect::hash(suite);
 		// Хешер переписки
 		digest::hasher_t hasher(algorithm);
 		/**
-		 * Выполняем перебор сообщений переписки
+		 * Перебираем сообщений переписки
 		 */
 		for(size_t i = 0; i < transcript.size(); i++)
 			// Добавляем сообщение в хеш
@@ -1046,7 +1046,7 @@ namespace {
 	 * @return           признак успешности заведения защиты
 	 *
 	 */
-	bool keyed(const protect::suite_t suite, const vector <uint8_t> & master, const vector <uint8_t> & client, const vector <uint8_t> & server, protect::protection_t & protection, const bool own, const bool etm) noexcept {
+	bool __nts_keyed__(const protect::suite_t suite, const vector <uint8_t> & master, const vector <uint8_t> & client, const vector <uint8_t> & server, protect::protection_t & protection, const bool own, const bool etm) noexcept {
 		// Длина ключа набора
 		const size_t width = protect::key(suite);
 		// Длина неявной части вектора набора: ноль у наборов CBC
@@ -1094,7 +1094,7 @@ namespace {
 	 * @return         путь к каталогу вектора
 	 *
 	 */
-	std::string place(const char * edition, const char * scenario) noexcept {
+	std::string __nts_place__(const char * edition, const char * scenario) noexcept {
 		// Выводим путь к каталогу вектора
 		return (std::string(CORPUS) + "/tls12/tls12-OpenSSL-" + edition + "/" + scenario);
 	}
@@ -1105,7 +1105,7 @@ namespace {
 	 * @return     признак наличия каталога
 	 *
 	 */
-	bool exists(const std::string & path) noexcept {
+	bool __nts_exists__(const std::string & path) noexcept {
 		// Сведения о пути
 		struct stat info;
 		// Выводим признак того, что путь есть и это каталог
@@ -1119,7 +1119,7 @@ namespace {
 	 * @return         признак того, что отсутствие вектора ожидаемо
 	 *
 	 */
-	bool omitted(const char * edition, const Scenario & scenario) noexcept {
+	bool __nts_omitted__(const char * edition, const Scenario & scenario) noexcept {
 		// Ключ -no_ems появился в OpenSSL 3.3: у 3.0.x сценария no-ems нет
 		return ((::strcmp(scenario.name, "no-ems") == 0) && (::strncmp(edition, "3.0.", 4) == 0));
 	}
@@ -1171,15 +1171,15 @@ TEST(Tls12Test, Prf){
  */
 TEST(Tls12Test, Loopback){
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборов шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Подлинность сторон
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(SUITES[s].key, credential));
+		ASSERT_TRUE(__nts_identity__(SUITES[s].key, credential));
 		/**
-		 * Выполняем перебор групп обмена
+		 * Перебираем групп обмена
 		 */
 		for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 			// Связь стороны клиента
@@ -1187,7 +1187,7 @@ TEST(Tls12Test, Loopback){
 			// Связь стороны сервера
 			server::context_t server;
 			// Настраиваем стороны со взаимной подлинностью
-			arrange(client, server, SUITES[s].suite, GROUPS[g], credential, true);
+			__nts_arrange__(client, server, SUITES[s].suite, GROUPS[g], credential, true);
 			// Клиент ведёт лишь издание 1.2
 			ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 			// Заводим сервер
@@ -1195,7 +1195,7 @@ TEST(Tls12Test, Loopback){
 			// Заводим клиента
 			ASSERT_EQ(client.start(), context::error_t::NONE);
 			// Проводим рукопожатие
-			converse(client, server);
+			__nts_converse__(client, server);
 			// Проверяем установленность связи клиентом
 			ASSERT_TRUE(client.established()) << SUITES[s].title << " " << naming(GROUPS[g]) << " отказы " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещения " << static_cast <int> (client.alert().description) << " " << static_cast <int> (server.alert().description);
 			// Проверяем установленность связи сервером
@@ -1213,7 +1213,7 @@ TEST(Tls12Test, Loopback){
 			// Проверяем подлинность клиента у сервера
 			ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 			// Проверяем обмен данными
-			ASSERT_TRUE(barter(client, server)) << SUITES[s].title << " " << naming(GROUPS[g]);
+			ASSERT_TRUE(__nts_barter__(client, server)) << SUITES[s].title << " " << naming(GROUPS[g]);
 			// Счётчик записей клиента: завершение и запрос прикладных данных
 			ASSERT_EQ(client.sequence(), static_cast <uint64_t> (2));
 			// Счётчик принятых сервером записей тот же
@@ -1225,7 +1225,7 @@ TEST(Tls12Test, Loopback){
 			// Закрываем связь
 			ASSERT_EQ(client.close(), context::error_t::NONE);
 			// Передаём закрытие
-			converse(client, server);
+			__nts_converse__(client, server);
 			// Сервер ответил закрытием
 			ASSERT_EQ(server.state(), context::state_t::CLOSED);
 		}
@@ -1240,9 +1240,9 @@ TEST(Tls12Test, Unilateral){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор: без запроса подлинности и с запросом при пустой цепочке клиента
+	 * Перебираем: без запроса подлинности и с запросом при пустой цепочке клиента
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -1250,7 +1250,7 @@ TEST(Tls12Test, Unilateral){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны без подлинности клиента
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Сервер ведёт лишь издание 1.2
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 		// На втором круге подлинность запрашивается, а у клиента её нет
@@ -1260,7 +1260,7 @@ TEST(Tls12Test, Unilateral){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established()) << item << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Цепочка клиента пуста
@@ -1268,7 +1268,7 @@ TEST(Tls12Test, Unilateral){
 		// Издание 1.2
 		ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303));
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 }
 
@@ -1282,14 +1282,14 @@ TEST(Tls12Test, Limits){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("rsa2048", credential));
+	ASSERT_TRUE(__nts_identity__("rsa2048", credential));
 	{
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_RSA_AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_RSA_AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false);
 		// Сервер ведёт лишь издание 1.3
 		ASSERT_EQ(server.versions(0x0304, 0x0304), context::error_t::NONE);
 		// Клиент ведёт лишь издание 1.2
@@ -1299,7 +1299,7 @@ TEST(Tls12Test, Limits){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Сервер оборвал связь несовпадением издания
 		ASSERT_EQ(server.error(), context::error_t::VERSION);
 		// Извещение protocol_version
@@ -1327,7 +1327,7 @@ TEST(Tls12Test, Limits){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Передаём приветствие клиента серверу
-		ASSERT_TRUE(deliver(client, server));
+		ASSERT_TRUE(__nts_deliver__(client, server));
 		// Ответ сервера: приветствие идёт первой записью
 		const view_t answer = server.output();
 		// Заслон понижения RFC 8446 §4.1.3
@@ -1340,7 +1340,7 @@ TEST(Tls12Test, Limits){
 		 */
 		ASSERT_EQ(::memcmp(answer.data + 5 + 4 + 2 + 32 - 8, downgrade, 8), 0);
 		// Проводим рукопожатие дальше
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена изданием 1.2
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем издание
@@ -1366,7 +1366,7 @@ TEST(Tls12Test, Limits){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Передаём приветствие клиента серверу
-		ASSERT_TRUE(deliver(client, server));
+		ASSERT_TRUE(__nts_deliver__(client, server));
 		// Ответ сервера
 		const view_t answer = server.output();
 		// Заслон понижения RFC 8446 §4.1.3
@@ -1376,7 +1376,7 @@ TEST(Tls12Test, Limits){
 		// Сервер одного лишь издания 1.2 заслона не кладёт: выбор 1.2 у него законен
 		ASSERT_NE(::memcmp(answer.data + 5 + 4 + 2 + 32 - 8, downgrade, 8), 0);
 		// Проводим рукопожатие дальше
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена изданием 1.2
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем издание
@@ -1398,7 +1398,7 @@ TEST(Tls12Test, Limits){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Передаём приветствие клиента серверу
-		ASSERT_TRUE(deliver(client, server));
+		ASSERT_TRUE(__nts_deliver__(client, server));
 		// Ответ сервера
 		const view_t answer = server.output();
 		// Заслон понижения RFC 8446 §4.1.3
@@ -1412,13 +1412,13 @@ TEST(Tls12Test, Limits){
 		 */
 		ASSERT_NE(::memcmp(answer.data + 5 + 4 + 2 + 32 - 8, downgrade, 8), 0);
 		// Проводим рукопожатие дальше
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена изданием 1.2 без обрыва
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем издание
 		ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303));
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 	{
 		// Связь стороны клиента
@@ -1436,7 +1436,7 @@ TEST(Tls12Test, Limits){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена изданием 1.3
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем издание
@@ -1444,7 +1444,7 @@ TEST(Tls12Test, Limits){
 		// Набор издания 1.3
 		ASSERT_EQ(server.suite(), protect::suite_t::AES_128_GCM_SHA256);
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 	{
 		// Связь стороны клиента
@@ -1484,9 +1484,9 @@ TEST(Tls12Test, Downgrade){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор: клиент 1.2…1.3 и клиент только 1.2
+	 * Перебираем: клиент 1.2…1.3 и клиент только 1.2
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -1494,7 +1494,7 @@ TEST(Tls12Test, Downgrade){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Сервер ведёт лишь издание 1.2
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 		// На втором круге и клиент ведёт лишь издание 1.2
@@ -1511,7 +1511,7 @@ TEST(Tls12Test, Downgrade){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Передаём приветствие клиента серверу
-		ASSERT_TRUE(deliver(client, server));
+		ASSERT_TRUE(__nts_deliver__(client, server));
 		// Ответ сервера
 		const view_t answer = server.output();
 		// Переносим ответ
@@ -1554,9 +1554,9 @@ TEST(Tls12Test, Master){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор: расширение есть либо нет, обязательность выключена либо включена
+	 * Перебираем: расширение есть либо нет, обязательность выключена либо включена
 	 */
 	for(size_t item = 0; item < 4; item++){
 		// Признак того, что клиент предлагает расширение
@@ -1578,7 +1578,7 @@ TEST(Tls12Test, Master){
 		// Запись приветствия чужого клиента
 		vector <uint8_t> wire;
 		// Составляем приветствие руками
-		ASSERT_TRUE(greeting(offered, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, wire, false, extension::group_t::SECP256R1)) << item;
+		ASSERT_TRUE(__nts_greeting__(offered, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, wire, false, extension::group_t::SECP256R1)) << item;
 		// Подаём приветствие серверу
 		server.push(view_t(wire.data(), wire.size()));
 		// Если расширения нет, а оно обязательно
@@ -1622,9 +1622,9 @@ TEST(Tls12Test, Preference){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор: порядком сервера и порядком клиента
+	 * Перебираем: порядком сервера и порядком клиента
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -1644,7 +1644,7 @@ TEST(Tls12Test, Preference){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established()) << item << " отказы " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещения " << static_cast <int> (client.alert().description) << " " << static_cast <int> (server.alert().description);
 		// Набор по порядку стороны, ведущей выбор
@@ -1668,7 +1668,7 @@ TEST(Tls12Test, Preference){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Своим порядком сервер берёт свой первый набор и в издании 1.3
@@ -1692,7 +1692,7 @@ TEST(Tls12Test, Preference){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// С круга 30 настройка порядка действует и в издании 1.3: выбор порядком клиента (намеренное решение 19 движка)
@@ -1708,9 +1708,9 @@ TEST(Tls12Test, Corruption){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор наборов AES-GCM и ChaCha20-Poly1305
+	 * Перебираем наборов AES-GCM и ChaCha20-Poly1305
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -1718,7 +1718,7 @@ TEST(Tls12Test, Corruption){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, ((item == 0) ? protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384 : protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256), extension::group_t::SECP384R1, credential, false);
+		__nts_arrange__(client, server, ((item == 0) ? protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384 : protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256), extension::group_t::SECP384R1, credential, false);
 		// Клиент ведёт лишь издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		// Заводим сервер
@@ -1726,7 +1726,7 @@ TEST(Tls12Test, Corruption){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Прикладные данные
@@ -1750,7 +1750,7 @@ TEST(Tls12Test, Corruption){
 		// Дальнейшая подача отвергается
 		ASSERT_EQ(server.push(view_t(forged.data(), forged.size())), context::error_t::STATE);
 		// Извещение дошло до клиента
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Клиент оборван извещением
 		ASSERT_EQ(client.error(), context::error_t::ALERT);
 	}
@@ -1765,11 +1765,11 @@ TEST(Tls12Test, Alien){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Виды чужих сообщений
 	static const handshake::type_t ALIENS[] = {handshake::type_t::UPDATE, handshake::type_t::COMPRESSED, handshake::type_t::TICKET, handshake::type_t::EXTENSIONS};
 	/**
-	 * Выполняем перебор чужих сообщений
+	 * Перебираем чужих сообщений
 	 */
 	for(size_t item = 0; item < (sizeof(ALIENS) / sizeof(ALIENS[0])); item++){
 		// Связь стороны клиента
@@ -1777,7 +1777,7 @@ TEST(Tls12Test, Alien){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Сервер ведёт лишь издание 1.2
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 		// Заводим сервер
@@ -1785,7 +1785,7 @@ TEST(Tls12Test, Alien){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Передаём приветствия сторон
-		ASSERT_TRUE(pump(client, server));
+		ASSERT_TRUE(__nts_pump__(client, server));
 		// Клиент разобрал приветствие сервера изданием 1.2
 		ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303));
 		// Тело чужого сообщения
@@ -1819,7 +1819,7 @@ TEST(Tls12Test, Status){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Ответ о состоянии самоподписанного листа
 	const vector <uint8_t> answer = corpus("ocsp/ec256.good.der");
 	// Ответ прочитан
@@ -1829,7 +1829,7 @@ TEST(Tls12Test, Status){
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false);
 	// Клиент ведёт лишь издание 1.2
 	ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 	// Сервер сшивает ответ
@@ -1841,7 +1841,7 @@ TEST(Tls12Test, Status){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Ответ дошёл до клиента как есть
@@ -1874,7 +1874,7 @@ TEST(Tls12Test, Openssl){
 		GTEST_SKIP() << "openssl не ведёт extended_master_secret (RFC 7627; нет у OpenSSL 1.0.2 и у LibreSSL): сличение с ним пропущено";
 	}
 	/**
-	 * Выполняем перебор наборов шифрования: наш клиент против s_server
+	 * Перебираем наборов шифрования: наш клиент против s_server
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Если набор недоступен openssl
@@ -1887,11 +1887,11 @@ TEST(Tls12Test, Openssl){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(SUITES[s].key, credential));
+		ASSERT_TRUE(__nts_identity__(SUITES[s].key, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + SUITES[s].key + ".crt", key = std::string(CORPUS) + "/" + SUITES[s].key + ".pem";
 		/**
-		 * Выполняем перебор групп обмена
+		 * Перебираем групп обмена
 		 */
 		for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 			// Если openssl без кривой X25519 (появилась в 1.1.0)
@@ -1916,9 +1916,9 @@ TEST(Tls12Test, Openssl){
 			// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 			sentinel_t sentinel(log + ".pid");
 			// Подключаемся к серверу openssl
-			const int fd = dial(number);
+			const int peer = dial(number);
 			// Проверяем подключение
-			ASSERT_GE(fd, 0) << "порт " << number;
+			ASSERT_GE(peer, 0) << "порт " << number;
 			// Связь стороны клиента
 			client::context_t client;
 			// Наборы клиента
@@ -1936,11 +1936,11 @@ TEST(Tls12Test, Openssl){
 			// Заводим клиента
 			ASSERT_EQ(client.start(), context::error_t::NONE);
 			/**
-			 * Выполняем передачу байтов до установления связи
+			 * Передаём байтов до установления связи
 			 */
 			for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 				// Передаём байты
-				relay(client, fd);
+				relay(client, peer);
 			// Проверяем установленность связи
 			ASSERT_TRUE(client.established()) << SUITES[s].title << " " << naming(GROUPS[g]) << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 			// Издание 1.2
@@ -1956,11 +1956,11 @@ TEST(Tls12Test, Openssl){
 			// Накопитель ответа
 			vector <uint8_t> answer;
 			/**
-			 * Выполняем передачу байтов до получения ответа
+			 * Передаём байтов до получения ответа
 			 */
 			for(size_t i = 0; (i < 16) && answer.empty(); i++){
 				// Передаём байты
-				relay(client, fd);
+				relay(client, peer);
 				// Читаем принятые данные
 				ASSERT_EQ(client.read(answer), context::error_t::NONE);
 			}
@@ -1971,7 +1971,7 @@ TEST(Tls12Test, Openssl){
 			// Сервер openssl видит издание 1.2
 			ASSERT_NE(text.find("TLSv1.2"), string::npos) << text;
 			// Закрываем сокет
-			closing(fd);
+			closing(peer);
 			// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 			sentinel.halt();
 			// Журнал сервера
@@ -1983,7 +1983,7 @@ TEST(Tls12Test, Openssl){
 		}
 	}
 	/**
-	 * Выполняем перебор наборов конечного поля: наш клиент против s_server с DHE издания 1.2.
+	 * Перебираем наборов конечного поля: наш клиент против s_server с DHE издания 1.2.
 	 * Раздел 4 RFC 7919 оставляет выбор поля серверу: временные параметры s_server по умолчанию
 	 * это modp2048 RFC 3526, с dhparam - собственное поле сервера; именованную группу RFC 7919
 	 * s_server изданием 1.2 не выбирает, оттого клиент принимает поле любого состава
@@ -1993,7 +1993,7 @@ TEST(Tls12Test, Openssl){
 	// Признак готовности собственного поля сервера
 	const bool fielded = (shell(std::string("openssl dhparam -out ") + own + " 2048 >/dev/null 2>&1") == 0);
 	/**
-	 * Выполняем перебор наборов шифрования конечного поля
+	 * Перебираем наборов шифрования конечного поля
 	 */
 	for(size_t s = 0; s < (sizeof(DHES) / sizeof(DHES[0])); s++){
 		// Если набор недоступен openssl
@@ -2006,11 +2006,11 @@ TEST(Tls12Test, Openssl){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(DHES[s].key, credential));
+		ASSERT_TRUE(__nts_identity__(DHES[s].key, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + DHES[s].key + ".crt", key = std::string(CORPUS) + "/" + DHES[s].key + ".pem";
 		/**
-		 * Выполняем два опыта поля: временное поле сервера по умолчанию и собственное dhparam
+		 * Ведём два опыта поля: временное поле сервера по умолчанию и собственное dhparam
 		 */
 		for(size_t d = 0; d < 2; d++){
 			// Если собственное поле не выработано, опыт с ним пропускается
@@ -2031,9 +2031,9 @@ TEST(Tls12Test, Openssl){
 			// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 			sentinel_t sentinel(log + ".pid");
 			// Подключаемся к серверу openssl
-			const int fd = dial(number);
+			const int peer = dial(number);
 			// Проверяем подключение
-			ASSERT_GE(fd, 0) << "порт " << number;
+			ASSERT_GE(peer, 0) << "порт " << number;
 			// Связь стороны клиента
 			client::context_t client;
 			// Наборы клиента
@@ -2047,11 +2047,11 @@ TEST(Tls12Test, Openssl){
 			// Заводим клиента
 			ASSERT_EQ(client.start(), context::error_t::NONE);
 			/**
-			 * Выполняем передачу байтов до установления связи
+			 * Передаём байтов до установления связи
 			 */
 			for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 				// Передаём байты
-				relay(client, fd);
+				relay(client, peer);
 			// Проверяем установленность связи
 			ASSERT_TRUE(client.established()) << DHES[s].title << " поле " << ((d == 1) ? "dhparam" : "умолчание") << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 			// Издание 1.2
@@ -2065,11 +2065,11 @@ TEST(Tls12Test, Openssl){
 			// Накопитель ответа
 			vector <uint8_t> answer;
 			/**
-			 * Выполняем передачу байтов до получения ответа
+			 * Передаём байтов до получения ответа
 			 */
 			for(size_t i = 0; (i < 16) && answer.empty(); i++){
 				// Передаём байты
-				relay(client, fd);
+				relay(client, peer);
 				// Читаем принятые данные
 				ASSERT_EQ(client.read(answer), context::error_t::NONE);
 			}
@@ -2080,7 +2080,7 @@ TEST(Tls12Test, Openssl){
 			// Сервер openssl видит издание 1.2
 			ASSERT_NE(text.find("TLSv1.2"), string::npos) << text;
 			// Закрываем сокет
-			closing(fd);
+			closing(peer);
 			// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 			sentinel.halt();
 			// Журнал сервера
@@ -2094,7 +2094,7 @@ TEST(Tls12Test, Openssl){
 	// Удаляем собственное поле опыта
 	::remove(own.c_str());
 	/**
-	 * Выполняем перебор наборов шифрования: s_client -tls1_2 против нашего сервера
+	 * Перебираем наборов шифрования: s_client -tls1_2 против нашего сервера
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Если набор недоступен openssl
@@ -2104,11 +2104,11 @@ TEST(Tls12Test, Openssl){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(SUITES[s].key, credential));
+		ASSERT_TRUE(__nts_identity__(SUITES[s].key, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + SUITES[s].key + ".crt", key = std::string(CORPUS) + "/" + SUITES[s].key + ".pem";
 		/**
-		 * Выполняем перебор групп обмена
+		 * Перебираем групп обмена
 		 */
 		for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 			// Если openssl без кривой X25519 (появилась в 1.1.0)
@@ -2135,9 +2135,9 @@ TEST(Tls12Test, Openssl){
 			// Сторож клиента openssl
 			sentinel_t sentinel(log + ".pid");
 			// Принимаем подключение с пределом ожидания приёма
-			const int fd = greeted(listener);
+			const int peer = greeted(listener);
 			// Проверяем подключение
-			ASSERT_GE(fd, 0);
+			ASSERT_GE(peer, 0);
 			// Связь стороны сервера
 			server::context_t server;
 			// Наборы сервера
@@ -2151,7 +2151,7 @@ TEST(Tls12Test, Openssl){
 			// Заводим сервер
 			ASSERT_EQ(server.start(), context::error_t::NONE);
 			// Ведём связь до конца рукопожатия
-			const bool complete = serve(server, fd);
+			const bool complete = serve(server, peer);
 			// Проверяем, что рукопожатие дошло до конца
 			ASSERT_TRUE(complete) << SUITES[s].title << " " << naming(GROUPS[g]) << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 			// Отказа не было
@@ -2163,9 +2163,9 @@ TEST(Tls12Test, Openssl){
 			// Проверяем подлинность клиента
 			ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 			// Закрываем связь, коли она ещё открыта
-			ASSERT_TRUE(farewell(server, fd));
+			ASSERT_TRUE(farewell(server, peer));
 			// Закрываем сокеты
-			closing(fd);
+			closing(peer);
 			// Закрываем слушающий сокет
 			closing(listener);
 			// Текст журнала клиента
@@ -2186,7 +2186,7 @@ TEST(Tls12Test, Openssl){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity("ec256", credential));
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Путь к сертификату
 		const std::string crt = std::string(CORPUS) + "/ec256.crt";
 		// Порт сервера
@@ -2202,9 +2202,9 @@ TEST(Tls12Test, Openssl){
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = ::accept(listener, nullptr, nullptr);
+		const int peer = ::accept(listener, nullptr, nullptr);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(peer, 0);
 		// Связь стороны сервера
 		server::context_t server;
 		// Подлинность сервера
@@ -2214,13 +2214,13 @@ TEST(Tls12Test, Openssl){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		ASSERT_TRUE(serve(server, fd)) << static_cast <int> (server.error());
+		ASSERT_TRUE(serve(server, peer)) << static_cast <int> (server.error());
 		// Издание 1.2
 		ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0303));
 		// Закрываем связь, коли она ещё открыта
-		ASSERT_TRUE(farewell(server, fd));
+		ASSERT_TRUE(farewell(server, peer));
 		// Закрываем сокеты
-		closing(fd);
+		closing(peer);
 		// Закрываем слушающий сокет
 		closing(listener);
 		// Текст журнала клиента
@@ -2238,7 +2238,7 @@ TEST(Tls12Test, Openssl){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity("ec256", credential));
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 		// Свободный порт
@@ -2252,9 +2252,9 @@ TEST(Tls12Test, Openssl){
 		// Сторож сервера openssl
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = dial(number);
+		const int peer = dial(number);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(peer, 0);
 		// Связь стороны клиента
 		client::context_t client;
 		// Клиент ведёт лишь издание 1.3
@@ -2264,11 +2264,11 @@ TEST(Tls12Test, Openssl){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу байтов до обрыва связи
+		 * Передаём байтов до обрыва связи
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, fd);
+			relay(client, peer);
 		// Связь не установлена
 		ASSERT_FALSE(client.established());
 		// Сервер openssl ответил извещением protocol_version либо клиент оборвался сам
@@ -2276,7 +2276,7 @@ TEST(Tls12Test, Openssl){
 		// Извещение protocol_version
 		ASSERT_EQ(client.alert().description, alert::description_t::VERSION);
 		// Закрываем сокет
-		closing(fd);
+		closing(peer);
 		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 		sentinel.halt();
 		// Журнал сервера
@@ -2290,7 +2290,7 @@ TEST(Tls12Test, Openssl){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity("ec256", credential));
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Путь к сертификату
 		const std::string crt = std::string(CORPUS) + "/ec256.crt";
 		// Порт сервера
@@ -2309,9 +2309,9 @@ TEST(Tls12Test, Openssl){
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение с пределом ожидания приёма
-		const int fd = greeted(listener);
+		const int peer = greeted(listener);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(peer, 0);
 		// Связь стороны сервера
 		server::context_t server;
 		// Подлинность сервера
@@ -2319,17 +2319,17 @@ TEST(Tls12Test, Openssl){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		ASSERT_TRUE(serve(server, fd)) << static_cast <int> (server.error());
+		ASSERT_TRUE(serve(server, peer)) << static_cast <int> (server.error());
 		// Связь установлена изданием 1.2
 		ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0303));
 		/**
-		 * Выполняем приём пересогласования: ждём приветствия клиента под защитой
+		 * Принимаем пересогласования: ждём приветствия клиента под защитой
 		 */
 		for(size_t i = 0; (i < 8) && (server.state() == context::state_t::ESTABLISHED); i++){
 			// Место принятых байтов
 			uint8_t buffer[16384];
 			// Принимаем байты клиента
-			const ssize_t received = receiving(fd, buffer, sizeof(buffer));
+			const ssize_t received = receiving(peer, buffer, sizeof(buffer));
 			// Если байты приняты
 			if(received > 0)
 				// Подаём байты серверу
@@ -2341,7 +2341,7 @@ TEST(Tls12Test, Openssl){
 			// Если серверу есть что отправить
 			if(data.size > 0){
 				// Отправляем байты
-				const ssize_t sent = sending(fd, data.data, data.size);
+				const ssize_t sent = sending(peer, data.data, data.size);
 				// Если отправлено
 				if(sent > 0)
 					// Снимаем байты
@@ -2357,7 +2357,7 @@ TEST(Tls12Test, Openssl){
 		// Извещение handshake_failure собеседника
 		ASSERT_EQ(server.alert().description, alert::description_t::HANDSHAKE);
 		// Закрываем сокеты
-		closing(fd);
+		closing(peer);
 		// Закрываем слушающий сокет
 		closing(listener);
 		// Текст журнала клиента
@@ -2382,7 +2382,7 @@ TEST(Tls12Test, HelloRequest){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Составитель просьбы о пересогласовании
 	handshake::writer_t writer;
 	// Составляем просьбу с пустым телом
@@ -2406,7 +2406,7 @@ TEST(Tls12Test, HelloRequest){
 	// Запись порченой просьбы
 	const view_t corrupted = spoiled.data();
 	/**
-	 * Выполняем два круга: просьба пустая пропускается, порченая - обрывает связь
+	 * Ведём два круга: просьба пустая пропускается, порченая - обрывает связь
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -2414,7 +2414,7 @@ TEST(Tls12Test, HelloRequest){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Сервер ведёт лишь издание 1.2
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 		// Заводим сервер
@@ -2422,7 +2422,7 @@ TEST(Tls12Test, HelloRequest){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Передаём приветствие клиента серверу
-		ASSERT_TRUE(deliver(client, server));
+		ASSERT_TRUE(__nts_deliver__(client, server));
 		// Залп сервера: приветствие, цепочка, обмен ключами, конец приветствия
 		const view_t flight = server.output();
 		// Залп составлен
@@ -2450,11 +2450,11 @@ TEST(Tls12Test, HelloRequest){
 			// Клиент разобрал приветствие сервера изданием 1.2
 			ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303));
 			// Проводим рукопожатие до конца
-			converse(client, server);
+			__nts_converse__(client, server);
 			// Связь установлена: просьба не легла ни в переписку, ни в подпись владения
 			ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 			// Обмен прикладными данными сходится
-			ASSERT_TRUE(barter(client, server));
+			ASSERT_TRUE(__nts_barter__(client, server));
 		// Если просьба порченая
 		} else {
 			// Клиент обрывает связь отказом разбора
@@ -2469,7 +2469,7 @@ TEST(Tls12Test, HelloRequest){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Сервер ведёт лишь издание 1.2
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 		// Заводим сервер
@@ -2477,7 +2477,7 @@ TEST(Tls12Test, HelloRequest){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Передаём приветствие клиента серверу: издание 1.2 согласовано
-		ASSERT_TRUE(deliver(client, server));
+		ASSERT_TRUE(__nts_deliver__(client, server));
 		// Сервер согласовал издание 1.2
 		ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0303));
 		// Сервер просьбу не принимает: у него она не в свой черёд
@@ -2498,7 +2498,7 @@ TEST(Tls12Test, HelloRequest){
 		ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
 	}
 	/**
-	 * Выполняем три круга у клиента до приветствия сервера: клиент 1.2…1.3 просьбу пропускает и
+	 * Ведём три круга у клиента до приветствия сервера: клиент 1.2…1.3 просьбу пропускает и
 	 * связь доводит, клиент «только 1.3» отвергает её unexpected_message, порченая - decode_error
 	 */
 	for(size_t item = 0; item < 3; item++){
@@ -2507,7 +2507,7 @@ TEST(Tls12Test, HelloRequest){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Сервер ведёт лишь издание 1.2
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 		// На втором круге клиент ведёт лишь издание 1.3
@@ -2524,7 +2524,7 @@ TEST(Tls12Test, HelloRequest){
 		// Подаём просьбу клиенту прежде приветствия сервера: издание ещё не согласовано
 		const context::error_t outcome = client.push((item == 2) ? corrupted : request);
 		/**
-		 * Выполняем разбор исхода круга
+		 * Разбираем исхода круга
 		 */
 		switch(item){
 			// Раздел 7.4.1.1 RFC 5246: клиент, дозволяющий издание 1.2, просьбу по ходу рукопожатия пропускает
@@ -2534,11 +2534,11 @@ TEST(Tls12Test, HelloRequest){
 				// Связь не оборвана
 				ASSERT_EQ(client.state(), context::state_t::HANDSHAKE);
 				// Проводим рукопожатие до конца
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Связь установлена изданием 1.2: просьба не легла в переписку
 				ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 				// Обмен прикладными данными сходится
-				ASSERT_TRUE(barter(client, server));
+				ASSERT_TRUE(__nts_barter__(client, server));
 			} break;
 			// Раздел 4 RFC 8446: изданию 1.3 вид ноль неведом, и клиент «только 1.3» обрывается
 			case 1: {
@@ -2585,7 +2585,7 @@ TEST(Tls12Test, Renegotiation){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Свободный порт
@@ -2612,9 +2612,9 @@ TEST(Tls12Test, Renegotiation){
 	// Проверяем канал
 	ASSERT_GE(channelled, 0);
 	// Подключаемся к серверу openssl
-	const int fd = dial(number);
+	const int peer = dial(number);
 	// Проверяем подключение
-	ASSERT_GE(fd, 0) << "порт " << number;
+	ASSERT_GE(peer, 0) << "порт " << number;
 	// Связь стороны клиента
 	client::context_t client;
 	// Набор клиента
@@ -2626,11 +2626,11 @@ TEST(Tls12Test, Renegotiation){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
-	 * Выполняем передачу байтов до установления связи
+	 * Передаём байтов до установления связи
 	 */
 	for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 		// Передаём байты
-		relay(client, fd);
+		relay(client, peer);
 	// Связь установлена
 	ASSERT_TRUE(client.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (client.alert().description);
 	// Издание 1.2
@@ -2640,7 +2640,7 @@ TEST(Tls12Test, Renegotiation){
 	// Место принятых байтов
 	uint8_t buffer[16384];
 	// Принимаем просьбу о пересогласовании под защитой
-	const ssize_t received = receiving(fd, buffer, sizeof(buffer));
+	const ssize_t received = receiving(peer, buffer, sizeof(buffer));
 	// Просьба принята
 	ASSERT_GT(received, 0);
 	// Вид записи в обвязке открыт: это запись рукопожатия
@@ -2656,11 +2656,11 @@ TEST(Tls12Test, Renegotiation){
 	// Вид записи ответа открыт: это извещение
 	ASSERT_EQ(answer.data[0], 0x15);
 	// Отправляем ответ серверу openssl
-	ASSERT_EQ(sending(fd, answer.data, answer.size), static_cast <ssize_t> (answer.size));
+	ASSERT_EQ(sending(peer, answer.data, answer.size), static_cast <ssize_t> (answer.size));
 	// Снимаем ответ с накопителя
 	client.consume(answer.size);
 	// Принимаем ответ сервера openssl: отказ пересогласования он считает роковым
-	const ssize_t closed = receiving(fd, buffer, sizeof(buffer));
+	const ssize_t closed = receiving(peer, buffer, sizeof(buffer));
 	// Если ответ пришёл
 	if(closed > 0)
 		// Подаём ответ клиенту
@@ -2668,7 +2668,7 @@ TEST(Tls12Test, Renegotiation){
 	// Закрываем канал команд: сервер openssl на конце входа завершается
 	closing(channelled);
 	// Закрываем сокет
-	closing(fd);
+	closing(peer);
 	// Текст журнала сервера
 	std::string text;
 	// Сервер обязан завершиться
@@ -2696,7 +2696,7 @@ TEST(Tls12Test, Datagrams){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Перенос по уровням: издание 1.2 ему чуждо
 	{
 		// Связь стороны клиента
@@ -2769,11 +2769,11 @@ TEST(Tls12Test, Starved){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Наборы шифрования перебора: AES-GCM и ChaCha20-Poly1305 идут разными примитивами
 	static const protect::suite_t STARVING[] = {protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384, protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256};
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборов шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(STARVING) / sizeof(STARVING[0])); s++){
 		// Признак того, что нехватка памяти встретилась
@@ -2781,7 +2781,7 @@ TEST(Tls12Test, Starved){
 		// Признак того, что связь на щедром запасе установилась
 		bool complete = false;
 		/**
-		 * Выполняем перебор запасов выделений
+		 * Перебираем запасов выделений
 		 */
 		for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 			// Связь стороны клиента
@@ -2789,7 +2789,7 @@ TEST(Tls12Test, Starved){
 			// Связь стороны сервера
 			server::context_t server;
 			// Настраиваем стороны с подлинностью клиента
-			arrange(client, server, STARVING[s], extension::group_t::SECP256R1, credential, true);
+			__nts_arrange__(client, server, STARVING[s], extension::group_t::SECP256R1, credential, true);
 			// Клиент ведёт лишь издание 1.2
 			client.versions(0x0303, 0x0303);
 			// Ошибки сторон
@@ -2804,7 +2804,7 @@ TEST(Tls12Test, Starved){
 				// Если стороны заведены
 				if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 					// Проводим рукопожатие
-					converse(client, server);
+					__nts_converse__(client, server);
 					// Ошибки сторон после рукопожатия
 					first = server.error();
 					// Ошибка клиента
@@ -2842,9 +2842,9 @@ TEST(Tls12Test, Versioned){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор наборов AES-GCM и ChaCha20-Poly1305
+	 * Перебираем наборов AES-GCM и ChaCha20-Poly1305
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Набор шифрования круга
@@ -2855,7 +2855,7 @@ TEST(Tls12Test, Versioned){
 			// Связь стороны сервера
 			server::context_t server;
 			// Настраиваем стороны
-			arrange(client, server, suite, extension::group_t::SECP256R1, credential, false);
+			__nts_arrange__(client, server, suite, extension::group_t::SECP256R1, credential, false);
 			// Клиент ведёт лишь издание 1.2
 			ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 			// Заводим сервер
@@ -2863,7 +2863,7 @@ TEST(Tls12Test, Versioned){
 			// Заводим клиента
 			ASSERT_EQ(client.start(), context::error_t::NONE);
 			// Проводим рукопожатие
-			converse(client, server);
+			__nts_converse__(client, server);
 			// Связь установлена
 			ASSERT_TRUE(client.established() && server.established());
 			// Прикладные данные
@@ -2891,7 +2891,7 @@ TEST(Tls12Test, Versioned){
 			// Связь стороны сервера
 			server::context_t server;
 			// Настраиваем стороны
-			arrange(client, server, suite, extension::group_t::SECP256R1, credential, false);
+			__nts_arrange__(client, server, suite, extension::group_t::SECP256R1, credential, false);
 			// Клиент ведёт лишь издание 1.2
 			ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 			// Заводим сервер
@@ -2899,7 +2899,7 @@ TEST(Tls12Test, Versioned){
 			// Заводим клиента
 			ASSERT_EQ(client.start(), context::error_t::NONE);
 			// Проводим рукопожатие
-			converse(client, server);
+			__nts_converse__(client, server);
 			// Связь установлена
 			ASSERT_TRUE(client.established() && server.established());
 			// Прикладные данные
@@ -2927,7 +2927,7 @@ TEST(Tls12Test, Versioned){
 			// Связь стороны сервера
 			server::context_t server;
 			// Настраиваем стороны
-			arrange(client, server, suite, extension::group_t::SECP256R1, credential, false);
+			__nts_arrange__(client, server, suite, extension::group_t::SECP256R1, credential, false);
 			// Сервер ведёт лишь издание 1.2
 			ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 			// Заводим сервер
@@ -2937,7 +2937,7 @@ TEST(Tls12Test, Versioned){
 			// Записи залпа сервера
 			vector <vector <uint8_t>> pieces;
 			// Получаем залп сервера
-			ASSERT_TRUE(volley(client, server, pieces));
+			ASSERT_TRUE(__nts_volley__(client, server, pieces));
 			// В залпе приветствие, цепочка, обмен ключами и конец приветствия
 			ASSERT_EQ(pieces.size(), static_cast <size_t> (4));
 			// Подменяем издание заголовка цепочки сертификатов на TLS 1.1: приветствие сервера уже прошло
@@ -2945,7 +2945,7 @@ TEST(Tls12Test, Versioned){
 			// Поток залпа
 			vector <uint8_t> wire;
 			// Собираем поток
-			join(pieces, wire);
+			__nts_join__(pieces, wire);
 			// Клиент отвергает запись несовпадением издания заголовка
 			ASSERT_EQ(client.push(view_t(wire.data(), wire.size())), context::error_t::VERSION) << item;
 			// Извещение protocol_version
@@ -2977,7 +2977,7 @@ TEST(Tls12Test, Versioned){
 			// Содержимое защищённой записи
 			const view_t payload(sealed.data() + record::RECORD_HEADER, header.size);
 			/**
-			 * Выполняем три круга снятия защиты: заголовок как есть, с подменённым изданием,
+			 * Ведём три круга снятия защиты: заголовок как есть, с подменённым изданием,
 			 * с подменённым видом; всякий круг свежей защитой, ибо порядковый номер один
 			 */
 			for(size_t round = 0; round < 3; round++){
@@ -3024,13 +3024,13 @@ TEST(Tls12Test, Divergent){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Сервер ведёт лишь издание 1.2
 	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 	// Заводим сервер
@@ -3040,7 +3040,7 @@ TEST(Tls12Test, Divergent){
 	// Записи залпа сервера
 	vector <vector <uint8_t>> pieces;
 	// Получаем залп сервера
-	ASSERT_TRUE(volley(client, server, pieces));
+	ASSERT_TRUE(__nts_volley__(client, server, pieces));
 	// В залпе четыре записи
 	ASSERT_EQ(pieces.size(), static_cast <size_t> (4));
 	// Приветствие сервера: заголовок записи, обвязка, издание, случайное значение, пустой опознаватель
@@ -3050,17 +3050,17 @@ TEST(Tls12Test, Divergent){
 	// Длина опознавателя
 	pieces[0][5 + 4 + 2 + 32] = 0x01;
 	// Правим длины записи и сообщения
-	lengthen(pieces[0], 1);
+	__nts_lengthen__(pieces[0], 1);
 	// Поток залпа
 	vector <uint8_t> wire;
 	// Собираем поток
-	join(pieces, wire);
+	__nts_join__(pieces, wire);
 	// Клиент принимает подменённый залп и отвечает обменом ключами, сменой набора и завершением
 	ASSERT_EQ(client.push(view_t(wire.data(), wire.size())), context::error_t::NONE);
 	// Клиент связь не рвал
 	ASSERT_EQ(client.state(), context::state_t::HANDSHAKE);
 	// Передаём ответ клиента серверу
-	ASSERT_TRUE(deliver(client, server));
+	ASSERT_TRUE(__nts_deliver__(client, server));
 	// Ключи клиента выведены от иного хеша переписки: завершение у сервера не снимается
 	ASSERT_EQ(server.error(), context::error_t::PROTECTION);
 	// Извещение bad_record_mac
@@ -3068,7 +3068,7 @@ TEST(Tls12Test, Divergent){
 	// Связь оборвана
 	ASSERT_EQ(server.state(), context::state_t::FAILED);
 	// Извещение дошло до клиента
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Клиент оборван извещением собеседника
 	ASSERT_EQ(client.error(), context::error_t::ALERT);
 	// Связь не установлена ни одной стороной
@@ -3084,9 +3084,9 @@ TEST(Tls12Test, Nonce){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор наборов AES-GCM и ChaCha20-Poly1305
+	 * Перебираем наборов AES-GCM и ChaCha20-Poly1305
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -3094,7 +3094,7 @@ TEST(Tls12Test, Nonce){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, ((item == 0) ? protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384 : protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256), extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, ((item == 0) ? protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384 : protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256), extension::group_t::X25519, credential, false);
 		// Клиент ведёт лишь издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		// Заводим сервер
@@ -3102,7 +3102,7 @@ TEST(Tls12Test, Nonce){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Первая запись прикладных данных клиента
@@ -3110,7 +3110,7 @@ TEST(Tls12Test, Nonce){
 		// Явная часть предыдущей записи
 		uint64_t previous = 0;
 		/**
-		 * Выполняем отправку четырёх записей подряд
+		 * Отправляем четырёх записей подряд
 		 */
 		for(size_t i = 0; i < 4; i++){
 			// Порядковый номер записи до отправки
@@ -3132,7 +3132,7 @@ TEST(Tls12Test, Nonce){
 				// Явная часть одноразового значения
 				uint64_t nonce = 0;
 				/**
-				 * Выполняем чтение явной части от старшего байта к младшему
+				 * Читаем явной части от старшего байта к младшему
 				 */
 				for(size_t j = 0; j < 8; j++)
 					// Добавляем очередной байт
@@ -3179,7 +3179,7 @@ TEST(Tls12Test, Exhausted){
 	// Пределы наборов AES-GCM издания 1.2: раздел 5.5 RFC 8446 обосновывает 2^24.5
 	static const protect::suite_t GCM[] = {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384, protect::suite_t::ECDHE_RSA_AES_128_GCM_SHA256, protect::suite_t::ECDHE_RSA_AES_256_GCM_SHA384};
 	/**
-	 * Выполняем перебор наборов AES-GCM
+	 * Перебираем наборов AES-GCM
 	 */
 	for(size_t i = 0; i < (sizeof(GCM) / sizeof(GCM[0])); i++)
 		// Предел набора равен 2^24.5 записей
@@ -3189,9 +3189,9 @@ TEST(Tls12Test, Exhausted){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем два круга: порог ручки в самодеятельном порядке и в ручном
+	 * Ведём два круга: порог ручки в самодеятельном порядке и в ручном
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -3199,7 +3199,7 @@ TEST(Tls12Test, Exhausted){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Клиент ведёт лишь издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		// Порог в три записи: самодеятельный порядок на первом круге, ручной - на втором
@@ -3209,7 +3209,7 @@ TEST(Tls12Test, Exhausted){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Счётчик записей клиента: одно завершение рукопожатия
@@ -3217,7 +3217,7 @@ TEST(Tls12Test, Exhausted){
 		// Прикладные данные
 		const string request = "Запись до порога";
 		/**
-		 * Выполняем отправку записей до порога: вторая и третья проходят
+		 * Отправляем записей до порога: вторая и третья проходят
 		 */
 		for(size_t i = 0; i < 2; i++)
 			// Пишем очередную запись до порога исчерпания
@@ -3225,7 +3225,7 @@ TEST(Tls12Test, Exhausted){
 		// Счётчик дошёл до порога
 		ASSERT_EQ(client.sequence(), static_cast <uint64_t> (3));
 		// Передаём записи серверу
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Сервер принял записи без отказа
 		ASSERT_EQ(server.error(), context::error_t::NONE);
 		// Если порядок самодеятельный: четвёртая запись за порогом
@@ -3241,7 +3241,7 @@ TEST(Tls12Test, Exhausted){
 			// Запись извещения
 			ASSERT_EQ(closed.data[0], 0x15);
 			// Передаём закрытие серверу
-			converse(client, server);
+			__nts_converse__(client, server);
 			// Сервер принял close_notify и ответил своим
 			ASSERT_EQ(server.state(), context::state_t::CLOSED);
 			// Отказа у сервера нет
@@ -3251,7 +3251,7 @@ TEST(Tls12Test, Exhausted){
 		// Если порядок ручной: порог ручки не действует, остаётся предел набора
 		} else {
 			/**
-			 * Выполняем отправку записей за порогом ручки
+			 * Отправляем записей за порогом ручки
 			 */
 			for(size_t i = 0; i < 3; i++)
 				// Отправка проходит
@@ -3259,7 +3259,7 @@ TEST(Tls12Test, Exhausted){
 			// Связь по-прежнему установлена
 			ASSERT_TRUE(client.established());
 			// Передаём записи серверу
-			converse(client, server);
+			__nts_converse__(client, server);
 			// Принятые сервером данные
 			vector <uint8_t> received;
 			// Снимаем принятое, чтобы обмен ниже сличал лишь своё
@@ -3267,7 +3267,7 @@ TEST(Tls12Test, Exhausted){
 			// Пять записей по одному запросу
 			ASSERT_EQ(received.size(), request.size() * 5);
 			// Обмен данными сходится
-			ASSERT_TRUE(barter(client, server));
+			ASSERT_TRUE(__nts_barter__(client, server));
 		}
 	}
 }
@@ -3281,9 +3281,9 @@ TEST(Tls12Test, Oversize){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем два круга: на пределе и за пределом
+	 * Ведём два круга: на пределе и за пределом
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -3291,7 +3291,7 @@ TEST(Tls12Test, Oversize){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Клиент ведёт лишь издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		// Заводим сервер
@@ -3299,7 +3299,7 @@ TEST(Tls12Test, Oversize){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Длина содержимого записи: предел либо предел плюс один
@@ -3340,9 +3340,9 @@ TEST(Tls12Test, Forged){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор подделок залпа сервера у клиента
+	 * Перебираем подделок залпа сервера у клиента
 	 */
 	for(size_t item = 0; item < 5; item++){
 		// Связь стороны клиента
@@ -3350,7 +3350,7 @@ TEST(Tls12Test, Forged){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false);
 		// Схема подписи клиента одна: сервер подпишет ею
 		client.schemes(vector <extension::scheme_t> {extension::scheme_t::ECDSA_SECP256R1_SHA256});
 		// Сервер ведёт лишь издание 1.2
@@ -3362,7 +3362,7 @@ TEST(Tls12Test, Forged){
 		// Записи залпа сервера
 		vector <vector <uint8_t>> pieces;
 		// Получаем залп сервера
-		ASSERT_TRUE(volley(client, server, pieces));
+		ASSERT_TRUE(__nts_volley__(client, server, pieces));
 		// В залпе приветствие, цепочка, обмен ключами и конец приветствия
 		ASSERT_EQ(pieces.size(), static_cast <size_t> (4));
 		// Ожидаемый отказ
@@ -3370,7 +3370,7 @@ TEST(Tls12Test, Forged){
 		// Ожидаемое извещение
 		alert::description_t description = alert::description_t::INTERNAL;
 		/**
-		 * Выполняем подделку залпа
+		 * Подделываем залпа
 		 */
 		switch(item){
 			// Сжатая точка в ServerKeyExchange: раздел 5.4 RFC 8422
@@ -3408,7 +3408,7 @@ TEST(Tls12Test, Forged){
 				// Запись состояния
 				vector <uint8_t> record;
 				// Составляем запись
-				ASSERT_TRUE(framed(handshake::type_t::STATUS, view_t(status, sizeof(status)), record));
+				ASSERT_TRUE(__nts_framed__(handshake::type_t::STATUS, view_t(status, sizeof(status)), record));
 				// Вклиниваем состояние за цепочкой
 				pieces.insert(pieces.begin() + 2, record);
 				// Отказ сообщения не в свой черёд
@@ -3425,7 +3425,7 @@ TEST(Tls12Test, Forged){
 				// Длина опознавателя
 				pieces[0][5 + 4 + 2 + 32] = 33;
 				// Правим длины
-				lengthen(pieces[0], 33);
+				__nts_lengthen__(pieces[0], 33);
 				// Отказ разбора
 				error = context::error_t::MESSAGE;
 				// Извещение decode_error
@@ -3450,16 +3450,16 @@ TEST(Tls12Test, Forged){
 		// Поток залпа
 		vector <uint8_t> wire;
 		// Собираем поток
-		join(pieces, wire);
+		__nts_join__(pieces, wire);
 		// Клиент отвергает подделанный залп
 		ASSERT_EQ(client.push(view_t(wire.data(), wire.size())), error) << item;
-		// Извещение
+		// Проверяем извещение клиента
 		ASSERT_EQ(client.alert().description, description) << item;
 		// Связь оборвана
 		ASSERT_EQ(client.state(), context::state_t::FAILED) << item;
 	}
 	/**
-	 * Выполняем перебор подделок у сервера
+	 * Перебираем подделок у сервера
 	 */
 	for(size_t item = 0; item < 4; item++){
 		// Связь стороны клиента
@@ -3467,7 +3467,7 @@ TEST(Tls12Test, Forged){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны без подлинности клиента
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false);
 		// Сервер ведёт лишь издание 1.2
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 		// На круге подписи владения сервер запрашивает подлинность, а у клиента её нет
@@ -3483,13 +3483,13 @@ TEST(Tls12Test, Forged){
 		// Подаваемый серверу поток
 		vector <uint8_t> wire;
 		/**
-		 * Выполняем подделку
+		 * Подделываем
 		 */
 		switch(item){
 			// Смена набора шифрования сразу за приветствием клиента: раздел 7.1 RFC 5246
 			case 0: {
 				// Передаём приветствие клиента
-				ASSERT_TRUE(deliver(client, server));
+				ASSERT_TRUE(__nts_deliver__(client, server));
 				// Запись смены набора шифрования
 				wire = {0x14, 0x03, 0x03, 0x00, 0x01, 0x01};
 				// Отказ записи
@@ -3500,11 +3500,11 @@ TEST(Tls12Test, Forged){
 			// CertificateVerify за пустой цепочкой клиента: раздел 7.4.8 RFC 5246
 			case 1: {
 				// Передаём приветствия и залп сервера
-				ASSERT_TRUE(pump(client, server));
+				ASSERT_TRUE(__nts_pump__(client, server));
 				// Записи ответа клиента
 				vector <vector <uint8_t>> pieces;
 				// Нарезаем ответ клиента: пустая цепочка, обмен ключами, смена набора, завершение
-				ASSERT_TRUE(slice(client.output(), pieces));
+				ASSERT_TRUE(__nts_slice__(client.output(), pieces));
 				// Четыре записи
 				ASSERT_EQ(pieces.size(), static_cast <size_t> (4));
 				// Тело подписи владения: схема и подпись из одного байта
@@ -3512,11 +3512,11 @@ TEST(Tls12Test, Forged){
 				// Запись подписи владения
 				vector <uint8_t> record;
 				// Составляем запись
-				ASSERT_TRUE(framed(handshake::type_t::VERIFY, view_t(verify, sizeof(verify)), record));
+				ASSERT_TRUE(__nts_framed__(handshake::type_t::VERIFY, view_t(verify, sizeof(verify)), record));
 				// Вклиниваем подпись владения за обменом ключами
 				pieces.insert(pieces.begin() + 2, record);
 				// Собираем поток
-				join(pieces, wire);
+				__nts_join__(pieces, wire);
 				// Отказ сообщения не в свой черёд
 				error = context::error_t::ORDER;
 				// Извещение unexpected_message
@@ -3525,11 +3525,11 @@ TEST(Tls12Test, Forged){
 			// Сжатая точка в ClientKeyExchange: раздел 5.7 RFC 8422
 			case 2: {
 				// Передаём приветствия и залп сервера
-				ASSERT_TRUE(pump(client, server));
+				ASSERT_TRUE(__nts_pump__(client, server));
 				// Записи ответа клиента
 				vector <vector <uint8_t>> pieces;
 				// Нарезаем ответ клиента: обмен ключами, смена набора, завершение
-				ASSERT_TRUE(slice(client.output(), pieces));
+				ASSERT_TRUE(__nts_slice__(client.output(), pieces));
 				// Три записи
 				ASSERT_EQ(pieces.size(), static_cast <size_t> (3));
 				// Обмен ключами: заголовок записи, обвязка, длина точки, точка несжатая
@@ -3537,7 +3537,7 @@ TEST(Tls12Test, Forged){
 				// Подменяем запись точки на сжатую
 				pieces[0][5 + 4 + 1] = 0x02;
 				// Собираем поток
-				join(pieces, wire);
+				__nts_join__(pieces, wire);
 				// Отказ обмена ключами
 				error = context::error_t::EXCHANGE;
 				// Извещение illegal_parameter
@@ -3546,7 +3546,7 @@ TEST(Tls12Test, Forged){
 			// Непустое renegotiation_info в приветствии клиента: раздел 3.6 RFC 5746
 			case 3: {
 				// Составляем приветствие чужого клиента с непустым расширением
-				ASSERT_TRUE(greeting(true, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, wire, true, extension::group_t::SECP256R1));
+				ASSERT_TRUE(__nts_greeting__(true, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, wire, true, extension::group_t::SECP256R1));
 				// Отказ разбора
 				error = context::error_t::MESSAGE;
 				// Извещение handshake_failure
@@ -3555,7 +3555,7 @@ TEST(Tls12Test, Forged){
 		}
 		// Сервер отвергает подделку
 		ASSERT_EQ(server.push(view_t(wire.data(), wire.size())), error) << item;
-		// Извещение
+		// Проверяем извещение сервера
 		ASSERT_EQ(server.alert().description, description) << item;
 		// Связь оборвана
 		ASSERT_EQ(server.state(), context::state_t::FAILED) << item;
@@ -3573,11 +3573,11 @@ TEST(Tls12Test, Counterfeit){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Набор шифрования круга
 	const protect::suite_t suite = protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256;
 	/**
-	 * Выполняем два круга: завершение верное и завершение порченое
+	 * Ведём два круга: завершение верное и завершение порченое
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны сервера
@@ -3595,7 +3595,7 @@ TEST(Tls12Test, Counterfeit){
 		// Запись приветствия поддельного клиента: случайное значение в нём - байты 0…31
 		vector <uint8_t> hello;
 		// Составляем приветствие с расширенным главным секретом по группе X25519
-		ASSERT_TRUE(greeting(true, suite, hello, false, extension::group_t::X25519));
+		ASSERT_TRUE(__nts_greeting__(true, suite, hello, false, extension::group_t::X25519));
 		// Переписка рукопожатия: сообщения без заголовков записей
 		vector <uint8_t> transcript(hello.begin() + record::RECORD_HEADER, hello.end());
 		// Случайное значение клиента: переносится, ибо переписка растёт и переезжает в памяти
@@ -3607,13 +3607,13 @@ TEST(Tls12Test, Counterfeit){
 		// Записи залпа
 		vector <vector <uint8_t>> pieces;
 		// Нарезаем залп
-		ASSERT_TRUE(slice(flight, pieces));
+		ASSERT_TRUE(__nts_slice__(flight, pieces));
 		// Снимаем залп
 		server.consume(flight.size);
 		// В залпе приветствие, цепочка, обмен ключами и конец приветствия
 		ASSERT_EQ(pieces.size(), static_cast <size_t> (4));
 		/**
-		 * Выполняем перенос сообщений залпа в переписку
+		 * Переносим сообщений залпа в переписку
 		 */
 		for(size_t i = 0; i < pieces.size(); i++)
 			// Добавляем сообщение без заголовка записи
@@ -3647,7 +3647,7 @@ TEST(Tls12Test, Counterfeit){
 		// Запись обмена ключами клиента
 		vector <uint8_t> exchange;
 		// Составляем запись
-		ASSERT_TRUE(framed(handshake::type_t::PREMASTER, view_t(body.data(), body.size()), exchange));
+		ASSERT_TRUE(__nts_framed__(handshake::type_t::PREMASTER, view_t(body.data(), body.size()), exchange));
 		// Добавляем обмен ключами в переписку
 		transcript.insert(transcript.end(), exchange.begin() + record::RECORD_HEADER, exchange.end());
 		// Хеш переписки по обмен ключами клиента включительно
@@ -3677,17 +3677,17 @@ TEST(Tls12Test, Counterfeit){
 		// Вычисляем хеш переписки
 		ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, view_t(transcript.data(), transcript.size()), digested, sizeof(digested)));
 		// Завершение рукопожатия
-		uint8_t completion[12];
+		uint8_t __nts_completion__[12];
 		// Раздел 7.4.9 RFC 5246: двенадцать байтов от главного секрета меткой стороны
-		ASSERT_TRUE(digest::prf(digest::hash_t::SHA256, view_t(master, sizeof(master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(digested, sizeof(digested)), completion, sizeof(completion)));
+		ASSERT_TRUE(digest::prf(digest::hash_t::SHA256, view_t(master, sizeof(master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(digested, sizeof(digested)), __nts_completion__, sizeof(__nts_completion__)));
 		// На втором круге портим завершение
 		if(item == 1)
 			// Меняем один разряд
-			completion[0] = static_cast <uint8_t> (completion[0] ^ 0x01);
+			__nts_completion__[0] = static_cast <uint8_t> (__nts_completion__[0] ^ 0x01);
 		// Составитель сообщения завершения
 		handshake::writer_t writer;
 		// Составляем сообщение завершения
-		ASSERT_EQ(writer.push(handshake::type_t::FINISHED, view_t(completion, sizeof(completion))), handshake::error_t::NONE);
+		ASSERT_EQ(writer.push(handshake::type_t::FINISHED, view_t(__nts_completion__, sizeof(__nts_completion__))), handshake::error_t::NONE);
 		// Защита записей поддельного клиента: ключ клиента идёт первым, соль клиента - третьей
 		protect::protection_t sealing;
 		// Устанавливаем ключевой материал клиента
@@ -3736,19 +3736,19 @@ TEST(Tls12Test, VectorServer){
 	// Число проверенных векторов
 	size_t verified = 0;
 	/**
-	 * Выполняем перебор изданий openssl
+	 * Перебираем изданий openssl
 	 */
 	for(size_t e = 0; e < (sizeof(EDITIONS) / sizeof(EDITIONS[0])); e++){
 		/**
-		 * Выполняем перебор сценариев
+		 * Перебираем сценариев
 		 */
 		for(size_t s = 0; s < (sizeof(SCENARIOS) / sizeof(SCENARIOS[0])); s++){
 			// Путь к каталогу вектора
-			const std::string path = place(EDITIONS[e], SCENARIOS[s].name);
+			const std::string path = __nts_place__(EDITIONS[e], SCENARIOS[s].name);
 			// Если каталога вектора нет
-			if(!exists(path)){
+			if(!__nts_exists__(path)){
 				// Отсутствие вектора допустимо лишь там, где openssl ключа не имел
-				ASSERT_TRUE(omitted(EDITIONS[e], SCENARIOS[s])) << "вектор не снят: " << path;
+				ASSERT_TRUE(__nts_omitted__(EDITIONS[e], SCENARIOS[s])) << "вектор не снят: " << path;
 				// Сообщаем о пропуске явно
 				std::cout << "OpenSSL " << EDITIONS[e] << " без -no_ems: вектор " << SCENARIOS[s].name << " не снят, пропуск" << std::endl;
 				// Переходим к следующему сценарию
@@ -3757,7 +3757,7 @@ TEST(Tls12Test, VectorServer){
 			// Сведения о векторе из описания
 			brief_t brief;
 			// Описание обязано разобраться
-			ASSERT_TRUE(describe(path, brief)) << path;
+			ASSERT_TRUE(__nts_describe__(path, brief)) << path;
 			// Набор описания обязан совпасть с ожидаемым сценарием
 			ASSERT_EQ(brief.suite, SCENARIOS[s].suite) << path;
 			// Признак расширенного главного секрета описания обязан совпасть со сценарием
@@ -3765,9 +3765,9 @@ TEST(Tls12Test, VectorServer){
 			// Поток клиента по проводу
 			stream_t stream;
 			// Поток обязан разобраться: непустой файл ещё не рукопожатие
-			ASSERT_TRUE(unwind(slurp(path + "/handshake-c2s.bin"), stream, true)) << path;
+			ASSERT_TRUE(__nts_unwind__(slurp(path + "/handshake-c2s.bin"), stream, true)) << path;
 			// Первое сообщение клиента обязано быть ClientHello
-			ASSERT_EQ(kind(stream.messages[0]), handshake::type_t::CLIENT) << path;
+			ASSERT_EQ(__nts_kind__(stream.messages[0]), handshake::type_t::CLIENT) << path;
 			// Нарезанный ClientHello обязан совпасть с сообщением на проводе
 			ASSERT_EQ(slurp(path + "/client-clienthello.bin"), stream.messages[0]) << path;
 			// Поток по проводу целиком
@@ -3783,15 +3783,15 @@ TEST(Tls12Test, VectorServer){
 			// Приветствие настоящего сервера
 			hello::server_t theirs;
 			// Приветствие настоящего сервера обязано разобраться
-			ASSERT_EQ(hello::parse(inner(expected), theirs), hello::error_t::NONE) << path;
+			ASSERT_EQ(hello::parse(__nts_inner__(expected), theirs), hello::error_t::NONE) << path;
 			// Настоящий сервер обязан был выбрать набор описания
 			ASSERT_EQ(theirs.suite, SCENARIOS[s].suite) << path;
 			// Подлинность нашего сервера тем же сертификатом
 			context::credential_t credential;
 			// Подлинность обязана составиться
-			ASSERT_TRUE(identity(brief.key.c_str(), credential)) << path;
+			ASSERT_TRUE(__nts_identity__(brief.key.c_str(), credential)) << path;
 			/**
-			 * Выполняем перебор пределов изданий: только 1.2 и 1.2…1.3
+			 * Перебираем пределов изданий: только 1.2 и 1.2…1.3
 			 */
 			for(size_t v = 0; v < 2; v++){
 				// Наш сервер
@@ -3850,17 +3850,17 @@ TEST(Tls12Test, VectorServer){
 				// Записи ответа нашего сервера
 				vector <vector <uint8_t>> records;
 				// Ответ обязан нарезаться на записи
-				ASSERT_TRUE(slice(server.output(), records)) << path;
+				ASSERT_TRUE(__nts_slice__(server.output(), records)) << path;
 				// Ответ нашего сервера как поток
 				vector <uint8_t> flight;
 				// Собираем ответ
-				join(records, flight);
+				__nts_join__(records, flight);
 				// Сборщик сообщений ответа
 				handshake::reader_t reader;
 				// Сообщения ответа
 				vector <vector <uint8_t>> messages;
 				/**
-				 * Выполняем перебор записей ответа
+				 * Перебираем записей ответа
 				 */
 				for(size_t r = 0; r < records.size(); r++){
 					// Всякая запись ответа обязана быть рукопожатием издания 1.2
@@ -3875,7 +3875,7 @@ TEST(Tls12Test, VectorServer){
 				// Тело сообщения
 				view_t body;
 				/**
-				 * Выполняем перебор сообщений ответа
+				 * Перебираем сообщений ответа
 				 */
 				while(reader.next(head, body) == handshake::error_t::NONE){
 					// Сообщение целиком
@@ -3890,11 +3890,11 @@ TEST(Tls12Test, VectorServer){
 				// Ответ обязан начинаться с ServerHello
 				ASSERT_FALSE(messages.empty()) << path;
 				// Первое сообщение обязано быть ServerHello
-				ASSERT_EQ(kind(messages[0]), handshake::type_t::SERVER) << path;
+				ASSERT_EQ(__nts_kind__(messages[0]), handshake::type_t::SERVER) << path;
 				// Наше приветствие сервера
 				hello::server_t ours;
 				// Наше приветствие обязано разобраться
-				ASSERT_EQ(hello::parse(inner(messages[0]), ours), hello::error_t::NONE) << path;
+				ASSERT_EQ(hello::parse(__nts_inner__(messages[0]), ours), hello::error_t::NONE) << path;
 				// Издание приветствия обязано быть 1.2
 				ASSERT_EQ(ours.version, static_cast <uint16_t> (0x0303)) << path;
 				// Набор обязан совпасть с выбором настоящего openssl
@@ -3916,13 +3916,13 @@ TEST(Tls12Test, VectorServer){
 				// Разобранный обмен ключами
 				exchange_t exchanged;
 				// Обмен ключами обязан разобраться
-				ASSERT_TRUE(dissect(inner(*agreement), exchanged)) << path;
+				ASSERT_TRUE(__nts_dissect__(__nts_inner__(*agreement), exchanged)) << path;
 				// Группа обязана совпасть с выбором настоящего openssl по описанию
 				ASSERT_EQ(exchanged.group, brief.group) << path << " группа " << naming(exchanged.group);
 				// Запрос сертификата обязан быть ровно при взаимной подлинности
 				ASSERT_EQ(seek(messages, handshake::type_t::REQUEST) != nullptr, SCENARIOS[s].mutual) << path;
 				// Конец приветствия обязан быть
-				ASSERT_EQ(kind(messages.back()), handshake::type_t::DONE) << path;
+				ASSERT_EQ(__nts_kind__(messages.back()), handshake::type_t::DONE) << path;
 				// Учитываем проверенный вектор
 				verified++;
 			}
@@ -3945,19 +3945,19 @@ TEST(Tls12Test, VectorClient){
 	// Число проверенных подписей владения ключом клиента
 	size_t attestations = 0;
 	/**
-	 * Выполняем перебор изданий openssl
+	 * Перебираем изданий openssl
 	 */
 	for(size_t e = 0; e < (sizeof(EDITIONS) / sizeof(EDITIONS[0])); e++){
 		/**
-		 * Выполняем перебор сценариев
+		 * Перебираем сценариев
 		 */
 		for(size_t s = 0; s < (sizeof(SCENARIOS) / sizeof(SCENARIOS[0])); s++){
 			// Путь к каталогу вектора
-			const std::string path = place(EDITIONS[e], SCENARIOS[s].name);
+			const std::string path = __nts_place__(EDITIONS[e], SCENARIOS[s].name);
 			// Если каталога вектора нет
-			if(!exists(path)){
+			if(!__nts_exists__(path)){
 				// Отсутствие вектора допустимо лишь там, где openssl ключа не имел
-				ASSERT_TRUE(omitted(EDITIONS[e], SCENARIOS[s])) << "вектор не снят: " << path;
+				ASSERT_TRUE(__nts_omitted__(EDITIONS[e], SCENARIOS[s])) << "вектор не снят: " << path;
 				// Сообщаем о пропуске явно
 				std::cout << "OpenSSL " << EDITIONS[e] << " без -no_ems: вектор " << SCENARIOS[s].name << " не снят, пропуск" << std::endl;
 				// Переходим к следующему сценарию
@@ -3966,15 +3966,15 @@ TEST(Tls12Test, VectorClient){
 			// Сведения о векторе из описания
 			brief_t brief;
 			// Описание обязано разобраться
-			ASSERT_TRUE(describe(path, brief)) << path;
+			ASSERT_TRUE(__nts_describe__(path, brief)) << path;
 			// Набор описания обязан совпасть с ожидаемым сценарием
 			ASSERT_EQ(brief.suite, SCENARIOS[s].suite) << path;
 			// Потоки сторон по проводу
 			stream_t c2s, s2c;
 			// Поток клиента обязан разобраться
-			ASSERT_TRUE(unwind(slurp(path + "/handshake-c2s.bin"), c2s, true)) << path;
+			ASSERT_TRUE(__nts_unwind__(slurp(path + "/handshake-c2s.bin"), c2s, true)) << path;
 			// Поток сервера обязан разобраться
-			ASSERT_TRUE(unwind(slurp(path + "/handshake-s2c.bin"), s2c, true)) << path;
+			ASSERT_TRUE(__nts_unwind__(slurp(path + "/handshake-s2c.bin"), s2c, true)) << path;
 			// Нарезанные сообщения обязаны совпасть с сообщениями на проводе
 			ASSERT_EQ(slurp(path + "/client-clienthello.bin"), c2s.messages[0]) << path;
 			// Приветствие сервера обязано быть первым в потоке сервера
@@ -3990,7 +3990,7 @@ TEST(Tls12Test, VectorClient){
 			// Приветствие клиента
 			hello::client_t client;
 			// Приветствие клиента обязано разобраться
-			ASSERT_EQ(hello::parse(inner(c2s.messages[0]), client), hello::error_t::NONE) << path;
+			ASSERT_EQ(hello::parse(__nts_inner__(c2s.messages[0]), client), hello::error_t::NONE) << path;
 			// Клиент обязан был предложить набор сценария
 			ASSERT_NE(std::find(client.suites.begin(), client.suites.end(), SCENARIOS[s].suite), client.suites.end()) << path;
 			// Клиент обязан был предложить расширенный главный секрет ровно по сценарию
@@ -3998,7 +3998,7 @@ TEST(Tls12Test, VectorClient){
 			// Приветствие сервера
 			hello::server_t server;
 			// Приветствие сервера обязано разобраться
-			ASSERT_EQ(hello::parse(inner(s2c.messages[0]), server), hello::error_t::NONE) << path;
+			ASSERT_EQ(hello::parse(__nts_inner__(s2c.messages[0]), server), hello::error_t::NONE) << path;
 			// Издание обязано быть 0x0303
 			ASSERT_EQ(server.version, static_cast <uint16_t> (0x0303)) << path;
 			// Набор обязан быть набором описания
@@ -4014,13 +4014,13 @@ TEST(Tls12Test, VectorClient){
 			// На первом рукопожатии признак пуст: один байт нулевой длины
 			ASSERT_TRUE((renegotiation->data.size == 1) && (renegotiation->data.data[0] == 0)) << path;
 			// Сертификат сервера из сообщения
-			const view_t der = leaf(inner(*seek(s2c.messages, handshake::type_t::CERTIFICATE)));
+			const view_t der = __nts_leaf__(__nts_inner__(*seek(s2c.messages, handshake::type_t::CERTIFICATE)));
 			// Сертификат обязан быть
 			ASSERT_NE(der.data, nullptr) << path;
 			// Подлинность из набора
 			context::credential_t credential;
 			// Подлинность обязана составиться
-			ASSERT_TRUE(identity(brief.key.c_str(), credential)) << path;
+			ASSERT_TRUE(__nts_identity__(brief.key.c_str(), credential)) << path;
 			// Сертификат обязан совпасть с сертификатом набора байт в байт
 			ASSERT_EQ(vector <uint8_t> (der.data, der.data + der.size), credential.chain[0]) << path;
 			// Разобранный сертификат
@@ -4030,7 +4030,7 @@ TEST(Tls12Test, VectorClient){
 			// Разобранный обмен ключами
 			exchange_t exchanged;
 			// Обмен ключами обязан разобраться
-			ASSERT_TRUE(dissect(inner(*seek(s2c.messages, handshake::type_t::AGREEMENT)), exchanged)) << path;
+			ASSERT_TRUE(__nts_dissect__(__nts_inner__(*seek(s2c.messages, handshake::type_t::AGREEMENT)), exchanged)) << path;
 			// Группа обязана совпасть с описанием
 			ASSERT_EQ(exchanged.group, brief.group) << path;
 			// Схема подписи обязана отвечать ключу сертификата
@@ -4049,17 +4049,17 @@ TEST(Tls12Test, VectorClient){
 			// Добавляем параметры обмена
 			content.insert(content.end(), exchanged.parameters.data, exchanged.parameters.data + exchanged.parameters.size);
 			// Подпись обязана сойтись ключом сертификата
-			ASSERT_TRUE(attested(certificate.key(), exchanged.scheme, view_t(content.data(), content.size()), exchanged.signature)) << path << " схема " << std::hex << exchanged.scheme;
+			ASSERT_TRUE(__nts_attested__(certificate.key(), exchanged.scheme, view_t(content.data(), content.size()), exchanged.signature)) << path << " схема " << std::hex << exchanged.scheme;
 			// Испорченная подпись обязана отвергаться
 			vector <uint8_t> spoiled(exchanged.signature.data, exchanged.signature.data + exchanged.signature.size);
 			// Портим последний байт подписи
 			spoiled.back() ^= 0x01;
 			// Подпись с испорченным байтом обязана не сойтись
-			ASSERT_FALSE(attested(certificate.key(), exchanged.scheme, view_t(content.data(), content.size()), view_t(spoiled.data(), spoiled.size()))) << path;
+			ASSERT_FALSE(__nts_attested__(certificate.key(), exchanged.scheme, view_t(content.data(), content.size()), view_t(spoiled.data(), spoiled.size()))) << path;
 			// Подмена случайного значения обязана отвергаться
 			content[0] ^= 0x01;
 			// Подпись над подменённым содержимым обязана не сойтись
-			ASSERT_FALSE(attested(certificate.key(), exchanged.scheme, view_t(content.data(), content.size()), exchanged.signature)) << path;
+			ASSERT_FALSE(__nts_attested__(certificate.key(), exchanged.scheme, view_t(content.data(), content.size()), exchanged.signature)) << path;
 			// Учитываем проверенную подпись
 			signatures++;
 			// Если подлинность взаимная
@@ -4071,13 +4071,13 @@ TEST(Tls12Test, VectorClient){
 				// Нарезанный запрос обязан совпасть
 				ASSERT_EQ(slurp(path + "/certificaterequest.bin"), *request) << path;
 				// Тело запроса
-				const view_t asked = inner(*request);
+				const view_t asked = __nts_inner__(*request);
 				// Тело обязано вместить перечень видов
 				ASSERT_GT(asked.size, static_cast <size_t> (1 + asked.data[0] + 2)) << path;
 				// Признак вида ecdsa_sign (64) среди видов
 				bool ecdsa = false;
 				/**
-				 * Выполняем перебор видов сертификатов
+				 * Перебираем видов сертификатов
 				 */
 				for(size_t i = 0; i < asked.data[0]; i++)
 					// Ищем вид ecdsa_sign
@@ -4103,7 +4103,7 @@ TEST(Tls12Test, VectorClient){
 				// Нарезанный сертификат клиента обязан совпасть
 				ASSERT_EQ(slurp(path + "/client-certificate.bin"), *presented) << path;
 				// Сертификат клиента DER
-				const view_t own = leaf(inner(*presented));
+				const view_t own = __nts_leaf__(__nts_inner__(*presented));
 				// Сертификат клиента обязан быть тем же ec256
 				ASSERT_EQ(vector <uint8_t> (own.data, own.data + own.size), credential.chain[0]) << path;
 				// Подпись владения ключом
@@ -4113,7 +4113,7 @@ TEST(Tls12Test, VectorClient){
 				// Нарезанная подпись владения обязана совпасть
 				ASSERT_EQ(slurp(path + "/client-certificateverify.bin"), *verify) << path;
 				// Тело подписи владения: схема, длина, подпись
-				const view_t attest = inner(*verify);
+				const view_t attest = __nts_inner__(*verify);
 				// Тело обязано вместить схему и длину
 				ASSERT_GT(attest.size, static_cast <size_t> (4)) << path;
 				// Схема подписи владения
@@ -4127,7 +4127,7 @@ TEST(Tls12Test, VectorClient){
 				// Подписанная перепись: все сообщения до CertificateVerify по порядку провода
 				vector <uint8_t> transcript;
 				/**
-				 * Выполняем перебор сообщений переписи: ClientHello, ответ сервера, сообщения клиента до подписи
+				 * Перебираем сообщений переписи: ClientHello, ответ сервера, сообщения клиента до подписи
 				 */
 				for(size_t i = 0; i < (1 + s2c.messages.size() + c2s.messages.size()); i++){
 					// Сообщение по порядку провода
@@ -4145,22 +4145,22 @@ TEST(Tls12Test, VectorClient){
 						// Берём сообщение клиента
 						message = &c2s.messages[i - s2c.messages.size()];
 					// Билет сервера в перепись до подписи не входит
-					if(kind(*message) == handshake::type_t::TICKET)
+					if(__nts_kind__(*message) == handshake::type_t::TICKET)
 						// Пропускаем билет
 						continue;
 					// Подпись владения саму себя не покрывает
-					if(kind(*message) == handshake::type_t::VERIFY)
+					if(__nts_kind__(*message) == handshake::type_t::VERIFY)
 						// Перепись окончена
 						break;
 					// Добавляем сообщение в перепись
 					transcript.insert(transcript.end(), message->begin(), message->end());
 				}
 				// Подпись владения обязана сойтись ключом сертификата клиента над переписью
-				ASSERT_TRUE(attested(certificate.key(), scheme, view_t(transcript.data(), transcript.size()), view_t(attest.data + 4, size))) << path;
+				ASSERT_TRUE(__nts_attested__(certificate.key(), scheme, view_t(transcript.data(), transcript.size()), view_t(attest.data + 4, size))) << path;
 				// Подмена байта переписи обязана отвергаться
 				transcript[transcript.size() / 2] ^= 0x01;
 				// Подпись над подменённой переписью обязана не сойтись
-				ASSERT_FALSE(attested(certificate.key(), scheme, view_t(transcript.data(), transcript.size()), view_t(attest.data + 4, size))) << path;
+				ASSERT_FALSE(__nts_attested__(certificate.key(), scheme, view_t(transcript.data(), transcript.size()), view_t(attest.data + 4, size))) << path;
 				// Учитываем проверенную подпись владения
 				attestations++;
 			}
@@ -4183,19 +4183,19 @@ TEST(Tls12Test, VectorFinished){
 	// Число расшифрованных завершений
 	size_t decrypted = 0;
 	/**
-	 * Выполняем перебор изданий openssl
+	 * Перебираем изданий openssl
 	 */
 	for(size_t e = 0; e < (sizeof(EDITIONS) / sizeof(EDITIONS[0])); e++){
 		/**
-		 * Выполняем перебор сценариев
+		 * Перебираем сценариев
 		 */
 		for(size_t s = 0; s < (sizeof(SCENARIOS) / sizeof(SCENARIOS[0])); s++){
 			// Путь к каталогу вектора
-			const std::string path = place(EDITIONS[e], SCENARIOS[s].name);
+			const std::string path = __nts_place__(EDITIONS[e], SCENARIOS[s].name);
 			// Если каталога вектора нет
-			if(!exists(path)){
+			if(!__nts_exists__(path)){
 				// Отсутствие вектора допустимо лишь там, где openssl ключа не имел
-				ASSERT_TRUE(omitted(EDITIONS[e], SCENARIOS[s])) << "вектор не снят: " << path;
+				ASSERT_TRUE(__nts_omitted__(EDITIONS[e], SCENARIOS[s])) << "вектор не снят: " << path;
 				// Сообщаем о пропуске явно
 				std::cout << "OpenSSL " << EDITIONS[e] << " без -no_ems: вектор " << SCENARIOS[s].name << " не снят, пропуск" << std::endl;
 				// Переходим к следующему сценарию
@@ -4204,15 +4204,15 @@ TEST(Tls12Test, VectorFinished){
 			// Сведения о векторе из описания
 			brief_t brief;
 			// Описание обязано разобраться
-			ASSERT_TRUE(describe(path, brief)) << path;
+			ASSERT_TRUE(__nts_describe__(path, brief)) << path;
 			// Набор описания обязан совпасть с ожидаемым сценарием
 			ASSERT_EQ(brief.suite, SCENARIOS[s].suite) << path;
 			// Потоки сторон по проводу
 			stream_t c2s, s2c;
 			// Поток клиента обязан разобраться
-			ASSERT_TRUE(unwind(slurp(path + "/handshake-c2s.bin"), c2s, true)) << path;
+			ASSERT_TRUE(__nts_unwind__(slurp(path + "/handshake-c2s.bin"), c2s, true)) << path;
 			// Поток сервера обязан разобраться
-			ASSERT_TRUE(unwind(slurp(path + "/handshake-s2c.bin"), s2c, true)) << path;
+			ASSERT_TRUE(__nts_unwind__(slurp(path + "/handshake-s2c.bin"), s2c, true)) << path;
 			// Защищённые завершения обязаны идти записями рукопожатия издания 1.2
 			ASSERT_EQ(c2s.header.type, record::type_t::HANDSHAKE) << path;
 			// Издание заголовка защищённой записи клиента обязано быть 1.2
@@ -4222,17 +4222,17 @@ TEST(Tls12Test, VectorFinished){
 			// Приветствия сторон
 			hello::client_t client;
 			// Приветствие клиента обязано разобраться
-			ASSERT_EQ(hello::parse(inner(c2s.messages[0]), client), hello::error_t::NONE) << path;
+			ASSERT_EQ(hello::parse(__nts_inner__(c2s.messages[0]), client), hello::error_t::NONE) << path;
 			// Приветствие сервера
 			hello::server_t server;
 			// Приветствие сервера обязано разобраться
-			ASSERT_EQ(hello::parse(inner(s2c.messages[0]), server), hello::error_t::NONE) << path;
+			ASSERT_EQ(hello::parse(__nts_inner__(s2c.messages[0]), server), hello::error_t::NONE) << path;
 			// Набор обязан быть набором описания
 			ASSERT_EQ(server.suite, brief.suite) << path;
 			// Случайное значение клиента и главный секрет из ключевого файла
 			vector <uint8_t> random, master;
 			// Ключевой файл обязан разобраться
-			ASSERT_TRUE(keylog(path, random, master)) << path;
+			ASSERT_TRUE(__nts_keylog__(path, random, master)) << path;
 			// Случайное значение ключевого файла обязано быть от этого обмена
 			ASSERT_EQ(random, vector <uint8_t> (client.random, client.random + hello::HELLO_RANDOM)) << path;
 			// Случайное значение сервера
@@ -4250,11 +4250,11 @@ TEST(Tls12Test, VectorFinished){
 			// Билеты сервера идут за завершением клиента
 			vector <vector <uint8_t>> tickets;
 			/**
-			 * Выполняем перебор сообщений сервера
+			 * Перебираем сообщений сервера
 			 */
 			for(size_t i = 0; i < s2c.messages.size(); i++){
 				// Если это билет
-				if(kind(s2c.messages[i]) == handshake::type_t::TICKET)
+				if(__nts_kind__(s2c.messages[i]) == handshake::type_t::TICKET)
 					// Откладываем билет
 					tickets.push_back(s2c.messages[i]);
 				// Иначе сообщение первого круга сервера
@@ -4263,7 +4263,7 @@ TEST(Tls12Test, VectorFinished){
 					transcript.push_back(s2c.messages[i]);
 			}
 			/**
-			 * Выполняем перебор сообщений клиента за приветствием
+			 * Перебираем сообщений клиента за приветствием
 			 */
 			for(size_t i = 1; i < c2s.messages.size(); i++)
 				// Добавляем сообщение в перепись
@@ -4271,7 +4271,7 @@ TEST(Tls12Test, VectorFinished){
 			// Защита записей клиента
 			protect::protection_t incoming;
 			// Ключ клиента обязан вывестись
-			ASSERT_TRUE(keyed(suite, master, random, theirs, incoming, true, etm)) << path;
+			ASSERT_TRUE(__nts_keyed__(suite, master, random, theirs, incoming, true, etm)) << path;
 			// Вид содержимого расшифрованной записи
 			record::type_t type = record::type_t::NONE;
 			// Открытое содержимое записи
@@ -4283,17 +4283,17 @@ TEST(Tls12Test, VectorFinished){
 			// Завершение: заголовок и 12 байтов verify_data
 			ASSERT_EQ(plain.size(), static_cast <size_t> (handshake::HANDSHAKE_HEADER + 12)) << path;
 			// Вид сообщения обязан быть Finished
-			ASSERT_EQ(kind(plain), handshake::type_t::FINISHED) << path;
+			ASSERT_EQ(__nts_kind__(plain), handshake::type_t::FINISHED) << path;
 			// Ожидаемый verify_data клиента
 			uint8_t expected[12];
 			// verify_data обязан вычислиться
-			ASSERT_TRUE(completion(suite, master, "client finished", transcript, expected)) << path;
+			ASSERT_TRUE(__nts_completion__(suite, master, "client finished", transcript, expected)) << path;
 			// verify_data клиента обязан сойтись с переписью
 			ASSERT_EQ(vector <uint8_t> (plain.begin() + handshake::HANDSHAKE_HEADER, plain.end()), vector <uint8_t> (expected, expected + sizeof(expected))) << path;
 			// Завершение клиента входит в перепись сервера
 			transcript.push_back(plain);
 			/**
-			 * Выполняем перебор отложенных билетов: они идут за завершением клиента
+			 * Перебираем отложенных билетов: они идут за завершением клиента
 			 */
 			for(size_t i = 0; i < tickets.size(); i++)
 				// Добавляем билет в перепись
@@ -4301,7 +4301,7 @@ TEST(Tls12Test, VectorFinished){
 			// Защита записей сервера
 			protect::protection_t outgoing;
 			// Ключ сервера обязан вывестись
-			ASSERT_TRUE(keyed(suite, master, random, theirs, outgoing, false, etm)) << path;
+			ASSERT_TRUE(__nts_keyed__(suite, master, random, theirs, outgoing, false, etm)) << path;
 			// Защита доливает открытый текст в накопитель: перед новой записью он очищается
 			plain.clear();
 			// Завершение сервера обязано расшифроваться нашим ключевым материалом
@@ -4309,9 +4309,9 @@ TEST(Tls12Test, VectorFinished){
 			// Содержимое обязано быть рукопожатием
 			ASSERT_EQ(type, record::type_t::HANDSHAKE) << path;
 			// Вид сообщения обязан быть Finished
-			ASSERT_EQ(kind(plain), handshake::type_t::FINISHED) << path;
+			ASSERT_EQ(__nts_kind__(plain), handshake::type_t::FINISHED) << path;
 			// verify_data сервера обязан вычислиться
-			ASSERT_TRUE(completion(suite, master, "server finished", transcript, expected)) << path;
+			ASSERT_TRUE(__nts_completion__(suite, master, "server finished", transcript, expected)) << path;
 			// verify_data сервера обязан сойтись с переписью
 			ASSERT_EQ(vector <uint8_t> (plain.begin() + handshake::HANDSHAKE_HEADER, plain.end()), vector <uint8_t> (expected, expected + sizeof(expected))) << path;
 			// Порча байта защищённой записи обязана отвергаться меткой
@@ -4321,7 +4321,7 @@ TEST(Tls12Test, VectorFinished){
 			// Защита сервера заново: порядковый номер обязан быть нулевым
 			protect::protection_t again;
 			// Ключ сервера обязан вывестись
-			ASSERT_TRUE(keyed(suite, master, random, theirs, again, false, etm)) << path;
+			ASSERT_TRUE(__nts_keyed__(suite, master, random, theirs, again, false, etm)) << path;
 			// Очищаем накопитель перед испорченной записью
 			plain.clear();
 			// Испорченная запись обязана отвергаться меткой целостности
@@ -4358,7 +4358,7 @@ namespace {
 		Keyring() noexcept : replace(false) {}
 	} keyring_t;
 	/**
-	 * @brief Вызов сервера: ключ по опознавателю
+	 * @brief Функция вызова сервера: ключ по опознавателю
 	 *
 	 * @note Вызов не noexcept намеренно: нехватку памяти в накопителях перехватывает связь
 	 *
@@ -4368,8 +4368,8 @@ namespace {
 	 * @return         признак известности опознавателя
 	 *
 	 */
-	bool responding(const view_t & identity, vector <uint8_t> & key, void * context) {
-		// Связка
+	bool __nts_responding__(const view_t & identity, vector <uint8_t> & key, void * context) {
+		// Заводим связку ключей
 		keyring_t * ring = reinterpret_cast <keyring_t *> (context);
 		// Запоминаем увиденный опознаватель
 		ring->seen.assign(identity.data, identity.data + identity.size);
@@ -4391,7 +4391,7 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Вызов клиента: опознаватель и ключ по подсказке
+	 * @brief Функция вызова клиента: опознаватель и ключ по подсказке
 	 *
 	 * @param hint     подсказка сервера
 	 * @param identity накопитель опознавателя
@@ -4400,8 +4400,8 @@ namespace {
 	 * @return         признак выбора заново
 	 *
 	 */
-	bool advising(const view_t & hint, vector <uint8_t> & identity, vector <uint8_t> & key, void * context) {
-		// Связка
+	bool __nts_advising__(const view_t & hint, vector <uint8_t> & identity, vector <uint8_t> & key, void * context) {
+		// Заводим связку ключей
 		keyring_t * ring = reinterpret_cast <keyring_t *> (context);
 		// Запоминаем подсказку
 		ring->hint.assign(hint.data, hint.data + hint.size);
@@ -4476,11 +4476,11 @@ namespace {
 	 * @return         признак успешности разбора
 	 *
 	 */
-	bool anatomy(const view_t & wire, vector <record::type_t> & records, vector <handshake::type_t> & messages) noexcept {
+	bool __nts_anatomy__(const view_t & wire, vector <record::type_t> & records, vector <handshake::type_t> & messages) noexcept {
 		// Нарезанные записи
 		vector <vector <uint8_t>> pieces;
 		// Если поток на записи не нарезался
-		if(!slice(wire, pieces))
+		if(!__nts_slice__(wire, pieces))
 			// Выводим отрицательный результат - нарезка не удалась
 			return false;
 		// Сборщик сообщений
@@ -4488,7 +4488,7 @@ namespace {
 		// Признак того, что смена набора встречена: дальше записи защищены
 		bool changed = false;
 		/**
-		 * Выполняем перебор записей
+		 * Перебираем записей
 		 */
 		for(size_t i = 0; i < pieces.size(); i++){
 			// Вид записи
@@ -4510,7 +4510,7 @@ namespace {
 				// Тело сообщения
 				view_t body;
 				/**
-				 * Выполняем перебор собранных сообщений
+				 * Перебираем собранных сообщений
 				 */
 				while(reader.next(head, body) == handshake::error_t::NONE)
 					// Запоминаем вид сообщения
@@ -4528,7 +4528,7 @@ namespace {
 	 * @return         признак наличия
 	 *
 	 */
-	bool among(const vector <handshake::type_t> & messages, const handshake::type_t type) noexcept {
+	bool __nts_among__(const vector <handshake::type_t> & messages, const handshake::type_t type) noexcept {
 		// Выводим итог розыска
 		return (std::find(messages.begin(), messages.end(), type) != messages.end());
 	}
@@ -4543,36 +4543,36 @@ namespace {
 	 * @param hint   подсказка сервера
 	 *
 	 */
-	void presharing(client::context_t & client, server::context_t & server, const protect::suite_t suite, keyring_t & theirs, keyring_t & ours, const char * hint) noexcept {
+	void __nts_presharing__(client::context_t & client, server::context_t & server, const protect::suite_t suite, keyring_t & theirs, keyring_t & ours, const char * hint) noexcept {
 		// Наборы сторон
 		client.suites(vector <protect::suite_t> {suite});
 		// Набор сервера
 		server.suites(vector <protect::suite_t> {suite});
-		// Группа
+		// Заказываем группы клиенту
 		client.groups(vector <extension::group_t> {extension::group_t::X25519});
 		// Группа сервера
 		server.groups(vector <extension::group_t> {extension::group_t::X25519});
 		// Настройки сервера
 		context::psk_t mine;
 		// Вызов ключа по опознавателю
-		mine.respond = responding;
-		// Связка
+		mine.respond = __nts_responding__;
+		// Читаем контекст собственной связки
 		mine.context = &theirs;
-		// Подсказка
+		// Задаём подсказку собственной связке
 		mine.identity.assign(hint, hint + ::strlen(hint));
-		// Устанавливаем
+		// Передаём связку стороне сервера
 		server.psk(mine);
 		// Настройки клиента
 		context::psk_t yours;
-		// Опознаватель
+		// Читаем опознаватель ответчика
 		yours.identity = ours.identity;
-		// Ключ
+		// Преподаём собственный ключ ответчику
 		yours.key.assign(ours.key.begin(), ours.key.end());
 		// Вызов по подсказке
-		yours.advise = advising;
-		// Связка
+		yours.advise = __nts_advising__;
+		// Читаем контекст связки ответчика
 		yours.context = &ours;
-		// Устанавливаем
+		// Передаём связку стороне клиента
 		client.psk(yours);
 		// Клиент ведёт лишь издание 1.2
 		client.versions(0x0303, 0x0303);
@@ -4586,17 +4586,17 @@ namespace {
 	 * @return       признак успешности
 	 *
 	 */
-	bool preparing(client::context_t & client, server::context_t & server, vector <vector <uint8_t>> & answer) noexcept {
+	bool __nts_preparing__(client::context_t & client, server::context_t & server, vector <vector <uint8_t>> & answer) noexcept {
 		// Записи залпа сервера
 		vector <vector <uint8_t>> flight;
 		// Если залп сервера не получен
-		if(!volley(client, server, flight))
+		if(!__nts_volley__(client, server, flight))
 			// Выводим отрицательный результат - перенос не удался
 			return false;
 		// Залп потоком
 		vector <uint8_t> stream;
 		// Собираем поток
-		join(flight, stream);
+		__nts_join__(flight, stream);
 		// Подаём залп клиенту
 		if(client.push(view_t(stream.data(), stream.size())) != context::error_t::NONE)
 			// Выводим отрицательный результат - запись не подана клиенту
@@ -4604,8 +4604,8 @@ namespace {
 		// Залп клиента
 		const view_t data = client.output();
 		// Нарезаем на записи
-		const bool sliced = slice(data, answer);
-		// Снимаем
+		const bool sliced = __nts_slice__(data, answer);
+		// Снимаем принятые байты из вывода
 		client.consume(data.size);
 		// Выводим итог
 		return sliced;
@@ -4623,8 +4623,8 @@ namespace {
 	 * @return       признак успешности
 	 *
 	 */
-	bool deriving(const protect::suite_t suite, const vector <uint8_t> & master, const vector <uint8_t> & client, const vector <uint8_t> & server, const bool own, vector <uint8_t> & key, vector <uint8_t> & mac) noexcept {
-		// Длины
+	bool __nts_deriving__(const protect::suite_t suite, const vector <uint8_t> & master, const vector <uint8_t> & client, const vector <uint8_t> & server, const bool own, vector <uint8_t> & key, vector <uint8_t> & mac) noexcept {
+		// Читаем длины записи
 		const size_t width = protect::key(suite), stamp = digest::length(protect::mac(suite));
 		// Затравка
 		uint8_t seed[64];
@@ -4632,7 +4632,7 @@ namespace {
 		::memcpy(seed, server.data(), 32);
 		// Случайное значение клиента
 		::memcpy(seed + 32, client.data(), 32);
-		// Метка
+		// Читаем метку времени записи
 		const char * label = "key expansion";
 		// Материал
 		uint8_t material[(protect::PROTECT_MAC + protect::PROTECT_KEY + protect::PROTECT_VECTOR) * 2];
@@ -4682,7 +4682,7 @@ namespace {
 	 * @return         путь
 	 *
 	 */
-	std::string place2(const char * edition, const char * scenario) noexcept {
+	std::string __nts_place2__(const char * edition, const char * scenario) noexcept {
 		// Выводим путь
 		return (std::string(CORPUS) + "/tls12x/tls12x-OpenSSL-" + edition + "/" + scenario);
 	}
@@ -4698,19 +4698,19 @@ namespace {
  */
 TEST(Tls12Test, Chained){
 	/**
-	 * Выполняем перебор наборов CBC
+	 * Перебираем наборов CBC
 	 */
 	for(size_t s = 0; s < (sizeof(CHAINED) / sizeof(CHAINED[0])); s++){
-		// Подлинность
+		// Заводим подлинность стороны связи
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(CHAINED[s].key, credential));
+		ASSERT_TRUE(__nts_identity__(CHAINED[s].key, credential));
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
 		// Настраиваем стороны со взаимной подлинностью у ECDHE
-		arrange(client, server, CHAINED[s].suite, extension::group_t::SECP256R1, credential, (s < 6));
+		__nts_arrange__(client, server, CHAINED[s].suite, extension::group_t::SECP256R1, credential, (s < 6));
 		// Клиент ведёт лишь издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		// До согласования признак ложен
@@ -4720,24 +4720,24 @@ TEST(Tls12Test, Chained){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена
 		ASSERT_TRUE(client.established() && server.established()) << CHAINED[s].title << " отказы " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
-		// Набор
+		// Проверяем согласованность набора защиты
 		ASSERT_EQ(client.suite(), CHAINED[s].suite);
 		// Порядок RFC 7366 согласован обеими сторонами
 		ASSERT_TRUE(client.etm() && server.etm()) << CHAINED[s].title;
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server)) << CHAINED[s].title;
+		ASSERT_TRUE(__nts_barter__(client, server)) << CHAINED[s].title;
 		// Данные клиента
 		const string request = "запись CBC второго круга";
-		// Отправляем
+		// Отправляем прикладные данные клиентом
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 		// Запись клиента
 		const view_t sealed = client.output();
 		// Порченая запись: последний байт - имитовставка (encrypt-then-MAC)
 		vector <uint8_t> spoiled(sealed.data, sealed.data + sealed.size);
-		// Снимаем
+		// Снимаем принятые байты из вывода
 		client.consume(sealed.size);
 		// Портим байт имитовставки
 		spoiled.back() ^= 0x01;
@@ -4752,24 +4752,24 @@ TEST(Tls12Test, Chained){
 		// Сервер
 		server::context_t peer;
 		// Настраиваем
-		arrange(again, peer, CHAINED[s].suite, extension::group_t::SECP256R1, credential, false);
+		__nts_arrange__(again, peer, CHAINED[s].suite, extension::group_t::SECP256R1, credential, false);
 		// Издание 1.2
 		ASSERT_EQ(again.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону собеседника
 		ASSERT_EQ(peer.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(again.start(), context::error_t::NONE);
-		// Рукопожатие
-		converse(again, peer);
-		// Установлена
+		// Ведём рукопожатие повторной связи
+		__nts_converse__(again, peer);
+		// Проверяем установленность повторной связи
 		ASSERT_TRUE(again.established() && peer.established()) << CHAINED[s].title;
-		// Отправляем
+		// Отправляем прикладные данные повторной связи
 		ASSERT_EQ(again.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 		// Запись
 		const view_t other = again.output();
 		// Порченая запись: байт шифртекста за вектором замены
 		vector <uint8_t> broken(other.data, other.data + other.size);
-		// Снимаем
+		// Снимаем принятые байты из вывода
 		again.consume(other.size);
 		// Портим байт шифртекста: заголовок, вектор и первый байт
 		broken[record::RECORD_HEADER + 16] ^= 0x80;
@@ -4779,16 +4779,16 @@ TEST(Tls12Test, Chained){
 		ASSERT_EQ(peer.alert().description, alert::description_t::MAC) << CHAINED[s].title;
 	}
 	{
-		// Подлинность
+		// Заводим подлинность стороны связи
 		context::credential_t credential;
-		// Составляем
-		ASSERT_TRUE(identity("ec256", credential));
+		// Вырабатываем подлинность по имени узла
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
 		// Набор AEAD у сервера
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Клиент предлагает набор CBC рядом с AEAD: расширение encrypt_then_mac в приветствии будет
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		// Издание 1.2
@@ -4797,61 +4797,61 @@ TEST(Tls12Test, Chained){
 		client.etm(true);
 		// И у сервера
 		server.etm(true);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Записи приветствия клиента
 		vector <vector <uint8_t>> offers;
 		// Нарезаем
-		ASSERT_TRUE(slice(client.output(), offers));
+		ASSERT_TRUE(__nts_slice__(client.output(), offers));
 		// Приветствие клиента
-		hello::client_t greeting;
+		hello::client_t __nts_greeting__;
 		// Разбираем
-		ASSERT_EQ(hello::parse(view_t(offers[0].data() + record::RECORD_HEADER + handshake::HANDSHAKE_HEADER, offers[0].size() - record::RECORD_HEADER - handshake::HANDSHAKE_HEADER), greeting), hello::error_t::NONE);
+		ASSERT_EQ(hello::parse(view_t(offers[0].data() + record::RECORD_HEADER + handshake::HANDSHAKE_HEADER, offers[0].size() - record::RECORD_HEADER - handshake::HANDSHAKE_HEADER), __nts_greeting__), hello::error_t::NONE);
 		// Раздел 2 RFC 7366: клиент предложил encrypt_then_mac ради набора CBC
-		ASSERT_NE(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::ETM)), nullptr);
+		ASSERT_NE(hello::extension(__nts_greeting__.extensions, static_cast <uint16_t> (extension::type_t::ETM)), nullptr);
 		// Приветствие серверу
-		ASSERT_TRUE(deliver(client, server));
+		ASSERT_TRUE(__nts_deliver__(client, server));
 		// Записи залпа сервера
 		vector <vector <uint8_t>> records;
-		// Нарезаем
-		ASSERT_TRUE(slice(server.output(), records));
+		// Нарезаем выход сервера на записи
+		ASSERT_TRUE(__nts_slice__(server.output(), records));
 		// Приветствие сервера
 		hello::server_t answer;
-		// Разбираем
+		// Разбираем первую запись hello
 		ASSERT_EQ(hello::parse(view_t(records[0].data() + record::RECORD_HEADER + handshake::HANDSHAKE_HEADER, records[0].size() - record::RECORD_HEADER - handshake::HANDSHAKE_HEADER), answer), hello::error_t::NONE);
 		// Сервер выбрал набор AEAD
 		ASSERT_EQ(answer.suite, static_cast <uint16_t> (protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256));
 		// Раздел 3 RFC 7366: при наборе AEAD сервер подтверждать encrypt_then_mac не вправе
 		ASSERT_EQ(hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::ETM)), nullptr);
-		// Рукопожатие
-		converse(client, server);
-		// Установлена
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established());
 		// Порядок RFC 7366 у AEAD не значится
 		ASSERT_FALSE(client.etm() || server.etm());
 	}
 	/**
-	 * Выполняем перебор требования ETM у сервера: приветствие клиента без расширения
+	 * Перебираем требования ETM у сервера: приветствие клиента без расширения
 	 */
 	for(size_t strict = 0; strict < 2; strict++){
-		// Подлинность
+		// Заводим подлинность стороны связи
 		context::credential_t credential;
-		// Составляем
-		ASSERT_TRUE(identity("ec256", credential));
+		// Вырабатываем подлинность по имени узла
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Связь сервера
 		server::context_t server;
-		// Подлинность
+		// Устанавливаем подлинность стороне сервера
 		server.credential(credential);
 		// Требование
 		server.etm(strict == 1);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Приветствие руками: набор CBC, без encrypt_then_mac
 		vector <uint8_t> hello;
-		// Составляем
-		ASSERT_TRUE(greeting(true, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, hello, false, extension::group_t::SECP256R1));
+		// Составляем приветствие клиента
+		ASSERT_TRUE(__nts_greeting__(true, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, hello, false, extension::group_t::SECP256R1));
 		// Подаём
 		const context::error_t outcome = server.push(view_t(hello.data(), hello.size()));
 		// Если ETM требуется
@@ -4872,11 +4872,11 @@ TEST(Tls12Test, Chained){
 			ASSERT_FALSE(server.etm());
 			// Записи ответа
 			vector <vector <uint8_t>> records;
-			// Нарезаем
-			ASSERT_TRUE(slice(server.output(), records));
+			// Нарезаем выход сервера на записи
+			ASSERT_TRUE(__nts_slice__(server.output(), records));
 			// Приветствие сервера
 			hello::server_t answer;
-			// Разбираем
+			// Разбираем первую запись hello
 			ASSERT_EQ(hello::parse(view_t(records[0].data() + record::RECORD_HEADER + handshake::HANDSHAKE_HEADER, records[0].size() - record::RECORD_HEADER - handshake::HANDSHAKE_HEADER), answer), hello::error_t::NONE);
 			// Расширения encrypt_then_mac в ответе нет
 			ASSERT_EQ(hello::extension(answer.extensions, static_cast <uint16_t> (extension::type_t::ETM)), nullptr);
@@ -4894,10 +4894,10 @@ TEST(Tls12Test, Chained){
 TEST(Tls12Test, Plain){
 	// Подлинность RSA
 	context::credential_t rsa;
-	// Составляем
-	ASSERT_TRUE(identity("rsa2048", rsa));
+	// Вырабатываем подлинность RSA
+	ASSERT_TRUE(__nts_identity__("rsa2048", rsa));
 	/**
-	 * Выполняем перебор наборов обмена RSA
+	 * Перебираем наборов обмена RSA
 	 */
 	for(size_t s = 0; s < (sizeof(PLAIN) / sizeof(PLAIN[0])); s++){
 		// Связь клиента
@@ -4905,80 +4905,80 @@ TEST(Tls12Test, Plain){
 		// Связь сервера
 		server::context_t server;
 		// Настраиваем с подлинностью клиента на чётных
-		arrange(client, server, PLAIN[s].suite, extension::group_t::X25519, rsa, ((s % 2) == 0));
+		__nts_arrange__(client, server, PLAIN[s].suite, extension::group_t::X25519, rsa, ((s % 2) == 0));
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Залп сервера
 		vector <vector <uint8_t>> flight;
-		// Получаем
-		ASSERT_TRUE(volley(client, server, flight));
+		// Получаем залп прикладных данных клиента
+		ASSERT_TRUE(__nts_volley__(client, server, flight));
 		// Залп потоком
 		vector <uint8_t> stream;
-		// Собираем
-		join(flight, stream);
+		// Собираем поток из полёта записей
+		__nts_join__(flight, stream);
 		// Виды записей и сообщений
 		vector <record::type_t> records;
 		// Виды сообщений
 		vector <handshake::type_t> messages;
-		// Разбираем
-		ASSERT_TRUE(anatomy(view_t(stream.data(), stream.size()), records, messages));
+		// Разбираем записи потока связи
+		ASSERT_TRUE(__nts_anatomy__(view_t(stream.data(), stream.size()), records, messages));
 		// Обмена ключами сервера у голого RSA нет
-		ASSERT_FALSE(among(messages, handshake::type_t::AGREEMENT)) << PLAIN[s].title;
+		ASSERT_FALSE(__nts_among__(messages, handshake::type_t::AGREEMENT)) << PLAIN[s].title;
 		// Цепочка есть
-		ASSERT_TRUE(among(messages, handshake::type_t::CERTIFICATE)) << PLAIN[s].title;
+		ASSERT_TRUE(__nts_among__(messages, handshake::type_t::CERTIFICATE)) << PLAIN[s].title;
 		// Запрос подлинности ровно по настройке
-		ASSERT_EQ(among(messages, handshake::type_t::REQUEST), ((s % 2) == 0)) << PLAIN[s].title;
+		ASSERT_EQ(__nts_among__(messages, handshake::type_t::REQUEST), ((s % 2) == 0)) << PLAIN[s].title;
 		// Конец приветствия последний
 		ASSERT_EQ(messages.back(), handshake::type_t::DONE) << PLAIN[s].title;
 		// Подаём залп клиенту и доводим
 		ASSERT_EQ(client.push(view_t(stream.data(), stream.size())), context::error_t::NONE);
-		// Доводим
-		converse(client, server);
-		// Установлена
+		// Доводим связь до установления
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established()) << PLAIN[s].title << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
-		// Набор
+		// Проверяем набор защиты сервера
 		ASSERT_EQ(server.suite(), PLAIN[s].suite);
 		// Порядок RFC 7366 у CBC согласован, у GCM нет
 		ASSERT_EQ(client.etm(), (protect::mac(PLAIN[s].suite) != digest::hash_t::NONE)) << PLAIN[s].title;
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server)) << PLAIN[s].title;
-		// Закрываем
+		ASSERT_TRUE(__nts_barter__(client, server)) << PLAIN[s].title;
+		// Закрываем связь клиента
 		ASSERT_EQ(client.close(), context::error_t::NONE);
-		// Передаём
-		converse(client, server);
-		// Закрыта
+		// Передаём рукопожатие связи
+		__nts_converse__(client, server);
+		// Проверяем закрытие связи сервера
 		ASSERT_EQ(server.state(), context::state_t::CLOSED);
 	}
 	{
 		// Подлинность ECDSA
-		context::credential_t ec;
-		// Составляем
-		ASSERT_TRUE(identity("ec256", ec));
+		context::credential_t curve;
+		// Вырабатываем подлинность по имени узла
+		ASSERT_TRUE(__nts_identity__("ec256", curve));
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
 		// Набор обмена RSA при ключе ECDSA
-		arrange(client, server, protect::suite_t::RSA_AES_128_CBC_SHA, extension::group_t::X25519, ec, false);
+		__nts_arrange__(client, server, protect::suite_t::RSA_AES_128_CBC_SHA, extension::group_t::X25519, curve, false);
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Рукопожатие
-		converse(client, server);
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
 		// Общего набора нет: ключ сертификата набору не отвечает
 		ASSERT_EQ(server.error(), context::error_t::SUITE);
 		// Извещение handshake_failure
 		ASSERT_EQ(server.alert().description, alert::description_t::HANDSHAKE);
 	}
 	/**
-	 * Выполняем перебор путей обмена ключами клиента: годный, порченый шифртекст, чужое издание
+	 * Перебираем путей обмена ключами клиента: годный, порченый шифртекст, чужое издание
 	 * общего значения, чужая длина общего значения, шифртекст чужой длины
 	 */
 	for(size_t path = 0; path < 5; path++){
@@ -4986,18 +4986,18 @@ TEST(Tls12Test, Plain){
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		arrange(client, server, protect::suite_t::RSA_AES_128_GCM_SHA256, extension::group_t::X25519, rsa, false);
+		// Настраиваем связь стороны клиента
+		__nts_arrange__(client, server, protect::suite_t::RSA_AES_128_GCM_SHA256, extension::group_t::X25519, rsa, false);
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Залп клиента: обмен ключами, смена набора, завершение
 		vector <vector <uint8_t>> answer;
-		// Получаем
-		ASSERT_TRUE(preparing(client, server, answer)) << path;
+		// Получаем первый залп клиента
+		ASSERT_TRUE(__nts_preparing__(client, server, answer)) << path;
 		// Три записи
 		ASSERT_EQ(answer.size(), static_cast <size_t> (3)) << path;
 		// Первая - обмен ключами
@@ -5013,20 +5013,20 @@ TEST(Tls12Test, Plain){
 		// Если путь - чужое издание либо чужая длина общего значения
 		else if((path == 2) || (path == 3)){
 			// Сертификат сервера
-			x509::certificate_t leaf;
+			x509::certificate_t __nts_leaf__;
 			// Разбираем
-			ASSERT_EQ(leaf.parse(view_t(client.peer()[0].data(), client.peer()[0].size())), x509::error_t::NONE);
+			ASSERT_EQ(__nts_leaf__.parse(view_t(client.peer()[0].data(), client.peer()[0].size())), x509::error_t::NONE);
 			// Открытый ключ RSA
 			sign::rsa_t key;
-			// Загружаем
-			ASSERT_TRUE(key.decode(leaf.key().key));
+			// Загружаем ключ из сертификата листа
+			ASSERT_TRUE(key.decode(__nts_leaf__.key().key));
 			// Общее значение: издание 0x0302 при пути два, длина 47 при пути три
 			vector <uint8_t> premaster(((path == 2) ? 48 : 47), 0x5A);
 			// Старший байт издания
 			premaster[0] = 0x03;
 			// Младший байт издания: чужое у пути два
 			premaster[1] = static_cast <uint8_t> ((path == 2) ? 0x02 : 0x03);
-			// Шифртекст
+			// Накопитель байтов шифртекста
 			vector <uint8_t> encrypted(key.size(), 0);
 			// Шифруем
 			ASSERT_TRUE(key.encrypt(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(premaster.data(), premaster.size()), encrypted.data()));
@@ -5036,10 +5036,10 @@ TEST(Tls12Test, Plain){
 			body.push_back(static_cast <uint8_t> ((encrypted.size() >> 8) & 0xFF));
 			// Младший байт длины
 			body.push_back(static_cast <uint8_t> (encrypted.size() & 0xFF));
-			// Шифртекст
+			// Дописываем байты шифртекста
 			body.insert(body.end(), encrypted.begin(), encrypted.end());
-			// Запись
-			ASSERT_TRUE(framed(handshake::type_t::PREMASTER, view_t(body.data(), body.size()), exchange));
+			// Составляем запись упреждающего секрета
+			ASSERT_TRUE(__nts_framed__(handshake::type_t::PREMASTER, view_t(body.data(), body.size()), exchange));
 		// Если путь - шифртекст чужой длины
 		} else if(path == 4){
 			// Тело: длина 100 и сто байтов
@@ -5048,8 +5048,8 @@ TEST(Tls12Test, Plain){
 			body[0] = 0x00;
 			// Младший байт длины
 			body[1] = 100;
-			// Запись
-			ASSERT_TRUE(framed(handshake::type_t::PREMASTER, view_t(body.data(), body.size()), exchange));
+			// Составляем запись упреждающего секрета
+			ASSERT_TRUE(__nts_framed__(handshake::type_t::PREMASTER, view_t(body.data(), body.size()), exchange));
 		}
 		// Подаём обмен ключами: ответ сервера во всех путях один - молчание без отказа
 		ASSERT_EQ(server.push(view_t(exchange.data(), exchange.size())), context::error_t::NONE) << path;
@@ -5073,10 +5073,10 @@ TEST(Tls12Test, Plain){
 			ASSERT_TRUE(server.established());
 			// Ответ: билет сеанса, смена набора и завершение
 			vector <record::type_t> records;
-			// Сообщения
+			// Накопитель сообщений проверки
 			vector <handshake::type_t> messages;
-			// Разбираем
-			ASSERT_TRUE(anatomy(server.output(), records, messages));
+			// Разбираем записи выхода сервера
+			ASSERT_TRUE(__nts_anatomy__(server.output(), records, messages));
 			// Три записи
 			ASSERT_EQ(records.size(), static_cast <size_t> (3));
 			// Билет перед сменой набора
@@ -5107,7 +5107,7 @@ TEST(Tls12Test, Preshared){
 	// Ключ проверок
 	const vector <uint8_t> secret = decode("0123456789abcdef");
 	/**
-	 * Выполняем перебор наборов PSK
+	 * Перебираем наборов PSK
 	 */
 	for(size_t s = 0; s < (sizeof(PRESHARED) / sizeof(PRESHARED[0])); s++){
 		// Связки сторон
@@ -5125,38 +5125,38 @@ TEST(Tls12Test, Preshared){
 		// Связь сервера
 		server::context_t server;
 		// Настраиваем: сервер без сертификата вовсе
-		presharing(client, server, PRESHARED[s].suite, theirs, ours, "anyks-hint");
+		__nts_presharing__(client, server, PRESHARED[s].suite, theirs, ours, "anyks-hint");
 		// Заводим сервер без подлинности
 		ASSERT_EQ(server.start(), context::error_t::NONE) << PRESHARED[s].title;
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Залп сервера
 		vector <vector <uint8_t>> flight;
-		// Получаем
-		ASSERT_TRUE(volley(client, server, flight));
-		// Поток
+		// Получаем залп прикладных данных клиента
+		ASSERT_TRUE(__nts_volley__(client, server, flight));
+		// Накопитель байтов потока
 		vector <uint8_t> stream;
-		// Собираем
-		join(flight, stream);
-		// Виды
+		// Собираем поток из полёта записей
+		__nts_join__(flight, stream);
+		// Накопитель видов содержимого
 		vector <record::type_t> records;
-		// Сообщения
+		// Накопитель сообщений проверки
 		vector <handshake::type_t> messages;
-		// Разбираем
-		ASSERT_TRUE(anatomy(view_t(stream.data(), stream.size()), records, messages));
+		// Разбираем записи потока связи
+		ASSERT_TRUE(__nts_anatomy__(view_t(stream.data(), stream.size()), records, messages));
 		// Сертификата нет
-		ASSERT_FALSE(among(messages, handshake::type_t::CERTIFICATE)) << PRESHARED[s].title;
+		ASSERT_FALSE(__nts_among__(messages, handshake::type_t::CERTIFICATE)) << PRESHARED[s].title;
 		// Обмен ключами сервера есть: подсказка, у ECDHE_PSK и параметры кривой
-		ASSERT_TRUE(among(messages, handshake::type_t::AGREEMENT)) << PRESHARED[s].title;
+		ASSERT_TRUE(__nts_among__(messages, handshake::type_t::AGREEMENT)) << PRESHARED[s].title;
 		// Запроса подлинности нет
-		ASSERT_FALSE(among(messages, handshake::type_t::REQUEST)) << PRESHARED[s].title;
+		ASSERT_FALSE(__nts_among__(messages, handshake::type_t::REQUEST)) << PRESHARED[s].title;
 		// Подаём и доводим
 		ASSERT_EQ(client.push(view_t(stream.data(), stream.size())), context::error_t::NONE);
-		// Доводим
-		converse(client, server);
-		// Установлена
+		// Доводим связь до установления
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established()) << PRESHARED[s].title << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
-		// Набор
+		// Проверяем согласованность набора защиты
 		ASSERT_EQ(client.suite(), PRESHARED[s].suite);
 		// Сертификатов у сторон нет
 		ASSERT_TRUE(client.peer().empty() && server.peer().empty());
@@ -5167,14 +5167,14 @@ TEST(Tls12Test, Preshared){
 		// Порядок RFC 7366 у CBC
 		ASSERT_EQ(client.etm(), (protect::mac(PRESHARED[s].suite) != digest::hash_t::NONE));
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server)) << PRESHARED[s].title;
+		ASSERT_TRUE(__nts_barter__(client, server)) << PRESHARED[s].title;
 	}
 	{
 		// Связки: клиент выбирает запасной опознаватель по подсказке
 		keyring_t theirs, ours;
 		// Основной опознаватель сервера
 		theirs.identity = decode("616e796b73");
-		// Ключ
+		// Задаём открытый ключ собеседнику
 		theirs.key.assign(secret.begin(), secret.end());
 		// Запасной опознаватель сервера
 		theirs.alternative = decode("6f74686572");
@@ -5194,15 +5194,15 @@ TEST(Tls12Test, Preshared){
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "pick-other");
-		// Заводим
+		// Настраиваем клиенту предварительное сообщение
+		__nts_presharing__(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "pick-other");
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Рукопожатие
-		converse(client, server);
-		// Установлена
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Сервер увидел запасной опознаватель
 		ASSERT_EQ(theirs.seen, theirs.alternative);
@@ -5212,47 +5212,47 @@ TEST(Tls12Test, Preshared){
 	{
 		// Связки без подсказки
 		keyring_t theirs, ours;
-		// Опознаватель
+		// Читаем опознаватель собеседника
 		theirs.identity = decode("616e796b73");
-		// Ключ
+		// Задаём открытый ключ собеседнику
 		theirs.key.assign(secret.begin(), secret.end());
-		// Клиент
+		// Читаем опознаватель клиента
 		ours.identity = theirs.identity;
-		// Ключ
+		// Задаём собственный открытый ключ
 		ours.key.assign(secret.begin(), secret.end());
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
 		// Без подсказки
-		presharing(client, server, protect::suite_t::PSK_AES_256_CBC_SHA, theirs, ours, "");
-		// Заводим
+		__nts_presharing__(client, server, protect::suite_t::PSK_AES_256_CBC_SHA, theirs, ours, "");
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Залп сервера
 		vector <vector <uint8_t>> flight;
-		// Получаем
-		ASSERT_TRUE(volley(client, server, flight));
-		// Поток
+		// Получаем залп прикладных данных клиента
+		ASSERT_TRUE(__nts_volley__(client, server, flight));
+		// Накопитель байтов потока
 		vector <uint8_t> stream;
-		// Собираем
-		join(flight, stream);
-		// Виды
+		// Собираем поток из полёта записей
+		__nts_join__(flight, stream);
+		// Накопитель видов содержимого
 		vector <record::type_t> records;
-		// Сообщения
+		// Накопитель сообщений проверки
 		vector <handshake::type_t> messages;
-		// Разбираем
-		ASSERT_TRUE(anatomy(view_t(stream.data(), stream.size()), records, messages));
+		// Разбираем записи потока связи
+		ASSERT_TRUE(__nts_anatomy__(view_t(stream.data(), stream.size()), records, messages));
 		// Раздел 2 RFC 4279: без подсказки обмена ключами сервера нет
-		ASSERT_FALSE(among(messages, handshake::type_t::AGREEMENT));
+		ASSERT_FALSE(__nts_among__(messages, handshake::type_t::AGREEMENT));
 		// Приветствие и конец
 		ASSERT_EQ(messages.size(), static_cast <size_t> (2));
-		// Доводим
+		// Подаём поток байтов клиента
 		ASSERT_EQ(client.push(view_t(stream.data(), stream.size())), context::error_t::NONE);
-		// Рукопожатие
-		converse(client, server);
-		// Установлена
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Подсказки не было
 		ASSERT_TRUE(ours.hint.empty());
@@ -5260,11 +5260,11 @@ TEST(Tls12Test, Preshared){
 	{
 		// Связки с неверным ключом клиента
 		keyring_t theirs, ours;
-		// Опознаватель
+		// Читаем опознаватель собеседника
 		theirs.identity = decode("616e796b73");
 		// Ключ сервера
 		theirs.key.assign(secret.begin(), secret.end());
-		// Клиент
+		// Читаем опознаватель клиента
 		ours.identity = theirs.identity;
 		// Ключ клиента иной
 		ours.key = decode("0123456789abcdee");
@@ -5272,16 +5272,16 @@ TEST(Tls12Test, Preshared){
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		presharing(client, server, protect::suite_t::ECDHE_PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
-		// Заводим
+		// Настраиваем клиенту предварительное сообщение
+		__nts_presharing__(client, server, protect::suite_t::ECDHE_PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Залп клиента
 		vector <vector <uint8_t>> answer;
-		// Получаем
-		ASSERT_TRUE(preparing(client, server, answer));
+		// Получаем первый залп клиента
+		ASSERT_TRUE(__nts_preparing__(client, server, answer));
 		// Обмен ключами принят молча: ключ не сверяется до завершения
 		ASSERT_EQ(server.push(view_t(answer[0].data(), answer[0].size())), context::error_t::NONE);
 		// Ничего не отправлено
@@ -5293,50 +5293,50 @@ TEST(Tls12Test, Preshared){
 		// Извещение bad_record_mac
 		ASSERT_EQ(server.alert().description, alert::description_t::MAC);
 		// Извещение доходит клиенту
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Клиент оборван извещением
 		ASSERT_EQ(client.error(), context::error_t::ALERT);
 		// Тем же извещением
 		ASSERT_EQ(client.alert().description, alert::description_t::MAC);
 	}
 	/**
-	 * Выполняем перебор ручки disclose при неизвестном опознавателе
+	 * Перебираем ручки disclose при неизвестном опознавателе
 	 */
 	for(size_t disclose = 0; disclose < 2; disclose++){
-		// Связки
+		// Заводим связки ключей
 		keyring_t theirs, ours;
 		// Опознаватель сервера
 		theirs.identity = decode("616e796b73");
-		// Ключ
+		// Задаём открытый ключ собеседнику
 		theirs.key.assign(secret.begin(), secret.end());
 		// Клиент с неизвестным опознавателем
 		ours.identity = decode("756e6b6e6f776e");
-		// Ключ
+		// Задаём собственный открытый ключ
 		ours.key.assign(secret.begin(), secret.end());
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "");
+		// Настраиваем клиенту предварительное сообщение
+		__nts_presharing__(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "");
 		// Настройки сервера заново с ручкой
 		context::psk_t mine;
-		// Вызов
-		mine.respond = responding;
-		// Связка
+		// Заводим отклик собственной связки
+		mine.respond = __nts_responding__;
+		// Читаем контекст собственной связки
 		mine.context = &theirs;
 		// Ручка
 		mine.disclose = (disclose == 1);
-		// Устанавливаем
+		// Передаём связку стороне сервера
 		server.psk(mine);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Залп клиента
 		vector <vector <uint8_t>> answer;
-		// Получаем
-		ASSERT_TRUE(preparing(client, server, answer));
+		// Получаем первый залп клиента
+		ASSERT_TRUE(__nts_preparing__(client, server, answer));
 		// Подаём обмен ключами
 		const context::error_t outcome = server.push(view_t(answer[0].data(), answer[0].size()));
 		// Сервер увидел опознаватель
@@ -5348,7 +5348,7 @@ TEST(Tls12Test, Preshared){
 			// Извещение unknown_psk_identity (115)
 			ASSERT_EQ(server.alert().description, alert::description_t::PSK);
 			// Извещение доходит клиенту
-			converse(client, server);
+			__nts_converse__(client, server);
 			// Клиент оборван
 			ASSERT_EQ(client.error(), context::error_t::ALERT);
 			// Тем же извещением
@@ -5368,15 +5368,15 @@ TEST(Tls12Test, Preshared){
 		}
 	}
 	{
-		// Подлинность
+		// Заводим подлинность стороны связи
 		context::credential_t credential;
-		// Составляем
-		ASSERT_TRUE(identity("ec256", credential));
+		// Вырабатываем подлинность по имени узла
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Связка сервера
 		keyring_t theirs;
-		// Опознаватель
+		// Читаем опознаватель собеседника
 		theirs.identity = decode("616e796b73");
-		// Ключ
+		// Задаём открытый ключ собеседнику
 		theirs.key.assign(secret.begin(), secret.end());
 		// Клиент без ключа с наборами PSK и ECDHE
 		client::context_t client;
@@ -5386,25 +5386,25 @@ TEST(Tls12Test, Preshared){
 		client.suites(vector <protect::suite_t> {protect::suite_t::PSK_AES_128_CBC_SHA, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		// Наборы сервера
 		server.suites(vector <protect::suite_t> {protect::suite_t::PSK_AES_128_CBC_SHA, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
-		// Подлинность
+		// Устанавливаем подлинность стороне сервера
 		server.credential(credential);
 		// Настройки сервера
 		context::psk_t mine;
-		// Вызов
-		mine.respond = responding;
-		// Связка
+		// Заводим отклик собственной связки
+		mine.respond = __nts_responding__;
+		// Читаем контекст собственной связки
 		mine.context = &theirs;
-		// Устанавливаем
+		// Передаём связку стороне сервера
 		server.psk(mine);
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Рукопожатие
-		converse(client, server);
-		// Установлена
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established());
 		// Набор PSK без ключа не предлагался: выбран ECDHE
 		ASSERT_EQ(server.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256);
@@ -5414,33 +5414,33 @@ TEST(Tls12Test, Preshared){
 		server::context_t peer;
 		// Клиент с ключом
 		context::psk_t yours;
-		// Опознаватель
+		// Читаем опознаватель ответчика
 		yours.identity = theirs.identity;
-		// Ключ
+		// Задаём открытый ключ ответчика
 		yours.key.assign(secret.begin(), secret.end());
-		// Устанавливаем
+		// Передаём связку повторной связи
 		again.psk(yours);
 		// Наборы: PSK впереди
 		again.suites(vector <protect::suite_t> {protect::suite_t::PSK_AES_128_CBC_SHA, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		// Наборы сервера
 		peer.suites(vector <protect::suite_t> {protect::suite_t::PSK_AES_128_CBC_SHA, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
-		// Подлинность
+		// Устанавливаем подлинность собеседника
 		peer.credential(credential);
 		// Издание 1.2
 		ASSERT_EQ(again.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону собеседника
 		ASSERT_EQ(peer.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(again.start(), context::error_t::NONE);
-		// Рукопожатие
-		converse(again, peer);
-		// Установлена
+		// Ведём рукопожатие повторной связи
+		__nts_converse__(again, peer);
+		// Проверяем установленность повторной связи
 		ASSERT_TRUE(again.established() && peer.established());
 		// Выбран ECDHE
 		ASSERT_EQ(peer.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256);
 		// Клиент с одними наборами PSK без ключа предложить нечего
 		client::context_t bare;
-		// Наборы
+		// Заказываем наборы защиты bare
 		bare.suites(vector <protect::suite_t> {protect::suite_t::PSK_AES_128_CBC_SHA});
 		// Издание 1.2
 		ASSERT_EQ(bare.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -5448,25 +5448,25 @@ TEST(Tls12Test, Preshared){
 		ASSERT_EQ(bare.start(), context::error_t::SETTINGS);
 		// Опознаватель длиннее 128 байтов
 		client::context_t wide;
-		// Настройки
+		// Заводим настройки предварительного ключа
 		context::psk_t broad;
 		// Опознаватель в 129 байтов
 		broad.identity.assign(129, 0x41);
 		// Ключ
 		broad.key.assign(secret.begin(), secret.end());
-		// Устанавливаем
+		// Передаём связку wide
 		wide.psk(broad);
 		// Отказ настроек
 		ASSERT_EQ(wide.start(), context::error_t::SETTINGS);
 		// Ключ длиннее 64 байтов
 		client::context_t heavy;
-		// Настройки
+		// Заводим настройки предварительного ключа
 		context::psk_t thick;
 		// Опознаватель
 		thick.identity = theirs.identity;
 		// Ключ в 65 байтов
 		thick.key.assign(65, 0x42);
-		// Устанавливаем
+		// Передаём связку heavy
 		heavy.psk(thick);
 		// Отказ настроек
 		ASSERT_EQ(heavy.start(), context::error_t::SETTINGS);
@@ -5502,7 +5502,7 @@ TEST(Tls12Test, PresharedCallbackThrows){
 		// Контекст сервера
 		server::context_t server;
 		// Настраиваем обе стороны на PSK с подсказкой anyks-hint
-		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
+		__nts_presharing__(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
 		// Переустанавливаем respond сервера на бросающий
 		context::psk_t mine;
 		// respond бросает целое исключение вместо ответа ключом
@@ -5519,15 +5519,15 @@ TEST(Tls12Test, PresharedCallbackThrows){
 		// Залп записей между сторонами
 		vector <vector <uint8_t>> flight;
 		// Первый залп: обмен приветствиями и ключами
-		ASSERT_TRUE(volley(client, server, flight));
+		ASSERT_TRUE(__nts_volley__(client, server, flight));
 		// Буфер сплошного потока залпа
 		vector <uint8_t> stream;
 		// Сливаем записи залпа в поток
-		join(flight, stream);
+		__nts_join__(flight, stream);
 		// Клиент разбирает залп сервера штатно (advise настоящий) и шлёт свой обмен ключами
 		client.push(view_t(stream.data(), stream.size()));
 		// Доводим обмен: сервер наталкивается на бросок respond
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Сервер обязан завершиться отказом обмена ключами, а не обрушить процесс
 		EXPECT_EQ(server.state(), context::state_t::FAILED);
 		EXPECT_EQ(server.error(), context::error_t::EXCHANGE);
@@ -5545,7 +5545,7 @@ TEST(Tls12Test, PresharedCallbackThrows){
 		// Контекст сервера
 		server::context_t server;
 		// Настраиваем обе стороны на PSK с подсказкой anyks-hint
-		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
+		__nts_presharing__(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
 		// Переустанавливаем advise клиента на бросающий
 		context::psk_t yours;
 		// Подлинность кольца клиента как у серверного
@@ -5564,15 +5564,15 @@ TEST(Tls12Test, PresharedCallbackThrows){
 		// Залп записей между сторонами
 		vector <vector <uint8_t>> flight;
 		// Залп до обмена ключами сервера с подсказкой
-		ASSERT_TRUE(volley(client, server, flight));
+		ASSERT_TRUE(__nts_volley__(client, server, flight));
 		// Буфер сплошного потока залпа
 		vector <uint8_t> stream;
 		// Сливаем записи залпа в поток
-		join(flight, stream);
+		__nts_join__(flight, stream);
 		// Клиент разбирает обмен ключами сервера с подсказкой -> advise бросает
 		client.push(view_t(stream.data(), stream.size()));
 		// Доводим обмен: advise клиента бросает на ключах сервера
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Клиент обязан завершиться отказом обмена ключами, а не обрушить процесс
 		EXPECT_EQ(client.state(), context::state_t::FAILED);
 		EXPECT_EQ(client.error(), context::error_t::EXCHANGE);
@@ -5588,10 +5588,10 @@ TEST(Tls12Test, PresharedCallbackThrows){
  * живыми поколениями; билет 1.3 в записи потребителя изданию 1.2 не предъявляется
  */
 TEST(Tls12Test, Tickets){
-	// Подлинность
+	// Заводим подлинность стороны связи
 	context::credential_t credential;
-	// Составляем
-	ASSERT_TRUE(identity("ec256", credential));
+	// Вырабатываем подлинность по имени узла
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Секреты ключей билетов
 	const vector <uint8_t> first = decode("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"), second = decode("ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100"), third = decode("0f0e0d0c0b0a09080706050403020100");
 	// Октеты билета, ушедшие «в другой процесс»
@@ -5601,8 +5601,8 @@ TEST(Tls12Test, Tickets){
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Настраиваем связь стороны клиента
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		// Ключ билетов
@@ -5611,26 +5611,26 @@ TEST(Tls12Test, Tickets){
 		client.moment(1000000);
 		// Миг сервера
 		server.moment(1000000);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Залп клиента
 		vector <vector <uint8_t>> answer;
-		// Получаем
-		ASSERT_TRUE(preparing(client, server, answer));
+		// Получаем первый залп клиента
+		ASSERT_TRUE(__nts_preparing__(client, server, answer));
 		// Поток залпа клиента
 		vector <uint8_t> stream;
 		// Собираем
-		join(answer, stream);
+		__nts_join__(answer, stream);
 		// Подаём серверу
 		ASSERT_EQ(server.push(view_t(stream.data(), stream.size())), context::error_t::NONE);
 		// Ответ сервера: билет, смена набора, завершение
 		vector <record::type_t> records;
-		// Сообщения
+		// Накопитель сообщений проверки
 		vector <handshake::type_t> messages;
-		// Разбираем
-		ASSERT_TRUE(anatomy(server.output(), records, messages));
+		// Разбираем записи выхода сервера
+		ASSERT_TRUE(__nts_anatomy__(server.output(), records, messages));
 		// Три записи
 		ASSERT_EQ(records.size(), static_cast <size_t> (3));
 		// Раздел 3.3 RFC 5077: билет перед сменой набора
@@ -5643,9 +5643,9 @@ TEST(Tls12Test, Tickets){
 		ASSERT_EQ(messages.size(), static_cast <size_t> (1));
 		// Билет
 		ASSERT_EQ(messages[0], handshake::type_t::TICKET);
-		// Доводим
-		converse(client, server);
-		// Установлена
+		// Доводим связь до установления
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Полное рукопожатие
 		ASSERT_FALSE(client.shared() || server.shared());
@@ -5674,7 +5674,7 @@ TEST(Tls12Test, Tickets){
 		// Билет за рукопожатием изданию 1.2 не выдаётся
 		ASSERT_EQ(server.issue(), context::error_t::STATE);
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 	// Билет из октетов
 	context::ticket_t ticket;
@@ -5712,7 +5712,7 @@ TEST(Tls12Test, Tickets){
 		{"поколение ушло",                  {&second, &third},  0, 1000100, 1000100, protect::suite_t::NONE, false}
 	};
 	/**
-	 * Выполняем перебор путей возобновления
+	 * Перебираем путей возобновления
 	 */
 	for(size_t p = 0; p < (sizeof(paths) / sizeof(paths[0])); p++){
 		// Связь клиента
@@ -5725,11 +5725,11 @@ TEST(Tls12Test, Tickets){
 		client.suites(vector <protect::suite_t> {suite});
 		// Наборы сервера: оба
 		server.suites(vector <protect::suite_t> {ticket.suite, protect::suite_t::ECDHE_ECDSA_AES_256_GCM_SHA384});
-		// Группы
+		// Заказываем группы клиенту
 		client.groups(vector <extension::group_t> {extension::group_t::X25519});
 		// Группы сервера
 		server.groups(vector <extension::group_t> {extension::group_t::X25519});
-		// Подлинность
+		// Устанавливаем подлинность стороне сервера
 		server.credential(credential);
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -5753,45 +5753,45 @@ TEST(Tls12Test, Tickets){
 		else if(paths[p].spoil == 2)
 			// Портим последний байт: имитовставка HMAC-SHA256
 			presented.identity.back() ^= 0x01;
-		// Предъявляем
+		// Предъявляем клиенту билет сеанса
 		client.resume(presented);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE) << paths[p].name;
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << paths[p].name;
 		// Приветствие серверу
-		ASSERT_TRUE(deliver(client, server)) << paths[p].name;
+		ASSERT_TRUE(__nts_deliver__(client, server)) << paths[p].name;
 		// Залп сервера
 		vector <record::type_t> records;
-		// Сообщения
+		// Накопитель сообщений проверки
 		vector <handshake::type_t> messages;
-		// Разбираем
-		ASSERT_TRUE(anatomy(server.output(), records, messages)) << paths[p].name;
+		// Разбираем записи выхода сервера
+		ASSERT_TRUE(__nts_anatomy__(server.output(), records, messages)) << paths[p].name;
 		// Если ожидается возобновление
 		if(paths[p].resumed){
 			// Раздел 3.3 RFC 5077: приветствие, билет, смена набора, завершение - без сертификата и обмена
-			ASSERT_TRUE(among(messages, handshake::type_t::SERVER)) << paths[p].name;
+			ASSERT_TRUE(__nts_among__(messages, handshake::type_t::SERVER)) << paths[p].name;
 			// Билет заново
-			ASSERT_TRUE(among(messages, handshake::type_t::TICKET)) << paths[p].name;
+			ASSERT_TRUE(__nts_among__(messages, handshake::type_t::TICKET)) << paths[p].name;
 			// Сертификата нет
-			ASSERT_FALSE(among(messages, handshake::type_t::CERTIFICATE)) << paths[p].name;
+			ASSERT_FALSE(__nts_among__(messages, handshake::type_t::CERTIFICATE)) << paths[p].name;
 			// Обмена нет
-			ASSERT_FALSE(among(messages, handshake::type_t::AGREEMENT)) << paths[p].name;
+			ASSERT_FALSE(__nts_among__(messages, handshake::type_t::AGREEMENT)) << paths[p].name;
 			// Конца приветствия нет
-			ASSERT_FALSE(among(messages, handshake::type_t::DONE)) << paths[p].name;
+			ASSERT_FALSE(__nts_among__(messages, handshake::type_t::DONE)) << paths[p].name;
 			// Смена набора сервера идёт первой: завершение сервера впереди клиентского
 			ASSERT_NE(std::find(records.begin(), records.end(), record::type_t::CHANGE), records.end()) << paths[p].name;
 		// Если ожидается полное рукопожатие
 		} else {
 			// Сертификат есть
-			ASSERT_TRUE(among(messages, handshake::type_t::CERTIFICATE)) << paths[p].name;
+			ASSERT_TRUE(__nts_among__(messages, handshake::type_t::CERTIFICATE)) << paths[p].name;
 			// Конец приветствия есть
-			ASSERT_TRUE(among(messages, handshake::type_t::DONE)) << paths[p].name;
+			ASSERT_TRUE(__nts_among__(messages, handshake::type_t::DONE)) << paths[p].name;
 			// Смены набора нет
 			ASSERT_EQ(std::find(records.begin(), records.end(), record::type_t::CHANGE), records.end()) << paths[p].name;
 		}
-		// Доводим
-		converse(client, server);
+		// Доводим связь до установления
+		__nts_converse__(client, server);
 		// Установлена без отказа
 		ASSERT_TRUE(client.established() && server.established()) << paths[p].name << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " " << static_cast <int> (client.alert().description);
 		// Признак возобновления у обеих сторон
@@ -5800,19 +5800,19 @@ TEST(Tls12Test, Tickets){
 		ASSERT_EQ(server.shared(), paths[p].resumed) << paths[p].name;
 		// Сертификат сервера у клиента лишь в полном
 		ASSERT_EQ(client.peer().empty(), paths[p].resumed) << paths[p].name;
-		// Набор
+		// Проверяем согласованность набора защиты
 		ASSERT_EQ(client.suite(), suite) << paths[p].name;
 		// Новый билет выдан во всяком рукопожатии
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1)) << paths[p].name;
 		// Новый билет иной телом
 		ASSERT_NE(client.tickets()[0].identity, ticket.identity) << paths[p].name;
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server)) << paths[p].name;
+		ASSERT_TRUE(__nts_barter__(client, server)) << paths[p].name;
 		// Возобновлённая связь закрывается как обычная
 		ASSERT_EQ(client.close(), context::error_t::NONE);
-		// Передаём
-		converse(client, server);
-		// Закрыта
+		// Передаём рукопожатие связи
+		__nts_converse__(client, server);
+		// Проверяем закрытие связи сервера
 		ASSERT_EQ(server.state(), context::state_t::CLOSED) << paths[p].name;
 	}
 	{
@@ -5828,18 +5828,18 @@ TEST(Tls12Test, Tickets){
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		// Настраиваем связь стороны клиента
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Предъявляем
+		// Предъявляем билет сеанса клиента
 		client.resume(modern);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Рукопожатие
-		converse(client, server);
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
 		// Установлена полным
 		ASSERT_TRUE(client.established() && server.established());
 		// Не возобновлена
@@ -5904,14 +5904,14 @@ TEST(Tls12Test, Interop){
 		{protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, "ECDHE-PSK-CHACHA20-POLY1305@SECLEVEL=0", "", false, true}
 	};
 	/**
-	 * Выполняем перебор кругов: наш клиент против s_server
+	 * Перебираем кругов: наш клиент против s_server
 	 */
 	for(size_t r = 0; r < (sizeof(rounds) / sizeof(rounds[0])); r++){
 		// Свободный порт
 		const uint16_t number = vacant(false);
 		// Порт есть
 		ASSERT_NE(number, 0);
-		// Журнал
+		// Читаем журнал завершившегося процесса
 		const std::string log = "/tmp/ants-tls12b-server-" + std::to_string(number) + ".log";
 		// Подлинность и ключи сервера openssl
 		std::string arming;
@@ -5925,48 +5925,48 @@ TEST(Tls12Test, Interop){
 			arming = " -cert " + std::string(CORPUS) + "/" + rounds[r].key + ".crt -key " + std::string(CORPUS) + "/" + rounds[r].key + ".pem";
 		// Запускаем сервер openssl: билеты включены, чтобы проверить их у клиента
 		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_2" + arming + " -cipher " + rounds[r].cipher + (rounds[r].noetm ? " -no_etm" : "") + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
-		// Сторож
+		// Ставим сторож процесса
 		sentinel_t sentinel(log + ".pid");
-		// Подключаемся
-		const int fd = dial(number);
-		// Подключение
-		ASSERT_GE(fd, 0) << rounds[r].cipher;
+		// Подключаемся к слушающему сокету сервера
+		const int peer = dial(number);
+		// Проверяем состоявшееся подключение
+		ASSERT_GE(peer, 0) << rounds[r].cipher;
 		// Связь клиента
 		client::context_t client;
-		// Набор
+		// Заказываем наборы защиты клиенту
 		client.suites(vector <protect::suite_t> {rounds[r].suite});
-		// Группы
+		// Заказываем группы клиенту
 		client.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1});
 		// Связка клиента
 		keyring_t ours;
 		// Если набор PSK
 		if(rounds[r].psk){
-			// Настройки
+			// Заводим настройки предварительного ключа
 			context::psk_t yours;
-			// Опознаватель
+			// Читаем опознаватель ответчика
 			yours.identity = decode("616e796b73");
-			// Ключ
+			// Задаём открытый ключ ответчика
 			yours.key.assign(secret.begin(), secret.end());
 			// Вызов по подсказке
-			yours.advise = advising;
-			// Связка
+			yours.advise = __nts_advising__;
+			// Читаем контекст связки ответчика
 			yours.context = &ours;
-			// Устанавливаем
+			// Передаём связку стороне клиента
 			client.psk(yours);
 		}
 		// Имя узла
 		client.name("localhost");
-		// Заводим
+		// Запускаем сторону клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу до установления
+		 * Передаём до установления
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
-			// Передаём
-			relay(client, fd);
-		// Установлена
+			// Передаём поток стороне сервера
+			relay(client, peer);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established()) << rounds[r].cipher << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
-		// Набор
+		// Проверяем согласованность набора защиты
 		ASSERT_EQ(client.suite(), rounds[r].suite);
 		// Порядок RFC 7366 ровно по ключу openssl
 		ASSERT_EQ(client.etm(), ((protect::mac(rounds[r].suite) != digest::hash_t::NONE) && !rounds[r].noetm)) << rounds[r].cipher;
@@ -5977,19 +5977,19 @@ TEST(Tls12Test, Interop){
 			// Сертификата нет
 			ASSERT_TRUE(client.peer().empty());
 		}
-		// Запрос
+		// Читаем байты запроса
 		const string request = "GET / HTTP/1.0\r\n\r\n";
-		// Отправляем
+		// Отправляем прикладные данные клиентом
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-		// Ответ
+		// Накопитель байтов ответа
 		vector <uint8_t> answer;
 		/**
-		 * Выполняем передачу до ответа
+		 * Передаём до ответа
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
-			// Передаём
-			relay(client, fd);
-			// Читаем
+			// Передаём поток стороне сервера
+			relay(client, peer);
+			// Читаем прикладные данные клиентом
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
 		// Текст ответа
@@ -6001,27 +6001,27 @@ TEST(Tls12Test, Interop){
 		// Билет от s_server получен
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1)) << rounds[r].cipher;
 		// Закрываем сокет
-		closing(fd);
+		closing(peer);
 		// Снимаем сервер
 		sentinel.halt();
-		// Журнал
+		// Читаем журнал в строку
 		std::string journal;
-		// Дожидаемся
+		// Дожидаемся завершения процесса
 		(void) settle(log, journal);
-		// Удаляем
+		// Удаляем файл журнала
 		::remove(log.c_str());
 	}
 	/**
-	 * Выполняем перебор кругов: s_client против нашего сервера
+	 * Перебираем кругов: s_client против нашего сервера
 	 */
 	for(size_t r = 0; r < (sizeof(rounds) / sizeof(rounds[0])); r++){
-		// Порт
+		// Заводим номер порта
 		uint16_t number = 0;
 		// Слушающий сокет
 		const int listener = harbour(number);
-		// Сокет
+		// Проверяем заведение слушающего сокета
 		ASSERT_GE(listener, 0);
-		// Журнал
+		// Читаем журнал завершившегося процесса
 		const std::string log = "/tmp/ants-tls12b-client-" + std::to_string(number) + ".log";
 		// Доводы клиента openssl
 		std::string arming;
@@ -6035,52 +6035,52 @@ TEST(Tls12Test, Interop){
 			arming = " -CAfile " + std::string(CORPUS) + "/" + rounds[r].key + ".crt -servername localhost -verify_return_error";
 		// Запускаем клиента openssl
 		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2" + arming + " -cipher " + rounds[r].cipher + (rounds[r].noetm ? " -no_etm" : "") + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
-		// Сторож
+		// Ставим сторож процесса
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение с пределом ожидания приёма
-		const int fd = greeted(listener);
+		const int peer = greeted(listener);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(peer, 0);
 		// Связь сервера
 		server::context_t server;
-		// Набор
+		// Заказываем наборы защиты серверу
 		server.suites(vector <protect::suite_t> {rounds[r].suite});
-		// Группы
+		// Заказываем группы сервера
 		server.groups(vector <extension::group_t> {extension::group_t::X25519});
 		// Связка сервера
 		keyring_t theirs;
 		// Если набор PSK
 		if(rounds[r].psk){
-			// Опознаватель
+			// Читаем опознаватель собеседника
 			theirs.identity = decode("616e796b73");
-			// Ключ
+			// Задаём открытый ключ собеседнику
 			theirs.key.assign(secret.begin(), secret.end());
-			// Настройки
+			// Заводим настройки предварительного ключа
 			context::psk_t mine;
-			// Вызов
-			mine.respond = responding;
-			// Связка
+			// Заводим отклик собственной связки
+			mine.respond = __nts_responding__;
+			// Читаем контекст собственной связки
 			mine.context = &theirs;
 			// Подсказка
 			mine.identity = decode("616e796b732d68696e74");
-			// Устанавливаем
+			// Передаём связку стороне сервера
 			server.psk(mine);
 		// Иначе подлинность
 		} else {
-			// Подлинность
+			// Заводим подлинность стороны связи
 			context::credential_t credential;
 			// Составляем
-			ASSERT_TRUE(identity(rounds[r].key, credential));
-			// Устанавливаем
+			ASSERT_TRUE(__nts_identity__(rounds[r].key, credential));
+			// Устанавливаем подлинность сервера
 			server.credential(credential);
 		}
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём до конца рукопожатия
-		ASSERT_TRUE(serve(server, fd)) << rounds[r].cipher << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
+		ASSERT_TRUE(serve(server, peer)) << rounds[r].cipher << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 		// Отказа нет
 		ASSERT_EQ(server.error(), context::error_t::NONE) << rounds[r].cipher;
-		// Набор
+		// Проверяем набор защиты сервера
 		ASSERT_EQ(server.suite(), rounds[r].suite);
 		// Порядок RFC 7366 ровно по ключу openssl
 		ASSERT_EQ(server.etm(), ((protect::mac(rounds[r].suite) != digest::hash_t::NONE) && !rounds[r].noetm)) << rounds[r].cipher;
@@ -6092,12 +6092,12 @@ TEST(Tls12Test, Interop){
 		// Билет выдан
 		ASSERT_EQ(server.tickets().size(), static_cast <size_t> (1)) << rounds[r].cipher;
 		// Закрываем связь, коли она ещё открыта
-		ASSERT_TRUE(farewell(server, fd));
-		// Закрываем
-		closing(fd);
+		ASSERT_TRUE(farewell(server, peer));
+		// Закрываем соединение с сервером
+		closing(peer);
 		// Закрываем слушающий
 		closing(listener);
-		// Текст
+		// Читаем текст сообщения
 		std::string text;
 		// Клиент завершился
 		ASSERT_TRUE(settle(log, text)) << text;
@@ -6107,55 +6107,55 @@ TEST(Tls12Test, Interop){
 		ASSERT_NE(text.find("Protocol  : TLSv1.2"), std::string::npos) << text;
 		// Билет в журнале клиента
 		ASSERT_NE(text.find("TLS session ticket:"), std::string::npos) << text;
-		// Удаляем
+		// Удаляем файл журнала
 		::remove(log.c_str());
 	}
 	{
 		// Требование ETM у нашего клиента против s_server -no_etm: отказ ETM
 		const uint16_t number = vacant(false);
-		// Порт
+		// Проверяем назначенный номер порта
 		ASSERT_NE(number, 0);
-		// Журнал
+		// Читаем журнал завершившегося процесса
 		const std::string log = "/tmp/ants-tls12b-strict-" + std::to_string(number) + ".log";
 		// Запускаем сервер без ETM
 		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_2 -cert " + std::string(CORPUS) + "/ec256.crt -key " + std::string(CORPUS) + "/ec256.pem -cipher ECDHE-ECDSA-AES128-SHA256 -no_etm -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
-		// Сторож
+		// Ставим сторож процесса
 		sentinel_t sentinel(log + ".pid");
-		// Подключаемся
-		const int fd = dial(number);
-		// Подключение
-		ASSERT_GE(fd, 0);
+		// Подключаемся к слушающему сокету сервера
+		const int peer = dial(number);
+		// Проверяем состоявшееся подключение
+		ASSERT_GE(peer, 0);
 		// Связь клиента
 		client::context_t client;
-		// Набор
+		// Заказываем наборы защиты клиенту
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256});
 		// Требование ETM
 		client.etm(true);
 		// Имя узла
 		client.name("localhost");
-		// Заводим
+		// Запускаем сторону клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу до обрыва
+		 * Передаём до обрыва
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
-			// Передаём
-			relay(client, fd);
+			// Передаём поток стороне сервера
+			relay(client, peer);
 		// Не установлена
 		ASSERT_FALSE(client.established());
 		// Отказ ETM
 		ASSERT_EQ(client.error(), context::error_t::ETM);
 		// Извещение handshake_failure
 		ASSERT_EQ(client.alert().description, alert::description_t::HANDSHAKE);
-		// Закрываем
-		closing(fd);
-		// Снимаем
+		// Закрываем соединение с сервером
+		closing(peer);
+		// Снимаем сторож процесса
 		sentinel.halt();
-		// Журнал
+		// Читаем журнал в строку
 		std::string journal;
-		// Дожидаемся
+		// Дожидаемся завершения процесса
 		(void) settle(log, journal);
-		// Удаляем
+		// Удаляем файл журнала
 		::remove(log.c_str());
 	}
 	{
@@ -6163,100 +6163,100 @@ TEST(Tls12Test, Interop){
 		uint16_t number = 0;
 		// Слушающий сокет
 		const int listener = harbour(number);
-		// Сокет
+		// Проверяем заведение слушающего сокета
 		ASSERT_GE(listener, 0);
-		// Журнал
+		// Читаем журнал завершившегося процесса
 		const std::string log = "/tmp/ants-tls12b-wrongpsk-" + std::to_string(number) + ".log";
 		// Запускаем клиента с иным ключом
 		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2 -psk_identity anyks -psk 0123456789ABCDEE -cipher PSK-AES128-CBC-SHA@SECLEVEL=0 </dev/null >" + log + " 2>&1", log, log + ".pid"));
-		// Сторож
+		// Ставим сторож процесса
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение с пределом ожидания приёма
-		const int fd = greeted(listener);
+		const int peer = greeted(listener);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(peer, 0);
 		// Связь сервера
 		server::context_t server;
-		// Набор
+		// Заказываем наборы защиты серверу
 		server.suites(vector <protect::suite_t> {protect::suite_t::PSK_AES_128_CBC_SHA});
-		// Связка
+		// Заводим связку ключей
 		keyring_t theirs;
-		// Опознаватель
+		// Читаем опознаватель собеседника
 		theirs.identity = decode("616e796b73");
-		// Ключ
+		// Задаём открытый ключ собеседнику
 		theirs.key.assign(secret.begin(), secret.end());
-		// Настройки
+		// Заводим настройки предварительного ключа
 		context::psk_t mine;
-		// Вызов
-		mine.respond = responding;
-		// Связка
+		// Заводим отклик собственной связки
+		mine.respond = __nts_responding__;
+		// Читаем контекст собственной связки
 		mine.context = &theirs;
-		// Устанавливаем
+		// Передаём связку стороне сервера
 		server.psk(mine);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём: рукопожатие обязано провалиться
-		(void) serve(server, fd);
+		(void) serve(server, peer);
 		// Отказ снятия защиты завершения
 		ASSERT_EQ(server.error(), context::error_t::PROTECTION);
 		// Извещение bad_record_mac
 		ASSERT_EQ(server.alert().description, alert::description_t::MAC);
 		// Опознаватель дошёл
 		ASSERT_EQ(theirs.seen, theirs.identity);
-		// Закрываем
-		closing(fd);
+		// Закрываем соединение с сервером
+		closing(peer);
 		// Закрываем слушающий
 		closing(listener);
-		// Текст
+		// Читаем текст сообщения
 		std::string text;
 		// Клиент завершился
 		ASSERT_TRUE(settle(log, text)) << text;
 		// Клиент openssl принял извещение bad record mac
 		ASSERT_NE(text.find("bad record mac"), std::string::npos) << text;
-		// Удаляем
+		// Удаляем файл журнала
 		::remove(log.c_str());
 	}
 	{
 		// Билеты: s_client -sess_out, затем -sess_in против двух наших серверов с одним ключом билетов
 		const vector <uint8_t> vault = decode("00112233445566778899aabbccddeeff");
-		// Подлинность
+		// Заводим подлинность стороны связи
 		context::credential_t credential;
-		// Составляем
-		ASSERT_TRUE(identity("ec256", credential));
+		// Вырабатываем подлинность по имени узла
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Файл сеанса
 		const std::string session = "/tmp/ants-tls12b-session-" + std::to_string(static_cast <long> (::getpid())) + ".pem";
 		// Удаляем прежний
 		::remove(session.c_str());
 		/**
-		 * Выполняем два рукопожатия: полное с записью сеанса и возобновлённое с чтением
+		 * Ведём два рукопожатия: полное с записью сеанса и возобновлённое с чтением
 		 */
 		for(size_t pass = 0; pass < 2; pass++){
-			// Порт
+			// Заводим номер порта
 			uint16_t number = 0;
 			// Слушающий сокет
 			const int listener = harbour(number);
-			// Сокет
+			// Проверяем заведение слушающего сокета
 			ASSERT_GE(listener, 0);
-			// Журнал
+			// Читаем журнал завершившегося процесса
 			const std::string log = "/tmp/ants-tls12b-ticket-" + std::to_string(number) + ".log";
 			// Запускаем клиента openssl
 			ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2 -CAfile " + std::string(CORPUS) + "/ec256.crt -servername localhost -verify_return_error -cipher ECDHE-ECDSA-AES128-GCM-SHA256 " + ((pass == 0) ? ("-sess_out " + session) : ("-sess_in " + session)) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
-			// Сторож
+			// Ставим сторож процесса
 			sentinel_t sentinel(log + ".pid");
 			// Принимаем подключение с пределом ожидания приёма
-			const int fd = greeted(listener);
+			const int peer = greeted(listener);
 			// Проверяем подключение
-			ASSERT_GE(fd, 0);
+			ASSERT_GE(peer, 0);
 			// Связь сервера
 			server::context_t server;
-			// Подлинность
+			// Устанавливаем подлинность стороне сервера
 			server.credential(credential);
 			// Ключ билетов: у обоих серверов один
 			server.vault(vault);
-			// Заводим
+			// Запускаем сторону сервера
 			ASSERT_EQ(server.start(), context::error_t::NONE);
 			// Ведём
-			ASSERT_TRUE(serve(server, fd)) << "проход " << pass << " отказ " << static_cast <int> (server.error());
+			ASSERT_TRUE(serve(server, peer)) << "проход " << pass << " отказ " << static_cast <int> (server.error());
 			// Отказа нет
 			ASSERT_EQ(server.error(), context::error_t::NONE);
 			// Возобновление на втором проходе
@@ -6264,12 +6264,12 @@ TEST(Tls12Test, Interop){
 			// Билет выдан на обоих
 			ASSERT_EQ(server.tickets().size(), static_cast <size_t> (1));
 			// Закрываем связь, коли она ещё открыта
-			ASSERT_TRUE(farewell(server, fd));
-			// Закрываем
-			closing(fd);
+			ASSERT_TRUE(farewell(server, peer));
+			// Закрываем соединение с сервером
+			closing(peer);
 			// Закрываем слушающий
 			closing(listener);
-			// Текст
+			// Читаем текст сообщения
 			std::string text;
 			// Клиент завершился
 			ASSERT_TRUE(settle(log, text)) << text;
@@ -6277,7 +6277,7 @@ TEST(Tls12Test, Interop){
 			ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 			// Полное либо возобновлённое по отчёту openssl
 			ASSERT_NE(text.find((pass == 0) ? "New, TLSv1.2" : "Reused, TLSv1.2"), std::string::npos) << text;
-			// Удаляем
+			// Удаляем файл журнала
 			::remove(log.c_str());
 		}
 		// Удаляем файл сеанса
@@ -6286,61 +6286,61 @@ TEST(Tls12Test, Interop){
 	{
 		// Билеты: наш клиент против s_server дважды, второе рукопожатие возобновлено билетом
 		const uint16_t number = vacant(false);
-		// Порт
+		// Проверяем назначенный номер порта
 		ASSERT_NE(number, 0);
-		// Журнал
+		// Читаем журнал завершившегося процесса
 		const std::string log = "/tmp/ants-tls12b-reuse-" + std::to_string(number) + ".log";
 		// Запускаем сервер на два приёма с билетами
 		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_2 -cert " + std::string(CORPUS) + "/ec256.crt -key " + std::string(CORPUS) + "/ec256.pem -cipher ECDHE-ECDSA-AES128-GCM-SHA256 -www" + (toolkit.naccept ? " -naccept 2" : "") + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
-		// Сторож
+		// Ставим сторож процесса
 		sentinel_t sentinel(log + ".pid");
 		// Билет первого рукопожатия
 		context::ticket_t ticket;
 		/**
-		 * Выполняем два рукопожатия
+		 * Ведём два рукопожатия
 		 */
 		for(size_t pass = 0; pass < 2; pass++){
-			// Подключаемся
-			const int fd = dial(number);
-			// Подключение
-			ASSERT_GE(fd, 0) << pass;
+			// Подключаемся к слушающему сокету сервера
+			const int peer = dial(number);
+			// Проверяем состоявшееся подключение
+			ASSERT_GE(peer, 0) << pass;
 			// Связь клиента
 			client::context_t client;
-			// Набор
+			// Заказываем наборы защиты клиенту
 			client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 			// Имя узла
 			client.name("localhost");
 			// На втором проходе предъявляем билет
 			if(pass == 1)
-				// Предъявляем
+				// Предъявляем билет сеанса клиента
 				client.resume(ticket);
-			// Заводим
+			// Запускаем сторону клиента
 			ASSERT_EQ(client.start(), context::error_t::NONE);
 			/**
-			 * Выполняем передачу до установления
+			 * Передаём до установления
 			 */
 			for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
-				// Передаём
-				relay(client, fd);
-			// Установлена
+				// Передаём поток стороне сервера
+				relay(client, peer);
+			// Проверяем установленность связи клиента
 			ASSERT_TRUE(client.established()) << pass << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 			// Возобновление на втором проходе
 			ASSERT_EQ(client.shared(), (pass == 1)) << pass;
 			// Сертификат лишь на первом
 			ASSERT_EQ(client.peer().empty(), (pass == 1)) << pass;
-			// Запрос
+			// Читаем байты запроса
 			const string request = "GET / HTTP/1.0\r\n\r\n";
-			// Отправляем
+			// Отправляем прикладные данные клиентом
 			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-			// Ответ
+			// Накопитель байтов ответа
 			vector <uint8_t> answer;
 			/**
-			 * Выполняем передачу до ответа
+			 * Передаём до ответа
 			 */
 			for(size_t i = 0; (i < 16) && answer.empty(); i++){
-				// Передаём
-				relay(client, fd);
-				// Читаем
+				// Передаём поток стороне сервера
+				relay(client, peer);
+				// Читаем прикладные данные клиентом
 				ASSERT_EQ(client.read(answer), context::error_t::NONE);
 			}
 			// Текст
@@ -6356,16 +6356,16 @@ TEST(Tls12Test, Interop){
 				// Запоминаем билет
 				ticket = client.tickets()[0];
 			}
-			// Закрываем
-			closing(fd);
+			// Закрываем соединение с сервером
+			closing(peer);
 		}
-		// Снимаем
+		// Снимаем сторож процесса
 		sentinel.halt();
-		// Журнал
+		// Читаем журнал в строку
 		std::string journal;
-		// Дожидаемся
+		// Дожидаемся завершения процесса
 		(void) settle(log, journal);
-		// Удаляем
+		// Удаляем файл журнала
 		::remove(log.c_str());
 	}
 }
@@ -6386,28 +6386,28 @@ TEST(Tls12Test, VectorSecond){
 	// Ключ PSK векторов
 	const vector <uint8_t> secret = decode("0123456789abcdef");
 	/**
-	 * Выполняем перебор изданий
+	 * Перебираем изданий
 	 */
 	for(size_t e = 0; e < (sizeof(EDITIONS) / sizeof(EDITIONS[0])); e++){
 		/**
-		 * Выполняем перебор сценариев
+		 * Перебираем сценариев
 		 */
 		for(size_t s = 0; s < (sizeof(SCENARIOS2) / sizeof(SCENARIOS2[0])); s++){
 			// Путь
-			const std::string path = place2(EDITIONS[e], SCENARIOS2[s].name);
+			const std::string path = __nts_place2__(EDITIONS[e], SCENARIOS2[s].name);
 			// Каталог обязан быть
-			ASSERT_TRUE(exists(path)) << path;
+			ASSERT_TRUE(__nts_exists__(path)) << path;
 			// Признак вектора отказа: сервер на неверном ключе шлёт извещение вместо завершения
 			const bool wrong = (::strcmp(SCENARIOS2[s].name, "psk-wrong-key") == 0);
 			// Потоки сторон
 			stream_t c2s, s2c;
 			// Поток клиента
-			ASSERT_TRUE(unwind(slurp(path + "/handshake-c2s.bin"), c2s, true)) << path;
+			ASSERT_TRUE(__nts_unwind__(slurp(path + "/handshake-c2s.bin"), c2s, true)) << path;
 			// Поток сервера: у вектора отказа без смены набора и завершения
-			ASSERT_TRUE(unwind(slurp(path + "/handshake-s2c.bin"), s2c, !wrong)) << path;
+			ASSERT_TRUE(__nts_unwind__(slurp(path + "/handshake-s2c.bin"), s2c, !wrong)) << path;
 			// Если вектор отказа: поток сервера кончается извещением bad_record_mac
 			if(wrong){
-				// Поток
+				// Читаем байты потока
 				const vector <uint8_t> tail = slurp(path + "/handshake-s2c.bin");
 				// Извещение в хвосте: вид 21, роковое, bad_record_mac (20)
 				ASSERT_GE(tail.size(), static_cast <size_t> (7)) << path;
@@ -6427,11 +6427,11 @@ TEST(Tls12Test, VectorSecond){
 			// Приветствия
 			hello::client_t client;
 			// Разбираем
-			ASSERT_EQ(hello::parse(inner(c2s.messages[0]), client), hello::error_t::NONE) << path;
+			ASSERT_EQ(hello::parse(__nts_inner__(c2s.messages[0]), client), hello::error_t::NONE) << path;
 			// Сервер
 			hello::server_t server;
 			// Разбираем
-			ASSERT_EQ(hello::parse(inner(s2c.messages[0]), server), hello::error_t::NONE) << path;
+			ASSERT_EQ(hello::parse(__nts_inner__(s2c.messages[0]), server), hello::error_t::NONE) << path;
 			// Набор
 			ASSERT_EQ(server.suite, SCENARIOS2[s].suite) << path;
 			// EMS
@@ -6454,8 +6454,8 @@ TEST(Tls12Test, VectorSecond){
 			if(psk && (agreement != nullptr)){
 				// Разборщик
 				field::scanner_t scanner;
-				// Тело
-				scanner.start(inner(*agreement));
+				// Запускаем сторону scanner
+				scanner.start(__nts_inner__(*agreement));
 				// Подсказка
 				view_t hint;
 				// Читаем
@@ -6465,11 +6465,11 @@ TEST(Tls12Test, VectorSecond){
 				// Если ECDHE_PSK: за подсказкой параметры кривой
 				if(exchange == protect::exchange_t::ECDHE_PSK){
 					// Вид параметров
-					uint32_t kind = 0;
+					uint32_t __nts_kind__ = 0;
 					// Читаем
-					ASSERT_EQ(scanner.number(kind, 1), field::error_t::NONE) << path;
+					ASSERT_EQ(scanner.number(__nts_kind__, 1), field::error_t::NONE) << path;
 					// Именованная кривая
-					ASSERT_EQ(kind, static_cast <uint32_t> (3)) << path;
+					ASSERT_EQ(__nts_kind__, static_cast <uint32_t> (3)) << path;
 					// Кривая
 					uint32_t named = 0;
 					// Читаем
@@ -6490,7 +6490,7 @@ TEST(Tls12Test, VectorSecond){
 					ASSERT_EQ(scanner.left(), static_cast <size_t> (0)) << path;
 			}
 			// Обмен клиента
-			const view_t premaster = inner(*seek(c2s.messages, handshake::type_t::PREMASTER));
+			const view_t premaster = __nts_inner__(*seek(c2s.messages, handshake::type_t::PREMASTER));
 			// Если набор PSK: опознаватель anyks впереди
 			if(psk){
 				// Ожидаемое начало: длина 5 и anyks
@@ -6517,9 +6517,9 @@ TEST(Tls12Test, VectorSecond){
 			}
 			// Первая запись клиента по проводу с приветствием
 			const vector <uint8_t> wire = slurp(path + "/handshake-c2s.bin");
-			// Заголовок
+			// Читаем заголовок записи
 			record::header_t header;
-			// Разбираем
+			// Разбираем запись потока байтов
 			ASSERT_EQ(record::parse(view_t(wire.data(), wire.size()), header), record::error_t::NONE) << path;
 			// Запись приветствия
 			const vector <uint8_t> first(wire.begin(), wire.begin() + record::RECORD_HEADER + header.size);
@@ -6529,32 +6529,32 @@ TEST(Tls12Test, VectorSecond){
 			keyring_t theirs;
 			// Если набор PSK
 			if(psk){
-				// Опознаватель
+				// Читаем опознаватель собеседника
 				theirs.identity = decode("616e796b73");
-				// Ключ
+				// Задаём открытый ключ собеседнику
 				theirs.key.assign(secret.begin(), secret.end());
-				// Настройки
+				// Заводим настройки предварительного ключа
 				context::psk_t mine;
-				// Вызов
-				mine.respond = responding;
-				// Связка
+				// Заводим отклик собственной связки
+				mine.respond = __nts_responding__;
+				// Читаем контекст собственной связки
 				mine.context = &theirs;
 				// Подсказка по сценарию
 				mine.identity.assign(SCENARIOS2[s].hint, SCENARIOS2[s].hint + ::strlen(SCENARIOS2[s].hint));
-				// Устанавливаем
+				// Передаём связку собственной стороны
 				ours.psk(mine);
 			// Иначе подлинность
 			} else {
-				// Подлинность
+				// Заводим подлинность стороны связи
 				context::credential_t credential;
 				// Составляем
-				ASSERT_TRUE(identity(SCENARIOS2[s].key, credential)) << path;
-				// Устанавливаем
+				ASSERT_TRUE(__nts_identity__(SCENARIOS2[s].key, credential)) << path;
+				// Устанавливаем подлинность собственной стороны
 				ours.credential(credential);
 			}
-			// Группы
+			// Заказываем группы собственной стороны
 			ours.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1});
-			// Заводим
+			// Запускаем сторону собственной стороны
 			ASSERT_EQ(ours.start(), context::error_t::NONE) << path;
 			// Подаём записанное приветствие
 			(void) ours.push(view_t(first.data(), first.size()));
@@ -6566,16 +6566,16 @@ TEST(Tls12Test, VectorSecond){
 			ASSERT_EQ(ours.etm(), SCENARIOS2[s].etm) << path;
 			// Залп нашего сервера
 			vector <record::type_t> records;
-			// Сообщения
+			// Накопитель сообщений проверки
 			vector <handshake::type_t> messages;
-			// Разбираем
-			ASSERT_TRUE(anatomy(ours.output(), records, messages)) << path;
+			// Разбираем записи выхода собственной стороны
+			ASSERT_TRUE(__nts_anatomy__(ours.output(), records, messages)) << path;
 			// Приветствие первое
 			ASSERT_EQ(messages[0], handshake::type_t::SERVER) << path;
 			// Сертификат ровно как у openssl
-			ASSERT_EQ(among(messages, handshake::type_t::CERTIFICATE), !psk) << path;
+			ASSERT_EQ(__nts_among__(messages, handshake::type_t::CERTIFICATE), !psk) << path;
 			// Обмен ключами ровно как у openssl
-			ASSERT_EQ(among(messages, handshake::type_t::AGREEMENT), (agreement != nullptr)) << path;
+			ASSERT_EQ(__nts_among__(messages, handshake::type_t::AGREEMENT), (agreement != nullptr)) << path;
 			// Конец приветствия последний
 			ASSERT_EQ(messages.back(), handshake::type_t::DONE) << path;
 			// Если обмен чистого PSK с подсказкой: наш обмен ключами совпадает с openssl байт в байт
@@ -6583,17 +6583,17 @@ TEST(Tls12Test, VectorSecond){
 				// Записи залпа
 				vector <vector <uint8_t>> pieces;
 				// Нарезаем
-				ASSERT_TRUE(slice(ours.output(), pieces)) << path;
-				// Поток
+				ASSERT_TRUE(__nts_slice__(ours.output(), pieces)) << path;
+				// Накопитель байтов потока
 				vector <uint8_t> flight;
 				// Собираем
-				join(pieces, flight);
+				__nts_join__(pieces, flight);
 				// Поток как записи
 				stream_t mine;
 				// Разбор потока залпа без смены набора не сходится, потому ищем сообщение сборщиком
 				handshake::reader_t reader;
 				/**
-				 * Выполняем перебор записей
+				 * Перебираем записей
 				 */
 				for(size_t i = 0; i < pieces.size(); i++)
 					// Складываем содержимое
@@ -6603,13 +6603,13 @@ TEST(Tls12Test, VectorSecond){
 				// Тело
 				view_t body;
 				/**
-				 * Выполняем перебор сообщений
+				 * Перебираем сообщений
 				 */
 				while(reader.next(head, body) == handshake::error_t::NONE){
 					// Если это обмен ключами
 					if(head.type == handshake::type_t::AGREEMENT){
 						// Тело совпадает с openssl байт в байт
-						ASSERT_EQ(vector <uint8_t> (body.data, body.data + body.size), vector <uint8_t> (inner(*agreement).data, inner(*agreement).data + inner(*agreement).size)) << path;
+						ASSERT_EQ(vector <uint8_t> (body.data, body.data + body.size), vector <uint8_t> (__nts_inner__(*agreement).data, __nts_inner__(*agreement).data + __nts_inner__(*agreement).size)) << path;
 					}
 				}
 			}
@@ -6618,7 +6618,7 @@ TEST(Tls12Test, VectorSecond){
 			// Ключевой файл
 			vector <uint8_t> random, master;
 			// Разбираем
-			ASSERT_TRUE(keylog(path, random, master)) << path;
+			ASSERT_TRUE(__nts_keylog__(path, random, master)) << path;
 			// Случайное значение клиента
 			ASSERT_EQ(random, vector <uint8_t> (client.random, client.random + hello::HELLO_RANDOM)) << path;
 			// Случайное значение сервера
@@ -6632,11 +6632,11 @@ TEST(Tls12Test, VectorSecond){
 			// Билеты сервера
 			vector <vector <uint8_t>> tickets;
 			/**
-			 * Выполняем перебор сообщений сервера
+			 * Перебираем сообщений сервера
 			 */
 			for(size_t i = 0; i < s2c.messages.size(); i++){
 				// Если билет
-				if(kind(s2c.messages[i]) == handshake::type_t::TICKET)
+				if(__nts_kind__(s2c.messages[i]) == handshake::type_t::TICKET)
 					// Откладываем
 					tickets.push_back(s2c.messages[i]);
 				// Иначе в переписку
@@ -6645,7 +6645,7 @@ TEST(Tls12Test, VectorSecond){
 					transcript.push_back(s2c.messages[i]);
 			}
 			/**
-			 * Выполняем перебор сообщений клиента
+			 * Перебираем сообщений клиента
 			 */
 			for(size_t i = 1; i < c2s.messages.size(); i++)
 				// Добавляем
@@ -6653,7 +6653,7 @@ TEST(Tls12Test, VectorSecond){
 			// Защита записей клиента
 			protect::protection_t incoming;
 			// Ключ клиента
-			ASSERT_TRUE(keyed(suite, master, random, theirsRandom, incoming, true, etm)) << path;
+			ASSERT_TRUE(__nts_keyed__(suite, master, random, theirsRandom, incoming, true, etm)) << path;
 			// Вид
 			record::type_t type = record::type_t::NONE;
 			// Открытое
@@ -6662,12 +6662,12 @@ TEST(Tls12Test, VectorSecond){
 			ASSERT_EQ(incoming.open(c2s.header, view_t(c2s.sealed.data(), c2s.sealed.size()), type, plain), protect::error_t::NONE) << path;
 			// Рукопожатие
 			ASSERT_EQ(type, record::type_t::HANDSHAKE) << path;
-			// Завершение
-			ASSERT_EQ(kind(plain), handshake::type_t::FINISHED) << path;
+			// Определяем вид завершения записи
+			ASSERT_EQ(__nts_kind__(plain), handshake::type_t::FINISHED) << path;
 			// Ожидаемый verify_data
 			uint8_t expected[12];
 			// Вычисляем
-			ASSERT_TRUE(completion(suite, master, "client finished", transcript, expected)) << path;
+			ASSERT_TRUE(__nts_completion__(suite, master, "client finished", transcript, expected)) << path;
 			// Сошёлся
 			ASSERT_EQ(vector <uint8_t> (plain.begin() + handshake::HANDSHAKE_HEADER, plain.end()), vector <uint8_t> (expected, expected + sizeof(expected))) << path;
 			// Если набор CBC: раскладка записи клиента байт в байт своими руками
@@ -6675,7 +6675,7 @@ TEST(Tls12Test, VectorSecond){
 				// Ключи клиента
 				vector <uint8_t> key, mac;
 				// Выводим
-				ASSERT_TRUE(deriving(suite, master, random, theirsRandom, true, key, mac)) << path;
+				ASSERT_TRUE(__nts_deriving__(suite, master, random, theirsRandom, true, key, mac)) << path;
 				// Длина имитовставки
 				const size_t width = digest::length(protect::mac(suite));
 				// Длина шифртекста без вектора и открытой имитовставки
@@ -6699,7 +6699,7 @@ TEST(Tls12Test, VectorSecond){
 				// Дополнение умещается
 				ASSERT_LT(padding + 1 + (etm ? 0 : width), length + 1) << path;
 				/**
-				 * Выполняем сверку байтов дополнения
+				 * Сверяем байтов дополнения
 				 */
 				for(size_t i = 0; i <= padding; i++)
 					// Байт равен длине
@@ -6718,13 +6718,13 @@ TEST(Tls12Test, VectorSecond){
 				if(!etm){
 					// Длина содержимого
 					associated[11] = static_cast <uint8_t> ((total >> 8) & 0xFF);
-					// Младший
+					// Читаем младший байт счётчика записи
 					associated[12] = static_cast <uint8_t> (total & 0xFF);
 					// Связанные данные
 					message.assign(associated, associated + sizeof(associated));
 					// Содержимое
 					message.insert(message.end(), opened.begin(), opened.begin() + total);
-					// Имитовставка
+					// Вычисляем имитовставку записи
 					ASSERT_TRUE(digest::hmac(protect::mac(suite), view_t(mac.data(), mac.size()), view_t(message.data(), message.size()), stamp, width));
 					// Лежит за содержимым
 					ASSERT_EQ(vector <uint8_t> (opened.begin() + total, opened.begin() + total + width), vector <uint8_t> (stamp, stamp + width)) << path;
@@ -6732,13 +6732,13 @@ TEST(Tls12Test, VectorSecond){
 				} else {
 					// Длина вектора и шифртекста
 					associated[11] = static_cast <uint8_t> (((16 + length) >> 8) & 0xFF);
-					// Младший
+					// Читаем младший байт счётчика записи
 					associated[12] = static_cast <uint8_t> ((16 + length) & 0xFF);
 					// Связанные данные
 					message.assign(associated, associated + sizeof(associated));
 					// Вектор и шифртекст
 					message.insert(message.end(), c2s.sealed.begin(), c2s.sealed.begin() + 16 + length);
-					// Имитовставка
+					// Вычисляем имитовставку записи
 					ASSERT_TRUE(digest::hmac(protect::mac(suite), view_t(mac.data(), mac.size()), view_t(message.data(), message.size()), stamp, width));
 					// Лежит в хвосте
 					ASSERT_EQ(vector <uint8_t> (c2s.sealed.end() - width, c2s.sealed.end()), vector <uint8_t> (stamp, stamp + width)) << path;
@@ -6747,14 +6747,14 @@ TEST(Tls12Test, VectorSecond){
 			// Завершение клиента в перепись
 			transcript.push_back(plain);
 			/**
-			 * Выполняем перебор билетов
+			 * Перебираем билетов
 			 */
 			for(size_t i = 0; i < tickets.size(); i++)
 				// В перепись
 				transcript.push_back(tickets[i]);
 			// Если сценарий неверного ключа: завершения сервера нет, есть извещение; завершение клиента вскрылось его же ключами
 			if(wrong){
-				// Учитываем
+				// Учитываем расшифрованную запись
 				decrypted++;
 				// Переходим
 				continue;
@@ -6762,32 +6762,32 @@ TEST(Tls12Test, VectorSecond){
 			// Защита сервера
 			protect::protection_t outgoing;
 			// Ключ сервера
-			ASSERT_TRUE(keyed(suite, master, random, theirsRandom, outgoing, false, etm)) << path;
+			ASSERT_TRUE(__nts_keyed__(suite, master, random, theirsRandom, outgoing, false, etm)) << path;
 			// Очищаем
 			plain.clear();
 			// Итог вскрытия завершения сервера
 			const protect::error_t verdict = outgoing.open(s2c.header, view_t(s2c.sealed.data(), s2c.sealed.size()), type, plain);
 			// Вскрылось
 			ASSERT_EQ(verdict, protect::error_t::NONE) << path;
-			// Завершение
-			ASSERT_EQ(kind(plain), handshake::type_t::FINISHED) << path;
+			// Определяем вид завершения записи
+			ASSERT_EQ(__nts_kind__(plain), handshake::type_t::FINISHED) << path;
 			// Ожидаемое
-			ASSERT_TRUE(completion(suite, master, "server finished", transcript, expected)) << path;
+			ASSERT_TRUE(__nts_completion__(suite, master, "server finished", transcript, expected)) << path;
 			// Сошлось
 			ASSERT_EQ(vector <uint8_t> (plain.begin() + handshake::HANDSHAKE_HEADER, plain.end()), vector <uint8_t> (expected, expected + sizeof(expected))) << path;
-			// Учитываем
+			// Учитываем расшифрованную запись
 			decrypted++;
 		}
 		// Сценарий билета
-		const std::string path = place2(EDITIONS[e], "ticket");
+		const std::string path = __nts_place2__(EDITIONS[e], "ticket");
 		// Каталог обязан быть
-		ASSERT_TRUE(exists(path)) << path;
+		ASSERT_TRUE(__nts_exists__(path)) << path;
 		// Потоки полного рукопожатия
 		stream_t full, again;
 		// Полное
-		ASSERT_TRUE(unwind(slurp(path + "/full/handshake-s2c.bin"), full, true)) << path;
+		ASSERT_TRUE(__nts_unwind__(slurp(path + "/full/handshake-s2c.bin"), full, true)) << path;
 		// Возобновлённое: приветствие, билет, смена, завершение
-		ASSERT_TRUE(unwind(slurp(path + "/resumed/handshake-s2c.bin"), again, true)) << path;
+		ASSERT_TRUE(__nts_unwind__(slurp(path + "/resumed/handshake-s2c.bin"), again, true)) << path;
 		// В полном есть билет
 		const vector <uint8_t> * issued = seek(full.messages, handshake::type_t::TICKET);
 		// Билет есть
@@ -6805,19 +6805,19 @@ TEST(Tls12Test, VectorSecond){
 		// Приветствие клиента возобновлённого
 		stream_t offer;
 		// Разбираем
-		ASSERT_TRUE(unwind(slurp(path + "/resumed/handshake-c2s.bin"), offer, true)) << path;
+		ASSERT_TRUE(__nts_unwind__(slurp(path + "/resumed/handshake-c2s.bin"), offer, true)) << path;
 		// Одно приветствие до смены набора
 		ASSERT_EQ(offer.messages.size(), static_cast <size_t> (1)) << path;
-		// Приветствие
+		// Разбираем приветствие клиента
 		hello::client_t client;
 		// Разбираем
-		ASSERT_EQ(hello::parse(inner(offer.messages[0]), client), hello::error_t::NONE) << path;
+		ASSERT_EQ(hello::parse(__nts_inner__(offer.messages[0]), client), hello::error_t::NONE) << path;
 		// Расширение билета
 		const hello::extension_t * presented = hello::extension(client.extensions, static_cast <uint16_t> (extension::type_t::TICKET));
 		// Есть
 		ASSERT_NE(presented, nullptr) << path;
 		// Билет из полного: срок и билет с длиной
-		const view_t body = inner(*issued);
+		const view_t body = __nts_inner__(*issued);
 		// Длина билета
 		const size_t length = ((static_cast <size_t> (body.data[4]) << 8) | body.data[5]);
 		// Билет в приветствии тот самый, что выдан полным рукопожатием
@@ -6825,30 +6825,30 @@ TEST(Tls12Test, VectorSecond){
 		// Полное приветствие клиента несёт пустое расширение билета
 		stream_t initial;
 		// Разбираем
-		ASSERT_TRUE(unwind(slurp(path + "/full/handshake-c2s.bin"), initial, true)) << path;
-		// Приветствие
+		ASSERT_TRUE(__nts_unwind__(slurp(path + "/full/handshake-c2s.bin"), initial, true)) << path;
+		// Разбираем приветствие клиента
 		hello::client_t opener;
 		// Разбираем
-		ASSERT_EQ(hello::parse(inner(initial.messages[0]), opener), hello::error_t::NONE) << path;
+		ASSERT_EQ(hello::parse(__nts_inner__(initial.messages[0]), opener), hello::error_t::NONE) << path;
 		// Расширение
 		const hello::extension_t * empty = hello::extension(opener.extensions, static_cast <uint16_t> (extension::type_t::TICKET));
 		// Есть и пусто
 		ASSERT_TRUE((empty != nullptr) && (empty->data.size == 0)) << path;
 		// Наш сервер на записанное приветствие возобновления с чужим билетом отвечает полным рукопожатием
 		server::context_t ours;
-		// Подлинность
+		// Заводим подлинность стороны связи
 		context::credential_t credential;
-		// Составляем
-		ASSERT_TRUE(identity("ec256", credential));
-		// Устанавливаем
+		// Вырабатываем подлинность по имени узла
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
+		// Устанавливаем подлинность собственной стороны
 		ours.credential(credential);
-		// Заводим
+		// Запускаем сторону собственной стороны
 		ASSERT_EQ(ours.start(), context::error_t::NONE);
-		// Поток
+		// Читаем байты потока
 		const vector <uint8_t> wire = slurp(path + "/resumed/handshake-c2s.bin");
-		// Заголовок
+		// Читаем заголовок записи
 		record::header_t header;
-		// Разбираем
+		// Разбираем запись потока байтов
 		ASSERT_EQ(record::parse(view_t(wire.data(), wire.size()), header), record::error_t::NONE) << path;
 		// Подаём приветствие
 		(void) ours.push(view_t(wire.data(), record::RECORD_HEADER + header.size));
@@ -6858,14 +6858,14 @@ TEST(Tls12Test, VectorSecond){
 		ASSERT_FALSE(ours.shared()) << path;
 		// Залп
 		vector <record::type_t> records;
-		// Сообщения
+		// Накопитель сообщений проверки
 		vector <handshake::type_t> messages;
-		// Разбираем
-		ASSERT_TRUE(anatomy(ours.output(), records, messages)) << path;
+		// Разбираем записи выхода собственной стороны
+		ASSERT_TRUE(__nts_anatomy__(ours.output(), records, messages)) << path;
 		// Сертификат есть
-		ASSERT_TRUE(among(messages, handshake::type_t::CERTIFICATE)) << path;
+		ASSERT_TRUE(__nts_among__(messages, handshake::type_t::CERTIFICATE)) << path;
 		// Конец приветствия есть
-		ASSERT_TRUE(among(messages, handshake::type_t::DONE)) << path;
+		ASSERT_TRUE(__nts_among__(messages, handshake::type_t::DONE)) << path;
 	}
 	// Векторов сервером: шесть изданий по десять сценариев
 	ASSERT_EQ(served, static_cast <size_t> (60));
@@ -6880,11 +6880,11 @@ TEST(Tls12Test, VectorSecond){
  */
 TEST(Tls12Test, StarvedSecond){
 	// Подлинности
-	context::credential_t ec, rsa;
-	// Составляем
-	ASSERT_TRUE(identity("ec256", ec));
+	context::credential_t curve, rsa;
+	// Вырабатываем подлинность по имени узла
+	ASSERT_TRUE(__nts_identity__("ec256", curve));
 	// RSA
-	ASSERT_TRUE(identity("rsa2048", rsa));
+	ASSERT_TRUE(__nts_identity__("rsa2048", rsa));
 	// Ключ PSK
 	const vector <uint8_t> secret = decode("0123456789abcdef");
 	// Ключ билетов
@@ -6896,19 +6896,19 @@ TEST(Tls12Test, StarvedSecond){
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, extension::group_t::SECP256R1, ec, false);
+		// Настраиваем связь стороны клиента
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, extension::group_t::SECP256R1, curve, false);
 		// Издание 1.2
 		client.versions(0x0303, 0x0303);
 		// Ключ билетов
 		server.vault(vault);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Рукопожатие
-		converse(client, server);
-		// Установлена
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established());
 		// Билет
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
@@ -6916,7 +6916,7 @@ TEST(Tls12Test, StarvedSecond){
 		ticket = client.tickets()[0];
 	}
 	/**
-	 * Выполняем перебор путей: CBC, RSA, PSK, билет
+	 * Перебираем путей: CBC, RSA, PSK, билет
 	 */
 	for(size_t path = 0; path < 4; path++){
 		// Нехватка встретилась
@@ -6924,42 +6924,42 @@ TEST(Tls12Test, StarvedSecond){
 		// Установилась на щедром запасе
 		bool complete = false;
 		/**
-		 * Выполняем перебор запасов
+		 * Перебираем запасов
 		 */
 		for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 			// Связь клиента
 			client::context_t client;
 			// Связь сервера
 			server::context_t server;
-			// Связки
+			// Заводим связки ключей
 			keyring_t theirs, ours;
 			// Если путь CBC
 			if(path == 0)
-				// Настраиваем
-				arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, extension::group_t::SECP256R1, ec, true);
+				// Настраиваем связь стороны клиента
+				__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, extension::group_t::SECP256R1, curve, true);
 			// Если путь RSA
 			else if(path == 1)
-				// Настраиваем
-				arrange(client, server, protect::suite_t::RSA_AES_128_CBC_SHA, extension::group_t::SECP256R1, rsa, false);
+				// Настраиваем связь стороны клиента
+				__nts_arrange__(client, server, protect::suite_t::RSA_AES_128_CBC_SHA, extension::group_t::SECP256R1, rsa, false);
 			// Если путь PSK
 			else if(path == 2){
-				// Опознаватель
+				// Читаем опознаватель собеседника
 				theirs.identity = decode("616e796b73");
-				// Ключ
+				// Задаём открытый ключ собеседнику
 				theirs.key.assign(secret.begin(), secret.end());
-				// Клиент
+				// Читаем опознаватель клиента
 				ours.identity = theirs.identity;
-				// Ключ
+				// Задаём собственный открытый ключ
 				ours.key.assign(secret.begin(), secret.end());
-				// Настраиваем
-				presharing(client, server, protect::suite_t::ECDHE_PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
+				// Настраиваем клиенту предварительное сообщение
+				__nts_presharing__(client, server, protect::suite_t::ECDHE_PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
 			// Если путь билета
 			} else {
-				// Настраиваем
-				arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, extension::group_t::SECP256R1, ec, false);
+				// Настраиваем связь стороны клиента
+				__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA256, extension::group_t::SECP256R1, curve, false);
 				// Ключ билетов
 				server.vault(vault);
-				// Предъявляем
+				// Предъявляем билет сеанса клиента
 				client.resume(ticket);
 			}
 			// Издание 1.2
@@ -6975,8 +6975,8 @@ TEST(Tls12Test, StarvedSecond){
 				second = client.start();
 				// Если заведены
 				if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
-					// Рукопожатие
-					converse(client, server);
+					// Ведём рукопожатие сторон связи
+					__nts_converse__(client, server);
 					// Ошибки
 					first = server.error();
 					// Клиента
@@ -7015,13 +7015,13 @@ namespace {
 	 * @return        признак успешности составления приветствия
 	 *
 	 */
-	bool resuming(const protect::suite_t suite, const vector <uint8_t> & ticket, const bool chained, vector <uint8_t> & result) noexcept {
+	bool __nts_resuming__(const protect::suite_t suite, const vector <uint8_t> & ticket, const bool chained, vector <uint8_t> & result) noexcept {
 		// Составляемое приветствие клиента
 		hello::client_t hello;
 		// Издание TLS 1.2 заголовком
 		hello.version = 0x0303;
 		/**
-		 * Выполняем заполнение случайного значения
+		 * Заполняем случайного значения
 		 */
 		for(size_t i = 0; i < sizeof(hello.random); i++)
 			// Записываем очередной байт
@@ -7055,7 +7055,7 @@ namespace {
 			// Выводим отрицательный результат - приветствие не составлено
 			return false;
 		// Выводим итог составления записи
-		return framed(handshake::type_t::CLIENT, view_t(body.data(), body.size()), result);
+		return __nts_framed__(handshake::type_t::CLIENT, view_t(body.data(), body.size()), result);
 	}
 	/**
 	 * @brief Функция составления приветствия сервера сокращённого рукопожатия руками
@@ -7066,13 +7066,13 @@ namespace {
 	 * @return        признак успешности составления приветствия
 	 *
 	 */
-	bool replying(const protect::suite_t suite, const bool chained, vector <uint8_t> & result) noexcept {
+	bool __nts_replying__(const protect::suite_t suite, const bool chained, vector <uint8_t> & result) noexcept {
 		// Составляемое приветствие сервера
 		hello::server_t answer;
 		// Издание TLS 1.2
 		answer.version = 0x0303;
 		/**
-		 * Выполняем заполнение случайного значения: заслонов понижения в хвосте нет
+		 * Заполняем случайного значения: заслонов понижения в хвосте нет
 		 */
 		for(size_t i = 0; i < sizeof(answer.random); i++)
 			// Записываем очередной байт
@@ -7096,22 +7096,22 @@ namespace {
 			// Выводим отрицательный результат - ответное приветствие не составлено
 			return false;
 		// Выводим итог составления записи
-		return framed(handshake::type_t::SERVER, view_t(body.data(), body.size()), result);
+		return __nts_framed__(handshake::type_t::SERVER, view_t(body.data(), body.size()), result);
 	}
 	/**
 	 * @brief Функция составления подлинности из ключа и сертификата разных имён
 	 *
 	 * @param key    имя файла ключа без расширения
-	 * @param leaf   имя файла сертификата без расширения
+	 * @param __nts_leaf__   имя файла сертификата без расширения
 	 * @param result подлинность
 	 * @return       признак успешности составления
 	 *
 	 */
-	bool credentialed(const char * key, const char * leaf, context::credential_t & result) noexcept {
+	bool __nts_credentialed__(const char * key, const char * __nts_leaf__, context::credential_t & result) noexcept {
 		// Секретный ключ
 		result.secret = corpus((std::string(key) + ".pem").c_str());
-		// Сертификат
-		const vector <uint8_t> text = corpus((std::string(leaf) + ".crt").c_str());
+		// Читаем байты сертификата
+		const vector <uint8_t> text = corpus((std::string(__nts_leaf__) + ".crt").c_str());
 		// Если не прочитано
 		if(result.secret.empty() || text.empty())
 			// Выводим отрицательный результат - ключ либо цепочка не прочитаны
@@ -7133,13 +7133,13 @@ namespace {
 	 * @return           признак успешности рукопожатия и выдачи билета
 	 *
 	 */
-	bool ticketed(const protect::suite_t suite, const context::credential_t & credential, const vector <uint8_t> & vault, const bool mutual, const char * name, context::ticket_t & result) noexcept {
+	bool __nts_ticketed__(const protect::suite_t suite, const context::credential_t & credential, const vector <uint8_t> & vault, const bool mutual, const char * name, context::ticket_t & result) noexcept {
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		arrange(client, server, suite, extension::group_t::X25519, credential, mutual);
+		// Настраиваем связь стороны клиента
+		__nts_arrange__(client, server, suite, extension::group_t::X25519, credential, mutual);
 		// Издание 1.2
 		if(client.versions(0x0303, 0x0303) != context::error_t::NONE)
 			// Выводим отрицательный результат - пределы издания клиента не установлены
@@ -7158,8 +7158,8 @@ namespace {
 		if((server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE))
 			// Выводим отрицательный результат - стороны завести не удалось
 			return false;
-		// Рукопожатие
-		converse(client, server);
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
 		// Если связь не установлена либо билет не выдан
 		if(!client.established() || !server.established() || (client.tickets().size() != 1))
 			// Выводим отрицательный результат - связь не установлена либо билет не выдан
@@ -7170,7 +7170,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Вызов сервера: ключ длиннее дозволенного по всякому опознавателю
+	 * @brief Функция вызова сервера: ключ длиннее дозволенного по всякому опознавателю
 	 *
 	 * @param identity опознаватель клиента
 	 * @param key      накопитель ключа
@@ -7178,7 +7178,7 @@ namespace {
 	 * @return         признак известности опознавателя
 	 *
 	 */
-	bool bloating(const view_t & identity, vector <uint8_t> & key, void * context) {
+	bool __nts_bloating__(const view_t & identity, vector <uint8_t> & key, void * context) {
 		// Опознаватель и контекст не нужны
 		(void) identity;
 		// Контекст
@@ -7201,36 +7201,36 @@ namespace {
 TEST(Tls12Test, Counterfeited){
 	// Подлинность сервера
 	context::credential_t credential;
-	// Составляем
-	ASSERT_TRUE(identity("rsa2048", credential));
+	// Вырабатываем подлинность RSA
+	ASSERT_TRUE(__nts_identity__("rsa2048", credential));
 	// Набор обмена RSA
 	const protect::suite_t suite = protect::suite_t::RSA_AES_128_GCM_SHA256;
 	// Сертификат сервера
-	x509::certificate_t leaf;
+	x509::certificate_t __nts_leaf__;
 	// Разбираем
-	ASSERT_EQ(leaf.parse(view_t(credential.chain[0].data(), credential.chain[0].size())), x509::error_t::NONE);
+	ASSERT_EQ(__nts_leaf__.parse(view_t(credential.chain[0].data(), credential.chain[0].size())), x509::error_t::NONE);
 	// Открытый ключ RSA
 	sign::rsa_t key;
-	// Загружаем
-	ASSERT_TRUE(key.decode(leaf.key().key));
+	// Загружаем ключ из сертификата листа
+	ASSERT_TRUE(key.decode(__nts_leaf__.key().key));
 	/**
-	 * Выполняем перебор путей: годный, чужое издание, чужая длина
+	 * Перебираем путей: годный, чужое издание, чужая длина
 	 */
 	for(size_t path = 0; path < 3; path++){
 		// Связь сервера
 		server::context_t server;
-		// Набор
+		// Заказываем наборы защиты серверу
 		server.suites(vector <protect::suite_t> {suite});
-		// Подлинность
+		// Устанавливаем подлинность стороне сервера
 		server.credential(credential);
 		// Издание 1.2
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Приветствие поддельного клиента изданием 0x0303 в заголовке
 		vector <uint8_t> hello;
-		// Составляем
-		ASSERT_TRUE(greeting(true, suite, hello, false, extension::group_t::X25519));
+		// Составляем приветствие клиента
+		ASSERT_TRUE(__nts_greeting__(true, suite, hello, false, extension::group_t::X25519));
 		// Переписка: сообщения без заголовков записей
 		vector <uint8_t> transcript(hello.begin() + record::RECORD_HEADER, hello.end());
 		// Случайное значение клиента
@@ -7242,13 +7242,13 @@ TEST(Tls12Test, Counterfeited){
 		// Записи
 		vector <vector <uint8_t>> pieces;
 		// Нарезаем
-		ASSERT_TRUE(slice(flight, pieces));
-		// Снимаем
+		ASSERT_TRUE(__nts_slice__(flight, pieces));
+		// Снимаем принятые байты из вывода
 		server.consume(flight.size);
 		// Приветствие, цепочка, конец приветствия: обмена ключами сервера у голого RSA нет
 		ASSERT_EQ(pieces.size(), static_cast <size_t> (3)) << path;
 		/**
-		 * Выполняем перенос залпа в переписку
+		 * Переносим залпа в переписку
 		 */
 		for(size_t i = 0; i < pieces.size(); i++)
 			// Добавляем сообщение без заголовка записи
@@ -7261,7 +7261,7 @@ TEST(Tls12Test, Counterfeited){
 		premaster[0] = 0x03;
 		// Младший байт издания: чужой у пути один
 		premaster[1] = static_cast <uint8_t> ((path == 1) ? 0x02 : 0x03);
-		// Шифртекст
+		// Накопитель байтов шифртекста
 		vector <uint8_t> encrypted(key.size(), 0);
 		// Раздел 7.4.7.1 RFC 5246: RSAES-PKCS1-v1_5
 		ASSERT_TRUE(key.encrypt(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(premaster.data(), premaster.size()), encrypted.data()));
@@ -7271,17 +7271,17 @@ TEST(Tls12Test, Counterfeited){
 		body.push_back(static_cast <uint8_t> ((encrypted.size() >> 8) & 0xFF));
 		// Младший байт длины
 		body.push_back(static_cast <uint8_t> (encrypted.size() & 0xFF));
-		// Шифртекст
+		// Дописываем байты шифртекста
 		body.insert(body.end(), encrypted.begin(), encrypted.end());
 		// Запись обмена ключами
 		vector <uint8_t> exchange;
 		// Составляем
-		ASSERT_TRUE(framed(handshake::type_t::PREMASTER, view_t(body.data(), body.size()), exchange));
+		ASSERT_TRUE(__nts_framed__(handshake::type_t::PREMASTER, view_t(body.data(), body.size()), exchange));
 		// Добавляем обмен в переписку
 		transcript.insert(transcript.end(), exchange.begin() + record::RECORD_HEADER, exchange.end());
 		// Хеш переписки по обмен ключами включительно
 		uint8_t session[32];
-		// Вычисляем
+		// Вычисляем хеш данных
 		ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, view_t(transcript.data(), transcript.size()), session, sizeof(session)));
 		// Метка расширенного главного секрета
 		const char * extended = "extended master secret";
@@ -7293,7 +7293,7 @@ TEST(Tls12Test, Counterfeited){
 		vector <uint8_t> seed(serverRandom);
 		// Случайное значение клиента
 		seed.insert(seed.end(), clientRandom.begin(), clientRandom.end());
-		// Метка
+		// Читаем метку времени записи
 		const char * expansion = "key expansion";
 		// Материал: ключи по 16 и соли по 4 байта обеих сторон
 		uint8_t material[(16 + 4) * 2];
@@ -7301,18 +7301,18 @@ TEST(Tls12Test, Counterfeited){
 		ASSERT_TRUE(digest::prf(digest::hash_t::SHA256, view_t(master, sizeof(master)), view_t(reinterpret_cast <const uint8_t *> (expansion), ::strlen(expansion)), view_t(seed.data(), seed.size()), material, sizeof(material)));
 		// Хеш переписки для завершения
 		uint8_t digested[32];
-		// Вычисляем
+		// Вычисляем хеш данных
 		ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, view_t(transcript.data(), transcript.size()), digested, sizeof(digested)));
 		// Метка завершения клиента
 		const char * label = "client finished";
 		// Завершение, согласованное с общим значением поддельного клиента
-		uint8_t completion[12];
+		uint8_t __nts_completion__[12];
 		// Раздел 7.4.9 RFC 5246
-		ASSERT_TRUE(digest::prf(digest::hash_t::SHA256, view_t(master, sizeof(master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(digested, sizeof(digested)), completion, sizeof(completion)));
+		ASSERT_TRUE(digest::prf(digest::hash_t::SHA256, view_t(master, sizeof(master)), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(digested, sizeof(digested)), __nts_completion__, sizeof(__nts_completion__)));
 		// Составитель сообщения завершения
 		handshake::writer_t writer;
-		// Составляем
-		ASSERT_EQ(writer.push(handshake::type_t::FINISHED, view_t(completion, sizeof(completion))), handshake::error_t::NONE);
+		// Подаём поток байтов writer
+		ASSERT_EQ(writer.push(handshake::type_t::FINISHED, view_t(__nts_completion__, sizeof(__nts_completion__))), handshake::error_t::NONE);
 		// Защита записей поддельного клиента
 		protect::protection_t sealing;
 		// Ключ клиента первый, соль клиента третья
@@ -7335,7 +7335,7 @@ TEST(Tls12Test, Counterfeited){
 		if(path == 0){
 			// Сервер принял завершение: выработка поддельного клиента сходится с движком
 			ASSERT_EQ(outcome, context::error_t::NONE) << static_cast <int> (server.alert().description);
-			// Установлена
+			// Проверяем установленность связи сервера
 			ASSERT_TRUE(server.established());
 		// Если общее значение чужого издания либо чужой длины
 		} else {
@@ -7357,10 +7357,10 @@ TEST(Tls12Test, Counterfeited){
  * подтверждения, обрывается illegal_parameter; так же при билете без ETM и подтверждении
  */
 TEST(Tls12Test, Retained){
-	// Подлинность
+	// Заводим подлинность стороны связи
 	context::credential_t credential;
-	// Составляем
-	ASSERT_TRUE(identity("ec256", credential));
+	// Вырабатываем подлинность по имени узла
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Секрет ключа билетов
 	const vector <uint8_t> vault = decode("00112233445566778899aabbccddeeff");
 	// Набор CBC
@@ -7368,43 +7368,43 @@ TEST(Tls12Test, Retained){
 	// Билет связи с ETM
 	context::ticket_t ticket;
 	// Проводим полное рукопожатие
-	ASSERT_TRUE(ticketed(suite, credential, vault, false, "", ticket));
+	ASSERT_TRUE(__nts_ticketed__(suite, credential, vault, false, "", ticket));
 	// Билет помнит порядок ETM
 	ASSERT_TRUE(ticket.etm);
 	/**
-	 * Выполняем перебор приветствий клиента серверу: без encrypt_then_mac и с ним
+	 * Перебираем приветствий клиента серверу: без encrypt_then_mac и с ним
 	 */
 	for(size_t chained = 0; chained < 2; chained++){
 		// Связь сервера
 		server::context_t server;
-		// Набор
+		// Заказываем наборы защиты серверу
 		server.suites(vector <protect::suite_t> {suite});
-		// Группа
+		// Заказываем группы сервера
 		server.groups(vector <extension::group_t> {extension::group_t::X25519});
-		// Подлинность
+		// Устанавливаем подлинность стороне сервера
 		server.credential(credential);
 		// Ключ билетов
 		server.vault(vault);
 		// Миг
 		server.moment(1000100);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Приветствие с билетом
 		vector <uint8_t> hello;
 		// Составляем
-		ASSERT_TRUE(resuming(suite, ticket.identity, (chained == 1), hello));
-		// Подаём
+		ASSERT_TRUE(__nts_resuming__(suite, ticket.identity, (chained == 1), hello));
+		// Подаём поток байтов сервера
 		ASSERT_EQ(server.push(view_t(hello.data(), hello.size())), context::error_t::NONE) << chained;
 		// Записи и сообщения залпа
 		vector <record::type_t> records;
-		// Сообщения
+		// Накопитель сообщений проверки
 		vector <handshake::type_t> messages;
-		// Разбираем
-		ASSERT_TRUE(anatomy(server.output(), records, messages));
+		// Разбираем записи выхода сервера
+		ASSERT_TRUE(__nts_anatomy__(server.output(), records, messages));
 		// Записи залпа
 		vector <vector <uint8_t>> pieces;
-		// Нарезаем
-		ASSERT_TRUE(slice(server.output(), pieces));
+		// Нарезаем выход сервера на записи
+		ASSERT_TRUE(__nts_slice__(server.output(), pieces));
 		// Приветствие сервера
 		hello::server_t answer;
 		// Разбираем
@@ -7412,9 +7412,9 @@ TEST(Tls12Test, Retained){
 		// Если encrypt_then_mac не предложен: билет связи ETM не возобновляется - понижения нет
 		if(chained == 0){
 			// Полное рукопожатие: цепочка и конец приветствия
-			ASSERT_TRUE(among(messages, handshake::type_t::CERTIFICATE));
+			ASSERT_TRUE(__nts_among__(messages, handshake::type_t::CERTIFICATE));
 			// Конец приветствия
-			ASSERT_TRUE(among(messages, handshake::type_t::DONE));
+			ASSERT_TRUE(__nts_among__(messages, handshake::type_t::DONE));
 			// Смены набора нет
 			ASSERT_EQ(std::find(records.begin(), records.end(), record::type_t::CHANGE), records.end());
 			// Сервер не возобновил
@@ -7426,7 +7426,7 @@ TEST(Tls12Test, Retained){
 		// Если encrypt_then_mac предложен: сокращённое рукопожатие тем же порядком
 		} else {
 			// Сертификата нет
-			ASSERT_FALSE(among(messages, handshake::type_t::CERTIFICATE));
+			ASSERT_FALSE(__nts_among__(messages, handshake::type_t::CERTIFICATE));
 			// Смена набора есть
 			ASSERT_NE(std::find(records.begin(), records.end(), record::type_t::CHANGE), records.end());
 			// Сервер возобновил
@@ -7438,15 +7438,15 @@ TEST(Tls12Test, Retained){
 		}
 	}
 	/**
-	 * Выполняем перебор путей клиента: билет ETM и приветствие без подтверждения, билет ETM
+	 * Перебираем путей клиента: билет ETM и приветствие без подтверждения, билет ETM
 	 * с подтверждением (годно), билет без ETM и приветствие с подтверждением
 	 */
 	for(size_t path = 0; path < 3; path++){
 		// Связь клиента
 		client::context_t client;
-		// Набор
+		// Заказываем наборы защиты клиенту
 		client.suites(vector <protect::suite_t> {suite});
-		// Группа
+		// Заказываем группы клиенту
 		client.groups(vector <extension::group_t> {extension::group_t::X25519});
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -7456,16 +7456,16 @@ TEST(Tls12Test, Retained){
 		context::ticket_t presented = ticket;
 		// У пути два билет помнит порядок MAC-then-encrypt
 		presented.etm = (path != 2);
-		// Предъявляем
+		// Предъявляем клиенту билет сеанса
 		client.resume(presented);
-		// Заводим
+		// Запускаем сторону клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Снимаем приветствие клиента
 		client.consume(client.output().size);
 		// Приветствие сервера сокращённого рукопожатия: подтверждение лишь у пути один
 		vector <uint8_t> answer;
 		// Составляем
-		ASSERT_TRUE(replying(suite, (path != 0), answer));
+		ASSERT_TRUE(__nts_replying__(suite, (path != 0), answer));
 		// Подаём: приветствие принято, вид рукопожатия решит следующее сообщение
 		ASSERT_EQ(client.push(view_t(answer.data(), answer.size())), context::error_t::NONE) << path << " " << static_cast <int> (client.alert().description);
 		// Тело билета сеанса: срок и билет в 32 байта
@@ -7475,7 +7475,7 @@ TEST(Tls12Test, Retained){
 		// Запись билета
 		vector <uint8_t> granted;
 		// Составляем
-		ASSERT_TRUE(framed(handshake::type_t::TICKET, view_t(body.data(), body.size()), granted));
+		ASSERT_TRUE(__nts_framed__(handshake::type_t::TICKET, view_t(body.data(), body.size()), granted));
 		// Подаём: билет первым сообщением означает сокращённое рукопожатие
 		const context::error_t outcome = client.push(view_t(granted.data(), granted.size()));
 		// Если порядок сошёлся с билетом
@@ -7505,10 +7505,10 @@ TEST(Tls12Test, Retained){
  * полному рукопожатию; имя узла возобновлённой связи обязано сойтись с именем выдавшей
  */
 TEST(Tls12Test, Inherited){
-	// Подлинность
+	// Заводим подлинность стороны связи
 	context::credential_t credential;
-	// Составляем
-	ASSERT_TRUE(identity("ec256", credential));
+	// Вырабатываем подлинность по имени узла
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Секрет ключа билетов
 	const vector <uint8_t> vault = decode("ffeeddccbbaa99887766554433221100");
 	// Набор
@@ -7542,19 +7542,19 @@ TEST(Tls12Test, Inherited){
 		{"имя узла пропало",                        false, false, false, "anyks.com", "", false}
 	};
 	/**
-	 * Выполняем перебор путей
+	 * Перебираем путей
 	 */
 	for(size_t p = 0; p < (sizeof(paths) / sizeof(paths[0])); p++){
 		// Билет
 		context::ticket_t ticket;
 		// Полное рукопожатие
-		ASSERT_TRUE(ticketed(suite, credential, vault, paths[p].issued, paths[p].first, ticket)) << paths[p].name;
+		ASSERT_TRUE(__nts_ticketed__(suite, credential, vault, paths[p].issued, paths[p].first, ticket)) << paths[p].name;
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
 		// Настраиваем: запрос подлинности по пути
-		arrange(client, server, suite, extension::group_t::X25519, credential, paths[p].request);
+		__nts_arrange__(client, server, suite, extension::group_t::X25519, credential, paths[p].request);
 		// Если клиент подлинность предъявляет без запроса
 		if(paths[p].present && !paths[p].request)
 			// Устанавливаем подлинность клиента
@@ -7573,13 +7573,13 @@ TEST(Tls12Test, Inherited){
 			client.name(paths[p].second);
 		// Предъявляем билет
 		client.resume(ticket);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE) << paths[p].name;
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << paths[p].name;
-		// Рукопожатие
-		converse(client, server);
-		// Установлена
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established()) << paths[p].name << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Возобновление ровно по ожиданию
 		ASSERT_EQ(server.shared(), paths[p].resumed) << paths[p].name;
@@ -7597,10 +7597,10 @@ TEST(Tls12Test, Inherited){
 			ASSERT_EQ(server.peer().size(), static_cast <size_t> (1)) << paths[p].name;
 		// Иначе сертификата клиента нет
 		else
-			// Пусто
+			// Разбираем сертификат собеседника сервера
 			ASSERT_TRUE(server.peer().empty()) << paths[p].name;
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server)) << paths[p].name;
+		ASSERT_TRUE(__nts_barter__(client, server)) << paths[p].name;
 	}
 }
 
@@ -7620,7 +7620,7 @@ TEST(Tls12Test, Feeble){
 		const char * name;
 		// Ключ
 		const char * key;
-		// Сертификат
+		// Читаем байты сертификата
 		const char * leaf;
 		// Набор
 		protect::suite_t suite;
@@ -7637,33 +7637,33 @@ TEST(Tls12Test, Feeble){
 		{"keyEncipherment при ECDHE_RSA",       "rsa2048", "rsa2048-encipher", protect::suite_t::ECDHE_RSA_AES_128_GCM_SHA256, false}
 	};
 	/**
-	 * Выполняем перебор путей
+	 * Перебираем путей
 	 */
 	for(size_t p = 0; p < (sizeof(paths) / sizeof(paths[0])); p++){
 		// Подлинность сервера
 		context::credential_t credential;
 		// Составляем
-		ASSERT_TRUE(credentialed(paths[p].key, paths[p].leaf, credential)) << paths[p].name;
+		ASSERT_TRUE(__nts_credentialed__(paths[p].key, paths[p].leaf, credential)) << paths[p].name;
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Настраиваем
-		arrange(client, server, paths[p].suite, extension::group_t::X25519, credential, false);
+		// Настраиваем связь стороны клиента
+		__nts_arrange__(client, server, paths[p].suite, extension::group_t::X25519, credential, false);
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE) << paths[p].name;
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << paths[p].name;
-		// Рукопожатие
-		converse(client, server);
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
 		// Если связь ожидается
 		if(paths[p].established){
-			// Установлена
+			// Проверяем установленность связи клиента
 			ASSERT_TRUE(client.established() && server.established()) << paths[p].name << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 			// Обмен данными
-			ASSERT_TRUE(barter(client, server)) << paths[p].name;
+			ASSERT_TRUE(__nts_barter__(client, server)) << paths[p].name;
 		// Если сертификат набору непригоден
 		} else {
 			// Клиент отверг сертификат
@@ -7688,7 +7688,7 @@ TEST(Tls12Test, Nameless){
 	// Ключ проверок
 	const vector <uint8_t> secret = decode("0123456789abcdef0123456789abcdef");
 	/**
-	 * Выполняем перебор путей: пустой опознаватель настройкой, пустой по подсказке
+	 * Перебираем путей: пустой опознаватель настройкой, пустой по подсказке
 	 */
 	for(size_t path = 0; path < 2; path++){
 		// Связка сервера
@@ -7716,59 +7716,59 @@ TEST(Tls12Test, Nameless){
 		// Связь сервера
 		server::context_t server;
 		// Настраиваем стороны с подсказкой
-		presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
-		// Заводим
+		__nts_presharing__(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "anyks-hint");
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE) << path;
 		// Заводим клиента: ключ без опознавателя законен
 		ASSERT_EQ(client.start(), context::error_t::NONE) << path;
-		// Рукопожатие
-		converse(client, server);
-		// Установлена
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
+		// Проверяем установленность связи клиента
 		ASSERT_TRUE(client.established() && server.established()) << path << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Сервер увидел пустой опознаватель
 		ASSERT_TRUE(theirs.seen.empty()) << path;
 		// Подсказка дошла до клиента
 		ASSERT_EQ(string(ours.hint.begin(), ours.hint.end()), string("anyks-hint")) << path;
 		// Обмен данными
-		ASSERT_TRUE(barter(client, server)) << path;
+		ASSERT_TRUE(__nts_barter__(client, server)) << path;
 	}
 	{
 		// Связка клиента
 		keyring_t ours;
 		// Опознаватель
 		ours.identity = decode("616e796b73");
-		// Ключ
+		// Задаём собственный открытый ключ
 		ours.key.assign(secret.begin(), secret.end());
 		// Связь клиента
 		client::context_t client;
 		// Связь сервера
 		server::context_t server;
-		// Наборы
+		// Заказываем наборы защиты клиента
 		client.suites(vector <protect::suite_t> {protect::suite_t::PSK_AES_128_CBC_SHA});
 		// Набор сервера
 		server.suites(vector <protect::suite_t> {protect::suite_t::PSK_AES_128_CBC_SHA});
 		// Настройки сервера: вызов выдаёт ключ в 65 байтов
 		context::psk_t mine;
-		// Вызов
-		mine.respond = bloating;
-		// Устанавливаем
+		// Заводим отклик собственной связки
+		mine.respond = __nts_bloating__;
+		// Передаём связку стороне сервера
 		server.psk(mine);
 		// Настройки клиента
 		context::psk_t yours;
-		// Опознаватель
+		// Читаем опознаватель ответчика
 		yours.identity = ours.identity;
-		// Ключ
+		// Преподаём собственный ключ ответчику
 		yours.key.assign(ours.key.begin(), ours.key.end());
-		// Устанавливаем
+		// Передаём связку стороне клиента
 		client.psk(yours);
 		// Издание 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
-		// Заводим
+		// Запускаем сторону сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Рукопожатие
-		converse(client, server);
+		// Ведём рукопожатие сторон связи
+		__nts_converse__(client, server);
 		// Раздел 5.3 RFC 4279: ключ длиннее 64 байтов - отказ настроек, а не неизвестный опознаватель
 		ASSERT_EQ(server.error(), context::error_t::SETTINGS);
 		// Извещение internal_error
@@ -7787,7 +7787,7 @@ TEST(Tls12Test, VersionsOmitted){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
 	 * Два клиента: закреплённый на 1.2 и умолчательный
 	 */
@@ -7797,7 +7797,7 @@ TEST(Tls12Test, VersionsOmitted){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Если клиент закреплён на 1.2
 		if(pinned == 1)
 			// Клиент ведёт лишь издание 1.2
@@ -7819,11 +7819,11 @@ TEST(Tls12Test, VersionsOmitted){
 		// Приветствие клиента
 		ASSERT_EQ(header.type, handshake::type_t::CLIENT) << pinned;
 		// Разобранное приветствие
-		hello::client_t greeting;
+		hello::client_t __nts_greeting__;
 		// Разбираем приветствие
-		ASSERT_EQ(hello::parse(view_t(data.data + 5 + handshake::HANDSHAKE_HEADER, header.size), greeting), hello::error_t::NONE) << pinned;
+		ASSERT_EQ(hello::parse(view_t(data.data + 5 + handshake::HANDSHAKE_HEADER, header.size), __nts_greeting__), hello::error_t::NONE) << pinned;
 		// Расширение изданий
-		const hello::extension_t * versions = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
+		const hello::extension_t * versions = hello::extension(__nts_greeting__.extensions, static_cast <uint16_t> (extension::type_t::VERSIONS));
 		// Закреплённый на 1.2 клиент расширения не кладёт, умолчательный кладёт
 		if(pinned == 1){
 			// Закреплённый клиент расширение изданий не кладёт
@@ -7833,11 +7833,11 @@ TEST(Tls12Test, VersionsOmitted){
 			ASSERT_NE(versions, nullptr);
 		}
 		// Заголовок приветствия несёт издание 1.2 в обоих случаях
-		ASSERT_EQ(greeting.version, static_cast <uint16_t> (0x0303)) << pinned;
+		ASSERT_EQ(__nts_greeting__.version, static_cast <uint16_t> (0x0303)) << pinned;
 		// Связь всё равно встаёт
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Доводим рукопожатие до конца
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Обе стороны встают в связь при любом закреплении издания
 		ASSERT_TRUE(client.established() && server.established()) << pinned << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Согласованное издание связи — TLS 1.2
@@ -7867,7 +7867,7 @@ TEST(Tls12Test, MasterInterop){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Группа обмена
@@ -7887,9 +7887,9 @@ TEST(Tls12Test, MasterInterop){
 		// Сторож сервера openssl
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = dial(number);
+		const int peer = dial(number);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(peer, 0) << "порт " << number;
 		// Связь стороны клиента
 		client::context_t client;
 		// Набор клиента
@@ -7903,11 +7903,11 @@ TEST(Tls12Test, MasterInterop){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу байтов до установления либо обрыва связи
+		 * Передаём байтов до установления либо обрыва связи
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, fd);
+			relay(client, peer);
 		// Если расширение обязательно
 		if(mandatory == 1){
 			// Связь оборвана отсутствием расширенного главного секрета
@@ -7927,11 +7927,11 @@ TEST(Tls12Test, MasterInterop){
 			// Накопитель ответа
 			vector <uint8_t> answer;
 			/**
-			 * Выполняем передачу байтов до получения ответа
+			 * Передаём байтов до получения ответа
 			 */
 			for(size_t i = 0; (i < 16) && answer.empty(); i++){
 				// Передаём байты
-				relay(client, fd);
+				relay(client, peer);
 				// Читаем принятые данные
 				ASSERT_EQ(client.read(answer), context::error_t::NONE);
 			}
@@ -7941,7 +7941,7 @@ TEST(Tls12Test, MasterInterop){
 			ASSERT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
 		}
 		// Закрываем сокет
-		closing(fd);
+		closing(peer);
 		// Снимаем сервер до удаления журнала
 		sentinel.halt();
 		// Журнал сервера
@@ -7968,9 +7968,9 @@ TEST(Tls12Test, MasterInterop){
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = greeted(listener);
+		const int peer = greeted(listener);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(peer, 0);
 		// Связь стороны сервера
 		server::context_t server;
 		// Набор сервера
@@ -7984,7 +7984,7 @@ TEST(Tls12Test, MasterInterop){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия либо обрыва
-		const bool complete = serve(server, fd);
+		const bool complete = serve(server, peer);
 		// Если расширение обязательно
 		if(mandatory == 1){
 			// Рукопожатие не дошло до конца
@@ -8002,10 +8002,10 @@ TEST(Tls12Test, MasterInterop){
 			// Издание 1.2
 			ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0303));
 			// Закрываем связь
-			ASSERT_TRUE(farewell(server, fd));
+			ASSERT_TRUE(farewell(server, peer));
 		}
 		// Закрываем сокеты
-		closing(fd);
+		closing(peer);
 		// Закрываем слушающий сокет
 		closing(listener);
 		// Текст журнала клиента
