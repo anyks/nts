@@ -76,13 +76,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -110,7 +110,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -142,7 +142,7 @@ static std::string slurp(const std::string & path) {
 	// Число прочитанных байтов
 	size_t count = 0;
 	/**
-	 * Выполняем чтение файла кусками
+	 * Читаем файл кусками
 	 */
 	while((count = ::fread(buffer, 1, sizeof(buffer), file)) > 0)
 		// Дописываем прочитанный кусок
@@ -168,7 +168,7 @@ static bool spill(const std::string & path, const uint8_t * data, const size_t s
 	if(file == nullptr)
 		// Выводим отказ записи
 		return false;
-	// Выполняем запись байтов
+	// Записываем байты
 	const bool ok = (::fwrite(data, 1, size, file) == size);
 	// Закрываем файл
 	::fclose(file);
@@ -194,19 +194,19 @@ static bool run(const std::string & command) {
 TEST(X25519Test, Vectors) {
 	// Места скаляра, координаты и итога
 	uint8_t scalar[32], point[32], result[32];
-	// Выполняем разбор первого скаляра
+	// Разбираем первый скаляр
 	ASSERT_EQ(bytes("a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4", scalar), static_cast <size_t> (32));
-	// Выполняем разбор первой координаты
+	// Разбираем первую координату
 	ASSERT_EQ(bytes("e6db6867583030db3594c1a424b15f7c726624ec26b3353b10a903a6d0ab1c4c", point), static_cast <size_t> (32));
-	// Выполняем умножение
+	// Умножаем точку на скаляр
 	ASSERT_TRUE(agreement::x25519(view_t(scalar, sizeof(scalar)), view_t(point, sizeof(point)), result));
 	// Сличаем итог с контрольным значением
 	ASSERT_EQ(text(result, sizeof(result)), std::string("c3da55379de9c6908e94ea4df28d084f32eccf03491c71f754b4075577a28552"));
-	// Выполняем разбор второго скаляра
+	// Разбираем второй скаляр
 	ASSERT_EQ(bytes("4b66e9d4d1b4673c5ad22691957d6af5c11b6421e0ea01d42ca4169e7918ba0d", scalar), static_cast <size_t> (32));
-	// Выполняем разбор второй координаты: её старший разряд поставлен и обязан отбрасываться
+	// Разбираем вторую координату: её старший разряд поставлен и обязан отбрасываться
 	ASSERT_EQ(bytes("e5210f12786811d3f4b7959d0538ae2c31dbe7106fc03c3efc4cd549c715a493", point), static_cast <size_t> (32));
-	// Выполняем умножение
+	// Умножаем точку на скаляр
 	ASSERT_TRUE(agreement::x25519(view_t(scalar, sizeof(scalar)), view_t(point, sizeof(point)), result));
 	// Сличаем итог с контрольным значением
 	ASSERT_EQ(text(result, sizeof(result)), std::string("95cbde9476e8907d7aade45cb4b873f88b595a68799fa152e6f8f7647aac7957"));
@@ -219,10 +219,10 @@ TEST(X25519Test, Iterations) {
 	// Скаляр и координата начинаются с точки основания
 	uint8_t scalar[32] = {9}, point[32] = {9}, result[32];
 	/**
-	 * Выполняем тысячу повторений: итог становится скаляром, прежний скаляр - координатой
+	 * Повторяем тысячу раз: итог становится скаляром, прежний скаляр - координатой
 	 */
 	for(size_t i = 0; i < 1000; i++){
-		// Выполняем умножение
+		// Умножаем точку на скаляр
 		ASSERT_TRUE(agreement::x25519(view_t(scalar, sizeof(scalar)), view_t(point, sizeof(point)), result));
 		// Прежний скаляр становится координатой
 		::memcpy(point, scalar, sizeof(point));
@@ -244,21 +244,21 @@ TEST(X25519Test, Iterations) {
 TEST(X25519Test, Exchange) {
 	// Места ключей и общих значений
 	uint8_t alice[32], bob[32], key[32], first[32], second[32];
-	// Выполняем разбор секретного ключа Алисы
+	// Разбираем секретный ключ Алисы
 	ASSERT_EQ(bytes(ALICE_SECRET, alice), static_cast <size_t> (32));
-	// Выполняем разбор секретного ключа Боба
+	// Разбираем секретный ключ Боба
 	ASSERT_EQ(bytes(BOB_SECRET, bob), static_cast <size_t> (32));
-	// Выполняем выработку открытого ключа Алисы
+	// Вырабатываем открытый ключ Алисы
 	ASSERT_TRUE(agreement::x25519(view_t(alice, sizeof(alice)), key));
 	// Сличаем открытый ключ Алисы с контрольным значением
 	ASSERT_EQ(text(key, sizeof(key)), std::string(ALICE_PUBLIC));
-	// Выполняем выработку общего значения Бобом из ключа Алисы
+	// Вырабатываем общее значение Бобом из ключа Алисы
 	ASSERT_TRUE(agreement::x25519(view_t(bob, sizeof(bob)), view_t(key, sizeof(key)), first));
-	// Выполняем выработку открытого ключа Боба
+	// Вырабатываем открытый ключ Боба
 	ASSERT_TRUE(agreement::x25519(view_t(bob, sizeof(bob)), key));
 	// Сличаем открытый ключ Боба с контрольным значением
 	ASSERT_EQ(text(key, sizeof(key)), std::string(BOB_PUBLIC));
-	// Выполняем выработку общего значения Алисой из ключа Боба
+	// Вырабатываем общее значение Алисой из ключа Боба
 	ASSERT_TRUE(agreement::x25519(view_t(alice, sizeof(alice)), view_t(key, sizeof(key)), second));
 	// Сличаем общее значение Алисы с контрольным значением
 	ASSERT_EQ(text(second, sizeof(second)), std::string(SHARED));
@@ -272,7 +272,7 @@ TEST(X25519Test, Exchange) {
 TEST(X25519Test, Reject) {
 	// Места ключей и общего значения
 	uint8_t alice[32], point[32], result[32];
-	// Выполняем разбор секретного ключа Алисы
+	// Разбираем секретный ключ Алисы
 	ASSERT_EQ(bytes(ALICE_SECRET, alice), static_cast <size_t> (32));
 	// Нулевая точка: точка малого порядка, выдающая нулевое общее значение
 	::memset(point, 0, sizeof(point));
@@ -320,11 +320,11 @@ TEST(X25519Test, Foreign) {
 	ASSERT_NE(::mkdtemp(pattern), nullptr);
 	// Путь временного каталога
 	const std::string dir(pattern);
-	// Выполняем выработку ключа Алисы системным OpenSSL
+	// Вырабатываем ключ Алисы системным OpenSSL
 	ASSERT_TRUE(run("openssl genpkey -algorithm X25519 -out " + dir + "/alice.pem 2>/dev/null"));
-	// Выполняем запись секретного ключа Алисы в DER
+	// Записываем секретный ключ Алисы в DER
 	ASSERT_TRUE(run("openssl pkey -in " + dir + "/alice.pem -outform DER -out " + dir + "/alice.der 2>/dev/null"));
-	// Выполняем запись открытого ключа Алисы в DER
+	// Записываем открытый ключ Алисы в DER
 	ASSERT_TRUE(run("openssl pkey -in " + dir + "/alice.pem -pubout -outform DER -out " + dir + "/alice-pub.der 2>/dev/null"));
 	// Читаем записи ключей Алисы
 	const std::string secret = slurp(dir + "/alice.der"), pub = slurp(dir + "/alice-pub.der");
@@ -332,27 +332,27 @@ TEST(X25519Test, Foreign) {
 	ASSERT_EQ(secret.size(), static_cast <size_t> (48));
 	// Проверяем длину записи SubjectPublicKeyInfo
 	ASSERT_EQ(pub.size(), static_cast <size_t> (44));
-	// Выполняем выработку открытого ключа Алисы своим кодом
+	// Вырабатываем открытый ключ Алисы своим кодом
 	uint8_t key[32];
-	// Выполняем выработку открытого ключа из извлечённого секретного
+	// Вырабатываем открытый ключ из извлечённого секретного
 	ASSERT_TRUE(agreement::x25519(view_t(reinterpret_cast <const uint8_t *> (secret.data()) + 16, 32), key));
 	// Сличаем свой открытый ключ с открытым ключом OpenSSL
 	ASSERT_EQ(text(key, sizeof(key)), text(reinterpret_cast <const uint8_t *> (pub.data()) + 12, 32));
 	// Секретный ключ Боба из RFC 7748
 	uint8_t bob[32];
-	// Выполняем разбор секретного ключа Боба
+	// Разбираем секретный ключ Боба
 	ASSERT_EQ(bytes(BOB_SECRET, bob), static_cast <size_t> (32));
 	// Заголовок записи PKCS#8 ключа X25519
 	uint8_t pkcs8[48];
-	// Выполняем разбор заголовка записи PKCS#8
+	// Разбираем заголовок записи PKCS#8
 	ASSERT_EQ(bytes("302e020100300506032b656e04220420", pkcs8), static_cast <size_t> (16));
 	// Дописываем секретный ключ Боба в запись
 	::memcpy(pkcs8 + 16, bob, sizeof(bob));
-	// Выполняем запись ключа Боба в файл
+	// Записываем ключ Боба в файл
 	ASSERT_TRUE(spill(dir + "/bob.der", pkcs8, sizeof(pkcs8)));
-	// Выполняем запись открытого ключа Боба системным OpenSSL
+	// Записываем открытый ключ Боба системным OpenSSL
 	ASSERT_TRUE(run("openssl pkey -inform DER -in " + dir + "/bob.der -pubout -out " + dir + "/bob-pub.pem 2>/dev/null"));
-	// Выполняем выработку общего значения Алисой системным OpenSSL
+	// Вырабатываем общее значение Алисой системным OpenSSL
 	ASSERT_TRUE(run("openssl pkeyutl -derive -inkey " + dir + "/alice.pem -peerkey " + dir + "/bob-pub.pem -out " + dir + "/shared.bin 2>/dev/null"));
 	// Читаем общее значение OpenSSL
 	const std::string shared = slurp(dir + "/shared.bin");
@@ -360,7 +360,7 @@ TEST(X25519Test, Foreign) {
 	ASSERT_EQ(shared.size(), static_cast <size_t> (32));
 	// Место общего значения своего кода
 	uint8_t result[32];
-	// Выполняем выработку общего значения Бобом своим кодом из ключа Алиса
+	// Вырабатываем общее значение Бобом своим кодом из ключа Алиса
 	ASSERT_TRUE(agreement::x25519(view_t(bob, sizeof(bob)), view_t(key, sizeof(key)), result));
 	// Сличаем общие значения
 	ASSERT_EQ(text(result, sizeof(result)), text(reinterpret_cast <const uint8_t *> (shared.data()), 32));
@@ -378,7 +378,7 @@ TEST(X25519Test, Generate) {
 	// Порождение без мест отвергается
 	ASSERT_FALSE(agreement::generate(nullptr, key));
 	ASSERT_FALSE(agreement::generate(secret, nullptr));
-	// Выполняем порождение первой пары
+	// Порождаем первую пару
 	ASSERT_TRUE(agreement::generate(secret, key));
 	// Три младших разряда секретного ключа сброшены
 	ASSERT_EQ(secret[0] & 7, 0);
@@ -388,13 +388,13 @@ TEST(X25519Test, Generate) {
 	ASSERT_EQ(secret[31] & 64, 64);
 	// Открытый ключ, выведенный из секретного отдельно
 	uint8_t derived[32];
-	// Выполняем вывод открытого ключа
+	// Выводим открытый ключ
 	ASSERT_TRUE(agreement::x25519(view_t(secret, sizeof(secret)), derived));
 	// Открытый ключ пары совпадает с выведенным
 	ASSERT_EQ(text(key, sizeof(key)), text(derived, sizeof(derived)));
 	// Ключи второй пары
 	uint8_t other[32], point[32];
-	// Выполняем порождение второй пары
+	// Порождаем вторую пару
 	ASSERT_TRUE(agreement::generate(other, point));
 	// Секретные ключи пар различны
 	ASSERT_NE(::memcmp(secret, other, sizeof(secret)), 0);
@@ -402,9 +402,9 @@ TEST(X25519Test, Generate) {
 	ASSERT_NE(::memcmp(key, point, sizeof(key)), 0);
 	// Общие значения сторон
 	uint8_t first[32], second[32];
-	// Выполняем выработку общего значения первой стороной
+	// Вырабатываем общее значение первой стороной
 	ASSERT_TRUE(agreement::x25519(view_t(secret, sizeof(secret)), view_t(point, sizeof(point)), first));
-	// Выполняем выработку общего значения второй стороной
+	// Вырабатываем общее значение второй стороной
 	ASSERT_TRUE(agreement::x25519(view_t(other, sizeof(other)), view_t(key, sizeof(key)), second));
 	// Общие значения сходятся
 	ASSERT_EQ(text(first, sizeof(first)), text(second, sizeof(second)));
@@ -415,7 +415,7 @@ TEST(X25519Test, Generate) {
  */
 TEST(X25519Test, GenerateStarved) {
 	/**
-	 * Выполняем перебор запасов выделений: порождение обязано удаваться при всяком
+	 * Перебираем запасы выделений: порождение обязано удаваться при всяком
 	 * запасе, ибо памяти не выделяет, а выделение под noexcept прервало бы исполнение
 	 */
 	for(size_t budget = 0; budget < 8; budget++){
@@ -426,7 +426,7 @@ TEST(X25519Test, GenerateStarved) {
 		{
 			// Отмеряем запас выделений на время порождения
 			starve::ration_t ration(budget);
-			// Выполняем порождение при отмеренном запасе
+			// Порождаем пару при отмеренном запасе
 			outcome = agreement::generate(secret, key);
 		}
 		// Порождение удалось
@@ -446,19 +446,19 @@ TEST(X25519Test, GenerateOpenssl) {
 	key.d.assign(32, 0);
 	// Выделяем место под ключ проверки: 32 байта
 	key.key.assign(32, 0);
-	// Выполняем порождение пары
+	// Порождаем пару
 	ASSERT_TRUE(agreement::generate(key.d.data(), key.key.data()));
 	// Записи ключей
 	std::string secret, pub;
-	// Выполняем запись секретного ключа PKCS #8
+	// Записываем секретный ключ PKCS #8
 	ASSERT_EQ(keys::encode(key, keys::container_t::PRIVATE, secret), keys::error_t::NONE);
-	// Выполняем запись открытого ключа SubjectPublicKeyInfo
+	// Записываем открытый ключ SubjectPublicKeyInfo
 	ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, pub), keys::error_t::NONE);
 	// Разобранные ключи
 	keys::key_t parsed, opened;
-	// Выполняем разбор записи секретного ключа
+	// Разбираем запись секретного ключа
 	ASSERT_EQ(keys::decode(secret, view_t(), parsed), keys::error_t::NONE);
-	// Выполняем разбор записи открытого ключа
+	// Разбираем запись открытого ключа
 	ASSERT_EQ(keys::decode(pub, view_t(), opened), keys::error_t::NONE);
 	// Разобранный секретный ключ совпадает с порождённым
 	ASSERT_EQ(parsed.d, key.d);
@@ -474,7 +474,7 @@ TEST(X25519Test, GenerateOpenssl) {
 	ASSERT_NE(::mkdtemp(pattern), nullptr);
 	// Путь временного каталога
 	const std::string dir(pattern);
-	// Выполняем запись ключей в файлы
+	// Записываем ключи в файлы
 	ASSERT_TRUE(spill(dir + "/key.pem", reinterpret_cast <const uint8_t *> (secret.data()), secret.size()));
 	ASSERT_TRUE(spill(dir + "/pub.pem", reinterpret_cast <const uint8_t *> (pub.data()), pub.size()));
 	// Системный openssl читает секретный ключ
@@ -485,11 +485,11 @@ TEST(X25519Test, GenerateOpenssl) {
 	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -pubout -out " + dir + "/derived.pem 2>/dev/null"));
 	// Выведенный openssl открытый ключ совпадает с нашим байт в байт
 	ASSERT_EQ(slurp(dir + "/derived.pem"), pub);
-	// Выполняем порождение встречной пары системным openssl
+	// Порождаем встречную пару системным openssl
 	ASSERT_TRUE(run("openssl genpkey -algorithm X25519 -out " + dir + "/peer.pem 2>/dev/null"));
-	// Выполняем запись открытого ключа встречной пары в DER
+	// Записываем открытый ключ встречной пары в DER
 	ASSERT_TRUE(run("openssl pkey -in " + dir + "/peer.pem -pubout -outform DER -out " + dir + "/peer-pub.der 2>/dev/null"));
-	// Выполняем выработку общего значения встречной стороной нашим открытым ключом
+	// Вырабатываем общее значение встречной стороной нашим открытым ключом
 	ASSERT_TRUE(run("openssl pkeyutl -derive -inkey " + dir + "/peer.pem -peerkey " + dir + "/pub.pem -out " + dir + "/shared.bin 2>/dev/null"));
 	// Читаем открытый ключ встречной пары и общее значение
 	const std::string peer = slurp(dir + "/peer-pub.der"), shared = slurp(dir + "/shared.bin");
@@ -498,7 +498,7 @@ TEST(X25519Test, GenerateOpenssl) {
 	ASSERT_EQ(shared.size(), static_cast <size_t> (32));
 	// Место общего значения своей стороны
 	uint8_t result[32];
-	// Выполняем выработку общего значения порождённым секретным ключом
+	// Вырабатываем общее значение порождённым секретным ключом
 	ASSERT_TRUE(agreement::x25519(view_t(key.d.data(), key.d.size()), view_t(reinterpret_cast <const uint8_t *> (peer.data()) + 12, 32), result));
 	// Общие значения сходятся
 	ASSERT_EQ(text(result, sizeof(result)), text(reinterpret_cast <const uint8_t *> (shared.data()), 32));

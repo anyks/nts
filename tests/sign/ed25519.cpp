@@ -154,13 +154,13 @@ static std::vector <uint8_t> bytes(const char * text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -188,7 +188,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -231,7 +231,7 @@ static std::string slurp(const std::string & path) {
 	// Число прочитанных байтов
 	size_t count = 0;
 	/**
-	 * Выполняем чтение файла кусками
+	 * Читаем файл кусками
 	 */
 	while((count = ::fread(buffer, 1, sizeof(buffer), file)) > 0)
 		// Дописываем прочитанный кусок
@@ -257,7 +257,7 @@ static bool spill(const std::string & path, const uint8_t * data, const size_t s
 	if(file == nullptr)
 		// Выводим отказ записи
 		return false;
-	// Выполняем запись байтов
+	// Записываем байты
 	const bool ok = (::fwrite(data, 1, size, file) == size);
 	// Закрываем файл
 	::fclose(file);
@@ -291,27 +291,27 @@ static void example(const char * secret, const char * pub, const char * message,
 	ASSERT_EQ(ed25519.size(), static_cast <size_t> (64));
 	// Разобранные записи примера
 	const std::vector <uint8_t> seed = bytes(secret), data = bytes(message), expected = bytes(signature);
-	// Выполняем установку ключа подписи
+	// Устанавливаем ключ подписи
 	ASSERT_TRUE(ed25519.secret(view(seed)));
 	// Место ключа проверки подписи
 	uint8_t key[32];
-	// Выполняем получение ключа проверки подписи
+	// Получаем ключ проверки подписи
 	ASSERT_TRUE(ed25519.key(key, sizeof(key)));
 	// Сличаем ключ проверки с контрольным примером
 	ASSERT_EQ(text(key, sizeof(key)), std::string(pub));
 	// Место выработанной подписи
 	uint8_t result[64];
-	// Выполняем выработку подписи
+	// Вырабатываем подпись
 	ASSERT_TRUE(ed25519.make(view(data), result));
 	// Сличаем выработанную подпись с контрольным примером
 	ASSERT_EQ(text(result, sizeof(result)), std::string(signature));
-	// Выполняем проверку выработанной подписи тем же объектом
+	// Проверяем выработанную подпись тем же объектом
 	ASSERT_TRUE(ed25519.check(view(data), view_t(result, sizeof(result))));
 	// Объект проверки подписи одним ключом проверки
 	sign::ed25519_t verifier;
-	// Выполняем установку ключа проверки подписи
+	// Устанавливаем ключ проверки подписи
 	ASSERT_TRUE(verifier.key(view_t(key, sizeof(key))));
-	// Выполняем проверку подписи контрольного примера
+	// Проверяем подпись контрольного примера
 	ASSERT_TRUE(verifier.check(view(data), view(expected)));
 	// Проверяем отказ выработки подписи без ключа подписи
 	ASSERT_FALSE(verifier.make(view(data), result));
@@ -322,7 +322,7 @@ static void example(const char * secret, const char * pub, const char * message,
  *
  */
 TEST(Ed25519Test, One) {
-	// Выполняем проверку контрольного примера
+	// Проверяем контрольный пример
 	example(ONE_SECRET, ONE_PUBLIC, ONE_MESSAGE, ONE_SIGNATURE);
 }
 /**
@@ -330,7 +330,7 @@ TEST(Ed25519Test, One) {
  *
  */
 TEST(Ed25519Test, Two) {
-	// Выполняем проверку контрольного примера
+	// Проверяем контрольный пример
 	example(TWO_SECRET, TWO_PUBLIC, TWO_MESSAGE, TWO_SIGNATURE);
 }
 /**
@@ -338,7 +338,7 @@ TEST(Ed25519Test, Two) {
  *
  */
 TEST(Ed25519Test, Three) {
-	// Выполняем проверку контрольного примера
+	// Проверяем контрольный пример
 	example(THREE_SECRET, THREE_PUBLIC, THREE_MESSAGE, THREE_SIGNATURE);
 }
 /**
@@ -346,7 +346,7 @@ TEST(Ed25519Test, Three) {
  *
  */
 TEST(Ed25519Test, Long) {
-	// Выполняем проверку контрольного примера
+	// Проверяем контрольный пример
 	example(LONG_SECRET, LONG_PUBLIC, LONG_MESSAGE, LONG_SIGNATURE);
 }
 /**
@@ -354,7 +354,7 @@ TEST(Ed25519Test, Long) {
  *
  */
 TEST(Ed25519Test, Abc) {
-	// Выполняем проверку контрольного примера
+	// Проверяем контрольный пример
 	example(ABC_SECRET, ABC_PUBLIC, ABC_MESSAGE, ABC_SIGNATURE);
 }
 /**
@@ -368,7 +368,7 @@ TEST(Ed25519Test, Reject) {
 	const std::vector <uint8_t> pub = bytes(THREE_PUBLIC), data = bytes(THREE_MESSAGE);
 	// Изменяемая подпись примера
 	std::vector <uint8_t> signature = bytes(THREE_SIGNATURE);
-	// Выполняем установку ключа проверки подписи
+	// Устанавливаем ключ проверки подписи
 	ASSERT_TRUE(ed25519.key(view(pub)));
 	// Проверяем схождение нетронутой подписи
 	ASSERT_TRUE(ed25519.check(view(data), view(signature)));
@@ -404,7 +404,7 @@ TEST(Ed25519Test, Reject) {
 	 */
 	uint16_t carry = 0;
 	/**
-	 * Выполняем сложение скаляра S с порядком младшим байтом вперёд
+	 * Складываем скаляр S с порядком младшим байтом вперёд
 	 */
 	for(size_t i = 0; i < 32; i++){
 		// Складываем очередные байты с переносом
@@ -448,11 +448,11 @@ TEST(Ed25519Test, Reject) {
 	uint8_t key[32];
 	// Проверяем отказ получения ключа проверки без ключа
 	ASSERT_FALSE(other.key(key, sizeof(key)));
-	// Выполняем установку ключа проверки
+	// Устанавливаем ключ проверки
 	ASSERT_TRUE(other.key(view(pub)));
 	// Проверяем отказ получения ключа проверки в малое место
 	ASSERT_FALSE(other.key(key, 31));
-	// Выполняем сброс состояния
+	// Сбрасываем состояние
 	other.clear();
 	// Проверяем отказ проверки после сброса
 	ASSERT_FALSE(other.check(view(data), view(signature)));
@@ -478,19 +478,19 @@ TEST(Ed25519Test, Foreign) {
 	const std::string dir(pattern);
 	// Подписываемое сообщение
 	const std::string message = "The quick brown fox jumps over the lazy dog: A-NTS Ed25519 interoperability check";
-	// Выполняем запись сообщения в файл
+	// Записываем сообщение в файл
 	ASSERT_TRUE(spill(dir + "/msg.bin", reinterpret_cast <const uint8_t *> (message.data()), message.size()));
-	// Выполняем выработку ключа системным OpenSSL
+	// Вырабатываем ключ системным OpenSSL
 	ASSERT_TRUE(run("openssl genpkey -algorithm ed25519 -out " + dir + "/key.pem 2>/dev/null"));
 	// Если системный openssl не умеет подписывать сообщение целиком (LibreSSL без -rawin), сличать не с чем
 	if(!run("openssl pkeyutl -sign -inkey " + dir + "/key.pem -rawin -in " + dir + "/msg.bin -out " + dir + "/probe.bin >/dev/null 2>&1"))
 		// Объявляем пропуск проверки вслух
 		GTEST_SKIP() << "Системный openssl без pkeyutl -rawin";
-	// Выполняем запись ключа подписи в DER
+	// Записываем ключ подписи в DER
 	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -outform DER -out " + dir + "/key.der 2>/dev/null"));
-	// Выполняем запись ключа проверки в DER
+	// Записываем ключ проверки в DER
 	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -pubout -outform DER -out " + dir + "/pub.der 2>/dev/null"));
-	// Выполняем выработку подписи системным OpenSSL
+	// Вырабатываем подпись системным OpenSSL
 	ASSERT_TRUE(run("openssl pkeyutl -sign -inkey " + dir + "/key.pem -rawin -in " + dir + "/msg.bin -out " + dir + "/sig.bin 2>/dev/null"));
 	// Читаем записи ключей и подписи
 	const std::string secret = slurp(dir + "/key.der"), pub = slurp(dir + "/pub.der"), sig = slurp(dir + "/sig.bin");
@@ -502,21 +502,21 @@ TEST(Ed25519Test, Foreign) {
 	ASSERT_EQ(sig.size(), static_cast <size_t> (64));
 	// Объект модуля электронной подписи
 	sign::ed25519_t ed25519;
-	// Выполняем установку зерна OpenSSL
+	// Устанавливаем зерно OpenSSL
 	ASSERT_TRUE(ed25519.secret(view_t(reinterpret_cast <const uint8_t *> (secret.data()) + 16, 32)));
 	// Место ключа проверки
 	uint8_t key[32];
-	// Выполняем получение ключа проверки
+	// Получаем ключ проверки
 	ASSERT_TRUE(ed25519.key(key, sizeof(key)));
 	// Сличаем свой ключ проверки с ключом OpenSSL
 	ASSERT_EQ(text(key, sizeof(key)), text(reinterpret_cast <const uint8_t *> (pub.data()) + 12, 32));
 	// Область сообщения
 	const view_t data(reinterpret_cast <const uint8_t *> (message.data()), message.size());
-	// Выполняем проверку подписи OpenSSL своим кодом
+	// Проверяем подпись OpenSSL своим кодом
 	ASSERT_TRUE(ed25519.check(data, view_t(reinterpret_cast <const uint8_t *> (sig.data()), sig.size())));
 	// Место своей подписи
 	uint8_t result[64];
-	// Выполняем выработку подписи своим кодом
+	// Вырабатываем подпись своим кодом
 	ASSERT_TRUE(ed25519.make(data, result));
 	// Подпись детерминирована: обязана совпасть с подписью OpenSSL
 	ASSERT_EQ(text(result, sizeof(result)), text(reinterpret_cast <const uint8_t *> (sig.data()), 64));
@@ -524,25 +524,25 @@ TEST(Ed25519Test, Foreign) {
 	sign::ed25519_t own;
 	// Разобранное зерно контрольного примера
 	const std::vector <uint8_t> seed = bytes(TWO_SECRET);
-	// Выполняем установку зерна
+	// Устанавливаем зерно
 	ASSERT_TRUE(own.secret(view(seed)));
-	// Выполняем выработку подписи сообщения своим кодом
+	// Вырабатываем подпись сообщения своим кодом
 	ASSERT_TRUE(own.make(data, result));
-	// Выполняем запись подписи в файл
+	// Записываем подпись в файл
 	ASSERT_TRUE(spill(dir + "/own-sig.bin", result, sizeof(result)));
 	// Заголовок записи PKCS#8 ключа Ed25519
 	std::vector <uint8_t> pkcs8 = bytes("302e020100300506032b657004220420");
 	// Дописываем зерно в запись
 	pkcs8.insert(pkcs8.end(), seed.begin(), seed.end());
-	// Выполняем запись ключа в файл
+	// Записываем ключ в файл
 	ASSERT_TRUE(spill(dir + "/own.der", pkcs8.data(), pkcs8.size()));
-	// Выполняем запись ключа проверки системным OpenSSL
+	// Записываем ключ проверки системным OpenSSL
 	ASSERT_TRUE(run("openssl pkey -inform DER -in " + dir + "/own.der -pubout -out " + dir + "/own-pub.pem 2>/dev/null"));
-	// Выполняем проверку своей подписи системным OpenSSL
+	// Проверяем свою подпись системным OpenSSL
 	ASSERT_TRUE(run("openssl pkeyutl -verify -pubin -inkey " + dir + "/own-pub.pem -rawin -in " + dir + "/msg.bin -sigfile " + dir + "/own-sig.bin >/dev/null 2>&1"));
 	// Портим байт своей подписи
 	result[10] ^= 0x01;
-	// Выполняем запись битой подписи в файл
+	// Записываем битую подпись в файл
 	ASSERT_TRUE(spill(dir + "/own-sig.bin", result, sizeof(result)));
 	// Проверяем отказ OpenSSL на битой подписи: заслон сличения сам обязан работать
 	ASSERT_FALSE(run("openssl pkeyutl -verify -pubin -inkey " + dir + "/own-pub.pem -rawin -in " + dir + "/msg.bin -sigfile " + dir + "/own-sig.bin >/dev/null 2>&1"));
@@ -567,50 +567,50 @@ TEST(Ed25519Test, Generate) {
 	ASSERT_FALSE(ed25519.generate(first, sizeof(first) - 1));
 	// Предел после отказов нулевой
 	ASSERT_EQ(ed25519.limit(), static_cast <size_t> (0));
-	// Выполняем первое порождение
+	// Порождаем ключ в первый раз
 	ASSERT_TRUE(ed25519.generate(first, sizeof(first)));
 	// Предел равен длине подписи
 	ASSERT_EQ(ed25519.limit(), static_cast <size_t> (64));
 	ASSERT_EQ(ed25519.limit(), ed25519.size());
 	// Ключ проверки порождённого ключа
 	uint8_t key[32];
-	// Выполняем получение ключа проверки
+	// Получаем ключ проверки
 	ASSERT_TRUE(ed25519.key(key, sizeof(key)));
 	// Объект модуля с тем же зерном, установленным через secret
 	sign::ed25519_t other;
-	// Выполняем установку зерна как переданного
+	// Устанавливаем зерно как переданное
 	ASSERT_TRUE(other.secret(view_t(first, sizeof(first))));
 	// Ключ проверки выведенного ключа
 	uint8_t derived[32];
-	// Выполняем получение ключа проверки
+	// Получаем ключ проверки
 	ASSERT_TRUE(other.key(derived, sizeof(derived)));
 	// Открытая часть порождённого ключа совпадает с выведенной через secret
 	ASSERT_EQ(text(key, sizeof(key)), text(derived, sizeof(derived)));
-	// Сообщение
+	// Сообщение для подписи
 	const std::string message = "generated ed25519 key";
 	// Область сообщения
 	const view_t data(reinterpret_cast <const uint8_t *> (message.data()), message.size());
 	// Место подписи
 	uint8_t signature[64];
-	// Выполняем выработку подписи порождённым ключом
+	// Вырабатываем подпись порождённым ключом
 	ASSERT_TRUE(ed25519.make(data, signature));
 	// Подпись сходится у выведенного ключа
 	ASSERT_TRUE(other.check(data, view_t(signature, sizeof(signature))));
 	// Объект модуля одним лишь ключом проверки
 	sign::ed25519_t verifier;
-	// Выполняем установку ключа проверки
+	// Устанавливаем ключ проверки
 	ASSERT_TRUE(verifier.key(view_t(key, sizeof(key))));
 	// Предел у одного лишь ключа проверки равен длине подписи
 	ASSERT_EQ(verifier.limit(), static_cast <size_t> (64));
 	// Подпись сходится одним лишь ключом проверки
 	ASSERT_TRUE(verifier.check(data, view_t(signature, sizeof(signature))));
-	// Выполняем второе порождение
+	// Порождаем ключ во второй раз
 	ASSERT_TRUE(ed25519.generate(second, sizeof(second)));
 	// Зёрна порождений различны
 	ASSERT_NE(::memcmp(first, second, sizeof(first)), 0);
 	// Прежняя подпись новым ключом не сходится
 	ASSERT_FALSE(ed25519.check(data, view_t(signature, sizeof(signature))));
-	// Выполняем сброс состояния модуля
+	// Сбрасываем состояние модуля
 	ed25519.clear();
 	// Предел после сброса нулевой
 	ASSERT_EQ(ed25519.limit(), static_cast <size_t> (0));
@@ -623,7 +623,7 @@ TEST(Ed25519Test, GenerateStarved) {
 	// Объект модуля электронной подписи
 	sign::ed25519_t ed25519;
 	/**
-	 * Выполняем перебор запасов выделений: порождение обязано удаваться при всяком
+	 * Перебираем запасы выделений: порождение обязано удаваться при всяком
 	 * запасе, ибо памяти не выделяет, а выделение под noexcept прервало бы исполнение
 	 */
 	for(size_t budget = 0; budget < 8; budget++){
@@ -634,7 +634,7 @@ TEST(Ed25519Test, GenerateStarved) {
 		{
 			// Отмеряем запас выделений на время порождения
 			starve::ration_t ration(budget);
-			// Выполняем порождение при отмеренном запасе
+			// Порождаем ключ при отмеренном запасе
 			outcome = ed25519.generate(seed, sizeof(seed));
 		}
 		// Порождение удалось
@@ -654,23 +654,23 @@ TEST(Ed25519Test, GenerateOpenssl) {
 	key.kind = keys::kind_t::ED25519;
 	// Выделяем место под зерно
 	key.d.assign(32, 0);
-	// Выполняем порождение ключа
+	// Порождаем ключ
 	ASSERT_TRUE(ed25519.generate(key.d.data(), key.d.size()));
 	// Выделяем место под ключ проверки
 	key.key.assign(32, 0);
-	// Выполняем получение ключа проверки
+	// Получаем ключ проверки
 	ASSERT_TRUE(ed25519.key(key.key.data(), key.key.size()));
 	// Записи ключей
 	std::string secret, pub;
-	// Выполняем запись секретного ключа PKCS #8
+	// Записываем секретный ключ PKCS #8
 	ASSERT_EQ(keys::encode(key, keys::container_t::PRIVATE, secret), keys::error_t::NONE);
-	// Выполняем запись открытого ключа SubjectPublicKeyInfo
+	// Записываем открытый ключ SubjectPublicKeyInfo
 	ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, pub), keys::error_t::NONE);
 	// Разобранные ключи
 	keys::key_t parsed, opened;
-	// Выполняем разбор записи секретного ключа
+	// Разбираем запись секретного ключа
 	ASSERT_EQ(keys::decode(secret, view_t(), parsed), keys::error_t::NONE);
-	// Выполняем разбор записи открытого ключа
+	// Разбираем запись открытого ключа
 	ASSERT_EQ(keys::decode(pub, view_t(), opened), keys::error_t::NONE);
 	// Разобранное зерно совпадает с порождённым
 	ASSERT_EQ(parsed.d, key.d);
@@ -686,7 +686,7 @@ TEST(Ed25519Test, GenerateOpenssl) {
 	ASSERT_NE(::mkdtemp(pattern), nullptr);
 	// Путь временного каталога
 	const std::string dir(pattern);
-	// Выполняем запись ключей в файлы
+	// Записываем ключи в файлы
 	ASSERT_TRUE(spill(dir + "/key.pem", reinterpret_cast <const uint8_t *> (secret.data()), secret.size()));
 	ASSERT_TRUE(spill(dir + "/pub.pem", reinterpret_cast <const uint8_t *> (pub.data()), pub.size()));
 	// Системный openssl читает секретный ключ
@@ -697,15 +697,15 @@ TEST(Ed25519Test, GenerateOpenssl) {
 	ASSERT_TRUE(run("openssl pkey -in " + dir + "/key.pem -pubout -out " + dir + "/derived.pem 2>/dev/null"));
 	// Выведенный openssl открытый ключ совпадает с нашим байт в байт
 	ASSERT_EQ(slurp(dir + "/derived.pem"), pub);
-	// Сообщение
+	// Сообщение для подписи
 	const std::string message = "generated ed25519 key";
-	// Выполняем запись сообщения в файл
+	// Записываем сообщение в файл
 	ASSERT_TRUE(spill(dir + "/msg.bin", reinterpret_cast <const uint8_t *> (message.data()), message.size()));
 	// Место подписи
 	uint8_t signature[64];
-	// Выполняем выработку подписи порождённым ключом
+	// Вырабатываем подпись порождённым ключом
 	ASSERT_TRUE(ed25519.make(view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), signature));
-	// Выполняем запись подписи в файл
+	// Записываем подпись в файл
 	ASSERT_TRUE(spill(dir + "/sig.bin", signature, sizeof(signature)));
 	// Если системный openssl умеет проверять сообщение целиком
 	if(run("openssl pkeyutl -sign -inkey " + dir + "/key.pem -rawin -in " + dir + "/msg.bin -out " + dir + "/probe.bin >/dev/null 2>&1")){

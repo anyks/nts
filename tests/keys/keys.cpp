@@ -144,7 +144,7 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Открываем файл на чтение
 		std::ifstream file(path, std::ios::binary);
 		// Читаем содержимое файла в поток
@@ -161,9 +161,9 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string corpus(const std::string & name) {
+	static std::string __nts_corpus__(const std::string & name) {
 		// Выводим содержимое файла набора
-		return slurp(std::string(CORPUS) + "/" + name);
+		return __nts_slurp__(std::string(CORPUS) + "/" + name);
 	}
 	/**
 	 * @brief Функция перевода строки в набор байтов
@@ -183,7 +183,7 @@ namespace {
 	 * @return     просмотр набора байтов
 	 *
 	 */
-	static view_t view(const std::vector <uint8_t> & data) {
+	static view_t __nts_view__(const std::vector <uint8_t> & data) {
 		// Выводим просмотр набора байтов
 		return view_t(data.data(), data.size());
 	}
@@ -194,7 +194,7 @@ namespace {
 	 * @return     просмотр строки знаков
 	 *
 	 */
-	static view_t view(const char * text) {
+	static view_t __nts_view__(const char * text) {
 		// Выводим просмотр строки знаков
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
@@ -206,7 +206,7 @@ namespace {
 	 * @return     признак успешности записи
 	 *
 	 */
-	static bool spill(const std::string & path, const std::string & data) {
+	static bool __nts_spill__(const std::string & path, const std::string & data) {
 		// Открываем файл на запись
 		std::ofstream file(path, std::ios::binary);
 		// Записываем содержимое
@@ -222,9 +222,9 @@ namespace {
 	 * @return     признак успешности записи
 	 *
 	 */
-	static bool spill(const std::string & path, const std::vector <uint8_t> & data) {
+	static bool __nts_spill__(const std::string & path, const std::vector <uint8_t> & data) {
 		// Выводим итог записи набора байтов строкой
-		return spill(path, std::string(data.begin(), data.end()));
+		return __nts_spill__(path, std::string(data.begin(), data.end()));
 	}
 	/**
 	 * @brief Функция извлечения тела первой записи PEM
@@ -254,8 +254,8 @@ namespace {
 	static std::vector <uint8_t> digested(const digest::hash_t algorithm, const std::vector <uint8_t> & data) {
 		// Хеш набора байтов
 		std::vector <uint8_t> result(digest::length(algorithm), 0);
-		// Выполняем хеширование
-		digest::hash(algorithm, view(data), result.data(), result.size());
+		// Хешируем данные
+		digest::hash(algorithm, __nts_view__(data), result.data(), result.size());
 		// Выводим хеш
 		return result;
 	}
@@ -267,7 +267,7 @@ namespace {
 	 * @return       признак совпадения открытых частей
 	 *
 	 */
-	static bool alike(const keys::key_t & first, const keys::key_t & second) {
+	static bool __nts_alike__(const keys::key_t & first, const keys::key_t & second) {
 		// Выводим итог сличения вида и открытых составляющих
 		return (
 			(first.kind == second.kind) && (first.oid == second.oid) &&
@@ -284,9 +284,9 @@ namespace {
 	 * @return       признак успешности выработки подписи
 	 *
 	 */
-	static bool produce(const keys::key_t & key, const std::vector <uint8_t> & data, std::vector <uint8_t> & result) {
+	static bool __nts_produce__(const keys::key_t & key, const std::vector <uint8_t> & data, std::vector <uint8_t> & result) {
 		/**
-		 * Выполняем определение вида ключа
+		 * Определяем вид ключа
 		 */
 		switch(static_cast <uint8_t> (key.kind)){
 			// Если ключ RSA
@@ -302,7 +302,7 @@ namespace {
 				// Выделяем место под подпись
 				result.assign(rsa.size(), 0);
 				// Выводим итог выработки подписи PKCS #1 v1.5
-				return rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view(digest), result.data());
+				return rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, __nts_view__(digest), result.data());
 			}
 			// Если ключ EC
 			case static_cast <uint8_t> (keys::kind_t::EC): {
@@ -321,11 +321,11 @@ namespace {
 				// Подпись парой чисел
 				std::vector <uint8_t> raw(curve.size() * 2, 0);
 				// Если подпись выработать не удалось
-				if(!ecdsa.make(algorithm, view(digest), raw.data()))
+				if(!ecdsa.make(algorithm, __nts_view__(digest), raw.data()))
 					// Выводим отрицательный результат - подпись не выработана
 					return false;
 				// Выводим итог записи подписи в кодировке DER
-				return sign::encode(view(raw), result);
+				return sign::encode(__nts_view__(raw), result);
 			}
 			// Если ключ Ed25519
 			case static_cast <uint8_t> (keys::kind_t::ED25519): {
@@ -338,7 +338,7 @@ namespace {
 				// Выделяем место под подпись
 				result.assign(sign::ed25519_t::SIGNATURE_SIZE, 0);
 				// Выводим итог выработки подписи
-				return ed25519.make(view(data), result.data());
+				return ed25519.make(__nts_view__(data), result.data());
 			}
 		}
 		// Выводим отказ: ключ подписи не вырабатывает
@@ -353,9 +353,9 @@ namespace {
 	 * @return          признак того, что подпись сошлась
 	 *
 	 */
-	static bool verify(const keys::key_t & key, const std::vector <uint8_t> & data, const std::vector <uint8_t> & signature) {
+	static bool __nts_verify__(const keys::key_t & key, const std::vector <uint8_t> & data, const std::vector <uint8_t> & signature) {
 		/**
-		 * Выполняем определение вида ключа
+		 * Определяем вид ключа
 		 */
 		switch(static_cast <uint8_t> (key.kind)){
 			// Если ключ RSA
@@ -369,7 +369,7 @@ namespace {
 				// Хеш данных
 				const std::vector <uint8_t> digest = digested(digest::hash_t::SHA256, data);
 				// Выводим итог проверки подписи PKCS #1 v1.5
-				return rsa.check(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view(digest), view(signature));
+				return rsa.check(sign::scheme_t::PKCS1, digest::hash_t::SHA256, __nts_view__(digest), __nts_view__(signature));
 			}
 			// Если ключ EC
 			case static_cast <uint8_t> (keys::kind_t::EC): {
@@ -388,11 +388,11 @@ namespace {
 				// Подпись парой чисел
 				std::vector <uint8_t> raw(curve.size() * 2, 0);
 				// Если подпись из кодировки DER разобрать не удалось
-				if(!sign::decode(view(signature), raw.data(), raw.size()))
+				if(!sign::decode(__nts_view__(signature), raw.data(), raw.size()))
 					// Выводим отрицательный результат - подпись не разобрана
 					return false;
 				// Выводим итог проверки подписи
-				return ecdsa.check(view(digest), view(raw));
+				return ecdsa.check(__nts_view__(digest), __nts_view__(raw));
 			}
 			// Если ключ Ed25519
 			case static_cast <uint8_t> (keys::kind_t::ED25519): {
@@ -403,7 +403,7 @@ namespace {
 					// Выводим отрицательный результат - ключ Ed25519 не установлен
 					return false;
 				// Выводим итог проверки подписи
-				return ed25519.check(view(data), view(signature));
+				return ed25519.check(__nts_view__(data), __nts_view__(signature));
 			}
 		}
 		// Выводим отказ: ключ подписи не проверяет
@@ -418,7 +418,7 @@ namespace {
 	 * @return          признак успешности выработки ключа
 	 *
 	 */
-	static bool gost(const char * oid, const char * algorithm, keys::key_t & result) {
+	static bool __nts_gost__(const char * oid, const char * algorithm, keys::key_t & result) {
 		// Кривая ключа
 		curve::curve_t curve;
 		// Если кривую установить не удалось
@@ -521,13 +521,13 @@ namespace {
  */
 TEST(KeysTest, Corpus){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Секретный ключ из обёртки PEM
 		keys::key_t secret;
 		// Проверяем разбор секретного ключа из обёртки PEM
-		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(entry.name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем вид ключа
 		ASSERT_EQ(secret.kind, entry.kind) << "Ключ: " << entry.name;
 		// Проверяем наличие секретной части
@@ -539,27 +539,27 @@ TEST(KeysTest, Corpus){
 		// Секретный ключ из кодировки DER
 		keys::key_t direct;
 		// Проверяем разбор секретного ключа из кодировки DER
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(bytes(corpus(std::string(entry.name) + ".der"))), direct), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(bytes(__nts_corpus__(std::string(entry.name) + ".der"))), direct), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем совпадение открытых частей
-		ASSERT_TRUE(alike(secret, direct)) << "Ключ: " << entry.name;
+		ASSERT_TRUE(__nts_alike__(secret, direct)) << "Ключ: " << entry.name;
 		// Проверяем совпадение секретных частей
 		ASSERT_EQ(secret.d, direct.d) << "Ключ: " << entry.name;
 		// Открытый ключ из обёртки PEM
 		keys::key_t opened;
 		// Проверяем разбор открытого ключа из обёртки PEM
-		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(entry.name) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем отсутствие секретной части
 		ASSERT_FALSE(opened.secret()) << "Ключ: " << entry.name;
 		// Проверяем размер ключа
 		ASSERT_EQ(opened.size(), entry.size) << "Ключ: " << entry.name;
 		// Проверяем совпадение открытых частей секретного и открытого ключей
-		ASSERT_TRUE(alike(secret, opened)) << "Ключ: " << entry.name;
+		ASSERT_TRUE(__nts_alike__(secret, opened)) << "Ключ: " << entry.name;
 		// Открытый ключ из кодировки DER
 		keys::key_t plain;
 		// Проверяем разбор открытого ключа из кодировки DER
-		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(bytes(corpus(std::string(entry.name) + ".pub.der"))), plain), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(bytes(__nts_corpus__(std::string(entry.name) + ".pub.der"))), plain), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем совпадение открытых частей
-		ASSERT_TRUE(alike(opened, plain)) << "Ключ: " << entry.name;
+		ASSERT_TRUE(__nts_alike__(opened, plain)) << "Ключ: " << entry.name;
 		// Если ключ RSA
 		if(entry.kind == keys::kind_t::RSA){
 			// Проверяем размеры составляющих секретного ключа
@@ -597,31 +597,31 @@ TEST(KeysTest, Corpus){
  */
 TEST(KeysTest, Canonical){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Секретный ключ набора
 		keys::key_t secret;
 		// Проверяем разбор секретного ключа
-		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(entry.name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Запись PrivateKeyInfo
 		std::vector <uint8_t> der;
 		// Проверяем запись PrivateKeyInfo
 		ASSERT_EQ(keys::encodePrivateKeyInfo(secret, der), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем совпадение записи с набором байт в байт
-		ASSERT_EQ(der, bytes(corpus(std::string(entry.name) + ".der"))) << "Ключ: " << entry.name;
+		ASSERT_EQ(der, bytes(__nts_corpus__(std::string(entry.name) + ".der"))) << "Ключ: " << entry.name;
 		// Проверяем запись SubjectPublicKeyInfo из секретного ключа
 		ASSERT_EQ(keys::encodeSubjectPublicKeyInfo(secret, der), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем совпадение записи с набором байт в байт
-		ASSERT_EQ(der, bytes(corpus(std::string(entry.name) + ".pub.der"))) << "Ключ: " << entry.name;
+		ASSERT_EQ(der, bytes(__nts_corpus__(std::string(entry.name) + ".pub.der"))) << "Ключ: " << entry.name;
 		// Открытый ключ набора
 		keys::key_t opened;
 		// Проверяем разбор открытого ключа
-		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(entry.name) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем запись SubjectPublicKeyInfo из открытого ключа
 		ASSERT_EQ(keys::encodeSubjectPublicKeyInfo(opened, der), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем совпадение записи с набором байт в байт
-		ASSERT_EQ(der, bytes(corpus(std::string(entry.name) + ".pub.der"))) << "Ключ: " << entry.name;
+		ASSERT_EQ(der, bytes(__nts_corpus__(std::string(entry.name) + ".pub.der"))) << "Ключ: " << entry.name;
 		// Проверяем, что секретной записи у открытого ключа нет
 		ASSERT_EQ(keys::encodePrivateKeyInfo(opened, der), keys::error_t::EMPTY) << "Ключ: " << entry.name;
 	}
@@ -632,11 +632,11 @@ TEST(KeysTest, Canonical){
  */
 TEST(KeysTest, Roundtrip){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Текст секретного ключа набора
-		const std::string secret = corpus(std::string(entry.name) + ".pem");
+		const std::string secret = __nts_corpus__(std::string(entry.name) + ".pem");
 		// Разобранный ключ
 		keys::key_t key;
 		// Проверяем разбор секретного ключа
@@ -648,7 +648,7 @@ TEST(KeysTest, Roundtrip){
 		// Проверяем совпадение текста с набором
 		ASSERT_EQ(text, secret) << "Ключ: " << entry.name;
 		// Текст открытого ключа набора
-		const std::string opened = corpus(std::string(entry.name) + ".pub.pem");
+		const std::string opened = __nts_corpus__(std::string(entry.name) + ".pub.pem");
 		// Проверяем запись открытого ключа из секретного
 		ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, text), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем совпадение текста с набором
@@ -658,7 +658,7 @@ TEST(KeysTest, Roundtrip){
 		// Проверяем разбор записанного текста
 		ASSERT_EQ(keys::decode(text, view_t(), again), keys::error_t::NONE) << "Ключ: " << entry.name;
 		// Проверяем совпадение открытых частей
-		ASSERT_TRUE(alike(key, again)) << "Ключ: " << entry.name;
+		ASSERT_TRUE(__nts_alike__(key, again)) << "Ключ: " << entry.name;
 	}
 }
 
@@ -669,15 +669,15 @@ TEST(KeysTest, Bare){
 	// Ключ EC из записи SEC 1
 	keys::key_t sec1;
 	// Текст записи SEC 1
-	const std::string ec = corpus("ec256.sec1.pem");
+	const std::string elliptic = __nts_corpus__("ec256.sec1.pem");
 	// Проверяем разбор записи SEC 1 из обёртки PEM
-	ASSERT_EQ(keys::decode(ec, view_t(), sec1), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(elliptic, view_t(), sec1), keys::error_t::NONE);
 	// Ключ EC из обёртки PrivateKeyInfo
 	keys::key_t wrapped;
 	// Проверяем разбор обёртки PrivateKeyInfo
-	ASSERT_EQ(keys::decode(corpus("ec256.pem"), view_t(), wrapped), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("ec256.pem"), view_t(), wrapped), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
-	ASSERT_TRUE(alike(sec1, wrapped));
+	ASSERT_TRUE(__nts_alike__(sec1, wrapped));
 	// Проверяем совпадение секретных частей
 	ASSERT_EQ(sec1.d, wrapped.d);
 	// Запись в кодировке DER
@@ -685,23 +685,23 @@ TEST(KeysTest, Bare){
 	// Проверяем запись ECPrivateKey
 	ASSERT_EQ(keys::encodeECPrivateKey(wrapped, der), keys::error_t::NONE);
 	// Проверяем совпадение записи с телом записи набора байт в байт
-	ASSERT_EQ(der, body(ec));
+	ASSERT_EQ(der, body(elliptic));
 	// Ключ из голой записи
 	keys::key_t direct;
 	// Проверяем разбор голой записи ECPrivateKey
-	ASSERT_EQ(keys::decodeECPrivateKey(view(der), direct), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodeECPrivateKey(__nts_view__(der), direct), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
-	ASSERT_TRUE(alike(direct, wrapped));
+	ASSERT_TRUE(__nts_alike__(direct, wrapped));
 	// Ключ RSA из записи PKCS #1
 	keys::key_t pkcs1;
 	// Текст записи PKCS #1
-	const std::string rsa = corpus("rsa2048.pkcs1.pem");
+	const std::string rsa = __nts_corpus__("rsa2048.pkcs1.pem");
 	// Проверяем разбор записи PKCS #1 из обёртки PEM
 	ASSERT_EQ(keys::decode(rsa, view_t(), pkcs1), keys::error_t::NONE);
 	// Проверяем разбор обёртки PrivateKeyInfo
-	ASSERT_EQ(keys::decode(corpus("rsa2048.pem"), view_t(), wrapped), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("rsa2048.pem"), view_t(), wrapped), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
-	ASSERT_TRUE(alike(pkcs1, wrapped));
+	ASSERT_TRUE(__nts_alike__(pkcs1, wrapped));
 	// Проверяем совпадение секретных частей
 	ASSERT_TRUE((pkcs1.d == wrapped.d) && (pkcs1.p == wrapped.p) && (pkcs1.q == wrapped.q) && (pkcs1.dP == wrapped.dP) && (pkcs1.dQ == wrapped.dQ) && (pkcs1.qInv == wrapped.qInv));
 	// Проверяем запись RSAPrivateKey
@@ -709,21 +709,21 @@ TEST(KeysTest, Bare){
 	// Проверяем совпадение записи с телом записи набора байт в байт
 	ASSERT_EQ(der, body(rsa));
 	// Проверяем разбор голой записи RSAPrivateKey
-	ASSERT_EQ(keys::decodeRSAPrivateKey(view(der), direct), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodeRSAPrivateKey(__nts_view__(der), direct), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
-	ASSERT_TRUE(alike(direct, wrapped));
+	ASSERT_TRUE(__nts_alike__(direct, wrapped));
 	// Проверяем запись RSAPublicKey
 	ASSERT_EQ(keys::encodeRSAPublicKey(wrapped, der), keys::error_t::NONE);
 	// Проверяем разбор голой записи RSAPublicKey
-	ASSERT_EQ(keys::decodeRSAPublicKey(view(der), direct), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodeRSAPublicKey(__nts_view__(der), direct), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
-	ASSERT_TRUE(alike(direct, wrapped));
+	ASSERT_TRUE(__nts_alike__(direct, wrapped));
 	// Проверяем отсутствие секретной части
 	ASSERT_FALSE(direct.secret());
 	// Проверяем отказ разбора RSAPrivateKey как RSAPublicKey
 	ASSERT_EQ(keys::encodeRSAPrivateKey(wrapped, der), keys::error_t::NONE);
 	// Проверяем отказ разбора: полей девять, а не два
-	ASSERT_EQ(keys::decodeRSAPublicKey(view(der), direct), keys::error_t::STRUCTURE);
+	ASSERT_EQ(keys::decodeRSAPublicKey(__nts_view__(der), direct), keys::error_t::STRUCTURE);
 }
 
 /**
@@ -731,25 +731,25 @@ TEST(KeysTest, Bare){
  */
 TEST(KeysTest, Encrypted){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Эталонная запись PrivateKeyInfo
-		const std::vector <uint8_t> reference = bytes(corpus(std::string(entry.name) + ".der"));
+		const std::vector <uint8_t> reference = bytes(__nts_corpus__(std::string(entry.name) + ".der"));
 		/**
-		 * Выполняем перебор длин ключа шифра
+		 * Перебираем длины ключа шифра
 		 */
 		for(const size_t bits : BITS){
 			// Имя зашифрованного файла набора
 			const std::string name = (std::string(entry.name) + ".aes-" + std::to_string(bits) + "-cbc.enc.pem");
 			// Текст зашифрованного ключа
-			const std::string text = corpus(name);
+			const std::string text = __nts_corpus__(name);
 			// Проверяем наличие файла набора
 			ASSERT_FALSE(text.empty()) << "Файл: " << name;
 			// Разобранный ключ
 			keys::key_t key;
 			// Проверяем разбор зашифрованного ключа паролем набора
-			ASSERT_EQ(keys::decode(text, view(PASSWORD_CORPUS), key), keys::error_t::NONE) << "Файл: " << name;
+			ASSERT_EQ(keys::decode(text, __nts_view__(PASSWORD_CORPUS), key), keys::error_t::NONE) << "Файл: " << name;
 			// Проверяем вид ключа
 			ASSERT_EQ(key.kind, entry.kind) << "Файл: " << name;
 			// Запись расшифрованного ключа
@@ -759,13 +759,13 @@ TEST(KeysTest, Encrypted){
 			// Проверяем совпадение расшифрованного ключа с эталоном байт в байт
 			ASSERT_EQ(der, reference) << "Файл: " << name;
 			// Проверяем отказ по чужому паролю
-			ASSERT_EQ(keys::decode(text, view("Пароль-124"), key), keys::error_t::PASSWORD) << "Файл: " << name;
+			ASSERT_EQ(keys::decode(text, __nts_view__("Пароль-124"), key), keys::error_t::PASSWORD) << "Файл: " << name;
 			// Проверяем отказ по пустому паролю
 			ASSERT_EQ(keys::decode(text, view_t(), key), keys::error_t::PASSWORD) << "Файл: " << name;
 			// Проверяем, что после отказа ключ сброшен
 			ASSERT_EQ(key.kind, keys::kind_t::NONE) << "Файл: " << name;
 			// Проверяем отказ по паролю в местной кодировке: те же буквы в CP1251 не подходят
-			ASSERT_EQ(keys::decode(text, view("\xCF\xE0\xF0\xEE\xEB\xFC-123"), key), keys::error_t::PASSWORD) << "Файл: " << name;
+			ASSERT_EQ(keys::decode(text, __nts_view__("\xCF\xE0\xF0\xEE\xEB\xFC-123"), key), keys::error_t::PASSWORD) << "Файл: " << name;
 		}
 	}
 }
@@ -775,54 +775,54 @@ TEST(KeysTest, Encrypted){
  */
 TEST(KeysTest, Sealed){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Секретный ключ набора
 		keys::key_t secret;
 		// Проверяем разбор секретного ключа
-		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(entry.name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << entry.name;
 		/**
-		 * Выполняем перебор длин ключа шифра
+		 * Перебираем длины ключа шифра
 		 */
 		for(const size_t bits : BITS){
 			// Зашифрованная запись
 			std::vector <uint8_t> der;
 			// Проверяем запись зашифрованного ключа с малым числом оборотов
-			ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(secret, view(PASSWORD_CORPUS), der, bits, 100), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(secret, __nts_view__(PASSWORD_CORPUS), der, bits, 100), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Разобранный ключ
 			keys::key_t key;
 			// Проверяем разбор зашифрованного ключа
-			ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(der), view(PASSWORD_CORPUS), key), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(der), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Проверяем совпадение открытых частей
-			ASSERT_TRUE(alike(secret, key)) << "Ключ: " << entry.name;
+			ASSERT_TRUE(__nts_alike__(secret, key)) << "Ключ: " << entry.name;
 			// Проверяем совпадение секретных частей
 			ASSERT_EQ(secret.d, key.d) << "Ключ: " << entry.name;
 			// Проверяем отказ по чужому паролю
-			ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(der), view("другой"), key), keys::error_t::PASSWORD) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(der), __nts_view__("другой"), key), keys::error_t::PASSWORD) << "Ключ: " << entry.name;
 			// Вторая зашифрованная запись того же ключа
 			std::vector <uint8_t> other;
 			// Проверяем повторную запись
-			ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(secret, view(PASSWORD_CORPUS), other, bits, 100), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(secret, __nts_view__(PASSWORD_CORPUS), other, bits, 100), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Проверяем, что соль и синхропосылка случайны: записи различны
 			ASSERT_NE(der, other) << "Ключ: " << entry.name;
 			// Текст зашифрованной записи
 			std::string text;
 			// Проверяем запись зашифрованного ключа в обёртке PEM
-			ASSERT_EQ(keys::encode(secret, keys::container_t::ENCRYPTED, text, view(PASSWORD_CORPUS), bits, 100), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::encode(secret, keys::container_t::ENCRYPTED, text, __nts_view__(PASSWORD_CORPUS), bits, 100), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Проверяем метку записи
 			ASSERT_NE(text.find("-----BEGIN ENCRYPTED PRIVATE KEY-----"), std::string::npos) << "Ключ: " << entry.name;
 			// Проверяем разбор зашифрованного ключа из обёртки PEM
-			ASSERT_EQ(keys::decode(text, view(PASSWORD_CORPUS), key), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decode(text, __nts_view__(PASSWORD_CORPUS), key), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Проверяем совпадение секретных частей
 			ASSERT_EQ(secret.d, key.d) << "Ключ: " << entry.name;
 		}
 		// Зашифрованная запись
 		std::vector <uint8_t> der;
 		// Проверяем отказ по неизвестной длине ключа шифра
-		ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(secret, view(PASSWORD_CORPUS), der, 64, 100), keys::error_t::CIPHER) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(secret, __nts_view__(PASSWORD_CORPUS), der, 64, 100), keys::error_t::CIPHER) << "Ключ: " << entry.name;
 		// Проверяем отказ по нулевому числу оборотов
-		ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(secret, view(PASSWORD_CORPUS), der, 256, 0), keys::error_t::CIPHER) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(secret, __nts_view__(PASSWORD_CORPUS), der, 256, 0), keys::error_t::CIPHER) << "Ключ: " << entry.name;
 	}
 }
 
@@ -832,7 +832,7 @@ TEST(KeysTest, Sealed){
  */
 TEST(KeysTest, Pkcs12){
 	// Запись PKCS #12 набора
-	const std::vector <uint8_t> der = bytes(corpus("test.p12"));
+	const std::vector <uint8_t> der = bytes(__nts_corpus__("test.p12"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(der.empty());
 	// Разобранный ключ
@@ -840,7 +840,7 @@ TEST(KeysTest, Pkcs12){
 	// Разобранная цепочка сертификатов
 	std::vector <std::vector <uint8_t>> chain;
 	// Проверяем разбор записи паролем набора
-	ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	// Проверяем вид ключа: EC на кривой P-256
 	ASSERT_EQ(key.kind, keys::kind_t::EC);
 	// Проверяем опознаватель кривой ключа
@@ -850,7 +850,7 @@ TEST(KeysTest, Pkcs12){
 	// Эталонный ключ набора
 	keys::key_t reference;
 	// Проверяем разбор эталонного ключа
-	ASSERT_EQ(keys::decode(corpus("p12key.pem"), view_t(), reference), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("p12key.pem"), view_t(), reference), keys::error_t::NONE);
 	// Проверяем совпадение секретных частей ключей
 	ASSERT_EQ(key.d, reference.d);
 	// Проверяем совпадение открытых частей ключей
@@ -860,7 +860,7 @@ TEST(KeysTest, Pkcs12){
 	// Проверяем число сертификатов цепочки
 	ASSERT_EQ(chain.size(), static_cast <size_t> (1));
 	// Эталонный сертификат набора
-	const std::string pem = corpus("p12crt.pem");
+	const std::string pem = __nts_corpus__("p12crt.pem");
 	// Проверяем наличие эталонного сертификата
 	ASSERT_FALSE(pem.empty());
 	// Цепочка эталонного сертификата
@@ -870,7 +870,7 @@ TEST(KeysTest, Pkcs12){
 	// Проверяем совпадение сертификата цепочки с эталоном байт в байт
 	ASSERT_EQ(chain[0], expected[0]);
 	// Проверяем отказ по чужому паролю: имитовставка записи не сходится
-	ASSERT_EQ(keys::decodePkcs12(view(der), view("другой"), key, chain), keys::error_t::PASSWORD);
+	ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("другой"), key, chain), keys::error_t::PASSWORD);
 	// Проверяем, что после отказа ключ и цепочка сброшены
 	ASSERT_EQ(key.kind, keys::kind_t::NONE);
 	// Проверяем, что цепочка пуста
@@ -880,9 +880,9 @@ TEST(KeysTest, Pkcs12){
 	// Инвертируем последний байт записи
 	damaged[damaged.size() - 1] = static_cast <uint8_t> (damaged[damaged.size() - 1] ^ 0xFF);
 	// Проверяем отказ разбора порченой записи
-	ASSERT_NE(keys::decodePkcs12(view(damaged), view("secret"), key, chain), keys::error_t::NONE);
+	ASSERT_NE(keys::decodePkcs12(__nts_view__(damaged), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	// Проверяем отказ разбора пустой записи
-	ASSERT_NE(keys::decodePkcs12(view_t(), view("secret"), key, chain), keys::error_t::NONE);
+	ASSERT_NE(keys::decodePkcs12(view_t(), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 }
 
 /**
@@ -890,7 +890,7 @@ TEST(KeysTest, Pkcs12){
  */
 TEST(KeysTest, Signatures){
 	// Подписанные данные
-	const std::vector <uint8_t> data = bytes(corpus("data.bin"));
+	const std::vector <uint8_t> data = bytes(__nts_corpus__("data.bin"));
 	// Проверяем наличие данных
 	ASSERT_FALSE(data.empty());
 	// Имена ключей и подписей
@@ -902,46 +902,46 @@ TEST(KeysTest, Signatures){
 		{"ed25519", "sig.ed25519"}
 	};
 	/**
-	 * Выполняем перебор пар ключ и подпись
+	 * Перебираем пары ключ и подпись
 	 */
 	for(const auto & pair : pairs){
 		// Подпись набора
-		const std::vector <uint8_t> signature = bytes(corpus(pair[1]));
+		const std::vector <uint8_t> signature = bytes(__nts_corpus__(pair[1]));
 		// Проверяем наличие подписи
 		ASSERT_FALSE(signature.empty()) << "Подпись: " << pair[1];
 		// Открытый ключ набора
 		keys::key_t opened;
 		// Проверяем разбор открытого ключа
-		ASSERT_EQ(keys::decode(corpus(std::string(pair[0]) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << pair[0];
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(pair[0]) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << pair[0];
 		// Проверяем подпись открытым ключом
-		ASSERT_TRUE(verify(opened, data, signature)) << "Подпись: " << pair[1];
+		ASSERT_TRUE(__nts_verify__(opened, data, signature)) << "Подпись: " << pair[1];
 		// Секретный ключ набора
 		keys::key_t secret;
 		// Проверяем разбор секретного ключа
-		ASSERT_EQ(keys::decode(corpus(std::string(pair[0]) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << pair[0];
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(pair[0]) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << pair[0];
 		// Проверяем подпись секретным ключом: открытая часть выведена из секретной
-		ASSERT_TRUE(verify(secret, data, signature)) << "Подпись: " << pair[1];
+		ASSERT_TRUE(__nts_verify__(secret, data, signature)) << "Подпись: " << pair[1];
 		// Испорченные данные
 		std::vector <uint8_t> spoiled = data;
 		// Портим первый байт данных
 		spoiled[0] ^= 0x01;
 		// Проверяем, что подпись испорченных данных не сходится
-		ASSERT_FALSE(verify(opened, spoiled, signature)) << "Подпись: " << pair[1];
+		ASSERT_FALSE(__nts_verify__(opened, spoiled, signature)) << "Подпись: " << pair[1];
 		// Своя подпись данных
 		std::vector <uint8_t> own;
 		// Проверяем выработку своей подписи
-		ASSERT_TRUE(produce(secret, data, own)) << "Ключ: " << pair[0];
+		ASSERT_TRUE(__nts_produce__(secret, data, own)) << "Ключ: " << pair[0];
 		// Проверяем свою подпись открытым ключом
-		ASSERT_TRUE(verify(opened, data, own)) << "Ключ: " << pair[0];
+		ASSERT_TRUE(__nts_verify__(opened, data, own)) << "Ключ: " << pair[0];
 	}
 	// Ключ X25519
 	keys::key_t x25519;
 	// Проверяем разбор ключа X25519
-	ASSERT_EQ(keys::decode(corpus("x25519.pem"), view_t(), x25519), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("x25519.pem"), view_t(), x25519), keys::error_t::NONE);
 	// Своя подпись данных
 	std::vector <uint8_t> own;
 	// Проверяем, что ключ согласования подписи не вырабатывает
-	ASSERT_FALSE(produce(x25519, data, own));
+	ASSERT_FALSE(__nts_produce__(x25519, data, own));
 }
 
 /**
@@ -975,39 +975,39 @@ TEST(KeysTest, Openssl){
 	// Путь к подписанным данным
 	const std::string message = (std::string(CORPUS) + "/data.bin");
 	// Подписанные данные
-	const std::vector <uint8_t> data = bytes(corpus("data.bin"));
+	const std::vector <uint8_t> data = bytes(__nts_corpus__("data.bin"));
 	// Пароль обмена: не тот, что у набора
 	const char * password = "Обмен-с-openssl-2026";
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Эталонная запись PrivateKeyInfo
-		const std::vector <uint8_t> reference = bytes(corpus(std::string(entry.name) + ".der"));
+		const std::vector <uint8_t> reference = bytes(__nts_corpus__(std::string(entry.name) + ".der"));
 		// Секретный ключ набора
 		keys::key_t secret;
 		// Проверяем разбор секретного ключа
-		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(entry.name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << entry.name;
 		/**
-		 * Выполняем перебор длин ключа шифра
+		 * Перебираем длины ключа шифра
 		 */
 		for(const size_t bits : BITS){
 			// Текст зашифрованной записи
 			std::string text;
 			// Проверяем запись зашифрованного ключа
-			ASSERT_EQ(keys::encode(secret, keys::container_t::ENCRYPTED, text, view(password), bits), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::encode(secret, keys::container_t::ENCRYPTED, text, __nts_view__(password), bits), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Путь к зашифрованной записи
 			const std::string sealed = sandbox.file(std::string(entry.name) + "-" + std::to_string(bits) + ".enc.pem");
 			// Путь к расшифрованной записи openssl
 			const std::string unsealed = sandbox.file(std::string(entry.name) + "-" + std::to_string(bits) + ".pem");
 			// Проверяем запись файла
-			ASSERT_TRUE(spill(sealed, text)) << "Ключ: " << entry.name;
+			ASSERT_TRUE(__nts_spill__(sealed, text)) << "Ключ: " << entry.name;
 			// Проверяем, что openssl читает нашу зашифрованную запись
 			ASSERT_EQ(shell((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + " -out " + unsealed).c_str()), 0) << "Ключ: " << entry.name << ", разрядов: " << bits;
 			// Ключ, расшифрованный openssl
 			keys::key_t unsealedKey;
 			// Проверяем разбор расшифрованной openssl записи: издания openssl расходятся в необязательных полях и в самом виде записи (у 3.0 старый вид), оттого сличать её с набором байт в байт нельзя
-			ASSERT_EQ(keys::decode(slurp(unsealed), view_t(), unsealedKey), keys::error_t::NONE) << "Ключ: " << entry.name << ", разрядов: " << bits;
+			ASSERT_EQ(keys::decode(__nts_slurp__(unsealed), view_t(), unsealedKey), keys::error_t::NONE) << "Ключ: " << entry.name << ", разрядов: " << bits;
 			// Каноническая запись расшифрованного openssl ключа
 			std::vector <uint8_t> canonical;
 			// Проверяем каноническую запись расшифрованного ключа
@@ -1020,7 +1020,7 @@ TEST(KeysTest, Openssl){
 		// Имитовставки, которыми openssl шифрует ключ
 		const char * prfs[] = {"hmacWithSHA1", "hmacWithSHA224", "hmacWithSHA256", "hmacWithSHA384", "hmacWithSHA512"};
 		/**
-		 * Выполняем перебор имитовставок
+		 * Перебираем имитовставки
 		 */
 		for(const char * prf : prfs){
 			// Если выбора имитовставки у openssl нет, перебор не нужен
@@ -1034,7 +1034,7 @@ TEST(KeysTest, Openssl){
 			// Разобранный ключ
 			keys::key_t key;
 			// Проверяем разбор зашифрованной openssl записи
-			ASSERT_EQ(keys::decode(slurp(sealed), view(password), key), keys::error_t::NONE) << "Ключ: " << entry.name << ", имитовставка: " << prf;
+			ASSERT_EQ(keys::decode(__nts_slurp__(sealed), __nts_view__(password), key), keys::error_t::NONE) << "Ключ: " << entry.name << ", имитовставка: " << prf;
 			// Запись расшифрованного ключа
 			std::vector <uint8_t> der;
 			// Проверяем запись расшифрованного ключа
@@ -1049,7 +1049,7 @@ TEST(KeysTest, Openssl){
 			// Разобранный ключ
 			keys::key_t key;
 			// Проверяем отказ схемы: PBES1 не поддерживается намеренно
-			ASSERT_EQ(keys::decode(slurp(legacy), view(password), key), keys::error_t::CIPHER) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decode(__nts_slurp__(legacy), __nts_view__(password), key), keys::error_t::CIPHER) << "Ключ: " << entry.name;
 		}
 		// Текст открытого ключа
 		std::string text;
@@ -1058,7 +1058,7 @@ TEST(KeysTest, Openssl){
 		// Путь к открытому ключу
 		const std::string opened = sandbox.file(std::string(entry.name) + ".pub.pem");
 		// Проверяем запись файла
-		ASSERT_TRUE(spill(opened, text)) << "Ключ: " << entry.name;
+		ASSERT_TRUE(__nts_spill__(opened, text)) << "Ключ: " << entry.name;
 		// Проверяем, что openssl читает наш открытый ключ
 		ASSERT_EQ(shell((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
 		// Если ключ подписи не вырабатывает
@@ -1068,11 +1068,11 @@ TEST(KeysTest, Openssl){
 		// Своя подпись данных
 		std::vector <uint8_t> own;
 		// Проверяем выработку своей подписи
-		ASSERT_TRUE(produce(secret, data, own)) << "Ключ: " << entry.name;
+		ASSERT_TRUE(__nts_produce__(secret, data, own)) << "Ключ: " << entry.name;
 		// Путь к своей подписи
 		const std::string signature = sandbox.file(std::string(entry.name) + ".sig");
 		// Проверяем запись файла подписи
-		ASSERT_TRUE(spill(signature, own)) << "Ключ: " << entry.name;
+		ASSERT_TRUE(__nts_spill__(signature, own)) << "Ключ: " << entry.name;
 		// Довод хеша для openssl
 		const std::string digest = ((entry.kind == keys::kind_t::ED25519) ? "" : ((entry.size == 48) ? " -digest sha384" : " -digest sha256"));
 			// Если openssl умеет проверять сообщение целиком
@@ -1088,13 +1088,13 @@ TEST(KeysTest, Openssl){
 	// Разобранный ключ
 	keys::key_t key;
 	// Проверяем разбор записи под меткой «RSA PUBLIC KEY»
-	ASSERT_EQ(keys::decode(slurp(rsa), view_t(), key), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_slurp__(rsa), view_t(), key), keys::error_t::NONE);
 	// Открытый ключ набора
 	keys::key_t opened;
 	// Проверяем разбор открытого ключа набора
-	ASSERT_EQ(keys::decode(corpus("rsa2048.pub.pem"), view_t(), opened), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("rsa2048.pub.pem"), view_t(), opened), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
-	ASSERT_TRUE(alike(key, opened));
+	ASSERT_TRUE(__nts_alike__(key, opened));
 }
 
 /**
@@ -1125,7 +1125,7 @@ TEST(KeysTest, OpensslRefusals){
 	// Секретный ключ Ed448
 	keys::key_t secret;
 	// Проверяем разбор секретного ключа Ed448
-	ASSERT_EQ(keys::decode(corpus("ed448.key"), view_t(), secret), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("ed448.key"), view_t(), secret), keys::error_t::NONE);
 	// Разобранный ключ для отказов
 	keys::key_t key;
 	// Запись PrivateKeyInfo Ed448 с запрещёнными настройками алгоритма
@@ -1145,7 +1145,7 @@ TEST(KeysTest, OpensslRefusals){
 	// Записываем зерно во внутренней строке байтов
 	asn1::writer_t seed;
 	// Записываем зерно Ed448
-	seed.octets(view(secret.d));
+	seed.octets(__nts_view__(secret.d));
 	// Записываем CurvePrivateKey во внешней строке байтов
 	writer.octets(seed.data());
 	// Закрываем набор PrivateKeyInfo
@@ -1153,7 +1153,7 @@ TEST(KeysTest, OpensslRefusals){
 	// Путь к записи с настройками
 	const std::string parameters = sandbox.file("parameters.der");
 	// Записываем порченую запись
-	ASSERT_TRUE(spill(parameters, std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size)));
+	ASSERT_TRUE(__nts_spill__(parameters, std::vector <uint8_t> (writer.data().data, writer.data().data + writer.data().size)));
 	// Проверяем отказ нашего разборщика
 	ASSERT_EQ(keys::decodePrivateKeyInfo(writer.data(), key), keys::error_t::ALGORITHM);
 	// Проверяем отказ OpenSSL на тех же настройках
@@ -1167,41 +1167,41 @@ TEST(KeysTest, OpensslRefusals){
 	// Путь к оборванной записи
 	const std::string shorty = sandbox.file("truncated.der");
 	// Записываем оборванную запись
-	ASSERT_TRUE(spill(shorty, truncated));
+	ASSERT_TRUE(__nts_spill__(shorty, truncated));
 	// Проверяем отказ нашего разборщика на обрезке
-	ASSERT_NE(keys::decodePrivateKeyInfo(view(truncated), key), keys::error_t::NONE);
+	ASSERT_NE(keys::decodePrivateKeyInfo(__nts_view__(truncated), key), keys::error_t::NONE);
 	// Проверяем отказ OpenSSL на той же обрезке
 	ASSERT_NE(shell(tool + " pkey -inform DER -in " + shorty + " -noout >" + nullDevice + " 2>&1"), 0);
 	// Запись PKCS #12 с чужим видом содержимого
-	std::vector <uint8_t> foreign = bytes(corpus("test.p12"));
+	std::vector <uint8_t> foreign = bytes(__nts_corpus__("test.p12"));
 	// Опознаватель данных PKCS #7
 	const uint8_t data[] = {0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x07, 0x01};
 	// Смещение опознавателя данных
-	size_t at = std::string::npos;
+	size_t place = std::string::npos;
 	/**
-	 * Выполняем поиск опознавателя данных в записи
+	 * Ищем опознаватель данных в записи
 	 */
 	for(size_t i = 0; (i + sizeof(data)) <= foreign.size(); i++){
 		// Если опознаватель найден
 		if(::memcmp(foreign.data() + i, data, sizeof(data)) == 0){
 			// Запоминаем смещение опознавателя
-			at = i;
+			place = i;
 			// Завершаем поиск
 			break;
 		}
 	}
 	// Проверяем наличие опознавателя
-	ASSERT_NE(at, std::string::npos);
+	ASSERT_NE(place, std::string::npos);
 	// Портим последний байт опознавателя данных
-	foreign[at + sizeof(data) - 1] = 0x02;
+	foreign[place + sizeof(data) - 1] = 0x02;
 	// Путь к записи с чужим видом содержимого
 	const std::string alien = sandbox.file("foreign.p12");
 	// Записываем порченую запись PKCS #12
-	ASSERT_TRUE(spill(alien, foreign));
+	ASSERT_TRUE(__nts_spill__(alien, foreign));
 	// Цепочка сертификатов
 	std::vector <std::vector <uint8_t>> chain;
 	// Проверяем отказ нашего разборщика на чужом виде содержимого
-	ASSERT_EQ(keys::decodePkcs12(view(foreign), view("secret"), key, chain), keys::error_t::STRUCTURE);
+	ASSERT_EQ(keys::decodePkcs12(__nts_view__(foreign), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	// Проверяем отказ OpenSSL на той же записи PKCS #12
 	ASSERT_NE(shell(tool + " pkcs12 -in " + alien + " -passin pass:secret -noout >" + nullDevice + " 2>&1"), 0);
 }
@@ -1218,13 +1218,13 @@ TEST(KeysTest, Gost){
 		{"1.2.643.2.2.35.1", "1.2.643.2.2.19"}
 	};
 	/**
-	 * Выполняем перебор наборов параметров
+	 * Перебираем наборы параметров
 	 */
 	for(const auto & set : sets){
 		// Выработанный ключ
 		keys::key_t made;
 		// Проверяем выработку ключа
-		ASSERT_TRUE(gost(set[0], set[1], made)) << "Кривая: " << set[0];
+		ASSERT_TRUE(__nts_gost__(set[0], set[1], made)) << "Кривая: " << set[0];
 		// Проверяем, что открытой части у выработанного ключа нет
 		ASSERT_TRUE(made.x.empty());
 		// Запись секретного ключа
@@ -1234,7 +1234,7 @@ TEST(KeysTest, Gost){
 		// Разобранный секретный ключ
 		keys::key_t secret;
 		// Проверяем разбор PrivateKeyInfo
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), secret), keys::error_t::NONE) << "Кривая: " << set[0];
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), secret), keys::error_t::NONE) << "Кривая: " << set[0];
 		// Проверяем вид ключа
 		ASSERT_EQ(secret.kind, keys::kind_t::GOST);
 		// Проверяем опознаватели
@@ -1250,9 +1250,9 @@ TEST(KeysTest, Gost){
 		// Разобранный открытый ключ
 		keys::key_t opened;
 		// Проверяем разбор SubjectPublicKeyInfo
-		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(spki), opened), keys::error_t::NONE) << "Кривая: " << set[0];
+		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(spki), opened), keys::error_t::NONE) << "Кривая: " << set[0];
 		// Проверяем совпадение открытых частей
-		ASSERT_TRUE(alike(secret, opened) && (secret.algorithm == opened.algorithm) && (secret.digest == opened.digest)) << "Кривая: " << set[0];
+		ASSERT_TRUE(__nts_alike__(secret, opened) && (secret.algorithm == opened.algorithm) && (secret.digest == opened.digest)) << "Кривая: " << set[0];
 		// Проверяем отсутствие секретной части
 		ASSERT_FALSE(opened.secret());
 		// Кривая подписи
@@ -1263,10 +1263,10 @@ TEST(KeysTest, Gost){
 		ASSERT_TRUE(secret.load(signer, curve)) << "Кривая: " << set[0];
 		// Хеш подписываемых данных размером в координату
 		std::vector <uint8_t> digest(curve.size(), 0x5A);
-		// Подпись
+		// Подпись подписываемых данных
 		std::vector <uint8_t> signature(curve.order().size() * 2, 0);
 		// Проверяем выработку подписи
-		ASSERT_TRUE(signer.make(view(digest), signature.data())) << "Кривая: " << set[0];
+		ASSERT_TRUE(signer.make(__nts_view__(digest), signature.data())) << "Кривая: " << set[0];
 		// Кривая проверки
 		curve::curve_t other;
 		// Примитив проверки
@@ -1274,7 +1274,7 @@ TEST(KeysTest, Gost){
 		// Проверяем установку открытого ключа
 		ASSERT_TRUE(opened.load(verifier, other)) << "Кривая: " << set[0];
 		// Проверяем подпись открытым ключом
-		ASSERT_TRUE(verifier.check(view(digest), view(signature))) << "Кривая: " << set[0];
+		ASSERT_TRUE(verifier.check(__nts_view__(digest), __nts_view__(signature))) << "Кривая: " << set[0];
 		// Текст записей
 		std::string text;
 		// Проверяем запись в обёртке PEM
@@ -1284,9 +1284,9 @@ TEST(KeysTest, Gost){
 		// Проверяем совпадение секретных частей
 		ASSERT_EQ(opened.d, secret.d) << "Кривая: " << set[0];
 		// Проверяем запись зашифрованной обёртки PEM
-		ASSERT_EQ(keys::encode(secret, keys::container_t::ENCRYPTED, text, view(PASSWORD_CORPUS), 256, 100), keys::error_t::NONE) << "Кривая: " << set[0];
+		ASSERT_EQ(keys::encode(secret, keys::container_t::ENCRYPTED, text, __nts_view__(PASSWORD_CORPUS), 256, 100), keys::error_t::NONE) << "Кривая: " << set[0];
 		// Проверяем разбор зашифрованной обёртки PEM
-		ASSERT_EQ(keys::decode(text, view(PASSWORD_CORPUS), opened), keys::error_t::NONE) << "Кривая: " << set[0];
+		ASSERT_EQ(keys::decode(text, __nts_view__(PASSWORD_CORPUS), opened), keys::error_t::NONE) << "Кривая: " << set[0];
 		// Проверяем совпадение секретных частей
 		ASSERT_EQ(opened.d, secret.d) << "Кривая: " << set[0];
 		// Если openssl доступен
@@ -1296,7 +1296,7 @@ TEST(KeysTest, Gost){
 			// Проверяем готовность временного каталога
 			ASSERT_TRUE(sandbox.ready());
 			// Проверяем запись файла
-			ASSERT_TRUE(spill(sandbox.file("gost.der"), der));
+			ASSERT_TRUE(__nts_spill__(sandbox.file("gost.der"), der));
 			// Проверяем, что устройство записи разбирается openssl
 			ASSERT_EQ(shell((std::string("openssl asn1parse -inform DER -in ") + sandbox.file("gost.der") + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << set[0];
 		}
@@ -1304,7 +1304,7 @@ TEST(KeysTest, Gost){
 	// Ключ с несогласованным алгоритмом: кривая 256 разрядов при алгоритме 512
 	keys::key_t wrong;
 	// Проверяем выработку ключа
-	ASSERT_TRUE(gost("1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.2", wrong));
+	ASSERT_TRUE(__nts_gost__("1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.2", wrong));
 	// Запись ключа
 	std::vector <uint8_t> der;
 	// Проверяем запись PrivateKeyInfo: запись согласованности не проверяет
@@ -1312,7 +1312,7 @@ TEST(KeysTest, Gost){
 	// Разобранный ключ
 	keys::key_t key;
 	// Проверяем отказ разбора: алгоритм с кривой не согласован
-	ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::ALGORITHM);
+	ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), key), keys::error_t::ALGORITHM);
 }
 
 /**
@@ -1328,19 +1328,19 @@ TEST(KeysTest, Refusal){
 	// Проверяем отказ разбора пустой записи
 	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view_t(), view_t(), key), keys::error_t::STRUCTURE);
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Записи набора
-		const std::vector <uint8_t> secret = bytes(corpus(std::string(entry.name) + ".der"));
+		const std::vector <uint8_t> secret = bytes(__nts_corpus__(std::string(entry.name) + ".der"));
 		// Записи набора
-		const std::vector <uint8_t> opened = bytes(corpus(std::string(entry.name) + ".pub.der"));
+		const std::vector <uint8_t> opened = bytes(__nts_corpus__(std::string(entry.name) + ".pub.der"));
 		// Запись с хвостом
 		std::vector <uint8_t> trailing = secret;
 		// Дописываем хвост
 		trailing.push_back(0x00);
 		// Проверяем отказ разбора записи с хвостом
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(trailing), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(trailing), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
 		// Проверяем, что после отказа ключ сброшен
 		ASSERT_EQ(key.kind, keys::kind_t::NONE) << "Ключ: " << entry.name;
 		// Запись с хвостом
@@ -1348,11 +1348,11 @@ TEST(KeysTest, Refusal){
 		// Дописываем хвост
 		trailing.push_back(0x00);
 		// Проверяем отказ разбора записи с хвостом
-		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(trailing), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(trailing), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
 		// Оборванная запись
 		std::vector <uint8_t> truncated(secret.begin(), secret.end() - 1);
 		// Проверяем отказ разбора оборванной записи
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(truncated), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(truncated), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
 		// Запись с длиной не кратчайшего вида: у открытого ключа длина умещается в один байт с признаком длинного вида
 		std::vector <uint8_t> excessive;
 		// Записываем метку набора
@@ -1366,10 +1366,10 @@ TEST(KeysTest, Refusal){
 			// Дописываем содержимое набора
 			excessive.insert(excessive.end(), opened.begin() + 2, opened.end());
 			// Проверяем отказ разбора записи с длиной не кратчайшего вида
-			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(excessive), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(excessive), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
 		}
 		// Разборщик записи открытого ключа
-		asn1::reader_t reader(view(opened));
+		asn1::reader_t reader(__nts_view__(opened));
 		// Элементы записи
 		asn1::element_t sequence, algorithm, oid;
 		// Проверяем разбор набора
@@ -1389,11 +1389,11 @@ TEST(KeysTest, Refusal){
 		// Портим предпоследний байт опознавателя: кодировка остаётся годной, алгоритм становится чужим
 		foreign[last - 1] ^= 0x01;
 		// Проверяем отказ разбора записи с чужим алгоритмом
-		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(foreign), key), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(foreign), key), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
 		// Запись секретного ключа с чужим опознавателем: устройство обёртки то же, опознаватель лежит по тому же смещению
 		foreign = secret;
 		// Разборщик записи секретного ключа
-		asn1::reader_t inner(view(secret));
+		asn1::reader_t inner(__nts_view__(secret));
 		// Проверяем разбор набора
 		ASSERT_TRUE(inner.next(asn1::tag_t::SEQUENCE, sequence));
 		// Разборщик содержимого набора
@@ -1409,7 +1409,7 @@ TEST(KeysTest, Refusal){
 		// Портим предпоследний байт опознавателя
 		foreign[static_cast <size_t> ((oid.content.data + oid.content.size - 2) - secret.data())] ^= 0x01;
 		// Проверяем отказ разбора записи с чужим алгоритмом
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(foreign), key), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(foreign), key), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
 		// Если ключ EC
 		if(entry.kind == keys::kind_t::EC){
 			// Проверяем разбор опознавателя кривой
@@ -1420,27 +1420,27 @@ TEST(KeysTest, Refusal){
 			// младшего разряда дал бы «...35» = secp521r1, кривую теперь ведомую, и отказа кривой бы не было
 			curve[static_cast <size_t> ((oid.content.data + oid.content.size - 1) - opened.data())] ^= 0x40;
 			// Проверяем отказ разбора записи с чужой кривой
-			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(curve), key), keys::error_t::CURVE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(curve), key), keys::error_t::CURVE) << "Ключ: " << entry.name;
 			// Запись с точкой вне кривой
 			std::vector <uint8_t> outside = opened;
 			// Портим последний байт второй координаты
 			outside.back() ^= 0x01;
 			// Проверяем отказ разбора записи с точкой вне кривой
-			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(outside), key), keys::error_t::CURVE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(outside), key), keys::error_t::CURVE) << "Ключ: " << entry.name;
 			// Запись секретного ключа с точкой вне кривой: открытый ключ лежит в самом конце ECPrivateKey
 			outside = secret;
 			// Портим последний байт второй координаты
 			outside.back() ^= 0x01;
 			// Проверяем отказ разбора записи с точкой вне кривой
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(outside), key), keys::error_t::CURVE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(outside), key), keys::error_t::CURVE) << "Ключ: " << entry.name;
 			// Ключ с открытой частью от другого ключа той же кривой
 			keys::key_t mixed;
 			// Проверяем разбор секретного ключа
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(secret), mixed), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(secret), mixed), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Ключ EC, чья открытая часть подменяется
 			keys::key_t donor;
 			// Проверяем разбор SubjectPublicKeyInfo этого же ключа
-			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(opened), donor), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(opened), donor), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Обмениваем координаты местами: точка симметричной кривой ей не принадлежит либо не отвечает скаляру
 			mixed.x.swap(mixed.y);
 			// Запись ключа с подменённой открытой частью
@@ -1448,7 +1448,7 @@ TEST(KeysTest, Refusal){
 			// Проверяем запись ключа: запись согласия не проверяет
 			ASSERT_EQ(keys::encodePrivateKeyInfo(mixed, der), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Проверяем отказ разбора: открытая часть не сошлась с выведенной либо вне кривой
-			ASSERT_NE(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_NE(keys::decodePrivateKeyInfo(__nts_view__(der), key), keys::error_t::NONE) << "Ключ: " << entry.name;
 			// Голая запись без кривой: снимаем обёртку и опознаватель кривой
 			asn1::writer_t writer;
 			// Открываем набор записи
@@ -1456,7 +1456,7 @@ TEST(KeysTest, Refusal){
 			// Записываем издание записи
 			writer.integer(1);
 			// Записываем секретный скаляр
-			writer.octets(view(donor.x));
+			writer.octets(__nts_view__(donor.x));
 			// Закрываем набор записи
 			writer.close();
 			// Проверяем отказ разбора голой записи без кривой
@@ -1491,7 +1491,7 @@ TEST(KeysTest, Refusal){
 			// Удлиняем набор записи
 			longer[1] += 1;
 			// Проверяем отказ разбора записи с зерном чужой длины
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(longer), key), keys::error_t::VALUE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(longer), key), keys::error_t::VALUE) << "Ключ: " << entry.name;
 			// Запись с настройками алгоритма: раздел 3 RFC 8410 их запрещает
 			writer.clear();
 			// Открываем набор записи
@@ -1518,7 +1518,7 @@ TEST(KeysTest, Refusal){
 			// Ключ из записи
 			keys::key_t parsed;
 			// Проверяем разбор секретного ключа
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(secret), parsed), keys::error_t::NONE);
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(secret), parsed), keys::error_t::NONE);
 			// Портим открытый ключ
 			parsed.key[0] ^= 0x01;
 			// Запись SubjectPublicKeyInfo с испорченным ключом: точка вправе оказаться годной, но чужой
@@ -1528,7 +1528,7 @@ TEST(KeysTest, Refusal){
 			// Разобранный чужой ключ
 			keys::key_t stranger;
 			// Итог разбора: либо точка не разбирается, либо это годный чужой ключ
-			const keys::error_t outcome = keys::decodeSubjectPublicKeyInfo(view(spki), stranger);
+			const keys::error_t outcome = keys::decodeSubjectPublicKeyInfo(__nts_view__(spki), stranger);
 			// Проверяем, что итог один из двух
 			ASSERT_TRUE((outcome == keys::error_t::NONE) || (outcome == keys::error_t::VALUE));
 		}
@@ -1537,7 +1537,7 @@ TEST(KeysTest, Refusal){
 			// Ключ из записи
 			keys::key_t parsed;
 			// Проверяем разбор секретного ключа
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(secret), parsed), keys::error_t::NONE);
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(secret), parsed), keys::error_t::NONE);
 			// Портим секретный показатель
 			parsed.d.back() ^= 0x01;
 			// Запись ключа с испорченным показателем
@@ -1545,11 +1545,11 @@ TEST(KeysTest, Refusal){
 			// Проверяем запись ключа: запись согласия не проверяет
 			ASSERT_EQ(keys::encodePrivateKeyInfo(parsed, der), keys::error_t::NONE);
 			// Проверяем отказ разбора: составляющие не согласованы
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::VALUE);
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), key), keys::error_t::VALUE);
 			// Проверяем запись голой записи: запись согласия не проверяет
 			ASSERT_EQ(keys::encodeRSAPrivateKey(parsed, der), keys::error_t::NONE);
 			// Проверяем отказ разбора голой записи
-			ASSERT_EQ(keys::decodeRSAPrivateKey(view(der), key), keys::error_t::VALUE);
+			ASSERT_EQ(keys::decodeRSAPrivateKey(__nts_view__(der), key), keys::error_t::VALUE);
 			// Меняем сомножители местами: показатели по ним перестают сходиться
 			parsed.d.back() ^= 0x01;
 			// Обмениваем сомножители
@@ -1557,7 +1557,7 @@ TEST(KeysTest, Refusal){
 			// Проверяем запись ключа
 			ASSERT_EQ(keys::encodePrivateKeyInfo(parsed, der), keys::error_t::NONE);
 			// Проверяем отказ разбора: составляющие не согласованы
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::VALUE);
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), key), keys::error_t::VALUE);
 			// Запись открытого ключа без пустых настроек
 			asn1::writer_t writer;
 			// Открываем набор записи
@@ -1573,7 +1573,7 @@ TEST(KeysTest, Refusal){
 			// Проверяем запись RSAPublicKey
 			ASSERT_EQ(keys::encodeRSAPublicKey(parsed, body), keys::error_t::NONE);
 			// Записываем открытый ключ
-			writer.bits(view(body));
+			writer.bits(__nts_view__(body));
 			// Закрываем набор записи
 			writer.close();
 			// Проверяем отказ разбора: раздел 2.3.1 RFC 3279 велит писать NULL
@@ -1581,7 +1581,7 @@ TEST(KeysTest, Refusal){
 			// Запись с ненулевым числом неиспользуемых разрядов
 			std::vector <uint8_t> ragged = opened;
 			// Разборщик записи
-			asn1::reader_t scan(view(opened));
+			asn1::reader_t scan(__nts_view__(opened));
 			// Элементы записи
 			asn1::element_t top, alg, bits;
 			// Проверяем разбор набора
@@ -1595,11 +1595,11 @@ TEST(KeysTest, Refusal){
 			// Выставляем число неиспользуемых разрядов
 			ragged[static_cast <size_t> (bits.content.data - opened.data())] = 0x01;
 			// Проверяем отказ разбора: разряды заняты не целиком либо запись не кратчайшая
-			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(ragged), key), keys::error_t::STRUCTURE);
+			ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(ragged), key), keys::error_t::STRUCTURE);
 		}
 	}
 	// Зашифрованная запись набора
-	const std::vector <uint8_t> sealed = body(corpus("ec256.aes-256-cbc.enc.pem"));
+	const std::vector <uint8_t> sealed = body(__nts_corpus__("ec256.aes-256-cbc.enc.pem"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(sealed.empty());
 	// Испорченный шифртекст
@@ -1607,19 +1607,19 @@ TEST(KeysTest, Refusal){
 	// Портим последний байт шифртекста: дополнение перестаёт сходиться
 	spoiled.back() ^= 0x01;
 	// Проверяем отказ по паролю: испорченный шифртекст от негодного пароля неотличим
-	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(spoiled), view(PASSWORD_CORPUS), key), keys::error_t::PASSWORD);
+	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(spoiled), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::PASSWORD);
 	// Портим первый байт шифртекста: дополнение сходится, а разобранный ключ - нет
 	spoiled = sealed;
 	// Портим первый байт шифртекста
 	spoiled[spoiled.size() - 144] ^= 0x01;
 	// Проверяем отказ по паролю
-	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(spoiled), view(PASSWORD_CORPUS), key), keys::error_t::PASSWORD);
+	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(spoiled), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::PASSWORD);
 	// Запись с хвостом
 	spoiled = sealed;
 	// Дописываем хвост
 	spoiled.push_back(0x00);
 	// Проверяем отказ разбора записи с хвостом
-	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(spoiled), view(PASSWORD_CORPUS), key), keys::error_t::STRUCTURE);
+	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(spoiled), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::STRUCTURE);
 	// Проверяем отказ разбора текста без записей известного вида
 	ASSERT_EQ(keys::decode("-----BEGIN CERTIFICATE-----\nQU5ZS1M=\n-----END CERTIFICATE-----\n", view_t(), key), keys::error_t::LABEL);
 	// Проверяем отказ разбора пустого текста
@@ -1629,9 +1629,9 @@ TEST(KeysTest, Refusal){
 	// Проверяем отказ разбора записи с негодным телом под известной меткой
 	ASSERT_EQ(keys::decode("-----BEGIN PRIVATE KEY-----\nQU5ZS1M=\n-----END PRIVATE KEY-----\n", view_t(), key), keys::error_t::STRUCTURE);
 	// Проверяем отказ разбора незашифрованного ключа зашифрованным: на месте схемы лежит издание записи
-	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(bytes(corpus("ec256.der"))), view(PASSWORD_CORPUS), key), keys::error_t::STRUCTURE);
+	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(bytes(__nts_corpus__("ec256.der"))), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::STRUCTURE);
 	// Проверяем отказ разбора открытого ключа зашифрованным: на месте схемы лежит чужой алгоритм
-	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(bytes(corpus("ec256.pub.der"))), view(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
+	ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(bytes(__nts_corpus__("ec256.pub.der"))), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
 	// Пустой ключ
 	keys::key_t empty;
 	// Запись пустого ключа
@@ -1647,7 +1647,7 @@ TEST(KeysTest, Refusal){
 	// Проверяем отказ записи пустого ключа
 	ASSERT_EQ(keys::encodeRSAPublicKey(empty, der), keys::error_t::EMPTY);
 	// Проверяем отказ записи пустого ключа
-	ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(empty, view(PASSWORD_CORPUS), der), keys::error_t::EMPTY);
+	ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(empty, __nts_view__(PASSWORD_CORPUS), der), keys::error_t::EMPTY);
 	// Текст записи
 	std::string text;
 	// Проверяем отказ записи пустого ключа
@@ -1662,7 +1662,7 @@ TEST(KeysTest, Refusal){
 	sign::rsa_t rsa;
 	// Проверяем отказ установки пустого ключа
 	ASSERT_FALSE(empty.load(rsa));
-	// Кривая
+	// Кривая проверки пустого ключа
 	curve::curve_t curve;
 	// Примитив ECDSA
 	sign::ecdsa_t ecdsa;
@@ -1715,10 +1715,10 @@ TEST(KeysTest, Wiped){
 	// Разобранный ключ
 	keys::key_t key;
 	// Проверяем разбор секретного ключа
-	ASSERT_EQ(keys::decode(corpus("rsa2048.pem"), view_t(), key), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("rsa2048.pem"), view_t(), key), keys::error_t::NONE);
 	// Проверяем наличие секретной части
 	ASSERT_TRUE(key.secret());
-	// Выполняем сброс ключа
+	// Сбрасываем ключ
 	key.clear();
 	// Проверяем, что все составляющие освобождены
 	ASSERT_TRUE(key.d.empty() && key.p.empty() && key.q.empty() && key.n.empty() && key.oid.empty());
@@ -1733,13 +1733,13 @@ TEST(KeysTest, Wiped){
  */
 TEST(KeysTest, Starved){
 	// Тексты записей набора
-	const std::string secret = corpus("ec256.pem");
+	const std::string secret = __nts_corpus__("ec256.pem");
 	// Записи набора
-	const std::vector <uint8_t> sealed = body(corpus("rsa2048.aes-256-cbc.enc.pem"));
+	const std::vector <uint8_t> sealed = body(__nts_corpus__("rsa2048.aes-256-cbc.enc.pem"));
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе разбор обязан ответить
+	 * Перебираем запасы выделений: на всяком запасе разбор обязан ответить
 	 * либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 96; budget++){
@@ -1750,7 +1750,7 @@ TEST(KeysTest, Starved){
 		{
 			// Отмеряем запас выделений на время разбора
 			starve::ration_t ration(budget);
-			// Выполняем разбор текста при отмеренном запасе
+			// Разбираем текст при отмеренном запасе
 			outcome = keys::decode(secret, view_t(), key);
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти
@@ -1764,8 +1764,8 @@ TEST(KeysTest, Starved){
 			{
 				// Отмеряем запас выделений на время записи
 				starve::ration_t ration(budget);
-				// Выполняем запись зашифрованного ключа при отмеренном запасе
-				outcome = keys::encode(key, keys::container_t::ENCRYPTED, text, view(PASSWORD_CORPUS), 256, 10);
+				// Записываем зашифрованный ключ при отмеренном запасе
+				outcome = keys::encode(key, keys::container_t::ENCRYPTED, text, __nts_view__(PASSWORD_CORPUS), 256, 10);
 			}
 			// Проверяем, что запись ответила успехом либо отказом памяти
 			ASSERT_TRUE((outcome == keys::error_t::NONE) || (outcome == keys::error_t::MEMORY)) << "запас " << budget << ", отказ " << keys::name(outcome);
@@ -1775,8 +1775,8 @@ TEST(KeysTest, Starved){
 		{
 			// Отмеряем запас выделений на время разбора
 			starve::ration_t ration(budget);
-			// Выполняем разбор зашифрованной записи при отмеренном запасе
-			outcome = keys::decodeEncryptedPrivateKeyInfo(view(sealed), view(PASSWORD_CORPUS), key);
+			// Разбираем зашифрованную запись при отмеренном запасе
+			outcome = keys::decodeEncryptedPrivateKeyInfo(__nts_view__(sealed), __nts_view__(PASSWORD_CORPUS), key);
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти
 		ASSERT_TRUE((outcome == keys::error_t::NONE) || (outcome == keys::error_t::MEMORY)) << "запас " << budget << ", отказ " << keys::name(outcome);
@@ -1794,20 +1794,20 @@ TEST(KeysTest, Signer){
 	// Хеш подписываемого содержимого
 	uint8_t digest[32];
 	// Вырабатываем хеш подписываемого содержимого
-	ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, view("prepared key"), digest, sizeof(digest)));
+	ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, __nts_view__("prepared key"), digest, sizeof(digest)));
 	// Просмотр текста записи
 	const auto text = [](const std::string & data) noexcept -> view_t {
 		// Выводим просмотр текста
 		return view_t(reinterpret_cast <const uint8_t *> (data.data()), data.size());
 	};
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Запись ключа в PEM
-		const std::string pem = corpus(std::string(entry.name) + ".pem");
+		const std::string pem = __nts_corpus__(std::string(entry.name) + ".pem");
 		// Запись ключа в DER
-		const std::vector <uint8_t> der = bytes(corpus(std::string(entry.name) + ".der"));
+		const std::vector <uint8_t> der = bytes(__nts_corpus__(std::string(entry.name) + ".der"));
 		// Подготовленный ключ
 		keys::signer_t signer;
 		// Неподготовленный ключ не готов
@@ -1831,12 +1831,12 @@ TEST(KeysTest, Signer){
 		// Готовим ключ по записи DER
 		keys::signer_t direct;
 		// Готовим ключ по записи DER
-		ASSERT_EQ(direct.prepare(view(der)), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(direct.prepare(__nts_view__(der)), keys::error_t::NONE) << "Ключ: " << entry.name;
 		ASSERT_EQ(direct.kind(), entry.kind) << "Ключ: " << entry.name;
 		// Открытый ключ для сличения подписей
 		keys::key_t opened;
 		// Разбираем открытый ключ для сличения подписей
-		ASSERT_EQ(keys::decode(corpus(std::string(entry.name) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << entry.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(entry.name) + ".pub.pem"), view_t(), opened), keys::error_t::NONE) << "Ключ: " << entry.name;
 		/**
 		 * Определяем вид ключа
 		 */
@@ -1889,10 +1889,10 @@ TEST(KeysTest, Signer){
 				sign::ed25519_t verifier;
 				// Загружаем открытый ключ в модуль сличения
 				ASSERT_TRUE(opened.load(verifier));
-				ASSERT_TRUE(signer.ed25519().make(view("prepared key"), signature));
-				ASSERT_TRUE(verifier.check(view("prepared key"), view_t(signature, sizeof(signature))));
-				ASSERT_TRUE(direct.ed25519().make(view("prepared key"), signature));
-				ASSERT_TRUE(verifier.check(view("prepared key"), view_t(signature, sizeof(signature))));
+				ASSERT_TRUE(signer.ed25519().make(__nts_view__("prepared key"), signature));
+				ASSERT_TRUE(verifier.check(__nts_view__("prepared key"), view_t(signature, sizeof(signature))));
+				ASSERT_TRUE(direct.ed25519().make(__nts_view__("prepared key"), signature));
+				ASSERT_TRUE(verifier.check(__nts_view__("prepared key"), view_t(signature, sizeof(signature))));
 				// Модуль RSA пуст
 				ASSERT_FALSE(signer.rsa().ready());
 			} break;
@@ -1909,7 +1909,7 @@ TEST(KeysTest, Signer){
 	// Ключ ГОСТ по записи PKCS #8
 	keys::key_t made;
 	// Создаём ключ ГОСТ по опознавателям алгоритмов
-	ASSERT_TRUE(gost("1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.1", made));
+	ASSERT_TRUE(__nts_gost__("1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.1", made));
 	// Запись ключа в кодировке DER
 	std::vector <uint8_t> der;
 	// Записываем секретный ключ в запись PKCS #8
@@ -1917,7 +1917,7 @@ TEST(KeysTest, Signer){
 	// Подписывающий ключ из записи
 	keys::signer_t packed;
 	// Готовим ключ по записи DER
-	ASSERT_EQ(packed.prepare(view(der)), keys::error_t::NONE);
+	ASSERT_EQ(packed.prepare(__nts_view__(der)), keys::error_t::NONE);
 	ASSERT_EQ(packed.kind(), keys::kind_t::GOST);
 	ASSERT_EQ(packed.curve().size(), static_cast <size_t> (32));
 	// Тот же ключ голым скаляром по кривой
@@ -1927,7 +1927,7 @@ TEST(KeysTest, Signer){
 	// Подписывающий ключ голого скаляра
 	keys::signer_t bare;
 	// Готовим ключ по голому скаляру
-	ASSERT_EQ(bare.prepare(view(made.d), curve), keys::error_t::NONE);
+	ASSERT_EQ(bare.prepare(__nts_view__(made.d), curve), keys::error_t::NONE);
 	ASSERT_EQ(bare.kind(), keys::kind_t::GOST);
 	ASSERT_EQ(bare.curve().size(), static_cast <size_t> (32));
 	// Подпись голого скаляра сличается ключом из записи и наоборот
@@ -1944,28 +1944,28 @@ TEST(KeysTest, Signer){
 	// Незаведённая кривая
 	curve::curve_t blank;
 	// Подготовка по незаведённой кривой отказывает
-	ASSERT_EQ(refused.prepare(view(made.d), blank), keys::error_t::CURVE);
+	ASSERT_EQ(refused.prepare(__nts_view__(made.d), blank), keys::error_t::CURVE);
 	// Готовность не появляется
 	ASSERT_FALSE(refused.ready());
 	// Нулевой скаляр
 	const std::vector <uint8_t> zero(32, 0);
 	// Подготовка по нулевому скаляру отказывает
-	ASSERT_EQ(refused.prepare(view(zero), curve), keys::error_t::VALUE);
+	ASSERT_EQ(refused.prepare(__nts_view__(zero), curve), keys::error_t::VALUE);
 	// Готовность не появляется
 	ASSERT_FALSE(refused.ready());
 	ASSERT_FALSE(refused.curve().ready());
 	// Пустая запись
 	ASSERT_EQ(refused.prepare(view_t()), keys::error_t::EMPTY);
 	// Мусор вместо записи
-	ASSERT_NE(refused.prepare(view("garbage instead of a key")), keys::error_t::NONE);
+	ASSERT_NE(refused.prepare(__nts_view__("garbage instead of a key")), keys::error_t::NONE);
 	// Готовность не появляется
 	ASSERT_FALSE(refused.ready());
 	// Открытый ключ без секретной части
-	ASSERT_EQ(refused.prepare(text(corpus("ec256.pub.pem"))), keys::error_t::EMPTY);
+	ASSERT_EQ(refused.prepare(text(__nts_corpus__("ec256.pub.pem"))), keys::error_t::EMPTY);
 	// Готовность не появляется
 	ASSERT_FALSE(refused.ready());
 	// Подготовка после отказа возможна
-	ASSERT_EQ(refused.prepare(text(corpus("ec256.pem"))), keys::error_t::NONE);
+	ASSERT_EQ(refused.prepare(text(__nts_corpus__("ec256.pem"))), keys::error_t::NONE);
 	ASSERT_EQ(refused.kind(), keys::kind_t::EC);
 }
 
@@ -1998,13 +1998,13 @@ TEST(KeysTest, Mldsa){
 		return view_t(reinterpret_cast <const uint8_t *> (data.data()), data.size());
 	};
 	/**
-	 * Выполняем перебор наборов параметров
+	 * Перебираем наборы параметров
 	 */
 	for(const Suit & suit : SUITS){
 		// Открытый ключ набора в записи PEM
 		keys::key_t opened;
 		// Разбираем открытый ключ набора
-		ASSERT_EQ(keys::decode(corpus(std::string("mldsa/") + "mldsa" + suit.name + "-pub.pem"), view_t(), opened), keys::error_t::NONE) << "Набор: " << suit.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string("mldsa/") + "mldsa" + suit.name + "-pub.pem"), view_t(), opened), keys::error_t::NONE) << "Набор: " << suit.name;
 		ASSERT_EQ(opened.kind, keys::kind_t::MLDSA) << "Набор: " << suit.name;
 		// Модуль сличения по открытому ключу
 		sign::mldsa_t verifier;
@@ -2013,11 +2013,11 @@ TEST(KeysTest, Mldsa){
 		// Набор параметров совпадает с эталоном
 		ASSERT_EQ(verifier.set(), suit.set);
 		/**
-		 * Выполняем перебор видов записей ключа
+		 * Перебираем виды записей ключа
 		 */
 		for(const char * form : FORMS){
 			// Запись ключа очередного вида
-			const std::string pem = corpus(std::string("mldsa/") + "mldsa" + suit.name + "-" + form + ".pem");
+			const std::string pem = __nts_corpus__(std::string("mldsa/") + "mldsa" + suit.name + "-" + form + ".pem");
 			// Подготовленный ключ
 			keys::signer_t signer;
 			// Готовим ключ по записи PEM
@@ -2030,8 +2030,8 @@ TEST(KeysTest, Mldsa){
 			// Место подписи набора
 			std::vector <uint8_t> signature(sign::mldsa_t::signatureSize(suit.set));
 			// Подпись подготовленного ключа сличается открытым ключом
-			ASSERT_TRUE(signer.mldsa().make(view("prepared key"), view_t(nullptr, 0), signature.data())) << "Ключ: mldsa" << suit.name << "-" << form;
-			ASSERT_TRUE(verifier.check(view("prepared key"), view_t(nullptr, 0), view_t(signature.data(), signature.size()))) << "Ключ: mldsa" << suit.name << "-" << form;
+			ASSERT_TRUE(signer.mldsa().make(__nts_view__("prepared key"), view_t(nullptr, 0), signature.data())) << "Ключ: mldsa" << suit.name << "-" << form;
+			ASSERT_TRUE(verifier.check(__nts_view__("prepared key"), view_t(nullptr, 0), view_t(signature.data(), signature.size()))) << "Ключ: mldsa" << suit.name << "-" << form;
 			// Модули иных видов пусты
 			ASSERT_FALSE(signer.rsa().ready());
 			ASSERT_FALSE(signer.curve().ready());
@@ -2064,13 +2064,13 @@ TEST(KeysTest, MldsaRoundtrip){
 		{"87", "2.16.840.1.101.3.4.3.19"}
 	};
 	/**
-	 * Выполняем перебор наборов параметров
+	 * Перебираем наборы параметров
 	 */
 	for(const Suit & suit : SUITS){
 		// Разобранный ключ набора
 		keys::key_t key;
 		// Проверяем разбор секретного ключа набора
-		ASSERT_EQ(keys::decode(corpus(std::string("mldsa") + suit.name + ".pem"), view_t(), key), keys::error_t::NONE) << "Набор: " << suit.name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string("mldsa") + suit.name + ".pem"), view_t(), key), keys::error_t::NONE) << "Набор: " << suit.name;
 		ASSERT_EQ(key.kind, keys::kind_t::MLDSA) << "Набор: " << suit.name;
 		// Текст записи
 		std::string text;
@@ -2081,7 +2081,7 @@ TEST(KeysTest, MldsaRoundtrip){
 		// Проверяем разбор записанного текста
 		ASSERT_EQ(keys::decode(text, view_t(), again), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Проверяем совпадение частей ключа
-		ASSERT_TRUE(alike(key, again)) << "Набор: " << suit.name;
+		ASSERT_TRUE(__nts_alike__(key, again)) << "Набор: " << suit.name;
 		// Секретная часть совпадает байт в байт
 		ASSERT_EQ(again.d, key.d) << "Набор: " << suit.name;
 		// Проверяем запись открытого ключа в обёртке PEM
@@ -2091,7 +2091,7 @@ TEST(KeysTest, MldsaRoundtrip){
 		// Проверяем разбор записанного текста
 		ASSERT_EQ(keys::decode(text, view_t(), reopened), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Проверяем совпадение частей ключа
-		ASSERT_TRUE(alike(key, reopened)) << "Набор: " << suit.name;
+		ASSERT_TRUE(__nts_alike__(key, reopened)) << "Набор: " << suit.name;
 		// Проверяем запись секретного ключа в кодировке DER без обёртки
 		std::vector <uint8_t> der;
 		// Записываем секретный ключ в запись PKCS #8
@@ -2099,9 +2099,9 @@ TEST(KeysTest, MldsaRoundtrip){
 		// Разобранный вновь ключ из DER
 		keys::key_t direct;
 		// Разбираем запись ключа из DER
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), direct), keys::error_t::NONE) << "Набор: " << suit.name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), direct), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Проверяем совпадение частей ключа
-		ASSERT_TRUE(alike(key, direct)) << "Набор: " << suit.name;
+		ASSERT_TRUE(__nts_alike__(key, direct)) << "Набор: " << suit.name;
 		// Секретная часть совпадает байт в байт
 		ASSERT_EQ(direct.d, key.d) << "Набор: " << suit.name;
 		// Проверяем запись открытого ключа в кодировке DER без обёртки
@@ -2109,9 +2109,9 @@ TEST(KeysTest, MldsaRoundtrip){
 		// Разобранный вновь открытый ключ из DER
 		keys::key_t subject;
 		// Разбираем открытый ключ из DER
-		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(der), subject), keys::error_t::NONE) << "Набор: " << suit.name;
+		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(der), subject), keys::error_t::NONE) << "Набор: " << suit.name;
 		// Проверяем совпадение частей ключа
-		ASSERT_TRUE(alike(key, subject)) << "Набор: " << suit.name;
+		ASSERT_TRUE(__nts_alike__(key, subject)) << "Набор: " << suit.name;
 	}
 	{
 		// Ключ ML-DSA-44 с зерном в секретной части
@@ -2147,7 +2147,7 @@ TEST(KeysTest, MldsaRoundtrip){
 		// Разобранный вновь ключ из записи зерна
 		keys::key_t again;
 		// Проверяем разбор записи зерна
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), again), keys::error_t::NONE);
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), again), keys::error_t::NONE);
 		// Проверяем вид ключа и размер развёрнутого секрета из зерна
 		ASSERT_EQ(again.kind, keys::kind_t::MLDSA);
 		ASSERT_EQ(again.d.size(), static_cast <size_t> (2560));
@@ -2164,7 +2164,7 @@ TEST(KeysTest, MldsaRoundtrip){
  */
 TEST(KeysTest, Pkcs12Bags){
 	// Запись PKCS #12 набора
-	const std::vector <uint8_t> der = bytes(corpus("test.p12"));
+	const std::vector <uint8_t> der = bytes(__nts_corpus__("test.p12"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(der.empty());
 	// Разобранный ключ
@@ -2180,7 +2180,7 @@ TEST(KeysTest, Pkcs12Bags){
 	// Смещение опознавателя хеша в записи
 	size_t atSha256 = std::string::npos;
 	/**
-	 * Выполняем поиск опознавателей в записи
+	 * Ищем опознаватели в записи
 	 */
 	for(size_t i = 0; (i + sizeof(sha256)) <= der.size(); i++){
 		// Если опознаватель данных PKCS #7 найден
@@ -2202,7 +2202,7 @@ TEST(KeysTest, Pkcs12Bags){
 		// Портим последний байт опознавателя данных: 0x01 становится 0x7F
 		foreign[atData + sizeof(data) - 1] = 0x7F;
 		// Проверяем отказ разбора записи с чужим видом содержимого
-		ASSERT_EQ(keys::decodePkcs12(view(foreign), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(foreign), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// Запись с чужим алгоритмом имитовставки: опознаватель SHA-256 порчен
@@ -2210,7 +2210,7 @@ TEST(KeysTest, Pkcs12Bags){
 		// Портим последний байт опознавателя хеша имитовставки
 		foreign[atSha256 + sizeof(sha256) - 1] = 0x7F;
 		// Проверяем отказ разбора записи с чужим алгоритмом имитовставки
-		ASSERT_EQ(keys::decodePkcs12(view(foreign), view("secret"), key, chain), keys::error_t::CIPHER);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(foreign), __nts_view__("secret"), key, chain), keys::error_t::CIPHER);
 	}
 	{
 		// Запись с порченой имитовставкой: байт имитовставки перевёрнут
@@ -2218,7 +2218,7 @@ TEST(KeysTest, Pkcs12Bags){
 		// Портим байт имитовставки записи: она лежит внутри сведений MacData ближе к концу записи
 		damaged[damaged.size() - 45] ^= 0x01;
 		// Проверяем отказ разбора: имитовставка записи не сходится
-		ASSERT_EQ(keys::decodePkcs12(view(damaged), view("secret"), key, chain), keys::error_t::PASSWORD);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(damaged), __nts_view__("secret"), key, chain), keys::error_t::PASSWORD);
 	}
 	{
 		// Запись с изданием 2: издания выше третьего не дозволены
@@ -2226,18 +2226,18 @@ TEST(KeysTest, Pkcs12Bags){
 		// Портим издание записи: 3 становится 2
 		edition[8] = 0x02;
 		// Проверяем отказ разбора записи с изданием 2
-		ASSERT_EQ(keys::decodePkcs12(view(edition), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(edition), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// Оборванная запись: половины записи не хватает даже на сведения о содержимом
 		const std::vector <uint8_t> truncated(der.begin(), der.begin() + (der.size() / 2));
 		// Проверяем отказ разбора оборванной записи
-		ASSERT_NE(keys::decodePkcs12(view(truncated), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(truncated), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе разбор обязан ответить
+	 * Перебираем запасы выделений: на всяком запасе разбор обязан ответить
 	 * либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 96; budget++){
@@ -2246,8 +2246,8 @@ TEST(KeysTest, Pkcs12Bags){
 		{
 			// Отмеряем запас выделений на время разбора
 			starve::ration_t ration(budget);
-			// Выполняем разбор записи при отмеренном запасе
-			outcome = keys::decodePkcs12(view(der), view("secret"), key, chain);
+			// Разбираем запись при отмеренном запасе
+			outcome = keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain);
 		}
 		// Проверяем, что разбор ответил успехом либо отказом, но не прерыванием исполнения: нехватка памяти в выработке ключа имитовставки отдаётся отказом схемы
 		ASSERT_TRUE((outcome == keys::error_t::NONE) || (outcome == keys::error_t::MEMORY) || (outcome == keys::error_t::CIPHER)) << "запас " << budget << ", отказ " << keys::name(outcome);
@@ -2266,17 +2266,17 @@ TEST(KeysTest, Pkcs12Bags){
  */
 TEST(KeysTest, PrivateKeyInfoRefusal){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Запись секретного ключа набора
-		const std::vector <uint8_t> secret = bytes(corpus(std::string(entry.name) + ".der"));
+		const std::vector <uint8_t> secret = bytes(__nts_corpus__(std::string(entry.name) + ".der"));
 		// Проверяем наличие записи
 		ASSERT_FALSE(secret.empty()) << "Ключ: " << entry.name;
 		// Разобранный ключ
 		keys::key_t key;
 		// Разборщик записи секретного ключа
-		asn1::reader_t reader(view(secret));
+		asn1::reader_t reader(__nts_view__(secret));
 		// Элементы записи
 		asn1::element_t sequence, version, algorithm, oid;
 		// Проверяем разбор набора записи
@@ -2297,7 +2297,7 @@ TEST(KeysTest, PrivateKeyInfoRefusal){
 			// Портим последний байт опознавателя алгоритма
 			foreign[static_cast <size_t> ((oid.content.data + oid.content.size - 1) - secret.data())] ^= 0x7F;
 			// Проверяем отказ разбора записи с чужим алгоритмом
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(foreign), key), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(foreign), key), keys::error_t::ALGORITHM) << "Ключ: " << entry.name;
 		}
 		{
 			// Запись с порченой меткой набора алгоритма: SEQUENCE заменён на SET
@@ -2305,13 +2305,13 @@ TEST(KeysTest, PrivateKeyInfoRefusal){
 			// Портим метку набора алгоритма
 			tagged[static_cast <size_t> (algorithm.element.data - secret.data())] = 0x31;
 			// Проверяем отказ разбора записи с порченой меткой
-			ASSERT_NE(keys::decodePrivateKeyInfo(view(tagged), key), keys::error_t::NONE) << "Ключ: " << entry.name;
+			ASSERT_NE(keys::decodePrivateKeyInfo(__nts_view__(tagged), key), keys::error_t::NONE) << "Ключ: " << entry.name;
 		}
 		{
 			// Оборванная запись: отрезано всё содержимое набора алгоритма
 			const std::vector <uint8_t> truncated(secret.begin(), secret.begin() + static_cast <size_t> (algorithm.element.data - secret.data()));
 			// Проверяем отказ разбора оборванной записи
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(truncated), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(truncated), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
 		}
 		{
 			// Запись с изданием 2: издания выше второго не дозволены
@@ -2319,7 +2319,7 @@ TEST(KeysTest, PrivateKeyInfoRefusal){
 			// Портим издание записи: 0 становится 2
 			edition[static_cast <size_t> ((version.content.data + version.content.size - 1) - secret.data())] = 0x02;
 			// Проверяем отказ разбора записи с изданием 2
-			ASSERT_EQ(keys::decodePrivateKeyInfo(view(edition), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
+			ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(edition), key), keys::error_t::STRUCTURE) << "Ключ: " << entry.name;
 		}
 	}
 }
@@ -2335,7 +2335,7 @@ TEST(KeysTest, Derive){
 	// Секретный ключ EC на кривой P-521
 	keys::key_t ec521;
 	// Проверяем разбор секретного ключа
-	ASSERT_EQ(keys::decode(corpus("ec521.pem"), view_t(), ec521), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("ec521.pem"), view_t(), ec521), keys::error_t::NONE);
 	// Проверяем вид ключа
 	ASSERT_EQ(ec521.kind, keys::kind_t::EC);
 	// Проверяем опознаватель кривой
@@ -2349,9 +2349,9 @@ TEST(KeysTest, Derive){
 	// Разобранный вновь ключ
 	keys::key_t again;
 	// Проверяем разбор записанного ключа
-	ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), again), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), again), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
-	ASSERT_TRUE(alike(ec521, again));
+	ASSERT_TRUE(__nts_alike__(ec521, again));
 	// Проверяем совпадение секретных частей
 	ASSERT_EQ(ec521.d, again.d);
 	// Запись открытого ключа
@@ -2361,13 +2361,13 @@ TEST(KeysTest, Derive){
 	// Разобранный открытый ключ
 	keys::key_t opened;
 	// Проверяем разбор SubjectPublicKeyInfo
-	ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(spki), opened), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(spki), opened), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей
-	ASSERT_TRUE(alike(ec521, opened));
+	ASSERT_TRUE(__nts_alike__(ec521, opened));
 	// Секретный ключ Ed448
 	keys::key_t ed448;
 	// Проверяем разбор секретного ключа Ed448
-	ASSERT_EQ(keys::decode(corpus("ed448.key"), view_t(), ed448), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("ed448.key"), view_t(), ed448), keys::error_t::NONE);
 	// Проверяем вид ключа
 	ASSERT_EQ(ed448.kind, keys::kind_t::ED448);
 	// Проверяем размер ключа
@@ -2379,27 +2379,27 @@ TEST(KeysTest, Derive){
 	// Проверяем размер открытого ключа
 	ASSERT_EQ(ed448.key.size(), static_cast <size_t> (57));
 	// Секретный ключ SM2
-	keys::key_t sm2;
+	keys::key_t sm2Key;
 	// Проверяем разбор секретного ключа SM2
-	ASSERT_EQ(keys::decode(corpus("sm2.pem"), view_t(), sm2), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("sm2.pem"), view_t(), sm2Key), keys::error_t::NONE);
 	// Проверяем вид ключа
-	ASSERT_EQ(sm2.kind, keys::kind_t::SM2);
+	ASSERT_EQ(sm2Key.kind, keys::kind_t::SM2);
 	// Проверяем опознаватель кривой
-	ASSERT_EQ(sm2.oid, "1.2.156.10197.1.301");
+	ASSERT_EQ(sm2Key.oid, "1.2.156.10197.1.301");
 	// Проверяем наличие секретной части
-	ASSERT_TRUE(sm2.secret());
+	ASSERT_TRUE(sm2Key.secret());
 	// Проверяем размер секретного скаляра
-	ASSERT_EQ(sm2.d.size(), static_cast <size_t> (32));
+	ASSERT_EQ(sm2Key.d.size(), static_cast <size_t> (32));
 	// Наборы параметров ML-DSA
 	static const char * MLDSA[] = {"mldsa44", "mldsa65", "mldsa87"};
 	/**
-	 * Выполняем перебор наборов параметров ML-DSA
+	 * Перебираем наборы параметров ML-DSA
 	 */
 	for(const char * name : MLDSA){
 		// Секретный ключ набора
 		keys::key_t secret;
 		// Проверяем разбор секретного ключа
-		ASSERT_EQ(keys::decode(corpus(std::string(name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << name;
+		ASSERT_EQ(keys::decode(__nts_corpus__(std::string(name) + ".pem"), view_t(), secret), keys::error_t::NONE) << "Ключ: " << name;
 		// Проверяем вид ключа
 		ASSERT_EQ(secret.kind, keys::kind_t::MLDSA) << "Ключ: " << name;
 		// Запись секретного ключа
@@ -2409,9 +2409,9 @@ TEST(KeysTest, Derive){
 		// Разобранный вновь ключ
 		keys::key_t direct;
 		// Проверяем разбор записанного ключа
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(record), direct), keys::error_t::NONE) << "Ключ: " << name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(record), direct), keys::error_t::NONE) << "Ключ: " << name;
 		// Проверяем совпадение открытых частей
-		ASSERT_TRUE(alike(secret, direct)) << "Ключ: " << name;
+		ASSERT_TRUE(__nts_alike__(secret, direct)) << "Ключ: " << name;
 		// Проверяем совпадение секретных частей
 		ASSERT_EQ(secret.d, direct.d) << "Ключ: " << name;
 		// Запись открытого ключа
@@ -2421,9 +2421,9 @@ TEST(KeysTest, Derive){
 		// Разобранный открытый ключ
 		keys::key_t plain;
 		// Проверяем разбор SubjectPublicKeyInfo
-		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(subject), plain), keys::error_t::NONE) << "Ключ: " << name;
+		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(subject), plain), keys::error_t::NONE) << "Ключ: " << name;
 		// Проверяем совпадение открытых частей
-		ASSERT_TRUE(alike(secret, plain)) << "Ключ: " << name;
+		ASSERT_TRUE(__nts_alike__(secret, plain)) << "Ключ: " << name;
 	}
 }
 
@@ -2437,7 +2437,7 @@ TEST(KeysTest, Derive){
  */
 TEST(KeysTest, Pbes2Refusal){
 	// Зашифрованная запись набора
-	const std::vector <uint8_t> sealed = body(corpus("ec256.aes-256-cbc.enc.pem"));
+	const std::vector <uint8_t> sealed = body(__nts_corpus__("ec256.aes-256-cbc.enc.pem"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(sealed.empty());
 	// Разобранный ключ
@@ -2453,7 +2453,7 @@ TEST(KeysTest, Pbes2Refusal){
 	// Смещения опознавателей в записи
 	size_t atPbes2 = std::string::npos, atPbkdf2 = std::string::npos, atHmac = std::string::npos, atAes = std::string::npos;
 	/**
-	 * Выполняем поиск опознавателей в записи
+	 * Ищем опознаватели в записи
 	 */
 	for(size_t i = 0; (i + sizeof(pbes2)) <= sealed.size(); i++){
 		// Если опознаватель PBES2 найден
@@ -2487,7 +2487,7 @@ TEST(KeysTest, Pbes2Refusal){
 		// Портим последний байт опознавателя схемы защиты
 		foreign[atPbes2 + sizeof(pbes2) - 1] ^= 0x7F;
 		// Проверяем отказ разбора записи с чужой схемой
-		ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(foreign), view(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
+		ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(foreign), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
 	}
 	{
 		// Запись с чужой выработкой ключа: опознаватель PBKDF2 порчен
@@ -2495,7 +2495,7 @@ TEST(KeysTest, Pbes2Refusal){
 		// Портим последний байт опознавателя выработки ключа
 		foreign[atPbkdf2 + sizeof(pbkdf2) - 1] ^= 0x7F;
 		// Проверяем отказ разбора записи с чужой выработкой ключа
-		ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(foreign), view(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
+		ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(foreign), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
 	}
 	{
 		// Запись с чужой имитовставкой: опознаватель HMAC-SHA256 порчен
@@ -2503,7 +2503,7 @@ TEST(KeysTest, Pbes2Refusal){
 		// Портим последний байт опознавателя имитовставки
 		foreign[atHmac + sizeof(hmac) - 1] ^= 0x7F;
 		// Проверяем отказ разбора записи с чужой имитовставкой
-		ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(foreign), view(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
+		ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(foreign), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
 	}
 	{
 		// Запись с чужим шифром: опознаватель AES-256-CBC порчен
@@ -2511,34 +2511,34 @@ TEST(KeysTest, Pbes2Refusal){
 		// Портим последний байт опознавателя шифра
 		foreign[atAes + sizeof(aes) - 1] ^= 0x7F;
 		// Проверяем отказ разбора записи с чужим шифром
-		ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(view(foreign), view(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
+		ASSERT_EQ(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(foreign), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::CIPHER);
 	}
 	{
 		// Оборванная запись: настройки схемы отрезаны на середине
 		const std::vector <uint8_t> truncated(sealed.begin(), sealed.begin() + atHmac);
 		// Проверяем отказ разбора оборванной записи
-		ASSERT_NE(keys::decodeEncryptedPrivateKeyInfo(view(truncated), view(PASSWORD_CORPUS), key), keys::error_t::NONE);
+		ASSERT_NE(keys::decodeEncryptedPrivateKeyInfo(__nts_view__(truncated), __nts_view__(PASSWORD_CORPUS), key), keys::error_t::NONE);
 	}
 	// Имена зашифрованных записей набора всех видов ключей и длин ключа шифра
 	static const char * NAMES[] = {"rsa2048", "ec256", "ec384", "ed25519", "x25519"};
 	/**
-	 * Выполняем перебор видов ключей
+	 * Перебираем виды ключей
 	 */
 	for(const char * name : NAMES){
 		/**
-		 * Выполняем перебор длин ключа шифра
+		 * Перебираем длины ключа шифра
 		 */
 		for(const size_t bits : BITS){
 			// Имя зашифрованного файла набора
 			const std::string file = (std::string(name) + ".aes-" + std::to_string(bits) + "-cbc.enc.pem");
 			// Текст зашифрованного ключа
-			const std::string text = corpus(file);
+			const std::string text = __nts_corpus__(file);
 			// Проверяем наличие файла набора
 			ASSERT_FALSE(text.empty()) << "Файл: " << file;
 			// Разобранный ключ
 			keys::key_t parsed;
 			// Проверяем разбор зашифрованного ключа паролем набора
-			ASSERT_EQ(keys::decode(text, view(PASSWORD_CORPUS), parsed), keys::error_t::NONE) << "Файл: " << file;
+			ASSERT_EQ(keys::decode(text, __nts_view__(PASSWORD_CORPUS), parsed), keys::error_t::NONE) << "Файл: " << file;
 			// Проверяем наличие секретной части
 			ASSERT_TRUE(parsed.secret()) << "Файл: " << file;
 		}
@@ -2556,7 +2556,7 @@ TEST(KeysTest, GostForms){
 	// Выработанный ключ ГОСТ на кривой 256 разрядов
 	keys::key_t made;
 	// Проверяем выработку ключа
-	ASSERT_TRUE(gost("1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.1", made));
+	ASSERT_TRUE(__nts_gost__("1.2.643.7.1.2.1.1.1", "1.2.643.7.1.1.1.1", made));
 	// Запись секретного ключа
 	std::vector <uint8_t> der;
 	// Проверяем запись PrivateKeyInfo
@@ -2564,7 +2564,7 @@ TEST(KeysTest, GostForms){
 	// Разобранный секретный ключ
 	keys::key_t secret;
 	// Проверяем разбор PrivateKeyInfo
-	ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), secret), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), secret), keys::error_t::NONE);
 	// Проверяем вид ключа
 	ASSERT_EQ(secret.kind, keys::kind_t::GOST);
 	// Развёрнутый скаляр ключа порядком от младшего байта к старшему
@@ -2575,7 +2575,7 @@ TEST(KeysTest, GostForms){
 		// Смещение значащей части скаляра: кодировка DER требует кратчайшей записи числа
 		size_t offset = 0;
 		/**
-		 * Выполняем пропуск ведущих нулей скаляра
+		 * Пропускаем ведущие нули скаляра
 		 */
 		while((offset < secret.d.size()) && (secret.d[offset] == 0))
 			// Пропускаем очередной ведущий ноль
@@ -2591,7 +2591,7 @@ TEST(KeysTest, GostForms){
 		// Дописываем значащую часть скаляра порядком от старшего байта к младшему
 		number.insert(number.end(), significant.begin(), significant.end());
 		// Записываем целое число ключа
-		body.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), view(number));
+		body.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), __nts_view__(number));
 		// Запись PrivateKeyInfo с телом целым числом
 		asn1::writer_t writer;
 		// Открываем набор записи
@@ -2633,7 +2633,7 @@ TEST(KeysTest, GostForms){
 		// Записываем издание записи ключа
 		body.integer(0);
 		// Записываем скаляр строкой байтов порядком от старшего байта
-		body.octets(view(secret.d));
+		body.octets(__nts_view__(secret.d));
 		// Закрываем набор записи ключа
 		body.close();
 		// Запись PrivateKeyInfo с телом набором
@@ -2673,9 +2673,9 @@ TEST(KeysTest, GostForms){
 		// Запись ключа строкой байтов с хвостом
 		asn1::writer_t body;
 		// Записываем скаляр строкой байтов порядком от младшего байта
-		body.octets(view(reversed));
+		body.octets(__nts_view__(reversed));
 		// Записываем хвост строкой байтов
-		body.octets(view(reversed));
+		body.octets(__nts_view__(reversed));
 		// Запись PrivateKeyInfo с телом с хвостом
 		asn1::writer_t writer;
 		// Открываем набор записи
@@ -2747,7 +2747,7 @@ TEST(KeysTest, GostForms){
 		// Разобранный ключ
 		keys::key_t key;
 		// Проверяем отказ разбора порченой записи
-		ASSERT_NE(keys::decodeSubjectPublicKeyInfo(view(damaged), key), keys::error_t::NONE);
+		ASSERT_NE(keys::decodeSubjectPublicKeyInfo(__nts_view__(damaged), key), keys::error_t::NONE);
 	}
 	{
 		// Запись открытого ключа с точкой вне кривой
@@ -2757,7 +2757,7 @@ TEST(KeysTest, GostForms){
 		// Разобранный ключ
 		keys::key_t key;
 		// Проверяем отказ разбора записи с точкой вне кривой
-		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(outside), key), keys::error_t::CURVE);
+		ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(outside), key), keys::error_t::CURVE);
 	}
 }
 
@@ -2769,7 +2769,7 @@ TEST(KeysTest, GostForms){
  */
 TEST(KeysTest, EcSecretRefusal){
 	// Текст записи SEC 1
-	const std::string sec1 = corpus("ec256.sec1.pem");
+	const std::string sec1 = __nts_corpus__("ec256.sec1.pem");
 	// Проверяем наличие записи
 	ASSERT_FALSE(sec1.empty());
 	// Тело записи SEC 1
@@ -2782,7 +2782,7 @@ TEST(KeysTest, EcSecretRefusal){
 		// Запись с изданием 2: издания выше первого не дозволены
 		std::vector <uint8_t> edition = der;
 		// Разборщик записи
-		asn1::reader_t reader(view(der));
+		asn1::reader_t reader(__nts_view__(der));
 		// Набор записи
 		asn1::element_t sequence;
 		// Проверяем разбор набора
@@ -2796,13 +2796,13 @@ TEST(KeysTest, EcSecretRefusal){
 		// Портим издание записи: 1 становится 2
 		edition[static_cast <size_t> ((version.content.data + version.content.size - 1) - der.data())] = 0x02;
 		// Проверяем отказ разбора записи с изданием 2
-		ASSERT_EQ(keys::decodeECPrivateKey(view(edition), key), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodeECPrivateKey(__nts_view__(edition), key), keys::error_t::STRUCTURE);
 	}
 	{
 		// Оборванная запись: отрезан последний байт
 		const std::vector <uint8_t> truncated(der.begin(), der.end() - 1);
 		// Проверяем отказ разбора оборванной записи
-		ASSERT_NE(keys::decodeECPrivateKey(view(truncated), key), keys::error_t::NONE);
+		ASSERT_NE(keys::decodeECPrivateKey(__nts_view__(truncated), key), keys::error_t::NONE);
 	}
 	{
 		// Запись с пустым секретным скаляром
@@ -2837,7 +2837,7 @@ TEST(KeysTest, EcSecretRefusal){
 	// Ключ из записи SEC 1
 	keys::key_t parsed;
 	// Проверяем разбор записи SEC 1
-	ASSERT_EQ(keys::decodeECPrivateKey(view(der), parsed), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodeECPrivateKey(__nts_view__(der), parsed), keys::error_t::NONE);
 	// Проверяем вид ключа
 	ASSERT_EQ(parsed.kind, keys::kind_t::EC);
 	// Проверяем опознаватель кривой
@@ -2856,7 +2856,7 @@ TEST(KeysTest, MldsaRefusal){
 	keys::key_t key;
 	{
 		// Запись ключа ML-DSA-44 с зерном
-		const std::string pem = corpus("mldsa/mldsa44-seed-only.pem");
+		const std::string pem = __nts_corpus__("mldsa/mldsa44-seed-only.pem");
 		// Проверяем наличие записи
 		ASSERT_FALSE(pem.empty());
 		// Тело записи
@@ -2866,7 +2866,7 @@ TEST(KeysTest, MldsaRefusal){
 		// Запись с чужим опознавателем алгоритма: ML-DSA-44 становится ML-DSA-65
 		std::vector <uint8_t> foreign = der;
 		// Разборщик записи
-		asn1::reader_t reader(view(der));
+		asn1::reader_t reader(__nts_view__(der));
 		// Элементы записи
 		asn1::element_t sequence, version, algorithm, oid;
 		// Проверяем разбор набора записи
@@ -2884,15 +2884,15 @@ TEST(KeysTest, MldsaRefusal){
 		// Портим последний байт опознавателя: 17 становится неведомым 0x7F
 		foreign[static_cast <size_t> ((oid.content.data + oid.content.size - 1) - der.data())] = 0x7F;
 		// Проверяем отказ разбора записи с чужим алгоритмом
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(foreign), key), keys::error_t::ALGORITHM);
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(foreign), key), keys::error_t::ALGORITHM);
 	}
 	{
 		// Запись ключа ML-DSA-44 с зерном и хвостом после разновидности
-		const std::string pem = corpus("mldsa/mldsa44-seed-only.pem");
+		const std::string pem = __nts_corpus__("mldsa/mldsa44-seed-only.pem");
 		// Тело записи
 		std::vector <uint8_t> der = body(pem);
 		// Разборщик записи
-		asn1::reader_t reader(view(der));
+		asn1::reader_t reader(__nts_view__(der));
 		// Элементы записи
 		asn1::element_t sequence, body_element;
 		// Проверяем разбор набора записи
@@ -2912,21 +2912,21 @@ TEST(KeysTest, MldsaRefusal){
 		// Проверяем разбор строки байтов тела ключа
 		ASSERT_TRUE(fields.next(asn1::tag_t::OCTET_STRING, octets));
 		// Смещение содержимого тела ключа в записи
-		const size_t at = static_cast <size_t> (octets.content.data - der.data());
+		const size_t place = static_cast <size_t> (octets.content.data - der.data());
 		// Собираем запись с хвостом внутри тела ключа: зерно с меткой [0] и лишний байт
 		std::vector <uint8_t> spoiled = der;
 		// Удлиняем тело ключа на байт
-		spoiled.insert(spoiled.begin() + at + octets.content.size, 0x00);
+		spoiled.insert(spoiled.begin() + place + octets.content.size, 0x00);
 		// Поправляем длину строки байтов тела ключа
 		spoiled[static_cast <size_t> (octets.element.data - der.data()) + 1] += 1;
 		// Поправляем длину набора записи
 		spoiled[1] += 1;
 		// Проверяем отказ разбора записи с хвостом внутри тела
-		ASSERT_NE(keys::decodePrivateKeyInfo(view(spoiled), key), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePrivateKeyInfo(__nts_view__(spoiled), key), keys::error_t::NONE);
 	}
 	{
 		// Запись ключа ML-DSA-44 с зерном и развёрнутым ключом, не согласованным с зерном
-		const std::string pem = corpus("mldsa/mldsa44-seed-priv.pem");
+		const std::string pem = __nts_corpus__("mldsa/mldsa44-seed-priv.pem");
 		// Проверяем наличие записи
 		ASSERT_FALSE(pem.empty());
 		// Тело записи
@@ -2938,15 +2938,15 @@ TEST(KeysTest, MldsaRefusal){
 		// Портим последний байт развёрнутого ключа
 		spoiled.back() ^= 0x01;
 		// Проверяем отказ разбора: развёрнутый ключ с зерном не сошёлся
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(spoiled), key), keys::error_t::VALUE);
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(spoiled), key), keys::error_t::VALUE);
 	}
 	{
 		// Запись ключа ML-DSA-44 с настройками алгоритма: раздел 5 RFC 9881 их запрещает
-		const std::string pem = corpus("mldsa/mldsa44-seed-only.pem");
+		const std::string pem = __nts_corpus__("mldsa/mldsa44-seed-only.pem");
 		// Тело записи
 		const std::vector <uint8_t> der = body(pem);
 		// Разборщик записи
-		asn1::reader_t reader(view(der));
+		asn1::reader_t reader(__nts_view__(der));
 		// Элементы записи
 		asn1::element_t sequence, algorithm;
 		// Проверяем разбор набора записи
@@ -3004,7 +3004,7 @@ TEST(KeysTest, Ed448){
 	// Секретный ключ Ed448
 	keys::key_t secret;
 	// Проверяем разбор секретного ключа
-	ASSERT_EQ(keys::decode(corpus("ed448.key"), view_t(), secret), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("ed448.key"), view_t(), secret), keys::error_t::NONE);
 	// Проверяем вид ключа
 	ASSERT_EQ(secret.kind, keys::kind_t::ED448);
 	// Проверяем размер зерна
@@ -3018,11 +3018,11 @@ TEST(KeysTest, Ed448){
 	// Проверяем запись секретного ключа
 	ASSERT_EQ(keys::encodePrivateKeyInfo(secret, der), keys::error_t::NONE);
 	// Проверяем побайтовое совпадение с эталоном OpenSSL
-	ASSERT_EQ(der, body(corpus("ed448.key")));
+	ASSERT_EQ(der, body(__nts_corpus__("ed448.key")));
 	// Проверяем разбор записанного секретного ключа
-	ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), key), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей после круга
-	ASSERT_TRUE(alike(secret, key));
+	ASSERT_TRUE(__nts_alike__(secret, key));
 	// Проверяем совпадение секретных частей после круга
 	ASSERT_EQ(key.d, secret.d);
 	// Запись SubjectPublicKeyInfo в кодировке DER
@@ -3030,9 +3030,9 @@ TEST(KeysTest, Ed448){
 	// Проверяем запись открытого ключа
 	ASSERT_EQ(keys::encodeSubjectPublicKeyInfo(secret, spki), keys::error_t::NONE);
 	// Проверяем разбор записанного открытого ключа
-	ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(view(spki), key), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodeSubjectPublicKeyInfo(__nts_view__(spki), key), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей после круга
-	ASSERT_TRUE(alike(secret, key));
+	ASSERT_TRUE(__nts_alike__(secret, key));
 	// Проверяем отсутствие секретной части у открытого ключа
 	ASSERT_FALSE(key.secret());
 	// Текст записи в обёртке PEM
@@ -3044,7 +3044,7 @@ TEST(KeysTest, Ed448){
 	// Проверяем разбор секретного ключа из обёртки PEM
 	ASSERT_EQ(keys::decode(text, view_t(), key), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей после круга PEM
-	ASSERT_TRUE(alike(secret, key));
+	ASSERT_TRUE(__nts_alike__(secret, key));
 	// Проверяем запись SubjectPublicKeyInfo в обёртке PEM
 	ASSERT_EQ(keys::encode(secret, keys::container_t::PUBLIC, text, view_t()), keys::error_t::NONE);
 	// Проверяем совпадение тела PEM с записью DER
@@ -3052,7 +3052,7 @@ TEST(KeysTest, Ed448){
 	// Проверяем разбор открытого ключа из обёртки PEM
 	ASSERT_EQ(keys::decode(text, view_t(), key), keys::error_t::NONE);
 	// Проверяем совпадение открытых частей после круга PEM
-	ASSERT_TRUE(alike(secret, key));
+	ASSERT_TRUE(__nts_alike__(secret, key));
 	{
 		// Запись OneAsymmetricKey второго издания с открытым ключом
 		asn1::writer_t writer;
@@ -3069,7 +3069,7 @@ TEST(KeysTest, Ed448){
 		// Записываем зерно во внутренней строке байтов
 		asn1::writer_t seed;
 		// Записываем зерно Ed448
-		seed.octets(view(secret.d));
+		seed.octets(__nts_view__(secret.d));
 		// Записываем CurvePrivateKey во внешней строке байтов
 		writer.octets(seed.data());
 		// Строка битов открытого ключа с нулевым числом неиспользуемых разрядов
@@ -3077,13 +3077,13 @@ TEST(KeysTest, Ed448){
 		// Дописываем открытый ключ Ed448
 		bits.insert(bits.end(), secret.key.begin(), secret.key.end());
 		// Записываем открытый ключ неявной меткой [1]
-		writer.element(asn1::cls_t::CONTEXT, false, 1, view(bits));
+		writer.element(asn1::cls_t::CONTEXT, false, 1, __nts_view__(bits));
 		// Закрываем набор записи
 		writer.close();
 		// Проверяем разбор OneAsymmetricKey с согласованной открытой частью
 		ASSERT_EQ(keys::decodePrivateKeyInfo(writer.data(), key), keys::error_t::NONE);
 		// Проверяем совпадение открытых частей
-		ASSERT_TRUE(alike(secret, key));
+		ASSERT_TRUE(__nts_alike__(secret, key));
 		// Проверяем совпадение секретных частей
 		ASSERT_EQ(key.d, secret.d);
 	}
@@ -3101,7 +3101,7 @@ TEST(KeysTest, Ed448){
 			// Пропускаем интероп без эталона OpenSSL
 			GTEST_SKIP() << "openssl отсутствует в среде исполнения";
 		// Читаем издание эталона
-		const std::string version = slurp(edition);
+		const std::string version = __nts_slurp__(edition);
 		// LibreSSL не принимает ключи Ed448 - интероп с эталоном невозможен
 		if(version.find("LibreSSL") != std::string::npos)
 			// Пропускаем интероп без поддержки Ed448 у эталона
@@ -3111,9 +3111,9 @@ TEST(KeysTest, Ed448){
 			// Пропускаем интероп со старой схемой защиты PKCS #12
 			GTEST_SKIP() << "openssl с устаревшей схемой PKCS #12: " << version;
 		// Проверяем запись нашего секретного ключа DER
-		ASSERT_TRUE(spill(sandbox.file("secret.der"), der));
+		ASSERT_TRUE(__nts_spill__(sandbox.file("secret.der"), der));
 		// Проверяем запись нашего открытого ключа DER
-		ASSERT_TRUE(spill(sandbox.file("public.der"), spki));
+		ASSERT_TRUE(__nts_spill__(sandbox.file("public.der"), spki));
 		// Проверяем принятие нашего секретного ключа OpenSSL
 		ASSERT_EQ(shell(tool + " pkey -inform DER -in " + sandbox.file("secret.der") + " -noout"), 0);
 		// Проверяем принятие нашего открытого ключа OpenSSL
@@ -3121,25 +3121,25 @@ TEST(KeysTest, Ed448){
 		// Проверяем запись нашего секретного ключа PEM для упаковки PKCS #12
 		ASSERT_EQ(keys::encode(secret, keys::container_t::PRIVATE, text, view_t()), keys::error_t::NONE);
 		// Записываем наш секретный ключ PEM
-		ASSERT_TRUE(spill(sandbox.file("secret.pem"), text));
+		ASSERT_TRUE(__nts_spill__(sandbox.file("secret.pem"), text));
 		// Вырабатываем эталонный открытый ключ OpenSSL из нашего секретного
 		ASSERT_EQ(shell(tool + " pkey -in " + sandbox.file("secret.pem") + " -pubout -outform DER -out " + sandbox.file("openssl.der")), 0);
 		// Проверяем побайтовое совпадение открытого ключа с OpenSSL
-		ASSERT_EQ(spki, bytes(slurp(sandbox.file("openssl.der"))));
+		ASSERT_EQ(spki, bytes(__nts_slurp__(sandbox.file("openssl.der"))));
 		// Упаковываем наш ключ и сертификат Ed448 в PKCS #12 средствами OpenSSL
 		ASSERT_EQ(shell(tool + " pkcs12 -export -inkey " + sandbox.file("secret.pem") + " -in " + std::string(CORPUS) + "/ed448.crt -passout pass:secret -out " + sandbox.file("ed448.p12")), 0);
 		// Цепочка сертификатов из PKCS #12
 		std::vector <std::vector <uint8_t>> chain;
 		// Проверяем разбор нашего ключа из PKCS #12
-		ASSERT_EQ(keys::decodePkcs12(view(bytes(slurp(sandbox.file("ed448.p12")))), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(bytes(__nts_slurp__(sandbox.file("ed448.p12")))), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 		// Проверяем совпадение открытых частей ключа из PKCS #12
-		ASSERT_TRUE(alike(secret, key));
+		ASSERT_TRUE(__nts_alike__(secret, key));
 		// Проверяем совпадение секретных частей ключа из PKCS #12
 		ASSERT_EQ(key.d, secret.d);
 		// Проверяем число сертификатов цепочки
 		ASSERT_EQ(chain.size(), static_cast <size_t> (1));
 		// Проверяем совпадение сертификата Ed448 с исходным
-		ASSERT_EQ(chain.front(), body(corpus("ed448.crt")));
+		ASSERT_EQ(chain.front(), body(__nts_corpus__("ed448.crt")));
 	}
 	{
 		// Секретный ключ Ed448 с зерном чужой длины
@@ -3195,7 +3195,7 @@ TEST(KeysTest, Ed448){
 		// Тело ключа: зерно строкой байтов
 		asn1::writer_t body;
 		// Записываем зерно строкой байтов
-		body.octets(view(secret.d));
+		body.octets(__nts_view__(secret.d));
 		// Записываем тело ключа
 		writer.octets(body.data());
 		// Закрываем набор записи
@@ -3207,9 +3207,9 @@ TEST(KeysTest, Ed448){
 		// Запись с хвостом после зерна
 		asn1::writer_t body;
 		// Записываем зерно строкой байтов
-		body.octets(view(secret.d));
+		body.octets(__nts_view__(secret.d));
 		// Записываем хвост строкой байтов
-		body.octets(view(secret.d));
+		body.octets(__nts_view__(secret.d));
 		// Запись PrivateKeyInfo с телом с хвостом
 		asn1::writer_t writer;
 		// Открываем набор записи
@@ -3256,7 +3256,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 	// Секретный ключ набора EC
 	keys::key_t secret;
 	// Проверяем разбор секретного ключа
-	ASSERT_EQ(keys::decode(corpus("ec256.pem"), view_t(), secret), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("ec256.pem"), view_t(), secret), keys::error_t::NONE);
 	// Тело ECPrivateKey ключа
 	std::vector <uint8_t> ecbody;
 	// Проверяем запись ECPrivateKey без кривой внутри
@@ -3285,7 +3285,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Закрываем набор алгоритма
 		writer.close();
 		// Записываем тело ключа строкой байтов
-		writer.octets(view(ecbody));
+		writer.octets(__nts_view__(ecbody));
 		// Открываем набор свойств
 		writer.open(asn1::cls_t::CONTEXT, 0);
 		// Закрываем набор свойств
@@ -3297,7 +3297,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Дописываем точку
 		bits.insert(bits.end(), point.begin(), point.end());
 		// Записываем открытый ключ неявной меткой [1]
-		writer.element(asn1::cls_t::CONTEXT, false, 1, view(bits));
+		writer.element(asn1::cls_t::CONTEXT, false, 1, __nts_view__(bits));
 		// Закрываем набор записи
 		writer.close();
 		// Проверяем разбор записи второго издания
@@ -3323,7 +3323,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Закрываем набор алгоритма
 		writer.close();
 		// Записываем тело ключа строкой байтов
-		writer.octets(view(ecbody));
+		writer.octets(__nts_view__(ecbody));
 		// Порченая точка открытого ключа: координаты обменены местами
 		std::vector <uint8_t> swapped;
 		// Заводим признак несжатой записи точки
@@ -3339,7 +3339,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Дописываем точку
 		bits.insert(bits.end(), swapped.begin(), swapped.end());
 		// Записываем открытый ключ неявной меткой [1]
-		writer.element(asn1::cls_t::CONTEXT, false, 1, view(bits));
+		writer.element(asn1::cls_t::CONTEXT, false, 1, __nts_view__(bits));
 		// Закрываем набор записи
 		writer.close();
 		// Проверяем отказ разбора: точка с обменянными координатами кривой не принадлежит
@@ -3361,7 +3361,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Закрываем набор алгоритма
 		writer.close();
 		// Записываем тело ключа строкой байтов
-		writer.octets(view(ecbody));
+		writer.octets(__nts_view__(ecbody));
 		// Строка битов открытого ключа: нулевое число неиспользуемых разрядов и точка
 		std::vector <uint8_t> bits;
 		// Заводим нулевое число неиспользуемых разрядов
@@ -3369,7 +3369,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Дописываем точку
 		bits.insert(bits.end(), point.begin(), point.end());
 		// Записываем открытый ключ неявной меткой [1]
-		writer.element(asn1::cls_t::CONTEXT, false, 1, view(bits));
+		writer.element(asn1::cls_t::CONTEXT, false, 1, __nts_view__(bits));
 		// Закрываем набор записи
 		writer.close();
 		// Проверяем отказ разбора: открытый ключ при первом издании
@@ -3391,9 +3391,9 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Закрываем набор алгоритма
 		writer.close();
 		// Записываем тело ключа строкой байтов
-		writer.octets(view(ecbody));
+		writer.octets(__nts_view__(ecbody));
 		// Записываем поле неведомого вида: неявная метка [3]
-		writer.element(asn1::cls_t::CONTEXT, false, 3, view(point));
+		writer.element(asn1::cls_t::CONTEXT, false, 3, __nts_view__(point));
 		// Закрываем набор записи
 		writer.close();
 		// Проверяем отказ разбора: поле не опознано
@@ -3401,9 +3401,9 @@ TEST(KeysTest, PrivateKeyInfoV1){
 	}
 	{
 		// Запись второго издания ключа Ed25519 с открытым ключом в обёртке
-		keys::key_t ed;
+		keys::key_t edKey;
 		// Проверяем разбор секретного ключа Ed25519
-		ASSERT_EQ(keys::decode(corpus("ed25519.pem"), view_t(), ed), keys::error_t::NONE);
+		ASSERT_EQ(keys::decode(__nts_corpus__("ed25519.pem"), view_t(), edKey), keys::error_t::NONE);
 		// Запись второго издания с открытым ключом
 		asn1::writer_t writer;
 		// Открываем набор записи
@@ -3419,7 +3419,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Тело ключа: зерно строкой байтов
 		asn1::writer_t seed;
 		// Записываем зерно строкой байтов
-		seed.octets(view(ed.d));
+		seed.octets(__nts_view__(edKey.d));
 		// Записываем тело ключа строкой байтов
 		writer.octets(seed.data());
 		// Строка битов открытого ключа: нулевое число неиспользуемых разрядов и ключ
@@ -3427,9 +3427,9 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Заводим нулевое число неиспользуемых разрядов
 		bits.push_back(0x00);
 		// Дописываем открытый ключ
-		bits.insert(bits.end(), ed.key.begin(), ed.key.end());
+		bits.insert(bits.end(), edKey.key.begin(), edKey.key.end());
 		// Записываем открытый ключ неявной меткой [1]
-		writer.element(asn1::cls_t::CONTEXT, false, 1, view(bits));
+		writer.element(asn1::cls_t::CONTEXT, false, 1, __nts_view__(bits));
 		// Закрываем набор записи
 		writer.close();
 		// Проверяем разбор записи второго издания
@@ -3437,7 +3437,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Проверяем вид ключа
 		ASSERT_EQ(key.kind, keys::kind_t::ED25519);
 		// Проверяем совпадение открытых частей
-		ASSERT_EQ(key.key, ed.key);
+		ASSERT_EQ(key.key, edKey.key);
 		// Запись с открытым ключом, не согласованным с зерном
 		asn1::writer_t spoiled;
 		// Открываем набор записи
@@ -3453,7 +3453,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Записываем тело ключа строкой байтов
 		spoiled.octets(seed.data());
 		// Порченый открытый ключ
-		std::vector <uint8_t> wrong = ed.key;
+		std::vector <uint8_t> wrong = edKey.key;
 		// Портим первый байт открытого ключа
 		wrong[0] ^= 0x01;
 		// Строка битов порченого открытого ключа: нулевое число неиспользуемых разрядов и ключ
@@ -3463,7 +3463,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Дописываем порченый открытый ключ
 		wrongbits.insert(wrongbits.end(), wrong.begin(), wrong.end());
 		// Записываем порченый открытый ключ неявной меткой [1]
-		spoiled.element(asn1::cls_t::CONTEXT, false, 1, view(wrongbits));
+		spoiled.element(asn1::cls_t::CONTEXT, false, 1, __nts_view__(wrongbits));
 		// Закрываем набор записи
 		spoiled.close();
 		// Проверяем отказ разбора: открытый ключ не сошёлся с выведенным из зерна
@@ -3471,9 +3471,9 @@ TEST(KeysTest, PrivateKeyInfoV1){
 	}
 	{
 		// Запись ключа SM2 с опознавателем алгоритма SM2 без настроек
-		keys::key_t sm2;
+		keys::key_t sm2Key;
 		// Проверяем разбор секретного ключа SM2
-		ASSERT_EQ(keys::decode(corpus("sm2.pem"), view_t(), sm2), keys::error_t::NONE);
+		ASSERT_EQ(keys::decode(__nts_corpus__("sm2.pem"), view_t(), sm2Key), keys::error_t::NONE);
 		// Тело ECPrivateKey ключа SM2
 		std::vector <uint8_t> record;
 		// Собираем тело ECPrivateKey вручную: издание, скаляр, открытый ключ
@@ -3483,7 +3483,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Записываем издание записи ключа
 		inner.integer(1);
 		// Записываем секретный скаляр
-		inner.octets(view(sm2.d));
+		inner.octets(__nts_view__(sm2Key.d));
 		// Открываем открытый ключ
 		inner.open(asn1::cls_t::CONTEXT, 1);
 		// Несжатая точка открытого ключа SM2
@@ -3491,11 +3491,11 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Заводим признак несжатой записи точки
 		sm2point.push_back(0x04);
 		// Дописываем первую координату
-		sm2point.insert(sm2point.end(), sm2.x.begin(), sm2.x.end());
+		sm2point.insert(sm2point.end(), sm2Key.x.begin(), sm2Key.x.end());
 		// Дописываем вторую координату
-		sm2point.insert(sm2point.end(), sm2.y.begin(), sm2.y.end());
+		sm2point.insert(sm2point.end(), sm2Key.y.begin(), sm2Key.y.end());
 		// Записываем несжатую точку
-		inner.bits(view(sm2point));
+		inner.bits(__nts_view__(sm2point));
 		// Закрываем открытый ключ
 		inner.close();
 		// Закрываем набор записи ключа
@@ -3521,7 +3521,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Проверяем вид ключа
 		ASSERT_EQ(key.kind, keys::kind_t::SM2);
 		// Проверяем совпадение секретных частей
-		ASSERT_EQ(key.d, sm2.d);
+		ASSERT_EQ(key.d, sm2Key.d);
 		// Запись с настройками алгоритма SM2: GB/T 32918 их не несёт
 		asn1::writer_t present;
 		// Открываем набор записи
@@ -3547,13 +3547,13 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Запись ключа ML-DSA-44 второго издания с открытым ключом, не согласованным с зерном
 		keys::key_t mldsa;
 		// Проверяем разбор секретного ключа ML-DSA-44
-		ASSERT_EQ(keys::decode(corpus("mldsa44.pem"), view_t(), mldsa), keys::error_t::NONE);
+		ASSERT_EQ(keys::decode(__nts_corpus__("mldsa44.pem"), view_t(), mldsa), keys::error_t::NONE);
 		// Запись зерна из набора: читаем запись зерна из набора
-		const std::vector <uint8_t> seedonly = body(corpus("mldsa/mldsa44-seed-only.pem"));
+		const std::vector <uint8_t> seedonly = body(__nts_corpus__("mldsa/mldsa44-seed-only.pem"));
 		// Проверяем наличие записи зерна
 		ASSERT_FALSE(seedonly.empty());
 		// Разборщик записи зерна
-		asn1::reader_t scan(view(seedonly));
+		asn1::reader_t scan(__nts_view__(seedonly));
 		// Элементы записи
 		asn1::element_t sequence, version, algorithm, octets;
 		// Проверяем разбор набора записи
@@ -3591,7 +3591,7 @@ TEST(KeysTest, PrivateKeyInfoV1){
 		// Дописываем порченый открытый ключ
 		wrongbits.insert(wrongbits.end(), wrong.begin(), wrong.end());
 		// Записываем порченый открытый ключ неявной меткой [1]
-		writer.element(asn1::cls_t::CONTEXT, false, 1, view(wrongbits));
+		writer.element(asn1::cls_t::CONTEXT, false, 1, __nts_view__(wrongbits));
 		// Закрываем набор записи
 		writer.close();
 		// Проверяем отказ разбора: открытый ключ не сошёлся с выведенным из зерна
@@ -3610,19 +3610,19 @@ TEST(KeysTest, Pkcs12Deep){
 	// Разобранный ключ донора
 	keys::key_t donor;
 	// Проверяем разбор донора
-	ASSERT_EQ(keys::decodePrivateKeyInfo(view(bytes(corpus("ec256.der"))), donor), keys::error_t::NONE);
+	ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(bytes(__nts_corpus__("ec256.der"))), donor), keys::error_t::NONE);
 	// Запись PrivateKeyInfo донора
 	std::vector <uint8_t> pki;
 	// Проверяем запись PrivateKeyInfo донора
 	ASSERT_EQ(keys::encodePrivateKeyInfo(donor, pki), keys::error_t::NONE);
 	// Запись сертификата донора
-	const std::vector <uint8_t> cert = bytes(corpus("ec256.crt.der"));
+	const std::vector <uint8_t> cert = bytes(__nts_corpus__("ec256.crt.der"));
 	// Проверяем наличие сертификата
 	ASSERT_FALSE(cert.empty());
 	// Запись EncryptedPrivateKeyInfo донора
 	std::vector <uint8_t> epi;
 	// Проверяем запись EncryptedPrivateKeyInfo донора
-	ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(donor, view("secret"), epi, 256, 1000), keys::error_t::NONE);
+	ASSERT_EQ(keys::encodeEncryptedPrivateKeyInfo(donor, __nts_view__("secret"), epi, 256, 1000), keys::error_t::NONE);
 	// Сборка мешка SafeBag по виду и значению
 	auto bag = [](const char * kind, const std::vector <uint8_t> & value){
 		// Записываем мешок: опознаватель вида и явное значение [0]
@@ -3634,7 +3634,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Открываем явную метку [0]
 		writer.open(asn1::cls_t::CONTEXT, 0);
 		// Разборщик готового значения мешка
-		asn1::reader_t reader(view(value));
+		asn1::reader_t reader(__nts_view__(value));
 		// Элемент готового значения мешка
 		asn1::element_t element;
 		// Разбираем метку и содержимое значения мешка
@@ -3661,11 +3661,11 @@ TEST(KeysTest, Pkcs12Deep){
 		// Если тело переносится строкой байтов
 		if(octets)
 			// Записываем тело строкой байтов
-			writer.octets(view(body));
+			writer.octets(__nts_view__(body));
 		// Иначе тело является готовой записью
 		else {
 			// Разборщик готового тела содержимого
-			asn1::reader_t reader(view(body));
+			asn1::reader_t reader(__nts_view__(body));
 			// Элемент готового тела содержимого
 			asn1::element_t element;
 			// Разбираем метку и содержимое готового тела
@@ -3691,7 +3691,7 @@ TEST(KeysTest, Pkcs12Deep){
 		 */
 		for(const std::vector <uint8_t> & item : items){
 			// Разборщик готовых сведений о содержимом
-			asn1::reader_t reader(view(item));
+			asn1::reader_t reader(__nts_view__(item));
 			// Элемент готовых сведений о содержимом
 			asn1::element_t element;
 			// Разбираем метку и содержимое, чтобы не вложить набор повторно
@@ -3719,7 +3719,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Открываем явную метку [0]
 		writer.open(asn1::cls_t::CONTEXT, 0);
 		// Записываем AuthenticatedSafe строкой байтов
-		writer.octets(view(safeBytes));
+		writer.octets(__nts_view__(safeBytes));
 		// Закрываем набор записи
 		writer.close();
 		// Закрываем набор записи
@@ -3727,7 +3727,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Если имитовставка задана
 		if(!mac.empty()){
 			// Разборщик готовых сведений имитовставки
-			asn1::reader_t reader(view(mac));
+			asn1::reader_t reader(__nts_view__(mac));
 			// Элемент готовых сведений имитовставки
 			asn1::element_t element;
 			// Разбираем метку и содержимое, чтобы не вложить набор повторно
@@ -3759,17 +3759,17 @@ TEST(KeysTest, Pkcs12Deep){
 		// Закрываем набор записи
 		writer.close();
 		// Записываем имитовставку строкой байтов
-		writer.octets(view(mac));
+		writer.octets(__nts_view__(mac));
 		// Закрываем набор записи
 		writer.close();
 		// Записываем соль строкой байтов
-		writer.octets(view(salt));
+		writer.octets(__nts_view__(salt));
 		// Записываем число оборотов
 		writer.integer(iterations);
 		// Если сведения порчены хвостом
 		if(extra)
 			// Дописываем лишнюю строку байтов хвоста MacData
-			writer.octets(view(salt));
+			writer.octets(__nts_view__(salt));
 		// Закрываем набор записи
 		writer.close();
 		// Выводим собранную запись
@@ -3796,7 +3796,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Открываем явную метку [0]
 		writer.open(asn1::cls_t::CONTEXT, 0);
 		// Записываем тело строкой байтов
-		writer.octets(view(body));
+		writer.octets(__nts_view__(body));
 		// Закрываем набор записи
 		writer.close();
 		// Закрываем набор записи
@@ -3837,7 +3837,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Открываем явную метку [0]
 		writer.open(asn1::cls_t::CONTEXT, 0);
 		// Записываем сертификат строкой байтов
-		writer.octets(view(record));
+		writer.octets(__nts_view__(record));
 		// Закрываем набор записи
 		writer.close();
 		// Закрываем набор записи
@@ -3858,7 +3858,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Два мешка keyBag подряд: второй ключ записи недопустим
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki)), dataContent(bag(keybag, pki))}), {}, false);
 		// Проверяем отказ устройства записи с двумя ключами
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// Мешок keyBag с гнилым значением: вместо PrivateKeyInfo целое число
@@ -3868,7 +3868,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с гнилым значением keyBag
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, toBytes(wrong.data())))}), {}, false);
 		// Проверяем отказ разбора гнилого значения
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// Мешок keyBag с пустым PrivateKeyInfo: набор пуст
@@ -3880,7 +3880,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с пустым PrivateKeyInfo
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, toBytes(wrong.data())))}), {}, false);
 		// Проверяем отказ разбора пустого PrivateKeyInfo
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// Мешок без явного значения [0]: опознаватель есть, значения нет
@@ -3894,7 +3894,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с мешком без явного значения
 		const std::vector <uint8_t> der = pfx(safe({dataContent(toBytes(wrong.data()))}), {}, false);
 		// Проверяем отказ разбора мешка без явного значения
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// Мешок с целым числом вместо опознавателя вида
@@ -3908,13 +3908,13 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с гнилым опознавателем мешка
 		const std::vector <uint8_t> der = pfx(safe({dataContent(toBytes(wrong.data()))}), {}, false);
 		// Проверяем отказ разбора гнилого опознавателя
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// Мешок certBag с видом не X.509
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(certbag, certbagValue("1.2.840.113549.1.9.22.2", cert)))}), {}, false);
 		// Проверяем отказ устройства записи с чужим видом сертификата
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// Мешок certBag без явной строки байтов сертификата: после вида нет [0]
@@ -3928,7 +3928,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с certBag без явной строки байтов
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(certbag, toBytes(wrong.data())))}), {}, false);
 		// Проверяем отказ разбора certBag без явной строки байтов
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// Мешок certBag с целым числом вместо строки байтов сертификата
@@ -3948,25 +3948,25 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с гнилой строкой байтов сертификата
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(certbag, toBytes(wrong.data())))}), {}, false);
 		// Проверяем отказ разбора гнилой строкой байтов
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// Мешок неведомого вида пропускается, годный keyBag читается
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag("1.2.840.113549.1.12.10.1.99", pki)), dataContent(bag(keybag, pki))}), {}, false);
 		// Проверяем успешный разбор: неведомый мешок пропущен, ключ разобран
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// Только certBag без keyBag: ключа записи нет
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(certbag, certbagValue(x509, cert)))}), {}, false);
 		// Проверяем отказ пустой записи
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::EMPTY);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::EMPTY);
 	}
 	{
 		// Мешок keyBag, затем shroudedKeyBag: второй ключ недопустим
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki)), dataContent(bag(shrouded, epi))}), {}, false);
 		// Проверяем отказ устройства записи с двумя ключами разных видов
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// Мешок shroudedKeyBag с гнилым значением: вместо EncryptedPrivateKeyInfo целое число
@@ -3976,7 +3976,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с гнилым значением shroudedKeyBag
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(shrouded, toBytes(wrong.data())))}), {}, false);
 		// Проверяем отказ разбора гнилого значения shroudedKeyBag
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// Мешок shroudedKeyBag с пустым EncryptedPrivateKeyInfo: набор пуст
@@ -3988,7 +3988,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с пустым EncryptedPrivateKeyInfo
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(shrouded, toBytes(wrong.data())))}), {}, false);
 		// Проверяем отказ разбора пустого EncryptedPrivateKeyInfo
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// MacData с нулевым числом оборотов: схема не дозволена
@@ -3996,7 +3996,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с нулевым числом оборотов
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki))}), mac, false);
 		// Проверяем отказ схемы по числу оборотов
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::CIPHER);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::CIPHER);
 	}
 	{
 		// MacData с числом оборотов выше предела: схема не дозволена
@@ -4004,7 +4004,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с числом оборотов выше предела
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki))}), mac, false);
 		// Проверяем отказ схемы по числу оборотов
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::CIPHER);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::CIPHER);
 	}
 	{
 		// MacData с лишним элементом после оборотов: устройство записи не дозволено
@@ -4012,7 +4012,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с лишним элементом MacData
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki))}), mac, false);
 		// Проверяем отказ устройства записи
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// Лишний элемент после MacData: устройство записи не дозволено
@@ -4020,13 +4020,13 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с хвостом после MacData
 		const std::vector <uint8_t> der = pfx(safe({dataContent(bag(keybag, pki))}), mac, true);
 		// Проверяем отказ устройства записи
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// Сведения о содержимом неведомого вида: не данные и не зашифрованные данные
 		const std::vector <uint8_t> der = pfx(safe({content(pbes2, bag(keybag, pki))}), {}, false);
 		// Проверяем отказ устройства записи с чужим видом содержимого
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// EncryptedData с видом содержимого не данные: устройство записи не дозволено
@@ -4034,7 +4034,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с EncryptedData не с данными
 		const std::vector <uint8_t> der = pfx(safe({content(encryptedOid, body, false)}), {}, false);
 		// Проверяем отказ устройства записи
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::STRUCTURE);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	}
 	{
 		// EncryptedData со схемой не PBES2: схема не дозволена
@@ -4042,7 +4042,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с EncryptedData со схемой не PBES2
 		const std::vector <uint8_t> der = pfx(safe({content(encryptedOid, body, false)}), {}, false);
 		// Проверяем отказ схемы
-		ASSERT_EQ(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::CIPHER);
+		ASSERT_EQ(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::CIPHER);
 	}
 	{
 		// AuthenticatedSafe не является набором: целое число вместо набора
@@ -4052,7 +4052,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с AuthenticatedSafe не набором
 		const std::vector <uint8_t> der = pfx(toBytes(wrong.data()), {}, false);
 		// Проверяем отказ разбора AuthenticatedSafe не набором
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 	{
 		// SafeContents с целым числом вместо сведений о содержимом: набор не читается
@@ -4062,7 +4062,7 @@ TEST(KeysTest, Pkcs12Deep){
 		// Собираем запись с гнилыми сведениями о содержимом
 		const std::vector <uint8_t> der = pfx(safe({toBytes(wrong.data())}), {}, false);
 		// Проверяем отказ разбора гнилых сведений о содержимом
-		ASSERT_NE(keys::decodePkcs12(view(der), view("secret"), key, chain), keys::error_t::NONE);
+		ASSERT_NE(keys::decodePkcs12(__nts_view__(der), __nts_view__("secret"), key, chain), keys::error_t::NONE);
 	}
 }
 
@@ -4093,7 +4093,7 @@ TEST(KeysTest, DeriveMismatch){
 		// Записываем CurvePrivateKey: зерно во внутренней строке байтов
 		asn1::writer_t body;
 		// Записываем зерно донора
-		body.octets(view(donor.d));
+		body.octets(__nts_view__(donor.d));
 		// Содержимое неявной строки битов: нуль неиспользуемых разрядов и открытый ключ
 		std::vector <uint8_t> bits(1, 0);
 		// Дописываем открытый ключ после счётчика неиспользуемых разрядов
@@ -4115,7 +4115,7 @@ TEST(KeysTest, DeriveMismatch){
 		// Если открытая часть записывается
 		if(!opened.empty())
 			// Записываем открытый ключ неявной строкой битов [1]
-			writer.element(asn1::cls_t::CONTEXT, false, 1, view(bits));
+			writer.element(asn1::cls_t::CONTEXT, false, 1, __nts_view__(bits));
 		// Закрываем набор OneAsymmetricKey
 		writer.close();
 		// Выводим собранную запись
@@ -4126,7 +4126,7 @@ TEST(KeysTest, DeriveMismatch){
 		// Разобранный ключ донора
 		keys::key_t donor;
 		// Проверяем разбор донора
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(bytes(corpus("ec256.der"))), donor), keys::error_t::NONE);
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(bytes(__nts_corpus__("ec256.der"))), donor), keys::error_t::NONE);
 		// Ключ с другим скаляром и прежней годной точкой: выведенная точка не совпадёт с записанной
 		keys::key_t mixed = donor;
 		// Меняем младший разряд скаляра, сохраняя его в дозволенном диапазоне кривой
@@ -4138,13 +4138,13 @@ TEST(KeysTest, DeriveMismatch){
 		// Проверяем отказ: открытая часть не сошлась с выведенной
 		keys::key_t key;
 		// Проверяем отказ несовпадения открытой части
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::VALUE);
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), key), keys::error_t::VALUE);
 		// Полная запись донора, из которой убирается необязательная открытая точка
 		std::vector <uint8_t> full;
 		// Записываем донора перед удалением поля publicKey
 		ASSERT_EQ(keys::encodePrivateKeyInfo(donor, full), keys::error_t::NONE);
 		// Разборщик верхней записи PrivateKeyInfo
-		asn1::reader_t top(view(full));
+		asn1::reader_t top(__nts_view__(full));
 		// Верхний набор PrivateKeyInfo
 		asn1::element_t pki;
 		// Разбираем верхний набор PrivateKeyInfo
@@ -4213,7 +4213,7 @@ TEST(KeysTest, DeriveMismatch){
 		open.assign(writer.data().data, writer.data().data + writer.data().size);
 		// Проверяем успешный разбор с восполнением открытой части
 		// Проверяем успешное восполнение открытой части
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(open), key), keys::error_t::NONE);
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(open), key), keys::error_t::NONE);
 		// Проверяем, что открытая часть восполнена
 		ASSERT_FALSE(key.x.empty());
 		// Проверяем восполнение координаты y
@@ -4227,7 +4227,7 @@ TEST(KeysTest, DeriveMismatch){
 		// Разобранный ключ донора
 		keys::key_t donor;
 		// Проверяем разбор донора
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(bytes(corpus(std::string(name) + ".der"))), donor), keys::error_t::NONE) << name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(bytes(__nts_corpus__(std::string(name) + ".der"))), donor), keys::error_t::NONE) << name;
 		// Открытый ключ с нулевыми байтами: заведомо не совпадает с выведенным
 		keys::key_t mixed = donor;
 		// Обнуляем открытый ключ
@@ -4237,12 +4237,12 @@ TEST(KeysTest, DeriveMismatch){
 		// Проверяем отказ: открытый ключ не сошёлся с выведенным
 		keys::key_t key;
 		// Проверяем отказ несовпадения открытой части
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::VALUE) << name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), key), keys::error_t::VALUE) << name;
 		// Запись без открытого ключа: derive восполняет его из зерна
 		const std::vector <uint8_t> open = openKey(donor, {});
 		// Проверяем успешный разбор с восполнением открытого ключа
 		// Проверяем успешное восполнение открытой части
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(open), key), keys::error_t::NONE) << name;
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(open), key), keys::error_t::NONE) << name;
 		// Проверяем, что открытый ключ восполнен
 		// Проверяем восполнение открытого ключа
 		ASSERT_FALSE(key.key.empty()) << name;
@@ -4252,7 +4252,7 @@ TEST(KeysTest, DeriveMismatch){
 		// Разобранный ключ донора
 		keys::key_t donor;
 		// Проверяем разбор донора
-		ASSERT_EQ(keys::decode(corpus("ed448.key"), view_t(), donor), keys::error_t::NONE);
+		ASSERT_EQ(keys::decode(__nts_corpus__("ed448.key"), view_t(), donor), keys::error_t::NONE);
 		// Открытый ключ с нулевыми байтами: заведомо не совпадает с выведенным
 		keys::key_t mixed = donor;
 		// Обнуляем открытый ключ
@@ -4262,12 +4262,12 @@ TEST(KeysTest, DeriveMismatch){
 		// Проверяем отказ: открытый ключ не сошёлся с выведенным
 		keys::key_t key;
 		// Проверяем отказ несовпадения открытой части
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(der), key), keys::error_t::VALUE);
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(der), key), keys::error_t::VALUE);
 		// Запись без открытого ключа: derive восполняет его из зерна
 		const std::vector <uint8_t> open = openKey(donor, {});
 		// Проверяем успешный разбор с восполнением открытого ключа
 		// Проверяем успешное восполнение открытой части
-		ASSERT_EQ(keys::decodePrivateKeyInfo(view(open), key), keys::error_t::NONE);
+		ASSERT_EQ(keys::decodePrivateKeyInfo(__nts_view__(open), key), keys::error_t::NONE);
 		// Проверяем, что открытый ключ восполнен
 		// Проверяем восполнение открытого ключа
 		ASSERT_FALSE(key.key.empty());
@@ -4298,7 +4298,7 @@ TEST(KeysTest, DeepRefusals){
 			// Переворачиваем очередной байт
 			damaged[at] ^= 0xFF;
 			// Учитываем отвергнутую порченую форму
-			if(decode(view(damaged)) != keys::error_t::NONE)
+			if(decode(__nts_view__(damaged)) != keys::error_t::NONE)
 				// Увеличиваем число отказов
 				rejected++;
 		}
@@ -4324,16 +4324,16 @@ TEST(KeysTest, DeepRefusals){
 	 */
 	for(const entry_t & entry : ENTRIES){
 		// Проверяем обрезки и мутации секретного ключа
-		refuse(bytes(corpus(std::string(entry.name) + ".der")), secret);
+		refuse(bytes(__nts_corpus__(std::string(entry.name) + ".der")), secret);
 		// Проверяем обрезки и мутации открытого ключа
-		refuse(bytes(corpus(std::string(entry.name) + ".pub.der")), opened);
+		refuse(bytes(__nts_corpus__(std::string(entry.name) + ".pub.der")), opened);
 	}
 	// Проверяем обрезки и мутации секретного ключа Ed448
-	refuse(body(corpus("ed448.key")), secret);
+	refuse(body(__nts_corpus__("ed448.key")), secret);
 	// Секретный ключ Ed448 для записи открытой части
 	keys::key_t ed448;
 	// Разбираем секретный ключ Ed448
-	ASSERT_EQ(keys::decode(corpus("ed448.key"), view_t(), ed448), keys::error_t::NONE);
+	ASSERT_EQ(keys::decode(__nts_corpus__("ed448.key"), view_t(), ed448), keys::error_t::NONE);
 	// Запись SubjectPublicKeyInfo Ed448
 	std::vector <uint8_t> spki;
 	// Записываем открытый ключ Ed448
@@ -4343,8 +4343,8 @@ TEST(KeysTest, DeepRefusals){
 	// Разборщик PKCS #12
 	auto pkcs12 = [&](const view_t & data){
 		// Выводим итог разбора PKCS #12
-		return keys::decodePkcs12(data, view("secret"), key, chain);
+		return keys::decodePkcs12(data, __nts_view__("secret"), key, chain);
 	};
 	// Проверяем обрезки и мутации записи PKCS #12
-	refuse(bytes(corpus("test.p12")), pkcs12);
+	refuse(bytes(__nts_corpus__("test.p12")), pkcs12);
 }

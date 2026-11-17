@@ -57,7 +57,7 @@ namespace {
 		// Разобранные байты
 		std::vector <uint8_t> result;
 		/**
-		 * Выполняем обход записи по два знака
+		 * Обходим запись по два знака
 		 */
 		for(size_t i = 0; (i + 1) < text.size(); i += 2)
 			// Добавляем очередной байт
@@ -73,13 +73,13 @@ namespace {
 	 * @return     шестнадцатеричная запись
 	 *
 	 */
-	static std::string text(const uint8_t * data, const size_t size){
+	static std::string __nts_text__(const uint8_t * data, const size_t size){
 		// Собираемая запись
 		std::string result;
 		// Набор шестнадцатеричных знаков
 		static const char * DIGITS = "0123456789abcdef";
 		/**
-		 * Выполняем обход байтов
+		 * Обходим байты
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Записываем старший полубайт
@@ -97,7 +97,7 @@ namespace {
 	 * @return     просмотр накопителя
 	 *
 	 */
-	static view_t viewed(const std::vector <uint8_t> & data) noexcept {
+	static view_t __nts_viewed__(const std::vector <uint8_t> & data) noexcept {
 		// Выводим просмотр накопителя
 		return view_t(data.empty() ? nullptr : data.data(), data.size());
 	}
@@ -109,7 +109,7 @@ namespace {
 	 * @return     просмотр области
 	 *
 	 */
-	static view_t viewed(const uint8_t * data, const size_t size) noexcept {
+	static view_t __nts_viewed__(const uint8_t * data, const size_t size) noexcept {
 		// Выводим просмотр области
 		return view_t(data, size);
 	}
@@ -120,7 +120,7 @@ namespace {
 	 * @return       набор алгоритмов
 	 *
 	 */
-	static hpke::suite_t suited(const vectors::vector_t & vector) noexcept {
+	static hpke::suite_t __nts_suited__(const vectors::vector_t & vector) noexcept {
 		// Выводим набор вектора
 		return hpke::suite_t(hpke::kem_t::X25519_HKDF_SHA256, static_cast <hpke::kdf_t> (vector.kdf), static_cast <hpke::aead_t> (vector.aead));
 	}
@@ -131,7 +131,7 @@ namespace {
 	 * @return       имя вектора
 	 *
 	 */
-	static std::string named(const vectors::vector_t & vector){
+	static std::string __nts_named__(const vectors::vector_t & vector){
 		// Выводим имя вектора
 		return ("режим " + std::to_string(vector.mode) + " kdf " + std::to_string(vector.kdf) + " aead " + std::to_string(vector.aead));
 	}
@@ -212,7 +212,7 @@ TEST(HpkeTest, Lengths){
 	// Проверяем набор только для экспорта
 	ASSERT_EQ(hpke::overhead(hpke::aead_t::EXPORT_ONLY), 0u);
 	/**
-	 * Выполняем обход поддерживаемых наборов
+	 * Обходим поддерживаемые наборы
 	 */
 	for(size_t i = 0; i < (sizeof(SUITES) / sizeof(hpke::suite_t)); i++)
 		// Проверяем поддержку набора
@@ -235,46 +235,46 @@ TEST(HpkeTest, Lengths){
  */
 TEST(HpkeTest, Derive){
 	/**
-	 * Выполняем обход векторов
+	 * Обходим векторы
 	 */
 	for(size_t i = 0; i < COUNT; i++){
-		// Вектор
+		// Вектор контрольного примера
 		const vectors::vector_t & vector = vectors::VECTORS[i];
 		// Материал пар
 		const std::vector <uint8_t> ikmE = bytes(vector.ikmE), ikmR = bytes(vector.ikmR), ikmS = bytes(vector.ikmS);
 		// Пара ключей
 		hpke::key_t key;
 		// Вырабатываем мимолётную пару
-		ASSERT_EQ(key.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmE)), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(key.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmE)), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем готовность
 		ASSERT_TRUE(key.ready());
 		// Проверяем способ
 		ASSERT_EQ(key.kem(), hpke::kem_t::X25519_HKDF_SHA256);
 		// Проверяем секретный ключ
-		ASSERT_EQ(text(key.secret().data, key.secret().size), vector.skEm) << named(vector);
+		ASSERT_EQ(__nts_text__(key.secret().data, key.secret().size), vector.skEm) << __nts_named__(vector);
 		// Проверяем открытый ключ
-		ASSERT_EQ(text(key.point().data, key.point().size), vector.pkEm) << named(vector);
+		ASSERT_EQ(__nts_text__(key.point().data, key.point().size), vector.pkEm) << __nts_named__(vector);
 		// Вырабатываем пару получателя
-		ASSERT_EQ(key.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmR)), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(key.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmR)), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем секретный ключ
-		ASSERT_EQ(text(key.secret().data, key.secret().size), vector.skRm) << named(vector);
+		ASSERT_EQ(__nts_text__(key.secret().data, key.secret().size), vector.skRm) << __nts_named__(vector);
 		// Проверяем открытый ключ
-		ASSERT_EQ(text(key.point().data, key.point().size), vector.pkRm) << named(vector);
+		ASSERT_EQ(__nts_text__(key.point().data, key.point().size), vector.pkRm) << __nts_named__(vector);
 		// Если у вектора есть пара отправителя
 		if(!ikmS.empty()){
 			// Вырабатываем пару отправителя
-			ASSERT_EQ(key.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmS)), hpke::error_t::NONE) << named(vector);
+			ASSERT_EQ(key.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmS)), hpke::error_t::NONE) << __nts_named__(vector);
 			// Проверяем секретный ключ
-			ASSERT_EQ(text(key.secret().data, key.secret().size), vector.skSm) << named(vector);
+			ASSERT_EQ(__nts_text__(key.secret().data, key.secret().size), vector.skSm) << __nts_named__(vector);
 			// Проверяем открытый ключ
-			ASSERT_EQ(text(key.point().data, key.point().size), vector.pkSm) << named(vector);
+			ASSERT_EQ(__nts_text__(key.point().data, key.point().size), vector.pkSm) << __nts_named__(vector);
 		}
 		// Секретный ключ получателя
 		const std::vector <uint8_t> skRm = bytes(vector.skRm);
 		// Устанавливаем пару по секретному ключу
-		ASSERT_EQ(key.set(hpke::kem_t::X25519_HKDF_SHA256, viewed(skRm)), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(key.set(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(skRm)), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем открытый ключ
-		ASSERT_EQ(text(key.point().data, key.point().size), vector.pkRm) << named(vector);
+		ASSERT_EQ(__nts_text__(key.point().data, key.point().size), vector.pkRm) << __nts_named__(vector);
 		// Стираем пару
 		key.clear();
 		// Проверяем неготовность
@@ -290,13 +290,13 @@ TEST(HpkeTest, Derive){
 		// Материал короче ключа: раздел 7.1.3 RFC 9180
 		const std::vector <uint8_t> brief(31, 0x42);
 		// Проверяем отказ короткого материала
-		ASSERT_EQ(key.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(brief)), hpke::error_t::KEY);
+		ASSERT_EQ(key.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(brief)), hpke::error_t::KEY);
 		// Проверяем неготовность
 		ASSERT_FALSE(key.ready());
 		// Проверяем отказ чужого способа
-		ASSERT_EQ(key.derive(static_cast <hpke::kem_t> (0x0001), viewed(brief)), hpke::error_t::SUITE);
+		ASSERT_EQ(key.derive(static_cast <hpke::kem_t> (0x0001), __nts_viewed__(brief)), hpke::error_t::SUITE);
 		// Проверяем отказ неверной длины секретного ключа
-		ASSERT_EQ(key.set(hpke::kem_t::X25519_HKDF_SHA256, viewed(brief)), hpke::error_t::KEY);
+		ASSERT_EQ(key.set(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(brief)), hpke::error_t::KEY);
 		// Проверяем отказ пустого секретного ключа
 		ASSERT_EQ(key.set(hpke::kem_t::X25519_HKDF_SHA256, view_t()), hpke::error_t::KEY);
 		// Проверяем отказ чужого способа выработки
@@ -310,7 +310,7 @@ TEST(HpkeTest, Derive){
 		// Вырабатываем вторую пару
 		ASSERT_EQ(other.generate(hpke::kem_t::X25519_HKDF_SHA256), hpke::error_t::NONE);
 		// Проверяем, что пары различны
-		ASSERT_NE(text(key.secret().data, key.secret().size), text(other.secret().data, other.secret().size));
+		ASSERT_NE(__nts_text__(key.secret().data, key.secret().size), __nts_text__(other.secret().data, other.secret().size));
 	}
 }
 
@@ -320,37 +320,37 @@ TEST(HpkeTest, Derive){
  */
 TEST(HpkeTest, Encapsulation){
 	/**
-	 * Выполняем обход векторов
+	 * Обходим векторы
 	 */
 	for(size_t i = 0; i < COUNT; i++){
-		// Вектор
+		// Вектор контрольного примера
 		const vectors::vector_t & vector = vectors::VECTORS[i];
 		// Материал пар
 		const std::vector <uint8_t> ikmE = bytes(vector.ikmE), ikmR = bytes(vector.ikmR), ikmS = bytes(vector.ikmS);
 		// Пары ключей
 		hpke::key_t ephemeral, own, authenticator;
 		// Вырабатываем мимолётную пару
-		ASSERT_EQ(ephemeral.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmE)), hpke::error_t::NONE);
+		ASSERT_EQ(ephemeral.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmE)), hpke::error_t::NONE);
 		// Вырабатываем пару получателя
-		ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmR)), hpke::error_t::NONE);
+		ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmR)), hpke::error_t::NONE);
 		// Если у вектора есть пара отправителя
 		if(!ikmS.empty())
 			// Вырабатываем пару отправителя
-			ASSERT_EQ(authenticator.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmS)), hpke::error_t::NONE);
+			ASSERT_EQ(authenticator.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmS)), hpke::error_t::NONE);
 		// Общее значение и инкапсулированный ключ
 		uint8_t shared[hpke::X25519_SIZE], enc[hpke::X25519_SIZE];
 		// Инкапсулируем ключ
-		ASSERT_EQ(hpke::encapsulate(ephemeral, own.point(), (ikmS.empty() ? nullptr : &authenticator), shared, enc), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(hpke::encapsulate(ephemeral, own.point(), (ikmS.empty() ? nullptr : &authenticator), shared, enc), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем инкапсулированный ключ
-		ASSERT_EQ(text(enc, sizeof(enc)), vector.enc) << named(vector);
+		ASSERT_EQ(__nts_text__(enc, sizeof(enc)), vector.enc) << __nts_named__(vector);
 		// Проверяем общее значение
-		ASSERT_EQ(text(shared, sizeof(shared)), vector.sharedSecret) << named(vector);
+		ASSERT_EQ(__nts_text__(shared, sizeof(shared)), vector.sharedSecret) << __nts_named__(vector);
 		// Обнуляем общее значение
 		::memset(shared, 0, sizeof(shared));
 		// Декапсулируем ключ
-		ASSERT_EQ(hpke::decapsulate(own, view_t(enc, sizeof(enc)), (ikmS.empty() ? view_t() : authenticator.point()), shared), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(hpke::decapsulate(own, view_t(enc, sizeof(enc)), (ikmS.empty() ? view_t() : authenticator.point()), shared), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем общее значение
-		ASSERT_EQ(text(shared, sizeof(shared)), vector.sharedSecret) << named(vector);
+		ASSERT_EQ(__nts_text__(shared, sizeof(shared)), vector.sharedSecret) << __nts_named__(vector);
 	}
 	{
 		// Пары ключей
@@ -376,7 +376,7 @@ TEST(HpkeTest, Encapsulation){
 		// Точка малого порядка: нулевая
 		const std::vector <uint8_t> zero(hpke::X25519_SIZE, 0x00);
 		// Проверяем отказ нулевого общего значения: раздел 7.1.4 RFC 9180
-		ASSERT_EQ(hpke::encapsulate(ephemeral, viewed(zero), nullptr, shared, enc), hpke::error_t::ENCAPSULATION);
+		ASSERT_EQ(hpke::encapsulate(ephemeral, __nts_viewed__(zero), nullptr, shared, enc), hpke::error_t::ENCAPSULATION);
 		// Инкапсулируем ключ
 		ASSERT_EQ(hpke::encapsulate(ephemeral, own.point(), nullptr, shared, enc), hpke::error_t::NONE);
 		// Проверяем отказ неготовой пары получателя
@@ -386,11 +386,11 @@ TEST(HpkeTest, Encapsulation){
 		// Проверяем отказ пустого инкапсулированного ключа
 		ASSERT_EQ(hpke::decapsulate(own, view_t(), view_t(), shared), hpke::error_t::ENCAPSULATION);
 		// Проверяем отказ нулевого инкапсулированного ключа
-		ASSERT_EQ(hpke::decapsulate(own, viewed(zero), view_t(), shared), hpke::error_t::ENCAPSULATION);
+		ASSERT_EQ(hpke::decapsulate(own, __nts_viewed__(zero), view_t(), shared), hpke::error_t::ENCAPSULATION);
 		// Проверяем отказ ключа отправителя неверной длины
 		ASSERT_EQ(hpke::decapsulate(own, view_t(enc, sizeof(enc)), view_t(enc, 31), shared), hpke::error_t::KEY);
 		// Проверяем отказ нулевого ключа отправителя
-		ASSERT_EQ(hpke::decapsulate(own, view_t(enc, sizeof(enc)), viewed(zero), shared), hpke::error_t::ENCAPSULATION);
+		ASSERT_EQ(hpke::decapsulate(own, view_t(enc, sizeof(enc)), __nts_viewed__(zero), shared), hpke::error_t::ENCAPSULATION);
 		// Проверяем отказ без места под общее значение
 		ASSERT_EQ(hpke::decapsulate(own, view_t(enc, sizeof(enc)), view_t(), nullptr), hpke::error_t::ARGUMENT);
 	}
@@ -402,13 +402,13 @@ TEST(HpkeTest, Encapsulation){
  */
 TEST(HpkeTest, Vectors){
 	/**
-	 * Выполняем обход векторов
+	 * Обходим векторы
 	 */
 	for(size_t i = 0; i < COUNT; i++){
-		// Вектор
+		// Вектор контрольного примера
 		const vectors::vector_t & vector = vectors::VECTORS[i];
 		// Набор вектора
-		const hpke::suite_t suite = suited(vector);
+		const hpke::suite_t suite = __nts_suited__(vector);
 		// Режим вектора
 		const hpke::regime_t mode = static_cast <hpke::regime_t> (vector.mode);
 		// Материал пар
@@ -418,34 +418,34 @@ TEST(HpkeTest, Vectors){
 		// Пары ключей
 		hpke::key_t ephemeral, own, authenticator;
 		// Вырабатываем мимолётную пару
-		ASSERT_EQ(ephemeral.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmE)), hpke::error_t::NONE);
+		ASSERT_EQ(ephemeral.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmE)), hpke::error_t::NONE);
 		// Вырабатываем пару получателя
-		ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmR)), hpke::error_t::NONE);
+		ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmR)), hpke::error_t::NONE);
 		// Если у вектора есть пара отправителя
 		if(!ikmS.empty())
 			// Вырабатываем пару отправителя
-			ASSERT_EQ(authenticator.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmS)), hpke::error_t::NONE);
+			ASSERT_EQ(authenticator.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmS)), hpke::error_t::NONE);
 		// Заранее разделённый ключ
-		const hpke::shared_t shared(viewed(psk), viewed(identity));
+		const hpke::shared_t shared(__nts_viewed__(psk), __nts_viewed__(identity));
 		// Инкапсулированный ключ
 		uint8_t enc[hpke::X25519_SIZE];
 		// Состояния сторон
 		hpke::context_t sending, receiving;
 		// Устанавливаем состояние отправителя
-		ASSERT_EQ(hpke::sender(suite, mode, own.point(), viewed(info), shared, (ikmS.empty() ? nullptr : &authenticator), ephemeral, enc, sending), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(hpke::sender(suite, mode, own.point(), __nts_viewed__(info), shared, (ikmS.empty() ? nullptr : &authenticator), ephemeral, enc, sending), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем инкапсулированный ключ
-		ASSERT_EQ(text(enc, sizeof(enc)), vector.enc) << named(vector);
+		ASSERT_EQ(__nts_text__(enc, sizeof(enc)), vector.enc) << __nts_named__(vector);
 		// Проверяем готовность
 		ASSERT_TRUE(sending.ready());
 		// Проверяем набор состояния
 		ASSERT_EQ(static_cast <uint16_t> (sending.suite().aead), vector.aead);
 		// Устанавливаем состояние получателя
-		ASSERT_EQ(hpke::recipient(suite, mode, own, view_t(enc, sizeof(enc)), viewed(info), shared, (ikmS.empty() ? view_t() : authenticator.point()), receiving), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(hpke::recipient(suite, mode, own, view_t(enc, sizeof(enc)), __nts_viewed__(info), shared, (ikmS.empty() ? view_t() : authenticator.point()), receiving), hpke::error_t::NONE) << __nts_named__(vector);
 		/**
-		 * Выполняем обход зашифрований вектора
+		 * Обходим зашифрования вектора
 		 */
 		for(size_t j = 0; j < vector.encryptions; j++){
-			// Зашифрование
+			// Зашифрование контрольного примера
 			const vectors::encryption_t & encryption = vector.encryption[j];
 			// Данные зашифрования
 			const std::vector <uint8_t> aad = bytes(encryption.aad), pt = bytes(encryption.pt), ct = bytes(encryption.ct);
@@ -456,38 +456,38 @@ TEST(HpkeTest, Vectors){
 			// Накопитель шифртекста
 			std::vector <uint8_t> sealed;
 			// Зашифровываем сообщение
-			ASSERT_EQ(sending.seal(viewed(aad), viewed(pt), sealed), hpke::error_t::NONE) << named(vector) << " номер " << encryption.sequence;
+			ASSERT_EQ(sending.seal(__nts_viewed__(aad), __nts_viewed__(pt), sealed), hpke::error_t::NONE) << __nts_named__(vector) << " номер " << encryption.sequence;
 			// Проверяем шифртекст байт в байт
-			ASSERT_EQ(text(sealed.data(), sealed.size()), encryption.ct) << named(vector) << " номер " << encryption.sequence;
+			ASSERT_EQ(__nts_text__(sealed.data(), sealed.size()), encryption.ct) << __nts_named__(vector) << " номер " << encryption.sequence;
 			// Проверяем рост порядкового номера
 			ASSERT_EQ(sending.sequence(), encryption.sequence + 1);
 			// Накопитель открытого текста
 			std::vector <uint8_t> opened;
 			// Расшифровываем сообщение
-			ASSERT_EQ(receiving.open(viewed(aad), viewed(ct), opened), hpke::error_t::NONE) << named(vector) << " номер " << encryption.sequence;
+			ASSERT_EQ(receiving.open(__nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::NONE) << __nts_named__(vector) << " номер " << encryption.sequence;
 			// Проверяем открытый текст
-			ASSERT_EQ(text(opened.data(), opened.size()), encryption.pt) << named(vector);
+			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.pt) << __nts_named__(vector);
 			// Проверяем рост порядкового номера получателя
 			ASSERT_EQ(receiving.sequence(), encryption.sequence + 1);
 		}
 		/**
-		 * Выполняем обход экспортов вектора
+		 * Обходим экспорты вектора
 		 */
 		for(size_t j = 0; j < 3; j++){
-			// Экспорт
+			// Экспорт контрольного примера
 			const vectors::export_t & exported = vector.exports[j];
 			// Привязка экспорта
 			const std::vector <uint8_t> context = bytes(exported.context);
 			// Секреты обеих сторон
 			std::vector <uint8_t> first(exported.size), second(exported.size);
 			// Вырабатываем секрет у отправителя
-			ASSERT_EQ(sending.exporter(viewed(context), first.data(), exported.size), hpke::error_t::NONE) << named(vector);
+			ASSERT_EQ(sending.exporter(__nts_viewed__(context), first.data(), exported.size), hpke::error_t::NONE) << __nts_named__(vector);
 			// Проверяем секрет байт в байт
-			ASSERT_EQ(text(first.data(), first.size()), exported.value) << named(vector) << " экспорт " << j;
+			ASSERT_EQ(__nts_text__(first.data(), first.size()), exported.value) << __nts_named__(vector) << " экспорт " << j;
 			// Вырабатываем секрет у получателя
-			ASSERT_EQ(receiving.exporter(viewed(context), second.data(), exported.size), hpke::error_t::NONE) << named(vector);
+			ASSERT_EQ(receiving.exporter(__nts_viewed__(context), second.data(), exported.size), hpke::error_t::NONE) << __nts_named__(vector);
 			// Проверяем секрет байт в байт
-			ASSERT_EQ(text(second.data(), second.size()), exported.value) << named(vector) << " экспорт " << j;
+			ASSERT_EQ(__nts_text__(second.data(), second.size()), exported.value) << __nts_named__(vector) << " экспорт " << j;
 		}
 	}
 }
@@ -498,13 +498,13 @@ TEST(HpkeTest, Vectors){
  */
 TEST(HpkeTest, Single){
 	/**
-	 * Выполняем обход векторов
+	 * Обходим векторы
 	 */
 	for(size_t i = 0; i < COUNT; i++){
-		// Вектор
+		// Вектор контрольного примера
 		const vectors::vector_t & vector = vectors::VECTORS[i];
 		// Набор вектора
-		const hpke::suite_t suite = suited(vector);
+		const hpke::suite_t suite = __nts_suited__(vector);
 		// Режим вектора
 		const hpke::regime_t mode = static_cast <hpke::regime_t> (vector.mode);
 		// Материал пар
@@ -514,13 +514,13 @@ TEST(HpkeTest, Single){
 		// Пары ключей
 		hpke::key_t own, authenticator;
 		// Вырабатываем пару получателя
-		ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmR)), hpke::error_t::NONE);
+		ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmR)), hpke::error_t::NONE);
 		// Если у вектора есть пара отправителя
 		if(!ikmS.empty())
 			// Вырабатываем пару отправителя
-			ASSERT_EQ(authenticator.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmS)), hpke::error_t::NONE);
+			ASSERT_EQ(authenticator.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmS)), hpke::error_t::NONE);
 		// Заранее разделённый ключ
-		const hpke::shared_t shared(viewed(psk), viewed(identity));
+		const hpke::shared_t shared(__nts_viewed__(psk), __nts_viewed__(identity));
 		// Просмотр ключа отправителя
 		const view_t point = (ikmS.empty() ? view_t() : authenticator.point());
 		// Указатель на пару отправителя
@@ -534,23 +534,23 @@ TEST(HpkeTest, Single){
 			// Накопитель открытого текста
 			std::vector <uint8_t> opened;
 			// Расшифровываем сообщение вектора одним шагом
-			ASSERT_EQ(hpke::open(suite, mode, own, viewed(enc), viewed(info), shared, point, viewed(aad), viewed(ct), opened), hpke::error_t::NONE) << named(vector);
+			ASSERT_EQ(hpke::open(suite, mode, own, __nts_viewed__(enc), __nts_viewed__(info), shared, point, __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::NONE) << __nts_named__(vector);
 			// Проверяем открытый текст
-			ASSERT_EQ(text(opened.data(), opened.size()), encryption.pt) << named(vector);
+			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.pt) << __nts_named__(vector);
 			// Накопители зашифрования живьём
 			std::vector <uint8_t> fresh, sealed;
 			// Зашифровываем сообщение одним шагом со свежей мимолётной парой
-			ASSERT_EQ(hpke::seal(suite, mode, own.point(), viewed(info), shared, signer, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::NONE) << named(vector);
+			ASSERT_EQ(hpke::seal(suite, mode, own.point(), __nts_viewed__(info), shared, signer, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::NONE) << __nts_named__(vector);
 			// Проверяем длину инкапсулированного ключа
 			ASSERT_EQ(fresh.size(), hpke::X25519_SIZE);
 			// Проверяем, что мимолётная пара свежая
-			ASSERT_NE(text(fresh.data(), fresh.size()), vector.enc);
+			ASSERT_NE(__nts_text__(fresh.data(), fresh.size()), vector.enc);
 			// Проверяем длину шифртекста
 			ASSERT_EQ(sealed.size(), pt.size() + hpke::TAG_SIZE);
 			// Расшифровываем свежее сообщение
-			ASSERT_EQ(hpke::open(suite, mode, own, viewed(fresh), viewed(info), shared, point, viewed(aad), viewed(sealed), opened), hpke::error_t::NONE) << named(vector);
+			ASSERT_EQ(hpke::open(suite, mode, own, __nts_viewed__(fresh), __nts_viewed__(info), shared, point, __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::NONE) << __nts_named__(vector);
 			// Проверяем открытый текст
-			ASSERT_EQ(text(opened.data(), opened.size()), encryption.pt) << named(vector);
+			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.pt) << __nts_named__(vector);
 		}
 		// Первый экспорт вектора
 		const vectors::export_t & exported = vector.exports[1];
@@ -559,21 +559,21 @@ TEST(HpkeTest, Single){
 		// Накопитель секрета
 		std::vector <uint8_t> secret;
 		// Вырабатываем секрет получателем одним шагом
-		ASSERT_EQ(hpke::receive(suite, mode, own, viewed(enc), viewed(info), shared, point, viewed(context), exported.size, secret), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(hpke::receive(suite, mode, own, __nts_viewed__(enc), __nts_viewed__(info), shared, point, __nts_viewed__(context), exported.size, secret), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем секрет байт в байт
-		ASSERT_EQ(text(secret.data(), secret.size()), exported.value) << named(vector);
+		ASSERT_EQ(__nts_text__(secret.data(), secret.size()), exported.value) << __nts_named__(vector);
 		// Накопители отправителя
 		std::vector <uint8_t> fresh, first, second;
 		// Вырабатываем секрет отправителем одним шагом
-		ASSERT_EQ(hpke::dispatch(suite, mode, own.point(), viewed(info), shared, signer, viewed(context), exported.size, fresh, first), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(hpke::dispatch(suite, mode, own.point(), __nts_viewed__(info), shared, signer, __nts_viewed__(context), exported.size, fresh, first), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем длину секрета
 		ASSERT_EQ(first.size(), exported.size);
 		// Вырабатываем тот же секрет получателем
-		ASSERT_EQ(hpke::receive(suite, mode, own, viewed(fresh), viewed(info), shared, point, viewed(context), exported.size, second), hpke::error_t::NONE) << named(vector);
+		ASSERT_EQ(hpke::receive(suite, mode, own, __nts_viewed__(fresh), __nts_viewed__(info), shared, point, __nts_viewed__(context), exported.size, second), hpke::error_t::NONE) << __nts_named__(vector);
 		// Проверяем совпадение секретов
-		ASSERT_EQ(first, second) << named(vector);
+		ASSERT_EQ(first, second) << __nts_named__(vector);
 		// Проверяем, что свежий секрет отличен от секрета вектора
-		ASSERT_NE(text(first.data(), first.size()), exported.value);
+		ASSERT_NE(__nts_text__(first.data(), first.size()), exported.value);
 	}
 }
 
@@ -587,22 +587,22 @@ TEST(HpkeTest, Roundtrip){
 	// Длинное сообщение в три блока с хвостом
 	std::vector <uint8_t> lengthy(1000);
 	/**
-	 * Выполняем заполнение длинного сообщения
+	 * Заполняем длинное сообщение
 	 */
 	for(size_t i = 0; i < lengthy.size(); i++)
 		// Записываем байт
 		lengthy[i] = static_cast <uint8_t> (i * 7);
 	/**
-	 * Выполняем обход наборов
+	 * Обходим наборы
 	 */
 	for(size_t i = 0; i < (sizeof(SUITES) / sizeof(hpke::suite_t)); i++){
 		/**
-		 * Выполняем обход режимов
+		 * Обходим режимы
 		 */
 		for(size_t j = 0; j < (sizeof(MODES) / sizeof(hpke::regime_t)); j++){
 			// Набор и режим
 			const hpke::suite_t & suite = SUITES[i];
-			// Режим
+			// Режим установки
 			const hpke::regime_t mode = MODES[j];
 			// Признаки режима
 			const bool preshared = ((mode == hpke::regime_t::PSK) || (mode == hpke::regime_t::AUTH_PSK));
@@ -615,21 +615,21 @@ TEST(HpkeTest, Roundtrip){
 			// Вырабатываем пару отправителя
 			ASSERT_EQ(authenticator.generate(hpke::kem_t::X25519_HKDF_SHA256), hpke::error_t::NONE);
 			// Заранее разделённый ключ по режиму
-			const hpke::shared_t shared(preshared ? viewed(psk) : view_t(), preshared ? viewed(identity) : view_t());
+			const hpke::shared_t shared(preshared ? __nts_viewed__(psk) : view_t(), preshared ? __nts_viewed__(identity) : view_t());
 			// Инкапсулированный ключ
 			uint8_t enc[hpke::X25519_SIZE];
 			// Состояния сторон
 			hpke::context_t sending, receiving;
 			// Устанавливаем состояние отправителя
-			ASSERT_EQ(hpke::sender(suite, mode, own.point(), viewed(info), shared, (authenticated ? &authenticator : nullptr), enc, sending), hpke::error_t::NONE) << "набор " << i << " режим " << j;
+			ASSERT_EQ(hpke::sender(suite, mode, own.point(), __nts_viewed__(info), shared, (authenticated ? &authenticator : nullptr), enc, sending), hpke::error_t::NONE) << "набор " << i << " режим " << j;
 			// Устанавливаем состояние получателя
-			ASSERT_EQ(hpke::recipient(suite, mode, own, view_t(enc, sizeof(enc)), viewed(info), shared, (authenticated ? authenticator.point() : view_t()), receiving), hpke::error_t::NONE) << "набор " << i << " режим " << j;
+			ASSERT_EQ(hpke::recipient(suite, mode, own, view_t(enc, sizeof(enc)), __nts_viewed__(info), shared, (authenticated ? authenticator.point() : view_t()), receiving), hpke::error_t::NONE) << "набор " << i << " режим " << j;
 			// Секреты экспорта
 			uint8_t first[64], second[64];
 			// Вырабатываем секрет у отправителя
-			ASSERT_EQ(sending.exporter(viewed(info), first, sizeof(first)), hpke::error_t::NONE);
+			ASSERT_EQ(sending.exporter(__nts_viewed__(info), first, sizeof(first)), hpke::error_t::NONE);
 			// Вырабатываем секрет у получателя
-			ASSERT_EQ(receiving.exporter(viewed(info), second, sizeof(second)), hpke::error_t::NONE);
+			ASSERT_EQ(receiving.exporter(__nts_viewed__(info), second, sizeof(second)), hpke::error_t::NONE);
 			// Проверяем совпадение секретов
 			ASSERT_EQ(::memcmp(first, second, sizeof(first)), 0) << "набор " << i << " режим " << j;
 			// Вырабатываем секрет с пустой привязкой
@@ -638,26 +638,26 @@ TEST(HpkeTest, Roundtrip){
 			ASSERT_NE(::memcmp(first, second, sizeof(first)), 0);
 			// Если набор только для экспорта
 			if(suite.aead == hpke::aead_t::EXPORT_ONLY){
-				// Накопитель
+				// Накопитель зашифрованного
 				std::vector <uint8_t> sealed;
 				// Проверяем отказ зашифрования
-				ASSERT_EQ(sending.seal(view_t(), viewed(plain), sealed), hpke::error_t::AEAD);
+				ASSERT_EQ(sending.seal(view_t(), __nts_viewed__(plain), sealed), hpke::error_t::AEAD);
 				// Проверяем отказ расшифрования
-				ASSERT_EQ(receiving.open(view_t(), viewed(plain), sealed), hpke::error_t::AEAD);
+				ASSERT_EQ(receiving.open(view_t(), __nts_viewed__(plain), sealed), hpke::error_t::AEAD);
 				// Переходим к следующему режиму
 				continue;
 			}
 			// Сообщения для переписки: обычное, пустое, длинное, обычное без связанных данных
 			const std::vector <uint8_t> * messages[] = {&plain, nullptr, &lengthy, &plain};
 			/**
-			 * Выполняем переписку
+			 * Обмениваемся зашифрованными сообщениями
 			 */
 			for(size_t k = 0; k < 4; k++){
 				// Открытый текст
-				const view_t source = ((messages[k] != nullptr) ? viewed(*messages[k]) : view_t());
+				const view_t source = ((messages[k] != nullptr) ? __nts_viewed__(*messages[k]) : view_t());
 				// Связанные данные
-				const view_t associated = ((k == 3) ? view_t() : viewed(info));
-				// Накопители
+				const view_t associated = ((k == 3) ? view_t() : __nts_viewed__(info));
+				// Накопители зашифровки и расшифровки
 				std::vector <uint8_t> sealed, opened;
 				// Проверяем порядковый номер
 				ASSERT_EQ(sending.sequence(), static_cast <uint64_t> (k));
@@ -666,7 +666,7 @@ TEST(HpkeTest, Roundtrip){
 				// Проверяем длину шифртекста
 				ASSERT_EQ(sealed.size(), source.size + hpke::TAG_SIZE);
 				// Расшифровываем сообщение
-				ASSERT_EQ(receiving.open(associated, viewed(sealed), opened), hpke::error_t::NONE) << "набор " << i << " режим " << j << " сообщение " << k;
+				ASSERT_EQ(receiving.open(associated, __nts_viewed__(sealed), opened), hpke::error_t::NONE) << "набор " << i << " режим " << j << " сообщение " << k;
 				// Проверяем открытый текст
 				ASSERT_EQ(opened.size(), source.size);
 				// Проверяем совпадение байтов
@@ -686,7 +686,7 @@ TEST(HpkeTest, Refusals){
 	// Базовый вектор A.1.1 RFC 9180
 	const vectors::vector_t & vector = vectors::VECTORS[FIRST];
 	// Набор вектора
-	const hpke::suite_t suite = suited(vector);
+	const hpke::suite_t suite = __nts_suited__(vector);
 	// Проверяем, что вектор базовый
 	ASSERT_EQ(vector.mode, 0);
 	// Материал и данные
@@ -698,52 +698,52 @@ TEST(HpkeTest, Refusals){
 	// Пары ключей
 	hpke::key_t ephemeral, own, foreign, blank;
 	// Вырабатываем мимолётную пару
-	ASSERT_EQ(ephemeral.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmE)), hpke::error_t::NONE);
+	ASSERT_EQ(ephemeral.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmE)), hpke::error_t::NONE);
 	// Вырабатываем пару получателя
-	ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmR)), hpke::error_t::NONE);
+	ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmR)), hpke::error_t::NONE);
 	// Вырабатываем чужую пару
 	ASSERT_EQ(foreign.generate(hpke::kem_t::X25519_HKDF_SHA256), hpke::error_t::NONE);
 	{
-		// Накопитель
+		// Накопитель расшифрованного
 		std::vector <uint8_t> opened;
 		// Проверяем отказ чужого ключа получателя: общее значение иное, подлинность не сходится
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, foreign, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, foreign, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::OPEN);
 		// Проверяем пустой накопитель
 		ASSERT_TRUE(opened.empty());
 		// Проверяем отказ чужой привязки
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(aad), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(aad), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::OPEN);
 		// Проверяем отказ чужих связанных данных
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(info), viewed(ct), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(info), __nts_viewed__(ct), opened), hpke::error_t::OPEN);
 		// Проверяем отказ чужого инкапсулированного ключа
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, foreign.point(), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, foreign.point(), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::OPEN);
 		// Проверяем отказ чужого режима: ключ подан, режим базовый
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(viewed(psk), viewed(identity)), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::PSK);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(__nts_viewed__(psk), __nts_viewed__(identity)), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::PSK);
 		// Проверяем отказ режима PSK без ключа
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::PSK);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::PSK);
 		// Проверяем отказ ключа без опознавателя
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(enc), viewed(info), hpke::shared_t(viewed(psk), view_t()), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::PSK);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(__nts_viewed__(psk), view_t()), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::PSK);
 		// Проверяем отказ опознавателя без ключа
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(enc), viewed(info), hpke::shared_t(view_t(), viewed(identity)), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::PSK);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(view_t(), __nts_viewed__(identity)), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::PSK);
 		// Проверяем отказ режима AUTH без ключа отправителя
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::AUTH, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::AUTH, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::KEY);
 		// Проверяем отказ базового режима с ключом отправителя
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), foreign.point(), viewed(aad), viewed(ct), opened), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), foreign.point(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::KEY);
 		// Проверяем отказ неизвестного режима
-		ASSERT_EQ(hpke::open(suite, static_cast <hpke::regime_t> (0x04), own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::MODE);
+		ASSERT_EQ(hpke::open(suite, static_cast <hpke::regime_t> (0x04), own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::MODE);
 		// Проверяем отказ неготовой пары
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, blank, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, blank, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::KEY);
 		// Проверяем отказ чужого набора
-		ASSERT_EQ(hpke::open(hpke::suite_t(), hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::SUITE);
+		ASSERT_EQ(hpke::open(hpke::suite_t(), hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::SUITE);
 		// Проверяем отказ инкапсулированного ключа неверной длины
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, view_t(enc.data(), 31), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::ENCAPSULATION);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, view_t(enc.data(), 31), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::ENCAPSULATION);
 		// Проверяем отказ шифртекста короче метки
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), view_t(ct.data(), 15), opened), hpke::error_t::ARGUMENT);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), view_t(ct.data(), 15), opened), hpke::error_t::ARGUMENT);
 		// Проверяем отказ усечённого шифртекста
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), view_t(ct.data(), ct.size() - 1), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), view_t(ct.data(), ct.size() - 1), opened), hpke::error_t::OPEN);
 		// Проверяем расшифрование одной лишь метки: пустой текст не сходится
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), view_t(ct.data(), 16), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), view_t(ct.data(), 16), opened), hpke::error_t::OPEN);
 		/**
-		 * Выполняем порчу каждого байта шифртекста
+		 * Портим каждый байт шифртекста
 		 */
 		for(size_t i = 0; i < ct.size(); i++){
 			// Порченый шифртекст
@@ -751,42 +751,42 @@ TEST(HpkeTest, Refusals){
 			// Портим байт
 			corrupted[i] ^= 0x01;
 			// Проверяем отказ подлинности
-			ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(corrupted), opened), hpke::error_t::OPEN) << "байт " << i;
+			ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(corrupted), opened), hpke::error_t::OPEN) << "байт " << i;
 			// Проверяем пустой накопитель
 			ASSERT_TRUE(opened.empty());
 		}
 		// Проверяем, что нетронутый шифртекст сходится
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(ct), opened), hpke::error_t::NONE);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::NONE);
 		// Проверяем открытый текст
 		ASSERT_EQ(opened, pt);
 	}
 	{
-		// Накопители
+		// Накопители вывода зашифрования
 		std::vector <uint8_t> fresh, sealed;
 		// Проверяем отказ чужого набора у отправителя
-		ASSERT_EQ(hpke::seal(hpke::suite_t(), hpke::regime_t::BASE, own.point(), viewed(info), hpke::shared_t(), nullptr, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::SUITE);
+		ASSERT_EQ(hpke::seal(hpke::suite_t(), hpke::regime_t::BASE, own.point(), __nts_viewed__(info), hpke::shared_t(), nullptr, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::SUITE);
 		// Проверяем отказ неизвестного режима у отправителя
-		ASSERT_EQ(hpke::seal(suite, static_cast <hpke::regime_t> (0xFF), own.point(), viewed(info), hpke::shared_t(), nullptr, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::MODE);
+		ASSERT_EQ(hpke::seal(suite, static_cast <hpke::regime_t> (0xFF), own.point(), __nts_viewed__(info), hpke::shared_t(), nullptr, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::MODE);
 		// Проверяем отказ режима AUTH без пары отправителя
-		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::AUTH, own.point(), viewed(info), hpke::shared_t(), nullptr, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::AUTH, own.point(), __nts_viewed__(info), hpke::shared_t(), nullptr, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::KEY);
 		// Проверяем отказ базового режима с парой отправителя
-		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::BASE, own.point(), viewed(info), hpke::shared_t(), &foreign, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::BASE, own.point(), __nts_viewed__(info), hpke::shared_t(), &foreign, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::KEY);
 		// Проверяем отказ неготовой пары отправителя
-		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::AUTH, own.point(), viewed(info), hpke::shared_t(), &blank, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::AUTH, own.point(), __nts_viewed__(info), hpke::shared_t(), &blank, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::KEY);
 		// Проверяем отказ ключа получателя неверной длины
-		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::BASE, view_t(own.point().data, 16), viewed(info), hpke::shared_t(), nullptr, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::BASE, view_t(own.point().data, 16), __nts_viewed__(info), hpke::shared_t(), nullptr, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::KEY);
 		// Проверяем отказ ключа без режима у отправителя
-		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::BASE, own.point(), viewed(info), hpke::shared_t(viewed(psk), viewed(identity)), nullptr, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::PSK);
+		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::BASE, own.point(), __nts_viewed__(info), hpke::shared_t(__nts_viewed__(psk), __nts_viewed__(identity)), nullptr, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::PSK);
 		// Проверяем пустые накопители после отказа
 		ASSERT_TRUE(fresh.empty() && sealed.empty());
 		// Инкапсулированный ключ
 		uint8_t place[hpke::X25519_SIZE];
-		// Состояние
+		// Состояние отправителя
 		hpke::context_t context;
 		// Проверяем отказ без места под инкапсулированный ключ
-		ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), viewed(info), hpke::shared_t(), nullptr, ephemeral, nullptr, context), hpke::error_t::ARGUMENT);
+		ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), __nts_viewed__(info), hpke::shared_t(), nullptr, ephemeral, nullptr, context), hpke::error_t::ARGUMENT);
 		// Проверяем отказ неготовой мимолётной пары
-		ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), viewed(info), hpke::shared_t(), nullptr, blank, place, context), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), __nts_viewed__(info), hpke::shared_t(), nullptr, blank, place, context), hpke::error_t::KEY);
 		// Проверяем отказ привязки длиной без места
 		ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), view_t(nullptr, 5), hpke::shared_t(), nullptr, ephemeral, place, context), hpke::error_t::ARGUMENT);
 		// Проверяем неготовность состояния после отказов
@@ -795,36 +795,36 @@ TEST(HpkeTest, Refusals){
 	{
 		// Инкапсулированный ключ
 		uint8_t place[hpke::X25519_SIZE];
-		// Состояния
+		// Состояния отправителя, получателя и бездействия
 		hpke::context_t sending, receiving, idle;
 		// Место под итог
 		uint8_t room[64];
 		// Проверяем отказы неустановленного состояния
-		ASSERT_EQ(idle.seal(view_t(), viewed(pt), room), hpke::error_t::READY);
+		ASSERT_EQ(idle.seal(view_t(), __nts_viewed__(pt), room), hpke::error_t::READY);
 		// Проверяем расшифрование
-		ASSERT_EQ(idle.open(view_t(), viewed(ct), room), hpke::error_t::READY);
+		ASSERT_EQ(idle.open(view_t(), __nts_viewed__(ct), room), hpke::error_t::READY);
 		// Проверяем экспорт
 		ASSERT_EQ(idle.exporter(view_t(), room, 32), hpke::error_t::READY);
 		// Проверяем установку номера
 		ASSERT_EQ(idle.sequence(1), hpke::error_t::READY);
 		// Устанавливаем состояние отправителя
-		ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), viewed(info), hpke::shared_t(), nullptr, ephemeral, place, sending), hpke::error_t::NONE);
+		ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), __nts_viewed__(info), hpke::shared_t(), nullptr, ephemeral, place, sending), hpke::error_t::NONE);
 		// Устанавливаем состояние получателя
-		ASSERT_EQ(hpke::recipient(suite, hpke::regime_t::BASE, own, view_t(place, sizeof(place)), viewed(info), hpke::shared_t(), view_t(), receiving), hpke::error_t::NONE);
+		ASSERT_EQ(hpke::recipient(suite, hpke::regime_t::BASE, own, view_t(place, sizeof(place)), __nts_viewed__(info), hpke::shared_t(), view_t(), receiving), hpke::error_t::NONE);
 		// Проверяем отказ расшифрования у отправителя
-		ASSERT_EQ(sending.open(viewed(aad), viewed(ct), room), hpke::error_t::AEAD);
+		ASSERT_EQ(sending.open(__nts_viewed__(aad), __nts_viewed__(ct), room), hpke::error_t::AEAD);
 		// Проверяем отказ зашифрования у получателя
-		ASSERT_EQ(receiving.seal(viewed(aad), viewed(pt), room), hpke::error_t::AEAD);
+		ASSERT_EQ(receiving.seal(__nts_viewed__(aad), __nts_viewed__(pt), room), hpke::error_t::AEAD);
 		// Проверяем отказ без места под шифртекст
-		ASSERT_EQ(sending.seal(viewed(aad), viewed(pt), static_cast <uint8_t *> (nullptr)), hpke::error_t::ARGUMENT);
+		ASSERT_EQ(sending.seal(__nts_viewed__(aad), __nts_viewed__(pt), static_cast <uint8_t *> (nullptr)), hpke::error_t::ARGUMENT);
 		// Проверяем отказ текста длиной без места
-		ASSERT_EQ(sending.seal(viewed(aad), view_t(nullptr, 3), room), hpke::error_t::ARGUMENT);
+		ASSERT_EQ(sending.seal(__nts_viewed__(aad), view_t(nullptr, 3), room), hpke::error_t::ARGUMENT);
 		// Проверяем отказ связанных данных длиной без места
-		ASSERT_EQ(sending.seal(view_t(nullptr, 3), viewed(pt), room), hpke::error_t::ARGUMENT);
+		ASSERT_EQ(sending.seal(view_t(nullptr, 3), __nts_viewed__(pt), room), hpke::error_t::ARGUMENT);
 		// Проверяем отказ без места под открытый текст
-		ASSERT_EQ(receiving.open(viewed(aad), viewed(ct), static_cast <uint8_t *> (nullptr)), hpke::error_t::ARGUMENT);
+		ASSERT_EQ(receiving.open(__nts_viewed__(aad), __nts_viewed__(ct), static_cast <uint8_t *> (nullptr)), hpke::error_t::ARGUMENT);
 		// Проверяем отказ пустого шифртекста
-		ASSERT_EQ(receiving.open(viewed(aad), view_t(), room), hpke::error_t::ARGUMENT);
+		ASSERT_EQ(receiving.open(__nts_viewed__(aad), view_t(), room), hpke::error_t::ARGUMENT);
 		// Проверяем отказ нулевой длины экспорта
 		ASSERT_EQ(sending.exporter(view_t(), room, 0), hpke::error_t::LENGTH);
 		// Проверяем отказ чрезмерной длины экспорта: раздел 5.3 RFC 9180
@@ -844,15 +844,15 @@ TEST(HpkeTest, Refusals){
 		// Переставляем порядковый номер отправителя на предел
 		ASSERT_EQ(sending.sequence(UINT64_MAX), hpke::error_t::NONE);
 		// Проверяем отказ исчерпанных номеров
-		ASSERT_EQ(sending.seal(viewed(aad), viewed(pt), room), hpke::error_t::SEQUENCE);
+		ASSERT_EQ(sending.seal(__nts_viewed__(aad), __nts_viewed__(pt), room), hpke::error_t::SEQUENCE);
 		// Переставляем номер получателя на предел
 		ASSERT_EQ(receiving.sequence(UINT64_MAX), hpke::error_t::NONE);
 		// Проверяем отказ исчерпанных номеров у получателя
-		ASSERT_EQ(receiving.open(viewed(aad), viewed(ct), room), hpke::error_t::SEQUENCE);
+		ASSERT_EQ(receiving.open(__nts_viewed__(aad), __nts_viewed__(ct), room), hpke::error_t::SEQUENCE);
 		// Переставляем номер отправителя на предпоследний
 		ASSERT_EQ(sending.sequence(UINT64_MAX - 1), hpke::error_t::NONE);
 		// Проверяем, что предпоследний номер ещё годен
-		ASSERT_EQ(sending.seal(viewed(aad), viewed(pt), room), hpke::error_t::NONE);
+		ASSERT_EQ(sending.seal(__nts_viewed__(aad), __nts_viewed__(pt), room), hpke::error_t::NONE);
 		// Проверяем, что номер дошёл до предела
 		ASSERT_EQ(sending.sequence(), UINT64_MAX);
 		// Переставляем номер получателя на предпоследний
@@ -860,7 +860,7 @@ TEST(HpkeTest, Refusals){
 		// Открытый текст
 		uint8_t opened[64];
 		// Расшифровываем сообщение с предпоследним номером
-		ASSERT_EQ(receiving.open(viewed(aad), view_t(room, pt.size() + hpke::TAG_SIZE), opened), hpke::error_t::NONE);
+		ASSERT_EQ(receiving.open(__nts_viewed__(aad), view_t(room, pt.size() + hpke::TAG_SIZE), opened), hpke::error_t::NONE);
 		// Проверяем открытый текст
 		ASSERT_EQ(::memcmp(opened, pt.data(), pt.size()), 0);
 		// Возвращаем номера к началу
@@ -868,9 +868,9 @@ TEST(HpkeTest, Refusals){
 		// Возвращаем номер получателя на единицу вперёд: рассинхрон
 		ASSERT_EQ(receiving.sequence(1), hpke::error_t::NONE);
 		// Зашифровываем сообщение с нулевым номером
-		ASSERT_EQ(sending.seal(viewed(aad), viewed(pt), room), hpke::error_t::NONE);
+		ASSERT_EQ(sending.seal(__nts_viewed__(aad), __nts_viewed__(pt), room), hpke::error_t::NONE);
 		// Проверяем отказ расшифрования с чужим номером
-		ASSERT_EQ(receiving.open(viewed(aad), view_t(room, pt.size() + hpke::TAG_SIZE), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(receiving.open(__nts_viewed__(aad), view_t(room, pt.size() + hpke::TAG_SIZE), opened), hpke::error_t::OPEN);
 		// Проверяем, что отказ номер не сдвинул
 		ASSERT_EQ(receiving.sequence(), 1u);
 		// Проверяем, что место под открытый текст стёрто
@@ -878,13 +878,13 @@ TEST(HpkeTest, Refusals){
 		// Возвращаем номер получателя
 		ASSERT_EQ(receiving.sequence(0), hpke::error_t::NONE);
 		// Проверяем расшифрование
-		ASSERT_EQ(receiving.open(viewed(aad), view_t(room, pt.size() + hpke::TAG_SIZE), opened), hpke::error_t::NONE);
+		ASSERT_EQ(receiving.open(__nts_viewed__(aad), view_t(room, pt.size() + hpke::TAG_SIZE), opened), hpke::error_t::NONE);
 		// Стираем состояние
 		sending.clear();
 		// Проверяем неготовность
 		ASSERT_FALSE(sending.ready());
 		// Проверяем отказ после стирания
-		ASSERT_EQ(sending.seal(viewed(aad), viewed(pt), room), hpke::error_t::READY);
+		ASSERT_EQ(sending.seal(__nts_viewed__(aad), __nts_viewed__(pt), room), hpke::error_t::READY);
 		// Проверяем сброс набора
 		ASSERT_EQ(sending.suite().aead, hpke::aead_t::NONE);
 	}
@@ -893,40 +893,40 @@ TEST(HpkeTest, Refusals){
 		hpke::key_t authenticator;
 		// Вырабатываем пару отправителя
 		ASSERT_EQ(authenticator.generate(hpke::kem_t::X25519_HKDF_SHA256), hpke::error_t::NONE);
-		// Накопители
+		// Накопители обмена с подлинностью
 		std::vector <uint8_t> fresh, sealed, opened;
 		// Зашифровываем с подлинностью отправителя
-		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::AUTH, own.point(), viewed(info), hpke::shared_t(), &authenticator, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::NONE);
+		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::AUTH, own.point(), __nts_viewed__(info), hpke::shared_t(), &authenticator, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::NONE);
 		// Проверяем отказ чужого ключа отправителя у получателя
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::AUTH, own, viewed(fresh), viewed(info), hpke::shared_t(), foreign.point(), viewed(aad), viewed(sealed), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::AUTH, own, __nts_viewed__(fresh), __nts_viewed__(info), hpke::shared_t(), foreign.point(), __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::OPEN);
 		// Проверяем расшифрование с верным ключом отправителя
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::AUTH, own, viewed(fresh), viewed(info), hpke::shared_t(), authenticator.point(), viewed(aad), viewed(sealed), opened), hpke::error_t::NONE);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::AUTH, own, __nts_viewed__(fresh), __nts_viewed__(info), hpke::shared_t(), authenticator.point(), __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::NONE);
 		// Зашифровываем с заранее разделённым ключом
-		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::PSK, own.point(), viewed(info), hpke::shared_t(viewed(psk), viewed(identity)), nullptr, viewed(aad), viewed(pt), fresh, sealed), hpke::error_t::NONE);
+		ASSERT_EQ(hpke::seal(suite, hpke::regime_t::PSK, own.point(), __nts_viewed__(info), hpke::shared_t(__nts_viewed__(psk), __nts_viewed__(identity)), nullptr, __nts_viewed__(aad), __nts_viewed__(pt), fresh, sealed), hpke::error_t::NONE);
 		// Чужой ключ той же длины (короче 32 байтов ключ отвергается до расшифрования - круг 7)
 		std::vector <uint8_t> wrong = psk;
 		// Портим первый байт ключа: тот же размер, иное значение
 		wrong[0] ^= 0x01;
 		// Проверяем отказ чужого ключа
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(wrong), viewed(identity)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, __nts_viewed__(fresh), __nts_viewed__(info), hpke::shared_t(__nts_viewed__(wrong), __nts_viewed__(identity)), view_t(), __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::OPEN);
 		// Проверяем отказ короткого ключа (RFC 9180 §9.5)
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(identity), viewed(identity)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::PSK);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, __nts_viewed__(fresh), __nts_viewed__(info), hpke::shared_t(__nts_viewed__(identity), __nts_viewed__(identity)), view_t(), __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::PSK);
 		// Проверяем отказ чужого опознавателя
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(psk), viewed(psk)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, __nts_viewed__(fresh), __nts_viewed__(info), hpke::shared_t(__nts_viewed__(psk), __nts_viewed__(psk)), view_t(), __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::OPEN);
 		// Проверяем отказ чужого режима с тем же ключом: режим входит в расписание
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, viewed(fresh), viewed(info), hpke::shared_t(), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::OPEN);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::BASE, own, __nts_viewed__(fresh), __nts_viewed__(info), hpke::shared_t(), view_t(), __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::OPEN);
 		// Проверяем расшифрование с верным ключом
-		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), hpke::shared_t(viewed(psk), viewed(identity)), view_t(), viewed(aad), viewed(sealed), opened), hpke::error_t::NONE);
+		ASSERT_EQ(hpke::open(suite, hpke::regime_t::PSK, own, __nts_viewed__(fresh), __nts_viewed__(info), hpke::shared_t(__nts_viewed__(psk), __nts_viewed__(identity)), view_t(), __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::NONE);
 		// Проверяем открытый текст
 		ASSERT_EQ(opened, pt);
 		// Проверяем отказ экспорта чрезмерной длины у обёрток
-		ASSERT_EQ(hpke::dispatch(suite, hpke::regime_t::BASE, own.point(), viewed(info), hpke::shared_t(), nullptr, view_t(), (255 * 32) + 1, fresh, opened), hpke::error_t::LENGTH);
+		ASSERT_EQ(hpke::dispatch(suite, hpke::regime_t::BASE, own.point(), __nts_viewed__(info), hpke::shared_t(), nullptr, view_t(), (255 * 32) + 1, fresh, opened), hpke::error_t::LENGTH);
 		// Проверяем пустые накопители
 		ASSERT_TRUE(fresh.empty() && opened.empty());
 		// Проверяем отказ нулевой длины у получателя
-		ASSERT_EQ(hpke::receive(suite, hpke::regime_t::BASE, own, viewed(enc), viewed(info), hpke::shared_t(), view_t(), view_t(), 0, opened), hpke::error_t::LENGTH);
+		ASSERT_EQ(hpke::receive(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), view_t(), 0, opened), hpke::error_t::LENGTH);
 		// Проверяем отказ чужой пары у получателя экспорта
-		ASSERT_EQ(hpke::receive(suite, hpke::regime_t::BASE, blank, viewed(enc), viewed(info), hpke::shared_t(), view_t(), view_t(), 32, opened), hpke::error_t::KEY);
+		ASSERT_EQ(hpke::receive(suite, hpke::regime_t::BASE, blank, __nts_viewed__(enc), __nts_viewed__(info), hpke::shared_t(), view_t(), view_t(), 32, opened), hpke::error_t::KEY);
 	}
 }
 
@@ -940,34 +940,34 @@ TEST(HpkeTest, Distinct){
 	// Пары ключей
 	hpke::key_t ephemeral, own;
 	// Вырабатываем мимолётную пару
-	ASSERT_EQ(ephemeral.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmE)), hpke::error_t::NONE);
+	ASSERT_EQ(ephemeral.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmE)), hpke::error_t::NONE);
 	// Вырабатываем пару получателя
-	ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmR)), hpke::error_t::NONE);
+	ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmR)), hpke::error_t::NONE);
 	// Секреты экспорта по наборам
 	std::vector <std::string> secrets;
 	/**
-	 * Выполняем обход наборов
+	 * Обходим наборы
 	 */
 	for(size_t i = 0; i < (sizeof(SUITES) / sizeof(hpke::suite_t)); i++){
 		// Инкапсулированный ключ
 		uint8_t enc[hpke::X25519_SIZE];
-		// Состояние
+		// Состояние отправителя
 		hpke::context_t context;
 		// Устанавливаем состояние отправителя на одной и той же мимолётной паре
-		ASSERT_EQ(hpke::sender(SUITES[i], hpke::regime_t::BASE, own.point(), viewed(info), hpke::shared_t(), nullptr, ephemeral, enc, context), hpke::error_t::NONE) << "набор " << i;
+		ASSERT_EQ(hpke::sender(SUITES[i], hpke::regime_t::BASE, own.point(), __nts_viewed__(info), hpke::shared_t(), nullptr, ephemeral, enc, context), hpke::error_t::NONE) << "набор " << i;
 		// Секрет экспорта
 		uint8_t secret[32];
 		// Вырабатываем секрет
 		ASSERT_EQ(context.exporter(view_t(), secret, sizeof(secret)), hpke::error_t::NONE);
 		// Запоминаем секрет
-		secrets.push_back(text(secret, sizeof(secret)));
+		secrets.push_back(__nts_text__(secret, sizeof(secret)));
 	}
 	/**
-	 * Выполняем сличение секретов попарно
+	 * Сличаем секреты попарно
 	 */
 	for(size_t i = 0; i < secrets.size(); i++){
 		/**
-		 * Выполняем обход остальных
+		 * Обходим остальные состояния
 		 */
 		for(size_t j = i + 1; j < secrets.size(); j++)
 			// Проверяем, что опознаватель набора входит в расписание
@@ -983,7 +983,7 @@ TEST(HpkeTest, Starved){
 	// Базовый вектор
 	const vectors::vector_t & vector = vectors::VECTORS[FIRST];
 	// Набор вектора
-	const hpke::suite_t suite = suited(vector);
+	const hpke::suite_t suite = __nts_suited__(vector);
 	// Материал и данные
 	const std::vector <uint8_t> ikmR = bytes(vector.ikmR), info = bytes(vector.info), psk = bytes(PSK), identity = bytes(PSK_ID);
 	// Длинный открытый текст: короткий не выделяет
@@ -991,16 +991,16 @@ TEST(HpkeTest, Starved){
 	// Пара получателя
 	hpke::key_t own;
 	// Вырабатываем пару получателя
-	ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, viewed(ikmR)), hpke::error_t::NONE);
+	ASSERT_EQ(own.derive(hpke::kem_t::X25519_HKDF_SHA256, __nts_viewed__(ikmR)), hpke::error_t::NONE);
 	// Заранее разделённый ключ
-	const hpke::shared_t shared(viewed(psk), viewed(identity));
+	const hpke::shared_t shared(__nts_viewed__(psk), __nts_viewed__(identity));
 	{
 		// Признак того, что нехватка памяти встретилась
 		bool starved = false;
 		// Признак того, что на щедром запасе всё удалось
 		bool complete = false;
 		/**
-		 * Выполняем перебор запасов выделений
+		 * Перебираем запасы выделений
 		 */
 		for(size_t budget = 0; (budget < 200) && !complete; budget++){
 			// Отказы шагов
@@ -1010,20 +1010,20 @@ TEST(HpkeTest, Starved){
 			{
 				// Ограничиваем запас выделений
 				starve::ration_t ration(budget);
-				// Накопители
+				// Накопители шагов обмена под пайком
 				std::vector <uint8_t> enc, sealed, opened, fresh, sent, received;
 				// Зашифровываем одним шагом
-				first = hpke::seal(suite, hpke::regime_t::PSK, own.point(), viewed(info), shared, nullptr, viewed(info), viewed(plain), enc, sealed);
+				first = hpke::seal(suite, hpke::regime_t::PSK, own.point(), __nts_viewed__(info), shared, nullptr, __nts_viewed__(info), __nts_viewed__(plain), enc, sealed);
 				// Если зашифрование удалось
 				if(first == hpke::error_t::NONE)
 					// Расшифровываем одним шагом
-					second = hpke::open(suite, hpke::regime_t::PSK, own, viewed(enc), viewed(info), shared, view_t(), viewed(info), viewed(sealed), opened);
+					second = hpke::open(suite, hpke::regime_t::PSK, own, __nts_viewed__(enc), __nts_viewed__(info), shared, view_t(), __nts_viewed__(info), __nts_viewed__(sealed), opened);
 				// Вырабатываем секрет отправителем
-				third = hpke::dispatch(suite, hpke::regime_t::PSK, own.point(), viewed(info), shared, nullptr, viewed(info), 100, fresh, sent);
+				third = hpke::dispatch(suite, hpke::regime_t::PSK, own.point(), __nts_viewed__(info), shared, nullptr, __nts_viewed__(info), 100, fresh, sent);
 				// Если выработка удалась
 				if(third == hpke::error_t::NONE)
 					// Вырабатываем секрет получателем
-					fourth = hpke::receive(suite, hpke::regime_t::PSK, own, viewed(fresh), viewed(info), shared, view_t(), viewed(info), 100, received);
+					fourth = hpke::receive(suite, hpke::regime_t::PSK, own, __nts_viewed__(fresh), __nts_viewed__(info), shared, view_t(), __nts_viewed__(info), 100, received);
 				// Запоминаем совпадение
 				matched = ((opened == plain) && (sent == received) && (sent.size() == 100));
 			}
@@ -1064,17 +1064,17 @@ TEST(HpkeTest, Starved){
 			// Вырабатываем пару из случайных байтов
 			first = key.generate(hpke::kem_t::X25519_HKDF_SHA256);
 			// Устанавливаем состояние отправителя со свежей мимолётной парой
-			second = hpke::sender(suite, hpke::regime_t::PSK, key.point(), viewed(info), shared, nullptr, enc, sending);
+			second = hpke::sender(suite, hpke::regime_t::PSK, key.point(), __nts_viewed__(info), shared, nullptr, enc, sending);
 			// Устанавливаем состояние получателя
-			third = hpke::recipient(suite, hpke::regime_t::PSK, key, view_t(enc, sizeof(enc)), viewed(info), shared, view_t(), receiving);
+			third = hpke::recipient(suite, hpke::regime_t::PSK, key, view_t(enc, sizeof(enc)), __nts_viewed__(info), shared, view_t(), receiving);
 			// Зашифровываем в место
-			fourth = sending.seal(viewed(info), viewed(plain), sealed.data());
+			fourth = sending.seal(__nts_viewed__(info), __nts_viewed__(plain), sealed.data());
 			// Расшифровываем в место
-			fifth = receiving.open(viewed(info), viewed(sealed), opened.data());
+			fifth = receiving.open(__nts_viewed__(info), __nts_viewed__(sealed), opened.data());
 			// Если расшифрование удалось
 			if(fifth == hpke::error_t::NONE)
 				// Вырабатываем секрет
-				fifth = receiving.exporter(viewed(info), secret, sizeof(secret));
+				fifth = receiving.exporter(__nts_viewed__(info), secret, sizeof(secret));
 		}
 		// Проверяем, что ключевой путь не выделяет память вовсе
 		ASSERT_EQ(first, hpke::error_t::NONE);
@@ -1127,7 +1127,7 @@ static void readpq(std::vector <vectorpq_t> & result){
 	// Строка набора
 	std::string line;
 	/**
-	 * Выполняем обход строк набора
+	 * Обходим строки набора
 	 */
 	while(std::getline(input, line)){
 		// Разборщик строки
@@ -1136,13 +1136,13 @@ static void readpq(std::vector <vectorpq_t> & result){
 		std::string kem, kdf, aead, ikmR, skRm, pkRm, ikmE, enc, shared, info, key, nonce, exporter, expCtx, expL, expVal, aad, pt, ct;
 		// Разбираем поля записи
 		fields >> kem >> kdf >> aead >> ikmR >> skRm >> pkRm >> ikmE >> enc >> shared >> info >> key >> nonce >> exporter >> expCtx >> expL >> expVal >> aad >> pt >> ct;
-		// Пример
+		// Пример контрольного корпуса
 		vectorpq_t item;
 		// Способ инкапсуляции
 		item.kem = static_cast <uint16_t> (std::stoul(kem, nullptr, 16));
 		// Функция выработки ключа
 		item.kdf = static_cast <uint16_t> (std::stoul(kdf, nullptr, 16));
-		// Шифр
+		// Шифр примера
 		item.aead = static_cast <uint16_t> (std::stoul(aead, nullptr, 16));
 		// Материал и ключи
 		item.ikmR = bytes(ikmR);
@@ -1191,15 +1191,15 @@ static void readpq(std::vector <vectorpq_t> & result){
 static bool ephemerate(const hpke::kem_t kem, const std::vector <uint8_t> & ikmE, hpke::key_t & ephemeral){
 	// Если способ чистый ML-KEM: зерно = ikmE ‖ ikmE, сообщение = первые 32 байта
 	if((kem == hpke::kem_t::MLKEM512) || (kem == hpke::kem_t::MLKEM768) || (kem == hpke::kem_t::MLKEM1024)){
-		// Зерно
+		// Зерно удвоенной длины
 		std::vector <uint8_t> seed(ikmE);
 		// Дополняем зерно
 		seed.insert(seed.end(), ikmE.begin(), ikmE.end());
 		// Заводим пару по зерну
-		return (ephemeral.set(kem, viewed(seed)) == hpke::error_t::NONE);
+		return (ephemeral.set(kem, __nts_viewed__(seed)) == hpke::error_t::NONE);
 	}
 	// Заводим пару из материала
-	return (ephemeral.derive(kem, viewed(ikmE)) == hpke::error_t::NONE);
+	return (ephemeral.derive(kem, __nts_viewed__(ikmE)) == hpke::error_t::NONE);
 }
 
 /**
@@ -1214,23 +1214,23 @@ TEST(HpkeTest, PostQuantum){
 	// Проверяем число примеров
 	ASSERT_EQ(items.size(), 13u);
 	/**
-	 * Выполняем обход примеров
+	 * Обходим примеры
 	 */
 	for(size_t i = 0; i < items.size(); i++){
-		// Пример
+		// Пример контрольного корпуса
 		const vectorpq_t & item = items[i];
 		// Способ инкапсуляции
 		const hpke::kem_t kem = static_cast <hpke::kem_t> (item.kem);
-		// Набор
+		// Набор примера
 		const hpke::suite_t suite(kem, static_cast <hpke::kdf_t> (item.kdf), static_cast <hpke::aead_t> (item.aead));
 		// Пара получателя
 		hpke::key_t own;
 		// Вырабатываем пару получателя из материала
-		ASSERT_EQ(own.derive(kem, viewed(item.ikmR)), hpke::error_t::NONE) << "пример " << i;
+		ASSERT_EQ(own.derive(kem, __nts_viewed__(item.ikmR)), hpke::error_t::NONE) << "пример " << i;
 		// Проверяем секретный ключ
-		ASSERT_EQ(text(own.secret().data, own.secret().size), text(item.skRm.data(), item.skRm.size())) << "пример " << i;
+		ASSERT_EQ(__nts_text__(own.secret().data, own.secret().size), __nts_text__(item.skRm.data(), item.skRm.size())) << "пример " << i;
 		// Проверяем открытый ключ
-		ASSERT_EQ(text(own.point().data, own.point().size), text(item.pkRm.data(), item.pkRm.size())) << "пример " << i;
+		ASSERT_EQ(__nts_text__(own.point().data, own.point().size), __nts_text__(item.pkRm.data(), item.pkRm.size())) << "пример " << i;
 		// Признак гибридного способа
 		const bool mixed = ((kem == hpke::kem_t::MLKEM768_P256) || (kem == hpke::kem_t::MLKEM1024_P384) || (kem == hpke::kem_t::MLKEM768_X25519));
 		// Если способ не гибридный: отправитель воспроизводится полностью
@@ -1244,55 +1244,55 @@ TEST(HpkeTest, PostQuantum){
 			// Инкапсулированный ключ
 			uint8_t enc[1665];
 			// Устанавливаем состояние отправителя
-			ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), viewed(item.info), hpke::shared_t(), nullptr, ephemeral, enc, sealer), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), __nts_viewed__(item.info), hpke::shared_t(), nullptr, ephemeral, enc, sealer), hpke::error_t::NONE) << "пример " << i;
 			// Проверяем инкапсулированный ключ
-			ASSERT_EQ(text(enc, hpke::overhead(kem)), text(item.enc.data(), item.enc.size())) << "пример " << i;
+			ASSERT_EQ(__nts_text__(enc, hpke::overhead(kem)), __nts_text__(item.enc.data(), item.enc.size())) << "пример " << i;
 			// Состояние получателя
 			hpke::context_t opener;
 			// Устанавливаем состояние получателя
-			ASSERT_EQ(hpke::recipient(suite, hpke::regime_t::BASE, own, viewed(enc, hpke::overhead(kem)), viewed(item.info), hpke::shared_t(), view_t(), opener), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(hpke::recipient(suite, hpke::regime_t::BASE, own, __nts_viewed__(enc, hpke::overhead(kem)), __nts_viewed__(item.info), hpke::shared_t(), view_t(), opener), hpke::error_t::NONE) << "пример " << i;
 			// Секрет экспорта отправителя
 			uint8_t outS[32];
 			// Вырабатываем секрет экспорта отправителем
-			ASSERT_EQ(sealer.exporter(viewed(item.exportContext), outS, sizeof(outS)), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(sealer.exporter(__nts_viewed__(item.exportContext), outS, sizeof(outS)), hpke::error_t::NONE) << "пример " << i;
 			// Секрет экспорта получателя
 			uint8_t outR[32];
 			// Вырабатываем секрет экспорта получателем
-			ASSERT_EQ(opener.exporter(viewed(item.exportContext), outR, sizeof(outR)), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(opener.exporter(__nts_viewed__(item.exportContext), outR, sizeof(outR)), hpke::error_t::NONE) << "пример " << i;
 			// Проверяем секрет экспорта
-			ASSERT_EQ(text(outS, sizeof(outS)), text(item.exportValue.data(), item.exportValue.size())) << "пример " << i;
+			ASSERT_EQ(__nts_text__(outS, sizeof(outS)), __nts_text__(item.exportValue.data(), item.exportValue.size())) << "пример " << i;
 			// Проверяем совпадение сторон
 			ASSERT_EQ(::memcmp(outS, outR, sizeof(outS)), 0) << "пример " << i;
-			// Шифртекст
+			// Буфер шифртекста с меткой
 			std::vector <uint8_t> ct(item.pt.size() + hpke::TAG_SIZE);
 			// Зашифровываем сообщение
-			ASSERT_EQ(sealer.seal(viewed(item.aad), viewed(item.pt), ct.data()), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(sealer.seal(__nts_viewed__(item.aad), __nts_viewed__(item.pt), ct.data()), hpke::error_t::NONE) << "пример " << i;
 			// Проверяем шифртекст
-			ASSERT_EQ(text(ct.data(), ct.size()), text(item.ct.data(), item.ct.size())) << "пример " << i;
+			ASSERT_EQ(__nts_text__(ct.data(), ct.size()), __nts_text__(item.ct.data(), item.ct.size())) << "пример " << i;
 			// Открытый текст
 			std::vector <uint8_t> back(item.pt.size());
 			// Расшифровываем сообщение
-			ASSERT_EQ(opener.open(viewed(item.aad), viewed(ct.data(), ct.size()), back.data()), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(opener.open(__nts_viewed__(item.aad), __nts_viewed__(ct.data(), ct.size()), back.data()), hpke::error_t::NONE) << "пример " << i;
 			// Проверяем открытый текст
-			ASSERT_EQ(text(back.data(), back.size()), text(item.pt.data(), item.pt.size())) << "пример " << i;
+			ASSERT_EQ(__nts_text__(back.data(), back.size()), __nts_text__(item.pt.data(), item.pt.size())) << "пример " << i;
 		// Если способ гибридный: отправитель не воспроизводится через зерно 32, сличаем recipient-сторону
 		} else {
 			// Общее значение
 			uint8_t shared[64];
 			// Декапсулируем ключ
-			ASSERT_EQ(hpke::decapsulate(own, viewed(item.enc), view_t(), shared), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(hpke::decapsulate(own, __nts_viewed__(item.enc), view_t(), shared), hpke::error_t::NONE) << "пример " << i;
 			// Проверяем общее значение
-			ASSERT_EQ(text(shared, 32), text(item.shared.data(), item.shared.size())) << "пример " << i;
+			ASSERT_EQ(__nts_text__(shared, 32), __nts_text__(item.shared.data(), item.shared.size())) << "пример " << i;
 			// Состояние получателя
 			hpke::context_t opener;
 			// Устанавливаем состояние получателя
-			ASSERT_EQ(hpke::recipient(suite, hpke::regime_t::BASE, own, viewed(item.enc), viewed(item.info), hpke::shared_t(), view_t(), opener), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(hpke::recipient(suite, hpke::regime_t::BASE, own, __nts_viewed__(item.enc), __nts_viewed__(item.info), hpke::shared_t(), view_t(), opener), hpke::error_t::NONE) << "пример " << i;
 			// Секрет экспорта получателя
 			uint8_t outR[32];
 			// Вырабатываем секрет экспорта получателем
-			ASSERT_EQ(opener.exporter(viewed(item.exportContext), outR, sizeof(outR)), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(opener.exporter(__nts_viewed__(item.exportContext), outR, sizeof(outR)), hpke::error_t::NONE) << "пример " << i;
 			// Проверяем секрет экспорта
-			ASSERT_EQ(text(outR, sizeof(outR)), text(item.exportValue.data(), item.exportValue.size())) << "пример " << i;
+			ASSERT_EQ(__nts_text__(outR, sizeof(outR)), __nts_text__(item.exportValue.data(), item.exportValue.size())) << "пример " << i;
 		}
 	}
 }
@@ -1310,10 +1310,10 @@ TEST(HpkeTest, Mechanisms){
 		hpke::kem_t::MLKEM768_P256, hpke::kem_t::MLKEM1024_P384, hpke::kem_t::MLKEM768_X25519
 	};
 	/**
-	 * Выполняем обход способов
+	 * Обходим способы
 	 */
 	for(size_t i = 0; i < 11; i++){
-		// Способ
+		// Способ инкапсуляции
 		const hpke::kem_t kem = kems[i];
 		// Пара получателя
 		hpke::key_t own;
@@ -1334,7 +1334,7 @@ TEST(HpkeTest, Mechanisms){
 		// Общее значение обратно
 		uint8_t back[64];
 		// Декапсулируем ключ
-		ASSERT_EQ(hpke::decapsulate(own, viewed(enc, hpke::overhead(kem)), view_t(), back), hpke::error_t::NONE) << "способ " << i;
+		ASSERT_EQ(hpke::decapsulate(own, __nts_viewed__(enc, hpke::overhead(kem)), view_t(), back), hpke::error_t::NONE) << "способ " << i;
 		// Длина общего значения
 		const size_t size = (((kem == hpke::kem_t::X448_HKDF_SHA512) || (kem == hpke::kem_t::P521_HKDF_SHA512)) ? 64 : 32);
 		// Проверяем совпадение общего значения
@@ -1354,7 +1354,7 @@ TEST(HpkeTest, Authenticated){
 	// Вырабатываем пары
 	ASSERT_EQ(own.generate(hpke::kem_t::MLKEM768), hpke::error_t::NONE);
 	ASSERT_EQ(authenticator.generate(hpke::kem_t::MLKEM768), hpke::error_t::NONE);
-	// Набор
+	// Набор аутентификации
 	const hpke::suite_t suite(hpke::kem_t::MLKEM768, hpke::kdf_t::HKDF_SHA256, hpke::aead_t::AES_128_GCM);
 	// Состояние отправителя
 	hpke::context_t sealer;
@@ -1365,11 +1365,11 @@ TEST(HpkeTest, Authenticated){
 	// Проверяем отказ режима AUTH_PSK у чистого ML-KEM
 	const std::vector <uint8_t> psk(32, 0x42), identity(4, 0x24);
 	// Режим AUTH_PSK у чистого ML-KEM также отвергается
-	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::AUTH_PSK, own.point(), view_t(), hpke::shared_t(viewed(psk), viewed(identity)), &authenticator, enc, sealer), hpke::error_t::MODE);
+	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::AUTH_PSK, own.point(), view_t(), hpke::shared_t(__nts_viewed__(psk), __nts_viewed__(identity)), &authenticator, enc, sealer), hpke::error_t::MODE);
 	// Проверяем допустимость режима BASE у чистого ML-KEM
 	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::BASE, own.point(), view_t(), hpke::shared_t(), nullptr, enc, sealer), hpke::error_t::NONE);
 	// Проверяем допустимость режима PSK у чистого ML-KEM
-	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::PSK, own.point(), view_t(), hpke::shared_t(viewed(psk), viewed(identity)), nullptr, enc, sealer), hpke::error_t::NONE);
+	ASSERT_EQ(hpke::sender(suite, hpke::regime_t::PSK, own.point(), view_t(), hpke::shared_t(__nts_viewed__(psk), __nts_viewed__(identity)), nullptr, enc, sealer), hpke::error_t::NONE);
 	// Проверяем признак подлинности у способов
 	ASSERT_TRUE(hpke::authenticated(hpke::kem_t::X25519_HKDF_SHA256));
 	ASSERT_TRUE(hpke::authenticated(hpke::kem_t::P256_HKDF_SHA256));

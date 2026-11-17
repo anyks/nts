@@ -303,7 +303,7 @@ static void build(asn1::writer_t & writer, const defect_t & defect) {
 	// Определяем число записываемых расширений основных ограничений
 	const size_t count = (defect.vacant ? 0 : (defect.duplicate ? 2 : 1));
 	/**
-	 * Выполняем запись расширений основных ограничений
+	 * Записываем расширения основных ограничений
 	 */
 	for(size_t i = 0; i < count; i++){
 		// Содержимое расширения основных ограничений
@@ -375,12 +375,12 @@ TEST(X509Test, Ragged) {
 	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 	// Получаем собранную запись сертификата
 	const view_t whole = writer.data();
-	// Выполняем перенос собранной записи сертификата
+	// Переносим собранную запись сертификата
 	const vector <uint8_t> origin(whole.data, whole.data + whole.size);
 	// Проверяем, что собранная запись сертификата не пуста
 	ASSERT_GT(origin.size(), size_t(16));
 	/**
-	 * Выполняем перебор длин усечения записи сертификата
+	 * Перебираем длины усечения записи сертификата
 	 */
 	for(size_t size = 0; size < origin.size(); size++){
 		// Создаём объект разбираемого сертификата
@@ -393,25 +393,25 @@ TEST(X509Test, Ragged) {
 		ASSERT_NE(certificate.parse(view_t(origin.data(), size)), x509::error_t::NONE) << "длина " << size;
 	}
 	/**
-	 * Выполняем перебор мест порчи записи сертификата
+	 * Перебираем места порчи записи сертификата
 	 */
 	for(size_t place = 0; place < origin.size(); place++){
 		/**
-		 * Выполняем перебор порчи очередного байта записи
+		 * Портим очередной байт записи
 		 */
 		for(size_t item = 0; item < 3; item++){
-			// Выполняем перенос собранной записи сертификата
+			// Переносим собранную запись сертификата
 			vector <uint8_t> spoiled = origin;
 			/**
 			 * Порча берётся тремя видами: обращением всех разрядов, обнулением и
 			 * набивкой единицами - так задеваются и метки, и длины, и содержимое
 			 */
 			switch(item){
-				// Выполняем обращение всех разрядов порченого байта
+				// Обращаем все разряды порченого байта
 				case 0: spoiled[place] = static_cast <uint8_t> (spoiled[place] ^ 0xFF); break;
-				// Выполняем обнуление порченого байта
+				// Обнуляем порченый байт
 				case 1: spoiled[place] = 0x00; break;
-				// Выполняем набивку порченого байта единицами
+				// Набиваем порченый байт единицами
 				case 2: spoiled[place] = 0xFF; break;
 			}
 			// Создаём объект разбираемого сертификата
@@ -451,7 +451,7 @@ TEST(X509Test, Extractors) {
 	extension.value = purposed.data();
 	// Набор извлечённых назначений ключа
 	vector <string> purposes;
-	// Выполняем извлечение расширенного назначения ключа
+	// Извлекаем расширенное назначение ключа
 	ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::NONE);
 	// Проверяем число извлечённых назначений ключа
 	ASSERT_EQ(purposes.size(), size_t(2));
@@ -473,7 +473,7 @@ TEST(X509Test, Extractors) {
 	extension.value = subjected.data();
 	// Место, в которое помещается извлечённый опознаватель ключа стороны
 	view_t subject;
-	// Выполняем извлечение опознавателя ключа стороны
+	// Извлекаем опознаватель ключа стороны
 	ASSERT_EQ(x509::subjectKey(extension, subject), x509::error_t::NONE);
 	// Проверяем длину извлечённого опознавателя ключа стороны
 	ASSERT_EQ(subject.size, sizeof(named));
@@ -498,7 +498,7 @@ TEST(X509Test, Extractors) {
 	extension.value = authorized.data();
 	// Место, в которое помещается извлечённый опознаватель ключа издателя
 	view_t authority;
-	// Выполняем извлечение опознавателя ключа издателя
+	// Извлекаем опознаватель ключа издателя
 	ASSERT_EQ(x509::authorityKey(extension, authority), x509::error_t::NONE);
 	// Проверяем длину извлечённого опознавателя ключа издателя
 	ASSERT_EQ(authority.size, sizeof(named));
@@ -524,7 +524,7 @@ TEST(X509Test, Extractors) {
 	bool centre = false;
 	// Предельная глубина цепочки сертификатов
 	int64_t depth = -1;
-	// Выполняем извлечение основных ограничений
+	// Извлекаем основные ограничения
 	ASSERT_EQ(x509::constraints(extension, centre, depth), x509::error_t::NONE);
 	// Проверяем принадлежность удостоверяющему центру
 	ASSERT_TRUE(centre);
@@ -545,7 +545,7 @@ TEST(X509Test, Certificate) {
 	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 	// Создаём объект сертификата
 	x509::certificate_t certificate;
-	// Выполняем разбор записи сертификата
+	// Разбираем запись сертификата
 	ASSERT_EQ(certificate.parse(writer.data()), x509::error_t::NONE);
 	// Проверяем издание сертификата
 	ASSERT_EQ(certificate.release(), x509::version_t::V3);
@@ -575,7 +575,7 @@ TEST(X509Test, Certificate) {
 	bool authority = false;
 	// Предельная глубина цепочки
 	int64_t depth = 0;
-	// Выполняем извлечение основных ограничений
+	// Извлекаем основные ограничения
 	ASSERT_EQ(x509::constraints(*item, authority, depth), x509::error_t::NONE);
 	// Проверяем признак принадлежности сертификата удостоверяющему центру
 	ASSERT_TRUE(authority);
@@ -591,7 +591,7 @@ TEST(X509Test, Certificate) {
 	ASSERT_STREQ(attribute->value.c_str(), "anyks.com");
 	// Собранная запись имени владельца сертификата
 	std::string text;
-	// Выполняем сборку записи имени владельца сертификата
+	// Собираем запись имени владельца сертификата
 	ASSERT_EQ(x509::text(certificate.subjects(), text), x509::error_t::NONE);
 	// Проверяем собранную запись имени владельца сертификата
 	ASSERT_STREQ(text.c_str(), "CN=anyks.com");
@@ -613,7 +613,7 @@ TEST(X509Test, Recognized) {
 	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 	// Создаём объект сертификата
 	x509::certificate_t certificate;
-	// Выполняем разбор записи сертификата
+	// Разбираем запись сертификата
 	ASSERT_EQ(certificate.parse(writer.data()), x509::error_t::NONE);
 	// Раздел 4.2 RFC 5280: критичное расширение 2.5.29.19 библиотеке известно
 	ASSERT_TRUE(x509::recognized(certificate));
@@ -683,7 +683,7 @@ TEST(X509Test, Recognized) {
 	ASSERT_EQ(alien.err(), asn1::error_t::NONE);
 	// Создаём объект сертификата с неведомым критичным расширением
 	x509::certificate_t unknown;
-	// Выполняем разбор записи сертификата
+	// Разбираем запись сертификата
 	ASSERT_EQ(unknown.parse(alien.data()), x509::error_t::NONE);
 	// Критичное расширение 1.2.3.4 библиотеке неизвестно: сертификат отвергается
 	ASSERT_FALSE(x509::recognized(unknown));
@@ -725,7 +725,7 @@ TEST(X509Test, Strict) {
 		x509::error_t::DUPLICATE, x509::error_t::VALIDITY, x509::error_t::STRUCTURE
 	};
 	/**
-	 * Выполняем обход набора вносимых изъянов
+	 * Обходим набор вносимых изъянов
 	 */
 	for(size_t i = 0; i < (sizeof(defects) / sizeof(defects[0])); i++){
 		// Создаём записчик записи сертификата
@@ -785,7 +785,7 @@ TEST(X509Test, Escaping) {
 	asn1::reader_t reader(writer.data());
 	// Объект разобранного элемента
 	asn1::element_t element;
-	// Выполняем разбор записи имени
+	// Разбираем запись имени
 	ASSERT_TRUE(reader.next(asn1::tag_t::SEQUENCE, element));
 	// Разбираемое имя
 	x509::name_t value;
@@ -799,7 +799,7 @@ TEST(X509Test, Escaping) {
 	value.parts[0][0].value = " имя, с запятой ";
 	// Собранная запись имени
 	std::string text;
-	// Выполняем сборку записи имени
+	// Собираем запись имени
 	ASSERT_EQ(x509::text(value, text), x509::error_t::NONE);
 	// Проверяем экранирование пробелов по краям и запятой внутри записи
 	ASSERT_STREQ(text.c_str(), "CN=\\ имя\\, с запятой\\ ");
@@ -815,7 +815,7 @@ TEST(X509Test, Escaping) {
 	single.parts[0][0].value = " ";
 	// Собранная запись имени из одного пробела
 	std::string sole;
-	// Выполняем сборку записи имени из одного пробела
+	// Собираем запись имени из одного пробела
 	ASSERT_EQ(x509::text(single, sole), x509::error_t::NONE);
 	/**
 	 * Пробел, стоящий разом первым и последним знаком, экранируется ОДИН раз: правило
@@ -1201,7 +1201,7 @@ TEST(X509Test, Overfilled) {
 	build(fifth, foreign);
 	// Проверяем успешность сборки записи сертификата
 	ASSERT_EQ(fifth.err(), asn1::error_t::NONE);
-	// Выполняем разбор сертификата с чужеродным полем основных ограничений
+	// Разбираем сертификат с чужеродным полем основных ограничений
 	ASSERT_EQ(certificate.parse(fifth.data()), x509::error_t::NONE);
 	// Разыскиваем расширение основных ограничений сертификата
 	const x509::extension_t * extension = certificate.extension("2.5.29.19");
@@ -1236,7 +1236,7 @@ static void offsets(const view_t & data, const uint8_t * origin, vector <size_t>
 	// Признак того, что первым элементом записи шёл опознаватель
 	bool identifier = false;
 	/**
-	 * Выполняем обход элементов записи
+	 * Обходим элементы записи
 	 */
 	while(!reader.empty()){
 		// Объект разобранного элемента
@@ -1260,7 +1260,7 @@ static void offsets(const view_t & data, const uint8_t * origin, vector <size_t>
 		result.push_back(static_cast <size_t> (element.element.data - origin));
 		// Если элемент составной, обходим и его содержимое
 		if(element.constructed && (element.content.size > 0))
-			// Выполняем обход содержимого составного элемента
+			// Обходим содержимое составного элемента
 			offsets(element.content, origin, result);
 	}
 }
@@ -1278,23 +1278,23 @@ TEST(X509Test, Recast) {
 	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 	// Получаем собранную запись сертификата
 	const view_t whole = writer.data();
-	// Выполняем перенос собранной записи сертификата
+	// Переносим собранную запись сертификата
 	const vector <uint8_t> origin(whole.data, whole.data + whole.size);
 	// Набор смещений меток всех элементов записи
 	vector <size_t> places;
-	// Выполняем сбор смещений меток всех элементов записи
+	// Собираем смещения меток всех элементов записи
 	offsets(view_t(origin.data(), origin.size()), origin.data(), places);
 	// Проверяем, что элементы записи собраны
 	ASSERT_GT(places.size(), size_t(16));
 	// Проверяем, что годная запись сертификата разбирается
 	x509::certificate_t sample;
-	// Выполняем разбор годной записи сертификата
+	// Разбираем годную запись сертификата
 	ASSERT_EQ(sample.parse(view_t(origin.data(), origin.size())), x509::error_t::NONE);
 	/**
-	 * Выполняем обход меток элементов записи
+	 * Обходим метки элементов записи
 	 */
 	for(size_t i = 0; i < places.size(); i++){
-		// Выполняем перенос годной записи сертификата
+		// Переносим годную запись сертификата
 		vector <uint8_t> item(origin);
 		/**
 		 * Обращаем разряд составного вида метки: правила DER кладут составной вид
@@ -1365,7 +1365,7 @@ TEST(X509Test, Peripheral) {
 		x509::error_t::STRUCTURE
 	};
 	/**
-	 * Выполняем обход набора вносимых изъянов
+	 * Обходим набор вносимых изъянов
 	 */
 	for(size_t i = 0; i < (sizeof(defects) / sizeof(defects[0])); i++){
 		// Создаём записчик записи сертификата
@@ -1676,7 +1676,7 @@ TEST(X509Test, Starved) {
 	// Признак того, что нехватка памяти при разборе хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений при разборе записи сертификата
+	 * Перебираем запасы выделений при разборе записи сертификата
 	 */
 	for(size_t budget = 0; budget < 512; budget++){
 		// Создаём объект сертификата
@@ -1686,7 +1686,7 @@ TEST(X509Test, Starved) {
 		{
 			// Отмеряем запас выделений на время разбора
 			starve::ration_t ration(budget);
-			// Выполняем разбор записи сертификата при отмеренном запасе
+			// Разбираем запись сертификата при отмеренном запасе
 			outcome = certificate.parse(writer.data());
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти
@@ -1711,7 +1711,7 @@ TEST(X509Test, Starved) {
 	// Сбрасываем признак объявленного отказа памяти
 	starved = false;
 	/**
-	 * Выполняем перебор запасов выделений при сборке записи имени
+	 * Перебираем запасы выделений при сборке записи имени
 	 */
 	for(size_t budget = 0; budget < 512; budget++){
 		// Собранная запись имени
@@ -1721,7 +1721,7 @@ TEST(X509Test, Starved) {
 		{
 			// Отмеряем запас выделений на время сборки
 			starve::ration_t ration(budget);
-			// Выполняем сборку записи имени при отмеренном запасе
+			// Собираем запись имени при отмеренном запасе
 			outcome = x509::text(name, text);
 		}
 		// Проверяем, что сборка ответила успехом либо отказом памяти
@@ -1757,7 +1757,7 @@ TEST(X509Test, Starved) {
 	// Сбрасываем признак объявленного отказа памяти
 	starved = false;
 	/**
-	 * Выполняем перебор запасов выделений при извлечении дополнительных имён
+	 * Перебираем запасы выделений при извлечении дополнительных имён
 	 */
 	for(size_t budget = 0; budget < 512; budget++){
 		// Набор извлечённых дополнительных имён
@@ -1767,7 +1767,7 @@ TEST(X509Test, Starved) {
 		{
 			// Отмеряем запас выделений на время извлечения
 			starve::ration_t ration(budget);
-			// Выполняем извлечение дополнительных имён при отмеренном запасе
+			// Извлекаем дополнительные имена при отмеренном запасе
 			outcome = x509::alternatives(extension, alternatives);
 		}
 		// Проверяем, что извлечение ответило успехом либо отказом памяти
@@ -1934,7 +1934,7 @@ TEST(X509Test, ConstraintsBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение основных ограничений
+		// Извлекаем основные ограничения
 		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::NONE);
 		// Проверяем признак принадлежности
 		ASSERT_FALSE(authority);
@@ -1955,7 +1955,7 @@ TEST(X509Test, ConstraintsBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение основных ограничений
+		// Извлекаем основные ограничения
 		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
 	}
 	// Запись с глубиной без признака ЦС отвергается
@@ -1972,7 +1972,7 @@ TEST(X509Test, ConstraintsBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение основных ограничений
+		// Извлекаем основные ограничения
 		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
 	}
 	// Запись с отрицательной глубиной отвергается
@@ -1991,7 +1991,7 @@ TEST(X509Test, ConstraintsBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение основных ограничений
+		// Извлекаем основные ограничения
 		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::EXTENSION);
 	}
 	// Запись с лишним полем отвергается
@@ -2012,7 +2012,7 @@ TEST(X509Test, ConstraintsBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение основных ограничений
+		// Извлекаем основные ограничения
 		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::STRUCTURE);
 	}
 	// Запись не SEQUENCE отвергается
@@ -2025,7 +2025,7 @@ TEST(X509Test, ConstraintsBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение основных ограничений
+		// Извлекаем основные ограничения
 		ASSERT_EQ(x509::constraints(extension, authority, depth), x509::error_t::ENCODING);
 	}
 }
@@ -2053,7 +2053,7 @@ TEST(X509Test, AlternativesBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение дополнительных имён
+		// Извлекаем дополнительные имена
 		ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::EXTENSION);
 	}
 	// Имя не контекстного класса отвергается
@@ -2070,7 +2070,7 @@ TEST(X509Test, AlternativesBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение дополнительных имён
+		// Извлекаем дополнительные имена
 		ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::STRUCTURE);
 	}
 	// Запись не SEQUENCE отвергается
@@ -2083,7 +2083,7 @@ TEST(X509Test, AlternativesBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение дополнительных имён
+		// Извлекаем дополнительные имена
 		ASSERT_EQ(x509::alternatives(extension, names), x509::error_t::ENCODING);
 	}
 }
@@ -2254,7 +2254,7 @@ TEST(X509Test, PurposeBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение расширенного назначения ключа
+		// Извлекаем расширенное назначение ключа
 		ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::EXTENSION);
 	}
 	// Запись не SEQUENCE отвергается
@@ -2267,7 +2267,7 @@ TEST(X509Test, PurposeBranches) {
 		ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 		// Устанавливаем тело расширения
 		extension.value = writer.data();
-		// Выполняем извлечение расширенного назначения ключа
+		// Извлекаем расширенное назначение ключа
 		ASSERT_EQ(x509::purpose(extension, purposes), x509::error_t::ENCODING);
 	}
 }

@@ -82,13 +82,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -116,7 +116,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -137,9 +137,9 @@ static std::string text(const uint8_t * data, const size_t size) {
 static void element(const char * source, math::field25519::element_t & result) {
 	// Место разобранных байтов
 	uint8_t buffer[32];
-	// Выполняем разбор записи
+	// Разбираем запись
 	ASSERT_EQ(bytes(source, buffer), static_cast <size_t> (32));
-	// Выполняем разбор элемента поля
+	// Разбираем элемент поля
 	math::field25519::load(buffer, result);
 }
 /**
@@ -152,7 +152,7 @@ static void element(const char * source, math::field25519::element_t & result) {
 static std::string record(const math::field25519::element_t & value) {
 	// Место записи элемента
 	uint8_t buffer[32];
-	// Выполняем запись элемента
+	// Записываем элемент
 	math::field25519::store(value, buffer);
 	// Выводим запись элемента
 	return text(buffer, sizeof(buffer));
@@ -165,25 +165,25 @@ static std::string record(const math::field25519::element_t & value) {
 TEST(Field25519Test, Addition) {
 	// Контрольные элементы и итог
 	math::field25519::element_t first, second, result;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
-	// Выполняем разбор второго элемента
+	// Разбираем второй элемент
 	element(SECOND, second);
-	// Выполняем сложение элементов
+	// Складываем элементы
 	math::field25519::add(first, second, result);
 	// Сличаем сумму с контрольным значением
 	ASSERT_EQ(record(result), std::string(SUM));
-	// Выполняем вычитание элементов
+	// Вычитаем элементы
 	math::field25519::sub(first, second, result);
 	// Сличаем разность с контрольным значением
 	ASSERT_EQ(record(result), std::string(DIFFERENCE));
-	// Выполняем вычитание в обратном порядке
+	// Вычитаем элементы в обратном порядке
 	math::field25519::sub(second, first, result);
 	// Прибавляем разность к первому элементу: обязан выйти второй
 	math::field25519::add(result, first, result);
 	// Сличаем итог со вторым элементом
 	ASSERT_TRUE(math::field25519::equal(result, second));
-	// Выполняем вычитание элемента из себя же в место одного из доводов
+	// Вычитаем элемент из себя же в место одного из доводов
 	math::field25519::sub(first, first, first);
 	// Проверяем обращение разности в ноль
 	ASSERT_TRUE(math::field25519::nil(first));
@@ -195,23 +195,23 @@ TEST(Field25519Test, Addition) {
 TEST(Field25519Test, Multiplication) {
 	// Контрольные элементы и итог
 	math::field25519::element_t first, second, result;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
-	// Выполняем разбор второго элемента
+	// Разбираем второй элемент
 	element(SECOND, second);
-	// Выполняем умножение элементов
+	// Умножаем элементы
 	math::field25519::mul(first, second, result);
 	// Сличаем произведение с контрольным значением
 	ASSERT_EQ(record(result), std::string(PRODUCT));
-	// Выполняем умножение в обратном порядке в место одного из сомножителей
+	// Умножаем элементы в обратном порядке в место одного из сомножителей
 	math::field25519::mul(second, first, second);
 	// Сличаем произведение с контрольным значением
 	ASSERT_EQ(record(second), std::string(PRODUCT));
-	// Выполняем возведение в квадрат
+	// Возводим в квадрат
 	math::field25519::square(first, result);
 	// Сличаем квадрат с контрольным значением
 	ASSERT_EQ(record(result), std::string(SQUARE));
-	// Выполняем возведение в квадрат в место довода
+	// Возводим в квадрат в место довода
 	math::field25519::square(first, first);
 	// Сличаем квадрат с контрольным значением
 	ASSERT_EQ(record(first), std::string(SQUARE));
@@ -230,7 +230,7 @@ TEST(Field25519Test, Squaring) {
 	// Число проверенных сочетаний
 	size_t count = 0;
 	/**
-	 * Выполняем перебор сочетаний конечностей по границам
+	 * Перебираем сочетания конечностей по границам
 	 */
 	for(size_t i = 0; i < 6; i++){
 		/**
@@ -255,9 +255,9 @@ TEST(Field25519Test, Squaring) {
 				value.limbs[4] = limits[(j + k) % 6];
 				// Квадрат своим путём и умножением на себя
 				math::field25519::element_t square, product;
-				// Выполняем возведение в квадрат
+				// Возводим в квадрат
 				math::field25519::square(value, square);
-				// Выполняем умножение элемента на себя
+				// Умножаем элемент на себя
 				math::field25519::mul(value, value, product);
 				// Сличаем записи квадрата и произведения
 				ASSERT_EQ(record(square), record(product)) << "конечности " << i << " " << j << " " << k;
@@ -282,10 +282,10 @@ TEST(Field25519Test, Scaling) {
 	static const uint64_t factors[] = {1, 19, 121665, 0xFFFFFFFFULL, (static_cast <uint64_t> (1) << 32)};
 	// Контрольный элемент
 	math::field25519::element_t value;
-	// Выполняем разбор контрольного элемента
+	// Разбираем контрольный элемент
 	element(FIRST, value);
 	/**
-	 * Выполняем перебор множителей
+	 * Перебираем множители
 	 */
 	for(const uint64_t factor : factors){
 		// Множитель элементом поля
@@ -294,15 +294,15 @@ TEST(Field25519Test, Scaling) {
 		scalar.limbs[0] = factor;
 		// Произведение своим путём и умножением элементов
 		math::field25519::element_t scaled, product;
-		// Выполняем умножение на малое число
+		// Умножаем на малое число
 		math::field25519::mul(value, factor, scaled);
-		// Выполняем умножение на элемент
+		// Умножаем на элемент
 		math::field25519::mul(value, scalar, product);
 		// Сличаем записи произведений
 		ASSERT_EQ(record(scaled), record(product)) << "множитель " << factor;
-		// Выполняем умножение на малое число в место довода
+		// Умножаем на малое число в место довода
 		math::field25519::element_t inplace = value;
-		// Выполняем умножение на месте
+		// Умножаем элемент на месте
 		math::field25519::mul(inplace, factor, inplace);
 		// Сличаем запись произведения на месте
 		ASSERT_EQ(record(inplace), record(product)) << "множитель на месте " << factor;
@@ -318,9 +318,9 @@ TEST(Field25519Test, Scaling) {
 	}
 	// Записываем множитель удвоения X25519
 	scalar.limbs[0] = 121665;
-	// Выполняем умножение на малое число
+	// Умножаем на малое число
 	math::field25519::mul(wide, static_cast <uint64_t> (121665), scaled);
-	// Выполняем умножение на элемент
+	// Умножаем на элемент
 	math::field25519::mul(wide, scalar, product);
 	// Сличаем записи произведений
 	ASSERT_EQ(record(scaled), record(product));
@@ -332,25 +332,25 @@ TEST(Field25519Test, Scaling) {
 TEST(Field25519Test, Inversion) {
 	// Контрольный элемент, обратный к нему и единица
 	math::field25519::element_t first, inverse, unit;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
-	// Выполняем обращение элемента
+	// Обращаем элемент
 	math::field25519::invert(first, inverse);
 	// Сличаем обратный элемент с контрольным значением
 	ASSERT_EQ(record(inverse), std::string(INVERSE));
-	// Выполняем умножение элемента на обратный
+	// Умножаем элемент на обратный
 	math::field25519::mul(first, inverse, inverse);
 	// Получаем единицу поля
 	math::field25519::one(unit);
 	// Проверяем обращение произведения в единицу
 	ASSERT_TRUE(math::field25519::equal(inverse, unit));
-	// Выполняем обращение элемента в место довода
+	// Обращаем элемент в место довода
 	math::field25519::invert(first, first);
 	// Сличаем обратный элемент с контрольным значением
 	ASSERT_EQ(record(first), std::string(INVERSE));
 	// Ноль поля
 	math::field25519::element_t empty;
-	// Выполняем обращение нуля
+	// Обращаем нуль
 	math::field25519::invert(empty, inverse);
 	// Проверяем, что обратный к нулю - ноль
 	ASSERT_TRUE(math::field25519::nil(inverse));
@@ -362,7 +362,7 @@ TEST(Field25519Test, Inversion) {
 TEST(Field25519Test, Root) {
 	// Контрольный элемент и промежуточные значения
 	math::field25519::element_t first, square, power, check;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
 	// Вырабатываем квадрат элемента
 	math::field25519::square(first, square);
@@ -390,33 +390,33 @@ TEST(Field25519Test, Reduction) {
 	uint8_t buffer[32];
 	// Разбираемый элемент
 	math::field25519::element_t value;
-	// Выполняем разбор записи p + 5
+	// Разбираем запись p + 5
 	ASSERT_EQ(bytes("f2ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f", buffer), static_cast <size_t> (32));
-	// Выполняем разбор элемента
+	// Разбираем элемент
 	math::field25519::load(buffer, value);
 	// Проверяем приведение к пяти
 	ASSERT_EQ(record(value), std::string("0500000000000000000000000000000000000000000000000000000000000000"));
-	// Выполняем разбор записи 2^255 - 1
+	// Разбираем запись 2^255 - 1
 	ASSERT_EQ(bytes("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f", buffer), static_cast <size_t> (32));
-	// Выполняем разбор элемента
+	// Разбираем элемент
 	math::field25519::load(buffer, value);
 	// Проверяем приведение к восемнадцати
 	ASSERT_EQ(record(value), std::string("1200000000000000000000000000000000000000000000000000000000000000"));
-	// Выполняем разбор записи 2^256 - 1: старший разряд отбрасывается
+	// Разбираем запись 2^256 - 1: старший разряд отбрасывается
 	ASSERT_EQ(bytes("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", buffer), static_cast <size_t> (32));
-	// Выполняем разбор элемента
+	// Разбираем элемент
 	math::field25519::load(buffer, value);
 	// Проверяем приведение к восемнадцати
 	ASSERT_EQ(record(value), std::string("1200000000000000000000000000000000000000000000000000000000000000"));
-	// Выполняем разбор записи p: приводится к нулю
+	// Разбираем запись p: приводится к нулю
 	ASSERT_EQ(bytes("edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f", buffer), static_cast <size_t> (32));
-	// Выполняем разбор элемента
+	// Разбираем элемент
 	math::field25519::load(buffer, value);
 	// Проверяем обращение модуля в ноль
 	ASSERT_TRUE(math::field25519::nil(value));
-	// Выполняем разбор записи p - 1: остаётся как есть
+	// Разбираем запись p - 1: остаётся как есть
 	ASSERT_EQ(bytes("ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f", buffer), static_cast <size_t> (32));
-	// Выполняем разбор элемента
+	// Разбираем элемент
 	math::field25519::load(buffer, value);
 	// Проверяем сохранение записи
 	ASSERT_EQ(record(value), std::string("ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f"));
@@ -440,17 +440,17 @@ TEST(Field25519Test, Reduction) {
 TEST(Field25519Test, Swap) {
 	// Контрольные элементы
 	math::field25519::element_t first, second;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
-	// Выполняем разбор второго элемента
+	// Разбираем второй элемент
 	element(SECOND, second);
-	// Выполняем обмен с нулевым признаком
+	// Обмениваем координаты с нулевым признаком
 	math::field25519::swap(first, second, 0);
 	// Проверяем, что первый элемент остался на месте
 	ASSERT_EQ(record(first), std::string(FIRST));
 	// Проверяем, что второй элемент остался на месте
 	ASSERT_EQ(record(second), std::string(SECOND));
-	// Выполняем обмен с единичным признаком
+	// Обмениваем координаты с единичным признаком
 	math::field25519::swap(first, second, 1);
 	// Проверяем, что первый элемент стал вторым
 	ASSERT_EQ(record(first), std::string(SECOND));
@@ -481,41 +481,41 @@ TEST(Field25519Test, Columns) {
 	// Состояние вырабатывателя случайных конечностей
 	uint64_t state = 0x9E3779B97F4A7C15ull;
 	/**
-	 * Выполняем перебор сочетаний: по границам и случайные до 2^54
+	 * Перебираем сочетания: по границам и случайные до 2^54
 	 */
 	for(size_t n = 0; n < 4216; n++){
-		// Сомножители
+		// Сомножители очередного сочетания
 		math::field25519::element_t first, second;
 		// Если сочетание по границам
 		if(n < 216){
 			// Индексы границ
-			const size_t i = (n / 36), j = ((n / 6) % 6), k = (n % 6);
+			const size_t firstIndex = (n / 36), secondIndex = ((n / 6) % 6), thirdIndex = (n % 6);
 			// Записываем конечности первого сомножителя
-			first.limbs[0] = limits[i];
-			// Вторая конечность первого сомножителя — граница j
-			first.limbs[1] = limits[j];
-			// Третья конечность первого сомножителя — граница k
-			first.limbs[2] = limits[k];
-			// Четвёртая конечность первого сомножителя — граница i+j по модулю 6
-			first.limbs[3] = limits[(i + j) % 6];
-			// Пятая конечность первого сомножителя — граница j+k по модулю 6
-			first.limbs[4] = limits[(j + k) % 6];
+			first.limbs[0] = limits[firstIndex];
+			// Вторая конечность первого сомножителя — граница secondIndex
+			first.limbs[1] = limits[secondIndex];
+			// Третья конечность первого сомножителя — граница thirdIndex
+			first.limbs[2] = limits[thirdIndex];
+			// Четвёртая конечность первого сомножителя — граница firstIndex+secondIndex по модулю 6
+			first.limbs[3] = limits[(firstIndex + secondIndex) % 6];
+			// Пятая конечность первого сомножителя — граница secondIndex+thirdIndex по модулю 6
+			first.limbs[4] = limits[(secondIndex + thirdIndex) % 6];
 			// Записываем конечности второго сомножителя сдвигом границ
-			second.limbs[0] = limits[(k + 1) % 6];
-			// Вторая конечность второго сомножителя — граница i+2 по модулю 6
-			second.limbs[1] = limits[(i + 2) % 6];
-			// Третья конечность второго сомножителя — граница j+3 по модулю 6
-			second.limbs[2] = limits[(j + 3) % 6];
-			// Четвёртая конечность второго сомножителя — граница i+k+4 по модулю 6
-			second.limbs[3] = limits[(i + k + 4) % 6];
-			// Пятая конечность второго сомножителя — граница j+k+5 по модулю 6
-			second.limbs[4] = limits[(j + k + 5) % 6];
+			second.limbs[0] = limits[(thirdIndex + 1) % 6];
+			// Вторая конечность второго сомножителя — граница firstIndex+2 по модулю 6
+			second.limbs[1] = limits[(firstIndex + 2) % 6];
+			// Третья конечность второго сомножителя — граница secondIndex+3 по модулю 6
+			second.limbs[2] = limits[(secondIndex + 3) % 6];
+			// Четвёртая конечность второго сомножителя — граница firstIndex+thirdIndex+4 по модулю 6
+			second.limbs[3] = limits[(firstIndex + thirdIndex + 4) % 6];
+			// Пятая конечность второго сомножителя — граница secondIndex+thirdIndex+5 по модулю 6
+			second.limbs[4] = limits[(secondIndex + thirdIndex + 5) % 6];
 		// Иначе сочетание случайное
 		} else {
 			// Разряды конечностей: до 2^51 либо до 2^54
 			const uint64_t mask = ((static_cast <uint64_t> (1) << ((n & 1) ? 54 : 51)) - 1);
 			/**
-			 * Выполняем выработку конечностей
+			 * Вырабатываем конечности
 			 */
 			for(size_t i = 0; i < math::field25519::LIMBS; i++){
 				// Шаг вырабатывателя xorshift
@@ -530,13 +530,13 @@ TEST(Field25519Test, Columns) {
 		}
 		// Итоги ядер на C++ и по столбцам
 		math::field25519::element_t expected, actual;
-		// Умножение
+		// Умножение ядром и по столбцам
 		math::field25519::kernel::multiply(first, second, expected);
 		// Умножение по столбцам
 		math::field25519::columns::multiply(first, second, actual);
 		// Сличаем записи произведений
 		ASSERT_EQ(record(actual), record(expected)) << "умножение " << n;
-		// Квадрат
+		// Квадрат ядром и по столбцам
 		math::field25519::kernel::square(first, expected);
 		// Квадрат по столбцам
 		math::field25519::columns::square(first, actual);
@@ -598,7 +598,7 @@ TEST(Field25519Test, Step) {
 	// Состояние вырабатывателя случайных конечностей
 	uint64_t state = 0xD1B54A32D192ED03ull;
 	/**
-	 * Выполняем перебор кадров: по границам и случайные
+	 * Перебираем кадры: по границам и случайные
 	 */
 	for(size_t n = 0; n < 4125; n++){
 		// Кадр шага одной вставкой
@@ -608,28 +608,28 @@ TEST(Field25519Test, Step) {
 		// Если кадр по границам
 		if(n < 125){
 			// Индексы границ
-			const size_t i = (n / 25), j = ((n / 5) % 5), k = (n % 5);
+			const size_t firstIndex = (n / 25), secondIndex = ((n / 5) % 5), thirdIndex = (n % 5);
 			/**
-			 * Выполняем перебор элементов кадра
+			 * Перебираем элементы кадра
 			 */
 			for(size_t e = 0; e < 7; e++){
 				/**
-				 * Выполняем перебор конечностей элемента
+				 * Перебираем конечности элемента
 				 */
 				for(size_t l = 0; l < math::field25519::LIMBS; l++)
 					// Записываем конечность по границам со сдвигом
-					items[e].limbs[l] = limits[(i + (j * l) + (k * e)) % 5];
+					items[e].limbs[l] = limits[(firstIndex + (secondIndex * l) + (thirdIndex * e)) % 5];
 			}
 			// Множимая точка приведена
 			items[4].limbs[0] &= ((static_cast <uint64_t> (1) << 51) - 1);
 		// Иначе кадр случайный
 		} else {
 			/**
-			 * Выполняем перебор элементов кадра
+			 * Перебираем элементы кадра
 			 */
 			for(size_t e = 0; e < 7; e++){
 				/**
-				 * Выполняем перебор конечностей элемента
+				 * Перебираем конечности элемента
 				 */
 				for(size_t l = 0; l < math::field25519::LIMBS; l++){
 					// Шаг вырабатывателя xorshift
@@ -643,9 +643,9 @@ TEST(Field25519Test, Step) {
 		const uint64_t flag = (n & 1);
 		// Кадр эталона: тот же шаг ядрами kernel в порядке x25519.cpp
 		math::field25519::columns::ladder_t expected = actual;
-		// Выполняем условный обмен первых координат точек
+		// Условно обмениваем первые координаты точек
 		math::field25519::swap(expected.x2, expected.x3, flag);
-		// Выполняем условный обмен вторых координат точек
+		// Условно обмениваем вторые координаты точек
 		math::field25519::swap(expected.z2, expected.z3, flag);
 		// Разность координат точки сложения: x3-z3
 		math::field25519::kernel::minus(expected.x3, expected.z3, expected.first);
@@ -683,14 +683,14 @@ TEST(Field25519Test, Step) {
 		math::field25519::kernel::multiply(expected.x1, expected.z2, expected.z3);
 		// Произведение разности квадратов на множитель — итоговая z2
 		math::field25519::kernel::multiply(expected.second, expected.first, expected.z2);
-		// Выполняем шаг одной вставкой
+		// Прогоняем шаг одной вставкой
 		math::field25519::columns::step(actual, flag);
 		// Элементы кадра эталона подряд
 		const math::field25519::element_t * wanted = &expected.x2;
 		// Имена элементов кадра
 		static const char * const names[7] = {"x2", "z2", "x3", "z3", "x1", "first", "second"};
 		/**
-		 * Выполняем сличение всех элементов кадра
+		 * Сличаем все элементы кадра
 		 */
 		for(size_t e = 0; e < 7; e++)
 			// Сличаем записи элементов

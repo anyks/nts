@@ -78,18 +78,18 @@ namespace {
 	// Задаём таблицу хешей
 	static const digest::hash_t HASHES[] = {digest::hash_t::SHA256, digest::hash_t::SHA512, digest::hash_t::BLAKE2S256, digest::hash_t::BLAKE2B512};
 	/**
-	 * @brief Область байтов вектора
+	 * @brief Функция получения области байтов вектора
 	 *
 	 */
-	static view_t span(const std::vector <uint8_t> & data) {
+	static view_t __nts_span__(const std::vector <uint8_t> & data) {
 		// Пустой вектор даёт пустую область
 		return view_t(data.empty() ? nullptr : data.data(), data.size());
 	}
 	/**
-	 * @brief Область байтов строки
+	 * @brief Функция получения области байтов строки
 	 *
 	 */
-	static view_t span(const std::string & text) {
+	static view_t __nts_span__(const std::string & text) {
 		// Область байтов строки без копирования
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -108,10 +108,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Запись байтов шестнадцатеричной строкой
+	 * @brief Функция записи байтов шестнадцатеричной строкой
 	 *
 	 */
-	static std::string hex(const uint8_t * data, const size_t size) {
+	static std::string __nts_hex__(const uint8_t * data, const size_t size) {
 		// Объявляем строку
 		std::string result;
 		// Задаём цифры шестнадцатеричной записи
@@ -138,10 +138,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Имя протокола по узору и набору
+	 * @brief Функция составления имени протокола по узору и набору
 	 *
 	 */
-	static std::string title(const noise::pattern_t pattern, const noise::suite_t & suite) {
+	static std::string __nts_title__(const noise::pattern_t pattern, const noise::suite_t & suite) {
 		// Объявляем буфер имени рукопожатия
 		char text[noise::NAME_LIMIT];
 		// Задаём ёмкость буфера имени
@@ -152,10 +152,10 @@ namespace {
 		return std::string(text, size);
 	}
 	/**
-	 * @brief Признак того, что предсообщение стороны несёт постоянный ключ
+	 * @brief Функция проверки того, что предсообщение стороны несёт постоянный ключ
 	 *
 	 */
-	static bool preknown(const noise::pattern_t pattern, const bool initiator) {
+	static bool __nts_preknown__(const noise::pattern_t pattern, const bool initiator) {
 		// Заводим указатель на лексемы сообщения
 		const noise::token_t * list = nullptr;
 		// Заводим счётчик лексем
@@ -164,10 +164,10 @@ namespace {
 		return (noise::premessage(pattern, initiator, list, count) && (count > 0));
 	}
 	/**
-	 * @brief Число своих знаков KEM у стороны - столько случайностей нужно корпусу
+	 * @brief Функция подсчёта числа своих знаков KEM у стороны - столько случайностей нужно корпусу
 	 *
 	 */
-	static size_t kemtokens(const noise::pattern_t pattern, const bool initiator) {
+	static size_t __nts_kemtokens__(const noise::pattern_t pattern, const bool initiator) {
 		// Заводим счётчик знаков KEM
 		size_t result = 0;
 		/**
@@ -205,12 +205,12 @@ namespace {
 		std::vector <std::pair <std::vector <uint8_t>, std::vector <uint8_t>>> messages;
 	} record_t;
 	/**
-	 * @brief Прогон одной записи: обе стороны на зёрнах записи; при freeze шифртексты и хеш заполняются, иначе сличаются
+	 * @brief Функция прогона одной записи: обе стороны на зёрнах записи; при freeze шифртексты и хеш заполняются, иначе сличаются
 	 *
 	 * @return пустая строка либо описание расхождения
 	 *
 	 */
-	static std::string run(record_t & record, const bool freeze) {
+	static std::string __nts_run__(record_t & record, const bool freeze) {
 		// Объявляем объект Noise
 		noise::pattern_t pattern;
 		// Объявляем объект Noise
@@ -218,33 +218,39 @@ namespace {
 		// Объявляем объект Noise
 		noise::suite_t suite;
 		// Если узор не разобрался, выводим отказ имени
-		if(!noise::parse(span(record.name), pattern, psks, suite)) return "имя не разобрано";
+		if(!noise::parse(__nts_span__(record.name), pattern, psks, suite)) return "имя не разобрано";
 		// Объявляем объект Noise
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Если инициатор не завёлся, выводим отказ заведения
-		if(!a.start(span(record.name), noise::role_t::INITIATOR, span(record.prologue)) || !b.start(span(record.name), noise::role_t::RESPONDER, span(record.prologue))) return "не заведено";
-		if(!record.initStatic.empty() && !a.statics(span(record.initStatic))) return "статика инициатора";
-		if(!record.respStatic.empty() && !b.statics(span(record.respStatic))) return "статика отвечающего";
-		if(!record.initEphemeral.empty() && !a.ephemeral(span(record.initEphemeral))) return "эфемерида инициатора";
-		if(!record.respEphemeral.empty() && !b.ephemeral(span(record.respEphemeral))) return "эфемерида отвечающего";
+		if(!initiator.start(__nts_span__(record.name), noise::role_t::INITIATOR, __nts_span__(record.prologue)) || !responder.start(__nts_span__(record.name), noise::role_t::RESPONDER, __nts_span__(record.prologue))) return "не заведено";
+		// Отдаём инициатору его постоянный ключ
+		if(!record.initStatic.empty() && !initiator.statics(__nts_span__(record.initStatic))) return "статика инициатора";
+		// Отдаём отвечающему его постоянный ключ
+		if(!record.respStatic.empty() && !responder.statics(__nts_span__(record.respStatic))) return "статика отвечающего";
+		// Отдаём инициатору его временный ключ
+		if(!record.initEphemeral.empty() && !initiator.ephemeral(__nts_span__(record.initEphemeral))) return "эфемерида инициатора";
+		// Отдаём отвечающему его временный ключ
+		if(!record.respEphemeral.empty() && !responder.ephemeral(__nts_span__(record.respEphemeral))) return "эфемерида отвечающего";
 		// Чужие постоянные ключи по предсообщениям - из открытой части пары собеседника
 		uint8_t key[noise::KEM_PUBLIC_MAX];
 		// Если узор с предзнанием, ключи сторон установлены
-		if(preknown(pattern, false)){ if(!b.self(key) || !a.remote(view_t(key, b.keylength()))) return "ключ отвечающего"; }
-		if(preknown(pattern, true)){ if(!a.self(key) || !b.remote(view_t(key, a.keylength()))) return "ключ инициатора"; }
+		if(__nts_preknown__(pattern, false)){ if(!responder.self(key) || !initiator.remote(view_t(key, responder.keylength()))) return "ключ отвечающего"; }
+		// Узор с предзнанием инициатора отдаёт его ключ отвечающему
+		if(__nts_preknown__(pattern, true)){ if(!initiator.self(key) || !responder.remote(view_t(key, initiator.keylength()))) return "ключ инициатора"; }
 		// Объявляем списки областей байтов
 		std::vector <view_t> ic, rc;
 		/**
 		 * Перебираем: случайности инициатора из записи
 		 */
-		for(auto & item : record.initCoins) ic.push_back(span(item));
+		for(auto & item : record.initCoins) ic.push_back(__nts_span__(item));
 		/**
 		 * Перебираем: случайности отвечающего из записи
 		 */
-		for(auto & item : record.respCoins) rc.push_back(span(item));
+		for(auto & item : record.respCoins) rc.push_back(__nts_span__(item));
 		// Проверяем, что данные не пусты
-		if(!ic.empty() && !a.coinsDeterministic(ic.data(), ic.size())) return "случайности инициатора";
-		if(!rc.empty() && !b.coinsDeterministic(rc.data(), rc.size())) return "случайности отвечающего";
+		if(!ic.empty() && !initiator.coinsDeterministic(ic.data(), ic.size())) return "случайности инициатора";
+		// Отдаём отвечающему его случайности записи
+		if(!rc.empty() && !responder.coinsDeterministic(rc.data(), rc.size())) return "случайности отвечающего";
 		// Задаём проверочную константу
 		const size_t count = noise::messages(pattern);
 		// Если сообщений меньше ожидаемого, выводим отказ числа
@@ -256,31 +262,34 @@ namespace {
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Объявляем объект Noise
-			noise::handshake_t & writer = ((i % 2) == 0) ? a : b;
+			noise::handshake_t & writer = ((i % 2) == 0) ? initiator : responder;
 			// Объявляем объект Noise
-			noise::handshake_t & reader = ((i % 2) == 0) ? b : a;
+			noise::handshake_t & reader = ((i % 2) == 0) ? responder : initiator;
 			// Задаём ёмкости буферов записи и чтения
 			size_t size = out.size(), got = back.size();
 			// Если запись сообщения не удалась, выводим отказ записи
-			if(!writer.write(span(record.messages[i].first), out.data(), size)) return "запись " + std::to_string(i);
+			if(!writer.write(__nts_span__(record.messages[i].first), out.data(), size)) return "запись " + std::to_string(i);
+			// Замораживаем шифртекст сообщения в записи
 			if(freeze) record.messages[i].second.assign(out.data(), out.data() + size);
 			else if((size != record.messages[i].second.size()) || (::memcmp(out.data(), record.messages[i].second.data(), size) != 0)) return "шифртекст " + std::to_string(i);
 			// Если чтение сообщения не удалось, выводим отказ чтения
 			if(!reader.read(view_t(out.data(), size), back.data(), got)) return "чтение " + std::to_string(i);
+			// Полезная часть сообщения совпадает с записью
 			if((got != record.messages[i].first.size()) || ((got > 0) && (::memcmp(back.data(), record.messages[i].first.data(), got) != 0))) return "полезная часть " + std::to_string(i);
 		}
 		// Если стороны не дошли до конца узора, выводим отказ хода
-		if((a.step() != noise::step_t::DONE) || (b.step() != noise::step_t::DONE)) return "не завершено";
+		if((initiator.step() != noise::step_t::DONE) || (responder.step() != noise::step_t::DONE)) return "не завершено";
 		// Объявляем буфер байтов
 		uint8_t ha[64], hb[64];
 		// Если итоги рукопожатия сторон разошлись, выводим отказ итога
-		if(!a.digest(ha) || !b.digest(hb) || (::memcmp(ha, hb, a.length()) != 0)) return "хеши сторон разошлись";
-		if(freeze) record.hash.assign(ha, ha + a.length());
-		else if((record.hash.size() != a.length()) || (::memcmp(ha, record.hash.data(), a.length()) != 0)) return "хеш рукопожатия";
+		if(!initiator.digest(ha) || !responder.digest(hb) || (::memcmp(ha, hb, initiator.length()) != 0)) return "хеши сторон разошлись";
+		// Замораживаем хеш рукопожатия в записи
+		if(freeze) record.hash.assign(ha, ha + initiator.length());
+		else if((record.hash.size() != initiator.length()) || (::memcmp(ha, record.hash.data(), initiator.length()) != 0)) return "хеш рукопожатия";
 		// Объявляем объект Noise
-		noise::cipher_t a1, a2, b1, b2;
+		noise::cipher_t initiatorOut, initiatorIn, responderIn, responderOut;
 		// Если раскол ключей не удался, выводим отказ раскола
-		if(!a.split(a1, a2) || !b.split(b1, b2)) return "раскол";
+		if(!initiator.split(initiatorOut, initiatorIn) || !responder.split(responderIn, responderOut)) return "раскол";
 		/**
 		 * Перебираем: прикладные сообщения записи при условии, что они не кончились
 		 */
@@ -288,15 +297,15 @@ namespace {
 			// Определяем сторону, от которой сообщение
 			const bool fromInitiator = ((count == 1) || (((m - count) % 2) == 0));
 			// Объявляем объект Noise
-			noise::cipher_t & sender = (fromInitiator ? a1 : b2);
+			noise::cipher_t & sender = (fromInitiator ? initiatorOut : responderOut);
 			// Объявляем объект Noise
-			noise::cipher_t & receiver = (fromInitiator ? b1 : a2);
+			noise::cipher_t & receiver = (fromInitiator ? responderIn : initiatorIn);
 			// Получаем прикладные данные сообщения
 			const std::vector <uint8_t> & payload = record.messages[m].first;
 			// Объявляем буфер байтов
 			uint8_t tag[noise::TAG];
 			// Если зашифрование не удалось, выводим отказ зашифрования
-			if(!sender.encrypt(view_t(), span(payload), out.data(), tag)) return "перенос запись " + std::to_string(m);
+			if(!sender.encrypt(view_t(), __nts_span__(payload), out.data(), tag)) return "перенос запись " + std::to_string(m);
 			// Составляем шифрованное сообщение
 			std::vector <uint8_t> cipher(out.data(), out.data() + payload.size());
 			// Вставляем байты в список
@@ -306,6 +315,7 @@ namespace {
 			else if(cipher != record.messages[m].second) return "перенос шифртекст " + std::to_string(m);
 			// Если расшифрование не удалось, выводим отказ расшифрования
 			if(!receiver.decrypt(view_t(), view_t(cipher.data(), payload.size()), view_t(cipher.data() + payload.size(), noise::TAG), back.data())) return "перенос чтение " + std::to_string(m);
+			// Расшифрованный перенос совпадает с записью
 			if((payload.size() > 0) && (::memcmp(back.data(), payload.data(), payload.size()) != 0)) return "перенос полезная часть " + std::to_string(m);
 		}
 		// Пустая строка - прогон записи сошёлся
@@ -341,7 +351,7 @@ namespace {
 					// Объявляем объект Noise
 					noise::suite_t suite(kem, aeads[v], hashes[v]);
 					// Задаём имя по образцу и набору
-					record.name = title(pattern, suite);
+					record.name = __nts_title__(pattern, suite);
 					// Задаём байтовое содержимое
 					record.prologue = bytes(11, 0x50, 1);
 					// Задаём проверочную константу
@@ -359,11 +369,11 @@ namespace {
 					/**
 					 * Перебираем: лексемы KEM инициатора при условии, что они не кончились
 					 */
-					for(size_t i = 0; i < kemtokens(pattern, true); i++) record.initCoins.push_back(bytes(coins, static_cast <uint8_t> (0x60 + number + i), 13));
+					for(size_t i = 0; i < __nts_kemtokens__(pattern, true); i++) record.initCoins.push_back(bytes(coins, static_cast <uint8_t> (0x60 + number + i), 13));
 					/**
 					 * Перебираем: лексемы KEM отвечающего при условии, что они не кончились
 					 */
-					for(size_t i = 0; i < kemtokens(pattern, false); i++) record.respCoins.push_back(bytes(coins, static_cast <uint8_t> (0x80 + number + i), 17));
+					for(size_t i = 0; i < __nts_kemtokens__(pattern, false); i++) record.respCoins.push_back(bytes(coins, static_cast <uint8_t> (0x80 + number + i), 17));
 					// Задаём проверочную константу
 					const size_t count = noise::messages(pattern);
 					/**
@@ -382,10 +392,10 @@ namespace {
 		return result;
 	}
 	/**
-	 * @brief Запись корпуса файлом
+	 * @brief Функция записи корпуса файлом
 	 *
 	 */
-	static bool save(const std::string & path, const std::vector <record_t> & records) {
+	static bool __nts_save__(const std::string & path, const std::vector <record_t> & records) {
 		// Открываем файл для записи
 		std::ofstream file(path);
 		// Проверяем, что файл открыт
@@ -399,33 +409,33 @@ namespace {
 			// Записываем имя рукопожатия
 			file << "\nhandshake=" << record.name << "\n";
 			// Записываем пролог
-			file << "prologue=" << hex(record.prologue.data(), record.prologue.size()) << "\n";
+			file << "prologue=" << __nts_hex__(record.prologue.data(), record.prologue.size()) << "\n";
 			// Записываем зерно статического ключа инициатора
-			file << "init_static_seed=" << hex(record.initStatic.data(), record.initStatic.size()) << "\n";
+			file << "init_static_seed=" << __nts_hex__(record.initStatic.data(), record.initStatic.size()) << "\n";
 			// Записываем зерно статического ключа отвечающего
-			file << "resp_static_seed=" << hex(record.respStatic.data(), record.respStatic.size()) << "\n";
+			file << "resp_static_seed=" << __nts_hex__(record.respStatic.data(), record.respStatic.size()) << "\n";
 			// Записываем зерно эфемерного ключа инициатора
-			file << "init_ephemeral_seed=" << hex(record.initEphemeral.data(), record.initEphemeral.size()) << "\n";
+			file << "init_ephemeral_seed=" << __nts_hex__(record.initEphemeral.data(), record.initEphemeral.size()) << "\n";
 			// Записываем зерно эфемерного ключа отвечающего
-			file << "resp_ephemeral_seed=" << hex(record.respEphemeral.data(), record.respEphemeral.size()) << "\n";
+			file << "resp_ephemeral_seed=" << __nts_hex__(record.respEphemeral.data(), record.respEphemeral.size()) << "\n";
 			/**
 			 * Перебираем: случайности инициатора записи при условии, что они не кончились
 			 */
-			for(size_t i = 0; i < record.initCoins.size(); i++) file << "init_coins_" << i << "=" << hex(record.initCoins[i].data(), record.initCoins[i].size()) << "\n";
+			for(size_t i = 0; i < record.initCoins.size(); i++) file << "init_coins_" << i << "=" << __nts_hex__(record.initCoins[i].data(), record.initCoins[i].size()) << "\n";
 			/**
 			 * Перебираем: случайности отвечающего записи при условии, что они не кончились
 			 */
-			for(size_t i = 0; i < record.respCoins.size(); i++) file << "resp_coins_" << i << "=" << hex(record.respCoins[i].data(), record.respCoins[i].size()) << "\n";
+			for(size_t i = 0; i < record.respCoins.size(); i++) file << "resp_coins_" << i << "=" << __nts_hex__(record.respCoins[i].data(), record.respCoins[i].size()) << "\n";
 			// Записываем имя рукопожатия
-			file << "handshake_hash=" << hex(record.hash.data(), record.hash.size()) << "\n";
+			file << "handshake_hash=" << __nts_hex__(record.hash.data(), record.hash.size()) << "\n";
 			/**
 			 * Перебираем: сообщения записи при условии, что они не кончились
 			 */
 			for(size_t i = 0; i < record.messages.size(); i++){
 				// Записываем строку корпуса
-				file << "msg_" << i << "_payload=" << hex(record.messages[i].first.data(), record.messages[i].first.size()) << "\n";
+				file << "msg_" << i << "_payload=" << __nts_hex__(record.messages[i].first.data(), record.messages[i].first.size()) << "\n";
 				// Записываем строку корпуса
-				file << "msg_" << i << "_ciphertext=" << hex(record.messages[i].second.data(), record.messages[i].second.size()) << "\n";
+				file << "msg_" << i << "_ciphertext=" << __nts_hex__(record.messages[i].second.data(), record.messages[i].second.size()) << "\n";
 			}
 		}
 		// Возвращаем признак успеха
@@ -457,11 +467,11 @@ namespace {
 			// Проверяем, что данные не пусты
 			if(line.empty() || (line[0] == '#')){ if(line.empty()) flush(); continue; }
 			// Задаём проверочную константу
-			const size_t eq = line.find('=');
+			const size_t separator = line.find('=');
 			// Проверяем результат поиска
-			if(eq == std::string::npos) continue;
+			if(separator == std::string::npos) continue;
 			// Задаём строковую константу
-			const std::string key = line.substr(0, eq), value = line.substr(eq + 1);
+			const std::string key = line.substr(0, separator), value = line.substr(separator + 1);
 			// Отмечаем открытие записи
 			open = true;
 			// Если ключ handshake, запоминаем имя записи
@@ -481,6 +491,7 @@ namespace {
 				const size_t number = ::strtoul(key.substr(4, second - 4).c_str(), nullptr, 10);
 				// Если места под сообщение нет, расширяем перечень
 				if(record.messages.size() <= number) record.messages.resize(number + 1);
+				// Полезная часть сообщения записи
 				if(key.substr(second + 1) == "payload") record.messages[number].first = unhex(value);
 				else record.messages[number].second = unhex(value);
 			}
@@ -514,7 +525,7 @@ TEST(PqnoiseTest, Kem){
 	// Объявляем буфер байтов
 	uint8_t pk[1216], sk[2432], ek[1184], dk[2400], xpub[32];
 	// Проверяем генерацию пары ключей гибридной группы
-	ASSERT_TRUE(noise::kemgenerateDeterministic(noise::kem_t::X25519MLKEM768, span(seed), pk, sk));
+	ASSERT_TRUE(noise::kemgenerateDeterministic(noise::kem_t::X25519MLKEM768, __nts_span__(seed), pk, sk));
 	ASSERT_TRUE(agreement::generate(agreement::kem_t::MLKEM768, view_t(seed.data(), 64), ek, dk));
 	ASSERT_TRUE(agreement::x25519(view_t(seed.data() + 64, 32), xpub));
 	// Сравниваем байтовые последовательности
@@ -525,7 +536,7 @@ TEST(PqnoiseTest, Kem){
 	// Объявляем буфер байтов
 	uint8_t ct[1120], ss[64], ct2[1088], ss2[32], epub[32], xss[32], back[64];
 	// Проверяем инкапсуляцию общего секрета
-	ASSERT_TRUE(noise::encapsulateDeterministic(noise::kem_t::X25519MLKEM768, view_t(pk, 1216), span(coins), ct, ss));
+	ASSERT_TRUE(noise::encapsulateDeterministic(noise::kem_t::X25519MLKEM768, view_t(pk, 1216), __nts_span__(coins), ct, ss));
 	ASSERT_TRUE(agreement::encapsulate(agreement::kem_t::MLKEM768, view_t(ek, 1184), view_t(coins.data(), 32), ct2, ss2));
 	ASSERT_TRUE(agreement::x25519(view_t(coins.data() + 32, 32), epub));
 	ASSERT_TRUE(agreement::x25519(view_t(coins.data() + 32, 32), view_t(xpub, 32), xss));
@@ -541,7 +552,7 @@ TEST(PqnoiseTest, Kem){
 	// Повтор случайности даёт тот же шифртекст - потому вызов зовётся Deterministic
 	uint8_t again[1120], ssagain[64];
 	// Проверяем инкапсуляцию общего секрета
-	ASSERT_TRUE(noise::encapsulateDeterministic(noise::kem_t::X25519MLKEM768, view_t(pk, 1216), span(coins), again, ssagain));
+	ASSERT_TRUE(noise::encapsulateDeterministic(noise::kem_t::X25519MLKEM768, view_t(pk, 1216), __nts_span__(coins), again, ssagain));
 	// Сравниваем байтовые последовательности
 	EXPECT_EQ(::memcmp(ct, again, 1120), 0);
 	// Из энтропии - иной
@@ -571,7 +582,7 @@ TEST(PqnoiseTest, Kem){
 	// Отказы длин
 	EXPECT_FALSE(noise::kemgenerateDeterministic(noise::kem_t::X25519MLKEM768, view_t(seed.data(), 64), pk, sk));
 	EXPECT_FALSE(noise::kemgenerateDeterministic(noise::kem_t::MLKEM768, view_t(seed.data(), 96), pk, sk));
-	EXPECT_FALSE(noise::encapsulateDeterministic(noise::kem_t::X25519MLKEM768, view_t(pk, 1184), span(coins), ct, ss));
+	EXPECT_FALSE(noise::encapsulateDeterministic(noise::kem_t::X25519MLKEM768, view_t(pk, 1184), __nts_span__(coins), ct, ss));
 	EXPECT_FALSE(noise::encapsulateDeterministic(noise::kem_t::X25519MLKEM768, view_t(pk, 1216), view_t(coins.data(), 32), ct, ss));
 	EXPECT_FALSE(noise::decapsulate(noise::kem_t::X25519MLKEM768, view_t(sk, 2400), view_t(ct, 1120), back));
 	EXPECT_FALSE(noise::decapsulate(noise::kem_t::X25519MLKEM768, view_t(sk, 2432), view_t(ct, 1088), back));
@@ -597,13 +608,13 @@ TEST(PqnoiseTest, Names){
 		 */
 		for(auto kem : KEMS){
 			// Задаём строковую константу
-			const std::string name = title(p, noise::suite_t(kem, noise::aead_t::AESGCM, digest::hash_t::BLAKE2S256));
+			const std::string name = __nts_title__(p, noise::suite_t(kem, noise::aead_t::AESGCM, digest::hash_t::BLAKE2S256));
 			// Проверяем пустоту
 			ASSERT_FALSE(name.empty());
 			// Проверяем составление имени
 			EXPECT_EQ(name.compare(0, 8, "PQNoise_"), 0) << name;
 			// Проверяем разбор
-			ASSERT_TRUE(noise::parse(span(name), pattern, psks, suite)) << name;
+			ASSERT_TRUE(noise::parse(__nts_span__(name), pattern, psks, suite)) << name;
 			// Узор по имени тот, что задан
 			EXPECT_EQ(pattern, p);
 			EXPECT_EQ(suite.kem, kem);
@@ -613,15 +624,15 @@ TEST(PqnoiseTest, Names){
 		}
 	}
 	// Проверяем разбор
-	EXPECT_TRUE(noise::parse(span(std::string("PQNoise_pqXX_X25519MLKEM768_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_TRUE(noise::parse(__nts_span__(std::string("PQNoise_pqXX_X25519MLKEM768_ChaChaPoly_SHA256")), pattern, psks, suite));
 	// Узор pqXX узнаётся по имени
 	EXPECT_EQ(pattern, noise::pattern_t::PQXX);
 	// Проверяем разбор
-	EXPECT_FALSE(noise::parse(span(std::string("PQNoise_pqXXpsk0_X25519MLKEM768_ChaChaPoly_SHA256")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("Noise_pqXX_X25519MLKEM768_ChaChaPoly_SHA256")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("PQNoise_XX_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("PQNoise_pqXX_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("Noise_XX_X25519MLKEM768_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("PQNoise_pqXXpsk0_X25519MLKEM768_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Noise_pqXX_X25519MLKEM768_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("PQNoise_XX_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("PQNoise_pqXX_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Noise_XX_X25519MLKEM768_ChaChaPoly_SHA256")), pattern, psks, suite));
 	EXPECT_FALSE(noise::postquantum(noise::pattern_t::XX));
 	// Узор и набор разных семейств - отказ составления и заведения
 	char text[noise::NAME_LIMIT];
@@ -638,28 +649,28 @@ TEST(PqnoiseTest, Names){
 	// Проверяем составление имени
 	EXPECT_FALSE(noise::name(noise::pattern_t::PQXX, 0x01, noise::suite_t(noise::kem_t::MLKEM768, noise::aead_t::AESGCM, digest::hash_t::SHA256), text, size));
 	// Объявляем объект Noise
-	noise::handshake_t h;
+	noise::handshake_t mixed;
 	// Проверяем набор шифрования
-	EXPECT_FALSE(h.start(noise::pattern_t::PQXX, 0, noise::suite_t(noise::dh_t::X25519, noise::aead_t::AESGCM, digest::hash_t::SHA256), noise::role_t::INITIATOR, view_t()));
-	EXPECT_FALSE(h.start(noise::pattern_t::XX, 0, noise::suite_t(noise::kem_t::MLKEM768, noise::aead_t::AESGCM, digest::hash_t::SHA256), noise::role_t::INITIATOR, view_t()));
+	EXPECT_FALSE(mixed.start(noise::pattern_t::PQXX, 0, noise::suite_t(noise::dh_t::X25519, noise::aead_t::AESGCM, digest::hash_t::SHA256), noise::role_t::INITIATOR, view_t()));
+	EXPECT_FALSE(mixed.start(noise::pattern_t::XX, 0, noise::suite_t(noise::kem_t::MLKEM768, noise::aead_t::AESGCM, digest::hash_t::SHA256), noise::role_t::INITIATOR, view_t()));
 	/**
 	 * Классические знаки не встречаются в pq-узорах и наоборот
 	 */
 	for(uint8_t i = 1; i <= static_cast <uint8_t> (noise::pattern_t::PQIX); i++){
 		// Берём очередной узор
-		const noise::pattern_t p = static_cast <noise::pattern_t> (i);
+		const noise::pattern_t pattern = static_cast <noise::pattern_t> (i);
 		// Если узор без сообщений, пропускаем
-		if(noise::messages(p) == 0) continue;
+		if(noise::messages(pattern) == 0) continue;
 		/**
 		 * Перебираем: сообщения образца при условии, что они не кончились
 		 */
-		for(size_t m = 0; m < noise::messages(p); m++){
+		for(size_t m = 0; m < noise::messages(pattern); m++){
 			// Заводим указатель на лексемы сообщения
 			const noise::token_t * list = nullptr;
 			// Заводим счётчик лексем
 			size_t count = 0;
 			// Проверяем истинность условия
-			ASSERT_TRUE(noise::tokens(p, m, list, count));
+			ASSERT_TRUE(noise::tokens(pattern, m, list, count));
 			/**
 			 * Перебираем: лексемы сообщения при условии, что они не кончились
 			 */
@@ -669,10 +680,10 @@ TEST(PqnoiseTest, Names){
 				// Отмечаем лексему общего значения
 				const bool dhtoken = ((list[j] == noise::token_t::EE) || (list[j] == noise::token_t::ES) || (list[j] == noise::token_t::SE) || (list[j] == noise::token_t::SS));
 				// Проверяем признак постквантового образца
-				EXPECT_EQ(kemtoken, noise::postquantum(p) && kemtoken) << noise::title(p);
+				EXPECT_EQ(kemtoken, noise::postquantum(pattern) && kemtoken) << noise::title(pattern);
 				// Проверяем признак постквантового образца
-				EXPECT_FALSE(noise::postquantum(p) && dhtoken) << noise::title(p);
-				EXPECT_FALSE(!noise::postquantum(p) && kemtoken) << noise::title(p);
+				EXPECT_FALSE(noise::postquantum(pattern) && dhtoken) << noise::title(pattern);
+				EXPECT_FALSE(!noise::postquantum(pattern) && kemtoken) << noise::title(pattern);
 			}
 		}
 	}
@@ -703,7 +714,7 @@ TEST(PqnoiseTest, Roundtrip){
 					// Заводим запись корпуса
 					record_t record;
 					// Задаём имя по образцу и набору
-					record.name = title(pattern, noise::suite_t(kem, aead, hash));
+					record.name = __nts_title__(pattern, noise::suite_t(kem, aead, hash));
 					// Проверяем пустоту
 					ASSERT_FALSE(record.name.empty());
 					// Задаём проверочную константу
@@ -720,7 +731,7 @@ TEST(PqnoiseTest, Roundtrip){
 					record.messages.push_back(std::make_pair(bytes(5, 0x40, 1), std::vector <uint8_t> ()));
 					record.messages.push_back(std::make_pair(bytes(3, 0x50, 1), std::vector <uint8_t> ()));
 					// Эфемериды и случайности из энтропии: заморозка не задана, значит шифртексты не сличаются, а проверяется круг
-					const std::string failure = run(record, true);
+					const std::string failure = __nts_run__(record, true);
 					// Проверяем пустоту
 					EXPECT_TRUE(failure.empty()) << record.name << ": " << failure;
 					// Изменяем счётчик
@@ -732,7 +743,7 @@ TEST(PqnoiseTest, Roundtrip){
 	// Число рукопожатий сходится: тринадцать узоров на два KEM на восемь наборов
 	EXPECT_EQ(handshakes, 208u);
 	// Ключ собеседника узнаётся верно и оба состояния переноса живы; у pqN второе без ключа
-	noise::handshake_t a, b;
+	noise::handshake_t initiator, responder;
 	// Задаём строковую константу
 	const std::string name = "PQNoise_pqXX_X25519MLKEM768_ChaChaPoly_SHA256";
 	// Объявляем буфер байтов
@@ -743,20 +754,20 @@ TEST(PqnoiseTest, Roundtrip){
 	// Задаём зёрна сторон
 	const std::vector <uint8_t> seedA = bytes(96, 0x33, 1), seedB = bytes(96, 0x44, 1);
 	// Проверяем составление имени
-	ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
-	ASSERT_TRUE(b.start(span(name), noise::role_t::RESPONDER, view_t()));
-	ASSERT_TRUE(a.statics(span(seedA)));
-	ASSERT_TRUE(b.statics(span(seedB)));
+	ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+	ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+	ASSERT_TRUE(initiator.statics(__nts_span__(seedA)));
+	ASSERT_TRUE(responder.statics(__nts_span__(seedB)));
 	// Длина ключа собеседника сходится: доля кривой плюс ключ постквантового KEM
-	EXPECT_EQ(a.keylength(), 1216u);
+	EXPECT_EQ(initiator.keylength(), 1216u);
 	/**
 	 * Перебираем: шаги рукопожатия при условии, что стороны его не завершили
 	 */
-	while((a.step() != noise::step_t::DONE) || (b.step() != noise::step_t::DONE)){
+	while((initiator.step() != noise::step_t::DONE) || (responder.step() != noise::step_t::DONE)){
 		// Объявляем объект Noise
-		noise::handshake_t & writer = (a.step() == noise::step_t::WRITE) ? a : b;
+		noise::handshake_t & writer = (initiator.step() == noise::step_t::WRITE) ? initiator : responder;
 		// Объявляем объект Noise
-		noise::handshake_t & reader = (a.step() == noise::step_t::WRITE) ? b : a;
+		noise::handshake_t & reader = (initiator.step() == noise::step_t::WRITE) ? responder : initiator;
 		// Задаём ёмкости буферов записи и чтения
 		size_t size = sizeof(out), got = sizeof(back);
 		// Проверяем истинность условия
@@ -766,41 +777,41 @@ TEST(PqnoiseTest, Roundtrip){
 	// Объявляем буфер байтов
 	uint8_t learned[1216], own[1216];
 	// Проверяем получение ключа собеседника
-	ASSERT_TRUE(a.peer(learned));
-	ASSERT_TRUE(b.self(own));
+	ASSERT_TRUE(initiator.peer(learned));
+	ASSERT_TRUE(responder.self(own));
 	// Сравниваем байтовые последовательности
 	EXPECT_EQ(::memcmp(learned, own, 1216), 0);
 	// Проверяем получение ключа собеседника
-	ASSERT_TRUE(b.peer(learned));
-	ASSERT_TRUE(a.self(own));
+	ASSERT_TRUE(responder.peer(learned));
+	ASSERT_TRUE(initiator.self(own));
 	// Сравниваем байтовые последовательности
 	EXPECT_EQ(::memcmp(learned, own, 1216), 0);
 	// Объявляем объект Noise
-	noise::cipher_t n1, n2;
+	noise::cipher_t initiatorOut, initiatorIn;
 	// Объявляем объект Noise
-	noise::handshake_t c, d;
+	noise::handshake_t singleInitiator, singleResponder;
 	// Проверяем истинность условия
-	ASSERT_TRUE(c.start(span(std::string("PQNoise_pqN_MLKEM768_AESGCM_SHA512")), noise::role_t::INITIATOR, view_t()));
-	ASSERT_TRUE(d.start(span(std::string("PQNoise_pqN_MLKEM768_AESGCM_SHA512")), noise::role_t::RESPONDER, view_t()));
-	ASSERT_TRUE(d.statics(view_t(seedB.data(), 64)));
-	ASSERT_TRUE(d.self(own));
-	ASSERT_TRUE(c.remote(view_t(own, 1184)));
+	ASSERT_TRUE(singleInitiator.start(__nts_span__(std::string("PQNoise_pqN_MLKEM768_AESGCM_SHA512")), noise::role_t::INITIATOR, view_t()));
+	ASSERT_TRUE(singleResponder.start(__nts_span__(std::string("PQNoise_pqN_MLKEM768_AESGCM_SHA512")), noise::role_t::RESPONDER, view_t()));
+	ASSERT_TRUE(singleResponder.statics(view_t(seedB.data(), 64)));
+	ASSERT_TRUE(singleResponder.self(own));
+	ASSERT_TRUE(singleInitiator.remote(view_t(own, 1184)));
 	// Задаём ёмкости буферов записи и чтения
 	size_t size = sizeof(out), got = sizeof(back);
 	// Проверяем истинность условия
-	ASSERT_TRUE(c.write(span(std::string("sealed")), out, size));
+	ASSERT_TRUE(singleInitiator.write(__nts_span__(std::string("sealed")), out, size));
 	// Запись растёт на ключ KEM, нагрузку и метку
 	EXPECT_EQ(size, 1088u + 6u + noise::TAG);
 	// Проверяем истинность условия
-	ASSERT_TRUE(d.read(view_t(out, size), back, got));
+	ASSERT_TRUE(singleResponder.read(view_t(out, size), back, got));
 	// Нагрузка вскрыта без остатка
 	EXPECT_EQ(got, 6u);
 	// Проверяем раскол шифрованной связи
-	ASSERT_TRUE(c.split(n1, n2));
+	ASSERT_TRUE(singleInitiator.split(initiatorOut, initiatorIn));
 	// Проверяем истинность условия
-	EXPECT_TRUE(n1.has());
+	EXPECT_TRUE(initiatorOut.has());
 	// Проверяем ложность условия
-	EXPECT_FALSE(n2.has());
+	EXPECT_FALSE(initiatorIn.has());
 }
 /**
  * @brief Предельные длины сообщений, посчитанные заранее: pqXX и pqIK на обоих KEM; полезная часть до предела проходит, сверх - отказ
@@ -830,22 +841,22 @@ TEST(PqnoiseTest, Limits){
 		// pqXX: пустая полезная часть даёт ровно накладные расходы
 		{
 			// Объявляем объект Noise
-			noise::handshake_t a, b;
+			noise::handshake_t initiator, responder;
 			// Задаём строковую константу
-			const std::string name = title(noise::pattern_t::PQXX, noise::suite_t(kem, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256));
+			const std::string name = __nts_title__(noise::pattern_t::PQXX, noise::suite_t(kem, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256));
 			// Проверяем составление имени
-			ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
-			ASSERT_TRUE(b.start(span(name), noise::role_t::RESPONDER, view_t()));
-			ASSERT_TRUE(a.statics(span(seedA)));
-			ASSERT_TRUE(b.statics(span(seedB)));
+			ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+			ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+			ASSERT_TRUE(initiator.statics(__nts_span__(seedA)));
+			ASSERT_TRUE(responder.statics(__nts_span__(seedB)));
 			/**
 			 * Перебираем: сообщения рукопожатия при условии, что их меньше четырёх
 			 */
 			for(size_t i = 0; i < 4; i++){
 				// Объявляем объект Noise
-				noise::handshake_t & writer = ((i % 2) == 0) ? a : b;
+				noise::handshake_t & writer = ((i % 2) == 0) ? initiator : responder;
 				// Объявляем объект Noise
-				noise::handshake_t & reader = ((i % 2) == 0) ? b : a;
+				noise::handshake_t & reader = ((i % 2) == 0) ? responder : initiator;
 				// Задаём ёмкости буферов записи и чтения
 				size_t size = out.size(), got = back.size();
 				// Проверяем истинность условия
@@ -858,30 +869,30 @@ TEST(PqnoiseTest, Limits){
 				EXPECT_EQ(got, 0u);
 			}
 		}
-		// pqIK
+		// pqIK: узор с предзнанием ключа отвечающего
 		{
 			// Объявляем объект Noise
-			noise::handshake_t a, b;
+			noise::handshake_t initiator, responder;
 			// Задаём строковую константу
-			const std::string name = title(noise::pattern_t::PQIK, noise::suite_t(kem, noise::aead_t::AESGCM, digest::hash_t::BLAKE2S256));
+			const std::string name = __nts_title__(noise::pattern_t::PQIK, noise::suite_t(kem, noise::aead_t::AESGCM, digest::hash_t::BLAKE2S256));
 			// Проверяем составление имени
-			ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
-			ASSERT_TRUE(b.start(span(name), noise::role_t::RESPONDER, view_t()));
-			ASSERT_TRUE(a.statics(span(seedA)));
-			ASSERT_TRUE(b.statics(span(seedB)));
+			ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+			ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+			ASSERT_TRUE(initiator.statics(__nts_span__(seedA)));
+			ASSERT_TRUE(responder.statics(__nts_span__(seedB)));
 			// Объявляем буфер байтов
 			uint8_t key[noise::KEM_PUBLIC_MAX];
 			// Проверяем установку собственного ключа
-			ASSERT_TRUE(b.self(key));
-			ASSERT_TRUE(a.remote(view_t(key, b.keylength())));
+			ASSERT_TRUE(responder.self(key));
+			ASSERT_TRUE(initiator.remote(view_t(key, responder.keylength())));
 			/**
 			 * Перебираем: сообщения рукопожатия при условии, что их меньше двух
 			 */
 			for(size_t i = 0; i < 2; i++){
 				// Объявляем объект Noise
-				noise::handshake_t & writer = ((i % 2) == 0) ? a : b;
+				noise::handshake_t & writer = ((i % 2) == 0) ? initiator : responder;
 				// Объявляем объект Noise
-				noise::handshake_t & reader = ((i % 2) == 0) ? b : a;
+				noise::handshake_t & reader = ((i % 2) == 0) ? responder : initiator;
 				// Задаём ёмкости буферов записи и чтения
 				size_t size = out.size(), got = back.size();
 				// Проверяем истинность условия
@@ -897,19 +908,19 @@ TEST(PqnoiseTest, Limits){
 		 */
 		for(size_t extra = 0; extra < 2; extra++){
 			// Объявляем объект Noise
-			noise::handshake_t a, b;
+			noise::handshake_t initiator, responder;
 			// Задаём строковую константу
-			const std::string name = title(noise::pattern_t::PQXX, noise::suite_t(kem, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256));
+			const std::string name = __nts_title__(noise::pattern_t::PQXX, noise::suite_t(kem, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256));
 			// Проверяем составление имени
-			ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
-			ASSERT_TRUE(b.start(span(name), noise::role_t::RESPONDER, view_t()));
-			ASSERT_TRUE(a.statics(span(seedA)));
-			ASSERT_TRUE(b.statics(span(seedB)));
+			ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+			ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+			ASSERT_TRUE(initiator.statics(__nts_span__(seedA)));
+			ASSERT_TRUE(responder.statics(__nts_span__(seedB)));
 			// Задаём ёмкости буферов записи и чтения
 			size_t size = out.size(), got = back.size();
 			// Проверяем истинность условия
-			ASSERT_TRUE(a.write(view_t(), out.data(), size));
-			ASSERT_TRUE(b.read(view_t(out.data(), size), back.data(), got));
+			ASSERT_TRUE(initiator.write(view_t(), out.data(), size));
+			ASSERT_TRUE(responder.read(view_t(out.data(), size), back.data(), got));
 			// Задаём проверочную константу
 			const size_t limit = (noise::MESSAGE - (comp ? composite[1] : pure[1]));
 			// Задаём прикладные данные
@@ -919,18 +930,18 @@ TEST(PqnoiseTest, Limits){
 			// Проверяем признак превышения размера сообщения
 			if(extra == 0){
 				// Проверяем составление имени
-				ASSERT_TRUE(b.write(span(payload), out.data(), size)) << name;
+				ASSERT_TRUE(responder.write(__nts_span__(payload), out.data(), size)) << name;
 				// Размер сообщения не превышен
 				EXPECT_EQ(size, noise::MESSAGE);
 				// Длина входящего буфера
 				got = back.size();
 				// Проверяем истинность условия
-				ASSERT_TRUE(a.read(view_t(out.data(), size), back.data(), got));
+				ASSERT_TRUE(initiator.read(view_t(out.data(), size), back.data(), got));
 				// Принято ровно столько, сколько вмещается
 				EXPECT_EQ(got, limit);
 			} else {
 				// Проверяем составление имени
-				EXPECT_FALSE(b.write(span(payload), out.data(), size)) << name;
+				EXPECT_FALSE(responder.write(__nts_span__(payload), out.data(), size)) << name;
 			}
 		}
 	}
@@ -953,12 +964,12 @@ TEST(PqnoiseTest, Corpus){
 		 */
 		for(auto & record : records){
 			// Задаём строковую константу
-			const std::string failure = run(record, true);
+			const std::string failure = __nts_run__(record, true);
 			// Проверяем пустоту
 			ASSERT_TRUE(failure.empty()) << record.name << ": " << failure;
 		}
 		// Проверяем истинность условия
-		ASSERT_TRUE(save(freeze, records));
+		ASSERT_TRUE(__nts_save__(freeze, records));
 		// Проваливаем проверку вслух
 		FAIL() << "корпус пересоздан в " << freeze << " (" << records.size() << " записей): заморозка вслух, проверка нарочно провалена";
 	}
@@ -973,7 +984,7 @@ TEST(PqnoiseTest, Corpus){
 	 */
 	for(auto & record : records){
 		// Задаём строковую константу
-		const std::string failure = run(record, false);
+		const std::string failure = __nts_run__(record, false);
 		// Проверяем пустоту
 		EXPECT_TRUE(failure.empty()) << record.name << ": " << failure;
 		// Проверяем, что данные не пусты
@@ -1011,133 +1022,133 @@ TEST(PqnoiseTest, Refusals){
 	uint8_t out[4096], back[64];
 	{
 		// Объявляем объект Noise
-		noise::handshake_t a;
+		noise::handshake_t probing;
 		// Проверяем составление имени
-		ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(probing.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
 		// Проверяем установку статических ключей
-		EXPECT_FALSE(a.statics(view_t(seedA.data(), 64)));
-		EXPECT_FALSE(a.statics(view_t(seedA.data(), 32)));
-		EXPECT_FALSE(a.ephemeral(view_t(seedA.data(), 95)));
-		EXPECT_FALSE(a.remote(view_t(out, 32)));
-		EXPECT_FALSE(a.remote(view_t(out, 1184)));
+		EXPECT_FALSE(probing.statics(view_t(seedA.data(), 64)));
+		EXPECT_FALSE(probing.statics(view_t(seedA.data(), 32)));
+		EXPECT_FALSE(probing.ephemeral(view_t(seedA.data(), 95)));
+		EXPECT_FALSE(probing.remote(view_t(out, 32)));
+		EXPECT_FALSE(probing.remote(view_t(out, 1184)));
 		// Задаём область случайностей
 		view_t coin(coins.data(), 32);
 		// Проверяем установку случайностей
-		EXPECT_FALSE(a.coinsDeterministic(&coin, 1));
+		EXPECT_FALSE(probing.coinsDeterministic(&coin, 1));
 		// Задаём область корректных случайностей
 		view_t good(coins.data(), 64);
 		// Проверяем установку случайностей
-		EXPECT_TRUE(a.coinsDeterministic(&good, 1));
+		EXPECT_TRUE(probing.coinsDeterministic(&good, 1));
 		// Задаём область общего секрета
 		view_t psk(seedA.data(), 32);
 		// Проверяем установку общих секретов
-		EXPECT_FALSE(a.psks(&psk, 1));
+		EXPECT_FALSE(probing.psks(&psk, 1));
 		// Случайности заданы и исчерпаны - отказ, не энтропия: у pqXX инициатору нужна одна (skem), задана одна, второй круг с одной у отвечающего (ekem, skem - нужны две)
-		noise::handshake_t x, y;
+		noise::handshake_t initiator, responder;
 		// Проверяем составление имени
-		ASSERT_TRUE(x.start(span(name), noise::role_t::INITIATOR, view_t()));
-		ASSERT_TRUE(y.start(span(name), noise::role_t::RESPONDER, view_t()));
-		ASSERT_TRUE(x.statics(span(seedA)));
-		ASSERT_TRUE(y.statics(span(seedB)));
-		ASSERT_TRUE(y.coinsDeterministic(&good, 1));
+		ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+		ASSERT_TRUE(initiator.statics(__nts_span__(seedA)));
+		ASSERT_TRUE(responder.statics(__nts_span__(seedB)));
+		ASSERT_TRUE(responder.coinsDeterministic(&good, 1));
 		// Задаём ёмкости буферов записи и чтения
 		size_t size = sizeof(out), got = sizeof(back);
 		// Проверяем истинность условия
-		ASSERT_TRUE(x.write(view_t(), out, size));
-		ASSERT_TRUE(y.read(view_t(out, size), back, got));
+		ASSERT_TRUE(initiator.write(view_t(), out, size));
+		ASSERT_TRUE(responder.read(view_t(out, size), back, got));
 		// Длина исходящего буфера
 		size = sizeof(out);
 		// Проверяем истинность условия
-		ASSERT_TRUE(y.write(view_t(), out, size));
+		ASSERT_TRUE(responder.write(view_t(), out, size));
 		// Длина входящего буфера
 		got = sizeof(back);
 		// Проверяем истинность условия
-		ASSERT_TRUE(x.read(view_t(out, size), back, got));
+		ASSERT_TRUE(initiator.read(view_t(out, size), back, got));
 		// Длина исходящего буфера
 		size = sizeof(out);
 		// Проверяем истинность условия
-		ASSERT_TRUE(x.write(view_t(), out, size));
+		ASSERT_TRUE(initiator.write(view_t(), out, size));
 		// Длина входящего буфера
 		got = sizeof(back);
 		// Проверяем истинность условия
-		ASSERT_TRUE(y.read(view_t(out, size), back, got));
+		ASSERT_TRUE(responder.read(view_t(out, size), back, got));
 		// Длина исходящего буфера
 		size = sizeof(out);
 		// Проверяем ложность условия
-		EXPECT_FALSE(y.write(view_t(), out, size));
+		EXPECT_FALSE(responder.write(view_t(), out, size));
 		// Проверяем шаг рукопожатия
-		EXPECT_EQ(y.step(), noise::step_t::NONE);
+		EXPECT_EQ(responder.step(), noise::step_t::NONE);
 		// Классика случайностей KEM не принимает
-		noise::handshake_t c;
+		noise::handshake_t classic;
 		// Проверяем истинность условия
-		ASSERT_TRUE(c.start(span(std::string("Noise_XX_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(classic.start(__nts_span__(std::string("Noise_XX_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
 		// Проверяем установку случайностей
-		EXPECT_FALSE(c.coinsDeterministic(&good, 1));
+		EXPECT_FALSE(classic.coinsDeterministic(&good, 1));
 	}
 	// Порча шифртекста skem: расшифровка не сходится, состояние неисправно
 	{
 		// Объявляем объект Noise
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Проверяем составление имени
-		ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
-		ASSERT_TRUE(b.start(span(name), noise::role_t::RESPONDER, view_t()));
-		ASSERT_TRUE(a.statics(span(seedA)));
-		ASSERT_TRUE(b.statics(span(seedB)));
+		ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+		ASSERT_TRUE(initiator.statics(__nts_span__(seedA)));
+		ASSERT_TRUE(responder.statics(__nts_span__(seedB)));
 		// Задаём ёмкости буферов записи и чтения
 		size_t size = sizeof(out), got = sizeof(back);
 		// Проверяем истинность условия
-		ASSERT_TRUE(a.write(view_t(), out, size));
-		ASSERT_TRUE(b.read(view_t(out, size), back, got));
+		ASSERT_TRUE(initiator.write(view_t(), out, size));
+		ASSERT_TRUE(responder.read(view_t(out, size), back, got));
 		// Длины буферов обеих сторон
 		size = sizeof(out); got = sizeof(back);
 		// Проверяем истинность условия
-		ASSERT_TRUE(b.write(view_t(), out, size));
+		ASSERT_TRUE(responder.write(view_t(), out, size));
 		// Порча шифртекста ekem (в открытом виде): секрет расходится, метка полезной части не сходится
 		out[10] ^= 1;
 		// Проверяем ложность условия
-		EXPECT_FALSE(a.read(view_t(out, size), back, got));
+		EXPECT_FALSE(initiator.read(view_t(out, size), back, got));
 		// Проверяем шаг рукопожатия
-		EXPECT_EQ(a.step(), noise::step_t::NONE);
+		EXPECT_EQ(initiator.step(), noise::step_t::NONE);
 	}
 	// Чужая статика отвечающего у pqIK: skem инициатора распаковывается не тем ключом, метка не сходится
 	{
 		// Объявляем объект Noise
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Задаём строковую константу
-		const std::string ik = "PQNoise_pqIK_MLKEM768_ChaChaPoly_BLAKE2s";
+		const std::string ikName = "PQNoise_pqIK_MLKEM768_ChaChaPoly_BLAKE2s";
 		// Проверяем истинность условия
-		ASSERT_TRUE(a.start(span(ik), noise::role_t::INITIATOR, view_t()));
-		ASSERT_TRUE(b.start(span(ik), noise::role_t::RESPONDER, view_t()));
-		ASSERT_TRUE(a.statics(view_t(seedA.data(), 64)));
-		ASSERT_TRUE(b.statics(view_t(seedB.data(), 64)));
+		ASSERT_TRUE(initiator.start(__nts_span__(ikName), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(responder.start(__nts_span__(ikName), noise::role_t::RESPONDER, view_t()));
+		ASSERT_TRUE(initiator.statics(view_t(seedA.data(), 64)));
+		ASSERT_TRUE(responder.statics(view_t(seedB.data(), 64)));
 		// Объявляем буфер байтов
 		uint8_t other[1184], sk[2400];
 		// Проверяем генерацию пары ключей гибридной группы
 		ASSERT_TRUE(noise::kemgenerate(noise::kem_t::MLKEM768, other, sk));
-		ASSERT_TRUE(a.remote(view_t(other, 1184)));
+		ASSERT_TRUE(initiator.remote(view_t(other, 1184)));
 		// Задаём ёмкости буферов записи и чтения
 		size_t size = sizeof(out), got = sizeof(back);
 		// Проверяем истинность условия
-		ASSERT_TRUE(a.write(view_t(), out, size));
+		ASSERT_TRUE(initiator.write(view_t(), out, size));
 		// Проверяем ложность условия
-		EXPECT_FALSE(b.read(view_t(out, size), back, got));
+		EXPECT_FALSE(responder.read(view_t(out, size), back, got));
 		// Проверяем шаг рукопожатия
-		EXPECT_EQ(b.step(), noise::step_t::NONE);
+		EXPECT_EQ(responder.step(), noise::step_t::NONE);
 		// Без своего постоянного ключа отвечающий pqIK не заведётся: чужой skem нечем распаковать
-		noise::handshake_t d;
+		noise::handshake_t keyless;
 		// Проверяем истинность условия
-		ASSERT_TRUE(d.start(span(ik), noise::role_t::RESPONDER, view_t()));
+		ASSERT_TRUE(keyless.start(__nts_span__(ikName), noise::role_t::RESPONDER, view_t()));
 		// Длина входящего буфера
 		got = sizeof(back);
 		// Проверяем ложность условия
-		EXPECT_FALSE(d.read(view_t(out, size), back, got));
+		EXPECT_FALSE(keyless.read(view_t(out, size), back, got));
 	}
 	// Паёк выделений: полный круг pqXX без единого выделения
 	{
 		// Объявляем объект Noise
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Объявляем объект Noise
-		noise::cipher_t a1, a2, b1, b2;
+		noise::cipher_t initiatorOut, initiatorIn, responderIn, responderOut;
 		// Задаём таблицу проверочных констант
 		static const uint8_t NAME[] = "PQNoise_pqXX_X25519MLKEM768_ChaChaPoly_BLAKE2s";
 		// Заводим признак общего успеха
@@ -1148,26 +1159,26 @@ TEST(PqnoiseTest, Refusals){
 			// Ограничиваем доступную память
 			starve::ration_t ration(0);
 			// Заводим инициатора по имени узора
-			status = (a.start(view_t(NAME, sizeof(NAME) - 1), noise::role_t::INITIATOR, view_t()) && b.start(view_t(NAME, sizeof(NAME) - 1), noise::role_t::RESPONDER, view_t()));
+			status = (initiator.start(view_t(NAME, sizeof(NAME) - 1), noise::role_t::INITIATOR, view_t()) && responder.start(view_t(NAME, sizeof(NAME) - 1), noise::role_t::RESPONDER, view_t()));
 			// Устанавливаем статические ключи сторон из зёрен
-			status = (status && a.statics(view_t(seedA.data(), 96)) && b.statics(view_t(seedB.data(), 96)));
+			status = (status && initiator.statics(view_t(seedA.data(), 96)) && responder.statics(view_t(seedB.data(), 96)));
 			/**
 			 * Перебираем: сообщения рукопожатия при условии, что шаги идут без отказа
 			 */
 			for(size_t i = 0; status && (i < 4); i++){
 				// Объявляем объект Noise
-				noise::handshake_t & writer = ((i % 2) == 0) ? a : b;
+				noise::handshake_t & writer = ((i % 2) == 0) ? initiator : responder;
 				// Объявляем объект Noise
-				noise::handshake_t & reader = ((i % 2) == 0) ? b : a;
+				noise::handshake_t & reader = ((i % 2) == 0) ? responder : initiator;
 				// Задаём ёмкости буферов записи и чтения
 				size_t size = sizeof(out), got = sizeof(back);
 				// Прогоняем сообщение узора между сторонами
 				status = (writer.write(view_t(), out, size) && reader.read(view_t(out, size), back, got));
 			}
 			// Раскалываем ключи связи сторон
-			status = (status && a.split(a1, a2) && b.split(b1, b2));
+			status = (status && initiator.split(initiatorOut, initiatorIn) && responder.split(responderIn, responderOut));
 			// Зашифровываем пробный текст первым ключом
-			status = (status && a1.encrypt(view_t(), view_t(seedA.data(), 8), out, tag) && b1.decrypt(view_t(), view_t(out, 8), view_t(tag, 16), back));
+			status = (status && initiatorOut.encrypt(view_t(), view_t(seedA.data(), 8), out, tag) && responderIn.decrypt(view_t(), view_t(out, 8), view_t(tag, 16), back));
 			// Останавливаем замер расхода выделений
 			ration.stop();
 		}

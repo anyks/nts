@@ -99,7 +99,7 @@ namespace {
 	 * @return       признак успешной загрузки
 	 *
 	 */
-	bool keyfile(const char * name, context::credential_t & result) noexcept {
+	bool __nts_keyfile__(const char * name, context::credential_t & result) noexcept {
 		// Читаем закрытый ключ
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем цепочку
@@ -123,7 +123,7 @@ namespace {
 	 * @return        признак того, что байты перенесены
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server, size_t & records, size_t & widest) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server, size_t & records, size_t & widest) noexcept {
 		// Признак переноса
 		bool moved = false;
 		/**
@@ -131,7 +131,7 @@ namespace {
 		 */
 		try {
 			/**
-			 * Выполняем перебор обеих сторон
+			 * Перебираем обе стороны
 			 */
 			for(size_t side = 0; side < 2; side++){
 				// Вывод стороны
@@ -143,7 +143,7 @@ namespace {
 				// Снимок вывода
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				/**
-				 * Выполняем перебор записей на проводе: у обеих сторон записи целые
+				 * Перебираем записи на проводе: у обеих сторон записи целые
 				 */
 				for(size_t offset = 0; (offset + 5) <= buffer.size();){
 					// Длина записи
@@ -194,12 +194,12 @@ namespace {
 	 * @param widest  наибольшая запись прикладных данных
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server, size_t & records, size_t & widest) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server, size_t & records, size_t & widest) noexcept {
 		/**
-		 * Выполняем перенос, пока стороны пишут
+		 * Переносим записи, пока стороны пишут
 		 */
-		for(size_t i = 0; (i < 32) && pump(client, server, records, widest); i++)
-			// Продолжаем
+		for(size_t i = 0; (i < 32) && __nts_pump__(client, server, records, widest); i++)
+			// Продолжаем перекачку записей
 			continue;
 	}
 	/**
@@ -211,7 +211,7 @@ namespace {
 	 * @return       признак готовности профиля
 	 *
 	 */
-	bool profiling(fingerprint::profile_t & result, const vector <uint16_t> & types, const vector <vector <uint8_t>> & bodies) noexcept {
+	bool __nts_profiling__(fingerprint::profile_t & result, const vector <uint16_t> & types, const vector <vector <uint8_t>> & bodies) noexcept {
 		// Клиент-донор
 		client::context_t donor;
 		// Имя узла донора
@@ -225,7 +225,7 @@ namespace {
 			// Выводим отрицательный результат - приветствие не разобрано
 			return false;
 		/**
-		 * Выполняем дописывание расширений
+		 * Дописываем расширения
 		 */
 		for(size_t i = 0; i < types.size(); i++){
 			// Расширение предела
@@ -254,17 +254,17 @@ namespace {
 	 * @return        признак того, что связь установлена и данные дошли в обе стороны
 	 *
 	 */
-	bool transfer(const vector <uint16_t> & types, const vector <vector <uint8_t>> & bodies, const bool legacy, const size_t amount, size_t & records, size_t & widest, context::error_t & failure, vector <uint8_t> & answer) noexcept {
+	bool __nts_transfer__(const vector <uint16_t> & types, const vector <vector <uint8_t>> & bodies, const bool legacy, const size_t amount, size_t & records, size_t & widest, context::error_t & failure, vector <uint8_t> & answer) noexcept {
 		// Полномочия сервера
 		context::credential_t credential;
 		// Если ключ не загружен
-		if(!keyfile("ec256", credential))
+		if(!__nts_keyfile__("ec256", credential))
 			// Выводим отрицательный результат - ключ не загружен
 			return false;
 		// Профиль с пределом
 		fingerprint::profile_t profile;
 		// Если профиль не собран
-		if(!profiling(profile, types, bodies))
+		if(!__nts_profiling__(profile, types, bodies))
 			// Выводим отрицательный результат - профиль не собран
 			return false;
 		// Стороны связи
@@ -308,7 +308,7 @@ namespace {
 		// Счётчики рукопожатия не нужны
 		size_t handshaking = 0, widening = 0;
 		// Проводим рукопожатие
-		converse(client, server, handshaking, widening);
+		__nts_converse__(client, server, handshaking, widening);
 		// Ошибка клиента
 		failure = client.error();
 		// Если связь не установлена
@@ -329,9 +329,9 @@ namespace {
 		if(client.write(view_t(outward.data(), outward.size())) != context::error_t::NONE)
 			// Выводим отрицательный результат - клиент не отправил
 			return false;
-		// Переносим
-		converse(client, server, records, widest);
-		// Принятое
+		// Переносим записи между сторонами
+		__nts_converse__(client, server, records, widest);
+		// Принятое сервером сообщение
 		vector <uint8_t> received;
 		// Если сервер не принял ровно то, что отправлено
 		if((server.read(received) != context::error_t::NONE) || (received != outward))
@@ -341,8 +341,8 @@ namespace {
 		if(server.write(view_t(inward.data(), inward.size())) != context::error_t::NONE)
 			// Выводим отрицательный результат - сервер не отправил
 			return false;
-		// Переносим
-		converse(client, server, records, widest);
+		// Переносим записи между сторонами
+		__nts_converse__(client, server, records, widest);
 		// Если клиент не принял ровно то, что отправлено
 		if((client.read(received) != context::error_t::NONE) || (received != inward))
 			// Выводим отрицательный результат - клиент принял не то
@@ -359,7 +359,7 @@ namespace {
 	 * @return       признак наличия расширения
 	 *
 	 */
-	bool replied(const vector <uint8_t> & answer, const uint16_t type, vector <uint8_t> & body) noexcept {
+	bool __nts_replied__(const vector <uint8_t> & answer, const uint16_t type, vector <uint8_t> & body) noexcept {
 		// Разбираем записи ответа
 		record::reader_t reader;
 		// Если записи не разобраны
@@ -430,20 +430,20 @@ namespace {
  * шлёт по своему умолчанию, данные доходят в обе стороны
  */
 TEST(LimitTest, RecordSizeLimit){
-	// Издания
+	// Издания протокола: обычное и прежнее
 	static const bool LEGACY[] = {false, true};
 	/**
-	 * Выполняем перебор изданий
+	 * Перебираем издания
 	 */
 	for(size_t i = 0; i < 2; i++){
-		// Счётчики
+		// Счётчики записей и наибольшей ширины
 		size_t records = 0, widest = 0;
 		// Код отказа
 		context::error_t failure = context::error_t::NONE;
 		// Ответ сервера
 		vector <uint8_t> answer;
 		// Связь с пределом 1024 и переносом 5000 байтов в каждую сторону
-		ASSERT_TRUE(transfer({LIMIT}, {bounded(1024)}, LEGACY[i], 5000, records, widest, failure, answer)) << "издание " << (LEGACY[i] ? "1.2" : "1.3") << " отказ " << static_cast <int> (failure);
+		ASSERT_TRUE(__nts_transfer__({LIMIT}, {bounded(1024)}, LEGACY[i], 5000, records, widest, failure, answer)) << "издание " << (LEGACY[i] ? "1.2" : "1.3") << " отказ " << static_cast <int> (failure);
 		// Клиент шлёт одной записью (сервер объявил 16385/16384), сервер - не меньше чем пятью
 		EXPECT_GE(records, 6u) << "издание " << (LEGACY[i] ? "1.2" : "1.3");
 		// Наибольшая запись на проводе - клиентская, 5000 байтов плюс защита
@@ -458,7 +458,7 @@ TEST(LimitTest, RecordSizeLimit){
 			// Тело расширения из ответа
 			vector <uint8_t> body;
 			// Проверяем ответ с пределом
-			ASSERT_TRUE(replied(answer, LIMIT, body));
+			ASSERT_TRUE(__nts_replied__(answer, LIMIT, body));
 			// Сервер вернул свой предел 16384
 			EXPECT_EQ(body, bounded(16384));
 		}
@@ -470,20 +470,20 @@ TEST(LimitTest, RecordSizeLimit){
  * сервера не длиннее 64 байтов полезного содержимого плюс защита, и всё доходит
  */
 TEST(LimitTest, Tight){
-	// Издания
+	// Издания протокола: обычное и прежнее
 	static const bool LEGACY[] = {false, true};
 	/**
-	 * Выполняем перебор изданий
+	 * Перебираем издания
 	 */
 	for(size_t i = 0; i < 2; i++){
-		// Счётчики
+		// Счётчики записей и наибольшей ширины
 		size_t records = 0, widest = 0;
 		// Код отказа
 		context::error_t failure = context::error_t::NONE;
 		// Ответ сервера
 		vector <uint8_t> answer;
 		// Связь с наименьшим дозволенным пределом и переносом 700 байтов
-		ASSERT_TRUE(transfer({LIMIT}, {bounded(64)}, LEGACY[i], 700, records, widest, failure, answer)) << "издание " << (LEGACY[i] ? "1.2" : "1.3") << " отказ " << static_cast <int> (failure);
+		ASSERT_TRUE(__nts_transfer__({LIMIT}, {bounded(64)}, LEGACY[i], 700, records, widest, failure, answer)) << "издание " << (LEGACY[i] ? "1.2" : "1.3") << " отказ " << static_cast <int> (failure);
 		// Сервер режет 700 байтов не меньше чем на 11 записей (63 либо 64 байта в каждой), клиент - одной
 		EXPECT_GE(records, 12u) << "издание " << (LEGACY[i] ? "1.2" : "1.3");
 		// Пределы: наименьший дозволенный у отправки сервера и приёма клиента
@@ -497,20 +497,20 @@ TEST(LimitTest, Tight){
  * изданиях, ни одна запись прикладных данных на проводе не длиннее 512 байтов с защитой
  */
 TEST(LimitTest, MaxFragmentLength){
-	// Издания
+	// Издания протокола: обычное и прежнее
 	static const bool LEGACY[] = {false, true};
 	/**
-	 * Выполняем перебор изданий
+	 * Перебираем издания
 	 */
 	for(size_t i = 0; i < 2; i++){
-		// Счётчики
+		// Счётчики записей и наибольшей ширины
 		size_t records = 0, widest = 0;
 		// Код отказа
 		context::error_t failure = context::error_t::NONE;
 		// Ответ сервера
 		vector <uint8_t> answer;
 		// Связь с кодом 1 и переносом 5000 байтов в каждую сторону
-		ASSERT_TRUE(transfer({FRAGMENT}, {vector <uint8_t> {0x01}}, LEGACY[i], 5000, records, widest, failure, answer)) << "издание " << (LEGACY[i] ? "1.2" : "1.3") << " отказ " << static_cast <int> (failure);
+		ASSERT_TRUE(__nts_transfer__({FRAGMENT}, {vector <uint8_t> {0x01}}, LEGACY[i], 5000, records, widest, failure, answer)) << "издание " << (LEGACY[i] ? "1.2" : "1.3") << " отказ " << static_cast <int> (failure);
 		// Обе стороны режут: не меньше чем по десять записей с каждой
 		EXPECT_GE(records, 20u) << "издание " << (LEGACY[i] ? "1.2" : "1.3");
 		// Ни одна запись не длиннее 512 байтов содержимого плюс защита (метка 16, октет вида, у 1.2 явный вектор 8)
@@ -526,7 +526,7 @@ TEST(LimitTest, MaxFragmentLength){
 			// Тело расширения из ответа
 			vector <uint8_t> body;
 			// Проверяем ответ с кодом
-			ASSERT_TRUE(replied(answer, FRAGMENT, body));
+			ASSERT_TRUE(__nts_replied__(answer, FRAGMENT, body));
 			// Сервер вернул тот же код
 			EXPECT_EQ(body, (vector <uint8_t> {0x01}));
 		}
@@ -543,23 +543,23 @@ TEST(LimitTest, Both){
 	// Тела расширений по порядкам
 	static const vector <vector <uint8_t>> BODIES[] = {{bounded(2048), {0x01}}, {{0x01}, bounded(2048)}};
 	/**
-	 * Выполняем перебор порядков
+	 * Перебираем порядки
 	 */
 	for(size_t i = 0; i < 2; i++){
-		// Счётчики
+		// Счётчики записей и наибольшей ширины
 		size_t records = 0, widest = 0;
 		// Код отказа
 		context::error_t failure = context::error_t::NONE;
 		// Ответ сервера
 		vector <uint8_t> answer;
 		// Связь издания 1.2 с переносом 5000 байтов
-		ASSERT_TRUE(transfer(ORDERS[i], BODIES[i], true, 5000, records, widest, failure, answer)) << "порядок " << i << " отказ " << static_cast <int> (failure);
+		ASSERT_TRUE(__nts_transfer__(ORDERS[i], BODIES[i], true, 5000, records, widest, failure, answer)) << "порядок " << i << " отказ " << static_cast <int> (failure);
 		// Ответ: record_size_limit есть, max_fragment_length нет
 		vector <uint8_t> body;
 		// Ответ с record_size_limit есть
-		EXPECT_TRUE(replied(answer, LIMIT, body)) << "порядок " << i;
+		EXPECT_TRUE(__nts_replied__(answer, LIMIT, body)) << "порядок " << i;
 		// Ответа с max_fragment_length нет
-		EXPECT_FALSE(replied(answer, FRAGMENT, body)) << "порядок " << i;
+		EXPECT_FALSE(__nts_replied__(answer, FRAGMENT, body)) << "порядок " << i;
 		// Сервер режет по 2048: три записи на 5000 байтов, клиент - одной; не по 512
 		EXPECT_GE(records, 4u) << "порядок " << i;
 		// И меньше десяти записей
@@ -574,7 +574,7 @@ TEST(LimitTest, Both){
 		// Сбрасываем ширину записи
 		widest = 0;
 		// Связь издания 1.3 с переносом 5000 байтов
-		ASSERT_TRUE(transfer(ORDERS[i], BODIES[i], false, 5000, records, widest, failure, answer)) << "порядок " << i << " отказ " << static_cast <int> (failure);
+		ASSERT_TRUE(__nts_transfer__(ORDERS[i], BODIES[i], false, 5000, records, widest, failure, answer)) << "порядок " << i << " отказ " << static_cast <int> (failure);
 		// Не меньше четырёх записей
 		EXPECT_GE(records, 4u) << "порядок " << i;
 		// И меньше десяти записей
@@ -599,18 +599,18 @@ TEST(LimitTest, Refusals){
 	// Ожидаемые извещения
 	static const alert::description_t ALERTS[] = {alert::description_t::PARAMETER, alert::description_t::PARAMETER, alert::description_t::DECODE, alert::description_t::DECODE};
 	/**
-	 * Выполняем перебор негодных тел
+	 * Перебираем негодные тела
 	 */
 	for(size_t i = 0; i < 4; i++){
 		// Полномочия и профиль
 		context::credential_t credential;
 		// Загружаем ключ
-		ASSERT_TRUE(keyfile("ec256", credential));
+		ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 		// Профиль отпечатка
 		fingerprint::profile_t profile;
 		// Наполняем профиль расширением
-		ASSERT_TRUE(profiling(profile, {TYPES[i]}, {BODIES[i]}));
-		// Стороны
+		ASSERT_TRUE(__nts_profiling__(profile, {TYPES[i]}, {BODIES[i]}));
+		// Стороны проверки
 		client::context_t client;
 		// Объявляем сервер
 		server::context_t server;
@@ -623,10 +623,10 @@ TEST(LimitTest, Refusals){
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Обмен
+		// Счётчики обмена записями
 		size_t records = 0, widest = 0;
-		// Выполняем обмен сторонами
-		converse(client, server, records, widest);
+		// Переносим записи между сторонами
+		__nts_converse__(client, server, records, widest);
 		// Сервер отказал нужным извещением, клиент связь не установил
 		EXPECT_EQ(server.state(), context::state_t::FAILED) << i;
 		EXPECT_EQ(server.alert().description, ALERTS[i]) << i;
@@ -651,12 +651,12 @@ static void hostile(const vector <uint16_t> & types, const vector <vector <uint8
 	// Полномочия и профиль
 	context::credential_t credential;
 	// Загружаем ключ
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Профиль отпечатка
 	fingerprint::profile_t profile;
 	// Наполняем профиль
-	ASSERT_TRUE(profiling(profile, types, bodies));
-	// Сервер
+	ASSERT_TRUE(__nts_profiling__(profile, types, bodies));
+	// Серверная сторона связи
 	server::context_t server;
 	// Задаём имя узла
 	client.name("example.com");
@@ -671,7 +671,7 @@ static void hostile(const vector <uint16_t> & types, const vector <vector <uint8
 	// Номер вывода сервера
 	size_t flight = 0;
 	/**
-	 * Выполняем обмен, искажая каждый вывод сервера по дороге
+	 * Переносим записи, искажая каждый вывод сервера по дороге
 	 */
 	for(size_t i = 0; i < 16; i++){
 		// Признак переноса
@@ -721,7 +721,7 @@ static void hostile(const vector <uint16_t> & types, const vector <vector <uint8
  * записи рукопожатия сервера издания 1.2 (сертификат и далее в одну запись) - record_overflow
  */
 TEST(LimitTest, Overflow){
-	// Клиент
+	// Клиентская сторона связи
 	client::context_t client;
 	// Связь с пределом 64 и склейкой записей после приветствия сервера
 	// Признак того, что склейка легла
@@ -734,7 +734,7 @@ TEST(LimitTest, Overflow){
 		// Склеиваем подряд идущие открытые записи рукопожатия, остальное оставляем как есть
 		vector <uint8_t> rebuilt, merged;
 		/**
-		 * Выполняем перебор записей буфера полёта
+		 * Перебираем записи буфера полёта
 		 */
 		for(size_t offset = 0; (offset + 5) <= buffer.size();){
 			const size_t length = ((static_cast <size_t> (buffer[offset + 3]) << 8) | buffer[offset + 4]);
@@ -783,10 +783,10 @@ TEST(LimitTest, Hostile){
 	// Подменные тела
 	static const vector <uint8_t> SWAP[] = {{0x00, 0x1C, 0x00, 0x02, 0x00, 0x20}, {0x00, 0x01, 0x00, 0x01, 0x02}};
 	/**
-	 * Выполняем перебор подмен
+	 * Перебираем подмены
 	 */
 	for(size_t i = 0; i < 2; i++){
-		// Клиент
+		// Клиентская сторона прохода
 		client::context_t client;
 		// Признак того, что подмена легла
 		bool swapped = false;
@@ -797,7 +797,7 @@ TEST(LimitTest, Hostile){
 				return;
 			const size_t length = ((static_cast <size_t> (buffer[3]) << 8) | buffer[4]);
 			/**
-			 * Выполняем перебор смещений в поисках искомого тела
+			 * Перебираем смещения в поисках искомого тела
 			 */
 			for(size_t offset = 5; (offset + SEEK[i].size()) <= (5 + length); offset++){
 				if(std::equal(SEEK[i].begin(), SEEK[i].end(), buffer.begin() + static_cast <std::ptrdiff_t> (offset))){
@@ -826,10 +826,10 @@ TEST(LimitTest, Doubled){
 	// Места дописывания: в конец перечня расширений и в его начало (до ответа record_size_limit)
 	static const bool TAIL[] = {true, false};
 	/**
-	 * Выполняем перебор мест дописывания
+	 * Перебираем места дописывания
 	 */
 	for(size_t i = 0; i < 2; i++){
-		// Клиент
+		// Клиентская сторона прохода
 		client::context_t client;
 		// Признак того, что дописывание легло
 		bool appended = false;
@@ -879,7 +879,7 @@ TEST(LimitTest, Doubled){
  * к длине входящих записей, принимает ответ целиком
  */
 TEST(LimitTest, Openssl){
-	// Оснастка
+	// Оснастка openssl
 	const toolkit_t toolkit = inspect();
 	// Если openssl нет
 	if(!toolkit.present){
@@ -891,45 +891,45 @@ TEST(LimitTest, Openssl){
 		// Пропускаем проверку без поддержки предела длины фрагмента
 		GTEST_SKIP() << "openssl s_client без -maxfraglen";
 	}
-	// Полномочия
+	// Полномочия сервера
 	context::credential_t credential;
 	// Загружаем ключ
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Путь к сертификату
 	const std::string crt = std::string(CORPUS) + "/ec256.crt";
-	// Издания
+	// Издания протокола openssl
 	static const char * FLAGS[] = {"-tls1_3", "-tls1_2"};
 	// Доступность изданий
 	static const bool AVAILABLE[] = {toolkit.tls13, toolkit.tls12};
 	/**
-	 * Выполняем перебор изданий
+	 * Перебираем издания
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Если издания у openssl нет
 		if(!AVAILABLE[i])
 			// Пропускаем издание
 			continue;
-		// Порт
+		// Номер свободного порта
 		uint16_t number = 0;
 		// Занимаем порт
 		const int listener = harbour(number);
 		// Порт занят
 		ASSERT_GE(listener, 0);
-		// Журнал
+		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-limit-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента с пределом 512 и запросом
 		ASSERT_TRUE(launch("(printf 'GET / HTTP/1.0\\r\\n\\r\\n'; sleep 2) | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " " + FLAGS[i] + " -maxfraglen 512 -CAfile " + crt + " -servername localhost -ign_eof > " + log + " 2>&1", log, log + ".pid"));
 		// Страж процесса
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = greeted(listener);
+		const int own = greeted(listener);
 		// Подключение принято
-		ASSERT_GE(fd, 0);
-		// Сервер
+		ASSERT_GE(own, 0);
+		// Серверная сторона связи
 		server::context_t server;
 		// Наборы шифров
 		server.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
-		// Группы
+		// Группы обмена сервера
 		server.groups(vector <extension::group_t> {extension::group_t::X25519});
 		// Если издание 1.2, ограничиваем
 		if(i == 1){
@@ -940,8 +940,8 @@ TEST(LimitTest, Openssl){
 		server.credential(credential);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Рукопожатие
-		const bool complete = serve(server, fd);
+		// Рукопожатие с клиентом openssl
+		const bool complete = serve(server, own);
 		// Рукопожатие завершилось
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 		// Без отказа
@@ -955,24 +955,24 @@ TEST(LimitTest, Openssl){
 		 */
 		vector <uint8_t> request;
 		/**
-		 * Выполняем чтение кусками до пустой строки, не более 16 опросов
+		 * Читаем кусками до пустой строки, не более 16 опросов
 		 */
 		for(size_t j = 0; (j < 16) && (string(request.begin(), request.end()).find("\r\n\r\n") == string::npos); j++){
 			// Описатель опроса
 			struct pollfd waiting;
 			// Наблюдаемый описатель
-			waiting.fd = fd;
+			waiting.fd = own;
 			// Событие приёма
 			waiting.events = POLLIN;
 			// Обнуляем поле готовности описателя перед опросом
 			waiting.revents = 0;
-			// Ждём данные 200 мс
+			// Дожидаемся данных с запасом 200 мс
 			if(ANTS_POLL(&waiting, 1, 200) <= 0)
 				continue;
 			// Буфер чтения
 			uint8_t buffer[16384];
 			// Читаем порцию
-			const ssize_t received = receiving(fd, buffer, sizeof(buffer));
+			const ssize_t received = receiving(own, buffer, sizeof(buffer));
 			// Если связь закрылась
 			if(received <= 0)
 				break;
@@ -1002,7 +1002,7 @@ TEST(LimitTest, Openssl){
 			// Ширина самой длинной записи
 			size_t widest = 0;
 			/**
-			 * Выполняем перебор записей на проводе
+			 * Перебираем записи на проводе
 			 */
 			for(size_t offset = 0; (offset + 5) <= data.size;){
 				// Длина содержимого записи
@@ -1015,18 +1015,18 @@ TEST(LimitTest, Openssl){
 			// Записи не длиннее предела
 			EXPECT_LE(widest, 512u + 32u) << FLAGS[i];
 			// Шлём на провод
-			(void) sending(fd, data.data, data.size);
+			(void) sending(own, data.data, data.size);
 			// Забираем вывод у сервера
 			server.consume(data.size);
 		}
-		// Прощаемся
-		ASSERT_TRUE(farewell(server, fd));
+		// Прощаемся с клиентом openssl
+		ASSERT_TRUE(farewell(server, own));
 		// Закрываем подключение
-		closing(fd);
+		closing(own);
 		closing(listener);
 		// Клиент принял тело целиком
 		std::string text;
-		// Ждём выхода клиента
+		// Дожидаемся выхода клиента
 		ASSERT_TRUE(settle(log, text)) << text;
 		// Тело принято целиком
 		EXPECT_NE(text.find(body), std::string::npos) << FLAGS[i] << " " << text.substr(0, 400);
@@ -1047,27 +1047,27 @@ TEST(LimitTest, Gnutls){
 		// Пропускаем проверку без сервера-эталона
 		GTEST_SKIP() << "gnutls-serv недоступен";
 	}
-	// Полномочия
+	// Полномочия сервера gnutls
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
-	// Порт
+	// Номер порта сервера
 	const uint16_t number = vacant(false);
 	// Порт занят
 	ASSERT_NE(number, 0);
-	// Журнал
+	// Журнал сервера gnutls
 	const std::string log = "/tmp/ants-limit-gnutls-" + std::to_string(number) + ".log";
 	// Запускаем сервер с пределом 512 в режиме эха
 	ASSERT_TRUE(launch("gnutls-serv --port " + std::to_string(number) + " --x509certfile " + crt + " --x509keyfile " + key + " --echo --recordsize 512 --priority NORMAL:+VERS-TLS1.3:+VERS-TLS1.2 > " + log + " 2>&1", log, log + ".pid"));
 	// Страж процесса
 	sentinel_t sentinel(log + ".pid");
-	// Подключаемся
-	const int fd = dial(number);
+	// Подключаемся к серверу gnutls
+	const int own = dial(number);
 	// Подключение установлено
-	ASSERT_GE(fd, 0) << "порт " << number;
+	ASSERT_GE(own, 0) << "порт " << number;
 	// Профиль с record_size_limit 16385
 	fingerprint::profile_t profile;
 	// Профиль с пределом 16385
-	ASSERT_TRUE(profiling(profile, {LIMIT}, {bounded(16385)}));
-	// Клиент
+	ASSERT_TRUE(__nts_profiling__(profile, {LIMIT}, {bounded(16385)}));
+	// Клиентская сторона связи
 	client::context_t client;
 	// Задаём имя узла
 	client.name("localhost");
@@ -1079,7 +1079,7 @@ TEST(LimitTest, Gnutls){
 	 */
 	for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 		// Гоняем обмен
-		relay(client, fd);
+		relay(client, own);
 	// При отказе выводим журнал
 	if(!client.established()){ std::string journal; (void) settle(log, journal); ADD_FAILURE() << journal; }
 	// Рукопожатие установлено
@@ -1095,7 +1095,7 @@ TEST(LimitTest, Gnutls){
 		// Ширина и число записей
 		size_t widest = 0, count = 0;
 		/**
-		 * Выполняем перебор записей на проводе
+		 * Перебираем записи на проводе
 		 */
 		for(size_t offset = 0; (offset + 5) <= data.size;){
 			// Длина содержимого записи
@@ -1115,11 +1115,11 @@ TEST(LimitTest, Gnutls){
 	// Читаем эхо
 	vector <uint8_t> echo;
 	/**
-	 * Выполняем перебор до полного приёма эха, не более 32 проходов
+	 * Повторяем опросы до полного приёма эха, не более 32 проходов
 	 */
 	for(size_t i = 0; (i < 32) && (echo.size() < message.size()); i++){
 		// Гоняем обмен
-		relay(client, fd);
+		relay(client, own);
 		// Расшифрованная порция
 		vector <uint8_t> piece;
 		// Читаем порцию
@@ -1132,7 +1132,7 @@ TEST(LimitTest, Gnutls){
 	// Эхо совпадает с сообщением
 	EXPECT_EQ(string(echo.begin(), echo.begin() + static_cast <long> (std::min(echo.size(), message.size()))), message.substr(0, std::min(echo.size(), message.size())));
 	// Закрываем подключение
-	closing(fd);
+	closing(own);
 	// Останавливаем страж
 	sentinel.halt();
 	// Буфер журнала

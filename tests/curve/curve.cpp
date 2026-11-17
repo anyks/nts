@@ -78,13 +78,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -112,7 +112,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -133,7 +133,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 static bool prepare(curve::curve_t & curve) {
 	// Места, в которые помещаются параметры кривой
 	uint8_t modulus[32], first[32], second[32], order[32], x[32], y[32];
-	// Выполняем установку параметров кривой
+	// Устанавливаем параметры кривой
 	return curve.start(
 		view_t(modulus, bytes(MODULUS, modulus)),
 		view_t(first, bytes(FIRST, first)),
@@ -151,13 +151,13 @@ static bool prepare(curve::curve_t & curve) {
 TEST(CurveTest, Multiply) {
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой контрольного примера
+	// Устанавливаем кривую контрольного примера
 	ASSERT_TRUE(prepare(curve));
 	// Место, в которое помещается разбираемое число
 	uint8_t buffer[32];
 	// Множитель образующей точки
 	math::number_t factor;
-	// Выполняем разбор множителя образующей точки
+	// Разбираем множитель образующей точки
 	ASSERT_TRUE(curve.order().load(view_t(buffer, bytes("77105c9b20bcd3122823c8cf6fcc7b956de33814e95b7fe64fed924594dceab3", buffer)), factor));
 	// Образующая точка кривой
 	curve::point_t base;
@@ -165,11 +165,11 @@ TEST(CurveTest, Multiply) {
 	curve.base(base);
 	// Место, в которое помещается произведение
 	curve::point_t result;
-	// Выполняем умножение образующей точки на множитель
+	// Умножаем образующую точку на множитель
 	curve.multiply(base, factor, result);
 	// Места, в которые записываются координаты произведения
 	uint8_t x[32], y[32];
-	// Выполняем запись координат произведения
+	// Записываем координаты произведения
 	ASSERT_TRUE(curve.coordinates(result, x, y, sizeof(x)));
 	// Сличаем первую координату произведения с контрольным примером
 	ASSERT_EQ(text(x, sizeof(x)), std::string("41aa28d2f1ab148280cd9ed56feda41974053554a42767b83ad043fd39dc0493"));
@@ -177,11 +177,11 @@ TEST(CurveTest, Multiply) {
 	ASSERT_EQ(text(y, sizeof(y)), std::string("489c375a9941a3049e33b34361dd204172ad98c3e5916de27695d22a61fae46e"));
 	// Множитель выработки ключа проверки подписи
 	math::number_t key;
-	// Выполняем разбор ключа подписи контрольного примера
+	// Разбираем ключ подписи контрольного примера
 	ASSERT_TRUE(curve.order().load(view_t(buffer, bytes("7a929ade789bb9be10ed359dd39a72c11b60961f49397eee1d19ce9891ec3b28", buffer)), key));
-	// Выполняем умножение образующей точки на ключ подписи
+	// Умножаем образующую точку на ключ подписи
 	curve.multiply(base, key, result);
-	// Выполняем запись координат ключа проверки подписи
+	// Записываем координаты ключа проверки подписи
 	ASSERT_TRUE(curve.coordinates(result, x, y, sizeof(x)));
 	// Сличаем первую координату ключа проверки с контрольным примером
 	ASSERT_EQ(text(x, sizeof(x)), std::string("7f2b49e270db6d90d8595bec458b50c58585ba1d4e9b788f6689dbd8e56fd80b"));
@@ -195,7 +195,7 @@ TEST(CurveTest, Multiply) {
 TEST(CurveTest, Properties) {
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой контрольного примера
+	// Устанавливаем кривую контрольного примера
 	ASSERT_TRUE(prepare(curve));
 	// Образующая точка кривой
 	curve::point_t base;
@@ -203,15 +203,15 @@ TEST(CurveTest, Properties) {
 	curve.base(base);
 	// Места, в которые помещаются проверяемые точки
 	curve::point_t first, second;
-	// Выполняем удвоение образующей точки
+	// Удваиваем образующую точку
 	curve.twice(base, first);
-	// Выполняем сложение образующей точки с самой собой
+	// Складываем образующую точку с самой собой
 	curve.add(base, base, second);
 	// Места, в которые записываются координаты точек
 	uint8_t x[32], y[32], u[32], v[32];
-	// Выполняем запись координат удвоенной точки
+	// Записываем координаты удвоенной точки
 	ASSERT_TRUE(curve.coordinates(first, x, y, sizeof(x)));
-	// Выполняем запись координат суммы точки с самой собой
+	// Записываем координаты суммы точки с самой собой
 	ASSERT_TRUE(curve.coordinates(second, u, v, sizeof(u)));
 	// Проверяем совпадение удвоения точки со сложением её с самой собой
 	ASSERT_EQ(text(x, sizeof(x)), text(u, sizeof(u)));
@@ -221,11 +221,11 @@ TEST(CurveTest, Properties) {
 	uint8_t buffer[32];
 	// Множитель, равный порядку подгруппы точек кривой
 	math::number_t factor;
-	// Выполняем разбор множителя, меньшего порядка подгруппы на единицу
+	// Разбираем множитель, меньший порядка подгруппы на единицу
 	ASSERT_TRUE(curve.order().load(view_t(buffer, bytes("8000000000000000000000000000000150fe8a1892976154c59cfc193accf5b2", buffer)), factor));
-	// Выполняем умножение образующей точки на полученный множитель
+	// Умножаем образующую точку на полученный множитель
 	curve.multiply(base, factor, first);
-	// Выполняем сложение полученного произведения с образующей точкой
+	// Складываем полученное произведение с образующей точкой
 	curve.add(first, base, second);
 	/**
 	 * Умножение образующей точки на порядок подгруппы обязано давать бесконечно
@@ -238,9 +238,9 @@ TEST(CurveTest, Properties) {
 	math::number_t unit;
 	// Записываем значение единичного множителя
 	curve.order().word(1, unit);
-	// Выполняем умножение образующей точки на единицу
+	// Умножаем образующую точку на единицу
 	curve.multiply(base, unit, first);
-	// Выполняем запись координат полученного произведения
+	// Записываем координаты полученного произведения
 	ASSERT_TRUE(curve.coordinates(first, x, y, sizeof(x)));
 	// Сличаем первую координату произведения с координатой образующей точки
 	ASSERT_EQ(text(x, sizeof(x)), std::string("0000000000000000000000000000000000000000000000000000000000000002"));
@@ -248,13 +248,13 @@ TEST(CurveTest, Properties) {
 	math::number_t zero;
 	// Записываем значение нулевого множителя
 	curve.order().word(0, zero);
-	// Выполняем умножение образующей точки на ноль
+	// Умножаем образующую точку на ноль
 	curve.multiply(base, zero, first);
 	// Проверяем, что произведение обратилось в бесконечно удалённую точку
 	ASSERT_TRUE(curve.infinity(first));
-	// Выполняем сложение бесконечно удалённой точки с образующей
+	// Складываем бесконечно удалённую точку с образующей
 	curve.add(first, base, second);
-	// Выполняем запись координат полученной суммы
+	// Записываем координаты полученной суммы
 	ASSERT_TRUE(curve.coordinates(second, x, y, sizeof(x)));
 	// Сличаем первую координату суммы с координатой образующей точки
 	ASSERT_EQ(text(x, sizeof(x)), std::string("0000000000000000000000000000000000000000000000000000000000000002"));
@@ -270,7 +270,7 @@ TEST(CurveTest, Failures) {
 	ASSERT_FALSE(curve.ready());
 	// Места, в которые помещаются параметры кривой
 	uint8_t modulus[32], first[32], second[32], order[32], x[32], y[32];
-	// Выполняем разбор параметров кривой
+	// Разбираем параметры кривой
 	const view_t items[6] = {
 		view_t(modulus, bytes(MODULUS, modulus)),
 		view_t(first, bytes(FIRST, first)),
@@ -283,7 +283,7 @@ TEST(CurveTest, Failures) {
 	ASSERT_FALSE(curve.start(items[0], items[1], items[2], items[3], items[5], items[4]));
 	// Проверяем отказ установки кривой с чётным модулем поля
 	ASSERT_FALSE(curve.start(items[4], items[1], items[2], items[3], items[4], items[5]));
-	// Выполняем установку кривой контрольного примера
+	// Устанавливаем кривую контрольного примера
 	ASSERT_TRUE(curve.start(items[0], items[1], items[2], items[3], items[4], items[5]));
 	// Проверяем размер координаты точки кривой
 	ASSERT_EQ(curve.size(), static_cast <size_t> (32));
@@ -311,11 +311,11 @@ TEST(CurveTest, Failures) {
 	 * собирается дополнением записи, а не сличается с нею напрямую
 	 */
 	uint8_t expected[32] = {0}, awaited[32] = {0};
-	// Выполняем дополнение записи первой координаты ведущими нулями
+	// Дополняем запись первой координаты ведущими нулями
 	::memcpy((expected + (sizeof(expected) - items[4].size)), items[4].data, items[4].size);
-	// Выполняем дополнение записи второй координаты ведущими нулями
+	// Дополняем запись второй координаты ведущими нулями
 	::memcpy((awaited + (sizeof(awaited) - items[5].size)), items[5].data, items[5].size);
-	// Выполняем разбор точки кривой заново
+	// Разбираем точку кривой заново
 	ASSERT_TRUE(curve.point(items[4], items[5], point));
 	// Проверяем успешность выдачи обеих координат точки
 	ASSERT_TRUE(curve.coordinates(point, left, right, sizeof(left)));
@@ -329,13 +329,13 @@ TEST(CurveTest, Failures) {
 	 * лишь второй отказом не является
 	 */
 	::memset(right, 0, sizeof(right));
-	// Выполняем выдачу одной лишь второй координаты точки
+	// Выдаём одну лишь вторую координату точки
 	ASSERT_TRUE(curve.coordinates(point, nullptr, right, sizeof(right)));
 	// Сличаем выданную вторую координату точки с её записью
 	ASSERT_EQ(::memcmp(right, awaited, sizeof(right)), 0);
-	// Выполняем обнуление места первой координаты точки
+	// Обнуляем место первой координаты точки
 	::memset(left, 0, sizeof(left));
-	// Выполняем выдачу одной лишь первой координаты точки
+	// Выдаём одну лишь первую координату точки
 	ASSERT_TRUE(curve.coordinates(point, left, nullptr, sizeof(left)));
 	// Сличаем выданную первую координату точки с её записью
 	ASSERT_EQ(::memcmp(left, expected, sizeof(left)), 0);
@@ -375,7 +375,7 @@ TEST(CurveTest, Failures) {
 TEST(CurveTest, Windows) {
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой контрольного примера
+	// Устанавливаем кривую контрольного примера
 	ASSERT_TRUE(prepare(curve));
 	// Образующая точка кривой
 	curve::point_t base;
@@ -396,28 +396,28 @@ TEST(CurveTest, Windows) {
 		"0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0ff0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
 	};
 	/**
-	 * Выполняем перебор проверяемых множителей образующей точки
+	 * Перебираем проверяемые множители образующей точки
 	 */
 	for(size_t item = 0; item < (sizeof(factors) / sizeof(factors[0])); item++){
 		// Место, в которое помещается разбираемое число
 		uint8_t buffer[32];
 		// Разбираемый множитель образующей точки
 		math::number_t factor;
-		// Выполняем разбор очередного множителя образующей точки
+		// Разбираем очередной множитель образующей точки
 		ASSERT_TRUE(curve.order().load(view_t(buffer, bytes(factors[item], buffer)), factor)) << factors[item];
 		// Место, в которое помещается произведение окнами
 		curve::point_t result;
-		// Выполняем умножение образующей точки на множитель
+		// Умножаем образующую точку на множитель
 		curve.multiply(base, factor, result);
 		// Накапливаемое произведение перебором разрядов
 		curve::point_t item2;
 		// Место, в которое помещается промежуточное значение перебора
 		curve::point_t step;
 		/**
-		 * Выполняем перебор разрядов множителя от старшего к младшему
+		 * Перебираем разряды множителя от старшего к младшему
 		 */
 		for(size_t i = (curve.order().size() * 8); i > 0; i--){
-			// Выполняем удвоение накопленного произведения
+			// Удваиваем накопленное произведение
 			curve.twice(item2, step);
 			// Запоминаем удвоенное накопленное произведение
 			item2 = step;
@@ -425,7 +425,7 @@ TEST(CurveTest, Windows) {
 			const uint64_t bit = ((factor.words[(i - 1) / 64] >> ((i - 1) % 64)) & 0x01);
 			// Если очередной разряд множителя единичный
 			if(bit != 0){
-				// Выполняем сложение накопленного произведения с образующей точкой
+				// Складываем накопленное произведение с образующей точкой
 				curve.add(item2, base, step);
 				// Запоминаем накопленное произведение
 				item2 = step;
@@ -437,9 +437,9 @@ TEST(CurveTest, Windows) {
 		if(!curve.infinity(result)){
 			// Места, в которые записываются координаты произведений
 			uint8_t x[32], y[32], u[32], v[32];
-			// Выполняем запись координат произведения окнами
+			// Записываем координаты произведения окнами
 			ASSERT_TRUE(curve.coordinates(result, x, y, sizeof(x))) << factors[item];
-			// Выполняем запись координат произведения перебором разрядов
+			// Записываем координаты произведения перебором разрядов
 			ASSERT_TRUE(curve.coordinates(item2, u, v, sizeof(u))) << factors[item];
 			// Проверяем схождение первых координат произведений
 			ASSERT_EQ(text(x, sizeof(x)), text(u, sizeof(u))) << factors[item];
@@ -455,7 +455,7 @@ TEST(CurveTest, Windows) {
 TEST(CurveTest, Combine){
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой контрольного примера
+	// Устанавливаем кривую контрольного примера
 	ASSERT_TRUE(prepare(curve));
 	// Образующая точка кривой
 	curve::point_t base;
@@ -467,10 +467,10 @@ TEST(CurveTest, Combine){
 	math::number_t seed;
 	// Устанавливаем число, которым выводится вторая точка
 	seed.words[0] = 0x9E3779B97F4A7C15ULL;
-	// Выполняем вывод второй точки умножением образующей
+	// Выводим вторую точку умножением образующей
 	curve.multiply(base, seed, other);
 	/**
-	 * Выполняем перебор пар множителей суммы произведений
+	 * Перебираем пары множителей суммы произведений
 	 */
 	for(size_t item = 0; item < 8; item++){
 		// Первый множитель суммы произведений
@@ -487,15 +487,15 @@ TEST(CurveTest, Combine){
 		pair.words[2] = (0x1122334455667788ULL + item);
 		// Сумма произведений, посчитанная разом
 		curve::point_t together;
-		// Выполняем счёт суммы произведений разом
+		// Считаем сумму произведений разом
 		curve.combine(base, single, other, pair, together);
 		// Произведения, посчитанные порознь
 		curve::point_t left, right, apart;
-		// Выполняем счёт первого произведения порознь
+		// Считаем первое произведение порознь
 		curve.multiply(base, single, left);
-		// Выполняем счёт второго произведения порознь
+		// Считаем второе произведение порознь
 		curve.multiply(other, pair, right);
-		// Выполняем сложение произведений, посчитанных порознь
+		// Складываем произведения, посчитанные порознь
 		curve.add(left, right, apart);
 		// Место под первую координату суммы, посчитанной разом
 		vector <uint8_t> first(curve.size(), 0);
@@ -505,9 +505,9 @@ TEST(CurveTest, Combine){
 		vector <uint8_t> third(curve.size(), 0);
 		// Место под вторую координату суммы, посчитанной порознь
 		vector <uint8_t> fourth(curve.size(), 0);
-		// Выполняем снятие координат суммы, посчитанной разом
+		// Снимаем координаты суммы, посчитанной разом
 		ASSERT_TRUE(curve.coordinates(together, first.data(), second.data(), curve.size())) << "пара " << item;
-		// Выполняем снятие координат суммы, посчитанной порознь
+		// Снимаем координаты суммы, посчитанной порознь
 		ASSERT_TRUE(curve.coordinates(apart, third.data(), fourth.data(), curve.size())) << "пара " << item;
 		/**
 		 * Сумма разом обязана сойтись с суммой порознь: иначе перебор окон обоих
@@ -533,12 +533,12 @@ TEST(CurveTest, Product) {
 		"1.2.643.7.1.2.1.2.1", "1.2.643.7.1.2.1.2.2", "1.2.643.7.1.2.1.2.3"
 	};
 	/**
-	 * Выполняем обход наборов параметров кривых библиотеки
+	 * Обходим наборы параметров кривых библиотеки
 	 */
 	for(size_t item = 0; item < (sizeof(IDENTIFIERS) / sizeof(IDENTIFIERS[0])); item++){
 		// Объект эллиптической кривой очередного набора
 		curve::curve_t elliptic;
-		// Выполняем заведение кривой очередного набора параметров
+		// Заводим кривую очередного набора параметров
 		ASSERT_TRUE(curve::parameters(IDENTIFIERS[item], elliptic)) << "набор " << IDENTIFIERS[item];
 		// Получаем длину координаты точки кривой
 		const size_t size = elliptic.size();
@@ -555,7 +555,7 @@ TEST(CurveTest, Product) {
 			// Множитель, на который умножается точка основания
 			math::number_t factor;
 			/**
-			 * Выполняем обнуление множителя
+			 * Обнуляем множитель
 			 */
 			for(size_t w = 0; w < math::NUMBER_WORDS; w++)
 				// Обнуляем очередное слово множителя
@@ -569,11 +569,11 @@ TEST(CurveTest, Product) {
 				factor.words[w] = ((static_cast <uint64_t> (i) * 0x0123456789ABCDEFULL) ^ (static_cast <uint64_t> (w) * 0xFEDCBA9876543210ULL));
 			// Произведение, полученное общим умножением на точку
 			curve::point_t general;
-			// Выполняем общее умножение точки основания на число
+			// Считаем общее умножение точки основания на число
 			elliptic.multiply(base, factor, general);
 			// Произведение, полученное умножением точки основания
 			curve::point_t fixed;
-			// Выполняем умножение точки основания на число
+			// Умножаем точку основания на число
 			elliptic.product(factor, fixed);
 			// Места, в которые помещаются координаты произведений
 			std::vector <uint8_t> first(size, 0), second(size, 0), third(size, 0), fourth(size, 0);
@@ -581,9 +581,9 @@ TEST(CurveTest, Product) {
 			ASSERT_EQ(elliptic.infinity(general), elliptic.infinity(fixed)) << "набор " << IDENTIFIERS[item] << ", множитель " << i;
 			// Если произведение бесконечно удалённым не является
 			if(!elliptic.infinity(general)){
-				// Выполняем получение координат произведения общего умножения
+				// Получаем координаты произведения общего умножения
 				ASSERT_TRUE(elliptic.coordinates(general, first.data(), second.data(), size));
-				// Выполняем получение координат произведения точки основания
+				// Получаем координаты произведения точки основания
 				ASSERT_TRUE(elliptic.coordinates(fixed, third.data(), fourth.data(), size));
 				// Проверяем схождение первых координат произведений
 				ASSERT_EQ(::memcmp(first.data(), third.data(), size), 0) << "набор " << IDENTIFIERS[item] << ", множитель " << i;
@@ -594,14 +594,14 @@ TEST(CurveTest, Product) {
 		// Нулевой множитель точки основания
 		math::number_t zero;
 		/**
-		 * Выполняем обнуление множителя
+		 * Обнуляем множитель
 		 */
 		for(size_t w = 0; w < math::NUMBER_WORDS; w++)
 			// Обнуляем очередное слово множителя
 			zero.words[w] = 0;
 		// Произведение точки основания на ноль
 		curve::point_t none;
-		// Выполняем умножение точки основания на ноль
+		// Умножаем точку основания на ноль
 		elliptic.product(zero, none);
 		/**
 		 * Точка основания, умноженная на ноль, бесконечно удалена: у нулевого окна
@@ -614,13 +614,13 @@ TEST(CurveTest, Product) {
 		one.words[0] = 1;
 		// Произведение точки основания на единицу
 		curve::point_t self;
-		// Выполняем умножение точки основания на единицу
+		// Умножаем точку основания на единицу
 		elliptic.product(one, self);
 		// Места, в которые помещаются координаты точки основания и произведения
 		std::vector <uint8_t> first(size, 0), second(size, 0), third(size, 0), fourth(size, 0);
-		// Выполняем получение координат точки основания
+		// Получаем координаты точки основания
 		ASSERT_TRUE(elliptic.coordinates(base, first.data(), second.data(), size));
-		// Выполняем получение координат произведения на единицу
+		// Получаем координаты произведения на единицу
 		ASSERT_TRUE(elliptic.coordinates(self, third.data(), fourth.data(), size));
 		// Проверяем схождение произведения на единицу с самой точкой основания
 		ASSERT_EQ(::memcmp(first.data(), third.data(), size), 0) << "набор " << IDENTIFIERS[item];
