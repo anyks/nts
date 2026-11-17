@@ -96,7 +96,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool keyfile(context::credential_t & result) noexcept {
+	bool __nts_keyfile__(context::credential_t & result) noexcept {
 		// Считываем секретный ключ ec256
 		result.secret = keydata("ec256.pem");
 		// Считываем сертификат ec256
@@ -136,11 +136,11 @@ namespace {
 			 *
 			 */
 			uint64_t next() noexcept {
-				// Выполняем перемешивание состояния источника
+				// Перемешиваем состояние источника
 				this->_state ^= (this->_state << 13);
-				// Выполняем перемешивание состояния источника
+				// Перемешиваем состояние источника
 				this->_state ^= (this->_state >> 7);
-				// Выполняем перемешивание состояния источника
+				// Перемешиваем состояние источника
 				this->_state ^= (this->_state << 17);
 				// Выводим очередное случайное значение источника
 				return this->_state;
@@ -186,11 +186,11 @@ namespace {
 	 *       стороне: ворошение ложится в него вместе с байтами
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server, const course_t course, const size_t target, const uint8_t mask, vector <uint8_t> (& streams)[2], const size_t chunk) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server, const course_t course, const size_t target, const uint8_t mask, vector <uint8_t> (& streams)[2], const size_t chunk) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
-		 * Выполняем перебор направлений передачи байтов между сторонами связи
+		 * Перебираем направления передачи байтов между сторонами связи
 		 */
 		for(size_t i = 0; i < 2; i++){
 			// Получаем байты, отправляемые стороной связи
@@ -199,7 +199,7 @@ namespace {
 			if(data.size == 0)
 				// Переходим к встречному направлению передачи байтов
 				continue;
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемые байты
 			vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Если байты клиента снять с накопителя не удалось
 			if(i == 0)
@@ -211,21 +211,21 @@ namespace {
 			const course_t moving = ((i == 0) ? course_t::CLIENT : course_t::SERVER);
 			// Если ворошится именно это направление передачи байтов
 			if((course == moving) && (target >= streams[i].size()) && (target < (streams[i].size() + buffer.size())))
-				// Выполняем ворошение байта потока направления
+				// Ворошим байт потока направления
 				buffer[target - streams[i].size()] ^= mask;
 			// Складываем переносимые байты в поток направления
 			streams[i].insert(streams[i].end(), buffer.begin(), buffer.end());
 			/**
-			 * Выполняем подачу отправленных байтов встречной стороне кусками
+			 * Подаём отправленные байты встречной стороне кусками
 			 */
 			for(size_t offset = 0; offset < buffer.size(); offset += chunk){
 				// Получаем размер очередного подаваемого куска
 				const size_t size = (((buffer.size() - offset) < chunk) ? (buffer.size() - offset) : chunk);
 				// Если байты клиента подаются серверу
 				if(i == 0)
-					// Выполняем подачу очередного куска стороне сервера
+					// Подаём очередной кусок стороне сервера
 					server.push(view_t(buffer.data() + offset, size));
-				// Выполняем подачу очередного куска стороне клиента
+				// Подаём очередной кусок стороне клиента
 				else client.push(view_t(buffer.data() + offset, size));
 			}
 			// Запоминаем, что байты между сторонами передавались
@@ -246,7 +246,7 @@ namespace {
 	 * @param established признаки установленности связи сторонами
 	 *
 	 */
-	void converse(const context::credential_t & credentials, const course_t course, const size_t target, const uint8_t mask, vector <uint8_t> (& streams)[2], const size_t chunk, bool (& established)[2]) noexcept {
+	void __nts_converse__(const context::credential_t & credentials, const course_t course, const size_t target, const uint8_t mask, vector <uint8_t> (& streams)[2], const size_t chunk, bool (& established)[2]) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
 		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -257,13 +257,13 @@ namespace {
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем сброс потока байтов клиента
+		// Сбрасываем поток байтов клиента
 		streams[0].clear();
-		// Выполняем сброс потока байтов сервера
+		// Сбрасываем поток байтов сервера
 		streams[1].clear();
-		// Выполняем сброс признака установленности связи клиентом
+		// Сбрасываем признак установленности связи клиентом
 		established[0] = false;
-		// Выполняем сброс признака установленности связи сервером
+		// Сбрасываем признак установленности связи сервером
 		established[1] = false;
 		// Если связь стороны сервера завести не удалось
 		if(server.start() != context::error_t::NONE)
@@ -274,9 +274,9 @@ namespace {
 			// Выходим из проведения рукопожатия сторон связи
 			return;
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байты между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server, course, target, mask, streams, chunk); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server, course, target, mask, streams, chunk); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 		// Запоминаем установленность связи стороной клиента
@@ -296,9 +296,9 @@ namespace {
 	 *          оставляет прежним
 	 *
 	 */
-	bool ignorable(const vector <uint8_t> & stream, const size_t target) noexcept {
+	bool __nts_ignorable__(const vector <uint8_t> & stream, const size_t target) noexcept {
 		/**
-		 * Выполняем перебор записей потока направления
+		 * Перебираем записи потока направления
 		 */
 		for(size_t offset = 0; (offset + record::RECORD_HEADER) <= stream.size();){
 			// Если ворошимый байт лежит в издании записи протокола
@@ -325,7 +325,7 @@ namespace {
 		// Заводим вырабатываемую область байтов
 		vector <uint8_t> result(size, 0);
 		/**
-		 * Выполняем заполнение вырабатываемой области байтов
+		 * Заполняем вырабатываемую область байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Записываем очередной случайный байт области
@@ -340,7 +340,7 @@ namespace {
 	 * @param depth  глубина, на которой ведётся обход записи
 	 *
 	 */
-	void walk(asn1::Reader & reader, const size_t depth) noexcept {
+	void __nts_walk__(asn1::Reader & reader, const size_t depth) noexcept {
 		// Если предельная глубина обхода записи превышена
 		if(depth > 8)
 			// Выходим из обхода записи ASN.1
@@ -348,15 +348,15 @@ namespace {
 		// Разбираемый элемент записи ASN.1
 		asn1::element_t element;
 		/**
-		 * Выполняем перебор всех элементов записи ASN.1
+		 * Перебираем все элементы записи ASN.1
 		 */
 		while(reader.next(element)){
 			// Если элемент записи имеет составной вид метки
 			if(element.constructed){
 				// Заводим разборщик содержимого составного элемента
 				asn1::Reader inner = reader.enter(element);
-				// Выполняем обход содержимого составного элемента
-				walk(inner, depth + 1);
+				// Обходим содержимое составного элемента
+				__nts_walk__(inner, depth + 1);
 			}
 		}
 	}
@@ -366,130 +366,130 @@ namespace {
 	 * @param data подаваемая разборщикам область байтов
 	 *
 	 */
-	void feed(const view_t & data) noexcept {
+	void __nts_feed__(const view_t & data) noexcept {
 		// Заводим разборщик записи ASN.1
 		asn1::Reader reader(data);
-		// Выполняем обход записи ASN.1 во всю её глубину
-		walk(reader, 0);
+		// Обходим запись ASN.1 во всю её глубину
+		__nts_walk__(reader, 0);
 		// Разбираемый ключ и цепочка сертификатов
 		keys::key_t key;
 		// Цепочка сертификатов записи PKCS #12
 		vector <vector <uint8_t>> certificates;
-		// Выполняем разбор PrivateKeyInfo и OneAsymmetricKey
+		// Разбираем PrivateKeyInfo и OneAsymmetricKey
 		keys::decodePrivateKeyInfo(data, key);
-		// Выполняем разбор SubjectPublicKeyInfo
+		// Разбираем SubjectPublicKeyInfo
 		keys::decodeSubjectPublicKeyInfo(data, key);
-		// Выполняем разбор EncryptedPrivateKeyInfo с паролем ворошителя
+		// Разбираем EncryptedPrivateKeyInfo с паролем ворошителя
 		keys::decodeEncryptedPrivateKeyInfo(data, view_t(reinterpret_cast <const uint8_t *> ("secret"), 6), key);
-		// Выполняем разбор записи PKCS #12 с паролем ворошителя
+		// Разбираем запись PKCS #12 с паролем ворошителя
 		keys::decodePkcs12(data, view_t(reinterpret_cast <const uint8_t *> ("secret"), 6), key, certificates);
 		// Разбираемый сертификат стороны связи
 		x509::certificate_t certificate;
-		// Выполняем разбор сертификата стороны связи
+		// Разбираем сертификат стороны связи
 		certificate.parse(data);
 		// Разбираемый запрос на сертификат стороны связи
 		x509::request_t request;
-		// Выполняем разбор запроса на сертификат стороны связи
+		// Разбираем запрос на сертификат стороны связи
 		request.parse(data);
 		// Разбираемый список отозванных сертификатов
 		x509::crl_t crl;
-		// Выполняем разбор списка отозванных сертификатов
+		// Разбираем список отозванных сертификатов
 		crl.parse(data);
 		// Разбираемое подписанное содержимое CMS
 		cms::signed_t signedData;
-		// Выполняем разбор подписанного содержимого CMS
+		// Разбираем подписанное содержимое CMS
 		signedData.parse(data);
 		// Разбираемое ограждённое содержимое CMS
 		cms::enveloped_t envelopedData;
-		// Выполняем разбор ограждённого содержимого CMS
+		// Разбираем ограждённое содержимое CMS
 		envelopedData.parse(data);
 		// Разбираемое хешированное содержимое CMS
 		cms::digested_t digestedData;
-		// Выполняем разбор хешированного содержимого CMS
+		// Разбираем хешированное содержимое CMS
 		digestedData.parse(data);
 		// Разбираемое зашифрованное содержимое CMS
 		cms::encrypted_t encryptedData;
-		// Выполняем разбор зашифрованного содержимого CMS
+		// Разбираем зашифрованное содержимое CMS
 		encryptedData.parse(data);
 		// Разбираемое заверенное содержимое CMS
 		cms::authenticated_t authenticatedData;
-		// Выполняем разбор заверенного содержимого CMS
+		// Разбираем заверенное содержимое CMS
 		authenticatedData.parse(data);
 		// Разбираемое сообщение управления сертификатами
 		cmp::message_t pkiMessage;
-		// Выполняем разбор сообщения управления сертификатами
+		// Разбираем сообщение управления сертификатами
 		pkiMessage.parse(data);
 		// Разбираемая подпись веб-токена
 		jws::signature_t jwsSignature;
-		// Выполняем разбор подписи веб-токена
+		// Разбираем подпись веб-токена
 		jwsSignature.parse(data);
 		// Разбираемый каталог службы ACME
 		acme::directory_t directory;
-		// Выполняем разбор каталога службы ACME
+		// Разбираем каталог службы ACME
 		directory.parse(data);
 		// Разбираемая учётная запись службы ACME
 		acme::account_t account;
-		// Выполняем разбор учётной записи службы ACME
+		// Разбираем учётную запись службы ACME
 		account.parse(data);
 		// Разбираемый заказ службы ACME
 		acme::order_t order;
-		// Выполняем разбор заказа службы ACME
+		// Разбираем заказ службы ACME
 		order.parse(data);
 		// Разбираемое разрешение службы ACME
 		acme::authorization_t authorization;
-		// Выполняем разбор разрешения службы ACME
+		// Разбираем разрешение службы ACME
 		authorization.parse(data);
 		// Разбираемый заголовок записи протокола
 		record::header_t header;
-		// Выполняем разбор заголовка записи протокола
+		// Разбираем заголовок записи протокола
 		record::parse(data, header);
 		// Разбираемый заголовок сообщения рукопожатия
 		handshake::header_t heading;
-		// Выполняем разбор заголовка сообщения рукопожатия
+		// Разбираем заголовок сообщения рукопожатия
 		handshake::parse(data, heading);
 		// Разбираемое извещение связи
 		alert::alert_t notice;
-		// Выполняем разбор извещения связи
+		// Разбираем извещение связи
 		alert::parse(data, notice);
 		// Разбираемое приветствие клиента
 		hello::client_t greeting;
-		// Выполняем разбор приветствия клиента
+		// Разбираем приветствие клиента
 		hello::parse(data, greeting);
 		// Разбираемое приветствие сервера
 		hello::server_t answer;
-		// Выполняем разбор приветствия сервера
+		// Разбираем приветствие сервера
 		hello::parse(data, answer);
 		// Разбираемая цепочка сертификатов собеседника
 		message::certificate_t chain;
-		// Выполняем разбор цепочки сертификатов собеседника
+		// Разбираем цепочку сертификатов собеседника
 		message::parse(data, chain);
 		// Разбираемая подпись владения ключом
 		message::verify_t signature;
-		// Выполняем разбор подписи владения ключом
+		// Разбираем подпись владения ключом
 		message::parse(data, signature);
 		// Разбираемый билет возобновления связи
 		message::ticket_t ticket;
-		// Выполняем разбор билета возобновления связи
+		// Разбираем билет возобновления связи
 		message::parse(data, ticket);
 		// Разбираемое требование смены ключей
 		message::update_t update;
-		// Выполняем разбор требования смены ключей
+		// Разбираем требование смены ключей
 		message::parse(data, update);
 		// Разбираемое имя запрашиваемого узла
 		view_t name;
-		// Выполняем разбор имени запрашиваемого узла
+		// Разбираем имя запрашиваемого узла
 		extension::name(data, name);
 		// Разбираемый перечень прикладных протоколов
 		vector <string> protocols;
-		// Выполняем разбор перечня прикладных протоколов
+		// Разбираем перечень прикладных протоколов
 		extension::protocols(data, protocols);
 		// Разбираемый перечень открытых частей ключей обмена
 		vector <extension::share_t> shares;
-		// Выполняем разбор перечня открытых частей ключей обмена
+		// Разбираем перечень открытых частей ключей обмена
 		extension::shares(data, shares);
 		// Разбираемый перечень кривых обмена ключами
 		vector <extension::group_t> groups;
-		// Выполняем разбор перечня кривых обмена ключами
+		// Разбираем перечень кривых обмена ключами
 		extension::groups(data, groups);
 		// Разбираемый перечень заранее разделённых ключей
 		vector <extension::identity_t> identities;
@@ -497,7 +497,7 @@ namespace {
 		vector <view_t> binders;
 		// Место, по которое переписка привязки идёт
 		size_t truncation = 0;
-		// Выполняем разбор предложения заранее разделённых ключей
+		// Разбираем предложение заранее разделённых ключей
 		extension::identities(data, identities, binders, truncation);
 	}
 };
@@ -508,7 +508,7 @@ namespace {
 TEST(FuzzerTest, Chunks){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
+	// Вырабатываем подлинность стороны сервера
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Потоки байтов направлений передачи
 	vector <uint8_t> streams[2];
@@ -517,11 +517,11 @@ TEST(FuzzerTest, Chunks){
 	// Длины потоков направлений при подаче их целиком
 	size_t lengths[2] = {0, 0};
 	/**
-	 * Выполняем перебор размеров куска, которыми байты подаются стороне
+	 * Перебираем размеры куска, которыми байты подаются стороне
 	 */
 	for(const size_t chunk : {static_cast <size_t> (4096), static_cast <size_t> (1), static_cast <size_t> (2), static_cast <size_t> (3), static_cast <size_t> (5), static_cast <size_t> (7), static_cast <size_t> (13), static_cast <size_t> (64)}){
-		// Выполняем проведение рукопожатия сторон связи
-		converse(credentials, course_t::NONE, 0, 0, streams, chunk, established);
+		// Проводим рукопожатие сторон связи
+		__nts_converse__(credentials, course_t::NONE, 0, 0, streams, chunk, established);
 		/**
 		 * Разбор потока обязан не зависеть от того, какими кусками поток пришёл: границ
 		 * записей связь не выбирает, и приход потока по одному байту от прихода целиком
@@ -547,14 +547,14 @@ TEST(FuzzerTest, Chunks){
 TEST(FuzzerTest, Corruption){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
+	// Вырабатываем подлинность стороны сервера
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Потоки байтов направлений передачи
 	vector <uint8_t> streams[2];
 	// Признаки установленности связи сторонами
 	bool established[2] = {false, false};
-	// Выполняем проведение чистого рукопожатия сторон связи
-	converse(credentials, course_t::NONE, 0, 0, streams, 4096, established);
+	// Проводим чистое рукопожатие сторон связи
+	__nts_converse__(credentials, course_t::NONE, 0, 0, streams, 4096, established);
 	// Проверяем установленность связи сторонами при чистом рукопожатии
 	ASSERT_TRUE(established[0] && established[1]);
 	// Запоминаем чистые потоки байтов направлений передачи
@@ -562,7 +562,7 @@ TEST(FuzzerTest, Corruption){
 	// Заводим источник повторимых случайных значений
 	random_t roller(0x414E594B53544C53);
 	/**
-	 * Выполняем перебор ворошений потока рукопожатия
+	 * Перебираем ворошения потока рукопожатия
 	 */
 	for(size_t i = 0; i < 128; i++){
 		// Получаем направление, поток которого ворошится
@@ -574,11 +574,11 @@ TEST(FuzzerTest, Corruption){
 		// Получаем разряд, которым ворошится байт потока
 		const uint8_t mask = static_cast <uint8_t> (1 << roller.below(8));
 		// Если ворошение хода рукопожатия менять не должно
-		if(ignorable(clean[side], target))
+		if(__nts_ignorable__(clean[side], target))
 			// Переходим к следующему ворошению потока рукопожатия
 			continue;
-		// Выполняем проведение рукопожатия сторон связи с ворошением потока
-		converse(credentials, course, target, mask, streams, 4096, established);
+		// Проводим рукопожатие сторон связи с ворошением потока
+		__nts_converse__(credentials, course, target, mask, streams, 4096, established);
 		/**
 		 * Всякий байт потока, кроме издания записи, прикрыт: приветствия ложатся в
 		 * переписку и сличаются завершением рукопожатия, а всё, что идёт за ними,
@@ -603,13 +603,13 @@ TEST(FuzzerTest, OpensslRefusals){
 		// Подлинность стороны сервера
 		context::credential_t credentials;
 		// Читаем классическую подлинность ec256, чтобы отказ зависел только от записи
-		ASSERT_TRUE(keyfile(credentials));
+		ASSERT_TRUE(__nts_keyfile__(credentials));
 		// Потоки байтов направлений передачи
 		vector <uint8_t> streams[2];
 		// Признаки установленности связи сторонами
 		bool established[2] = {false, false};
 		// Проводим чистое рукопожатие сторон связи
-		converse(credentials, course_t::NONE, 0, 0, streams, 4096, established);
+		__nts_converse__(credentials, course_t::NONE, 0, 0, streams, 4096, established);
 		// Проверяем установленность связи сторонами
 		ASSERT_TRUE(established[0] && established[1]);
 		// Порченый поток сервера с неизвестным видом содержимого первой записи
@@ -643,18 +643,18 @@ TEST(FuzzerTest, OpensslRefusals){
 		// Сторож процесса OpenSSL
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение OpenSSL
-		const int fd = greeted(listener);
+		const int own = greeted(listener);
 		// Проверяем принятие подключения
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(own, 0);
 		// Отправляем ровно тот же порченый поток, который отвергнут A-NTS
-		ASSERT_EQ(sending(fd, damaged.data(), damaged.size()), static_cast <ssize_t> (damaged.size()));
+		ASSERT_EQ(sending(own, damaged.data(), damaged.size()), static_cast <ssize_t> (damaged.size()));
 		// Закрываем принятое подключение
-		closing(fd);
+		closing(own);
 		// Закрываем слушающий сокет
 		closing(listener);
 		// Журнал завершившегося OpenSSL
 		string report;
-		// Ждём завершения OpenSSL
+		// Дожидаемся завершения OpenSSL
 		ASSERT_TRUE(settle(log, report)) << report;
 		// Признак LibreSSL: его клиент рвёт связь без формулировки OpenSSL
 		const bool libressl = (std::system("openssl version 2>/dev/null | grep -q LibreSSL") == 0);
@@ -675,12 +675,12 @@ TEST(FuzzerTest, OpensslRefusals){
 TEST(FuzzerTest, Garbage){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
+	// Вырабатываем подлинность стороны сервера
 	ASSERT_TRUE(identity("anyks.com", credentials));
 	// Заводим источник повторимых случайных значений
 	random_t roller(0x5F4C4F42415245);
 	/**
-	 * Выполняем перебор подач случайного потока байтов
+	 * Перебираем подачи случайного потока байтов
 	 */
 	for(size_t i = 0; i < 256; i++){
 		// Связь стороны сервера
@@ -689,13 +689,13 @@ TEST(FuzzerTest, Garbage){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связь стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Получаем размер вырабатываемого потока байтов
 		const size_t size = roller.below(512);
 		// Вырабатываем случайный поток байтов
 		const vector <uint8_t> data = blob(roller, size + 1);
-		// Выполняем подачу случайного потока байтов связи
+		// Подаём случайный поток байтов связи
 		server.push(view_t(data.data(), data.size()));
 		/**
 		 * Случайный поток связи не установит: до установления её ведёт рукопожатие, а
@@ -717,21 +717,21 @@ TEST(FuzzerTest, Parsers){
 	// Заводим источник повторимых случайных значений
 	random_t roller(0x504152534552);
 	/**
-	 * Выполняем перебор подач случайных областей байтов
+	 * Перебираем подачи случайных областей байтов
 	 */
 	for(size_t i = 0; i < 2048; i++){
 		// Получаем размер вырабатываемой области байтов
 		const size_t size = roller.below(256);
 		// Вырабатываем случайную область байтов
 		const vector <uint8_t> data = blob(roller, size);
-		// Выполняем подачу случайной области байтов всем разборщикам
-		feed(view_t(data.data(), data.size()));
+		// Подаём случайную область байтов всем разборщикам
+		__nts_feed__(view_t(data.data(), data.size()));
 	}
 	/**
 	 * Непереданная область байтов - это тоже недоверенные данные: разборщик обязан
 	 * ответить на неё отказом, а не разбирать её вовсе
 	 */
-	feed(view_t(nullptr, 0));
+	__nts_feed__(view_t(nullptr, 0));
 }
 
 /**
@@ -741,7 +741,7 @@ TEST(FuzzerTest, Storage){
 	// Заводим источник повторимых случайных значений
 	random_t roller(0x50454D5F464B);
 	/**
-	 * Выполняем перебор подач случайного текста
+	 * Перебираем подачи случайного текста
 	 */
 	for(size_t i = 0; i < 512; i++){
 		// Заводим подаваемый разборщику текст
@@ -751,7 +751,7 @@ TEST(FuzzerTest, Storage){
 		// Вырабатываем случайную область байтов метки записи
 		const vector <uint8_t> label = blob(roller, title);
 		/**
-		 * Выполняем перебор случайной области байтов метки записи
+		 * Перебираем случайную область байтов метки записи
 		 */
 		for(size_t j = 0; j < label.size(); j++)
 			// Записываем очередной знак метки записи
@@ -763,7 +763,7 @@ TEST(FuzzerTest, Storage){
 		// Вырабатываем случайную область байтов тела записи
 		const vector <uint8_t> body = blob(roller, length);
 		/**
-		 * Выполняем перебор случайной области байтов тела записи
+		 * Перебираем случайную область байтов тела записи
 		 */
 		for(size_t j = 0; j < body.size(); j++)
 			// Записываем очередной знак тела записи
@@ -772,11 +772,11 @@ TEST(FuzzerTest, Storage){
 		text.append("\n-----END DATA-----\n");
 		// Разобранные записи текста
 		vector <pem::block_t> blocks;
-		// Выполняем разбор случайного текста
+		// Разбираем случайный текст
 		pem::decode(text, blocks);
 		// Извлечённый из случайного текста секретный ключ
 		vector <uint8_t> secret;
-		// Выполняем извлечение секретного ключа из случайного текста
+		// Извлекаем секретный ключ из случайного текста
 		pem::secret(text, secret);
 	}
 }

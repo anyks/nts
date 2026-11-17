@@ -70,7 +70,7 @@ static vector <uint8_t> decode(const char * text) noexcept {
 	// Получаем длину разбираемой строки
 	const size_t length = ::strlen(text);
 	/**
-	 * Выполняем перебор пар знаков шестнадцатеричной записи
+	 * Перебираем пары знаков шестнадцатеричной записи
 	 */
 	for(size_t i = 0; (i + 1) < length; i += 2)
 		// Добавляем очередной разобранный байт
@@ -98,7 +98,7 @@ TEST(ExtensionTest, Curve){
 		extension::scheme_t::S512C
 	};
 	/**
-	 * Выполняем перебор групп обмена ключами протокола
+	 * Перебираем группы обмена ключами протокола
 	 */
 	for(size_t i = 0; i < (sizeof(groups) / sizeof(groups[0])); i++){
 		// Получаем опознаватель кривой группы обмена ключами
@@ -127,7 +127,7 @@ TEST(ExtensionTest, Bodies){
 	// Число разобранных тел расширений приветствий
 	size_t count = 0;
 	/**
-	 * Выполняем перебор приветствий контрольного примера
+	 * Перебираем приветствия контрольного примера
 	 */
 	for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
 		// Получаем сообщение приветствия вместе с обвязкой
@@ -144,7 +144,7 @@ TEST(ExtensionTest, Bodies){
 		if(client){
 			// Разобранное приветствие клиента
 			hello::client_t hello;
-			// Выполняем разбор тела приветствия клиента
+			// Разбираем тело приветствия клиента
 			ASSERT_EQ(hello::parse(body, hello), hello::error_t::NONE) << "приветствие " << i;
 			// Запоминаем перечень расширений приветствия клиента
 			extensions = hello.extensions;
@@ -152,7 +152,7 @@ TEST(ExtensionTest, Bodies){
 		} else {
 			// Разобранное приветствие сервера
 			hello::server_t hello;
-			// Выполняем разбор тела приветствия сервера
+			// Разбираем тело приветствия сервера
 			ASSERT_EQ(hello::parse(body, hello), hello::error_t::NONE) << "приветствие " << i;
 			// Запоминаем перечень расширений приветствия сервера
 			extensions = hello.extensions;
@@ -160,13 +160,13 @@ TEST(ExtensionTest, Bodies){
 			retry = hello::retry(hello);
 		}
 		/**
-		 * Выполняем перебор расширений разобранного приветствия
+		 * Перебираем расширения разобранного приветствия
 		 */
 		for(auto & item : extensions){
 			// Накопитель, в который складывается составленное тело расширения
 			vector <uint8_t> composed;
 			/**
-			 * Выполняем определение вида расширения приветствия
+			 * Определяем вид расширения приветствия
 			 */
 			switch(item.type){
 				// Если это расширение поддерживаемых изданий протокола
@@ -175,21 +175,21 @@ TEST(ExtensionTest, Bodies){
 					if(client){
 						// Разобранный перечень поддерживаемых изданий протокола
 						vector <uint16_t> versions;
-						// Выполняем разбор перечня поддерживаемых изданий
+						// Разбираем перечень поддерживаемых изданий
 						ASSERT_EQ(extension::versions(item.data, versions), extension::error_t::NONE) << "приветствие " << i;
 						// Проверяем, что клиент предлагает издание TLS 1.3
 						ASSERT_EQ(versions[0], static_cast <uint16_t> (0x0304)) << "приветствие " << i;
-						// Выполняем составление перечня поддерживаемых изданий заново
+						// Составляем перечень поддерживаемых изданий заново
 						ASSERT_EQ(extension::versions(versions, composed), extension::error_t::NONE) << "приветствие " << i;
 					// Если это расширение приветствия сервера
 					} else {
 						// Разобранное выбранное издание протокола
 						uint16_t version = 0;
-						// Выполняем разбор выбранного издания протокола
+						// Разбираем выбранное издание протокола
 						ASSERT_EQ(extension::version(item.data, version), extension::error_t::NONE) << "приветствие " << i;
 						// Проверяем, что сервер выбрал издание TLS 1.3
 						ASSERT_EQ(version, static_cast <uint16_t> (0x0304)) << "приветствие " << i;
-						// Выполняем составление выбранного издания протокола заново
+						// Составляем выбранное издание протокола заново
 						ASSERT_EQ(extension::version(version, composed), extension::error_t::NONE) << "приветствие " << i;
 					}
 				} break;
@@ -197,26 +197,26 @@ TEST(ExtensionTest, Bodies){
 				case static_cast <uint16_t> (extension::type_t::GROUPS): {
 					// Разобранный перечень поддерживаемых групп обмена
 					vector <extension::group_t> groups;
-					// Выполняем разбор перечня поддерживаемых групп обмена
+					// Разбираем перечень поддерживаемых групп обмена
 					ASSERT_EQ(extension::groups(item.data, groups), extension::error_t::NONE) << "приветствие " << i;
 					// Проверяем, что перечень поддерживаемых групп не пуст
 					ASSERT_FALSE(groups.empty()) << "приветствие " << i;
 					// Проверяем, что первая предлагаемая группа обмена известна
 					ASSERT_NE(extension::curve(groups[0]), nullptr) << "приветствие " << i;
-					// Выполняем составление перечня поддерживаемых групп заново
+					// Составляем перечень поддерживаемых групп заново
 					ASSERT_EQ(extension::groups(groups, composed), extension::error_t::NONE) << "приветствие " << i;
 				} break;
 				// Если это расширение поддерживаемых схем подписи
 				case static_cast <uint16_t> (extension::type_t::SCHEMES): {
 					// Разобранный перечень поддерживаемых схем подписи
 					vector <extension::scheme_t> schemes;
-					// Выполняем разбор перечня поддерживаемых схем подписи
+					// Разбираем перечень поддерживаемых схем подписи
 					ASSERT_EQ(extension::schemes(item.data, schemes), extension::error_t::NONE) << "приветствие " << i;
 					// Проверяем, что перечень поддерживаемых схем не пуст
 					ASSERT_FALSE(schemes.empty()) << "приветствие " << i;
 					// Проверяем, что первая предлагаемая схема подписи известна
 					ASSERT_NE(extension::length(schemes[0]), static_cast <size_t> (0)) << "приветствие " << i;
-					// Выполняем составление перечня поддерживаемых схем заново
+					// Составляем перечень поддерживаемых схем заново
 					ASSERT_EQ(extension::schemes(schemes, composed), extension::error_t::NONE) << "приветствие " << i;
 				} break;
 				// Если это расширение открытой части ключа обмена
@@ -225,33 +225,33 @@ TEST(ExtensionTest, Bodies){
 					if(retry){
 						// Разобранная выбранная сервером группа обмена ключами
 						extension::group_t group = extension::group_t::NONE;
-						// Выполняем разбор выбранной сервером группы обмена
+						// Разбираем выбранную сервером группу обмена
 						ASSERT_EQ(extension::selected(item.data, group), extension::error_t::NONE) << "приветствие " << i;
 						// Проверяем, что выбранная сервером группа обмена известна
 						ASSERT_NE(extension::curve(group), nullptr) << "приветствие " << i;
-						// Выполняем составление выбранной группы обмена заново
+						// Составляем выбранную группу обмена заново
 						ASSERT_EQ(extension::selected(group, composed), extension::error_t::NONE) << "приветствие " << i;
 					// Если это расширение приветствия клиента
 					} else if(client){
 						// Разобранный перечень открытых частей ключей обмена
 						vector <extension::share_t> shares;
-						// Выполняем разбор перечня открытых частей ключей обмена
+						// Разбираем перечень открытых частей ключей обмена
 						ASSERT_EQ(extension::shares(item.data, shares), extension::error_t::NONE) << "приветствие " << i;
 						// Проверяем, что перечень открытых частей ключей не пуст
 						ASSERT_FALSE(shares.empty()) << "приветствие " << i;
 						// Проверяем, что открытая часть ключа занимает две координаты кривой
 						ASSERT_EQ(shares[0].key.size, (extension::length(static_cast <extension::scheme_t> (0x0709 + (static_cast <uint16_t> (shares[0].group) - 0x22))) * 2)) << "приветствие " << i;
-						// Выполняем составление перечня открытых частей ключей заново
+						// Составляем перечень открытых частей ключей заново
 						ASSERT_EQ(extension::shares(shares, composed), extension::error_t::NONE) << "приветствие " << i;
 					// Если это расширение приветствия сервера
 					} else {
 						// Разобранная открытая часть ключа обмена сервера
 						extension::share_t share;
-						// Выполняем разбор открытой части ключа обмена сервера
+						// Разбираем открытую часть ключа обмена сервера
 						ASSERT_EQ(extension::share(item.data, share), extension::error_t::NONE) << "приветствие " << i;
 						// Проверяем, что группа обмена открытой части ключа известна
 						ASSERT_NE(extension::curve(share.group), nullptr) << "приветствие " << i;
-						// Выполняем составление открытой части ключа обмена заново
+						// Составляем открытую часть ключа обмена заново
 						ASSERT_EQ(extension::share(share, composed), extension::error_t::NONE) << "приветствие " << i;
 					}
 				} break;
@@ -259,22 +259,22 @@ TEST(ExtensionTest, Bodies){
 				case static_cast <uint16_t> (extension::type_t::MODES): {
 					// Разобранный перечень способов обмена
 					vector <extension::regime_t> modes;
-					// Выполняем разбор перечня способов обмена
+					// Разбираем перечень способов обмена
 					ASSERT_EQ(extension::modes(item.data, modes), extension::error_t::NONE) << "приветствие " << i;
 					// Проверяем, что перечень способов обмена не пуст
 					ASSERT_FALSE(modes.empty()) << "приветствие " << i;
-					// Выполняем составление перечня способов обмена заново
+					// Составляем перечень способов обмена заново
 					ASSERT_EQ(extension::modes(modes, composed), extension::error_t::NONE) << "приветствие " << i;
 				} break;
 				// Если это расширение имени запрашиваемого узла
 				case static_cast <uint16_t> (extension::type_t::NAME): {
 					// Разобранное имя запрашиваемого узла
 					view_t name;
-					// Выполняем разбор имени запрашиваемого узла
+					// Разбираем имя запрашиваемого узла
 					ASSERT_EQ(extension::name(item.data, name), extension::error_t::NONE) << "приветствие " << i;
 					// Проверяем, что имя запрашиваемого узла не пусто
 					ASSERT_GT(name.size, static_cast <size_t> (0)) << "приветствие " << i;
-					// Выполняем составление имени запрашиваемого узла заново
+					// Составляем имя запрашиваемого узла заново
 					ASSERT_EQ(extension::name(name, composed), extension::error_t::NONE) << "приветствие " << i;
 				} break;
 				// Если вид расширения этому набору проверок неизвестен
@@ -324,23 +324,23 @@ TEST(ExtensionTest, Ragged){
 	// Если предел упреждающих данных составить не удалось
 	ASSERT_EQ(extension::early(static_cast <uint32_t> (16384), corpus[7]), extension::error_t::NONE);
 	/**
-	 * Выполняем перебор годных тел расширений
+	 * Перебираем годные тела расширений
 	 */
 	for(size_t body = 0; body < corpus.size(); body++){
 		/**
-		 * Выполняем перебор длин усечения очередного тела
+		 * Перебираем длины усечения очередного тела
 		 */
 		for(size_t size = 0; size <= corpus[body].size(); size++){
 			/**
-			 * Выполняем перебор порчи очередного байта тела: нулевой круг порчи не
+			 * Перебираем порчу очередного байта тела: нулевой круг порчи не
 			 * вносит вовсе, и им проверяется само усечение
 			 */
 			for(size_t place = 0; place <= size; place++){
-				// Выполняем перенос очередного годного тела расширения
+				// Переносим очередное годное тело расширения
 				vector <uint8_t> item(corpus[body].begin(), corpus[body].begin() + static_cast <ptrdiff_t> (size));
 				// Если очередной байт тела портится
 				if((place > 0) && (place <= item.size()))
-					// Выполняем обращение всех разрядов порченого байта
+					// Обращаем все разряды порченого байта
 					item[place - 1] = static_cast <uint8_t> (item[place - 1] ^ 0xFF);
 				// Просмотр разбираемого тела расширения
 				const view_t data(item.data(), item.size());
@@ -383,33 +383,33 @@ TEST(ExtensionTest, Ragged){
 				 * ничем не лучше порченого, и выдержать он обязан оба
 				 */
 				(void) extension::versions(data, versions);
-				// Выполняем разбор издания протокола
+				// Разбираем издание протокола
 				(void) extension::version(data, version);
-				// Выполняем разбор перечня кривых обмена ключами
+				// Разбираем перечень кривых обмена ключами
 				(void) extension::groups(data, groups);
-				// Выполняем разбор выбранной кривой обмена ключами
+				// Разбираем выбранную кривую обмена ключами
 				(void) extension::selected(data, group);
-				// Выполняем разбор перечня схем подписи
+				// Разбираем перечень схем подписи
 				(void) extension::schemes(data, schemes);
-				// Выполняем разбор перечня долей обмена ключами
+				// Разбираем перечень долей обмена ключами
 				(void) extension::shares(data, shares);
-				// Выполняем разбор доли обмена ключами
+				// Разбираем долю обмена ключами
 				(void) extension::share(data, share);
-				// Выполняем разбор способов обмена заранее разделённым ключом
+				// Разбираем способы обмена заранее разделённым ключом
 				(void) extension::modes(data, modes);
-				// Выполняем разбор перечня прикладных протоколов
+				// Разбираем перечень прикладных протоколов
 				(void) extension::protocols(data, protocols);
-				// Выполняем разбор выбранного прикладного протокола
+				// Разбираем выбранный прикладный протокол
 				(void) extension::protocol(data, protocol);
-				// Выполняем разбор метки возврата состояния сервера
+				// Разбираем метку возврата состояния сервера
 				(void) extension::cookie(data, cookie);
-				// Выполняем разбор имени запрашиваемого узла
+				// Разбираем имя запрашиваемого узла
 				(void) extension::name(data, name);
-				// Выполняем разбор места выбранного заранее разделённого ключа
+				// Разбираем место выбранного заранее разделённого ключа
 				(void) extension::chosen(data, chosen);
-				// Выполняем разбор предела упреждающих данных
+				// Разбираем предел упреждающих данных
 				(void) extension::early(data, limit);
-				// Выполняем разбор предложения заранее разделённых ключей
+				// Разбираем предложение заранее разделённых ключей
 				(void) extension::identities(data, identities, binders, truncation);
 				/**
 				 * Итоги разбора чужих тел не сличаются намеренно: чужое тело разборщик
@@ -424,7 +424,7 @@ TEST(ExtensionTest, Ragged){
 				 */
 				if((place == 0) && (size < corpus[body].size())){
 					/**
-					 * Выполняем сличение обрубка со своим разборщиком
+					 * Сличаем обрубок со своим разборщиком
 					 */
 					switch(body){
 						// Обрубок перечня изданий протокола
@@ -500,7 +500,7 @@ TEST(ExtensionTest, Reject){
 	const uint8_t twofold[] = {
 		0x00, 0x0C, 0x00, 0x00, 0x03, 0x61, 0x62, 0x63,
 		0x00, 0x00, 0x03, 0x64, 0x65, 0x66};
-	// Выполняем разбор перечня с двумя именами узлов своего вида: раздел 3 RFC 6066 двух имён одного вида не дозволяет (аудит 09.09.2026, прежняя терпимость снята)
+	// Разбираем перечень с двумя именами узлов своего вида: раздел 3 RFC 6066 двух имён одного вида не дозволяет (аудит 09.09.2026, прежняя терпимость снята)
 	ASSERT_EQ(extension::name(view_t(twofold, sizeof(twofold)), name), extension::error_t::TRAILING);
 	// Проверяем, что разобрано именно первое имя узла перечня
 	ASSERT_EQ(::memcmp(name.data, "abc", name.size), 0);
@@ -516,11 +516,11 @@ TEST(ExtensionTest, Reject){
 	ASSERT_EQ(extension::cookie(view_t(foreign, 0), stated), extension::error_t::EMPTY);
 	// Составляемая метка возврата состояния сервера
 	const uint8_t sample[] = {0xDE, 0xAD, 0xBE, 0xEF};
-	// Выполняем сброс накопителя составленного тела расширения
+	// Сбрасываем накопитель составленного тела расширения
 	composed.clear();
-	// Выполняем составление метки возврата состояния сервера
+	// Составляем метку возврата состояния сервера
 	ASSERT_EQ(extension::cookie(view_t(sample, sizeof(sample)), composed), extension::error_t::NONE);
-	// Выполняем разбор составленной метки возврата состояния
+	// Разбираем составленную метку возврата состояния
 	ASSERT_EQ(extension::cookie(view_t(composed.data(), composed.size()), cookie), extension::error_t::NONE);
 	// Проверяем схождение разобранной метки с составленной
 	ASSERT_EQ(cookie.size, sizeof(sample));
@@ -536,9 +536,9 @@ TEST(ExtensionTest, Identities){
 	const uint8_t first[4] = {0x01, 0x02, 0x03, 0x04}, second[3] = {0x0A, 0x0B, 0x0C};
 	// Привязки предлагаемых заранее разделённых ключей
 	uint8_t binder[32], element[32];
-	// Выполняем заполнение привязки первого ключа
+	// Заполняем привязку первого ключа
 	::memset(binder, 0x11, sizeof(binder));
-	// Выполняем заполнение привязки второго ключа
+	// Заполняем привязку второго ключа
 	::memset(element, 0x22, sizeof(element));
 	// Составляемый перечень опознавателей ключей
 	const vector <extension::identity_t> identities = {
@@ -549,7 +549,7 @@ TEST(ExtensionTest, Identities){
 	const vector <view_t> binders = {view_t(binder, sizeof(binder)), view_t(element, sizeof(element))};
 	// Накопитель, в который складывается тело расширения
 	vector <uint8_t> body;
-	// Выполняем составление предложения заранее разделённых ключей
+	// Составляем предложение заранее разделённых ключей
 	ASSERT_EQ(extension::identities(identities, binders, body), extension::error_t::NONE);
 	// Разбираемый перечень опознавателей ключей
 	vector <extension::identity_t> parsed;
@@ -557,7 +557,7 @@ TEST(ExtensionTest, Identities){
 	vector <view_t> items;
 	// Длина усечения приветствия от начала тела расширения
 	size_t truncation = 0;
-	// Выполняем разбор составленного предложения ключей
+	// Разбираем составленное предложение ключей
 	ASSERT_EQ(extension::identities(view_t(body.data(), body.size()), parsed, items, truncation), extension::error_t::NONE);
 	// Проверяем число разобранных опознавателей ключей
 	ASSERT_EQ(parsed.size(), static_cast <size_t> (2));
@@ -594,13 +594,13 @@ TEST(ExtensionTest, Identities){
 TEST(ExtensionTest, Chosen){
 	// Накопитель, в который складывается тело расширения
 	vector <uint8_t> body;
-	// Выполняем составление выбранного сервером ключа
+	// Составляем выбранный сервером ключ
 	ASSERT_EQ(extension::chosen(static_cast <uint16_t> (1), body), extension::error_t::NONE);
 	// Проверяем длину составленного тела расширения
 	ASSERT_EQ(body.size(), static_cast <size_t> (2));
 	// Место выбранного ключа в предложении клиента
 	uint16_t chosen = 0;
-	// Выполняем разбор составленного тела расширения
+	// Разбираем составленное тело расширения
 	ASSERT_EQ(extension::chosen(view_t(body.data(), body.size()), chosen), extension::error_t::NONE);
 	// Проверяем разобранное место выбранного ключа
 	ASSERT_EQ(chosen, static_cast <uint16_t> (1));
@@ -614,7 +614,7 @@ TEST(ExtensionTest, Protocols){
 	vector <uint8_t> body;
 	// Перечень составляемых прикладных протоколов
 	const vector <string> offer = {"h2", "http/1.1"};
-	// Выполняем составление перечня прикладных протоколов
+	// Составляем перечень прикладных протоколов
 	ASSERT_EQ(extension::protocols(offer, body), extension::error_t::NONE);
 	// Проверяем длину составленного тела расширения
 	ASSERT_EQ(body.size(), static_cast <size_t> (2 + 1 + 2 + 1 + 8));
@@ -622,7 +622,7 @@ TEST(ExtensionTest, Protocols){
 	ASSERT_EQ(static_cast <size_t> ((body[0] << 8) | body[1]), body.size() - 2);
 	// Перечень разобранных прикладных протоколов
 	vector <string> protocols;
-	// Выполняем разбор составленного тела расширения
+	// Разбираем составленное тело расширения
 	ASSERT_EQ(extension::protocols(view_t(body.data(), body.size()), protocols), extension::error_t::NONE);
 	// Проверяем схождение разобранного перечня с составленным
 	ASSERT_EQ(protocols, offer);
@@ -632,7 +632,7 @@ TEST(ExtensionTest, Protocols){
 	ASSERT_EQ(extension::protocols(vector <string> (1, string()), body), extension::error_t::EMPTY);
 	// Тело расширения с пустым названием прикладного протокола
 	const uint8_t empty[3] = {0x00, 0x01, 0x00};
-	// Выполняем сброс перечня разобранных прикладных протоколов
+	// Сбрасываем перечень разобранных прикладных протоколов
 	protocols.clear();
 	// Проверяем отказ разбора пустого названия прикладного протокола
 	ASSERT_EQ(extension::protocols(view_t(empty, sizeof(empty)), protocols), extension::error_t::EMPTY);
@@ -652,13 +652,13 @@ TEST(ExtensionTest, Formats){
 	vector <uint8_t> body;
 	// Перечень составляемых записей точек: несжатая и обе сжатые
 	const vector <uint8_t> offer = {0x00, 0x01, 0x02};
-	// Выполняем составление перечня записей точек
+	// Составляем перечень записей точек
 	ASSERT_EQ(extension::formats(offer, body), extension::error_t::NONE);
 	// Проверяем тело расширения: длина и три записи
 	ASSERT_EQ(body, (vector <uint8_t> {0x03, 0x00, 0x01, 0x02}));
 	// Перечень разобранных записей точек
 	vector <uint8_t> formats;
-	// Выполняем разбор составленного тела расширения
+	// Разбираем составленное тело расширения
 	ASSERT_EQ(extension::formats(view_t(body.data(), body.size()), formats), extension::error_t::NONE);
 	// Проверяем схождение разобранного перечня с составленным
 	ASSERT_EQ(formats, offer);
@@ -687,13 +687,13 @@ TEST(ExtensionTest, Certtypes){
 	vector <uint8_t> body;
 	// Перечень составляемых видов сертификатов: X.509 и сырой открытый ключ
 	const vector <extension::cert_t> offer = {extension::cert_t::X509, extension::cert_t::RAW};
-	// Выполняем составление перечня видов сертификатов
+	// Составляем перечень видов сертификатов
 	ASSERT_EQ(extension::certtypes(offer, body), extension::error_t::NONE);
 	// Проверяем тело расширения: длина и две записи
 	ASSERT_EQ(body, (vector <uint8_t> {0x02, 0x00, 0x01}));
 	// Перечень разобранных видов сертификатов
 	vector <extension::cert_t> types;
-	// Выполняем разбор составленного тела расширения
+	// Разбираем составленное тело расширения
 	ASSERT_EQ(extension::certtypes(view_t(body.data(), body.size()), types), extension::error_t::NONE);
 	// Проверяем схождение разобранного перечня с составленным
 	ASSERT_EQ(types, offer);
@@ -722,13 +722,13 @@ TEST(ExtensionTest, Profiles){
 	vector <uint8_t> body;
 	// Перечень составляемых профилей: AES-CM с меткой 80 и AES-128-GCM
 	const vector <uint16_t> offer = {0x0001, 0x0007};
-	// Выполняем составление перечня профилей защиты
+	// Составляем перечень профилей защиты
 	ASSERT_EQ(extension::profiles(offer, body), extension::error_t::NONE);
 	// Проверяем тело расширения: длина перечня, две записи и пустой опознаватель MKI
 	ASSERT_EQ(body, (vector <uint8_t> {0x00, 0x04, 0x00, 0x01, 0x00, 0x07, 0x00}));
 	// Перечень разобранных профилей защиты
 	vector <uint16_t> profiles;
-	// Выполняем разбор составленного тела расширения
+	// Разбираем составленное тело расширения
 	ASSERT_EQ(extension::profiles(view_t(body.data(), body.size()), profiles), extension::error_t::NONE);
 	// Проверяем схождение разобранного перечня с составленным
 	ASSERT_EQ(profiles, offer);
@@ -788,7 +788,7 @@ TEST(ExtensionTest, Algorithms){
 	vector <uint8_t> body;
 	// Перечень составляемых алгоритмов: zlib, частный и чужой, порядок потребителя
 	const vector <uint16_t> offer = {static_cast <uint16_t> (extension::compression_t::ZLIB), 16384, 0x7777};
-	// Выполняем составление перечня алгоритмов
+	// Составляем перечень алгоритмов
 	ASSERT_EQ(extension::algorithms(offer, body), extension::error_t::NONE);
 	// Проверяем длину составленного тела расширения: длина и три опознавателя
 	ASSERT_EQ(body.size(), static_cast <size_t> (1 + 3 * 2));
@@ -800,7 +800,7 @@ TEST(ExtensionTest, Algorithms){
 	ASSERT_EQ(body[2], static_cast <uint8_t> (0x01));
 	// Перечень разобранных алгоритмов
 	vector <uint16_t> algorithms;
-	// Выполняем разбор составленного тела расширения
+	// Разбираем составленное тело расширения
 	ASSERT_EQ(extension::algorithms(view_t(body.data(), body.size()), algorithms), extension::error_t::NONE);
 	// Проверяем схождение разобранного перечня с составленным в том же порядке
 	ASSERT_EQ(algorithms, offer);
@@ -830,19 +830,19 @@ TEST(ExtensionTest, Algorithms){
 TEST(ExtensionTest, Protocol){
 	// Накопитель, в который складывается тело расширения
 	vector <uint8_t> body;
-	// Выполняем составление выбранного прикладного протокола
+	// Составляем выбранный прикладный протокол
 	ASSERT_EQ(extension::protocol(string("h2"), body), extension::error_t::NONE);
 	// Название разобранного прикладного протокола
 	string protocol;
-	// Выполняем разбор составленного тела расширения
+	// Разбираем составленное тело расширения
 	ASSERT_EQ(extension::protocol(view_t(body.data(), body.size()), protocol), extension::error_t::NONE);
 	// Проверяем схождение разобранного протокола с составленным
 	ASSERT_EQ(protocol, "h2");
 	// Проверяем отказ составления пустого названия протокола
 	ASSERT_EQ(extension::protocol(string(), body), extension::error_t::EMPTY);
-	// Выполняем сброс накопителя тела расширения
+	// Сбрасываем накопитель тела расширения
 	body.clear();
-	// Выполняем составление перечня из двух прикладных протоколов
+	// Составляем перечень из двух прикладных протоколов
 	ASSERT_EQ(extension::protocols(vector <string> {"h2", "http/1.1"}, body), extension::error_t::NONE);
 	/**
 	 * Раздел 3.1 RFC 7301: ответом сервера идёт ровно один протокол, и перечень из
@@ -863,11 +863,11 @@ TEST(ExtensionTest, Confines){
 	 * байтов в неё не входит: 128 изданий занимают 256 байтов
 	 */
 	ASSERT_EQ(extension::versions(vector <uint16_t> (128, 0x0304), body), extension::error_t::LENGTH);
-	// Выполняем очистку накопителя составляемого тела
+	// Очищаем накопитель составляемого тела
 	body.clear();
 	// Проверяем, что перечень изданий предельной длины составляется
 	ASSERT_EQ(extension::versions(vector <uint16_t> (127, 0x0304), body), extension::error_t::NONE);
-	// Выполняем очистку накопителя составляемого тела
+	// Очищаем накопитель составляемого тела
 	body.clear();
 	// Метка возврата состояния, длину свою в два байта не вмещающая
 	const vector <uint8_t> lengthy(65536, 0x5A);
@@ -876,7 +876,7 @@ TEST(ExtensionTest, Confines){
 	 * байтов в них не входит
 	 */
 	ASSERT_EQ(extension::cookie(view_t(lengthy.data(), lengthy.size()), body), extension::error_t::LENGTH);
-	// Выполняем очистку накопителя составляемого тела
+	// Очищаем накопитель составляемого тела
 	body.clear();
 	// Проверяем, что метка предельной длины составляется
 	ASSERT_EQ(extension::cookie(view_t(lengthy.data(), 65535), body), extension::error_t::NONE);
@@ -902,7 +902,7 @@ TEST(ExtensionTest, Innermost){
 	const vector <uint8_t> opened(64, 0x11);
 	// Накопитель, в который складывается годное тело перечня долей обмена
 	vector <uint8_t> body;
-	// Выполняем составление годного тела перечня долей обмена
+	// Составляем годное тело перечня долей обмена
 	ASSERT_EQ(extension::shares(vector <extension::share_t> {
 		extension::share_t(extension::group_t::GC256B, view_t(opened.data(), 32)),
 		extension::share_t(extension::group_t::GC512A, view_t(opened.data(), 64))
@@ -915,7 +915,7 @@ TEST(ExtensionTest, Innermost){
 	 * за обрубанием: тогда обёртка сходится, а обрывается уже запись внутри неё
 	 */
 	for(size_t cut = 1; cut < (body.size() - 2); cut++){
-		// Выполняем перенос годного тела перечня долей обмена
+		// Переносим годное тело перечня долей обмена
 		vector <uint8_t> item(body.begin(), body.end() - static_cast <ptrdiff_t> (cut));
 		// Определяем новую длину содержимого перечня
 		const size_t length = (item.size() - 2);
@@ -925,7 +925,7 @@ TEST(ExtensionTest, Innermost){
 		item[1] = static_cast <uint8_t> (length & 0xFF);
 		// Место, в которое помещается разобранный перечень долей обмена
 		vector <extension::share_t> shares;
-		// Выполняем разбор обрубка перечня долей обмена
+		// Разбираем обрубок перечня долей обмена
 		const extension::error_t error = extension::shares(view_t(item.data(), item.size()), shares);
 		/**
 		 * Обрубок, оборвавший запись посреди неё, обязан отвергаться. Обрубок же,
@@ -934,7 +934,7 @@ TEST(ExtensionTest, Innermost){
 		if(error == extension::error_t::NONE){
 			// Накопитель, в который складывается тело разобранного перечня
 			vector <uint8_t> again;
-			// Выполняем обратное составление тела разобранного перечня
+			// Обратно составляем тело разобранного перечня
 			ASSERT_EQ(extension::shares(shares, again), extension::error_t::NONE) << "обрубок " << cut;
 			/**
 			 * Принятый обрубок обязан быть целым телом: составление по разобранному
@@ -982,7 +982,7 @@ TEST(ExtensionTest, Presented){
 	 */
 	vector <uint8_t> sound = {0x00, 0x0A, 0x00, 0x04, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0x20};
 	/**
-	 * Выполняем набор привязки заранее разделённого ключа
+	 * Набираем привязку заранее разделённого ключа
 	 */
 	for(size_t i = 0; i < 32; i++)
 		// Добавляем очередной байт привязки ключа
@@ -1012,7 +1012,7 @@ TEST(ExtensionTest, Presented){
 	vector <uint8_t> unpaired = {0x00, 0x14, 0x00, 0x04, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00, 0x00, 0x00,
 	                            0x00, 0x04, 0x45, 0x46, 0x47, 0x48, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0x20};
 	/**
-	 * Выполняем набор единственной привязки на два опознавателя ключей
+	 * Набираем единственную привязку на два опознавателя ключей
 	 */
 	for(size_t i = 0; i < 32; i++)
 		// Добавляем очередной байт привязки ключа
@@ -1236,15 +1236,15 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 	if(item != nullptr){
 		// Разобранный перечень изданий протокола
 		vector <uint16_t> versions;
-		// Выполняем разбор перечня изданий протокола
+		// Разбираем перечень изданий протокола
 		outcome = extension::versions(item->data, versions);
 		// Если разбор не состоялся
 		if(outcome != extension::error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Выполняем сброс накопителя
+		// Сбрасываем накопитель
 		body.clear();
-		// Выполняем составление перечня изданий протокола заново
+		// Составляем перечень изданий протокола заново
 		outcome = extension::versions(versions, body);
 		// Если составление не состоялось
 		if(outcome != extension::error_t::NONE)
@@ -1259,15 +1259,15 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 	if(item != nullptr){
 		// Разобранный перечень групп обмена
 		vector <extension::group_t> groups;
-		// Выполняем разбор перечня групп обмена
+		// Разбираем перечень групп обмена
 		outcome = extension::groups(item->data, groups);
 		// Если разбор не состоялся
 		if(outcome != extension::error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Выполняем сброс накопителя
+		// Сбрасываем накопитель
 		body.clear();
-		// Выполняем составление перечня групп обмена заново
+		// Составляем перечень групп обмена заново
 		outcome = extension::groups(groups, body);
 		// Если составление не состоялось
 		if(outcome != extension::error_t::NONE)
@@ -1282,15 +1282,15 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 	if(item != nullptr){
 		// Разобранный перечень схем подписи
 		vector <extension::scheme_t> schemes;
-		// Выполняем разбор перечня схем подписи
+		// Разбираем перечень схем подписи
 		outcome = extension::schemes(item->data, schemes);
 		// Если разбор не состоялся
 		if(outcome != extension::error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Выполняем сброс накопителя
+		// Сбрасываем накопитель
 		body.clear();
-		// Выполняем составление перечня схем подписи заново
+		// Составляем перечень схем подписи заново
 		outcome = extension::schemes(schemes, body);
 		// Если составление не состоялось
 		if(outcome != extension::error_t::NONE)
@@ -1305,15 +1305,15 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 	if(item != nullptr){
 		// Разобранный перечень открытых частей ключей
 		vector <extension::share_t> shares;
-		// Выполняем разбор перечня открытых частей ключей
+		// Разбираем перечень открытых частей ключей
 		outcome = extension::shares(item->data, shares);
 		// Если разбор не состоялся
 		if(outcome != extension::error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Выполняем сброс накопителя
+		// Сбрасываем накопитель
 		body.clear();
-		// Выполняем составление перечня открытых частей ключей заново
+		// Составляем перечень открытых частей ключей заново
 		outcome = extension::shares(shares, body);
 		// Если составление не состоялось
 		if(outcome != extension::error_t::NONE)
@@ -1328,15 +1328,15 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 	if(item != nullptr){
 		// Разобранный перечень способов обмена
 		vector <extension::regime_t> modes;
-		// Выполняем разбор перечня способов обмена
+		// Разбираем перечень способов обмена
 		outcome = extension::modes(item->data, modes);
 		// Если разбор не состоялся
 		if(outcome != extension::error_t::NONE)
 			// Выводим отказ разбора
 			return outcome;
-		// Выполняем сброс накопителя
+		// Сбрасываем накопитель
 		body.clear();
-		// Выполняем составление перечня способов обмена заново
+		// Составляем перечень способов обмена заново
 		outcome = extension::modes(modes, body);
 		// Если составление не состоялось
 		if(outcome != extension::error_t::NONE)
@@ -1345,9 +1345,9 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 		// Запоминаем схождение составленного тела расширения с исходным
 		intact = (intact && (body.size() == item->data.size) && (::memcmp(body.data(), item->data.data, item->data.size) == 0));
 	}
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	body.clear();
-	// Выполняем составление перечня прикладных протоколов
+	// Составляем перечень прикладных протоколов
 	outcome = extension::protocols(names, body);
 	// Если составление не состоялось
 	if(outcome != extension::error_t::NONE)
@@ -1355,7 +1355,7 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 		return outcome;
 	// Разобранный перечень прикладных протоколов
 	vector <string> protocols;
-	// Выполняем разбор составленного перечня прикладных протоколов
+	// Разбираем составленный перечень прикладных протоколов
 	outcome = extension::protocols(view_t(body.data(), body.size()), protocols);
 	// Если разбор не состоялся
 	if(outcome != extension::error_t::NONE)
@@ -1363,9 +1363,9 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 		return outcome;
 	// Запоминаем схождение разобранного перечня прикладных протоколов с составленным
 	intact = (intact && (protocols == names));
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	body.clear();
-	// Выполняем составление выбранного прикладного протокола
+	// Составляем выбранный прикладный протокол
 	outcome = extension::protocol(names[0], body);
 	// Если составление не состоялось
 	if(outcome != extension::error_t::NONE)
@@ -1373,7 +1373,7 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 		return outcome;
 	// Разобранное имя выбранного прикладного протокола
 	string protocol;
-	// Выполняем разбор выбранного прикладного протокола
+	// Разбираем выбранный прикладный протокол
 	outcome = extension::protocol(view_t(body.data(), body.size()), protocol);
 	// Если разбор не состоялся
 	if(outcome != extension::error_t::NONE)
@@ -1381,9 +1381,9 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 		return outcome;
 	// Запоминаем схождение разобранного названия прикладного протокола с составленным
 	intact = (intact && (protocol == names[0]));
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	body.clear();
-	// Выполняем составление предложения заранее разделённых ключей
+	// Составляем предложение заранее разделённых ключей
 	outcome = extension::identities(identities, binders, body);
 	// Если составление не состоялось
 	if(outcome != extension::error_t::NONE)
@@ -1395,7 +1395,7 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 	vector <view_t> items;
 	// Длина усечения приветствия от начала тела расширения
 	size_t truncation = 0;
-	// Выполняем разбор составленного предложения ключей
+	// Разбираем составленное предложение ключей
 	outcome = extension::identities(view_t(body.data(), body.size()), parsed, items, truncation);
 	// Если разбор не состоялся
 	if(outcome != extension::error_t::NONE)
@@ -1405,9 +1405,9 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 	intact = (intact && (parsed.size() == identities.size()) && (items.size() == binders.size()) && (parsed[0].identity.size == identities[0].identity.size) && (items[0].size == binders[0].size));
 	// Имя сервера длиною сверх короткого запаса строки
 	const char * name = "very-long-server-name.example.com";
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	body.clear();
-	// Выполняем составление имени сервера
+	// Составляем имя сервера
 	outcome = extension::name(view_t(reinterpret_cast <const uint8_t *> (name), ::strlen(name)), body);
 	// Если составление не состоялось
 	if(outcome != extension::error_t::NONE)
@@ -1415,7 +1415,7 @@ static extension::error_t exhaust(const hello::client_t & hello, const vector <s
 		return outcome;
 	// Разобранное имя сервера
 	view_t host;
-	// Выполняем разбор составленного имени сервера
+	// Разбираем составленное имя сервера
 	outcome = extension::name(view_t(body.data(), body.size()), host);
 	// Если разбор не состоялся
 	if(outcome != extension::error_t::NONE)
@@ -1437,7 +1437,7 @@ TEST(ExtensionTest, Starved){
 	const view_t body(message.data() + handshake::HANDSHAKE_HEADER, message.size() - handshake::HANDSHAKE_HEADER);
 	// Разобранное приветствие клиента
 	hello::client_t hello;
-	// Выполняем разбор тела приветствия клиента
+	// Разбираем тело приветствия клиента
 	ASSERT_EQ(hello::parse(body, hello), hello::error_t::NONE);
 	// Имена прикладных протоколов длиною сверх короткого запаса строки
 	const vector <string> names = {"application-protocol-name-first-of-all", "application-protocol-name-second-one"};
@@ -1452,7 +1452,7 @@ TEST(ExtensionTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе разбор и составление
+	 * Перебираем запасы выделений: на всяком запасе разбор и составление
 	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -1463,7 +1463,7 @@ TEST(ExtensionTest, Starved){
 		{
 			// Отмеряем запас выделений на время разбора и составления
 			starve::ration_t ration(budget);
-			// Выполняем разбор и составление при отмеренном запасе
+			// Разбираем и составляем при отмеренном запасе
 			outcome = exhaust(hello, names, identities, binders, intact);
 		}
 		// Проверяем, что разбор и составление ответили успехом либо отказом памяти

@@ -46,13 +46,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -80,7 +80,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -104,17 +104,17 @@ static std::string text(const uint8_t * data, const size_t size) {
 TEST(MgmTest, Refusals) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Размер блока применяемого шифра
 	const size_t size = cipher::KUZNYECHIK_BLOCK;
 	// Неповторимое значение, годное режиму работы
 	uint8_t nonce[cipher::KUZNYECHIK_BLOCK];
-	// Выполняем набивку неповторимого значения
+	// Набиваем неповторимое значение
 	::memset(nonce, 0x11, sizeof(nonce));
 	/**
 	 * Старший разряд неповторимого значения обнуляется: режим кладёт ему быть нулём
@@ -122,7 +122,7 @@ TEST(MgmTest, Refusals) {
 	nonce[0] &= 0x7F;
 	// Область байтов, подаваемая режиму работы
 	uint8_t source[32];
-	// Выполняем набивку подаваемой области байтов
+	// Набиваем подаваемую область байтов
 	::memset(source, 0x22, sizeof(source));
 	// Место, в которое складывается итог работы режима
 	uint8_t result[32];
@@ -138,7 +138,7 @@ TEST(MgmTest, Refusals) {
 	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nullptr, size)));
 	// Проверяем отказ заведения при неповторимом значении не по размеру блока
 	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, size - 1)));
-	// Выполняем заведение режима шифрования с проверкой целостности
+	// Заводим режим шифрования с проверкой целостности
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
 	// Проверяем отказ работы при непереданном месте метки подлинности
 	ASSERT_FALSE(mode.encrypt(view_t(nullptr, 0), view_t(source, size), result, nullptr));
@@ -153,9 +153,9 @@ TEST(MgmTest, Refusals) {
 	 * выданная на пустоту, заверяла бы отсутствие сообщения
 	 */
 	ASSERT_FALSE(mode.encrypt(view_t(nullptr, 0), view_t(nullptr, 0), result, tag));
-	// Выполняем зашифрование подаваемой области байтов
+	// Зашифровываем подаваемую область байтов
 	ASSERT_TRUE(mode.encrypt(view_t(nullptr, 0), view_t(source, size), result, tag));
-	// Выполняем заведение режима заново для снятия защиты
+	// Заводим режим заново для снятия защиты
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
 	// Проверяем отказ снятия защиты при непереданной метке подлинности
 	ASSERT_FALSE(mode.decrypt(view_t(nullptr, 0), view_t(result, size), source, view_t(nullptr, size)));
@@ -184,13 +184,13 @@ TEST(GaloisTest, KuznyechikFirst) {
 	uint8_t plain[67], cipher[67], back[67];
 	// Метка целостности
 	uint8_t tag[16];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("1122334455667700ffeeddccbbaa9988", nonce);
-	// Выполняем разбор связанных данных
+	// Разбираем связанные данные
 	const size_t length = bytes("0202020202020202010101010101010104040404040404040303030303030303ea0505050505050505", associated);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(
 		"1122334455667700ffeeddccbbaa9988"
 		"00112233445566778899aabbcceeff0a"
@@ -199,13 +199,13 @@ TEST(GaloisTest, KuznyechikFirst) {
 		"aabbcc", plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), cipher, tag));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -217,7 +217,7 @@ TEST(GaloisTest, KuznyechikFirst) {
 	));
 	// Сличаем полученную метку целостности с контрольным примером
 	ASSERT_EQ(text(tag, sizeof(tag)), std::string("cf5d656f40c34f5c46e8bb0e29fcdb4c"));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -235,25 +235,25 @@ TEST(GaloisTest, KuznyechikSecond) {
 	uint8_t associated[16];
 	// Метка целостности
 	uint8_t tag[16];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("99aabbccddeeff0011223344556677fedcba98765432100123456789abcdef88", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("1122334455667700ffeeddccbbaa9988", nonce);
-	// Выполняем разбор связанных данных
+	// Разбираем связанные данные
 	const size_t length = bytes("01010101010101010101010101010101", associated);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем выработку метки целостности без зашифрования сообщения
+	// Вырабатываем метку целостности без зашифрования сообщения
 	ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(), nullptr, tag));
 	// Сличаем полученную метку целостности с контрольным примером
 	ASSERT_EQ(text(tag, sizeof(tag)), std::string("7901e9ea2085cd247ed249695f9f8a85"));
-	// Выполняем проверку метки целостности
+	// Проверяем метку целостности
 	ASSERT_TRUE(mode.decrypt(view_t(associated, length), view_t(), nullptr, view_t(tag, sizeof(tag))));
 }
 /**
@@ -271,13 +271,13 @@ TEST(GaloisTest, MagmaFirst) {
 	uint8_t plain[67], cipher[67], back[67];
 	// Метка целостности
 	uint8_t tag[8];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("ffeeddccbbaa99887766554433221100f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("12def06b3c130a59", nonce);
-	// Выполняем разбор связанных данных
+	// Разбираем связанные данные
 	const size_t length = bytes("01010101010101010202020202020202030303030303030304040404040404040505050505050505ea", associated);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(
 		"ffeeddccbbaa9988"
 		"1122334455667700"
@@ -290,13 +290,13 @@ TEST(GaloisTest, MagmaFirst) {
 		"aabbcc", plain);
 	// Объект блочного шифра
 	cipher::magma_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), cipher, tag));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -312,7 +312,7 @@ TEST(GaloisTest, MagmaFirst) {
 	));
 	// Сличаем полученную метку целостности с контрольным примером
 	ASSERT_EQ(text(tag, sizeof(tag)), std::string("a7928069aa10fd10"));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -330,27 +330,27 @@ TEST(GaloisTest, MagmaSecond) {
 	uint8_t plain[8], cipher[8], back[8];
 	// Метка целостности
 	uint8_t tag[8];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("99aabbccddeeff0011223344556677fedcba98765432100123456789abcdef88", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("0077665544332211", nonce);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes("22334455667700ff", plain);
 	// Объект блочного шифра
 	cipher::magma_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем зашифрование открытого текста без связанных данных
+	// Зашифровываем открытый текст без связанных данных
 	ASSERT_TRUE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string("6a95e1426b259d4e"));
 	// Сличаем полученную метку целостности с контрольным примером
 	ASSERT_EQ(text(tag, sizeof(tag)), std::string("334ee270450bec9e"));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -370,55 +370,55 @@ TEST(GaloisTest, Forgery) {
 	uint8_t plain[32], cipher[32], back[32];
 	// Метка целостности
 	uint8_t tag[16];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("1122334455667700ffeeddccbbaa9988", nonce);
-	// Выполняем разбор связанных данных
+	// Разбираем связанные данные
 	const size_t length = bytes("01010101010101010101010101010101", associated);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes("1122334455667700ffeeddccbbaa998800112233445566778899aabbcceeff0a", plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), cipher, tag));
 	/**
-	 * Выполняем перебор байтов шифртекста
+	 * Перебираем байты шифртекста
 	 */
 	for(size_t i = 0; i < size; i++){
-		// Выполняем порчу очередного байта шифртекста
+		// Портим очередной байт шифртекста
 		cipher[i] = static_cast <uint8_t> (cipher[i] ^ 0x01);
 		// Проверяем отказ расшифрования испорченного шифртекста
 		ASSERT_FALSE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag)))) << "Место порчи: " << i;
-		// Выполняем восстановление очередного байта шифртекста
+		// Восстанавливаем очередной байт шифртекста
 		cipher[i] = static_cast <uint8_t> (cipher[i] ^ 0x01);
 	}
 	/**
-	 * Выполняем перебор байтов связанных данных
+	 * Перебираем байты связанных данных
 	 */
 	for(size_t i = 0; i < length; i++){
-		// Выполняем порчу очередного байта связанных данных
+		// Портим очередной байт связанных данных
 		associated[i] = static_cast <uint8_t> (associated[i] ^ 0x01);
 		// Проверяем отказ расшифрования при порче связанных данных
 		ASSERT_FALSE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag)))) << "Место порчи: " << i;
-		// Выполняем восстановление очередного байта связанных данных
+		// Восстанавливаем очередной байт связанных данных
 		associated[i] = static_cast <uint8_t> (associated[i] ^ 0x01);
 	}
 	/**
-	 * Выполняем перебор байтов метки целостности
+	 * Перебираем байты метки целостности
 	 */
 	for(size_t i = 0; i < sizeof(tag); i++){
-		// Выполняем порчу очередного байта метки целостности
+		// Портим очередной байт метки целостности
 		tag[i] = static_cast <uint8_t> (tag[i] ^ 0x01);
 		// Проверяем отказ расшифрования при порче метки целостности
 		ASSERT_FALSE(mode.decrypt(view_t(associated, length), view_t(cipher, size), back, view_t(tag, sizeof(tag)))) << "Место порчи: " << i;
-		// Выполняем восстановление очередного байта метки целостности
+		// Восстанавливаем очередной байт метки целостности
 		tag[i] = static_cast <uint8_t> (tag[i] ^ 0x01);
 	}
 	// Проверяем успешность расшифрования восстановленного шифртекста
@@ -439,15 +439,15 @@ TEST(GaloisTest, Failures) {
 	uint8_t plain[16], cipher[16];
 	// Метка целостности
 	uint8_t tag[16];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("1122334455667700ffeeddccbbaa9988", nonce);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes("1122334455667700ffeeddccbbaa9988", plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t mode;
@@ -463,25 +463,25 @@ TEST(GaloisTest, Failures) {
 	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce)), 17));
 	// Проверяем отказ запуска режима работы с начальным заполнением не в блок шифра
 	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, 8)));
-	// Выполняем установку единичного старшего разряда начального заполнения счётчика
+	// Устанавливаем единичный старший разряд начального заполнения счётчика
 	nonce[0] = static_cast <uint8_t> (nonce[0] | 0x80);
 	// Проверяем отказ запуска режима работы с занятым старшим разрядом заполнения
 	ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем снятие единичного старшего разряда начального заполнения счётчика
+	// Снимаем единичный старший разряд начального заполнения счётчика
 	nonce[0] = static_cast <uint8_t> (nonce[0] & 0x7F);
-	// Выполняем запуск режима работы с укороченной меткой целостности
+	// Запускаем режим работы с укороченной меткой целостности
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce)), cipher::MGM_TAG));
 	// Проверяем длину метки целостности
 	ASSERT_EQ(mode.size(), cipher::MGM_TAG);
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
 	// Место, в которое помещается полная метка целостности
 	uint8_t full[16];
 	// Объект режима шифрования с полной меткой целостности
 	cipher::galois_t whole;
-	// Выполняем запуск режима работы с полной меткой целостности
+	// Запускаем режим работы с полной меткой целостности
 	ASSERT_TRUE(whole.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(whole.encrypt(view_t(), view_t(plain, size), cipher, full));
 	/**
 	 * Укороченная метка целостности снимается со старших байтов полной, оттого её
@@ -507,39 +507,39 @@ TEST(GaloisTest, Repeat) {
 	uint8_t plain[16], cipher[16], back[16];
 	// Метка целостности
 	uint8_t tag[16];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("1122334455667700ffeeddccbbaa9988", nonce);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes("1122334455667700ffeeddccbbaa9988", plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем первое зашифрование открытого текста
+	// Впервые зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
 	// Проверяем отказ повторного зашифрования на том же начальном заполнении счётчика
 	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
 	// Проверяем, что режим остаётся готовым к работе после отказа
 	ASSERT_TRUE(mode.ready());
-	// Выполняем первое расшифрование шифртекста тем же объектом
+	// Впервые расшифровываем шифртекст тем же объектом
 	ASSERT_TRUE(mode.decrypt(view_t(), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
 	// Проверяем схождение расшифрованного текста с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
-	// Выполняем повторное расшифрование того же шифртекста: снятие защиты повторять можно
+	// Повторно расшифровываем тот же шифртекст: снятие защиты повторять можно
 	ASSERT_TRUE(mode.decrypt(view_t(), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
 	// Проверяем схождение расшифрованного текста с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
 	// Проверяем, что расшифрование заслона повторного зашифрования не снимает
 	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
-	// Выполняем смену начального заполнения счётчика
+	// Меняем начальное заполнение счётчика
 	nonce[sizeof(nonce) - 1] = static_cast <uint8_t> (nonce[sizeof(nonce) - 1] ^ 0x01);
-	// Выполняем повторный запуск режима работы с новым начальным заполнением счётчика
+	// Повторно запускаем режим работы с новым начальным заполнением счётчика
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
 	// Проверяем, что зашифрование на новом начальном заполнении счётчика принимается
 	ASSERT_TRUE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
@@ -547,13 +547,13 @@ TEST(GaloisTest, Repeat) {
 	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
 	// Объект режима расшифрования с проверкой целостности
 	cipher::galois_t receiver;
-	// Выполняем запуск режима работы на новом начальном заполнении счётчика
+	// Запускаем режим работы на новом начальном заполнении счётчика
 	ASSERT_TRUE(receiver.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем расшифрование шифртекста, полученного после смены заполнения
+	// Расшифровываем шифртекст, полученный после смены заполнения
 	ASSERT_TRUE(receiver.decrypt(view_t(), view_t(cipher, size), back, view_t(tag, sizeof(tag))));
 	// Проверяем схождение расшифрованного текста с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
-	// Выполняем сброс состояния режима работы
+	// Сбрасываем состояние режима работы
 	mode.clear();
 	// Проверяем отказ зашифрования после сброса состояния режима работы
 	ASSERT_FALSE(mode.encrypt(view_t(), view_t(plain, size), cipher, tag));
@@ -578,12 +578,12 @@ TEST(GaloisTest, Lengths) {
 	uint8_t associated[64];
 	// Метка целостности
 	uint8_t tag[16];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("1122334455667700ffeeddccbbaa9988", nonce);
 	/**
-	 * Выполняем заполнение открытого текста и связанных данных
+	 * Заполняем открытый текст и связанные данные
 	 */
 	for(size_t i = 0; i < sizeof(plain); i++){
 		// Записываем очередной байт открытого текста
@@ -595,20 +595,20 @@ TEST(GaloisTest, Lengths) {
 	}
 	// Объект блочного шифра «Кузнечик»
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект блочного шифра «Магма»
 	cipher::magma_t small;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(small.key(view_t(secret, sizeof(secret))));
 	/**
-	 * Выполняем перебор блочных шифров режима работы
+	 * Перебираем блочные шифры режима работы
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Получаем описание базового алгоритма блочного шифрования
 		const cipher::block_t block = ((item == 0) ? cipher::block_t(base) : cipher::block_t(small));
 		/**
-		 * Выполняем перебор длин шифруемого сообщения
+		 * Перебираем длины шифруемого сообщения
 		 */
 		for(size_t size = 0; size <= sizeof(plain); size += 3){
 			// Получаем длину связанных данных сообщения
@@ -619,15 +619,15 @@ TEST(GaloisTest, Lengths) {
 				continue;
 			// Объект режима шифрования с проверкой целостности
 			cipher::galois_t mode;
-			// Выполняем запуск режима работы
+			// Запускаем режим работы
 			ASSERT_TRUE(mode.start(block, view_t(nonce, block.size))) << "длина " << size;
-			// Выполняем зашифрование открытого текста
+			// Зашифровываем открытый текст
 			ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), sealed, tag)) << "длина " << size;
 			// Объект режима расшифрования с проверкой целостности
 			cipher::galois_t backMode;
-			// Выполняем запуск режима работы
+			// Запускаем режим работы
 			ASSERT_TRUE(backMode.start(block, view_t(nonce, block.size))) << "длина " << size;
-			// Выполняем расшифрование шифртекста
+			// Расшифровываем шифртекст
 			ASSERT_TRUE(backMode.decrypt(view_t(associated, length), view_t(sealed, size), back, view_t(tag, block.size))) << "длина " << size;
 			// Проверяем схождение расшифрованного текста с исходным
 			ASSERT_EQ(::memcmp(back, plain, size), 0) << "длина " << size;
@@ -654,12 +654,12 @@ TEST(GaloisTest, Streaming) {
 	uint8_t associated[64];
 	// Метка целостности разового хода и метка целостности потока
 	uint8_t tag[16], flow[16];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("1122334455667700ffeeddccbbaa9988", nonce);
 	/**
-	 * Выполняем заполнение открытого текста и связанных данных
+	 * Заполняем открытый текст и связанные данные
 	 */
 	for(size_t i = 0; i < sizeof(plain); i++){
 		// Записываем очередной байт открытого текста
@@ -671,20 +671,20 @@ TEST(GaloisTest, Streaming) {
 	}
 	// Объект блочного шифра «Кузнечик»
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект блочного шифра «Магма»
 	cipher::magma_t small;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(small.key(view_t(secret, sizeof(secret))));
 	/**
-	 * Выполняем перебор блочных шифров режима работы
+	 * Перебираем блочные шифры режима работы
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Получаем описание базового алгоритма блочного шифрования
 		const cipher::block_t block = ((item == 0) ? cipher::block_t(base) : cipher::block_t(small));
 		/**
-		 * Выполняем перебор длин шифруемого сообщения
+		 * Перебираем длины шифруемого сообщения
 		 */
 		for(size_t size = 0; size <= sizeof(plain); size += 3){
 			// Получаем длину связанных данных сообщения
@@ -695,23 +695,23 @@ TEST(GaloisTest, Streaming) {
 				continue;
 			// Объект режима разового зашифрования
 			cipher::galois_t mode;
-			// Выполняем запуск режима работы
+			// Запускаем режим работы
 			ASSERT_TRUE(mode.start(block, view_t(nonce, block.size))) << "длина " << size;
-			// Выполняем разовое зашифрование открытого текста
+			// Однократно зашифровываем открытый текст
 			ASSERT_TRUE(mode.encrypt(view_t(associated, length), view_t(plain, size), sealed, tag)) << "длина " << size;
 			// Объект режима поточного зашифрования
 			cipher::galois_t sender;
-			// Выполняем запуск режима работы
+			// Запускаем режим работы
 			ASSERT_TRUE(sender.start(block, view_t(nonce, block.size))) << "длина " << size;
 			/**
-			 * Выполняем подачу связанных данных потоком по одному байту: наименьший
+			 * Подаём связанные данные потоком по одному байту: наименьший
 			 * возможный кусок всякий раз оставляет в накопителе метки неполный блок
 			 */
 			for(size_t i = 0; i < length; i++)
 				// Проверяем успешность подачи очередного байта связанных данных
 				ASSERT_TRUE(sender.associate(view_t(associated + i, 1))) << "длина " << size;
 			/**
-			 * Выполняем зашифрование сообщения потоком кусками по семь байтов: длина
+			 * Зашифровываем сообщение потоком кусками по семь байтов: длина
 			 * куска не кратна блоку ни одного из двух шифров, оттого остаток блока гаммы
 			 * переносится из куска в кусок всякий раз
 			 */
@@ -729,12 +729,12 @@ TEST(GaloisTest, Streaming) {
 			ASSERT_EQ(::memcmp(flow, tag, block.size), 0) << "длина " << size;
 			// Объект режима поточного расшифрования
 			cipher::galois_t receiver;
-			// Выполняем запуск режима работы
+			// Запускаем режим работы
 			ASSERT_TRUE(receiver.start(block, view_t(nonce, block.size))) << "длина " << size;
-			// Выполняем подачу связанных данных потока одним куском
+			// Подаём связанные данные потока одним куском
 			ASSERT_TRUE(receiver.associate(view_t(associated, length))) << "длина " << size;
 			/**
-			 * Выполняем расшифрование шифртекста потоком на месте кусками по пять байтов:
+			 * Расшифровываем шифртекст потоком на месте кусками по пять байтов:
 			 * итог пишется поверх самого шифртекста, оттого место итога совпадает с местом
 			 * исходного куска, а поглощение накопителем метки обязано идти прежде гаммы
 			 */
@@ -771,17 +771,17 @@ TEST(GaloisTest, StreamGuards) {
 	uint8_t associated[16];
 	// Метка целостности
 	uint8_t tag[16];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
-	// Выполняем разбор начального заполнения счётчика
+	// Разбираем начальное заполнение счётчика
 	bytes("1122334455667700ffeeddccbbaa9988", nonce);
-	// Выполняем разбор связанных данных
+	// Разбираем связанные данные
 	const size_t length = bytes("01010101010101010101010101010101", associated);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes("1122334455667700ffeeddccbbaa998800112233445566778899aabbcceeff0a", plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t mode;
@@ -795,27 +795,27 @@ TEST(GaloisTest, StreamGuards) {
 	ASSERT_FALSE(mode.finish(tag));
 	// Проверяем отказ сличения метки целостности до запуска режима работы
 	ASSERT_FALSE(mode.verify(view_t(tag, sizeof(tag))));
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
 	// Проверяем отказ смены заполнения, не занимающего блока шифра
 	ASSERT_FALSE(mode.restart(view_t(nonce, cipher::MAGMA_BLOCK)));
 	// Объект режима с пустым потоком
 	cipher::galois_t empty;
-	// Выполняем запуск режима работы с пустым потоком
+	// Запускаем режим работы с пустым потоком
 	ASSERT_TRUE(empty.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
 	// Проверяем отказ выработки метки на пустом потоке: подписывать нечего
 	ASSERT_FALSE(empty.finish(tag));
-	// Выполняем подачу связанных данных потока
+	// Подаём связанные данные потока
 	ASSERT_TRUE(mode.associate(view_t(associated, length)));
-	// Выполняем зашифрование первого куска открытого текста
+	// Зашифровываем первый кусок открытого текста
 	ASSERT_TRUE(mode.encrypt(view_t(plain, 16), sealed));
 	// Проверяем отказ подачи связанных данных после первого куска сообщения
 	ASSERT_FALSE(mode.associate(view_t(associated, length)));
 	// Проверяем отказ расшифрования куска в потоке зашифрования
 	ASSERT_FALSE(mode.decrypt(view_t(sealed, 16), plain));
-	// Выполняем зашифрование остатка открытого текста
+	// Зашифровываем остаток открытого текста
 	ASSERT_TRUE(mode.encrypt(view_t(plain + 16, size - 16), sealed + 16));
-	// Выполняем завершение поточного зашифрования выработкой метки целостности
+	// Завершаем поточное зашифрование выработкой метки целостности
 	ASSERT_TRUE(mode.finish(tag));
 	// Проверяем отказ повторного завершения того же потока
 	ASSERT_FALSE(mode.finish(tag));
@@ -825,31 +825,31 @@ TEST(GaloisTest, StreamGuards) {
 	ASSERT_FALSE(mode.verify(view_t(tag, sizeof(tag))));
 	// Проверяем отказ разового зашифрования на израсходованном заполнении счётчика
 	ASSERT_FALSE(mode.encrypt(view_t(associated, length), view_t(plain, size), sealed, tag));
-	// Выполняем смену начального заполнения счётчика прежним значением
+	// Меняем начальное заполнение счётчика прежним значением
 	ASSERT_TRUE(mode.restart(view_t(nonce, sizeof(nonce))));
 	// Проверяем, что смена заполнения сняла признак его расходования на зашифрование
 	ASSERT_TRUE(mode.associate(view_t(associated, length)));
-	// Выполняем поточное зашифрование сообщения после смены заполнения
+	// Поточно зашифровываем сообщение после смены заполнения
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), sealed));
 	// Проверяем успешность завершения поточного зашифрования после смены заполнения
 	ASSERT_TRUE(mode.finish(tag));
 	// Объект режима расшифрования с проверкой целостности
 	cipher::galois_t receiver;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(receiver.start(cipher::block_t(base), view_t(nonce, sizeof(nonce))));
-	// Выполняем подачу связанных данных потока
+	// Подаём связанные данные потока
 	ASSERT_TRUE(receiver.associate(view_t(associated, length)));
-	// Выполняем поточное расшифрование шифртекста
+	// Поточно расшифровываем шифртекст
 	ASSERT_TRUE(receiver.decrypt(view_t(sealed, size), plain));
 	// Проверяем отказ зашифрования куска в потоке расшифрования
 	ASSERT_FALSE(receiver.encrypt(view_t(plain, size), sealed));
-	// Выполняем порчу последнего байта метки целостности
+	// Портим последний байт метки целостности
 	tag[sizeof(tag) - 1] = static_cast <uint8_t> (tag[sizeof(tag) - 1] ^ 0x01);
 	// Проверяем отказ сличения порченой метки целостности
 	ASSERT_FALSE(receiver.verify(view_t(tag, sizeof(tag))));
 	// Проверяем отказ сличения метки целостности после закрытия потока
 	ASSERT_FALSE(receiver.verify(view_t(tag, sizeof(tag) - 1)));
-	// Выполняем сброс состояния режима работы
+	// Сбрасываем состояние режима работы
 	receiver.clear();
 	// Проверяем отказ сличения метки целостности после сброса состояния режима работы
 	ASSERT_FALSE(receiver.verify(view_t(tag, sizeof(tag))));
@@ -861,17 +861,17 @@ TEST(GaloisTest, StreamGuards) {
 TEST(MgmTest, Descriptor) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef", secret);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Годный описатель базового шифра, служащий образцом порчи
 	const cipher::block_t sample(base);
 	// Неповторимое значение, годное режиму работы
 	uint8_t nonce[cipher::KUZNYECHIK_BLOCK];
-	// Выполняем заполнение неповторимого значения
+	// Заполняем неповторимое значение
 	::memset(nonce, 0x11, sizeof(nonce));
 	// Снимаем старший разряд неповторимого значения, как того требует MGM
 	nonce[0] = static_cast <uint8_t> (nonce[0] & 0x7F);
@@ -893,15 +893,15 @@ TEST(MgmTest, Descriptor) {
 	alien.size = 4;
 	// Проверяем отказ заведения описателем с размером блока не того поля
 	ASSERT_FALSE(galois.start(alien, view_t(nonce, sizeof(nonce))));
-	// Выполняем заведение режима работы годным описателем шифра
+	// Заводим режим работы годным описателем шифра
 	ASSERT_TRUE(galois.start(sample, view_t(nonce, sizeof(nonce))));
 	// Шифруемое содержимое и место, в которое складывается итог работы
 	uint8_t source[32], result[32], tag[cipher::KUZNYECHIK_BLOCK];
-	// Выполняем заполнение шифруемого содержимого
+	// Заполняем шифруемое содержимое
 	::memset(source, 0x33, sizeof(source));
-	// Выполняем наложение шифрования с проверкой целостности
+	// Накладываем шифрование с проверкой целостности
 	ASSERT_TRUE(galois.encrypt(view_t(nullptr, 0), view_t(source, sizeof(source)), result, tag));
-	// Выполняем заведение режима работы стороны расшифрования
+	// Заводим режим работы стороны расшифрования
 	ASSERT_TRUE(galois.start(sample, view_t(nonce, sizeof(nonce))));
 	// Проверяем отказ расшифрования при непереданном месте итога
 	ASSERT_FALSE(galois.decrypt(view_t(nullptr, 0), view_t(result, sizeof(result)), nullptr, view_t(tag, sizeof(tag))));
@@ -921,19 +921,19 @@ TEST(MgmTest, Descriptor) {
 	 * ДО чтения поданного места, и прочти он его - проверка упала бы выходом за память
 	 */
 	cipher::magma_t engine;
-	// Выполняем установку ключа шифрования «Магмы»
+	// Устанавливаем ключ шифрования «Магмы»
 	ASSERT_TRUE(engine.key(view_t(secret, sizeof(secret))));
 	// Описатель базового шифра «Магмы»
 	const cipher::block_t little(engine);
 	// Начальное заполнение счётчика длиною в блок «Магмы»
 	uint8_t small[cipher::MAGMA_BLOCK];
-	// Выполняем заполнение начального значения счётчика
+	// Заполняем начальное значение счётчика
 	::memset(small, 0x11, sizeof(small));
 	// Снимаем старший разряд начального заполнения счётчика
 	small[0] = static_cast <uint8_t> (small[0] & 0x7F);
 	// Объект режима выработки имитовставки на «Магме»
 	cipher::galois_t modest;
-	// Выполняем заведение режима работы описателем «Магмы»
+	// Заводим режим работы описателем «Магмы»
 	ASSERT_TRUE(modest.start(little, view_t(small, sizeof(small))));
 	// Предел суммарной длины у блока в восемь байтов
 	const size_t limit = (static_cast <size_t> (1) << 29);

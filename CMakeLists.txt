@@ -556,6 +556,8 @@ endif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
 
 # Подключаем проверку пригодности ключей собирателя
 include(CheckCXXCompilerFlag)
+# Подключаем проверку собираемости исходного текста под ключом собирателя
+include(CheckCXXSourceCompiles)
 # Подключаем проверку работоспособности исходного текста под ключом собирателя
 include(CheckCXXSourceRuns)
 
@@ -634,6 +636,48 @@ elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
         # Выводим сообщение о метках контроля потока управления
         message(STATUS "Control-flow protection: IBT, SHSTK\n")
     endif (BRANCH_PROTECTION_FLAG)
+endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT MSVC)
+
+##
+ # Проба ядра SHA-512 расширения ARM
+ #
+ # @note GCC до 13-й мажорной версии не ведёт SHA-512 в составе sha3 в таблице
+ #       расширений (базовый gcc 12.5 NetBSD 11): атрибут цели принимается молча,
+ #       а always_inline встроенная функция vsha512su0q_u64 остаётся недоступной -
+ #       сборка падает «target specific option mismatch» уже на этапе встраивания.
+ #       Честная проверка - компиляция настоящего вызова с атрибутом цели тем же
+ #       способом, каким его зовёт src/digest/sha2.cpp
+ ##
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT MSVC)
+    # У clang расширение включается именем без плюса, у GCC - плюсом
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(NTS_SHA512_TARGET_NAME "sha3")
+    else (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(NTS_SHA512_TARGET_NAME "+sha3")
+    endif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # Текст проверки вызова встроенной функции SHA-512 под атрибутом цели
+    set(NTS_SHA512_PROBE [=[
+        #include <arm_neon.h>
+        __attribute__((target("NTS_PROBE_ATTRIBUTE"))) unsigned long long start(){
+            return vaddvq_u64(vsha512su0q_u64(vdupq_n_u64(1), vdupq_n_u64(2)));
+        }
+        int main(){ return (int)start(); }
+    ]=])
+    # Подставляем имя атрибута цели в текст проверки
+    string(REPLACE "NTS_PROBE_ATTRIBUTE" "${NTS_SHA512_TARGET_NAME}" NTS_SHA512_PROBE "${NTS_SHA512_PROBE}")
+    # Выполняем проверку компиляции вызова встроенной функции SHA-512
+    check_cxx_source_compiles("${NTS_SHA512_PROBE}" NTS_ARM_SHA512_INTRINSICS)
+    # Если встроенные функции SHA-512 собираются под атрибутом цели
+    if (NTS_ARM_SHA512_INTRINSICS)
+        # Объявляем сборке доступность ядра SHA-512 расширения
+        add_compile_definitions(NTS_ARM_SHA512_INTRINSICS)
+        # Выводим сообщение о ядре SHA-512 расширения
+        message(STATUS "ARM SHA-512: extension kernel (probe passed)\n")
+    # Если собиратель не ведёт SHA-512 в таблице расширений
+    else (NTS_ARM_SHA512_INTRINSICS)
+        # Выводим сообщение об откате на переносимый путь
+        message(STATUS "ARM SHA-512: portable path (compiler lacks sha512 in target table)\n")
+    endif (NTS_ARM_SHA512_INTRINSICS)
 endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT MSVC)
 
 ##

@@ -51,13 +51,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -85,7 +85,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -137,21 +137,21 @@ static const char * MAGMA_PLAIN =
 TEST(ModeTest, Refusals) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Место, в которое складывается итог работы режима
 	uint8_t result[64];
 	// Область байтов, подаваемая режимам работы
 	uint8_t source[64];
-	// Выполняем обнуление подаваемой области байтов
+	// Обнуляем подаваемую область байтов
 	::memset(source, 0x33, sizeof(source));
 	// Вектор замены, годный режимам работы
 	uint8_t iv[32];
-	// Выполняем обнуление вектора замены
+	// Обнуляем вектор замены
 	::memset(iv, 0x44, sizeof(iv));
 	// Размер блока применяемого шифра
 	const size_t size = cipher::KUZNYECHIK_BLOCK;
@@ -171,7 +171,7 @@ TEST(ModeTest, Refusals) {
 		ASSERT_FALSE(mode.encrypt(view_t(source, size), result));
 		// Проверяем отказ снятия защиты незаведённым режимом
 		ASSERT_FALSE(mode.decrypt(view_t(source, size), result));
-		// Выполняем заведение режима простой замены
+		// Заводим режим простой замены
 		ASSERT_TRUE(mode.start(cipher::block_t(base)));
 		// Проверяем отказ работы при непереданной области байтов
 		ASSERT_FALSE(mode.encrypt(view_t(nullptr, size), result));
@@ -203,7 +203,7 @@ TEST(ModeTest, Refusals) {
 		ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(nullptr, size / 2)));
 		// Проверяем отказ заведения при векторе замены не той длины
 		ASSERT_FALSE(mode.start(cipher::block_t(base), view_t(iv, size)));
-		// Выполняем заведение режима гаммирования
+		// Заводим режим гаммирования
 		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, size / 2)));
 		// Проверяем успешность работы при пустой области байтов
 		ASSERT_TRUE(mode.encrypt(view_t(nullptr, 0), result));
@@ -225,7 +225,7 @@ TEST(ModeTest, Refusals) {
 		ASSERT_FALSE(chaining.start(cipher::block_t(base), view_t(iv, size - 1)));
 		// Проверяем отказ заведения при векторе замены не кратном блоку
 		ASSERT_FALSE(chaining.start(cipher::block_t(base), view_t(iv, size + 1)));
-		// Выполняем заведение режима обратной связи по шифртексту
+		// Заводим режим обратной связи по шифртексту
 		ASSERT_TRUE(chaining.start(cipher::block_t(base), view_t(iv, size)));
 		// Проверяем отказ работы при длине не по размеру блока
 		ASSERT_FALSE(chaining.encrypt(view_t(source, size - 1), result));
@@ -235,7 +235,7 @@ TEST(ModeTest, Refusals) {
 		ASSERT_FALSE(feedback.start(cipher::block_t(base), view_t(nullptr, size)));
 		// Проверяем отказ заведения при векторе замены короче блока
 		ASSERT_FALSE(feedback.start(cipher::block_t(base), view_t(iv, size - 1)));
-		// Выполняем заведение режима обратной связи по гамме
+		// Заводим режим обратной связи по гамме
 		ASSERT_TRUE(feedback.start(cipher::block_t(base), view_t(iv, size)));
 		// Проверяем отказ работы при непереданном месте итога
 		ASSERT_FALSE(feedback.encrypt(view_t(source, size), nullptr));
@@ -243,7 +243,7 @@ TEST(ModeTest, Refusals) {
 		cipher::output_t output;
 		// Проверяем отказ заведения при векторе замены короче блока
 		ASSERT_FALSE(output.start(cipher::block_t(base), view_t(iv, size - 1)));
-		// Выполняем заведение режима гаммирования с обратной связью по выходу
+		// Заводим режим гаммирования с обратной связью по выходу
 		ASSERT_TRUE(output.start(cipher::block_t(base), view_t(iv, size)));
 		// Проверяем отказ работы при непереданной области байтов
 		ASSERT_FALSE(output.encrypt(view_t(nullptr, size), result));
@@ -263,13 +263,13 @@ TEST(ModeTest, Refusals) {
 		cipher::imitation_t mode;
 		// Проверяем отказ подачи байтов незаведённому режиму
 		ASSERT_FALSE(mode.update(view_t(source, size)));
-		// Выполняем заведение режима выработки имитовставки
+		// Заводим режим выработки имитовставки
 		ASSERT_TRUE(mode.start(cipher::block_t(base)));
 		// Проверяем успешность подачи пустой области байтов
 		ASSERT_TRUE(mode.update(view_t(nullptr, 0)));
 		// Проверяем отказ подачи непереданной области байтов
 		ASSERT_FALSE(mode.update(view_t(nullptr, size)));
-		// Выполняем подачу байтов режиму выработки имитовставки
+		// Подаём байты режиму выработки имитовставки
 		ASSERT_TRUE(mode.update(view_t(source, size)));
 		// Проверяем отказ выдачи имитовставки в непереданное место
 		ASSERT_FALSE(mode.finish(nullptr, size));
@@ -291,19 +291,19 @@ TEST(ModeTest, KuznyechikCodebook) {
 	uint8_t secret[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима простой замены
 	cipher::codebook_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base)));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -314,7 +314,7 @@ TEST(ModeTest, KuznyechikCodebook) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[64];
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -328,32 +328,32 @@ TEST(ModeTest, KuznyechikCodebookChunks) {
 	uint8_t secret[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	/**
-	 * Выполняем перебор размеров куска, которыми подаётся сообщение: режим не держит
+	 * Перебираем размеры куска, которыми подаётся сообщение: режим не держит
 	 * состояния, но длина всякого куска обязана быть кратна длине блока шифра
 	 */
 	for(size_t chunk = cipher::KUZNYECHIK_BLOCK; chunk <= size; chunk += cipher::KUZNYECHIK_BLOCK){
 		// Объект режима простой замены
 		cipher::codebook_t mode;
-		// Выполняем запуск режима работы
+		// Запускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base)));
 		// Проверяем отказ зашифрования куска длиной не в целое число блоков
 		ASSERT_FALSE(mode.encrypt(view_t(plain, chunk - 1), cipher));
 		/**
-		 * Выполняем подачу сообщения кусками выбранного размера
+		 * Подаём сообщение кусками выбранного размера
 		 */
 		for(size_t offset = 0; offset < size; offset += chunk){
 			// Определяем размер очередного куска сообщения
 			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
-			// Выполняем зашифрование очередного куска сообщения
+			// Зашифровываем очередной кусок сообщения
 			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
 		}
 		// Сличаем полученный шифртекст с контрольным примером
@@ -372,25 +372,25 @@ TEST(ModeTest, KuznyechikCodebookChunks) {
 TEST(ModeTest, KuznyechikCounter) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[8];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима гаммирования
 	cipher::counter_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -401,9 +401,9 @@ TEST(ModeTest, KuznyechikCounter) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[64];
-	// Выполняем перезапуск режима работы
+	// Перезапускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -415,35 +415,35 @@ TEST(ModeTest, KuznyechikCounter) {
 TEST(ModeTest, KuznyechikCounterChunks) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[8];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	/**
-	 * Выполняем перебор размеров куска, которыми подаётся сообщение
+	 * Перебираем размеры куска, которыми подаётся сообщение
 	 */
 	for(size_t chunk = 1; chunk <= 17; chunk++){
 		// Объект режима гаммирования
 		cipher::counter_t mode;
-		// Выполняем запуск режима работы
+		// Запускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
 		/**
-		 * Выполняем подачу сообщения кусками выбранного размера
+		 * Подаём сообщение кусками выбранного размера
 		 */
 		for(size_t offset = 0; offset < size; offset += chunk){
 			// Определяем размер очередного куска сообщения
 			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
-			// Выполняем зашифрование очередного куска сообщения
+			// Зашифровываем очередной кусок сообщения
 			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
 		}
 		// Сличаем полученный шифртекст с контрольным примером
@@ -462,25 +462,25 @@ TEST(ModeTest, KuznyechikCounterChunks) {
 TEST(ModeTest, KuznyechikOutput) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима гаммирования с обратной связью по выходу
 	cipher::output_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -491,9 +491,9 @@ TEST(ModeTest, KuznyechikOutput) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[64];
-	// Выполняем перезапуск режима работы
+	// Перезапускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -505,36 +505,36 @@ TEST(ModeTest, KuznyechikOutput) {
 TEST(ModeTest, KuznyechikOutputChunks) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	/**
-	 * Выполняем перебор размеров куска, которыми подаётся сообщение: регистр сдвига и
+	 * Перебираем размеры куска, которыми подаётся сообщение: регистр сдвига и
 	 * остаток блока гаммы переносятся из вызова в вызов
 	 */
 	for(size_t chunk = 1; chunk <= 17; chunk++){
 		// Объект режима гаммирования с обратной связью по выходу
 		cipher::output_t mode;
-		// Выполняем запуск режима работы
+		// Запускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
 		/**
-		 * Выполняем подачу сообщения кусками выбранного размера
+		 * Подаём сообщение кусками выбранного размера
 		 */
 		for(size_t offset = 0; offset < size; offset += chunk){
 			// Определяем размер очередного куска сообщения
 			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
-			// Выполняем зашифрование очередного куска сообщения
+			// Зашифровываем очередной кусок сообщения
 			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
 		}
 		// Сличаем полученный шифртекст с контрольным примером
@@ -553,25 +553,25 @@ TEST(ModeTest, KuznyechikOutputChunks) {
 TEST(ModeTest, KuznyechikChaining) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима простой замены с зацеплением
 	cipher::chaining_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -582,9 +582,9 @@ TEST(ModeTest, KuznyechikChaining) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[64];
-	// Выполняем перезапуск режима работы
+	// Перезапускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -596,39 +596,39 @@ TEST(ModeTest, KuznyechikChaining) {
 TEST(ModeTest, KuznyechikChainingChunks) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	/**
-	 * Выполняем перебор размеров куска, которыми подаётся сообщение: регистр зацепления
+	 * Перебираем размеры куска, которыми подаётся сообщение: регистр зацепления
 	 * переносится из вызова в вызов, оттого последний блок прежнего куска служит звеном
 	 * зацепления первому блоку следующего
 	 */
 	for(size_t chunk = cipher::KUZNYECHIK_BLOCK; chunk <= size; chunk += cipher::KUZNYECHIK_BLOCK){
 		// Объект режима простой замены с зацеплением
 		cipher::chaining_t mode;
-		// Выполняем запуск режима работы
+		// Запускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
 		// Проверяем отказ зашифрования куска длиной не в целое число блоков
 		ASSERT_FALSE(mode.encrypt(view_t(plain, chunk - 1), cipher));
 		/**
-		 * Выполняем подачу сообщения кусками выбранного размера
+		 * Подаём сообщение кусками выбранного размера
 		 */
 		for(size_t offset = 0; offset < size; offset += chunk){
 			// Определяем размер очередного куска сообщения
 			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
-			// Выполняем зашифрование очередного куска сообщения
+			// Зашифровываем очередной кусок сообщения
 			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
 		}
 		// Сличаем полученный шифртекст с контрольным примером
@@ -647,25 +647,25 @@ TEST(ModeTest, KuznyechikChainingChunks) {
 TEST(ModeTest, KuznyechikFeedback) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима гаммирования с обратной связью по шифртексту
 	cipher::feedback_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -676,9 +676,9 @@ TEST(ModeTest, KuznyechikFeedback) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[64];
-	// Выполняем перезапуск режима работы
+	// Перезапускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -690,36 +690,36 @@ TEST(ModeTest, KuznyechikFeedback) {
 TEST(ModeTest, KuznyechikFeedbackChunks) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	/**
-	 * Выполняем перебор размеров куска, которыми подаётся сообщение: регистр сдвига и
+	 * Перебираем размеры куска, которыми подаётся сообщение: регистр сдвига и
 	 * остаток блока гаммы переносятся из вызова в вызов
 	 */
 	for(size_t chunk = 1; chunk <= 17; chunk++){
 		// Объект режима гаммирования с обратной связью по шифртексту
 		cipher::feedback_t mode;
-		// Выполняем запуск режима работы
+		// Запускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
 		/**
-		 * Выполняем подачу сообщения кусками выбранного размера
+		 * Подаём сообщение кусками выбранного размера
 		 */
 		for(size_t offset = 0; offset < size; offset += chunk){
 			// Определяем размер очередного куска сообщения
 			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
-			// Выполняем зашифрование очередного куска сообщения
+			// Зашифровываем очередной кусок сообщения
 			ASSERT_TRUE(mode.encrypt(view_t(plain + offset, count), cipher + offset));
 		}
 		// Сличаем полученный шифртекст с контрольным примером
@@ -740,42 +740,42 @@ TEST(ModeTest, KuznyechikImitation) {
 	uint8_t secret[32];
 	// Открытый текст
 	uint8_t plain[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима выработки имитовставки
 	cipher::imitation_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base)));
-	// Выполняем добавление сообщения
+	// Добавляем сообщение
 	ASSERT_TRUE(mode.update(view_t(plain, size)));
 	// Место, в которое помещается имитовставка
 	uint8_t mac[8];
-	// Выполняем снятие имитовставки
+	// Снимаем имитовставку
 	ASSERT_TRUE(mode.finish(mac, sizeof(mac)));
 	// Сличаем полученную имитовставку с контрольным примером
 	ASSERT_EQ(text(mac, sizeof(mac)), std::string("336f4d296059fbe3"));
 	/**
-	 * Выполняем перебор размеров куска, которыми подаётся сообщение
+	 * Перебираем размеры куска, которыми подаётся сообщение
 	 */
 	for(size_t chunk = 1; chunk <= 17; chunk++){
-		// Выполняем перезапуск режима работы
+		// Перезапускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base)));
 		/**
-		 * Выполняем подачу сообщения кусками выбранного размера
+		 * Подаём сообщение кусками выбранного размера
 		 */
 		for(size_t offset = 0; offset < size; offset += chunk){
 			// Определяем размер очередного куска сообщения
 			const size_t count = ((size - offset) < chunk ? (size - offset) : chunk);
-			// Выполняем добавление очередного куска сообщения
+			// Добавляем очередной кусок сообщения
 			ASSERT_TRUE(mode.update(view_t(plain + offset, count)));
 		}
-		// Выполняем снятие имитовставки
+		// Снимаем имитовставку
 		ASSERT_TRUE(mode.finish(mac, sizeof(mac)));
 		// Сличаем полученную имитовставку с контрольным примером
 		ASSERT_EQ(text(mac, sizeof(mac)), std::string("336f4d296059fbe3")) << "Размер куска: " << chunk;
@@ -790,19 +790,19 @@ TEST(ModeTest, MagmaCodebook) {
 	uint8_t secret[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[32], cipher[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(MAGMA_SECRET, secret);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(MAGMA_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::magma_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима простой замены
 	cipher::codebook_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base)));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -813,7 +813,7 @@ TEST(ModeTest, MagmaCodebook) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[32];
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -825,25 +825,25 @@ TEST(ModeTest, MagmaCodebook) {
 TEST(ModeTest, MagmaCounter) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[4];
 	// Открытый текст и шифртекст
 	uint8_t plain[32], cipher[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(MAGMA_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("12345678", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(MAGMA_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::magma_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима гаммирования
 	cipher::counter_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -854,9 +854,9 @@ TEST(ModeTest, MagmaCounter) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[32];
-	// Выполняем перезапуск режима работы
+	// Перезапускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -868,25 +868,25 @@ TEST(ModeTest, MagmaCounter) {
 TEST(ModeTest, MagmaOutput) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[16];
 	// Открытый текст и шифртекст
 	uint8_t plain[32], cipher[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(MAGMA_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcdef234567890abcdef1", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(MAGMA_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::magma_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима гаммирования с обратной связью по выходу
 	cipher::output_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -897,9 +897,9 @@ TEST(ModeTest, MagmaOutput) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[32];
-	// Выполняем перезапуск режима работы
+	// Перезапускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -911,25 +911,25 @@ TEST(ModeTest, MagmaOutput) {
 TEST(ModeTest, MagmaChaining) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[24];
 	// Открытый текст и шифртекст
 	uint8_t plain[32], cipher[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(MAGMA_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcdef234567890abcdef134567890abcdef12", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(MAGMA_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::magma_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима простой замены с зацеплением
 	cipher::chaining_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -940,9 +940,9 @@ TEST(ModeTest, MagmaChaining) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[32];
-	// Выполняем перезапуск режима работы
+	// Перезапускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -954,25 +954,25 @@ TEST(ModeTest, MagmaChaining) {
 TEST(ModeTest, MagmaFeedback) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[16];
 	// Открытый текст и шифртекст
 	uint8_t plain[32], cipher[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(MAGMA_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcdef234567890abcdef1", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(MAGMA_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::magma_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима гаммирования с обратной связью по шифртексту
 	cipher::feedback_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование открытого текста
+	// Зашифровываем открытый текст
 	ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 	// Сличаем полученный шифртекст с контрольным примером
 	ASSERT_EQ(text(cipher, size), std::string(
@@ -983,9 +983,9 @@ TEST(ModeTest, MagmaFeedback) {
 	));
 	// Место, в которое помещается расшифрованный текст
 	uint8_t back[32];
-	// Выполняем перезапуск режима работы
+	// Перезапускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование шифртекста
+	// Расшифровываем шифртекст
 	ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 	// Сличаем расшифрованный текст с исходным
 	ASSERT_EQ(::memcmp(back, plain, size), 0);
@@ -999,23 +999,23 @@ TEST(ModeTest, MagmaImitation) {
 	uint8_t secret[32];
 	// Открытый текст
 	uint8_t plain[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(MAGMA_SECRET, secret);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(MAGMA_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::magma_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима выработки имитовставки
 	cipher::imitation_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(mode.start(cipher::block_t(base)));
-	// Выполняем добавление сообщения
+	// Добавляем сообщение
 	ASSERT_TRUE(mode.update(view_t(plain, size)));
 	// Место, в которое помещается имитовставка
 	uint8_t mac[4];
-	// Выполняем снятие имитовставки
+	// Снимаем имитовставку
 	ASSERT_TRUE(mode.finish(mac, sizeof(mac)));
 	// Сличаем полученную имитовставку с контрольным примером
 	ASSERT_EQ(text(mac, sizeof(mac)), std::string("154e7210"));
@@ -1027,19 +1027,19 @@ TEST(ModeTest, MagmaImitation) {
 TEST(ModeTest, Failures) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[32];
 	// Открытый текст и шифртекст
 	uint8_t plain[64], cipher[64];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
-	// Выполняем разбор синхропосылки
+	// Разбираем синхропосылку
 	bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819", iv);
-	// Выполняем разбор открытого текста
+	// Разбираем открытый текст
 	const size_t size = bytes(KUZNYECHIK_PLAIN, plain);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Объект режима простой замены
 	cipher::codebook_t codebook;
@@ -1049,7 +1049,7 @@ TEST(ModeTest, Failures) {
 	ASSERT_FALSE(codebook.encrypt(view_t(plain, size), cipher));
 	// Проверяем отказ запуска режима работы с непригодным базовым алгоритмом
 	ASSERT_FALSE(codebook.start(cipher::block_t()));
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(codebook.start(cipher::block_t(base)));
 	// Проверяем отказ зашифрования сообщения некратной блоку длины
 	ASSERT_FALSE(codebook.encrypt(view_t(plain, size - 1), cipher));
@@ -1067,13 +1067,13 @@ TEST(ModeTest, Failures) {
 	ASSERT_FALSE(chaining.start(cipher::block_t(base), view_t(iv, cipher::MODE_REGISTER + 16)));
 	// Объект режима выработки имитовставки
 	cipher::imitation_t imitation;
-	// Выполняем запуск режима работы
+	// Запускаем режим работы
 	ASSERT_TRUE(imitation.start(cipher::block_t(base)));
 	// Проверяем отказ снятия имитовставки длиннее блока шифра
 	ASSERT_FALSE(imitation.finish(cipher, 17));
 	// Проверяем отказ снятия имитовставки нулевой длины
 	ASSERT_FALSE(imitation.finish(cipher, 0));
-	// Выполняем сброс состояния режима работы
+	// Сбрасываем состояние режима работы
 	imitation.clear();
 	// Проверяем отказ добавления сообщения после сброса состояния режима работы
 	ASSERT_FALSE(imitation.update(view_t(plain, size)));
@@ -1085,17 +1085,17 @@ TEST(ModeTest, Failures) {
 TEST(ModeTest, Descriptor) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Выполняем разбор ключа шифрования
+	// Разбираем ключ шифрования
 	bytes(KUZNYECHIK_SECRET, secret);
 	// Объект блочного шифра
 	cipher::kuznyechik_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Годный описатель базового шифра, служащий образцом порчи
 	const cipher::block_t sample(base);
 	// Вектор замены, годный режимам работы
 	uint8_t iv[cipher::MODE_REGISTER + cipher::MODE_BLOCK];
-	// Выполняем заполнение вектора замены
+	// Заполняем вектор замены
 	::memset(iv, 0x44, sizeof(iv));
 	// Объект режима простой замены
 	cipher::codebook_t codebook;
@@ -1147,7 +1147,7 @@ TEST(ModeTest, Descriptor) {
 	uint8_t produced[64] = {0};
 	// Область байтов, подаваемая режимам работы
 	uint8_t supplied[64] = {0};
-	// Выполняем заполнение подаваемой области байтов
+	// Заполняем подаваемую область байтов
 	::memset(supplied, 0x33, sizeof(supplied));
 	/**
 	 * Незаведённость режима сверяется ПЕРВОЙ половиной условия, прежде переданности
@@ -1191,7 +1191,7 @@ TEST(ModeTest, Descriptor) {
 	uint8_t result[64] = {0};
 	// Область байтов, подаваемая режиму с зацеплением
 	uint8_t source[64] = {0};
-	// Выполняем заполнение подаваемой области байтов
+	// Заполняем подаваемую область байтов
 	::memset(source, 0x33, sizeof(source));
 	/**
 	 * Работа режимов с зацеплением требует переданными ОБА места, и всякое из них
@@ -1247,7 +1247,7 @@ TEST(ModeTest, Unready) {
 	cipher::kuznyechik_t base;
 	// Ключ Кузнечика принимается
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[32];
 	::memset(iv, 0x44, sizeof(iv));
 	// Размер блока Кузнечика
@@ -1297,7 +1297,7 @@ TEST(ModeTest, Unready) {
 	// Запуск гаммирования с обратной связью по шифротексту на шифре
 	ASSERT_TRUE(feedback.start(cipher::block_t(base), view_t(iv, size)));
 	ASSERT_TRUE(feedback.ready());
-	// Имитовставка
+	// Режим выработки имитовставки
 	cipher::imitation_t imitation;
 	// Имитовставка до установки не готова
 	ASSERT_FALSE(imitation.ready());
@@ -1327,46 +1327,46 @@ TEST(ModeTest, AesChaining) {
 		{"603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4", "f58c4c04d6e5f1ba779eabfb5f7bfbd69cfc4e967edb808d679f777bc6702c7d39f23369a9d9bacfa530e26304231461b2eb05e2c39be9fcda6c19078c6a9d1b"}
 	};
 	/**
-	 * Выполняем перебор примеров приложения F.2
+	 * Перебираем примеры приложения F.2
 	 */
 	for(size_t i = 0; i < (sizeof(examples) / sizeof(examples[0])); i++){
 		// Ключ шифрования
 		uint8_t secret[32];
-		// Синхропосылка
+		// Синхропосылка режима шифрования
 		uint8_t iv[16];
 		// Открытый текст и шифртекст
 		uint8_t plain[64], cipher[64];
-		// Выполняем разбор ключа шифрования
+		// Разбираем ключ шифрования
 		const size_t width = bytes(examples[i].key, secret);
-		// Выполняем разбор синхропосылки
+		// Разбираем синхропосылку
 		bytes("000102030405060708090a0b0c0d0e0f", iv);
-		// Выполняем разбор открытого текста: четыре блока приложения F
+		// Разбираем открытый текст: четыре блока приложения F
 		const size_t size = bytes("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710", plain);
 		// Объект блочного шифра AES
 		cipher::aes_t base;
-		// Выполняем установку ключа шифрования
+		// Устанавливаем ключ шифрования
 		ASSERT_TRUE(base.key(view_t(secret, width)));
 		// Объект режима простой замены с зацеплением
 		cipher::chaining_t mode;
-		// Выполняем запуск режима работы
+		// Запускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-		// Выполняем зашифрование открытого текста
+		// Зашифровываем открытый текст
 		ASSERT_TRUE(mode.encrypt(view_t(plain, size), cipher));
 		// Сличаем полученный шифртекст с контрольным примером
 		ASSERT_EQ(text(cipher, size), std::string(examples[i].cipher)) << "пример " << i;
 		// Место, в которое помещается расшифрованный текст
 		uint8_t back[64];
-		// Выполняем перезапуск режима работы
+		// Перезапускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-		// Выполняем расшифрование шифртекста
+		// Расшифровываем шифртекст
 		ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 		// Сличаем расшифрованный текст с исходным
 		ASSERT_EQ(::memcmp(back, plain, size), 0) << "пример " << i;
 		// Порча одного байта шифртекста портит свой блок и один байт следующего, а не всё
 		cipher[0] ^= 0x01;
-		// Выполняем перезапуск режима работы
+		// Перезапускаем режим работы
 		ASSERT_TRUE(mode.start(cipher::block_t(base), view_t(iv, sizeof(iv))));
-		// Выполняем расшифрование порченого шифртекста
+		// Расшифровываем порченый шифртекст
 		ASSERT_TRUE(mode.decrypt(view_t(cipher, size), back));
 		// Первый блок не сошёлся
 		ASSERT_NE(::memcmp(back, plain, 16), 0);
@@ -1383,23 +1383,23 @@ TEST(ModeTest, AesChaining) {
 TEST(ModeTest, AesCounterStream) {
 	// Ключ шифрования
 	uint8_t secret[32];
-	// Синхропосылка
+	// Синхропосылка режима шифрования
 	uint8_t iv[8];
 	/**
-	 * Выполняем заполнение ключа
+	 * Заполняем ключ
 	 */
 	for(size_t i = 0; i < sizeof(secret); i++)
 		// Записываем очередной байт ключа
 		secret[i] = static_cast <uint8_t> ((i * 7) + 3);
 	/**
-	 * Выполняем заполнение синхропосылки
+	 * Заполняем синхропосылку
 	 */
 	for(size_t i = 0; i < sizeof(iv); i++)
 		// Записываем очередной байт синхропосылки
 		iv[i] = static_cast <uint8_t> (0xF0 + i);
 	// Объект блочного шифра
 	cipher::aes_t base;
-	// Выполняем установку ключа шифрования
+	// Устанавливаем ключ шифрования
 	ASSERT_TRUE(base.key(view_t(secret, sizeof(secret))));
 	// Описание шифра с ядром гаммы
 	const cipher::block_t kernel(base);
@@ -1414,19 +1414,19 @@ TEST(ModeTest, AesCounterStream) {
 	// Длины сообщений: границы блока, пачек в тридцать два и сто двадцать восемь блоков и запись
 	const size_t lengths[] = {0, 1, 15, 16, 17, 63, 64, 65, 511, 512, 513, 1023, 1024, 1025, 1200, 1201, 2047, 2048, 4103};
 	/**
-	 * Выполняем перебор путей шифра: команды машины и таблицы
+	 * Перебираем пути шифра: команды машины и таблицы
 	 */
 	for(size_t pass = 0; pass < 2; pass++){
 		// Разрешаем либо запрещаем машинные команды
 		machine::allow(pass == 0);
 		/**
-		 * Выполняем перебор длин
+		 * Перебираем длины
 		 */
 		for(const size_t length : lengths){
 			// Открытый текст, шифртексты обоих путей и раскрытый текст
 			std::vector <uint8_t> plain(length), first(length), second(length), opened(length);
 			/**
-			 * Выполняем заполнение открытого текста
+			 * Заполняем открытый текст
 			 */
 			for(size_t i = 0; i < length; i++)
 				// Записываем очередной байт
@@ -1448,7 +1448,7 @@ TEST(ModeTest, AesCounterStream) {
 			// Позиция внутри данных
 			size_t position = 0;
 			/**
-			 * Выполняем расшифрование кусками случайной длины через границы пачек
+			 * Расшифровываем кусками случайной длины через границы пачек
 			 */
 			while(position < length){
 				// Длина очередного куска

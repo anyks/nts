@@ -121,7 +121,7 @@ namespace {
 	 * @return     признак успешности записи
 	 *
 	 */
-	bool spill(const std::string & path, const vector <uint8_t> & data) noexcept {
+	bool __nts_spill__(const std::string & path, const vector <uint8_t> & data) noexcept {
 		// Открываем файл на запись
 		std::ofstream file(path, std::ios::binary);
 		// Если файл не открыт
@@ -152,7 +152,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -161,7 +161,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочку сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -173,25 +173,25 @@ namespace {
 	 * @return     сумма Adler-32
 	 *
 	 */
-	uint32_t adler(const view_t & data) noexcept {
+	uint32_t __nts_adler__(const view_t & data) noexcept {
 		// Младшая половина суммы
-		uint32_t a = 1;
+		uint32_t low = 1;
 		// Старшая половина суммы
-		uint32_t b = 0;
+		uint32_t high = 0;
 		/**
-		 * Выполняем перебор байтов области
+		 * Перебираем байты области
 		 */
 		for(size_t i = 0; i < data.size; i++){
 			// Наращиваем младшую половину по модулю 65521
-			a = ((a + data.data[i]) % 65521);
+			low = ((low + data.data[i]) % 65521);
 			// Наращиваем старшую половину по модулю 65521
-			b = ((b + a) % 65521);
+			high = ((high + low) % 65521);
 		}
 		// Выводим сумму Adler-32
-		return ((b << 16) | a);
+		return ((high << 16) | low);
 	}
 	/**
-	 * @brief Кодек zlib со «stored»-блоками: сжатие
+	 * @brief Функция кодека zlib со «stored»-блоками: сжатие
 	 *
 	 * @details RFC 1950: голова CMF/FLG без словаря, тело DEFLATE по RFC 1951 из блоков
 	 *          BTYPE=00 до 65535 байтов каждый, хвост Adler-32 старшим байтом вперёд.
@@ -203,7 +203,7 @@ namespace {
 	 * @return       признак успешности сжатия
 	 *
 	 */
-	bool stored(const view_t & source, vector <uint8_t> & result, void * context) {
+	bool __nts_stored__(const view_t & source, vector <uint8_t> & result, void * context) {
 		// Контекст кодеку не нужен
 		(void) context;
 		// Голова потока zlib: CM=8, CINFO=7, FLEVEL=0, без словаря, FCHECK=1 (0x7801 кратно 31)
@@ -213,7 +213,7 @@ namespace {
 		// Смещение очередного блока
 		size_t offset = 0;
 		/**
-		 * Выполняем нарезку области на «stored»-блоки
+		 * Нарезаем область на «stored»-блоки
 		 */
 		do {
 			// Длина очередного блока: не более 65535 байтов
@@ -236,7 +236,7 @@ namespace {
 			offset += length;
 		} while(offset < source.size);
 		// Сумма Adler-32 области
-		const uint32_t sum = adler(source);
+		const uint32_t sum = __nts_adler__(source);
 		// Хвост потока: сумма старшим байтом вперёд
 		result.push_back(static_cast <uint8_t> ((sum >> 24) & 0xFF));
 		// Второй байт суммы
@@ -273,7 +273,7 @@ namespace {
 		 */
 		bool take(const size_t need, uint32_t & result) noexcept {
 			/**
-			 * Выполняем добор разрядов из байтов потока
+			 * Добираем разряды из байтов потока
 			 */
 			while(this->count < need){
 				// Если байты потока кончились
@@ -332,13 +332,13 @@ namespace {
 		 */
 		bool build(const uint16_t * lengths, const size_t size) noexcept {
 			/**
-			 * Выполняем обнуление счёта длин
+			 * Обнуляем счёт длин
 			 */
 			for(size_t i = 0; i < 16; i++)
 				// Обнуляем счёт очередной длины
 				this->counts[i] = 0;
 			/**
-			 * Выполняем счёт кодов всякой длины
+			 * Считаем коды всякой длины
 			 */
 			for(size_t i = 0; i < size; i++)
 				// Наращиваем счёт длины очередного символа
@@ -350,7 +350,7 @@ namespace {
 			// Остаток кодов на очередной длине
 			int left = 1;
 			/**
-			 * Выполняем проверку переполнения набора кодов
+			 * Проверяем переполнение набора кодов
 			 */
 			for(size_t i = 1; i < 16; i++){
 				// Удваиваем остаток
@@ -367,13 +367,13 @@ namespace {
 			// Смещение первой длины
 			offsets[1] = 0;
 			/**
-			 * Выполняем счёт смещений
+			 * Считаем смещения
 			 */
 			for(size_t i = 1; i < 15; i++)
 				// Смещение следующей длины
 				offsets[i + 1] = static_cast <uint16_t> (offsets[i] + this->counts[i]);
 			/**
-			 * Выполняем раскладку символов по кодам
+			 * Раскладываем символы по кодам
 			 */
 			for(size_t i = 0; i < size; i++){
 				// Если у символа есть код
@@ -400,7 +400,7 @@ namespace {
 			// Смещение символов текущей длины
 			int index = 0;
 			/**
-			 * Выполняем перебор длин кодов
+			 * Перебираем длины кодов
 			 */
 			for(size_t length = 1; length < 16; length++){
 				// Очередной разряд
@@ -464,9 +464,9 @@ namespace {
 	 * @return          признак успешности разбора
 	 *
 	 */
-	bool codes(bits_t & bits, const huffman_t & literals, const huffman_t & distances, const size_t expected, vector <uint8_t> & result) {
+	bool __nts_codes__(bits_t & bits, const huffman_t & literals, const huffman_t & distances, const size_t expected, vector <uint8_t> & result) {
 		/**
-		 * Выполняем разбор символов до конца блока
+		 * Разбираем символы до конца блока
 		 */
 		while(true){
 			// Очередной символ
@@ -521,7 +521,7 @@ namespace {
 				// Выводим отказ разбора
 				return false;
 			/**
-			 * Выполняем копирование совпадения байт за байтом: оно вправе перекрываться
+			 * Копируем совпадение байт за байтом: оно вправе перекрываться
 			 */
 			for(size_t i = 0; i < length; i++)
 				// Дописываем байт из прошлого
@@ -539,13 +539,13 @@ namespace {
 	 * @return         признак успешности распаковки
 	 *
 	 */
-	bool inflate(const view_t & source, const size_t expected, vector <uint8_t> & result, size_t & consumed) {
+	bool __nts_inflate__(const view_t & source, const size_t expected, vector <uint8_t> & result, size_t & consumed) {
 		// Читаемый поток
 		bits_t bits(source.data, source.size);
 		// Признак последнего блока
 		bool final = false;
 		/**
-		 * Выполняем перебор блоков потока
+		 * Перебираем блоки потока
 		 */
 		while(!final){
 			// Голова блока
@@ -634,13 +634,13 @@ namespace {
 					// Выводим отказ распаковки
 					return false;
 				/**
-				 * Выполняем обнуление длин кодов длин кодов
+				 * Обнуляем длины кодов длин кодов
 				 */
 				for(size_t i = 0; i < 19; i++)
 					// Обнуляем очередную длину
 					lengths[i] = 0;
 				/**
-				 * Выполняем чтение длин кодов длин кодов в установленном порядке
+				 * Читаем длины кодов длин кодов в установленном порядке
 				 */
 				for(size_t i = 0; i < ncode; i++){
 					// Очередная длина
@@ -661,7 +661,7 @@ namespace {
 				// Число прочитанных длин
 				size_t index = 0;
 				/**
-				 * Выполняем чтение длин кодов литералов и расстояний
+				 * Читаем длины кодов литералов и расстояний
 				 */
 				while(index < (nlen + ndist)){
 					// Очередной символ длины
@@ -717,7 +717,7 @@ namespace {
 						// Выводим отказ распаковки
 						return false;
 					/**
-					 * Выполняем запись повторов
+					 * Записываем повторы
 					 */
 					while(repeats-- > 0)
 						// Запоминаем повторяемую длину
@@ -737,7 +737,7 @@ namespace {
 					return false;
 			}
 			// Если сжатый блок разобрать не удалось
-			if(!codes(bits, literals, distances, expected, result))
+			if(!__nts_codes__(bits, literals, distances, expected, result))
 				// Выводим отказ распаковки
 				return false;
 		}
@@ -747,7 +747,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Кодек zlib: распаковка потока RFC 1950 с телом DEFLATE по RFC 1951
+	 * @brief Функция кодека zlib: распаковка потока RFC 1950 с телом DEFLATE по RFC 1951
 	 *
 	 * @details Голова с чужим способом либо словарём и несошедшаяся сумма отвергаются;
 	 *          тело разбирается полным разборщиком DEFLATE, чтобы принимать и потоки
@@ -760,7 +760,7 @@ namespace {
 	 * @return         признак успешности распаковки
 	 *
 	 */
-	bool unstored(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context) {
+	bool __nts_unstored__(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context) {
 		// Контекст кодеку не нужен
 		(void) context;
 		// Если поток короче головы и хвоста
@@ -774,7 +774,7 @@ namespace {
 		// Число прочитанных байтов тела
 		size_t consumed = 0;
 		// Если тело DEFLATE разобрать не удалось
-		if(!inflate(view_t(source.data + 2, source.size - 6), expected, result, consumed))
+		if(!__nts_inflate__(view_t(source.data + 2, source.size - 6), expected, result, consumed))
 			// Выводим отказ распаковки
 			return false;
 		// Если за телом идёт не только хвост
@@ -786,10 +786,10 @@ namespace {
 		// Объявленная сумма Adler-32
 		const uint32_t declared = ((static_cast <uint32_t> (source.data[offset]) << 24) | (static_cast <uint32_t> (source.data[offset + 1]) << 16) | (static_cast <uint32_t> (source.data[offset + 2]) << 8) | static_cast <uint32_t> (source.data[offset + 3]));
 		// Выводим схождение суммы распакованной области с объявленной
-		return (adler(view_t(result.data(), result.size())) == declared);
+		return (__nts_adler__(view_t(result.data(), result.size())) == declared);
 	}
 	/**
-	 * @brief Частный кодек 16384: сжатие обратимым преобразованием
+	 * @brief Функция частного кодека 16384: сжатие обратимым преобразованием
 	 *
 	 * @param source  сжимаемая область байтов
 	 * @param result  накопитель сжатого потока
@@ -797,7 +797,7 @@ namespace {
 	 * @return        признак успешности сжатия
 	 *
 	 */
-	bool scramble(const view_t & source, vector <uint8_t> & result, void * context) {
+	bool __nts_scramble__(const view_t & source, vector <uint8_t> & result, void * context) {
 		// Если счётчик вызовов передан
 		if(context != nullptr)
 			// Наращиваем счётчик вызовов
@@ -805,7 +805,7 @@ namespace {
 		// Метка потока частного кодека
 		result.push_back(0xA5);
 		/**
-		 * Выполняем перебор байтов области
+		 * Перебираем байты области
 		 */
 		for(size_t i = 0; i < source.size; i++)
 			// Дописываем байт, обращённый исключающим ИЛИ
@@ -814,7 +814,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Частный кодек 16384: распаковка обратимым преобразованием
+	 * @brief Функция частного кодека 16384: распаковка обратимым преобразованием
 	 *
 	 * @param source   распаковываемый поток
 	 * @param expected ожидаемая длина после распаковки
@@ -823,7 +823,7 @@ namespace {
 	 * @return         признак успешности распаковки
 	 *
 	 */
-	bool unscramble(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context) {
+	bool __nts_unscramble__(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context) {
 		// Если счётчик вызовов передан
 		if(context != nullptr)
 			// Наращиваем счётчик вызовов
@@ -833,7 +833,7 @@ namespace {
 			// Выводим отказ распаковки
 			return false;
 		/**
-		 * Выполняем перебор байтов потока за меткой
+		 * Перебираем байты потока за меткой
 		 */
 		for(size_t i = 1; i < source.size; i++)
 			// Дописываем байт, обращённый исключающим ИЛИ
@@ -842,7 +842,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Кодек, отказывающий сжимать: раздел 4 RFC 8879 дозволяет слать несжатое
+	 * @brief Функция кодека, отказывающего сжимать: раздел 4 RFC 8879 дозволяет слать несжатое
 	 *
 	 * @param source  сжимаемая область байтов
 	 * @param result  накопитель сжатого потока
@@ -850,14 +850,14 @@ namespace {
 	 * @return        всегда отказ
 	 *
 	 */
-	bool refusing(const view_t & source, vector <uint8_t> & result, void * context) {
+	bool __nts_refusing__(const view_t & source, vector <uint8_t> & result, void * context) {
 		// Доводы кодеку не нужны
 		(void) source; (void) result; (void) context;
 		// Выводим отказ сжатия
 		return false;
 	}
 	/**
-	 * @brief Кодек, бросающий чужое исключение: связь обязана его удержать
+	 * @brief Функция кодека, бросающего чужое исключение: связь обязана его удержать
 	 *
 	 * @param source  сжимаемая область байтов
 	 * @param result  накопитель сжатого потока
@@ -865,7 +865,7 @@ namespace {
 	 * @return        не выводит ничего: бросает
 	 *
 	 */
-	bool throwing(const view_t & source, vector <uint8_t> & result, void * context) {
+	bool __nts_throwing__(const view_t & source, vector <uint8_t> & result, void * context) {
 		// Доводы кодеку не нужны
 		(void) source; (void) result; (void) context;
 		// Бросаем чужое исключение
@@ -877,9 +877,9 @@ namespace {
 	 * @return описание кодека zlib
 	 *
 	 */
-	context::codec_t zlib() noexcept {
+	context::codec_t __nts_zlib__() noexcept {
 		// Выводим описание кодека zlib
-		return context::codec_t(ZLIB, stored, unstored);
+		return context::codec_t(ZLIB, __nts_stored__, __nts_unstored__);
 	}
 	/**
 	 * @brief Функция получения описания частного кодека
@@ -888,9 +888,9 @@ namespace {
 	 * @return        описание частного кодека
 	 *
 	 */
-	context::codec_t custom(size_t * counter) noexcept {
+	context::codec_t __nts_custom__(size_t * counter) noexcept {
 		// Выводим описание частного кодека
-		return context::codec_t(PRIVATE, scramble, unscramble, counter);
+		return context::codec_t(PRIVATE, __nts_scramble__, __nts_unscramble__, counter);
 	}
 	/**
 	 * @brief Функция передачи байтов между сторонами связи по записям
@@ -900,7 +900,7 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
@@ -911,11 +911,11 @@ namespace {
 			view_t data = client.output();
 			// Если клиенту есть что отправить серверу
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемые байты
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя клиента
 				client.consume(buffer.size());
-				// Выполняем подачу отправленных байтов серверу
+				// Подаём отправленные байты серверу
 				server.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -924,11 +924,11 @@ namespace {
 			data = server.output();
 			// Если серверу есть что отправить клиенту
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемые байты
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя сервера
 				server.consume(buffer.size());
-				// Выполняем подачу отправленных байтов клиенту
+				// Подаём отправленные байты клиенту
 				client.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -950,11 +950,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байты между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	}
@@ -966,15 +966,15 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по связи со сжатой цепочкой сертификатов";
 		// Если отправить прикладные данные клиентом не удалось
 		if(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
+		// Передаём байты между сторонами связи
+		__nts_converse__(client, server);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
 		// Если получить принятые сервером прикладные данные не удалось
@@ -987,9 +987,9 @@ namespace {
 		if(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
-		// Выполняем сброс накопителя принятых данных
+		// Передаём байты между сторонами связи
+		__nts_converse__(client, server);
+		// Сбрасываем накопитель принятых данных
 		received.clear();
 		// Если получить принятые клиентом прикладные данные не удалось
 		if((client.read(received) != context::error_t::NONE) || (string(received.begin(), received.end()) != answer))
@@ -1010,7 +1010,7 @@ namespace {
 	 * @param levels     ведётся ли перенос по уровням QUIC
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual, const bool levels) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual, const bool levels) noexcept {
 		// Устанавливаем набор шифрования клиенту
 		client.suites(vector <protect::suite_t> {suite});
 		// Устанавливаем набор шифрования серверу
@@ -1069,7 +1069,7 @@ namespace {
 	 * @return         признак того, что сообщение найдено и искажено
 	 *
 	 */
-	bool mutate(vector <uint8_t> & buffer, const mutation_t & mutation) {
+	bool __nts_mutate__(vector <uint8_t> & buffer, const mutation_t & mutation) {
 		// Пересобираемый поток сообщений
 		vector <uint8_t> rebuilt;
 		// Признак того, что сообщение искажено
@@ -1077,7 +1077,7 @@ namespace {
 		// Смещение разбора
 		size_t offset = 0;
 		/**
-		 * Выполняем перебор сообщений потока
+		 * Перебираем сообщения потока
 		 */
 		while(offset < buffer.size()){
 			// Обвязка очередного сообщения
@@ -1135,22 +1135,22 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, const context::level_t level, const mutation_t * mutation, bool & applied) {
+	bool __nts_carry__(A & from, B & to, const context::level_t level, const mutation_t * mutation, bool & applied) {
 		// Получаем сообщения, отправляемые на уровне
 		const view_t data = from.output(level);
 		// Если отправлять на уровне нечего
 		if(data.size == 0)
 			// Выводим признак того, что сообщения не переносились
 			return false;
-		// Выполняем перенос отправляемых сообщений
+		// Переносим отправляемые сообщения
 		vector <uint8_t> buffer(data.data, data.data + data.size);
 		// Снимаем отправленные сообщения с накопителя уровня
 		from.consume(level, buffer.size());
 		// Если искажение задано и ещё не применено
 		if((mutation != nullptr) && !applied)
 			// Применяем искажение к потоку сообщений уровня
-			applied = mutate(buffer, *mutation);
-		// Выполняем подачу сообщений принимающей стороне на том же уровне
+			applied = __nts_mutate__(buffer, *mutation);
+		// Подаём сообщения принимающей стороне на том же уровне
 		to.push(level, view_t(buffer.data(), buffer.size()));
 		// Выводим признак того, что сообщения переносились
 		return true;
@@ -1164,27 +1164,27 @@ namespace {
 	 * @return         признак того, что искажение применено
 	 *
 	 */
-	bool converse(client::context_t & client, server::context_t & server, const mutation_t * mutation) {
+	bool __nts_converse__(client::context_t & client, server::context_t & server, const mutation_t * mutation) {
 		// Признак применённого искажения
 		bool applied = false;
 		/**
-		 * Выполняем передачу сообщений между сторонами, пока им есть что сказать
+		 * Передаём сообщения между сторонами, пока им есть что сказать
 		 */
 		for(size_t i = 0; i < 16; i++){
 			// Признак того, что сообщения передавались
 			bool moved = false;
 			/**
-			 * Выполняем перебор уровней защиты от клиента к серверу
+			 * Перебираем уровни защиты от клиента к серверу
 			 */
 			for(size_t j = 0; j < (sizeof(LEVELS) / sizeof(LEVELS[0])); j++)
 				// Переносим сообщения уровня от клиента к серверу
-				moved = (carry(client, server, LEVELS[j], (((mutation != nullptr) && !mutation->downstream) ? mutation : nullptr), applied) || moved);
+				moved = (__nts_carry__(client, server, LEVELS[j], (((mutation != nullptr) && !mutation->downstream) ? mutation : nullptr), applied) || moved);
 			/**
-			 * Выполняем перебор уровней защиты от сервера к клиенту
+			 * Перебираем уровни защиты от сервера к клиенту
 			 */
 			for(size_t j = 0; j < (sizeof(LEVELS) / sizeof(LEVELS[0])); j++)
 				// Переносим сообщения уровня от сервера к клиенту
-				moved = (carry(server, client, LEVELS[j], (((mutation != nullptr) && mutation->downstream) ? mutation : nullptr), applied) || moved);
+				moved = (__nts_carry__(server, client, LEVELS[j], (((mutation != nullptr) && mutation->downstream) ? mutation : nullptr), applied) || moved);
 			// Если сторонам сказать больше нечего
 			if(!moved)
 				// Прекращаем передачу
@@ -1211,15 +1211,15 @@ TEST(CompressTest, Codec){
 	// Область для сжатия длиннее одного блока: три блока по 65535 и хвост
 	vector <uint8_t> sample(65535 * 2 + 777);
 	/**
-	 * Выполняем заполнение области
+	 * Заполняем область
 	 */
 	for(size_t i = 0; i < sample.size(); i++)
 		// Устанавливаем очередной байт
 		sample[i] = static_cast <uint8_t> ((i * 7 + 3) & 0xFF);
 	// Накопитель сжатого потока
 	vector <uint8_t> packed;
-	// Выполняем сжатие
-	ASSERT_TRUE(stored(view_t(sample.data(), sample.size()), packed, nullptr));
+	// Сжимаем образец «stored»-блоками
+	ASSERT_TRUE(__nts_stored__(view_t(sample.data(), sample.size()), packed, nullptr));
 	// Проверяем голову потока zlib
 	ASSERT_EQ(packed[0], 0x78);
 	// Проверяем второй байт головы
@@ -1228,46 +1228,46 @@ TEST(CompressTest, Codec){
 	ASSERT_EQ(packed.size(), sample.size() + 2 + 3 * 5 + 4);
 	// Накопитель распакованной области
 	vector <uint8_t> unpacked;
-	// Выполняем распаковку
-	ASSERT_TRUE(unstored(view_t(packed.data(), packed.size()), sample.size(), unpacked, nullptr));
+	// Распаковываем поток в исходную область
+	ASSERT_TRUE(__nts_unstored__(view_t(packed.data(), packed.size()), sample.size(), unpacked, nullptr));
 	// Проверяем схождение с исходной областью
 	ASSERT_EQ(unpacked, sample);
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель кодека
 	unpacked.clear();
 	// Проверяем отказ распаковки при ожидаемой длине меньше настоящей
-	ASSERT_FALSE(unstored(view_t(packed.data(), packed.size()), sample.size() - 1, unpacked, nullptr));
+	ASSERT_FALSE(__nts_unstored__(view_t(packed.data(), packed.size()), sample.size() - 1, unpacked, nullptr));
 	// Портим байт содержимого
 	packed[10] ^= 0x01;
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель кодека
 	unpacked.clear();
 	// Проверяем отказ распаковки по сумме Adler-32
-	ASSERT_FALSE(unstored(view_t(packed.data(), packed.size()), sample.size(), unpacked, nullptr));
+	ASSERT_FALSE(__nts_unstored__(view_t(packed.data(), packed.size()), sample.size(), unpacked, nullptr));
 	// Восстанавливаем байт содержимого
 	packed[10] ^= 0x01;
 	// Портим вид блока: BTYPE=01
 	packed[2] |= 0x02;
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель кодека
 	unpacked.clear();
 	// Проверяем отказ распаковки блока не «stored»
-	ASSERT_FALSE(unstored(view_t(packed.data(), packed.size()), sample.size(), unpacked, nullptr));
+	ASSERT_FALSE(__nts_unstored__(view_t(packed.data(), packed.size()), sample.size(), unpacked, nullptr));
 	// Восстанавливаем вид блока
 	packed[2] &= static_cast <uint8_t> (~0x02);
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель кодека
 	unpacked.clear();
 	// Проверяем отказ распаковки обрезанного потока
-	ASSERT_FALSE(unstored(view_t(packed.data(), packed.size() - 1), sample.size(), unpacked, nullptr));
+	ASSERT_FALSE(__nts_unstored__(view_t(packed.data(), packed.size() - 1), sample.size(), unpacked, nullptr));
 	// Пустая область
 	vector <uint8_t> nothing;
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель кодека
 	packed.clear();
-	// Выполняем сжатие пустой области
-	ASSERT_TRUE(stored(view_t(nothing.data(), 0), packed, nullptr));
+	// Сжимаем пустую область
+	ASSERT_TRUE(__nts_stored__(view_t(nothing.data(), 0), packed, nullptr));
 	// Проверяем длину потока пустой области: голова, один пустой блок, хвост
 	ASSERT_EQ(packed.size(), static_cast <size_t> (2 + 5 + 4));
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель кодека
 	unpacked.clear();
-	// Выполняем распаковку пустой области
-	ASSERT_TRUE(unstored(view_t(packed.data(), packed.size()), 0, unpacked, nullptr));
+	// Распаковываем пустую область
+	ASSERT_TRUE(__nts_unstored__(view_t(packed.data(), packed.size()), 0, unpacked, nullptr));
 	// Проверяем пустоту распакованного
 	ASSERT_TRUE(unpacked.empty());
 	// Если python3 с zlib недоступен
@@ -1283,28 +1283,28 @@ TEST(CompressTest, Codec){
 	ASSERT_NE(::mkdtemp(pattern), nullptr);
 	// Путь к временному каталогу
 	const std::string sandbox = pattern;
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель кодека
 	packed.clear();
-	// Выполняем сжатие образца
-	ASSERT_TRUE(stored(view_t(sample.data(), sample.size()), packed, nullptr));
+	// Сжимаем образец
+	ASSERT_TRUE(__nts_stored__(view_t(sample.data(), sample.size()), packed, nullptr));
 	// Записываем сжатый поток
-	ASSERT_TRUE(spill(sandbox + "/ours.z", packed));
+	ASSERT_TRUE(__nts_spill__(sandbox + "/ours.z", packed));
 	// Распаковываем поток настоящим zlib
 	ASSERT_EQ(shell("python3 -c 'import zlib,sys; open(sys.argv[2],\"wb\").write(zlib.decompress(open(sys.argv[1],\"rb\").read()))' " + sandbox + "/ours.z " + sandbox + "/ours.bin"), 0);
 	// Проверяем схождение распакованного настоящим zlib с образцом
 	ASSERT_EQ(slurp(sandbox + "/ours.bin"), sample);
 	// Записываем образец
-	ASSERT_TRUE(spill(sandbox + "/sample.bin", sample));
+	ASSERT_TRUE(__nts_spill__(sandbox + "/sample.bin", sample));
 	// Сжимаем образец настоящим zlib без сжатия: уровень 0 даёт «stored»-блоки
 	ASSERT_EQ(shell("python3 -c 'import zlib,sys; open(sys.argv[2],\"wb\").write(zlib.compress(open(sys.argv[1],\"rb\").read(), 0))' " + sandbox + "/sample.bin " + sandbox + "/theirs.z"), 0);
 	// Читаем поток настоящего zlib
 	const vector <uint8_t> theirs = slurp(sandbox + "/theirs.z");
 	// Проверяем, что поток прочитан
 	ASSERT_FALSE(theirs.empty());
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель кодека
 	unpacked.clear();
-	// Выполняем распаковку потока настоящего zlib нашим кодеком
-	ASSERT_TRUE(unstored(view_t(theirs.data(), theirs.size()), sample.size(), unpacked, nullptr));
+	// Распаковываем поток настоящего zlib нашим кодеком
+	ASSERT_TRUE(__nts_unstored__(view_t(theirs.data(), theirs.size()), sample.size(), unpacked, nullptr));
 	// Проверяем схождение с образцом
 	ASSERT_EQ(unpacked, sample);
 	// Сертификат набора: настоящее содержимое для кодов Хаффмана
@@ -1312,9 +1312,9 @@ TEST(CompressTest, Codec){
 	// Проверяем, что сертификат прочитан
 	ASSERT_FALSE(certificate.empty());
 	// Записываем сертификат
-	ASSERT_TRUE(spill(sandbox + "/cert.bin", certificate));
+	ASSERT_TRUE(__nts_spill__(sandbox + "/cert.bin", certificate));
 	/**
-	 * Выполняем перебор уровней сжатия настоящего zlib: постоянные и порождаемые коды Хаффмана
+	 * Перебираем уровни сжатия настоящего zlib: постоянные и порождаемые коды Хаффмана
 	 */
 	for(size_t level = 1; level <= 9; level += 4){
 		// Сжимаем сертификат настоящим zlib
@@ -1323,16 +1323,16 @@ TEST(CompressTest, Codec){
 		const vector <uint8_t> squeezed = slurp(sandbox + "/cert.z");
 		// Проверяем, что поток прочитан и короче сертификата
 		ASSERT_LT(squeezed.size(), certificate.size()) << "уровень " << level;
-		// Выполняем сброс накопителя
+		// Сбрасываем накопитель кодека
 		unpacked.clear();
-		// Выполняем распаковку кодами Хаффмана нашим кодеком
-		ASSERT_TRUE(unstored(view_t(squeezed.data(), squeezed.size()), certificate.size(), unpacked, nullptr)) << "уровень " << level;
+		// Распаковываем кодами Хаффмана нашим кодеком
+		ASSERT_TRUE(__nts_unstored__(view_t(squeezed.data(), squeezed.size()), certificate.size(), unpacked, nullptr)) << "уровень " << level;
 		// Проверяем схождение с сертификатом
 		ASSERT_EQ(unpacked, certificate) << "уровень " << level;
-		// Выполняем сброс накопителя
+		// Сбрасываем накопитель кодека
 		unpacked.clear();
 		// Проверяем отказ при ожидаемой длине меньше настоящей
-		ASSERT_FALSE(unstored(view_t(squeezed.data(), squeezed.size()), certificate.size() - 1, unpacked, nullptr)) << "уровень " << level;
+		ASSERT_FALSE(__nts_unstored__(view_t(squeezed.data(), squeezed.size()), certificate.size() - 1, unpacked, nullptr)) << "уровень " << level;
 	}
 	// Удаляем временный каталог
 	(void) shell("rm -rf " + sandbox);
@@ -1345,19 +1345,19 @@ TEST(CompressTest, Codec){
  */
 TEST(CompressTest, Loopback){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность из ключей набора
-		ASSERT_TRUE(identity(ENTRIES[k], credential)) << "ключ " << ENTRIES[k];
+		ASSERT_TRUE(__nts_identity__(ENTRIES[k], credential)) << "ключ " << ENTRIES[k];
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 			/**
-			 * Выполняем перебор способов переноса: записи и уровни
+			 * Перебираем способы переноса: записи и уровни
 			 */
 			for(size_t t = 0; t < 2; t++){
 				// Связь стороны клиента
@@ -1365,11 +1365,11 @@ TEST(CompressTest, Loopback){
 				// Связь стороны сервера
 				server::context_t server;
 				// Настраиваем стороны с подлинностью клиента
-				arrange(client, server, SUITES[s], extension::group_t::X25519, credential, true, (t == 1));
+				__nts_arrange__(client, server, SUITES[s], extension::group_t::X25519, credential, true, (t == 1));
 				// Кодеки клиента: zlib
-				client.codecs(vector <context::codec_t> {zlib()}, 0);
+				client.codecs(vector <context::codec_t> {__nts_zlib__()}, 0);
 				// Кодеки сервера: zlib
-				server.codecs(vector <context::codec_t> {zlib()}, 0);
+				server.codecs(vector <context::codec_t> {__nts_zlib__()}, 0);
 				// Заводим сервер
 				ASSERT_EQ(server.start(), context::error_t::NONE);
 				// Заводим клиента
@@ -1377,11 +1377,11 @@ TEST(CompressTest, Loopback){
 				// Если перенос идёт записями
 				if(t == 0){
 					// Проводим рукопожатие по записям
-					converse(client, server);
+					__nts_converse__(client, server);
 				// Если перенос идёт по уровням
 				} else {
 					// Проводим рукопожатие по уровням без искажений
-					(void) converse(client, server, nullptr);
+					(void) __nts_converse__(client, server, nullptr);
 				}
 				// Проверяем установленность связи клиентом
 				ASSERT_TRUE(client.established()) << ENTRIES[k] << " " << s << " " << t << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
@@ -1406,11 +1406,11 @@ TEST(CompressTest, Loopback){
 				// Если перенос идёт записями
 				if(t == 0){
 					// Проверяем обмен данными
-					ASSERT_TRUE(barter(client, server)) << ENTRIES[k] << " " << s;
+					ASSERT_TRUE(__nts_barter__(client, server)) << ENTRIES[k] << " " << s;
 					// Выдаём билет
 					ASSERT_EQ(server.issue(), context::error_t::NONE);
 					// Доставляем билет
-					converse(client, server);
+					__nts_converse__(client, server);
 					// Проверяем получение билета клиентом
 					ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 					// Связь возобновляющего клиента
@@ -1418,11 +1418,11 @@ TEST(CompressTest, Loopback){
 					// Связь возобновляющего сервера
 					server::context_t resumed;
 					// Настраиваем стороны без подлинности клиента
-					arrange(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false, false);
+					__nts_arrange__(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false, false);
 					// Кодеки клиента при возобновлении
-					resuming.codecs(vector <context::codec_t> {zlib()}, 0);
+					resuming.codecs(vector <context::codec_t> {__nts_zlib__()}, 0);
 					// Кодеки сервера при возобновлении
-					resumed.codecs(vector <context::codec_t> {zlib()}, 0);
+					resumed.codecs(vector <context::codec_t> {__nts_zlib__()}, 0);
 					// Предъявляем билет
 					resuming.resume(client.tickets()[0]);
 					// Признаём билеты
@@ -1432,7 +1432,7 @@ TEST(CompressTest, Loopback){
 					// Заводим клиента
 					ASSERT_EQ(resuming.start(), context::error_t::NONE);
 					// Проводим рукопожатие
-					converse(resuming, resumed);
+					__nts_converse__(resuming, resumed);
 					// Проверяем установленность связи
 					ASSERT_TRUE(resuming.established() && resumed.established()) << ENTRIES[k] << " " << s;
 					// Проверяем возобновление билетом
@@ -1444,7 +1444,7 @@ TEST(CompressTest, Loopback){
 					// Сервер цепочку не слал
 					ASSERT_EQ(resumed.compression(context::direction_t::WRITE), 0);
 					// Проверяем обмен данными по возобновлённой связи
-					ASSERT_TRUE(barter(resuming, resumed));
+					ASSERT_TRUE(__nts_barter__(resuming, resumed));
 				}
 			}
 		}
@@ -1461,7 +1461,7 @@ TEST(CompressTest, Selection){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
 	 * @brief Сценарий выбора алгоритма
 	 *
@@ -1480,27 +1480,27 @@ TEST(CompressTest, Selection){
 		// Ожидаемый алгоритм цепочки клиента у сервера
 		uint16_t upstream;
 	};
-	// Кодек zlib, отказывающий сжимать
-	const context::codec_t declining(ZLIB, refusing, unstored);
-	// Кодек zlib, бросающий чужое исключение
-	const context::codec_t hurling(ZLIB, throwing, unstored);
+	// Кодек __nts_zlib__, отказывающий сжимать
+	const context::codec_t declining(ZLIB, __nts_refusing__, __nts_unstored__);
+	// Кодек __nts_zlib__, бросающий чужое исключение
+	const context::codec_t hurling(ZLIB, __nts_throwing__, __nts_unstored__);
 	// Кодек с чужим опознавателем: сервер его не знает
-	const context::codec_t stranger(STRANGER, scramble, unscramble);
+	const context::codec_t stranger(STRANGER, __nts_scramble__, __nts_unscramble__);
 	// Сценарии выбора алгоритма
 	const Scenario scenarios[] = {
-		{"только клиент",           {zlib()},            {},                  true,  0,       0},
-		{"только сервер",           {},                  {zlib()},            true,  0,       0},
-		{"нет общего",              {custom(nullptr)},          {zlib()},            true,  0,       0},
-		{"порядок клиента: частный", {custom(nullptr), zlib()}, {zlib(), custom(nullptr)},  false, PRIVATE, 0},
-		{"порядок клиента: zlib",   {zlib(), custom(nullptr)},  {custom(nullptr), zlib()},  false, ZLIB,    0},
-		{"неведомый пропущен",      {stranger, zlib()},  {zlib()},            false, ZLIB,    0},
-		{"отказ сжатия",            {zlib()},            {declining},         true,  0,       ZLIB},
-		{"чужое исключение",        {zlib()},            {hurling},           true,  0,       ZLIB},
-		{"по запросу подлинности",  {custom(nullptr)},          {custom(nullptr)},          true,  PRIVATE, PRIVATE},
-		{"порядок сервера у клиента", {zlib(), custom(nullptr)}, {custom(nullptr), zlib()}, true,  ZLIB,    PRIVATE}
+		{"только клиент",           {__nts_zlib__()},            {},                  true,  0,       0},
+		{"только сервер",           {},                  {__nts_zlib__()},            true,  0,       0},
+		{"нет общего",              {__nts_custom__(nullptr)},          {__nts_zlib__()},            true,  0,       0},
+		{"порядок клиента: частный", {__nts_custom__(nullptr), __nts_zlib__()}, {__nts_zlib__(), __nts_custom__(nullptr)},  false, PRIVATE, 0},
+		{"порядок клиента: zlib",   {__nts_zlib__(), __nts_custom__(nullptr)},  {__nts_custom__(nullptr), __nts_zlib__()},  false, ZLIB,    0},
+		{"неведомый пропущен",      {stranger, __nts_zlib__()},  {__nts_zlib__()},            false, ZLIB,    0},
+		{"отказ сжатия",            {__nts_zlib__()},            {declining},         true,  0,       ZLIB},
+		{"чужое исключение",        {__nts_zlib__()},            {hurling},           true,  0,       ZLIB},
+		{"по запросу подлинности",  {__nts_custom__(nullptr)},          {__nts_custom__(nullptr)},          true,  PRIVATE, PRIVATE},
+		{"порядок сервера у клиента", {__nts_zlib__(), __nts_custom__(nullptr)}, {__nts_custom__(nullptr), __nts_zlib__()}, true,  ZLIB,    PRIVATE}
 	};
 	/**
-	 * Выполняем перебор сценариев
+	 * Перебираем сценарии
 	 */
 	for(size_t i = 0; i < (sizeof(scenarios) / sizeof(scenarios[0])); i++){
 		// Связь стороны клиента
@@ -1508,7 +1508,7 @@ TEST(CompressTest, Selection){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, scenarios[i].mutual, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, scenarios[i].mutual, false);
 		// Кодеки клиента
 		client.codecs(scenarios[i].client, 0);
 		// Кодеки сервера
@@ -1518,7 +1518,7 @@ TEST(CompressTest, Selection){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << scenarios[i].name;
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established()) << scenarios[i].name << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем алгоритм цепочки сервера у клиента
@@ -1532,7 +1532,7 @@ TEST(CompressTest, Selection){
 		// Проверяем цепочку сервера у клиента
 		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1)) << scenarios[i].name;
 		// Проверяем обмен данными
-		ASSERT_TRUE(barter(client, server)) << scenarios[i].name;
+		ASSERT_TRUE(__nts_barter__(client, server)) << scenarios[i].name;
 	}
 	{
 		// Счётчик вызовов кодека клиента
@@ -1544,17 +1544,17 @@ TEST(CompressTest, Selection){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Кодек клиента со счётчиком
-		client.codecs(vector <context::codec_t> {custom(&first)}, 0);
+		client.codecs(vector <context::codec_t> {__nts_custom__(&first)}, 0);
 		// Кодек сервера со счётчиком
-		server.codecs(vector <context::codec_t> {custom(&second)}, 0);
+		server.codecs(vector <context::codec_t> {__nts_custom__(&second)}, 0);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Контекст дошёл до кодека клиента: одна распаковка и одно сжатие
@@ -1574,7 +1574,7 @@ TEST(CompressTest, Selection){
 		// Подлинность сервера
 		server.credential(credential);
 		// Кодек с нулевым опознавателем
-		server.codecs(vector <context::codec_t> {context::codec_t(0, stored, unstored)}, 0);
+		server.codecs(vector <context::codec_t> {context::codec_t(0, __nts_stored__, __nts_unstored__)}, 0);
 		// Проверяем отказ настроек при заведении
 		ASSERT_EQ(server.start(), context::error_t::SETTINGS);
 		// Пустой перечень выключает сжатие и заведение дозволяет
@@ -1594,7 +1594,7 @@ TEST(CompressTest, Refusals){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("rsa2048", credential));
+	ASSERT_TRUE(__nts_identity__("rsa2048", credential));
 	/**
 	 * @brief Сценарий отказа
 	 *
@@ -1608,7 +1608,7 @@ TEST(CompressTest, Refusals){
 		vector <context::codec_t> server;
 		// Предел длины после распаковки у принимающей стороны
 		size_t inflation;
-		// Искажение
+		// Искажение очередного байта потока
 		mutation_t mutation;
 		// Ожидаемый отказ принимающей стороны
 		context::error_t error;
@@ -1619,7 +1619,7 @@ TEST(CompressTest, Refusals){
 	vector <Scenario> scenarios;
 	{
 		// Длина после распаковки не сошлась: поле uncompressed_length на единицу больше
-		Scenario item = {"длина не сошлась", {zlib()}, {zlib()}, 0, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
+		Scenario item = {"длина не сошлась", {__nts_zlib__()}, {__nts_zlib__()}, 0, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
 		// Искажается сжатая цепочка сервера
 		item.mutation.type = handshake::type_t::COMPRESSED;
 		// Наращиваем младший байт длины после распаковки
@@ -1629,7 +1629,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Порча сжатого: сумма Adler-32 не сойдётся
-		Scenario item = {"порча сжатого", {zlib()}, {zlib()}, 0, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
+		Scenario item = {"порча сжатого", {__nts_zlib__()}, {__nts_zlib__()}, 0, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
 		// Искажается сжатая цепочка сервера
 		item.mutation.type = handshake::type_t::COMPRESSED;
 		// Портим байт содержимого за головами
@@ -1639,7 +1639,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Длина после распаковки за пределом умолчания 65536
-		Scenario item = {"длина за пределом", {zlib()}, {zlib()}, 0, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
+		Scenario item = {"длина за пределом", {__nts_zlib__()}, {__nts_zlib__()}, 0, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
 		// Искажается сжатая цепочка сервера
 		item.mutation.type = handshake::type_t::COMPRESSED;
 		// Ставим длину 2^24-1
@@ -1649,7 +1649,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Предел потребителя ниже длины цепочки: честное сообщение отвергается
-		Scenario item = {"предел потребителя", {zlib()}, {zlib()}, 100, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
+		Scenario item = {"предел потребителя", {__nts_zlib__()}, {__nts_zlib__()}, 100, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
 		// Искажения нет: вид сообщения не в потоке
 		item.mutation.type = handshake::type_t::NONE;
 		// Добавляем сценарий
@@ -1657,7 +1657,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Сжатая цепочка без объявления: клиент кодеков не имеет, цепочка обёрнута частным кодеком
-		Scenario item = {"без объявления", {}, {custom(nullptr)}, 0, mutation_t(), context::error_t::ORDER, alert::description_t::UNEXPECTED};
+		Scenario item = {"без объявления", {}, {__nts_custom__(nullptr)}, 0, mutation_t(), context::error_t::ORDER, alert::description_t::UNEXPECTED};
 		// Искажается обычная цепочка сервера
 		item.mutation.type = handshake::type_t::CERTIFICATE;
 		// Оборачиваем цепочку в сжатую частным кодеком
@@ -1665,7 +1665,7 @@ TEST(CompressTest, Refusals){
 			// Сжатое тело
 			vector <uint8_t> packed;
 			// Сжимаем частным кодеком
-			(void) scramble(view_t(body.data(), body.size()), packed, nullptr);
+			(void) __nts_scramble__(view_t(body.data(), body.size()), packed, nullptr);
 			// Составитель тела сжатой цепочки
 			field::builder_t builder;
 			// Опознаватель алгоритма
@@ -1690,7 +1690,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Неведомый алгоритм: опознаватель 1 подменён на 3
-		Scenario item = {"неведомый алгоритм", {zlib()}, {zlib()}, 0, mutation_t(), context::error_t::COMPRESSION, alert::description_t::PARAMETER};
+		Scenario item = {"неведомый алгоритм", {__nts_zlib__()}, {__nts_zlib__()}, 0, mutation_t(), context::error_t::COMPRESSION, alert::description_t::PARAMETER};
 		// Искажается сжатая цепочка сервера
 		item.mutation.type = handshake::type_t::COMPRESSED;
 		// Подменяем опознаватель
@@ -1700,7 +1700,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Лишние байты за телом
-		Scenario item = {"лишние байты", {zlib()}, {zlib()}, 0, mutation_t(), context::error_t::MESSAGE, alert::description_t::DECODE};
+		Scenario item = {"лишние байты", {__nts_zlib__()}, {__nts_zlib__()}, 0, mutation_t(), context::error_t::MESSAGE, alert::description_t::DECODE};
 		// Искажается сжатая цепочка сервера
 		item.mutation.type = handshake::type_t::COMPRESSED;
 		// Дописываем байт
@@ -1710,7 +1710,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Расширение не в своём сообщении: перечень алгоритмов в защищённых расширениях
-		Scenario item = {"не в своём сообщении", {zlib()}, {zlib()}, 0, mutation_t(), context::error_t::MESSAGE, alert::description_t::PARAMETER};
+		Scenario item = {"не в своём сообщении", {__nts_zlib__()}, {__nts_zlib__()}, 0, mutation_t(), context::error_t::MESSAGE, alert::description_t::PARAMETER};
 		// Искажаются защищённые расширения сервера
 		item.mutation.type = handshake::type_t::EXTENSIONS;
 		// Дописываем расширение 0x001B с перечнем из одного zlib
@@ -1733,7 +1733,7 @@ TEST(CompressTest, Refusals){
 	}
 	{
 		// Цепочка клиента у сервера: длина не сошлась
-		Scenario item = {"цепочка клиента", {zlib()}, {zlib()}, 0, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
+		Scenario item = {"цепочка клиента", {__nts_zlib__()}, {__nts_zlib__()}, 0, mutation_t(), context::error_t::CERTIFICATE, alert::description_t::BADCERT};
 		// Искажается сжатая цепочка клиента
 		item.mutation.downstream = false;
 		// Вид искажаемого сообщения
@@ -1744,7 +1744,7 @@ TEST(CompressTest, Refusals){
 		scenarios.push_back(item);
 	}
 	/**
-	 * Выполняем перебор сценариев
+	 * Перебираем сценарии
 	 */
 	for(size_t i = 0; i < scenarios.size(); i++){
 		// Связь стороны клиента
@@ -1752,7 +1752,7 @@ TEST(CompressTest, Refusals){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны по уровням с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, true);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, true);
 		// Кодеки клиента с пределом
 		client.codecs(scenarios[i].client, scenarios[i].inflation);
 		// Кодеки сервера
@@ -1762,7 +1762,7 @@ TEST(CompressTest, Refusals){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << scenarios[i].name;
 		// Проводим рукопожатие с искажением
-		const bool applied = converse(client, server, ((scenarios[i].mutation.type != handshake::type_t::NONE) ? &scenarios[i].mutation : nullptr));
+		const bool applied = __nts_converse__(client, server, ((scenarios[i].mutation.type != handshake::type_t::NONE) ? &scenarios[i].mutation : nullptr));
 		// Если искажение задано, оно обязано было примениться
 		if(scenarios[i].mutation.type != handshake::type_t::NONE){
 			// Проверяем применение искажения
@@ -1816,7 +1816,7 @@ TEST(CompressTest, Openssl){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
@@ -1831,9 +1831,9 @@ TEST(CompressTest, Openssl){
 		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = dial(number);
+		const int own = dial(number);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(own, 0) << "порт " << number;
 		// Связь стороны клиента
 		client::context_t client;
 		// Наборы клиента
@@ -1843,17 +1843,17 @@ TEST(CompressTest, Openssl){
 		// Подлинность клиента
 		client.credential(credential);
 		// Кодек клиента: zlib
-		client.codecs(vector <context::codec_t> {zlib()}, 0);
+		client.codecs(vector <context::codec_t> {__nts_zlib__()}, 0);
 		// Имя узла
 		client.name("localhost");
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу байтов до установления связи
+		 * Передаём байты до установления связи
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, fd);
+			relay(client, own);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем, что цепочка сервера пришла сжатой zlib
@@ -1867,18 +1867,18 @@ TEST(CompressTest, Openssl){
 		// Накопитель ответа
 		vector <uint8_t> answer;
 		/**
-		 * Выполняем передачу байтов до получения ответа
+		 * Передаём байты до получения ответа
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты
-			relay(client, fd);
+			relay(client, own);
 			// Читаем принятые данные
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
 		// Проверяем, что ответ HTTP получен: подлинность клиента сервером принята
 		ASSERT_NE(string(answer.begin(), answer.end()).find("HTTP/1.0 200"), string::npos);
 		// Закрываем сокет
-		closing(fd);
+		closing(own);
 		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 		sentinel.halt();
 		// Журнал сервера
@@ -1902,9 +1902,9 @@ TEST(CompressTest, Openssl){
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = greeted(listener);
+		const int own = greeted(listener);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(own, 0);
 		// Связь стороны сервера
 		server::context_t server;
 		// Наборы сервера
@@ -1916,11 +1916,11 @@ TEST(CompressTest, Openssl){
 		// Запрашиваем подлинность клиента
 		server.request(true);
 		// Кодек сервера: zlib
-		server.codecs(vector <context::codec_t> {zlib()}, 0);
+		server.codecs(vector <context::codec_t> {__nts_zlib__()}, 0);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		const bool complete = serve(server, fd);
+		const bool complete = serve(server, own);
 		// Проверяем, что рукопожатие дошло до конца
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем, что отказа не было
@@ -1932,9 +1932,9 @@ TEST(CompressTest, Openssl){
 		// Проверяем подлинность клиента
 		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 		// Закрываем связь, коли она ещё открыта
-		ASSERT_TRUE(farewell(server, fd));
+		ASSERT_TRUE(farewell(server, own));
 		// Закрываем сокет
-		closing(fd);
+		closing(own);
 		// Закрываем слушающий сокет
 		closing(listener);
 		// Содержимое журнала
@@ -1956,13 +1956,13 @@ TEST(CompressTest, Starved){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Признак того, что нехватка памяти встретилась
 	bool starved = false;
 	// Признак того, что связь на щедром запасе установилась
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Связь стороны клиента
@@ -1970,11 +1970,11 @@ TEST(CompressTest, Starved){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true, false);
 		// Кодеки клиента: два алгоритма
-		client.codecs(vector <context::codec_t> {custom(nullptr), zlib()}, 0);
+		client.codecs(vector <context::codec_t> {__nts_custom__(nullptr), __nts_zlib__()}, 0);
 		// Кодеки сервера: два алгоритма
-		server.codecs(vector <context::codec_t> {zlib(), custom(nullptr)}, 0);
+		server.codecs(vector <context::codec_t> {__nts_zlib__(), __nts_custom__(nullptr)}, 0);
 		// Ошибки сторон
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{
@@ -1987,7 +1987,7 @@ TEST(CompressTest, Starved){
 			// Если стороны заведены
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 				// Проводим рукопожатие
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Ошибка сервера после рукопожатия
 				first = server.error();
 				// Ошибка клиента

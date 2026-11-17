@@ -69,7 +69,7 @@ TEST(Asn1Test, Ragged) {
 	ASSERT_EQ(writer.err(), asn1::error_t::NONE);
 	// Получаем собранную запись ASN.1
 	const view_t whole = writer.data();
-	// Выполняем перенос собранной записи ASN.1
+	// Переносим собранную запись ASN.1
 	const vector <uint8_t> origin(whole.data, whole.data + whole.size);
 	// Проверяем, что собранная запись не пуста
 	ASSERT_GT(origin.size(), size_t(8));
@@ -83,26 +83,26 @@ TEST(Asn1Test, Ragged) {
 		asn1::tag_t::IA5_STRING, asn1::tag_t::BMP_STRING
 	};
 	/**
-	 * Выполняем перебор длин усечения записи ASN.1
+	 * Перебираем длины усечения записи ASN.1
 	 */
 	for(size_t size = 0; size <= origin.size(); size++){
 		/**
-		 * Выполняем перебор мест порчи записи: нулевой круг порчи не вносит вовсе,
+		 * Перебираем места порчи записи: нулевой круг порчи не вносит вовсе,
 		 * и им проверяется само усечение
 		 */
 		for(size_t place = 0; place <= size; place++){
-			// Выполняем перенос усекаемой записи ASN.1
+			// Переносим усекаемую запись ASN.1
 			vector <uint8_t> item(origin.begin(), origin.begin() + static_cast <ptrdiff_t> (size));
 			// Если очередной байт записи портится
 			if((place > 0) && (place <= item.size()))
-				// Выполняем обращение всех разрядов порченого байта
+				// Обращаем все разряды порченого байта
 				item[place - 1] = static_cast <uint8_t> (item[place - 1] ^ 0xFF);
 			// Создаём разборщик порченой записи ASN.1
 			asn1::reader_t reader(item.data(), item.size());
 			// Разбираемый элемент записи ASN.1
 			asn1::element_t element;
 			/**
-			 * Выполняем обход элементов порченой записи ASN.1
+			 * Обходим элементы порченой записи ASN.1
 			 */
 			while(reader.next(element)){
 				// Место, в которое помещается истинность элемента
@@ -123,25 +123,25 @@ TEST(Asn1Test, Ragged) {
 				 * а не выходом за область байтов
 				 */
 				(void) asn1::boolean(element, truth);
-				// Выполняем извлечение целого значения элемента
+				// Извлекаем целое значение элемента
 				(void) asn1::integer(element, number);
-				// Выполняем извлечение целого значения элемента областью байтов
+				// Извлекаем целое значение элемента областью байтов
 				(void) asn1::integer(element, digits);
-				// Выполняем извлечение строки разрядов элемента
+				// Извлекаем строку разрядов элемента
 				(void) asn1::bits(element, bits, unused);
-				// Выполняем извлечение опознавателя объекта элемента
+				// Извлекаем опознаватель объекта элемента
 				(void) asn1::oid(element, object);
 				/**
-				 * Выполняем перебор видов меток извлечения значения
+				 * Перебираем виды меток извлечения значения
 				 */
 				for(size_t kind = 0; kind < 6; kind++){
 					// Место, в которое помещается время элемента
 					int64_t moment = 0;
 					// Место, в которое помещается строка элемента
 					string line;
-					// Выполняем извлечение времени элемента
+					// Извлекаем время элемента
 					(void) asn1::time(element, kinds[kind], moment);
-					// Выполняем извлечение строки элемента
+					// Извлекаем строку элемента
 					(void) asn1::text(element, kinds[kind], line);
 				}
 				// Создаём разборщик вложения очередного элемента
@@ -149,13 +149,13 @@ TEST(Asn1Test, Ragged) {
 				// Разбираемый элемент вложения
 				asn1::element_t nested;
 				/**
-				 * Выполняем обход элементов вложения: вложением объявляет себя всякий
+				 * Обходим элементы вложения: вложением объявляет себя всякий
 				 * элемент, и разбор его содержимого обязан выдержать что угодно
 				 */
 				while(inner.next(nested)){
 					// Место, в которое помещается опознаватель объекта вложения
 					string named;
-					// Выполняем извлечение опознавателя объекта вложения
+					// Извлекаем опознаватель объекта вложения
 					(void) asn1::oid(nested, named);
 				}
 			}
@@ -174,7 +174,7 @@ TEST(ASN1Test, Sequence) {
 	asn1::reader_t reader(data, sizeof(data));
 	// Объект разобранного элемента
 	asn1::element_t element;
-	// Выполняем разбор набора значений
+	// Разбираем набор значений
 	ASSERT_TRUE(reader.next(asn1::tag_t::SEQUENCE, element));
 	// Проверяем вид метки набора значений
 	ASSERT_TRUE(element.constructed);
@@ -188,17 +188,17 @@ TEST(ASN1Test, Sequence) {
 	asn1::reader_t inner = reader.enter(element);
 	// Целое число из набора значений
 	int64_t number = 0;
-	// Выполняем разбор целого числа
+	// Разбираем целое число
 	ASSERT_TRUE(inner.next(asn1::tag_t::INTEGER, element));
-	// Выполняем извлечение целого числа
+	// Извлекаем целое число
 	ASSERT_EQ(asn1::integer(element, number), asn1::error_t::NONE);
 	// Проверяем значение целого числа
 	ASSERT_EQ(number, int64_t(5));
 	// Логическое значение из набора значений
 	bool flag = false;
-	// Выполняем разбор логического значения
+	// Разбираем логическое значение
 	ASSERT_TRUE(inner.next(asn1::tag_t::BOOLEAN, element));
-	// Выполняем извлечение логического значения
+	// Извлекаем логическое значение
 	ASSERT_EQ(asn1::boolean(element, flag), asn1::error_t::NONE);
 	// Проверяем значение логического значения
 	ASSERT_TRUE(flag);
@@ -318,27 +318,27 @@ TEST(ASN1Test, Integer) {
 	int64_t number = 0;
 	// Создаём разборщик записи числа со знаком минус
 	asn1::reader_t first(negative, sizeof(negative));
-	// Выполняем разбор целого числа
+	// Разбираем целое число
 	ASSERT_TRUE(first.next(asn1::tag_t::INTEGER, element));
-	// Выполняем извлечение целого числа
+	// Извлекаем целое число
 	ASSERT_EQ(asn1::integer(element, number), asn1::error_t::NONE);
 	// Проверяем значение целого числа
 	ASSERT_EQ(number, int64_t(-1));
 	// Создаём разборщик записи числа с незначащим старшим байтом
 	asn1::reader_t second(excessive, sizeof(excessive));
-	// Выполняем разбор целого числа
+	// Разбираем целое число
 	ASSERT_TRUE(second.next(asn1::tag_t::INTEGER, element));
 	// Проверяем отказ извлечения целого числа
 	ASSERT_EQ(asn1::integer(element, number), asn1::error_t::EXCESSIVE);
 	// Создаём разборщик записи числа, не умещающегося в разрядную сетку
 	asn1::reader_t third(huge, sizeof(huge));
-	// Выполняем разбор целого числа
+	// Разбираем целое число
 	ASSERT_TRUE(third.next(asn1::tag_t::INTEGER, element));
 	// Проверяем отказ извлечения целого числа
 	ASSERT_EQ(asn1::integer(element, number), asn1::error_t::HUGE_SIZE);
 	// Просмотр содержимого целого числа
 	view_t view;
-	// Выполняем извлечение содержимого целого числа
+	// Извлекаем содержимое целого числа
 	ASSERT_EQ(asn1::integer(element, view), asn1::error_t::NONE);
 	// Проверяем размер содержимого целого числа
 	ASSERT_EQ(view.size, size_t(9));
@@ -356,7 +356,7 @@ TEST(ASN1Test, Boolean) {
 	asn1::element_t element;
 	// Значение логического значения
 	bool flag = false;
-	// Выполняем разбор логического значения
+	// Разбираем логическое значение
 	ASSERT_TRUE(reader.next(asn1::tag_t::BOOLEAN, element));
 	// Проверяем отказ извлечения логического значения
 	ASSERT_EQ(asn1::boolean(element, flag), asn1::error_t::VALUE);
@@ -378,9 +378,9 @@ TEST(ASN1Test, Bits) {
 	uint8_t unused = 0;
 	// Создаём разборщик верной записи строки битов
 	asn1::reader_t first(correct, sizeof(correct));
-	// Выполняем разбор строки битов
+	// Разбираем строку битов
 	ASSERT_TRUE(first.next(asn1::tag_t::BIT_STRING, element));
-	// Выполняем извлечение строки битов
+	// Извлекаем строку битов
 	ASSERT_EQ(asn1::bits(element, view, unused), asn1::error_t::NONE);
 	// Проверяем число неиспользуемых разрядов
 	ASSERT_EQ(unused, uint8_t(3));
@@ -388,7 +388,7 @@ TEST(ASN1Test, Bits) {
 	ASSERT_EQ(view.size, size_t(1));
 	// Создаём разборщик неверной записи строки битов
 	asn1::reader_t second(broken, sizeof(broken));
-	// Выполняем разбор строки битов
+	// Разбираем строку битов
 	ASSERT_TRUE(second.next(asn1::tag_t::BIT_STRING, element));
 	// Проверяем отказ извлечения строки битов
 	ASSERT_EQ(asn1::bits(element, view, unused), asn1::error_t::VALUE);
@@ -412,29 +412,29 @@ TEST(ASN1Test, ObjectIdentifier) {
 	std::string result;
 	// Создаём разборщик записи опознавателя подписи
 	asn1::reader_t first(signature, sizeof(signature));
-	// Выполняем разбор опознавателя объекта
+	// Разбираем опознаватель объекта
 	ASSERT_TRUE(first.next(asn1::tag_t::OBJECT, element));
-	// Выполняем извлечение опознавателя объекта
+	// Извлекаем опознаватель объекта
 	ASSERT_EQ(asn1::oid(element, result), asn1::error_t::NONE);
 	// Проверяем запись опознавателя объекта
 	ASSERT_STREQ(result.c_str(), "1.2.840.113549.1.1.11");
 	// Создаём разборщик записи опознавателя общего имени
 	asn1::reader_t second(name, sizeof(name));
-	// Выполняем разбор опознавателя объекта
+	// Разбираем опознаватель объекта
 	ASSERT_TRUE(second.next(asn1::tag_t::OBJECT, element));
-	// Выполняем извлечение опознавателя объекта
+	// Извлекаем опознаватель объекта
 	ASSERT_EQ(asn1::oid(element, result), asn1::error_t::NONE);
 	// Проверяем запись опознавателя объекта
 	ASSERT_STREQ(result.c_str(), "2.5.4.3");
 	// Создаём разборщик записи опознавателя с незначащим старшим байтом
 	asn1::reader_t third(excessive, sizeof(excessive));
-	// Выполняем разбор опознавателя объекта
+	// Разбираем опознаватель объекта
 	ASSERT_TRUE(third.next(asn1::tag_t::OBJECT, element));
 	// Проверяем отказ извлечения опознавателя объекта
 	ASSERT_EQ(asn1::oid(element, result), asn1::error_t::EXCESSIVE);
 	// Создаём разборщик записи опознавателя с оборванной составляющей
 	asn1::reader_t fourth(broken, sizeof(broken));
-	// Выполняем разбор опознавателя объекта
+	// Разбираем опознаватель объекта
 	ASSERT_TRUE(fourth.next(asn1::tag_t::OBJECT, element));
 	// Проверяем отказ извлечения опознавателя объекта
 	ASSERT_EQ(asn1::oid(element, result), asn1::error_t::VALUE);
@@ -450,7 +450,7 @@ TEST(ASN1Test, EnterPrimitive) {
 	asn1::reader_t reader(data, sizeof(data));
 	// Объект разобранного элемента
 	asn1::element_t element;
-	// Выполняем разбор строки байтов
+	// Разбираем строку байтов
 	ASSERT_TRUE(reader.next(asn1::tag_t::OCTET_STRING, element));
 	// Создаём разборщик содержимого строки байтов
 	asn1::reader_t inner = reader.enter(element);
@@ -490,25 +490,25 @@ TEST(ASN1Test, Time) {
 	int64_t value = 0;
 	// Создаём разборщик записи времени с двузначным годом
 	asn1::reader_t first(shortly, sizeof(shortly));
-	// Выполняем разбор времени
+	// Разбираем время
 	ASSERT_TRUE(first.next(asn1::tag_t::UTC_TIME, element));
-	// Выполняем извлечение времени
+	// Извлекаем время
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::UTC_TIME, value), asn1::error_t::NONE);
 	// Проверяем значение времени
 	ASSERT_EQ(value, int64_t(915148800));
 	// Создаём разборщик записи времени с четырёхзначным годом
 	asn1::reader_t second(full, sizeof(full));
-	// Выполняем разбор времени
+	// Разбираем время
 	ASSERT_TRUE(second.next(asn1::tag_t::GENERALIZED_TIME, element));
-	// Выполняем извлечение времени
+	// Извлекаем время
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, value), asn1::error_t::NONE);
 	// Проверяем значение времени
 	ASSERT_EQ(value, int64_t(1787747696));
 	// Создаём разборщик записи времени начала промежутка
 	asn1::reader_t third(oldest, sizeof(oldest));
-	// Выполняем разбор времени
+	// Разбираем время
 	ASSERT_TRUE(third.next(asn1::tag_t::UTC_TIME, element));
-	// Выполняем извлечение времени
+	// Извлекаем время
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::UTC_TIME, value), asn1::error_t::NONE);
 	// Проверяем значение времени
 	ASSERT_EQ(value, int64_t(-631152000));
@@ -539,7 +539,7 @@ TEST(ASN1Test, TimeStrict) {
 		view_t(month, sizeof(month)), view_t(day, sizeof(day)), view_t(hour, sizeof(hour))
 	};
 	/**
-	 * Выполняем обход набора записей времени
+	 * Обходим набор записей времени
 	 */
 	for(size_t i = 0; i < (sizeof(records) / sizeof(records[0])); i++){
 		// Создаём разборщик записи времени
@@ -548,7 +548,7 @@ TEST(ASN1Test, TimeStrict) {
 		asn1::element_t element;
 		// Число секунд от начала эпохи
 		int64_t value = 0;
-		// Выполняем разбор элемента
+		// Разбираем элемент
 		ASSERT_TRUE(reader.next(element)) << "запись " << i;
 		// Определяем вид записи времени по метке элемента
 		const asn1::tag_t type = static_cast <asn1::tag_t> (element.tag);
@@ -563,9 +563,9 @@ TEST(ASN1Test, TimeStrict) {
 	asn1::element_t element;
 	// Число секунд от начала эпохи
 	int64_t value = 0;
-	// Выполняем разбор времени
+	// Разбираем время
 	ASSERT_TRUE(reader.next(asn1::tag_t::GENERALIZED_TIME, element));
-	// Выполняем извлечение времени
+	// Извлекаем время
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, value), asn1::error_t::NONE);
 }
 /**
@@ -593,15 +593,15 @@ TEST(ASN1Test, Text) {
 	std::string result;
 	// Создаём разборщик строки печатного набора
 	asn1::reader_t first(printable, sizeof(printable));
-	// Выполняем разбор строки
+	// Разбираем строку
 	ASSERT_TRUE(first.next(asn1::tag_t::PRINTABLE_STRING, element));
-	// Выполняем извлечение строки
+	// Извлекаем строку
 	ASSERT_EQ(asn1::text(element, asn1::tag_t::PRINTABLE_STRING, result), asn1::error_t::NONE);
 	// Проверяем значение строки
 	ASSERT_STREQ(result.c_str(), "anyks.com");
 	// Создаём разборщик строки со знаком не своего набора
 	asn1::reader_t second(broken, sizeof(broken));
-	// Выполняем разбор строки
+	// Разбираем строку
 	ASSERT_TRUE(second.next(asn1::tag_t::PRINTABLE_STRING, element));
 	// Проверяем отказ извлечения строки
 	ASSERT_EQ(asn1::text(element, asn1::tag_t::PRINTABLE_STRING, result), asn1::error_t::VALUE);
@@ -610,27 +610,27 @@ TEST(ASN1Test, Text) {
 		view_t(overlong, sizeof(overlong)), view_t(surrogate, sizeof(surrogate)), view_t(cropped, sizeof(cropped))
 	};
 	/**
-	 * Выполняем обход набора неверных записей строк
+	 * Обходим набор неверных записей строк
 	 */
 	for(size_t i = 0; i < (sizeof(records) / sizeof(records[0])); i++){
 		// Создаём разборщик записи строки
 		asn1::reader_t reader(records[i].data, records[i].size);
-		// Выполняем разбор строки
+		// Разбираем строку
 		ASSERT_TRUE(reader.next(asn1::tag_t::UTF8_STRING, element)) << "запись " << i;
 		// Проверяем отказ извлечения строки
 		ASSERT_EQ(asn1::text(element, asn1::tag_t::UTF8_STRING, result), asn1::error_t::VALUE) << "запись " << i;
 	}
 	// Создаём разборщик строки кодировки UCS-2
 	asn1::reader_t third(wide, sizeof(wide));
-	// Выполняем разбор строки
+	// Разбираем строку
 	ASSERT_TRUE(third.next(asn1::tag_t::BMP_STRING, element));
-	// Выполняем извлечение строки
+	// Извлекаем строку
 	ASSERT_EQ(asn1::text(element, asn1::tag_t::BMP_STRING, result), asn1::error_t::NONE);
 	// Проверяем перекодировку строки в UTF-8
 	ASSERT_STREQ(result.c_str(), "АБ");
 	// Создаём разборщик строки, оборванной посреди знака
 	asn1::reader_t fourth(odd, sizeof(odd));
-	// Выполняем разбор строки
+	// Разбираем строку
 	ASSERT_TRUE(fourth.next(asn1::tag_t::BMP_STRING, element));
 	// Проверяем отказ извлечения строки
 	ASSERT_EQ(asn1::text(element, asn1::tag_t::BMP_STRING, result), asn1::error_t::VALUE);
@@ -711,7 +711,7 @@ TEST(ASN1Test, RoundTrip) {
 	// Набор значений времени, проходящих запись и разбор
 	const int64_t moments[] = {915148800, 1787747696, -631152000, 2524607999, 0};
 	/**
-	 * Выполняем обход набора значений времени
+	 * Обходим набор значений времени
 	 */
 	for(size_t i = 0; i < (sizeof(moments) / sizeof(moments[0])); i++){
 		// Создаём записчик записи
@@ -726,9 +726,9 @@ TEST(ASN1Test, RoundTrip) {
 		asn1::element_t element;
 		// Число секунд от начала эпохи
 		int64_t value = 0;
-		// Выполняем разбор времени
+		// Разбираем время
 		ASSERT_TRUE(reader.next(type, element)) << "мгновение " << i;
-		// Выполняем извлечение времени
+		// Извлекаем время
 		ASSERT_EQ(asn1::time(element, type, value), asn1::error_t::NONE) << "мгновение " << i;
 		// Проверяем совпадение записанного и разобранного значения
 		ASSERT_EQ(value, moments[i]) << "мгновение " << i;
@@ -736,7 +736,7 @@ TEST(ASN1Test, RoundTrip) {
 	// Набор значений целых чисел, проходящих запись и разбор
 	const int64_t numbers[] = {0, 1, -1, 127, 128, -128, -129, 255, 256, 65535, INT64_MAX, INT64_MIN};
 	/**
-	 * Выполняем обход набора значений целых чисел
+	 * Обходим набор значений целых чисел
 	 */
 	for(size_t i = 0; i < (sizeof(numbers) / sizeof(numbers[0])); i++){
 		// Создаём записчик записи
@@ -749,9 +749,9 @@ TEST(ASN1Test, RoundTrip) {
 		asn1::element_t element;
 		// Значение целого числа
 		int64_t value = 0;
-		// Выполняем разбор целого числа
+		// Разбираем целое число
 		ASSERT_TRUE(reader.next(asn1::tag_t::INTEGER, element)) << "число " << i;
-		// Выполняем извлечение целого числа
+		// Извлекаем целое число
 		ASSERT_EQ(asn1::integer(element, value), asn1::error_t::NONE) << "число " << i;
 		// Проверяем совпадение записанного и разобранного значения
 		ASSERT_EQ(value, numbers[i]) << "число " << i;
@@ -761,11 +761,11 @@ TEST(ASN1Test, RoundTrip) {
 	// Набор видов строк, проходящих запись и разбор
 	const asn1::tag_t types[] = {asn1::tag_t::UTF8_STRING, asn1::tag_t::BMP_STRING, asn1::tag_t::UNIVERSAL_STRING};
 	/**
-	 * Выполняем обход набора видов строк
+	 * Обходим набор видов строк
 	 */
 	for(size_t i = 0; i < (sizeof(types) / sizeof(types[0])); i++){
 		/**
-		 * Выполняем обход набора строк
+		 * Обходим набор строк
 		 */
 		for(size_t j = 0; j < (sizeof(strings) / sizeof(strings[0])); j++){
 			// Создаём записчик записи
@@ -778,9 +778,9 @@ TEST(ASN1Test, RoundTrip) {
 			asn1::element_t element;
 			// Разобранная строка
 			std::string value;
-			// Выполняем разбор строки
+			// Разбираем строку
 			ASSERT_TRUE(reader.next(types[i], element)) << "строка " << i << ":" << j;
-			// Выполняем извлечение строки
+			// Извлекаем строку
 			ASSERT_EQ(asn1::text(element, types[i], value), asn1::error_t::NONE) << "строка " << i << ":" << j;
 			// Проверяем совпадение записанной и разобранной строки
 			ASSERT_STREQ(value.c_str(), strings[j]) << "строка " << i << ":" << j;
@@ -861,7 +861,7 @@ TEST(ASN1Test, Encodings) {
 	asn1::reader_t reader(view_t(proper, sizeof(proper)));
 	// Объект разобранного элемента
 	asn1::element_t element;
-	// Выполняем разбор записи строки с годной трёхбайтовой записью знака
+	// Разбираем запись строки с годной трёхбайтовой записью знака
 	ASSERT_TRUE(reader.next(asn1::tag_t::UTF8_STRING, element));
 	// Извлечённое значение строки
 	std::string result;
@@ -876,7 +876,7 @@ TEST(ASN1Test, Encodings) {
 	const uint8_t adjacent[] = {0x1E, 0x02, 0xE0, 0x00};
 	// Создаём разборщик записи строки UCS-2 со знаком сразу за областью суррогатов
 	asn1::reader_t following(view_t(adjacent, sizeof(adjacent)));
-	// Выполняем разбор записи строки UCS-2 со знаком сразу за областью суррогатов
+	// Разбираем запись строки UCS-2 со знаком сразу за областью суррогатов
 	ASSERT_TRUE(following.next(asn1::tag_t::BMP_STRING, element));
 	// Проверяем успешность извлечения строки UCS-2 со знаком за областью суррогатов
 	ASSERT_EQ(asn1::text(element, asn1::tag_t::BMP_STRING, result), asn1::error_t::NONE);
@@ -898,7 +898,7 @@ TEST(ASN1Test, Bitwise) {
 	const uint8_t excessive[] = {0x03, 0x02, 0x08, 0xFF};
 	// Создаём разборщик записи строки битов
 	asn1::reader_t first(excessive, sizeof(excessive));
-	// Выполняем разбор записи строки битов
+	// Разбираем запись строки битов
 	ASSERT_TRUE(first.next(asn1::tag_t::BIT_STRING, element));
 	// Проверяем отказ извлечения строки битов с непомерным числом неиспользуемых
 	ASSERT_EQ(asn1::bits(element, result, unused), asn1::error_t::VALUE);
@@ -909,7 +909,7 @@ TEST(ASN1Test, Bitwise) {
 	const uint8_t hollow[] = {0x03, 0x01, 0x03};
 	// Создаём разборщик записи пустой строки битов
 	asn1::reader_t second(hollow, sizeof(hollow));
-	// Выполняем разбор записи строки битов
+	// Разбираем запись строки битов
 	ASSERT_TRUE(second.next(asn1::tag_t::BIT_STRING, element));
 	// Проверяем отказ извлечения пустой строки битов с объявленными неиспользуемыми
 	ASSERT_EQ(asn1::bits(element, result, unused), asn1::error_t::VALUE);
@@ -920,7 +920,7 @@ TEST(ASN1Test, Bitwise) {
 	const uint8_t dirty[] = {0x03, 0x02, 0x03, 0xFF};
 	// Создаём разборщик записи строки битов
 	asn1::reader_t third(dirty, sizeof(dirty));
-	// Выполняем разбор записи строки битов
+	// Разбираем запись строки битов
 	ASSERT_TRUE(third.next(asn1::tag_t::BIT_STRING, element));
 	// Проверяем отказ извлечения строки битов с ненулевыми неиспользуемыми разрядами
 	ASSERT_EQ(asn1::bits(element, result, unused), asn1::error_t::VALUE);
@@ -928,7 +928,7 @@ TEST(ASN1Test, Bitwise) {
 	const uint8_t empty[] = {0x03, 0x01, 0x00};
 	// Создаём разборщик записи пустой строки битов
 	asn1::reader_t fourth(empty, sizeof(empty));
-	// Выполняем разбор записи строки битов
+	// Разбираем запись строки битов
 	ASSERT_TRUE(fourth.next(asn1::tag_t::BIT_STRING, element));
 	// Проверяем успешность извлечения пустой строки битов
 	ASSERT_EQ(asn1::bits(element, result, unused), asn1::error_t::NONE);
@@ -1061,7 +1061,7 @@ TEST(ASN1Test, Leaping) {
 	const uint8_t quaternary[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '2', '2', '9', '0', '0', '0', '0', '0', '0', 'Z'};
 	// Создаём разборщик записи времени года, кратного четырём
 	asn1::reader_t first(quaternary, sizeof(quaternary));
-	// Выполняем разбор записи времени
+	// Разбираем запись времени
 	ASSERT_TRUE(first.next(asn1::tag_t::GENERALIZED_TIME, element));
 	// Проверяем успешность разбора двадцать девятого февраля года, кратного четырём
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::NONE);
@@ -1069,7 +1069,7 @@ TEST(ASN1Test, Leaping) {
 	const uint8_t quadringentary[] = {0x18, 0x0F, '2', '0', '0', '0', '0', '2', '2', '9', '0', '0', '0', '0', '0', '0', 'Z'};
 	// Создаём разборщик записи времени года, кратного четырёмстам
 	asn1::reader_t second(quadringentary, sizeof(quadringentary));
-	// Выполняем разбор записи времени
+	// Разбираем запись времени
 	ASSERT_TRUE(second.next(asn1::tag_t::GENERALIZED_TIME, element));
 	// Проверяем успешность разбора двадцать девятого февраля года, кратного четырёмстам
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::NONE);
@@ -1077,7 +1077,7 @@ TEST(ASN1Test, Leaping) {
 	const uint8_t centenary[] = {0x18, 0x0F, '1', '9', '0', '0', '0', '2', '2', '9', '0', '0', '0', '0', '0', '0', 'Z'};
 	// Создаём разборщик записи времени года, кратного ста
 	asn1::reader_t third(centenary, sizeof(centenary));
-	// Выполняем разбор записи времени
+	// Разбираем запись времени
 	ASSERT_TRUE(third.next(asn1::tag_t::GENERALIZED_TIME, element));
 	// Проверяем отказ разбора двадцать девятого февраля года, кратного ста
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
@@ -1089,7 +1089,7 @@ TEST(ASN1Test, Leaping) {
 	const uint8_t leaping[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '6', '3', '0', '2', '3', '5', '9', '6', '0', 'Z'};
 	// Создаём разборщик записи времени с високосной секундой
 	asn1::reader_t fourth(leaping, sizeof(leaping));
-	// Выполняем разбор записи времени
+	// Разбираем запись времени
 	ASSERT_TRUE(fourth.next(asn1::tag_t::GENERALIZED_TIME, element));
 	// Проверяем отказ разбора записи времени с високосной секундой
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
@@ -1097,7 +1097,7 @@ TEST(ASN1Test, Leaping) {
 	const uint8_t minute[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '6', '3', '0', '2', '3', '6', '0', '0', '0', 'Z'};
 	// Создаём разборщик записи времени с несуществующей минутой
 	asn1::reader_t fifth(minute, sizeof(minute));
-	// Выполняем разбор записи времени
+	// Разбираем запись времени
 	ASSERT_TRUE(fifth.next(asn1::tag_t::GENERALIZED_TIME, element));
 	// Проверяем отказ разбора записи времени с несуществующей минутой
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
@@ -1105,7 +1105,7 @@ TEST(ASN1Test, Leaping) {
 	const uint8_t hollow[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '0', '1', '5', '0', '0', '0', '0', '0', '0', 'Z'};
 	// Создаём разборщик записи времени с нулевым месяцем
 	asn1::reader_t sixth(hollow, sizeof(hollow));
-	// Выполняем разбор записи времени
+	// Разбираем запись времени
 	ASSERT_TRUE(sixth.next(asn1::tag_t::GENERALIZED_TIME, element));
 	// Проверяем отказ разбора записи времени с нулевым месяцем
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
@@ -1113,7 +1113,7 @@ TEST(ASN1Test, Leaping) {
 	const uint8_t dayless[] = {0x18, 0x0F, '2', '0', '2', '4', '0', '6', '0', '0', '0', '0', '0', '0', '0', '0', 'Z'};
 	// Создаём разборщик записи времени с нулевым днём
 	asn1::reader_t seventh(dayless, sizeof(dayless));
-	// Выполняем разбор записи времени
+	// Разбираем запись времени
 	ASSERT_TRUE(seventh.next(asn1::tag_t::GENERALIZED_TIME, element));
 	// Проверяем отказ разбора записи времени с нулевым днём
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::GENERALIZED_TIME, moment), asn1::error_t::VALUE);
@@ -1191,7 +1191,7 @@ TEST(ASN1Test, Unlettered) {
 	asn1::element_t element;
 	// Число секунд от начала эпохи
 	int64_t value = 0;
-	// Выполняем разбор элемента записи времени
+	// Разбираем элемент записи времени
 	ASSERT_TRUE(reader.next(asn1::tag_t::UTC_TIME, element));
 	// Проверяем отказ извлечения времени с незнаковым знаком
 	ASSERT_EQ(asn1::time(element, asn1::tag_t::UTC_TIME, value), asn1::error_t::VALUE);
@@ -1210,7 +1210,7 @@ TEST(ASN1Test, Unlettered) {
 		view_t(beyond, sizeof(beyond)), view_t(trailing, sizeof(trailing)), view_t(alien, sizeof(alien))
 	};
 	/**
-	 * Выполняем обход набора отвергаемых строк
+	 * Обходим набор отвергаемых строк
 	 */
 	for(size_t i = 0; i < (sizeof(records) / sizeof(records[0])); i++){
 		// Создаём разборщик строки
@@ -1219,7 +1219,7 @@ TEST(ASN1Test, Unlettered) {
 		asn1::element_t entry;
 		// Разобранная строка
 		std::string result;
-		// Выполняем разбор элемента строки
+		// Разбираем элемент строки
 		ASSERT_TRUE(item.next(asn1::tag_t::UTF8_STRING, entry)) << "строка " << i;
 		// Проверяем отказ извлечения строки
 		ASSERT_EQ(asn1::text(entry, asn1::tag_t::UTF8_STRING, result), asn1::error_t::VALUE) << "строка " << i;
@@ -1232,7 +1232,7 @@ TEST(ASN1Test, Unlettered) {
 	asn1::element_t entry;
 	// Разобранная строка
 	std::string result;
-	// Выполняем разбор элемента строки
+	// Разбираем элемент строки
 	ASSERT_TRUE(last.next(asn1::tag_t::UTF8_STRING, entry));
 	// Проверяем, что знак предельной области отвергнут не был
 	ASSERT_EQ(asn1::text(entry, asn1::tag_t::UTF8_STRING, result), asn1::error_t::NONE);
@@ -1378,7 +1378,7 @@ TEST(ASN1Test, Malformed){
 	asn1::Reader reader(view_t(alien.data(), alien.size()));
 	// Разбираемый элемент записи строки печатного набора
 	asn1::element_t element;
-	// Выполняем разбор элемента записи строки печатного набора
+	// Разбираем элемент записи строки печатного набора
 	ASSERT_TRUE(reader.next(asn1::tag_t::PRINTABLE_STRING, element));
 	// Извлечённая запись строки печатного набора
 	string value;
@@ -1393,7 +1393,7 @@ TEST(ASN1Test, Malformed){
 	asn1::Reader visible(view_t(unseen.data(), unseen.size()));
 	// Разбираемый элемент записи строки видимых знаков
 	asn1::element_t seen;
-	// Выполняем разбор элемента записи строки видимых знаков
+	// Разбираем элемент записи строки видимых знаков
 	ASSERT_TRUE(visible.next(asn1::tag_t::VISIBLE_STRING, seen));
 	// Проверяем отказ извлечения строки видимых знаков со знаком ниже пробела
 	ASSERT_EQ(asn1::text(seen, asn1::tag_t::VISIBLE_STRING, value), asn1::error_t::VALUE);
@@ -1424,7 +1424,7 @@ TEST(ASN1Test, Malformed){
 	asn1::Reader spent(view_t(alien.data(), alien.size()));
 	// Разбираемый элемент разобранной до конца записи
 	asn1::element_t spare;
-	// Выполняем разбор единственного элемента записи
+	// Разбираем единственный элемент записи
 	ASSERT_TRUE(spent.next(spare));
 	// Проверяем нулевую длину области, разобранной до конца
 	ASSERT_EQ(spent.size(), static_cast <size_t> (0));
@@ -1475,7 +1475,7 @@ TEST(Asn1Test, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе извлечение обязано
+	 * Перебираем запасы выделений: на всяком запасе извлечение обязано
 	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 16; budget++){
@@ -1486,7 +1486,7 @@ TEST(Asn1Test, Starved){
 		{
 			// Отмеряем запас выделений на время извлечения
 			starve::ration_t ration(budget);
-			// Выполняем извлечение опознавателя при отмеренном запасе
+			// Извлекаем опознаватель при отмеренном запасе
 			outcome = asn1::oid(element, object);
 		}
 		// Проверяем, что извлечение ответило успехом либо отказом памяти
