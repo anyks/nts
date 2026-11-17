@@ -81,13 +81,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -115,7 +115,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -136,9 +136,9 @@ static std::string text(const uint8_t * data, const size_t size) {
 static void element(const char * source, math::field448::element_t & result) {
 	// Место разобранных байтов
 	uint8_t buffer[math::field448::SIZE];
-	// Выполняем разбор записи
+	// Разбираем запись
 	ASSERT_EQ(bytes(source, buffer), math::field448::SIZE);
-	// Выполняем разбор элемента поля
+	// Разбираем элемент поля
 	math::field448::load(buffer, result);
 }
 /**
@@ -151,7 +151,7 @@ static void element(const char * source, math::field448::element_t & result) {
 static std::string record(const math::field448::element_t & value) {
 	// Место записи элемента
 	uint8_t buffer[math::field448::SIZE];
-	// Выполняем запись элемента
+	// Записываем элемент
 	math::field448::store(value, buffer);
 	// Выводим запись элемента
 	return text(buffer, sizeof(buffer));
@@ -164,25 +164,25 @@ static std::string record(const math::field448::element_t & value) {
 TEST(Field448Test, Addition) {
 	// Контрольные элементы и итог
 	math::field448::element_t first, second, result;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
-	// Выполняем разбор второго элемента
+	// Разбираем второй элемент
 	element(SECOND, second);
-	// Выполняем сложение элементов
+	// Складываем элементы
 	math::field448::add(first, second, result);
 	// Сличаем сумму с контрольным значением
 	ASSERT_EQ(record(result), std::string(SUM));
-	// Выполняем вычитание элементов
+	// Вычитаем элементы
 	math::field448::sub(first, second, result);
 	// Сличаем разность с контрольным значением
 	ASSERT_EQ(record(result), std::string(DIFFERENCE));
-	// Выполняем вычитание в обратном порядке
+	// Вычитаем элементы в обратном порядке
 	math::field448::sub(second, first, result);
 	// Прибавляем разность к первому элементу: обязан выйти второй
 	math::field448::add(result, first, result);
 	// Сличаем итог со вторым элементом
 	ASSERT_TRUE(math::field448::equal(result, second));
-	// Выполняем вычитание элемента из себя же в место одного из доводов
+	// Вычитаем элемент из себя же в место одного из доводов
 	math::field448::sub(first, first, first);
 	// Проверяем обращение разности в ноль
 	ASSERT_TRUE(math::field448::nil(first));
@@ -194,23 +194,23 @@ TEST(Field448Test, Addition) {
 TEST(Field448Test, Multiplication) {
 	// Контрольные элементы и итог
 	math::field448::element_t first, second, result;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
-	// Выполняем разбор второго элемента
+	// Разбираем второй элемент
 	element(SECOND, second);
-	// Выполняем умножение элементов
+	// Умножаем элементы
 	math::field448::mul(first, second, result);
 	// Сличаем произведение с контрольным значением
 	ASSERT_EQ(record(result), std::string(PRODUCT));
-	// Выполняем умножение в обратном порядке в место одного из сомножителей
+	// Умножаем элементы в обратном порядке в место одного из сомножителей
 	math::field448::mul(second, first, second);
 	// Сличаем произведение с контрольным значением
 	ASSERT_EQ(record(second), std::string(PRODUCT));
-	// Выполняем возведение в квадрат
+	// Возводим в квадрат
 	math::field448::square(first, result);
 	// Сличаем квадрат с контрольным значением
 	ASSERT_EQ(record(result), std::string(SQUARE));
-	// Выполняем возведение в квадрат в место довода
+	// Возводим в квадрат в место довода
 	math::field448::square(first, first);
 	// Сличаем квадрат с контрольным значением
 	ASSERT_EQ(record(first), std::string(SQUARE));
@@ -229,7 +229,7 @@ TEST(Field448Test, Squaring) {
 	// Число проверенных сочетаний
 	size_t count = 0;
 	/**
-	 * Выполняем перебор сочетаний конечностей по границам
+	 * Перебираем сочетания конечностей по границам
 	 */
 	for(size_t i = 0; i < 6; i++){
 		/**
@@ -250,9 +250,9 @@ TEST(Field448Test, Squaring) {
 					value.limbs[w] = limits[(((i + j) * w + (k * ((w + 1) / 2)) + ((w % 2) ? k : i)) % 6)];
 				// Квадрат своим путём и умножением на себя
 				math::field448::element_t square, product;
-				// Выполняем возведение в квадрат
+				// Возводим в квадрат
 				math::field448::square(value, square);
-				// Выполняем умножение элемента на себя
+				// Умножаем элемент на себя
 				math::field448::mul(value, value, product);
 				// Сличаем записи квадрата и произведения
 				ASSERT_EQ(record(square), record(product)) << "сочетание " << i << " " << j << " " << k;
@@ -277,10 +277,10 @@ TEST(Field448Test, Scaling) {
 	static const uint64_t factors[] = {1, 39082, 0xFFFFFFFFULL, (static_cast <uint64_t> (1) << 32)};
 	// Контрольный элемент
 	math::field448::element_t value;
-	// Выполняем разбор контрольного элемента
+	// Разбираем контрольный элемент
 	element(FIRST, value);
 	/**
-	 * Выполняем перебор множителей
+	 * Перебираем множители
 	 */
 	for(const uint64_t factor : factors){
 		// Множитель элементом поля
@@ -289,15 +289,15 @@ TEST(Field448Test, Scaling) {
 		scalar.limbs[0] = factor;
 		// Произведение своим путём и умножением элементов
 		math::field448::element_t scaled, product;
-		// Выполняем умножение на малое число
+		// Умножаем на малое число
 		math::field448::mul(value, factor, scaled);
-		// Выполняем умножение на элемент
+		// Умножаем на элемент
 		math::field448::mul(value, scalar, product);
 		// Сличаем записи произведений
 		ASSERT_EQ(record(scaled), record(product)) << "множитель " << factor;
-		// Выполняем умножение на малое число в место довода
+		// Умножаем на малое число в место довода
 		math::field448::element_t inplace = value;
-		// Выполняем умножение на месте
+		// Умножаем элемент на месте
 		math::field448::mul(inplace, factor, inplace);
 		// Сличаем запись произведения на месте
 		ASSERT_EQ(record(inplace), record(product)) << "множитель на месте " << factor;
@@ -313,9 +313,9 @@ TEST(Field448Test, Scaling) {
 	}
 	// Записываем множитель удвоения X448
 	scalar.limbs[0] = 39082;
-	// Выполняем умножение на малое число
+	// Умножаем на малое число
 	math::field448::mul(wide, static_cast <uint64_t> (39082), scaled);
-	// Выполняем умножение на элемент
+	// Умножаем на элемент
 	math::field448::mul(wide, scalar, product);
 	// Сличаем записи произведений
 	ASSERT_EQ(record(scaled), record(product));
@@ -327,25 +327,25 @@ TEST(Field448Test, Scaling) {
 TEST(Field448Test, Inversion) {
 	// Контрольный элемент, обратный к нему и единица
 	math::field448::element_t first, inverse, unit;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
-	// Выполняем обращение элемента
+	// Обращаем элемент
 	math::field448::invert(first, inverse);
 	// Сличаем обратный элемент с контрольным значением
 	ASSERT_EQ(record(inverse), std::string(INVERSE));
-	// Выполняем умножение элемента на обратный
+	// Умножаем элемент на обратный
 	math::field448::mul(first, inverse, inverse);
 	// Получаем единицу поля
 	math::field448::one(unit);
 	// Проверяем обращение произведения в единицу
 	ASSERT_TRUE(math::field448::equal(inverse, unit));
-	// Выполняем обращение элемента в место довода
+	// Обращаем элемент в место довода
 	math::field448::invert(first, first);
 	// Сличаем обратный элемент с контрольным значением
 	ASSERT_EQ(record(first), std::string(INVERSE));
 	// Ноль поля
 	math::field448::element_t empty;
-	// Выполняем обращение нуля
+	// Обращаем нуль
 	math::field448::invert(empty, inverse);
 	// Проверяем, что обратный к нулю - ноль
 	ASSERT_TRUE(math::field448::nil(inverse));
@@ -360,7 +360,7 @@ TEST(Field448Test, Inversion) {
 TEST(Field448Test, Root) {
 	// Контрольный элемент и промежуточные значения
 	math::field448::element_t first, square, power, check;
-	// Выполняем разбор первого элемента
+	// Разбираем первый элемент
 	element(FIRST, first);
 	// Вырабатываем квадрат элемента: квадрат всегда есть вычет
 	math::field448::square(first, square);
@@ -380,21 +380,21 @@ TEST(Field448Test, Reduction) {
 	uint8_t buffer[math::field448::SIZE];
 	// Разбираемый элемент
 	math::field448::element_t value;
-	// Выполняем разбор записи p + 5
+	// Разбираем запись p + 5
 	ASSERT_EQ(bytes("04000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff", buffer), math::field448::SIZE);
-	// Выполняем разбор элемента
+	// Разбираем элемент
 	math::field448::load(buffer, value);
 	// Проверяем приведение к пяти
 	ASSERT_EQ(record(value), std::string("0500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"));
-	// Выполняем разбор записи 2^448 - 1
+	// Разбираем запись 2^448 - 1
 	ASSERT_EQ(bytes("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", buffer), math::field448::SIZE);
-	// Выполняем разбор элемента
+	// Разбираем элемент
 	math::field448::load(buffer, value);
 	// Проверяем приведение к 2^224: 2^448 - 1 больше модуля ровно на 2^224
 	ASSERT_EQ(record(value), std::string("0000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000"));
-	// Выполняем разбор записи самого модуля
+	// Разбираем запись самого модуля
 	ASSERT_EQ(bytes("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffffffffffffffffffffffffffffffffffffffffffffffffff", buffer), math::field448::SIZE);
-	// Выполняем разбор элемента
+	// Разбираем элемент
 	math::field448::load(buffer, value);
 	// Проверяем приведение к нулю
 	ASSERT_TRUE(math::field448::nil(value));

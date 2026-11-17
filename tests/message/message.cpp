@@ -79,7 +79,7 @@ static vector <uint8_t> decode(const char * text) noexcept {
 	// Получаем длину разбираемой строки
 	const size_t length = ::strlen(text);
 	/**
-	 * Выполняем перебор знаков шестнадцатеричной записи
+	 * Перебираем знаки шестнадцатеричной записи
 	 */
 	for(size_t i = 0; (i + 1) < length; i += 2){
 		// Если очередной знак записи не знак шестнадцатеричной цифры
@@ -109,10 +109,10 @@ static vector <uint8_t> decode(const char * text) noexcept {
 TEST(MessageTest, Ragged){
 	// Набор годных тел сообщений, служащий основою порчи
 	vector <vector <uint8_t>> corpus;
-	// Выполняем перебор образцов настоящих сообщений рукопожатия
+	// Перебираем образцы настоящих сообщений рукопожатия
 	const char * samples[3] = {CERTIFICATE, VERIFY, FINISHED};
 	/**
-	 * Выполняем перебор образцов сообщений рукопожатия
+	 * Перебираем образцы сообщений рукопожатия
 	 */
 	for(size_t item = 0; item < 3; item++){
 		// Получаем очередное сообщение рукопожатия вместе с обвязкой
@@ -147,28 +147,28 @@ TEST(MessageTest, Ragged){
 	// Складываем тело смены ключевого материала в набор годных тел
 	corpus.push_back(renewed);
 	/**
-	 * Выполняем перебор годных тел сообщений
+	 * Перебираем годные тела сообщений
 	 */
 	for(size_t body = 0; body < corpus.size(); body++){
 		/**
-		 * Выполняем перебор длин усечения очередного тела: тела образцов велики, и
+		 * Перебираем длины усечения очередного тела: тела образцов велики, и
 		 * шаг усечения берётся по их размеру - иначе проверка идёт непомерно долго
 		 */
 		const size_t step = ((corpus[body].size() / 512) + 1);
 		/**
-		 * Выполняем перебор длин усечения очередного тела
+		 * Перебираем длины усечения очередного тела
 		 */
 		for(size_t size = 0; size <= corpus[body].size(); size += step){
 			/**
-			 * Выполняем перебор мест порчи очередного тела: нулевой круг порчи не
+			 * Перебираем места порчи очередного тела: нулевой круг порчи не
 			 * вносит вовсе, и им проверяется само усечение
 			 */
 			for(size_t place = 0; place <= size; place += step){
-				// Выполняем перенос очередного годного тела сообщения
+				// Переносим очередное годное тело сообщения
 				vector <uint8_t> item(corpus[body].begin(), corpus[body].begin() + static_cast <ptrdiff_t> (size));
 				// Если очередной байт тела портится
 				if((place > 0) && (place <= item.size()))
-					// Выполняем обращение всех разрядов порченого байта
+					// Обращаем все разряды порченого байта
 					item[place - 1] = static_cast <uint8_t> (item[place - 1] ^ 0xFF);
 				// Просмотр разбираемого тела сообщения
 				const view_t data(item.data(), item.size());
@@ -185,11 +185,11 @@ TEST(MessageTest, Ragged){
 				 * ничем не лучше порченого, и выдержать он обязан оба
 				 */
 				(void) message::parse(data, certificate);
-				// Выполняем разбор подписи владения ключом
+				// Разбираем подпись владения ключом
 				(void) message::parse(data, verify);
-				// Выполняем разбор смены ключевого материала
+				// Разбираем смену ключевого материала
 				(void) message::parse(data, update);
-				// Выполняем разбор билета возобновления связи
+				// Разбираем билет возобновления связи
 				(void) message::parse(data, taken);
 				/**
 				 * Обрубок тела обязан быть отвергнут своим же разборщиком: всякое поле
@@ -201,7 +201,7 @@ TEST(MessageTest, Ragged){
 				 */
 				if((place == 0) && (size < corpus[body].size())){
 					/**
-					 * Выполняем выбор разборщика, которому принадлежит очередное тело
+					 * Выбираем разборщика, которому принадлежит очередное тело
 					 */
 					switch(body){
 						// Обрубок тела цепочки сертификатов
@@ -227,7 +227,7 @@ TEST(MessageTest, Certificate){
 	const vector <uint8_t> message = decode(CERTIFICATE);
 	// Обвязка сообщения цепочки сертификатов
 	handshake::header_t header;
-	// Выполняем разбор обвязки сообщения цепочки сертификатов
+	// Разбираем обвязку сообщения цепочки сертификатов
 	ASSERT_EQ(handshake::parse(view_t(message.data(), message.size()), header), handshake::error_t::NONE);
 	// Проверяем вид разобранного сообщения рукопожатия
 	ASSERT_EQ(header.type, handshake::type_t::CERTIFICATE);
@@ -235,7 +235,7 @@ TEST(MessageTest, Certificate){
 	const view_t body(message.data() + handshake::HANDSHAKE_HEADER, header.size);
 	// Разобранное сообщение цепочки сертификатов
 	message::certificate_t certificate;
-	// Выполняем разбор тела сообщения цепочки сертификатов
+	// Разбираем тело сообщения цепочки сертификатов
 	ASSERT_EQ(message::parse(body, certificate), message::error_t::NONE);
 	// Проверяем, что привязка цепочки к запросу сертификата пуста
 	ASSERT_EQ(certificate.context.size, static_cast <size_t> (0));
@@ -249,7 +249,7 @@ TEST(MessageTest, Certificate){
 	ASSERT_TRUE(certificate.entries[0].extensions.empty());
 	// Накопитель, в который складывается составленное тело сообщения
 	vector <uint8_t> composed;
-	// Выполняем составление тела сообщения цепочки сертификатов заново
+	// Составляем тело сообщения цепочки сертификатов заново
 	ASSERT_EQ(message::build(certificate, composed), message::error_t::NONE);
 	// Проверяем схождение длины составленного тела с исходным
 	ASSERT_EQ(composed.size(), body.size);
@@ -265,7 +265,7 @@ TEST(MessageTest, Verify){
 	const vector <uint8_t> message = decode(VERIFY);
 	// Обвязка сообщения подписи владения ключом
 	handshake::header_t header;
-	// Выполняем разбор обвязки сообщения подписи владения ключом
+	// Разбираем обвязку сообщения подписи владения ключом
 	ASSERT_EQ(handshake::parse(view_t(message.data(), message.size()), header), handshake::error_t::NONE);
 	// Проверяем вид разобранного сообщения рукопожатия
 	ASSERT_EQ(header.type, handshake::type_t::VERIFY);
@@ -273,7 +273,7 @@ TEST(MessageTest, Verify){
 	const view_t body(message.data() + handshake::HANDSHAKE_HEADER, header.size);
 	// Разобранное сообщение подписи владения ключом
 	message::verify_t verify;
-	// Выполняем разбор тела сообщения подписи владения ключом
+	// Разбираем тело сообщения подписи владения ключом
 	ASSERT_EQ(message::parse(body, verify), message::error_t::NONE);
 	// Проверяем, что схема подписи владения ключом известна
 	ASSERT_NE(extension::length(verify.scheme), static_cast <size_t> (0));
@@ -281,13 +281,13 @@ TEST(MessageTest, Verify){
 	ASSERT_EQ(verify.signature.size, (extension::length(verify.scheme) * 2));
 	// Место, в которое помещается обращённая запись подписи
 	vector <uint8_t> reversed(verify.signature.size, 0);
-	// Выполняем обращение записи подписи владения ключом
+	// Обращаем запись подписи владения ключом
 	ASSERT_EQ(message::reverse(verify.signature, reversed.data()), message::error_t::NONE);
 	// Проверяем, что обращённая запись подписи с исходной разошлась
 	ASSERT_NE(::memcmp(reversed.data(), verify.signature.data, reversed.size()), 0);
 	// Место, в которое помещается дважды обращённая запись подписи
 	vector <uint8_t> restored(verify.signature.size, 0);
-	// Выполняем обращение записи подписи владения ключом обратно
+	// Обращаем запись подписи владения ключом обратно
 	ASSERT_EQ(message::reverse(view_t(reversed.data(), reversed.size()), restored.data()), message::error_t::NONE);
 	/**
 	 * Обращение записи подписи само себе обратно: дважды обращённая подпись обязана
@@ -296,7 +296,7 @@ TEST(MessageTest, Verify){
 	ASSERT_EQ(::memcmp(restored.data(), verify.signature.data, restored.size()), 0);
 	// Накопитель, в который складывается составленное тело сообщения
 	vector <uint8_t> composed;
-	// Выполняем составление тела сообщения подписи владения ключом заново
+	// Составляем тело сообщения подписи владения ключом заново
 	ASSERT_EQ(message::build(verify, composed), message::error_t::NONE);
 	// Проверяем схождение длины составленного тела с исходным
 	ASSERT_EQ(composed.size(), body.size);
@@ -312,7 +312,7 @@ TEST(MessageTest, Finished){
 	const vector <uint8_t> message = decode(FINISHED);
 	// Обвязка сообщения завершения рукопожатия
 	handshake::header_t header;
-	// Выполняем разбор обвязки сообщения завершения рукопожатия
+	// Разбираем обвязку сообщения завершения рукопожатия
 	ASSERT_EQ(handshake::parse(view_t(message.data(), message.size()), header), handshake::error_t::NONE);
 	// Проверяем вид разобранного сообщения рукопожатия
 	ASSERT_EQ(header.type, handshake::type_t::FINISHED);
@@ -322,7 +322,7 @@ TEST(MessageTest, Finished){
 	const vector <uint8_t> transcript = decode(TRANSCRIPT);
 	// Место, в которое помещается выработанное завершение рукопожатия
 	uint8_t result[32];
-	// Выполняем выработку тела сообщения завершения рукопожатия
+	// Вырабатываем тело сообщения завершения рукопожатия
 	ASSERT_EQ(message::finished(view_t(secret.data(), secret.size()), view_t(transcript.data(), transcript.size()), result), message::error_t::NONE);
 	// Получаем тело сообщения завершения рукопожатия контрольного примера
 	const view_t body(message.data() + handshake::HANDSHAKE_HEADER, header.size);
@@ -346,12 +346,12 @@ TEST(MessageTest, Content){
 	const vector <uint8_t> transcript = decode(TRANSCRIPT);
 	// Накопитель, в который складывается подписываемое содержимое сервера
 	vector <uint8_t> server;
-	// Выполняем составление подписываемого содержимого сервера
+	// Составляем подписываемое содержимое сервера
 	ASSERT_EQ(message::content(view_t(transcript.data(), transcript.size()), true, server), message::error_t::NONE);
 	// Проверяем длину подписываемого содержимого сервера
 	ASSERT_EQ(server.size(), (64 + ::strlen("TLS 1.3, server CertificateVerify") + 1 + transcript.size()));
 	/**
-	 * Выполняем перебор пробелов подписываемого содержимого
+	 * Перебираем пробелы подписываемого содержимого
 	 */
 	for(size_t i = 0; i < 64; i++)
 		// Проверяем, что очередной байт подписываемого содержимого пробел
@@ -364,7 +364,7 @@ TEST(MessageTest, Content){
 	ASSERT_EQ(::memcmp(server.data() + 64 + 33 + 1, transcript.data(), transcript.size()), 0);
 	// Накопитель, в который складывается подписываемое содержимое клиента
 	vector <uint8_t> client;
-	// Выполняем составление подписываемого содержимого клиента
+	// Составляем подписываемое содержимое клиента
 	ASSERT_EQ(message::content(view_t(transcript.data(), transcript.size()), false, client), message::error_t::NONE);
 	// Проверяем схождение длин подписываемого содержимого сторон
 	ASSERT_EQ(client.size(), server.size());
@@ -383,7 +383,7 @@ TEST(MessageTest, Content){
 TEST(MessageTest, Update){
 	// Накопитель, в который складывается тело сообщения
 	vector <uint8_t> body;
-	// Выполняем составление тела сообщения смены ключевого материала
+	// Составляем тело сообщения смены ключевого материала
 	ASSERT_EQ(message::build(message::update_t::REQUEST, body), message::error_t::NONE);
 	// Проверяем длину составленного тела сообщения
 	ASSERT_EQ(body.size(), static_cast <size_t> (1));
@@ -391,7 +391,7 @@ TEST(MessageTest, Update){
 	ASSERT_EQ(body[0], 0x01);
 	// Разбираемый вид смены ключевого материала
 	message::update_t update = message::update_t::NOTIFY;
-	// Выполняем разбор составленного тела сообщения
+	// Разбираем составленное тело сообщения
 	ASSERT_EQ(message::parse(view_t(body.data(), body.size()), update), message::error_t::NONE);
 	// Проверяем разобранный вид смены ключевого материала
 	ASSERT_EQ(update, message::update_t::REQUEST);
@@ -427,11 +427,11 @@ TEST(MessageTest, Ticket){
 	ticket.data = view_t(body, sizeof(body));
 	// Накопитель, в который складывается тело сообщения билета
 	vector <uint8_t> result;
-	// Выполняем составление тела сообщения билета
+	// Составляем тело сообщения билета
 	ASSERT_EQ(message::build(ticket, result), message::error_t::NONE);
 	// Разбираемый билет возобновления связи
 	message::ticket_t parsed;
-	// Выполняем разбор составленного тела сообщения
+	// Разбираем составленное тело сообщения
 	ASSERT_EQ(message::parse(view_t(result.data(), result.size()), parsed), message::error_t::NONE);
 	// Проверяем разобранный срок жизни билета
 	ASSERT_EQ(parsed.lifetime, static_cast <uint32_t> (7200));
@@ -836,7 +836,7 @@ static message::error_t exhaust(const view_t & certificate, const view_t & verif
 	if(outcome != message::error_t::NONE)
 		// Выводим отказ разбора
 		return outcome;
-	// Выполняем составление тела цепочки сертификатов заново
+	// Составляем тело цепочки сертификатов заново
 	outcome = message::build(chain, result);
 	// Если составление цепочки сертификатов не состоялось
 	if(outcome != message::error_t::NONE)
@@ -846,15 +846,15 @@ static message::error_t exhaust(const view_t & certificate, const view_t & verif
 	intact = ((result.size() == certificate.size) && (::memcmp(result.data(), certificate.data, certificate.size) == 0));
 	// Разобранное сообщение подписи владения ключом
 	message::verify_t signature;
-	// Выполняем разбор тела подписи владения ключом
+	// Разбираем тело подписи владения ключом
 	outcome = message::parse(verify, signature);
 	// Если разбор подписи владения ключом не состоялся
 	if(outcome != message::error_t::NONE)
 		// Выводим отказ разбора
 		return outcome;
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	result.clear();
-	// Выполняем составление тела подписи владения ключом заново
+	// Составляем тело подписи владения ключом заново
 	outcome = message::build(signature, result);
 	// Если составление подписи владения ключом не состоялось
 	if(outcome != message::error_t::NONE)
@@ -876,9 +876,9 @@ static message::error_t exhaust(const view_t & certificate, const view_t & verif
 	ticket.nonce = view_t(nonce, sizeof(nonce));
 	// Устанавливаем тело составляемого билета
 	ticket.data = view_t(body, sizeof(body));
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	result.clear();
-	// Выполняем составление тела сообщения билета
+	// Составляем тело сообщения билета
 	outcome = message::build(ticket, result);
 	// Если составление билета не состоялось
 	if(outcome != message::error_t::NONE)
@@ -886,7 +886,7 @@ static message::error_t exhaust(const view_t & certificate, const view_t & verif
 		return outcome;
 	// Разбираемый билет возобновления связи
 	message::ticket_t parsed;
-	// Выполняем разбор составленного тела сообщения билета
+	// Разбираем составленное тело сообщения билета
 	outcome = message::parse(view_t(result.data(), result.size()), parsed);
 	// Если разбор билета не состоялся
 	if(outcome != message::error_t::NONE)
@@ -894,15 +894,15 @@ static message::error_t exhaust(const view_t & certificate, const view_t & verif
 		return outcome;
 	// Запоминаем схождение разобранного тела билета с составленным
 	intact = (intact && (parsed.data.size == sizeof(body)) && (::memcmp(parsed.data.data, body, sizeof(body)) == 0));
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	result.clear();
-	// Выполняем составление тела сообщения обновления ключей
+	// Составляем тело сообщения обновления ключей
 	outcome = message::build(message::update_t::REQUEST, result);
 	// Если составление обновления ключей не состоялось
 	if(outcome != message::error_t::NONE)
 		// Выводим отказ составления
 		return outcome;
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	result.clear();
 	// Выводим итог составления содержимого подписи владения ключом
 	return message::content(transcript, true, result);
@@ -925,7 +925,7 @@ TEST(MessageTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе разбор и составление
+	 * Перебираем запасы выделений: на всяком запасе разбор и составление
 	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -936,7 +936,7 @@ TEST(MessageTest, Starved){
 		{
 			// Отмеряем запас выделений на время разбора и составления
 			starve::ration_t ration(budget);
-			// Выполняем разбор и составление при отмеренном запасе
+			// Разбираем и составляем при отмеренном запасе
 			outcome = exhaust(chain, signature, view_t(transcript.data(), transcript.size()), intact);
 		}
 		// Проверяем, что разбор и составление ответили успехом либо отказом памяти
