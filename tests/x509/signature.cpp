@@ -101,13 +101,13 @@ static std::vector <uint8_t> bytes(const char * text) {
 	// Разобранная запись сертификата
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -137,14 +137,14 @@ static const char * CERTIFICATES[3] = {
  */
 TEST(SignatureTest, Certificates) {
 	/**
-	 * Выполняем перебор проверяемых сертификатов
+	 * Перебираем проверяемые сертификаты
 	 */
 	for(size_t i = 0; i < (sizeof(CERTIFICATES) / sizeof(const char *)); i++){
-		// Выполняем разбор записи очередного сертификата
+		// Разбираем запись очередного сертификата
 		const std::vector <uint8_t> data = bytes(CERTIFICATES[i]);
 		// Объект разбираемого сертификата
 		x509::certificate_t certificate;
-		// Выполняем разбор сертификата
+		// Разбираем сертификат
 		ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE) << "Сертификат: " << i;
 		/**
 		 * Сертификаты подписаны своими же ключами, оттого подпись проверяется
@@ -159,25 +159,25 @@ TEST(SignatureTest, Certificates) {
  */
 TEST(SignatureTest, Forgery) {
 	/**
-	 * Выполняем перебор проверяемых сертификатов
+	 * Перебираем проверяемые сертификаты
 	 */
 	for(size_t i = 0; i < (sizeof(CERTIFICATES) / sizeof(const char *)); i++){
-		// Выполняем разбор записи очередного сертификата
+		// Разбираем запись очередного сертификата
 		std::vector <uint8_t> data = bytes(CERTIFICATES[i]);
 		// Объект разбираемого сертификата
 		x509::certificate_t certificate;
-		// Выполняем разбор сертификата
+		// Разбираем сертификат
 		ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE) << "Сертификат: " << i;
 		// Получаем подписанное тело сертификата
 		const view_t & body = certificate.body();
 		// Определяем место тела сертификата внутри его записи
 		const size_t offset = static_cast <size_t> (body.data - data.data());
 		/**
-		 * Выполняем перебор байтов подписанного тела сертификата с шагом, дающим
+		 * Перебираем байты подписанного тела сертификата с шагом, дающим
 		 * порчу и внутри имён, и внутри сроков, и внутри самого открытого ключа
 		 */
 		for(size_t j = 0; j < body.size; j += 7){
-			// Выполняем порчу очередного байта тела сертификата
+			// Портим очередной байт тела сертификата
 			data[offset + j] = static_cast <uint8_t> (data[offset + j] ^ 0x01);
 			// Объект разбираемого испорченного сертификата
 			x509::certificate_t item;
@@ -193,7 +193,7 @@ TEST(SignatureTest, Forgery) {
 				// Проверяем отказ проверки подписи испорченного сертификата
 				ASSERT_NE(x509::verify(item, item.key()), x509::error_t::NONE) << "Сертификат: " << i << ", место порчи: " << j;
 			}
-			// Выполняем восстановление очередного байта тела сертификата
+			// Восстанавливаем очередной байт тела сертификата
 			data[offset + j] = static_cast <uint8_t> (data[offset + j] ^ 0x01);
 		}
 		// Число неиспользуемых разрядов последнего байта подписи
@@ -203,18 +203,18 @@ TEST(SignatureTest, Forgery) {
 		// Определяем место подписи внутри записи сертификата
 		const size_t place = static_cast <size_t> (signature.data - data.data());
 		/**
-		 * Выполняем перебор байтов подписи сертификата
+		 * Перебираем байты подписи сертификата
 		 */
 		for(size_t j = 0; j < signature.size; j += 5){
-			// Выполняем порчу очередного байта подписи
+			// Портим очередной байт подписи
 			data[place + j] = static_cast <uint8_t> (data[place + j] ^ 0x01);
 			// Объект разбираемого сертификата с испорченной подписью
 			x509::certificate_t item;
-			// Выполняем разбор сертификата с испорченной подписью
+			// Разбираем сертификат с испорченной подписью
 			ASSERT_EQ(item.parse(view_t(data.data(), data.size())), x509::error_t::NONE) << "Сертификат: " << i;
 			// Проверяем отказ проверки испорченной подписи
 			ASSERT_NE(x509::verify(item, item.key()), x509::error_t::NONE) << "Сертификат: " << i << ", место порчи: " << j;
-			// Выполняем восстановление очередного байта подписи
+			// Восстанавливаем очередной байт подписи
 			data[place + j] = static_cast <uint8_t> (data[place + j] ^ 0x01);
 		}
 	}
@@ -224,19 +224,19 @@ TEST(SignatureTest, Forgery) {
  *
  */
 TEST(SignatureTest, Foreign) {
-	// Выполняем разбор записей первого и второго сертификатов
+	// Разбираем записи первого и второго сертификатов
 	const std::vector <uint8_t> first = bytes(CERTIFICATE_FIRST);
-	// Выполняем разбор записи второго сертификата
+	// Разбираем запись второго сертификата
 	const std::vector <uint8_t> second = bytes(CERTIFICATE_SECOND);
-	// Выполняем разбор записи третьего сертификата
+	// Разбираем запись третьего сертификата
 	const std::vector <uint8_t> third = bytes(CERTIFICATE_THIRD);
 	// Объекты разбираемых сертификатов
 	x509::certificate_t one, two, three;
-	// Выполняем разбор первого сертификата
+	// Разбираем первый сертификат
 	ASSERT_EQ(one.parse(view_t(first.data(), first.size())), x509::error_t::NONE);
-	// Выполняем разбор второго сертификата
+	// Разбираем второй сертификат
 	ASSERT_EQ(two.parse(view_t(second.data(), second.size())), x509::error_t::NONE);
-	// Выполняем разбор третьего сертификата
+	// Разбираем третий сертификат
 	ASSERT_EQ(three.parse(view_t(third.data(), third.size())), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи ключом с другой кривой той же разрядности
 	ASSERT_NE(x509::verify(one, two.key()), x509::error_t::NONE);
@@ -256,11 +256,11 @@ TEST(SignatureTest, Foreign) {
  *
  */
 TEST(SignatureTest, Failures) {
-	// Выполняем разбор записи первого сертификата
+	// Разбираем запись первого сертификата
 	const std::vector <uint8_t> data = bytes(CERTIFICATE_FIRST);
 	// Объект разбираемого сертификата
 	x509::certificate_t certificate;
-	// Выполняем разбор сертификата
+	// Разбираем сертификат
 	ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE);
 	// Число неиспользуемых разрядов последнего байта подписи
 	uint8_t unused = 0;
@@ -504,7 +504,7 @@ TEST(SignatureTest, Malformed) {
  *
  */
 TEST(SignatureTest, Fractional) {
-	// Выполняем разбор записи первого сертификата
+	// Разбираем запись первого сертификата
 	vector <uint8_t> data = bytes(CERTIFICATE_FIRST);
 	/**
 	 * Подпись сертификата записана разрядной строкой, первый байт содержимого
@@ -535,7 +535,7 @@ TEST(SignatureTest, Fractional) {
 	ASSERT_NE(place, static_cast <size_t> (0));
 	// Объект разбираемого сертификата
 	x509::certificate_t certificate;
-	// Выполняем разбор исправного сертификата
+	// Разбираем исправный сертификат
 	ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE);
 	// Проверяем схождение подписи исправного сертификата своим же ключом
 	ASSERT_EQ(x509::verify(certificate, certificate.key()), x509::error_t::NONE);
@@ -550,7 +550,7 @@ TEST(SignatureTest, Fractional) {
 	data[data.size() - 1] = static_cast <uint8_t> (data[data.size() - 1] & 0xFE);
 	// Объект сертификата с подписью неполного числа байтов
 	x509::certificate_t fractional;
-	// Выполняем разбор сертификата с подписью неполного числа байтов
+	// Разбираем сертификат с подписью неполного числа байтов
 	ASSERT_EQ(fractional.parse(view_t(data.data(), data.size())), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи неполного числа байтов
 	ASSERT_NE(x509::verify(fractional, fractional.key()), x509::error_t::NONE);
@@ -564,16 +564,16 @@ TEST(SignatureTest, Fractional) {
  *
  */
 TEST(SignatureTest, Starved) {
-	// Выполняем разбор записи первого сертификата
+	// Разбираем запись первого сертификата
 	const std::vector <uint8_t> data = bytes(CERTIFICATE_FIRST);
 	// Объект разбираемого сертификата
 	x509::certificate_t certificate;
-	// Выполняем разбор сертификата
+	// Разбираем сертификат
 	ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE);
 	// Признак того, что подпись хоть раз сошлась
 	bool verified = false;
 	/**
-	 * Выполняем перебор запасов выделений при проверке подписи
+	 * Перебираем запасы выделений при проверке подписи
 	 */
 	for(size_t budget = 0; budget < 512; budget++){
 		// Итог проверки подписи при отмеренном запасе
@@ -581,7 +581,7 @@ TEST(SignatureTest, Starved) {
 		{
 			// Отмеряем запас выделений на время проверки подписи
 			starve::ration_t ration(budget);
-			// Выполняем проверку подписи при отмеренном запасе
+			// Проверяем подпись при отмеренном запасе
 			outcome = x509::verify(certificate, certificate.key());
 		}
 		// Проверяем, что проверка ответила схождением либо отказом памяти
@@ -594,7 +594,7 @@ TEST(SignatureTest, Starved) {
 	// Признак того, что нехватка памяти при разборе хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений при разборе настоящего сертификата
+	 * Перебираем запасы выделений при разборе настоящего сертификата
 	 */
 	for(size_t budget = 0; budget < 512; budget++){
 		// Объект сертификата, разбираемого при отмеренном запасе
@@ -604,7 +604,7 @@ TEST(SignatureTest, Starved) {
 		{
 			// Отмеряем запас выделений на время разбора
 			starve::ration_t ration(budget);
-			// Выполняем разбор сертификата при отмеренном запасе
+			// Разбираем сертификат при отмеренном запасе
 			outcome = item.parse(view_t(data.data(), data.size()));
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти
@@ -1001,7 +1001,7 @@ static bool solo(const char * name, std::vector <uint8_t> & result) {
 static void spoil(std::vector <uint8_t> data, const std::string & label) {
 	// Объект разбираемого сертификата
 	x509::certificate_t certificate;
-	// Выполняем разбор сертификата
+	// Разбираем сертификат
 	ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE) << label;
 	// Проверяем, что подпись сертификата своим ключом сходится
 	ASSERT_EQ(x509::verify(certificate, certificate.key()), x509::error_t::NONE) << label;
@@ -1014,7 +1014,7 @@ static void spoil(std::vector <uint8_t> data, const std::string & label) {
 	// Получаем подпись сертификата
 	const view_t & signature = certificate.sign(unused);
 	/**
-	 * Выполняем перебор байтов подписанного тела сертификата: порча тела проверяется
+	 * Перебираем байты подписанного тела сертификата: порча тела проверяется
 	 * прямою проверкой записи, ибо разбору испорченное тело поддаётся не всегда
 	 */
 	for(size_t j = 0; j < copy.size(); j += 11){
@@ -1028,14 +1028,14 @@ static void spoil(std::vector <uint8_t> data, const std::string & label) {
 	// Определяем место подписи в записи сертификата
 	const size_t place = static_cast <size_t> (signature.data - data.data());
 	/**
-	 * Выполняем перебор байтов подписи сертификата
+	 * Перебираем байты подписи сертификата
 	 */
 	for(size_t j = 0; j < signature.size; j += 5){
 		// Портим очередной байт подписи
 		data[place + j] = static_cast <uint8_t> (data[place + j] ^ 0x01);
 		// Объект разбираемого испорченного сертификата
 		x509::certificate_t item;
-		// Выполняем разбор испорченного сертификата
+		// Разбираем испорченный сертификат
 		ASSERT_EQ(item.parse(view_t(data.data(), data.size())), x509::error_t::NONE) << label;
 		// Проверяем, что испорченная подпись не сходится
 		ASSERT_EQ(x509::verify(item, item.key()), x509::error_t::SIGNATURE) << label << ", место порчи подписи: " << j;
@@ -1055,22 +1055,22 @@ TEST(SignatureTest, Classic) {
 	// Записи сертификатов набора образцов
 	std::vector <uint8_t> records[3];
 	/**
-	 * Выполняем перебор сертификатов набора образцов
+	 * Перебираем сертификаты набора образцов
 	 */
 	for(size_t i = 0; i < 3; i++){
-		// Выполняем чтение сертификата набора образцов
+		// Читаем сертификат набора образцов
 		ASSERT_TRUE(solo(NAMES[i], records[i])) << NAMES[i];
-		// Выполняем разбор сертификата
+		// Разбираем сертификат
 		ASSERT_EQ(certificates[i].parse(view_t(records[i].data(), records[i].size())), x509::error_t::NONE) << NAMES[i];
 		// Проверяем, что подпись сертификата своим ключом сходится
 		ASSERT_EQ(x509::verify(certificates[i], certificates[i].key()), x509::error_t::NONE) << NAMES[i];
 	}
 	/**
-	 * Выполняем перебор пар сертификатов: ключ чужого алгоритма даёт свой отказ
+	 * Перебираем пары сертификатов: ключ чужого алгоритма даёт свой отказ
 	 */
 	for(size_t i = 0; i < 3; i++){
 		/**
-		 * Выполняем перебор ключей прочих сертификатов
+		 * Перебираем ключи прочих сертификатов
 		 */
 		for(size_t j = 0; j < 3; j++){
 			// Если ключ принадлежит другому сертификату
@@ -1081,7 +1081,7 @@ TEST(SignatureTest, Classic) {
 		}
 	}
 	/**
-	 * Выполняем перебор сертификатов ради порчи записи и подписи
+	 * Перебираем сертификаты ради порчи записи и подписи
 	 */
 	for(size_t i = 0; i < 3; i++)
 		// Проверяем отказ при порче тела и подписи сертификата
@@ -1105,7 +1105,7 @@ TEST(SignatureTest, Variants) {
 		"ecdsa-with-SHA224", "ecdsa-with-SHA384", "ecdsa-with-SHA512"
 	};
 	/**
-	 * Выполняем перебор сертификатов разновидностей
+	 * Перебираем сертификаты разновидностей
 	 */
 	for(size_t i = 0; i < 10; i++)
 		// Проверяем схождение подписи и отказ при порче тела и подписи
@@ -1114,7 +1114,7 @@ TEST(SignatureTest, Variants) {
 	const std::vector <uint8_t> data = bytes(CERTIFICATE_PSS256);
 	// Объект разбираемого сертификата
 	x509::certificate_t certificate;
-	// Выполняем разбор сертификата
+	// Разбираем сертификат
 	ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE);
 	// Число неиспользуемых разрядов последнего байта подписи
 	uint8_t unused = 0;
@@ -1156,23 +1156,23 @@ TEST(SignatureTest, Chains) {
 	// Имена файлов отдельных звеньев набора образцов по цепочкам
 	static const char * LINKS[2][3] = {{"leaf-rsa.crt", "mid-rsa.crt", "ca-rsa.crt"}, {"leaf-ec.crt", "mid-ec.crt", "ca-ec.crt"}};
 	/**
-	 * Выполняем перебор цепочек набора образцов
+	 * Перебираем цепочки набора образцов
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Записи сертификатов цепочки
 		std::vector <std::vector <uint8_t>> chain;
-		// Выполняем чтение цепочки набора образцов
+		// Читаем цепочку набора образцов
 		ASSERT_TRUE(corpus(CHAINS[i], chain)) << CHAINS[i];
 		// Проверяем, что цепочка состоит из листа, промежуточного издателя и корня
 		ASSERT_EQ(chain.size(), static_cast <size_t> (3)) << CHAINS[i];
 		/**
-		 * Выполняем перебор звеньев цепочки: файлы отдельных звеньев обязаны совпадать
+		 * Перебираем звенья цепочки: файлы отдельных звеньев обязаны совпадать
 		 * с записями цепочки
 		 */
 		for(size_t j = 0; j < 3; j++){
 			// Запись отдельного звена
 			std::vector <uint8_t> link;
-			// Выполняем чтение отдельного звена
+			// Читаем отдельное звено
 			ASSERT_TRUE(solo(LINKS[i][j], link)) << LINKS[i][j];
 			// Проверяем совпадение отдельного звена с записью цепочки
 			ASSERT_EQ(link, chain[j]) << LINKS[i][j];
@@ -1180,10 +1180,10 @@ TEST(SignatureTest, Chains) {
 		// Разобранные сертификаты цепочки
 		x509::certificate_t items[3];
 		/**
-		 * Выполняем разбор сертификатов цепочки
+		 * Разбираем сертификаты цепочки
 		 */
 		for(size_t j = 0; j < 3; j++)
-			// Выполняем разбор очередного сертификата цепочки
+			// Разбираем очередной сертификат цепочки
 			ASSERT_EQ(items[j].parse(view_t(chain[j].data(), chain[j].size())), x509::error_t::NONE) << LINKS[i][j];
 		// Проверяем подпись листа ключом промежуточного издателя
 		ASSERT_EQ(x509::verify(items[0], items[1].key()), x509::error_t::NONE) << CHAINS[i];
@@ -1206,14 +1206,14 @@ TEST(SignatureTest, Chains) {
 		// Определяем место подписи в записи листа
 		const size_t place = static_cast <size_t> (signature.data - chain[0].data());
 		/**
-		 * Выполняем перебор байтов подписи листа
+		 * Перебираем байты подписи листа
 		 */
 		for(size_t j = 0; j < signature.size; j += 3){
 			// Портим очередной байт подписи
 			copy[place + j] = static_cast <uint8_t> (copy[place + j] ^ 0x01);
 			// Объект разбираемого испорченного листа
 			x509::certificate_t item;
-			// Выполняем разбор испорченного листа
+			// Разбираем испорченный лист
 			ASSERT_EQ(item.parse(view_t(copy.data(), copy.size())), x509::error_t::NONE) << CHAINS[i];
 			// Проверяем, что испорченная подпись ключом издателя не сходится
 			ASSERT_EQ(x509::verify(item, items[1].key()), x509::error_t::SIGNATURE) << CHAINS[i] << ", место порчи: " << j;
@@ -1225,13 +1225,13 @@ TEST(SignatureTest, Chains) {
 	std::vector <std::vector <uint8_t>> rsa;
 	// Записи сертификатов цепочки эллиптической кривой
 	std::vector <std::vector <uint8_t>> ec;
-	// Выполняем чтение обеих цепочек
+	// Читаем обе цепочки
 	ASSERT_TRUE(corpus(CHAINS[0], rsa) && corpus(CHAINS[1], ec));
 	// Разобранные листы обеих цепочек
 	x509::certificate_t first, second;
-	// Выполняем разбор листа цепочки RSA
+	// Разбираем лист цепочки RSA
 	ASSERT_EQ(first.parse(view_t(rsa[0].data(), rsa[0].size())), x509::error_t::NONE);
-	// Выполняем разбор листа цепочки эллиптической кривой
+	// Разбираем лист цепочки эллиптической кривой
 	ASSERT_EQ(second.parse(view_t(ec[0].data(), ec[0].size())), x509::error_t::NONE);
 	// Проверяем отказ ключа чужого алгоритма у листа RSA
 	ASSERT_EQ(x509::verify(first, second.key()), x509::error_t::KEY);
@@ -1239,13 +1239,13 @@ TEST(SignatureTest, Chains) {
 	ASSERT_EQ(x509::verify(second, first.key()), x509::error_t::KEY);
 	// Запись просроченного листа, изданного корнем цепочки эллиптической кривой
 	std::vector <uint8_t> expired;
-	// Выполняем чтение просроченного листа
+	// Читаем просроченный лист
 	ASSERT_TRUE(solo("expired.crt", expired));
 	// Разобранные просроченный лист и корень
 	x509::certificate_t third, root;
-	// Выполняем разбор просроченного листа
+	// Разбираем просроченный лист
 	ASSERT_EQ(third.parse(view_t(expired.data(), expired.size())), x509::error_t::NONE);
-	// Выполняем разбор корня цепочки эллиптической кривой
+	// Разбираем корень цепочки эллиптической кривой
 	ASSERT_EQ(root.parse(view_t(ec[2].data(), ec[2].size())), x509::error_t::NONE);
 	// Проверяем, что подпись просроченного листа корнем сходится: срок действия подписи не касается
 	ASSERT_EQ(x509::verify(third, root.key()), x509::error_t::NONE);
@@ -1261,23 +1261,23 @@ TEST(SignatureTest, Possession) {
 	const view_t content(reinterpret_cast <const uint8_t *> (POSSESSION), ::strlen(POSSESSION));
 	// Записи сертификатов ключей набора образцов
 	std::vector <uint8_t> rsa, ec256, ed25519;
-	// Выполняем чтение сертификата ключа RSA
+	// Читаем сертификат ключа RSA
 	ASSERT_TRUE(solo("rsa2048.crt", rsa));
-	// Выполняем чтение сертификата ключа эллиптической кривой P-256
+	// Читаем сертификат ключа эллиптической кривой P-256
 	ASSERT_TRUE(solo("ec256.crt", ec256));
-	// Выполняем чтение сертификата ключа Ed25519
+	// Читаем сертификат ключа Ed25519
 	ASSERT_TRUE(solo("ed25519.crt", ed25519));
 	// Запись сертификата ключа эллиптической кривой P-384
 	const std::vector <uint8_t> ec384 = bytes(CERTIFICATE_EC384);
 	// Разобранные сертификаты ключей
 	x509::certificate_t first, second, third, fourth;
-	// Выполняем разбор сертификата ключа RSA
+	// Разбираем сертификат ключа RSA
 	ASSERT_EQ(first.parse(view_t(rsa.data(), rsa.size())), x509::error_t::NONE);
-	// Выполняем разбор сертификата ключа эллиптической кривой P-256
+	// Разбираем сертификат ключа эллиптической кривой P-256
 	ASSERT_EQ(second.parse(view_t(ec256.data(), ec256.size())), x509::error_t::NONE);
-	// Выполняем разбор сертификата ключа Ed25519
+	// Разбираем сертификат ключа Ed25519
 	ASSERT_EQ(third.parse(view_t(ed25519.data(), ed25519.size())), x509::error_t::NONE);
-	// Выполняем разбор сертификата ключа эллиптической кривой P-384
+	// Разбираем сертификат ключа эллиптической кривой P-384
 	ASSERT_EQ(fourth.parse(view_t(ec384.data(), ec384.size())), x509::error_t::NONE);
 	// Подписи содержимого, выработанные OpenSSL 3
 	const std::vector <uint8_t> pss = bytes(SIGNATURE_PSS), pkcs1 = bytes(SIGNATURE_PKCS1), sec256 = bytes(SIGNATURE_EC256), sec384 = bytes(SIGNATURE_EC384), sed = bytes(SIGNATURE_ED25519);
@@ -1326,7 +1326,7 @@ TEST(SignatureTest, Possession) {
 	// Копии подписей ради порчи
 	std::vector <uint8_t> pssed = pss, seced = sec256, eded = sed;
 	/**
-	 * Выполняем перебор байтов подписей: всякая порча даёт отказ
+	 * Перебираем байты подписей: всякая порча даёт отказ
 	 */
 	for(size_t j = 0; j < 64; j += 7){
 		// Портим очередной байт подписи RSA
@@ -1352,7 +1352,7 @@ TEST(SignatureTest, Possession) {
 	const std::vector <uint8_t> gost = bytes(CERTIFICATE_FIRST);
 	// Объект разбираемого сертификата ГОСТ
 	x509::certificate_t fifth;
-	// Выполняем разбор сертификата ГОСТ
+	// Разбираем сертификат ГОСТ
 	ASSERT_EQ(fifth.parse(view_t(gost.data(), gost.size())), x509::error_t::NONE);
 	// Проверяем, что ключ ГОСТ проверяет подпись тем же путём, что и без алгоритма хеша
 	ASSERT_EQ(x509::check(fifth.key(), digest::hash_t::SHA256, content, view_t(sed.data(), sed.size())), x509::check(fifth.key(), content, view_t(sed.data(), sed.size())));
@@ -1374,15 +1374,15 @@ TEST(SignatureTest, Possession) {
 TEST(SignatureTest, Unsuitable) {
 	// Записи сертификатов ключей набора образцов
 	std::vector <uint8_t> rsa, ec, ed;
-	// Выполняем чтение сертификатов набора образцов
+	// Читаем сертификаты набора образцов
 	ASSERT_TRUE(solo("rsa2048.crt", rsa) && solo("ec256.crt", ec) && solo("ed25519.crt", ed));
 	// Разобранные сертификаты ключей
 	x509::certificate_t first, second, third;
-	// Выполняем разбор сертификата ключа RSA
+	// Разбираем сертификат ключа RSA
 	ASSERT_EQ(first.parse(view_t(rsa.data(), rsa.size())), x509::error_t::NONE);
-	// Выполняем разбор сертификата ключа эллиптической кривой
+	// Разбираем сертификат ключа эллиптической кривой
 	ASSERT_EQ(second.parse(view_t(ec.data(), ec.size())), x509::error_t::NONE);
-	// Выполняем разбор сертификата ключа Ed25519
+	// Разбираем сертификат ключа Ed25519
 	ASSERT_EQ(third.parse(view_t(ed.data(), ed.size())), x509::error_t::NONE);
 	// Копия сведений об открытом ключе RSA
 	x509::key_t key = first.key();
@@ -1465,21 +1465,21 @@ TEST(SignatureTest, ClassicStarved) {
 	// Имена файлов сертификатов набора образцов
 	static const char * NAMES[2] = {"ec256.crt", "ed25519.crt"};
 	/**
-	 * Выполняем перебор сертификатов набора образцов
+	 * Перебираем сертификаты набора образцов
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Запись сертификата
 		std::vector <uint8_t> data;
-		// Выполняем чтение сертификата набора образцов
+		// Читаем сертификат набора образцов
 		ASSERT_TRUE(solo(NAMES[i], data)) << NAMES[i];
 		// Объект разбираемого сертификата
 		x509::certificate_t certificate;
-		// Выполняем разбор сертификата
+		// Разбираем сертификат
 		ASSERT_EQ(certificate.parse(view_t(data.data(), data.size())), x509::error_t::NONE) << NAMES[i];
 		// Признак того, что подпись хоть раз сошлась
 		bool verified = false;
 		/**
-		 * Выполняем перебор запасов выделений при проверке подписи
+		 * Перебираем запасы выделений при проверке подписи
 		 */
 		for(size_t budget = 0; budget < 64; budget++){
 			// Итог проверки подписи при отмеренном запасе
@@ -1487,7 +1487,7 @@ TEST(SignatureTest, ClassicStarved) {
 			{
 				// Отмеряем запас выделений на время проверки подписи
 				starve::ration_t ration(budget);
-				// Выполняем проверку подписи при отмеренном запасе
+				// Проверяем подпись при отмеренном запасе
 				outcome = x509::verify(certificate, certificate.key());
 			}
 			// Проверяем, что проверка ответила схождением либо отказом памяти

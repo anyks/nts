@@ -79,13 +79,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -113,7 +113,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -134,7 +134,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 static bool prepare(curve::curve_t & curve) {
 	// Места, в которые помещаются параметры кривой
 	uint8_t modulus[32], first[32], second[32], order[32], x[32], y[32];
-	// Выполняем установку параметров кривой
+	// Устанавливаем параметры кривой
 	return curve.start(
 		view_t(modulus, bytes("8000000000000000000000000000000000000000000000000000000000000431", modulus)),
 		view_t(first, bytes("07", first)),
@@ -152,19 +152,19 @@ static bool prepare(curve::curve_t & curve) {
 TEST(GostTest, Make) {
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой контрольного примера
+	// Устанавливаем кривую контрольного примера
 	ASSERT_TRUE(prepare(curve));
 	// Объект модуля электронной подписи
 	sign::gost_t gost;
-	// Выполняем установку эллиптической кривой
+	// Устанавливаем эллиптическую кривую
 	ASSERT_TRUE(gost.start(curve));
 	// Места, в которые помещаются разбираемые записи
 	uint8_t secret[32], digest[32], random[32];
-	// Выполняем разбор ключа подписи
+	// Разбираем ключ подписи
 	ASSERT_TRUE(gost.secret(view_t(secret, bytes(SECRET, secret))));
 	// Места, в которые записывается ключ проверки подписи
 	uint8_t x[32], y[32];
-	// Выполняем получение ключа проверки подписи
+	// Получаем ключ проверки подписи
 	ASSERT_TRUE(gost.key(x, y, sizeof(x)));
 	// Сличаем первую координату ключа проверки с контрольным примером
 	ASSERT_EQ(text(x, sizeof(x)), std::string("7f2b49e270db6d90d8595bec458b50c58585ba1d4e9b788f6689dbd8e56fd80b"));
@@ -174,7 +174,7 @@ TEST(GostTest, Make) {
 	ASSERT_EQ(gost.size(), static_cast <size_t> (64));
 	// Место, в которое помещается выработанная подпись
 	uint8_t signature[64];
-	// Выполняем выработку подписи
+	// Вырабатываем подпись
 	ASSERT_TRUE(gost.make(
 		view_t(digest, bytes(DIGEST, digest)),
 		view_t(random, bytes(RANDOM, random)),
@@ -182,7 +182,7 @@ TEST(GostTest, Make) {
 	));
 	// Сличаем выработанную подпись с контрольным примером
 	ASSERT_EQ(text(signature, sizeof(signature)), std::string(SIGNATURE));
-	// Выполняем проверку выработанной подписи
+	// Проверяем выработанную подпись
 	ASSERT_TRUE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature))));
 }
 /**
@@ -192,49 +192,49 @@ TEST(GostTest, Make) {
 TEST(GostTest, Check) {
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой контрольного примера
+	// Устанавливаем кривую контрольного примера
 	ASSERT_TRUE(prepare(curve));
 	// Объект модуля электронной подписи
 	sign::gost_t gost;
-	// Выполняем установку эллиптической кривой
+	// Устанавливаем эллиптическую кривую
 	ASSERT_TRUE(gost.start(curve));
 	// Места, в которые помещаются разбираемые записи
 	uint8_t x[32], y[32], digest[32], signature[64];
-	// Выполняем разбор координат ключа проверки подписи
+	// Разбираем координаты ключа проверки подписи
 	bytes("7f2b49e270db6d90d8595bec458b50c58585ba1d4e9b788f6689dbd8e56fd80b", x);
 	bytes("26f1b489d6701dd185c8413a977b3cbbaf64d1c593d26627dffb101a87ff77da", y);
-	// Выполняем установку ключа проверки подписи
+	// Устанавливаем ключ проверки подписи
 	ASSERT_TRUE(gost.key(view_t(x, sizeof(x)), view_t(y, sizeof(y))));
-	// Выполняем разбор хеша подписанного сообщения
+	// Разбираем хеш подписанного сообщения
 	bytes(DIGEST, digest);
-	// Выполняем разбор проверяемой подписи
+	// Разбираем проверяемую подпись
 	bytes(SIGNATURE, signature);
 	// Проверяем схождение подписи контрольного примера
 	ASSERT_TRUE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature))));
 	// Проверяем отказ выработки подписи без ключа подписи
 	uint8_t buffer[64];
-	// Выполняем попытку выработки подписи
+	// Пробуем выработать подпись
 	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), view_t(x, sizeof(x)), buffer));
 	/**
-	 * Выполняем перебор байтов подписи
+	 * Перебираем байты подписи
 	 */
 	for(size_t i = 0; i < sizeof(signature); i++){
-		// Выполняем порчу очередного байта подписи
+		// Портим очередной байт подписи
 		signature[i] = static_cast <uint8_t> (signature[i] ^ 0x01);
 		// Проверяем отказ проверки испорченной подписи
 		ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature)))) << "Место порчи: " << i;
-		// Выполняем восстановление очередного байта подписи
+		// Восстанавливаем очередной байт подписи
 		signature[i] = static_cast <uint8_t> (signature[i] ^ 0x01);
 	}
 	/**
-	 * Выполняем перебор байтов хеша подписанного сообщения
+	 * Перебираем байты хеша подписанного сообщения
 	 */
 	for(size_t i = 0; i < sizeof(digest); i++){
-		// Выполняем порчу очередного байта хеша
+		// Портим очередной байт хеша
 		digest[i] = static_cast <uint8_t> (digest[i] ^ 0x01);
 		// Проверяем отказ проверки подписи при испорченном хеше
 		ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature)))) << "Место порчи: " << i;
-		// Выполняем восстановление очередного байта хеша
+		// Восстанавливаем очередной байт хеша
 		digest[i] = static_cast <uint8_t> (digest[i] ^ 0x01);
 	}
 	// Проверяем схождение подписи после восстановления всех значений
@@ -253,7 +253,7 @@ TEST(GostTest, Failures) {
 	ASSERT_EQ(gost.size(), static_cast <size_t> (0));
 	// Места, в которые помещаются разбираемые записи
 	uint8_t secret[32], digest[32], signature[64];
-	// Выполняем разбор ключа подписи
+	// Разбираем ключ подписи
 	bytes(SECRET, secret);
 	// Проверяем отказ установки ключа подписи до установки кривой
 	ASSERT_FALSE(gost.secret(view_t(secret, sizeof(secret))));
@@ -277,15 +277,15 @@ TEST(GostTest, Failures) {
 	ASSERT_FALSE(gost.start(empty));
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой контрольного примера
+	// Устанавливаем кривую контрольного примера
 	ASSERT_TRUE(prepare(curve));
-	// Выполняем установку эллиптической кривой
+	// Устанавливаем эллиптическую кривую
 	ASSERT_TRUE(gost.start(curve));
 	// Проверяем готовность модуля к работе
 	ASSERT_TRUE(gost.ready());
 	// Место, в которое помещается нулевой ключ подписи
 	uint8_t zero[32];
-	// Выполняем обнуление ключа подписи
+	// Обнуляем ключ подписи
 	::memset(zero, 0, sizeof(zero));
 	// Проверяем отказ установки нулевого ключа подписи
 	ASSERT_FALSE(gost.secret(view_t(zero, sizeof(zero))));
@@ -297,7 +297,7 @@ TEST(GostTest, Failures) {
 	ASSERT_FALSE(gost.check(view_t(digest, bytes(DIGEST, digest)), view_t(signature, bytes(SIGNATURE, signature))));
 	// Проверяем отказ выработки подписи со своим случайным числом до ключа подписи
 	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), signature));
-	// Выполняем установку ключа подписи
+	// Устанавливаем ключ подписи
 	ASSERT_TRUE(gost.secret(view_t(secret, sizeof(secret))));
 	// Проверяем отказ выработки подписи при нулевом случайном числе
 	ASSERT_FALSE(gost.make(view_t(digest, sizeof(digest)), view_t(zero, sizeof(zero)), signature));
@@ -321,15 +321,15 @@ TEST(GostTest, Failures) {
 	ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature))));
 	// Возвращаем годную подпись контрольного примера на место
 	bytes(SIGNATURE, signature);
-	// Выполняем обнуление второй части проверяемой подписи
+	// Обнуляем вторую часть проверяемой подписи
 	::memset((signature + (sizeof(signature) / 2)), 0, (sizeof(signature) / 2));
 	// Проверяем отказ проверки подписи с нулевой второй частью
 	ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature))));
-	// Выполняем обнуление проверяемой подписи
+	// Обнуляем проверяемую подпись
 	::memset(signature, 0, sizeof(signature));
 	// Проверяем отказ проверки нулевой подписи
 	ASSERT_FALSE(gost.check(view_t(digest, sizeof(digest)), view_t(signature, sizeof(signature))));
-	// Выполняем сброс состояния модуля
+	// Сбрасываем состояние модуля
 	gost.clear();
 	// Проверяем отказ работы модуля после сброса его состояния
 	ASSERT_FALSE(gost.ready());
@@ -447,7 +447,7 @@ static double distance(const std::vector <size_t> & histogram, const size_t coun
 	// Накопленное число выпадений
 	size_t accumulated = 0;
 	/**
-	 * Выполняем перебор значений старшего байта
+	 * Перебираем значения старшего байта
 	 */
 	for(size_t value = 0; value < 256; value++){
 		// Накапливаем выпадения очередного значения
@@ -481,11 +481,11 @@ static double folded(const double span) {
 	// Шаг счёта в единицах старшего байта
 	const double step = (1.0 / 1024.0);
 	/**
-	 * Выполняем перебор значений старшего байта
+	 * Перебираем значения старшего байта
 	 */
 	for(size_t value = 0; value < 256; value++){
 		/**
-		 * Выполняем накопление плотности остатка на отрезке очередного значения
+		 * Накапливаем плотность остатка на отрезке очередного значения
 		 */
 		for(double x = static_cast <double> (value); x < std::min(static_cast <double> (value + 1), span); x += step)
 			// Плотность остатка в точке есть число слоёв, легших на неё
@@ -527,7 +527,7 @@ static bool remainder(const math::integer_t & modulus, const size_t size, uint8_
 	return reduced.store(result, size);
 }
 /**
- * @brief Проверка порождения ключей на кривой: границы, различие, сходимость и равномерность
+ * @brief Функция проверки порождения ключей на кривой: границы, различие, сходимость и равномерность
  *
  * @param oid   опознаватель кривой
  * @param count число порождений
@@ -536,19 +536,19 @@ static bool remainder(const math::integer_t & modulus, const size_t size, uint8_
 static void generation(const char * oid, const size_t count) {
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой по опознавателю
+	// Устанавливаем кривую по опознавателю
 	ASSERT_TRUE(curve::parameters(std::string(oid), curve)) << "Кривая: " << oid;
 	// Размер порядка подгруппы
 	const size_t size = curve.order().size();
 	// Порядок без единицы
 	uint8_t last[math::NUMBER_SIZE];
-	// Выполняем получение порядка без единицы
+	// Получаем порядок без единицы
 	ASSERT_TRUE(bound(curve, last)) << "Кривая: " << oid;
 	// Порядок в единицах старшего байта: четыре старших байта дробью
 	const double span = (last[0] + (last[1] / 256.0) + (last[2] / 65536.0) + (last[3] / 16777216.0));
 	// Объект модуля электронной подписи
 	sign::gost_t gost;
-	// Выполняем установку эллиптической кривой
+	// Устанавливаем эллиптическую кривую
 	ASSERT_TRUE(gost.start(curve)) << "Кривая: " << oid;
 	// Предел длины подписи равен длине сырой подписи
 	ASSERT_EQ(gost.limit(), gost.size()) << "Кривая: " << oid;
@@ -567,21 +567,21 @@ static void generation(const char * oid, const size_t count) {
 	// Заполняем хеш сообщения
 	::memset(digest, 0x5a, sizeof(digest));
 	/**
-	 * Выполняем порождения
+	 * Порождаем ключи заданное число раз
 	 */
 	for(size_t i = 0; i < count; i++){
 		// Порождённый ключ подписи
 		uint8_t secret[math::NUMBER_SIZE];
 		// Проверяем отказ порождения в место неверного размера
 		ASSERT_FALSE(gost.generate(secret, size + 1)) << "Кривая: " << oid;
-		// Выполняем порождение ключа подписи
+		// Порождаем ключ подписи
 		ASSERT_TRUE(gost.generate(secret, size)) << "Кривая: " << oid << ", порождение " << i;
 		// Ключ не превышает порядка без единицы
 		ASSERT_LE(::memcmp(secret, last, size), 0) << "Кривая: " << oid << ", порождение " << i;
 		// Накопленное значение байтов ключа по ИЛИ
 		uint8_t accumulated = 0;
 		/**
-		 * Выполняем накопление байтов ключа
+		 * Накапливаем байты ключа
 		 */
 		for(size_t j = 0; j < size; j++)
 			// Накапливаем очередной байт
@@ -596,22 +596,22 @@ static void generation(const char * oid, const size_t count) {
 		if(i < 4){
 			// Координаты ключа проверки порождённого и выведенного ключей
 			uint8_t x[math::NUMBER_SIZE], y[math::NUMBER_SIZE], px[math::NUMBER_SIZE], py[math::NUMBER_SIZE];
-			// Выполняем получение ключа проверки порождённого ключа
+			// Получаем ключ проверки порождённого ключа
 			ASSERT_TRUE(gost.key(x, y, size)) << "Кривая: " << oid;
 			// Объект модуля с тем же ключом, установленным через secret
 			sign::gost_t other;
-			// Выполняем установку эллиптической кривой
+			// Устанавливаем эллиптическую кривую
 			ASSERT_TRUE(other.start(curve)) << "Кривая: " << oid;
-			// Выполняем установку порождённого ключа как переданного
+			// Устанавливаем порождённый ключ как переданный
 			ASSERT_TRUE(other.secret(view_t(secret, size))) << "Кривая: " << oid;
-			// Выполняем получение ключа проверки выведенного ключа
+			// Получаем ключ проверки выведенного ключа
 			ASSERT_TRUE(other.key(px, py, size)) << "Кривая: " << oid;
 			// Открытая часть порождённого ключа совпадает с выведенной через secret
 			ASSERT_EQ(text(x, size), text(px, size)) << "Кривая: " << oid;
 			ASSERT_EQ(text(y, size), text(py, size)) << "Кривая: " << oid;
 			// Место подписи
 			uint8_t signature[math::NUMBER_SIZE * 2];
-			// Выполняем выработку подписи порождённым ключом
+			// Вырабатываем подпись порождённым ключом
 			ASSERT_TRUE(gost.make(view_t(digest, size), signature)) << "Кривая: " << oid;
 			// Подпись сходится у выведенного ключа
 			ASSERT_TRUE(other.check(view_t(digest, size), view_t(signature, size * 2))) << "Кривая: " << oid;
@@ -644,12 +644,12 @@ static void generation(const char * oid, const size_t count) {
 		// Число выпадений всякого значения старшего байта остатка
 		std::vector <size_t> biased(256, 0);
 		/**
-		 * Выполняем выработку остатков вдвое большей выборкой
+		 * Вырабатываем остатки вдвое большей выборкой
 		 */
 		for(size_t i = 0; i < (count * 2); i++){
 			// Остаток случайных байтов по модулю
 			uint8_t value[math::NUMBER_SIZE];
-			// Выполняем выработку остатка
+			// Вырабатываем остаток
 			ASSERT_TRUE(remainder(modulus, size, value));
 			// Учитываем старший байт остатка
 			biased[value[0]]++;
@@ -663,7 +663,7 @@ static void generation(const char * oid, const size_t count) {
  *
  */
 TEST(GostTest, Generate256) {
-	// Выполняем проверку порождения
+	// Проверяем порождение
 	generation(TC26_256_A, 2000);
 }
 /**
@@ -674,7 +674,7 @@ TEST(GostTest, Generate256) {
  *
  */
 TEST(GostTest, GenerateFolded) {
-	// Выполняем проверку порождения
+	// Проверяем порождение
 	generation(CRYPTOPRO_C, 2000);
 }
 /**
@@ -682,7 +682,7 @@ TEST(GostTest, GenerateFolded) {
  *
  */
 TEST(GostTest, Generate512Test) {
-	// Выполняем проверку порождения
+	// Проверяем порождение
 	generation(TC26_512_TEST, 2000);
 }
 /**
@@ -690,7 +690,7 @@ TEST(GostTest, Generate512Test) {
  *
  */
 TEST(GostTest, Generate512) {
-	// Выполняем проверку порождения
+	// Проверяем порождение
 	generation(TC26_512_A, 2000);
 }
 /**
@@ -708,9 +708,9 @@ TEST(GostTest, GenerateFailures) {
 	ASSERT_FALSE(gost.generate(secret, 32));
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой
+	// Устанавливаем кривую
 	ASSERT_TRUE(curve::parameters(std::string(TC26_256_A), curve));
-	// Выполняем установку эллиптической кривой
+	// Устанавливаем эллиптическую кривую
 	ASSERT_TRUE(gost.start(curve));
 	// Порождение без места отвергается
 	ASSERT_FALSE(gost.generate(nullptr, 32));
@@ -730,14 +730,14 @@ TEST(GostTest, GenerateFailures) {
 TEST(GostTest, GenerateStarved) {
 	// Объект эллиптической кривой
 	curve::curve_t curve;
-	// Выполняем установку кривой
+	// Устанавливаем кривую
 	ASSERT_TRUE(curve::parameters(std::string(TC26_256_A), curve));
 	// Объект модуля электронной подписи
 	sign::gost_t gost;
-	// Выполняем установку эллиптической кривой
+	// Устанавливаем эллиптическую кривую
 	ASSERT_TRUE(gost.start(curve));
 	/**
-	 * Выполняем перебор запасов выделений: порождение обязано удаваться при всяком
+	 * Перебираем запасы выделений: порождение обязано удаваться при всяком
 	 * запасе, ибо памяти не выделяет, а выделение под noexcept прервало бы исполнение
 	 */
 	for(size_t budget = 0; budget < 8; budget++){
@@ -748,7 +748,7 @@ TEST(GostTest, GenerateStarved) {
 		{
 			// Отмеряем запас выделений на время порождения
 			starve::ration_t ration(budget);
-			// Выполняем порождение при отмеренном запасе
+			// Порождаем ключ при отмеренном запасе
 			outcome = gost.generate(secret, sizeof(secret));
 		}
 		// Порождение удалось
@@ -766,9 +766,9 @@ TEST(GostTest, GenerateStarved) {
  *
  */
 static void assemble(const char * oid, const char * algorithm, sign::gost_t & gost, curve::curve_t & curve, keys::key_t & result) {
-	// Выполняем установку кривой по опознавателю
+	// Устанавливаем кривую по опознавателю
 	ASSERT_TRUE(curve::parameters(std::string(oid), curve)) << "Кривая: " << oid;
-	// Выполняем установку эллиптической кривой
+	// Устанавливаем эллиптическую кривую
 	ASSERT_TRUE(gost.start(curve)) << "Кривая: " << oid;
 	// Размер порядка подгруппы
 	const size_t size = curve.order().size();
@@ -782,13 +782,13 @@ static void assemble(const char * oid, const char * algorithm, sign::gost_t & go
 	result.digest = ((size == 32) ? "1.2.643.7.1.1.2.2" : "1.2.643.7.1.1.2.3");
 	// Выделяем место под ключ подписи
 	result.d.assign(size, 0);
-	// Выполняем порождение ключа подписи
+	// Порождаем ключ подписи
 	ASSERT_TRUE(gost.generate(result.d.data(), size)) << "Кривая: " << oid;
 	// Выделяем место под абсциссу ключа проверки
 	result.x.assign(size, 0);
 	// Выделяем место под ординату ключа проверки
 	result.y.assign(size, 0);
-	// Выполняем получение ключа проверки
+	// Получаем ключ проверки
 	ASSERT_TRUE(gost.key(result.x.data(), result.y.data(), size)) << "Кривая: " << oid;
 }
 /**
@@ -802,7 +802,7 @@ TEST(GostTest, GenerateKeys) {
 		{TC26_512_A, "1.2.643.7.1.1.1.2"}
 	};
 	/**
-	 * Выполняем перебор наборов параметров
+	 * Перебираем наборы параметров
 	 */
 	for(const auto & set : sets){
 		// Объект эллиптической кривой
@@ -811,21 +811,21 @@ TEST(GostTest, GenerateKeys) {
 		sign::gost_t gost;
 		// Ключ в виде записи
 		keys::key_t key;
-		// Выполняем порождение ключа и сборку записи
+		// Порождаем ключ и собираем запись
 		assemble(set[0], set[1], gost, curve, key);
 		// Размер порядка подгруппы
 		const size_t size = curve.order().size();
 		// Записи ключей
 		std::string secret, pub;
-		// Выполняем запись секретного ключа PKCS #8
+		// Записываем секретный ключ PKCS #8
 		ASSERT_EQ(keys::encode(key, keys::container_t::PRIVATE, secret), keys::error_t::NONE) << "Кривая: " << set[0];
-		// Выполняем запись открытого ключа SubjectPublicKeyInfo
+		// Записываем открытый ключ SubjectPublicKeyInfo
 		ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, pub), keys::error_t::NONE) << "Кривая: " << set[0];
 		// Разобранные ключи
 		keys::key_t parsed, opened;
-		// Выполняем разбор записи секретного ключа
+		// Разбираем запись секретного ключа
 		ASSERT_EQ(keys::decode(secret, view_t(), parsed), keys::error_t::NONE) << "Кривая: " << set[0];
-		// Выполняем разбор записи открытого ключа
+		// Разбираем запись открытого ключа
 		ASSERT_EQ(keys::decode(pub, view_t(), opened), keys::error_t::NONE) << "Кривая: " << set[0];
 		// Разобранный ключ подписи совпадает с порождённым
 		ASSERT_EQ(parsed.d, key.d) << "Кривая: " << set[0];
@@ -835,7 +835,7 @@ TEST(GostTest, GenerateKeys) {
 		curve::curve_t loaded;
 		// Модуль подписи загруженного ключа
 		sign::gost_t verifier;
-		// Выполняем загрузку открытого ключа в модуль
+		// Загружаем открытый ключ в модуль
 		ASSERT_TRUE(opened.load(verifier, loaded)) << "Кривая: " << set[0];
 		// Хеш сообщения длиной в порядок
 		uint8_t digest[math::NUMBER_SIZE];
@@ -843,7 +843,7 @@ TEST(GostTest, GenerateKeys) {
 		::memset(digest, 0x3c, sizeof(digest));
 		// Место подписи
 		uint8_t signature[math::NUMBER_SIZE * 2];
-		// Выполняем выработку подписи порождённым ключом
+		// Вырабатываем подпись порождённым ключом
 		ASSERT_TRUE(gost.make(view_t(digest, size), signature)) << "Кривая: " << set[0];
 		// Подпись сходится у ключа, прошедшего через запись
 		ASSERT_TRUE(verifier.check(view_t(digest, size), view_t(signature, size * 2))) << "Кривая: " << set[0];
@@ -874,7 +874,7 @@ TEST(GostTest, GenerateOpenssl) {
 		{TC26_512_A, "1.2.643.7.1.1.1.2"}
 	};
 	/**
-	 * Выполняем перебор наборов параметров
+	 * Перебираем наборы параметров
 	 */
 	for(const auto & set : sets){
 		// Объект эллиптической кривой
@@ -883,13 +883,13 @@ TEST(GostTest, GenerateOpenssl) {
 		sign::gost_t gost;
 		// Ключ в виде записи
 		keys::key_t key;
-		// Выполняем порождение ключа и сборку записи
+		// Порождаем ключ и собираем запись
 		assemble(set[0], set[1], gost, curve, key);
 		// Записи ключей
 		std::string secret, pub;
-		// Выполняем запись секретного ключа PKCS #8
+		// Записываем секретный ключ PKCS #8
 		ASSERT_EQ(keys::encode(key, keys::container_t::PRIVATE, secret), keys::error_t::NONE) << "Кривая: " << set[0];
-		// Выполняем запись открытого ключа SubjectPublicKeyInfo
+		// Записываем открытый ключ SubjectPublicKeyInfo
 		ASSERT_EQ(keys::encode(key, keys::container_t::PUBLIC, pub), keys::error_t::NONE) << "Кривая: " << set[0];
 		// Пути к файлам
 		const std::string priv = (directory + "/" + set[0] + ".pem"), opened = (directory + "/" + set[0] + ".pub.pem"), derived = (directory + "/" + set[0] + ".derived.pem");
@@ -904,7 +904,7 @@ TEST(GostTest, GenerateOpenssl) {
 		ASSERT_EQ(shell((std::string("openssl pkey -in ") + priv + " -pubout -out " + derived + " 2>/dev/null").c_str()), 0) << "Кривая: " << set[0];
 		// Разобранный выведенный openssl открытый ключ
 		keys::key_t foreign;
-		// Выполняем разбор выведенного openssl открытого ключа
+		// Разбираем выведенный openssl открытый ключ
 		ASSERT_EQ(keys::decode(slurp(derived), view_t(), foreign), keys::error_t::NONE) << "Кривая: " << set[0];
 		// Открытая часть выведенного openssl ключа совпадает с порождённой
 		ASSERT_TRUE((foreign.x == key.x) && (foreign.y == key.y)) << "Кривая: " << set[0];

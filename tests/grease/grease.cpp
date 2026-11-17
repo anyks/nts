@@ -99,7 +99,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -108,7 +108,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочку сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -120,7 +120,7 @@ namespace {
 	 * @return      признак того, что значение имеет вид 0x?A?A (раздел 2 RFC 8701)
 	 *
 	 */
-	bool shaped(const uint16_t value) noexcept {
+	bool __nts_shaped__(const uint16_t value) noexcept {
 		// Выводим признак вида: байты равны, младшие четыре разряда каждого - 0xA
 		return (((value >> 8) == (value & 0xFF)) && ((value & 0x0F0F) == 0x0A0A));
 	}
@@ -156,7 +156,7 @@ namespace {
 	 * @return       признак успешности снятия приветствия
 	 *
 	 */
-	bool capture(client::context_t & client, vector <uint8_t> & wire, hello::client_t & result) noexcept {
+	bool __nts_capture__(client::context_t & client, vector <uint8_t> & wire, hello::client_t & result) noexcept {
 		// Получаем байты, отправляемые клиентом
 		const view_t sending = client.output();
 		// Если клиенту нечего отправить
@@ -201,7 +201,7 @@ namespace {
 	 * @return       признак успешности снятия приветствия
 	 *
 	 */
-	bool datagrammed(client::context_t & client, vector <uint8_t> & wire, hello::client_t & result) noexcept {
+	bool __nts_datagrammed__(client::context_t & client, vector <uint8_t> & wire, hello::client_t & result) noexcept {
 		// Получаем дейтаграмму, отправляемую клиентом
 		const view_t sending = client.output();
 		// Если клиенту нечего отправить
@@ -241,9 +241,9 @@ namespace {
 	 * @return         признак того, что все места отвечают договору
 	 *
 	 */
-	bool places(const hello::client_t & greeting, const bool reshared, places_t & result, std::string & why) noexcept {
+	bool __nts_places__(const hello::client_t & greeting, const bool reshared, places_t & result, std::string & why) noexcept {
 		// Если перечень наборов пуст либо первый набор не GREASE
-		if(greeting.suites.empty() || !shaped(greeting.suites[0])){
+		if(greeting.suites.empty() || !__nts_shaped__(greeting.suites[0])){
 			// Называем причину
 			why = "набор GREASE не первый";
 			// Выводим отрицательный результат - первый набор не смазан либо наборов нет
@@ -252,11 +252,11 @@ namespace {
 		// Запоминаем набор GREASE
 		result.suite = greeting.suites[0];
 		/**
-		 * Выполняем перебор остальных наборов: иных значений GREASE быть не должно
+		 * Перебираем остальные наборы: иных значений GREASE быть не должно
 		 */
 		for(size_t i = 1; i < greeting.suites.size(); i++){
 			// Если набор имеет вид GREASE
-			if(shaped(greeting.suites[i])){
+			if(__nts_shaped__(greeting.suites[i])){
 				// Называем причину
 				why = "лишний набор GREASE";
 				// Выводим отрицательный результат - смазанный набор встретился до конца списка
@@ -264,7 +264,7 @@ namespace {
 			}
 		}
 		// Если расширений меньше двух либо первое не GREASE либо непусто
-		if((greeting.extensions.size() < 2) || !shaped(greeting.extensions.front().type) || (greeting.extensions.front().data.size != 0)){
+		if((greeting.extensions.size() < 2) || !__nts_shaped__(greeting.extensions.front().type) || (greeting.extensions.front().data.size != 0)){
 			// Называем причину
 			why = "первое расширение GREASE не первое либо непусто";
 			// Выводим отрицательный результат - смазанное расширение не первое либо с телом
@@ -275,7 +275,7 @@ namespace {
 		// Место последнего расширения потребителя: заранее разделённый ключ идёт за ним
 		const size_t last = (greeting.extensions.size() - ((greeting.extensions.back().type == static_cast <uint16_t> (extension::type_t::SECRET)) ? 2 : 1));
 		// Если последнее расширение потребителя не GREASE либо тело его не один нулевой байт
-		if(!shaped(greeting.extensions[last].type) || (greeting.extensions[last].data.size != 1) || (greeting.extensions[last].data.data[0] != 0x00)){
+		if(!__nts_shaped__(greeting.extensions[last].type) || (greeting.extensions[last].data.size != 1) || (greeting.extensions[last].data.data[0] != 0x00)){
 			// Называем причину
 			why = "второе расширение GREASE не последнее либо тело не один нулевой байт";
 			// Выводим отрицательный результат - последнее расширение не смазанное
@@ -291,11 +291,11 @@ namespace {
 			return false;
 		}
 		/**
-		 * Выполняем перебор расширений между первым и последним: иных GREASE быть не должно
+		 * Перебираем расширения между первым и последним: иных GREASE быть не должно
 		 */
 		for(size_t i = 1; i < greeting.extensions.size(); i++){
 			// Если расширение имеет вид GREASE и это не последнее расширение потребителя
-			if((i != last) && shaped(greeting.extensions[i].type)){
+			if((i != last) && __nts_shaped__(greeting.extensions[i].type)){
 				// Называем причину
 				why = "лишнее расширение GREASE";
 				// Выводим отрицательный результат - смазанное расширение встретилось в середине
@@ -314,7 +314,7 @@ namespace {
 		// Группы обмена приветствия
 		vector <extension::group_t> groups;
 		// Если группы разобрать не удалось либо первая не GREASE
-		if((extension::groups(item->data, groups) != extension::error_t::NONE) || groups.empty() || !shaped(static_cast <uint16_t> (groups[0]))){
+		if((extension::groups(item->data, groups) != extension::error_t::NONE) || groups.empty() || !__nts_shaped__(static_cast <uint16_t> (groups[0]))){
 			// Называем причину
 			why = "группа GREASE не первая";
 			// Выводим отрицательный результат - группы не разобраны либо первая не смазана
@@ -323,11 +323,11 @@ namespace {
 		// Запоминаем группу GREASE
 		result.group = static_cast <uint16_t> (groups[0]);
 		/**
-		 * Выполняем перебор остальных групп: иных значений GREASE быть не должно
+		 * Перебираем остальные группы: иных значений GREASE быть не должно
 		 */
 		for(size_t i = 1; i < groups.size(); i++){
 			// Если группа имеет вид GREASE
-			if(shaped(static_cast <uint16_t> (groups[i]))){
+			if(__nts_shaped__(static_cast <uint16_t> (groups[i]))){
 				// Называем причину
 				why = "лишняя группа GREASE";
 				// Выводим отрицательный результат - смазанная группа встретилась в середине
@@ -358,7 +358,7 @@ namespace {
 		 */
 		if(!reshared){
 			// Если первая доля не GREASE либо тело её не один байт
-			if(!shaped(static_cast <uint16_t> (shares[0].group)) || (shares[0].key.size != 1)){
+			if(!__nts_shaped__(static_cast <uint16_t> (shares[0].group)) || (shares[0].key.size != 1)){
 				// Называем причину
 				why = "доля GREASE не первая либо тело не один байт";
 				// Выводим отрицательный результат - первая доля не смазана либо ключ не одиночный
@@ -375,11 +375,11 @@ namespace {
 			}
 		}
 		/**
-		 * Выполняем перебор остальных долей: иных значений GREASE быть не должно
+		 * Перебираем остальные доли: иных значений GREASE быть не должно
 		 */
 		for(size_t i = (reshared ? 0 : 1); i < shares.size(); i++){
 			// Если группа доли имеет вид GREASE
-			if(shaped(static_cast <uint16_t> (shares[i].group))){
+			if(__nts_shaped__(static_cast <uint16_t> (shares[i].group))){
 				// Называем причину
 				why = "лишняя доля GREASE";
 				// Выводим отрицательный результат - смазанная доля встретилась в середине
@@ -398,7 +398,7 @@ namespace {
 		// Издания протокола приветствия
 		vector <uint16_t> versions;
 		// Если издания разобрать не удалось либо первое не GREASE
-		if((extension::versions(item->data, versions) != extension::error_t::NONE) || versions.empty() || !shaped(versions[0])){
+		if((extension::versions(item->data, versions) != extension::error_t::NONE) || versions.empty() || !__nts_shaped__(versions[0])){
 			// Называем причину
 			why = "издание GREASE не первое";
 			// Выводим отрицательный результат - издания не разобраны либо первое не смазано
@@ -407,11 +407,11 @@ namespace {
 		// Запоминаем издание GREASE
 		result.version = versions[0];
 		/**
-		 * Выполняем перебор остальных изданий: иных значений GREASE быть не должно
+		 * Перебираем остальные издания: иных значений GREASE быть не должно
 		 */
 		for(size_t i = 1; i < versions.size(); i++){
 			// Если издание имеет вид GREASE
-			if(shaped(versions[i])){
+			if(__nts_shaped__(versions[i])){
 				// Называем причину
 				why = "лишнее издание GREASE";
 				// Выводим отрицательный результат - смазанное издание встретилось в середине
@@ -428,22 +428,22 @@ namespace {
 	 * @return         признак того, что ни одного значения вида 0x?A?A в приветствии нет
 	 *
 	 */
-	bool clean(const hello::client_t & greeting) noexcept {
+	bool __nts_clean__(const hello::client_t & greeting) noexcept {
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t i = 0; i < greeting.suites.size(); i++){
 			// Если набор имеет вид GREASE
-			if(shaped(greeting.suites[i]))
+			if(__nts_shaped__(greeting.suites[i]))
 				// Выводим отрицательный результат - набор смазан
 				return false;
 		}
 		/**
-		 * Выполняем перебор расширений приветствия
+		 * Перебираем расширения приветствия
 		 */
 		for(size_t i = 0; i < greeting.extensions.size(); i++){
 			// Если расширение имеет вид GREASE
-			if(shaped(greeting.extensions[i].type))
+			if(__nts_shaped__(greeting.extensions[i].type))
 				// Выводим отрицательный результат - тип расширения смазан
 				return false;
 		}
@@ -456,11 +456,11 @@ namespace {
 			// Выводим отрицательный результат - расширение групп не найдено либо не разобрано
 			return false;
 		/**
-		 * Выполняем перебор групп обмена
+		 * Перебираем группы обмена
 		 */
 		for(size_t i = 0; i < groups.size(); i++){
 			// Если группа имеет вид GREASE
-			if(shaped(static_cast <uint16_t> (groups[i])))
+			if(__nts_shaped__(static_cast <uint16_t> (groups[i])))
 				// Выводим отрицательный результат - группа смазана
 				return false;
 		}
@@ -473,11 +473,11 @@ namespace {
 			// Выводим отрицательный результат - расширение долей не найдено либо не разобрано
 			return false;
 		/**
-		 * Выполняем перебор долей ключа
+		 * Перебираем доли ключа
 		 */
 		for(size_t i = 0; i < shares.size(); i++){
 			// Если группа доли имеет вид GREASE
-			if(shaped(static_cast <uint16_t> (shares[i].group)))
+			if(__nts_shaped__(static_cast <uint16_t> (shares[i].group)))
 				// Выводим отрицательный результат - доля смазана
 				return false;
 		}
@@ -490,11 +490,11 @@ namespace {
 			// Выводим отрицательный результат - расширение изданий не найдено либо не разобрано
 			return false;
 		/**
-		 * Выполняем перебор изданий протокола
+		 * Перебираем издания протокола
 		 */
 		for(size_t i = 0; i < versions.size(); i++){
 			// Если издание имеет вид GREASE
-			if(shaped(versions[i]))
+			if(__nts_shaped__(versions[i]))
 				// Выводим отрицательный результат - издание смазано
 				return false;
 		}
@@ -509,7 +509,7 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
@@ -520,11 +520,11 @@ namespace {
 			view_t data = client.output();
 			// Если клиенту есть что отправить серверу
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемые байты
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя клиента
 				client.consume(buffer.size());
-				// Выполняем подачу отправленных байтов серверу
+				// Подаём отправленные байты серверу
 				server.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -533,11 +533,11 @@ namespace {
 			data = server.output();
 			// Если серверу есть что отправить клиенту
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемые байты
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя сервера
 				server.consume(buffer.size());
-				// Выполняем подачу отправленных байтов клиенту
+				// Подаём отправленные байты клиенту
 				client.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -559,11 +559,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байты между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	}
@@ -575,15 +575,15 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос прикладного протокола при включённом GREASE";
 		// Если отправить прикладные данные клиентом не удалось
 		if(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
+		// Передаём байты между сторонами связи
+		__nts_converse__(client, server);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
 		// Если получить принятые сервером прикладные данные не удалось
@@ -596,8 +596,8 @@ namespace {
 		if(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
+		// Передаём байты между сторонами связи
+		__nts_converse__(client, server);
 		// Если получить принятые клиентом прикладные данные не удалось
 		if((client.read(received) != context::error_t::NONE) || (string(received.begin(), received.end()) != answer))
 			// Выводим отказ обмена
@@ -614,7 +614,7 @@ namespace {
 	 * @param mutual     запрашивается ли подлинность клиента
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const context::credential_t & credential, const bool mutual) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const context::credential_t & credential, const bool mutual) noexcept {
 		// Устанавливаем набор шифрования клиенту
 		client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256});
 		// Устанавливаем набор шифрования серверу
@@ -648,7 +648,7 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, const context::level_t level, vector <uint8_t> * taken) noexcept {
+	bool __nts_carry__(A & from, B & to, const context::level_t level, vector <uint8_t> * taken) noexcept {
 		// Получаем сообщения, отправляемые на уровне
 		const view_t data = from.output(level);
 		// Если отправлять на уровне нечего
@@ -659,7 +659,7 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем перенос отправляемых сообщений
+			// Переносим отправляемые сообщения
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные сообщения с накопителя уровня
 			from.consume(level, buffer.size());
@@ -667,7 +667,7 @@ namespace {
 			if(taken != nullptr)
 				// Дописываем перенесённые сообщения
 				taken->insert(taken->end(), buffer.begin(), buffer.end());
-			// Выполняем подачу сообщений принимающей стороне на том же уровне
+			// Подаём сообщения принимающей стороне на том же уровне
 			to.push(level, view_t(buffer.data(), buffer.size()));
 		/**
 		 * Выполняем перехват ошибок
@@ -687,28 +687,28 @@ namespace {
 	 * @param handshake место, в которое складываются сообщения сервера уровня рукопожатия
 	 *
 	 */
-	void levelled(client::context_t & client, server::context_t & server, vector <uint8_t> & handshake) noexcept {
+	void __nts_levelled__(client::context_t & client, server::context_t & server, vector <uint8_t> & handshake) noexcept {
 		/**
-		 * Выполняем передачу сообщений между сторонами, пока им есть что сказать
+		 * Передаём сообщения между сторонами, пока им есть что сказать
 		 */
 		for(size_t round = 0; round < 16; round++){
 			// Признак того, что сообщения переносились
 			bool moved = false;
 			/**
-			 * Выполняем перебор уровней защиты в порядке их следования
+			 * Перебираем уровни защиты в порядке их следования
 			 */
 			for(size_t i = 0; i < (sizeof(LEVELS) / sizeof(LEVELS[0])); i++)
 				// Переносим сообщения уровня от клиента к серверу
-				moved = (carry(client, server, LEVELS[i], nullptr) || moved);
+				moved = (__nts_carry__(client, server, LEVELS[i], nullptr) || moved);
 			/**
-			 * Выполняем перебор уровней защиты в порядке их следования
+			 * Перебираем уровни защиты в порядке их следования
 			 */
 			for(size_t i = 0; i < (sizeof(LEVELS) / sizeof(LEVELS[0])); i++)
 				// Переносим сообщения уровня от сервера к клиенту, запоминая уровень рукопожатия
-				moved = (carry(server, client, LEVELS[i], ((LEVELS[i] == context::level_t::HANDSHAKE) ? &handshake : nullptr)) || moved);
+				moved = (__nts_carry__(server, client, LEVELS[i], ((LEVELS[i] == context::level_t::HANDSHAKE) ? &handshake : nullptr)) || moved);
 			// Если сторонам нечего сказать
 			if(!moved)
-				// Выходим
+				// Прекращаем обмен сообщениями
 				break;
 		}
 	}
@@ -732,7 +732,7 @@ namespace {
 	 *       тело переносится к зовущему
 	 *
 	 */
-	bool locate(const vector <uint8_t> & data, const handshake::type_t type, vector <uint8_t> & result) noexcept {
+	bool __nts_locate__(const vector <uint8_t> & data, const handshake::type_t type, vector <uint8_t> & result) noexcept {
 		// Сборщик сообщений рукопожатия
 		handshake::reader_t messages;
 		// Если сообщения собрать не удалось
@@ -744,7 +744,7 @@ namespace {
 		// Тело сообщения
 		view_t body;
 		/**
-		 * Выполняем перебор сообщений уровня
+		 * Перебираем сообщения уровня
 		 */
 		while(messages.next(header, body) == handshake::error_t::NONE){
 			// Если это искомое сообщение
@@ -766,7 +766,7 @@ namespace {
 	 * @return       признак успешности разбора
 	 *
 	 */
-	bool requested(const view_t & body, vector <hello::extension_t> & result) noexcept {
+	bool __nts_requested__(const view_t & body, vector <hello::extension_t> & result) noexcept {
 		// Разборщик полей тела запроса
 		field::scanner_t scanner;
 		// Начинаем разбор тела запроса
@@ -788,7 +788,7 @@ namespace {
 		// Начинаем разбор перечня расширений
 		list.start(record);
 		/**
-		 * Выполняем перебор расширений перечня
+		 * Перебираем расширения перечня
 		 */
 		while(list.left() > 0){
 			// Вид расширения
@@ -814,15 +814,15 @@ namespace {
 	 * @return           число расширений вида GREASE с пустым телом
 	 *
 	 */
-	size_t greased(const vector <hello::extension_t> & extensions, uint16_t & value, size_t & index) noexcept {
+	size_t __nts_greased__(const vector <hello::extension_t> & extensions, uint16_t & value, size_t & index) noexcept {
 		// Число расширений вида GREASE
 		size_t count = 0;
 		/**
-		 * Выполняем перебор расширений перечня
+		 * Перебираем расширения перечня
 		 */
 		for(size_t i = 0; i < extensions.size(); i++){
 			// Если расширение имеет вид GREASE и тело его пусто
-			if(shaped(extensions[i].type) && (extensions[i].data.size == 0)){
+			if(__nts_shaped__(extensions[i].type) && (extensions[i].data.size == 0)){
 				// Если это первое найденное расширение
 				if(count == 0){
 					// Запоминаем тип первого найденного расширения GREASE
@@ -850,7 +850,7 @@ namespace {
 	 * @return           признак того, что связь установилась и сообщения сняты
 	 *
 	 */
-	bool served(const bool grease, const context::credential_t & credential, vector <uint8_t> & asked, vector <hello::extension_t> & request, vector <uint8_t> & granted, vector <hello::extension_t> & ticket, size_t & tickets) noexcept {
+	bool __nts_served__(const bool grease, const context::credential_t & credential, vector <uint8_t> & asked, vector <hello::extension_t> & request, vector <uint8_t> & granted, vector <hello::extension_t> & ticket, size_t & tickets) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
@@ -860,7 +860,7 @@ namespace {
 		// Перенос по уровням серверу
 		server.transport(context::transport_t::LEVELS);
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, credential, true);
+		__nts_arrange__(client, server, credential, true);
 		// Прикладной протокол клиента: раздел 8.1 RFC 9001 велит вести связь QUIC с ALPN
 		client.protocols(vector <string> {"h3"});
 		// Прикладной протокол сервера
@@ -884,17 +884,17 @@ namespace {
 		// Сообщения сервера уровня рукопожатия
 		vector <uint8_t> handshake;
 		// Проводим рукопожатие по уровням
-		levelled(client, server, handshake);
+		__nts_levelled__(client, server, handshake);
 		// Если связь не установилась
 		if(!client.established() || !server.established())
 			// Выводим отрицательный результат - связь не установлена
 			return false;
 		// Если запрос подлинности среди сообщений сервера не найден
-		if(!locate(handshake, handshake::type_t::REQUEST, asked))
+		if(!__nts_locate__(handshake, handshake::type_t::REQUEST, asked))
 			// Выводим отрицательный результат - запрос рукопожатия не найден
 			return false;
 		// Если перечень расширений запроса разобрать не удалось
-		if(!requested(view_t(asked.data(), asked.size()), request))
+		if(!__nts_requested__(view_t(asked.data(), asked.size()), request))
 			// Выводим отрицательный результат - запрос не подошёл
 			return false;
 		// Если билет выдать не удалось
@@ -904,11 +904,11 @@ namespace {
 		// Сообщения сервера уровня прикладных данных
 		vector <uint8_t> application;
 		// Переносим билет клиенту, запоминая сообщения
-		if(!carry(server, client, context::level_t::APPLICATION, &application))
+		if(!__nts_carry__(server, client, context::level_t::APPLICATION, &application))
 			// Выводим отрицательный результат - перенос приложения не удался
 			return false;
 		// Если билет среди сообщений сервера не найден
-		if(!locate(application, handshake::type_t::TICKET, granted))
+		if(!__nts_locate__(application, handshake::type_t::TICKET, granted))
 			// Выводим отрицательный результат - билет не найден
 			return false;
 		// Разобранный билет
@@ -933,13 +933,13 @@ namespace {
 	 * @return           признак успешности снятия
 	 *
 	 */
-	bool sample(const context::credential_t & credential, places_t & result, std::string & why) noexcept {
+	bool __nts_sample__(const context::credential_t & credential, places_t & result, std::string & why) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, credential, false);
+		__nts_arrange__(client, server, credential, false);
 		// Включаем вставку GREASE клиенту
 		client.grease(true);
 		// Если клиента завести не удалось
@@ -954,14 +954,14 @@ namespace {
 		// Разобранное приветствие
 		hello::client_t greeting;
 		// Если приветствие снять не удалось
-		if(!capture(client, wire, greeting)){
+		if(!__nts_capture__(client, wire, greeting)){
 			// Называем причину
 			why = "приветствие не снялось";
 			// Выводим отрицательный результат - приветствие с провода не поймано
 			return false;
 		}
 		// Выводим итог снятия мест
-		return places(greeting, false, result, why);
+		return __nts_places__(greeting, false, result, why);
 	}
 };
 
@@ -976,13 +976,13 @@ TEST(GreaseTest, Places){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, credential, false);
+	__nts_arrange__(client, server, credential, false);
 	// Клиент предлагает и издание 1.2: перечень изданий длиннее одного
 	client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 	// Имя узла: расширение потребителя после долей
@@ -1002,23 +1002,23 @@ TEST(GreaseTest, Places){
 	// Разобранное приветствие
 	hello::client_t greeting;
 	// Снимаем приветствие
-	ASSERT_TRUE(capture(client, wire, greeting));
+	ASSERT_TRUE(__nts_capture__(client, wire, greeting));
 	// Места GREASE
 	places_t found;
 	// Причина отказа
 	std::string why;
 	// Проверяем места
-	ASSERT_TRUE(places(greeting, false, found, why)) << why;
+	ASSERT_TRUE(__nts_places__(greeting, false, found, why)) << why;
 	// Проверяем вид набора
-	ASSERT_TRUE(shaped(found.suite));
+	ASSERT_TRUE(__nts_shaped__(found.suite));
 	// Проверяем вид первого расширения
-	ASSERT_TRUE(shaped(found.first));
+	ASSERT_TRUE(__nts_shaped__(found.first));
 	// Проверяем вид второго расширения
-	ASSERT_TRUE(shaped(found.second));
+	ASSERT_TRUE(__nts_shaped__(found.second));
 	// Проверяем вид группы
-	ASSERT_TRUE(shaped(found.group));
+	ASSERT_TRUE(__nts_shaped__(found.group));
 	// Проверяем вид издания
-	ASSERT_TRUE(shaped(found.version));
+	ASSERT_TRUE(__nts_shaped__(found.version));
 	// Второе расширение GREASE - самое последнее: заранее разделённого ключа нет
 	ASSERT_EQ(greeting.extensions.back().type, found.second);
 	// Расширение изданий идёт сразу за первым GREASE
@@ -1026,7 +1026,7 @@ TEST(GreaseTest, Places){
 	// Подаём приветствие серверу
 	server.push(view_t(wire.data(), wire.size()));
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Сервер значения GREASE не выбрал
@@ -1034,11 +1034,11 @@ TEST(GreaseTest, Places){
 	// Проверяем издание
 	ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0304));
 	// Проверяем обмен данными
-	ASSERT_TRUE(barter(client, server));
+	ASSERT_TRUE(__nts_barter__(client, server));
 	// Выдаём билет
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
 	// Доставляем билет
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем получение билета
 	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 	// Возобновляющий клиент
@@ -1046,7 +1046,7 @@ TEST(GreaseTest, Places){
 	// Возобновляемый сервер
 	server::context_t resumed;
 	// Настраиваем стороны
-	arrange(resuming, resumed, credential, false);
+	__nts_arrange__(resuming, resumed, credential, false);
 	// Включаем вставку GREASE
 	resuming.grease(true);
 	// Предъявляем билет
@@ -1062,11 +1062,11 @@ TEST(GreaseTest, Places){
 	// Разобранное приветствие возобновления
 	hello::client_t offer;
 	// Снимаем приветствие
-	ASSERT_TRUE(capture(resuming, again, offer));
+	ASSERT_TRUE(__nts_capture__(resuming, again, offer));
 	// Места GREASE возобновления
 	places_t second;
 	// Проверяем места: второе расширение GREASE перед заранее разделённым ключом
-	ASSERT_TRUE(places(offer, false, second, why)) << why;
+	ASSERT_TRUE(__nts_places__(offer, false, second, why)) << why;
 	// Заранее разделённый ключ идёт последним (раздел 4.2.11 RFC 8446)
 	ASSERT_EQ(offer.extensions.back().type, static_cast <uint16_t> (extension::type_t::SECRET));
 	// Второе расширение GREASE идёт перед ним
@@ -1074,13 +1074,13 @@ TEST(GreaseTest, Places){
 	// Подаём приветствие серверу
 	resumed.push(view_t(again.data(), again.size()));
 	// Проводим рукопожатие
-	converse(resuming, resumed);
+	__nts_converse__(resuming, resumed);
 	// Проверяем установленность связи
 	ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error());
 	// Проверяем возобновление билетом
 	ASSERT_TRUE(resuming.shared() && resumed.shared());
 	// Проверяем обмен данными
-	ASSERT_TRUE(barter(resuming, resumed));
+	ASSERT_TRUE(__nts_barter__(resuming, resumed));
 }
 
 /**
@@ -1094,11 +1094,11 @@ TEST(GreaseTest, Entropy){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Наборы GREASE связей
 	vector <uint16_t> suites;
 	/**
-	 * Выполняем перебор связей
+	 * Перебираем связи
 	 */
 	for(size_t i = 0; i < 64; i++){
 		// Места GREASE связи
@@ -1106,7 +1106,7 @@ TEST(GreaseTest, Entropy){
 		// Причина отказа
 		std::string why;
 		// Снимаем места со свежей связи
-		ASSERT_TRUE(sample(credential, found, why)) << "связь " << i << ": " << why;
+		ASSERT_TRUE(__nts_sample__(credential, found, why)) << "связь " << i << ": " << why;
 		// Два расширения различны
 		ASSERT_NE(found.first, found.second) << "связь " << i;
 		// Запоминаем набор GREASE
@@ -1115,7 +1115,7 @@ TEST(GreaseTest, Entropy){
 	// Признак того, что наборы разных связей различаются
 	bool differs = false;
 	/**
-	 * Выполняем перебор наборов связей
+	 * Перебираем наборы связей
 	 */
 	for(size_t i = 1; (i < suites.size()) && !differs; i++)
 		// Запоминаем отличие набора от первого
@@ -1133,13 +1133,13 @@ TEST(GreaseTest, Retry){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, credential, false);
+	__nts_arrange__(client, server, credential, false);
 	// Клиент объявляет две группы
 	client.groups(vector <extension::group_t> {extension::group_t::SECP256R1, extension::group_t::SECP384R1});
 	// Клиент шлёт долю лишь по первой
@@ -1157,13 +1157,13 @@ TEST(GreaseTest, Retry){
 	// Разобранное первое приветствие
 	hello::client_t initial;
 	// Снимаем первое приветствие
-	ASSERT_TRUE(capture(client, first, initial));
+	ASSERT_TRUE(__nts_capture__(client, first, initial));
 	// Места GREASE первого приветствия
 	places_t before;
 	// Причина отказа
 	std::string why;
 	// Проверяем места первого приветствия
-	ASSERT_TRUE(places(initial, false, before, why)) << why;
+	ASSERT_TRUE(__nts_places__(initial, false, before, why)) << why;
 	// Подаём первое приветствие серверу
 	server.push(view_t(first.data(), first.size()));
 	// Байты просьбы о повторе
@@ -1183,11 +1183,11 @@ TEST(GreaseTest, Retry){
 	// Разобранное второе приветствие
 	hello::client_t repeated;
 	// Снимаем второе приветствие
-	ASSERT_TRUE(capture(client, second, repeated));
+	ASSERT_TRUE(__nts_capture__(client, second, repeated));
 	// Места GREASE второго приветствия
 	places_t after;
 	// Проверяем места второго приветствия: просьба несла долю, и доли GREASE в повторе нет
-	ASSERT_TRUE(places(repeated, true, after, why)) << why;
+	ASSERT_TRUE(__nts_places__(repeated, true, after, why)) << why;
 	// Набор GREASE тот же
 	ASSERT_EQ(after.suite, before.suite);
 	// Первое расширение GREASE то же
@@ -1217,11 +1217,11 @@ TEST(GreaseTest, Retry){
 	// Подаём второе приветствие серверу
 	server.push(view_t(second.data(), second.size()));
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем обмен данными
-	ASSERT_TRUE(barter(client, server));
+	ASSERT_TRUE(__nts_barter__(client, server));
 }
 
 /**
@@ -1233,7 +1233,7 @@ TEST(GreaseTest, Cookie){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
@@ -1243,7 +1243,7 @@ TEST(GreaseTest, Cookie){
 	// Перенос дейтаграммами серверу
 	server.transport(context::transport_t::DATAGRAMS);
 	// Настраиваем стороны
-	arrange(client, server, credential, false);
+	__nts_arrange__(client, server, credential, false);
 	// Адрес собеседника у сервера: метка привязывается к нему
 	static const uint8_t ADDRESS[] = {10, 0, 0, 1, 0x12, 0x34};
 	// Устанавливаем адрес собеседника
@@ -1259,7 +1259,7 @@ TEST(GreaseTest, Cookie){
 	// Разобранное первое приветствие
 	hello::client_t initial;
 	// Снимаем первое приветствие
-	ASSERT_TRUE(datagrammed(client, first, initial));
+	ASSERT_TRUE(__nts_datagrammed__(client, first, initial));
 	// Первое приветствие без метки
 	ASSERT_TRUE(initial.cookie.empty());
 	// Места GREASE первого приветствия
@@ -1267,7 +1267,7 @@ TEST(GreaseTest, Cookie){
 	// Причина отказа
 	std::string why;
 	// Проверяем места первого приветствия
-	ASSERT_TRUE(places(initial, false, before, why)) << why;
+	ASSERT_TRUE(__nts_places__(initial, false, before, why)) << why;
 	// Подаём первое приветствие серверу
 	server.push(view_t(first.data(), first.size()));
 	// Дейтаграмма просьбы о повторе
@@ -1287,13 +1287,13 @@ TEST(GreaseTest, Cookie){
 	// Разобранное второе приветствие
 	hello::client_t repeated;
 	// Снимаем второе приветствие
-	ASSERT_TRUE(datagrammed(client, second, repeated));
+	ASSERT_TRUE(__nts_datagrammed__(client, second, repeated));
 	// Второе приветствие несёт метку возврата состояния
 	ASSERT_NE(hello::extension(repeated.extensions, static_cast <uint16_t> (extension::type_t::COOKIE)), nullptr);
 	// Места GREASE второго приветствия: просьба доли не просила, и доля GREASE осталась
 	places_t after;
 	// Проверяем места второго приветствия
-	ASSERT_TRUE(places(repeated, false, after, why)) << why;
+	ASSERT_TRUE(__nts_places__(repeated, false, after, why)) << why;
 	// Набор GREASE тот же
 	ASSERT_EQ(after.suite, before.suite);
 	// Первое расширение GREASE то же
@@ -1309,7 +1309,7 @@ TEST(GreaseTest, Cookie){
 	// Подаём второе приветствие серверу
 	server.push(view_t(second.data(), second.size()));
 	/**
-	 * Выполняем перенос дейтаграмм между сторонами до установления связи
+	 * Переносим дейтаграммы между сторонами до установления связи
 	 */
 	for(size_t i = 0; (i < 16) && !(client.established() && server.established()); i++){
 		// Дейтаграмма сервера
@@ -1348,13 +1348,13 @@ TEST(GreaseTest, Disabled){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, credential, false);
+	__nts_arrange__(client, server, credential, false);
 	// Клиент предлагает и издание 1.2
 	client.suites(vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 	// Имя узла
@@ -1378,9 +1378,9 @@ TEST(GreaseTest, Disabled){
 	// Разобранное приветствие
 	hello::client_t greeting;
 	// Снимаем приветствие
-	ASSERT_TRUE(capture(client, wire, greeting));
+	ASSERT_TRUE(__nts_capture__(client, wire, greeting));
 	// Ни одного значения GREASE нет
-	ASSERT_TRUE(clean(greeting));
+	ASSERT_TRUE(__nts_clean__(greeting));
 	// Первый набор - набор потребителя
 	ASSERT_EQ(greeting.suites[0], static_cast <uint16_t> (protect::suite_t::AES_128_GCM_SHA256));
 	// Первое расширение - перечень изданий, как прежде
@@ -1404,11 +1404,11 @@ TEST(GreaseTest, Disabled){
 	// Подаём приветствие серверу
 	server.push(view_t(wire.data(), wire.size()));
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем обмен данными
-	ASSERT_TRUE(barter(client, server));
+	ASSERT_TRUE(__nts_barter__(client, server));
 }
 
 /**
@@ -1421,7 +1421,7 @@ TEST(GreaseTest, Server){
 	// Подлинность сторон
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Тело запроса подлинности
 	vector <uint8_t> asked;
 	// Расширения запроса подлинности
@@ -1433,25 +1433,25 @@ TEST(GreaseTest, Server){
 	// Число билетов у клиента
 	size_t tickets = 0;
 	// Проводим рукопожатие с включённой ручкой
-	ASSERT_TRUE(served(true, credential, asked, request, granted, ticket, tickets));
+	ASSERT_TRUE(__nts_served__(true, credential, asked, request, granted, ticket, tickets));
 	// Значение расширения GREASE
 	uint16_t value = 0;
 	// Место расширения GREASE
 	size_t index = 0;
 	// В запросе подлинности ровно одно расширение GREASE
-	ASSERT_EQ(greased(request, value, index), static_cast <size_t> (1));
+	ASSERT_EQ(__nts_greased__(request, value, index), static_cast <size_t> (1));
 	// Оно первое
 	ASSERT_EQ(index, static_cast <size_t> (0));
 	// Оно вида 0x?A?A
-	ASSERT_TRUE(shaped(value));
+	ASSERT_TRUE(__nts_shaped__(value));
 	// За ним идут схемы подписи
 	ASSERT_GE(request.size(), static_cast <size_t> (2));
 	// Проверяем схемы подписи вторым расширением
 	ASSERT_EQ(request[1].type, static_cast <uint16_t> (extension::type_t::SCHEMES));
 	// В билете ровно одно расширение GREASE
-	ASSERT_EQ(greased(ticket, value, index), static_cast <size_t> (1));
+	ASSERT_EQ(__nts_greased__(ticket, value, index), static_cast <size_t> (1));
 	// Оно вида 0x?A?A
-	ASSERT_TRUE(shaped(value));
+	ASSERT_TRUE(__nts_shaped__(value));
 	// Билет несёт предел упреждающих данных первым, GREASE за ним
 	ASSERT_EQ(ticket.size(), static_cast <size_t> (2));
 	// Проверяем предел упреждающих данных первым расширением
@@ -1469,13 +1469,13 @@ TEST(GreaseTest, Server){
 	// Расширения билета при выключенной ручке
 	vector <hello::extension_t> plain;
 	// Проводим рукопожатие с выключенной ручкой
-	ASSERT_TRUE(served(false, credential, asking, bare, granting, plain, tickets));
+	ASSERT_TRUE(__nts_served__(false, credential, asking, bare, granting, plain, tickets));
 	// В запросе подлинности расширений GREASE нет
-	ASSERT_EQ(greased(bare, value, index), static_cast <size_t> (0));
+	ASSERT_EQ(__nts_greased__(bare, value, index), static_cast <size_t> (0));
 	// Первое расширение запроса - схемы подписи, как прежде
 	ASSERT_EQ(bare.front().type, static_cast <uint16_t> (extension::type_t::SCHEMES));
 	// В билете расширений GREASE нет
-	ASSERT_EQ(greased(plain, value, index), static_cast <size_t> (0));
+	ASSERT_EQ(__nts_greased__(plain, value, index), static_cast <size_t> (0));
 	// Билет несёт один лишь предел упреждающих данных, как прежде
 	ASSERT_EQ(plain.size(), static_cast <size_t> (1));
 	// Клиент билет принял
@@ -1485,7 +1485,7 @@ TEST(GreaseTest, Server){
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны с подлинностью клиента
-	arrange(client, server, credential, true);
+	__nts_arrange__(client, server, credential, true);
 	// Включаем вставку GREASE клиенту
 	client.grease(true);
 	// Включаем вставку GREASE серверу
@@ -1495,17 +1495,17 @@ TEST(GreaseTest, Server){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем подлинность клиента у сервера
 	ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 	// Проверяем обмен данными
-	ASSERT_TRUE(barter(client, server));
+	ASSERT_TRUE(__nts_barter__(client, server));
 	// Выдаём билет
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
 	// Доставляем билет
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем получение билета
 	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 }
@@ -1532,11 +1532,11 @@ TEST(GreaseTest, Openssl13){
 	// Подлинность сторон
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	/**
-	 * Выполняем перебор случаев: прямое рукопожатие и рукопожатие через просьбу о повторе
+	 * Перебираем случаи: прямое рукопожатие и рукопожатие через просьбу о повторе
 	 */
 	for(size_t retry = 0; retry < 2; retry++){
 		// Свободный порт
@@ -1552,9 +1552,9 @@ TEST(GreaseTest, Openssl13){
 		// Сторож сервера openssl
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = dial(number);
+		const int own = dial(number);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(own, 0) << "порт " << number;
 		// Связь стороны клиента
 		client::context_t client;
 		// Наборы клиента
@@ -1572,11 +1572,11 @@ TEST(GreaseTest, Openssl13){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу байтов до установления связи
+		 * Передаём байты до установления связи
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, fd);
+			relay(client, own);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established()) << "повтор " << retry << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем набор
@@ -1590,11 +1590,11 @@ TEST(GreaseTest, Openssl13){
 		// Накопитель ответа
 		vector <uint8_t> answer;
 		/**
-		 * Выполняем передачу байтов до получения ответа
+		 * Передаём байты до получения ответа
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты
-			relay(client, fd);
+			relay(client, own);
 			// Читаем принятые данные
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1607,7 +1607,7 @@ TEST(GreaseTest, Openssl13){
 			// Проверяем группу в ответе сервера
 			ASSERT_NE(text.find("P-384"), string::npos) << text;
 		// Закрываем сокет
-		closing(fd);
+		closing(own);
 		// Снимаем сервер до удаления журнала
 		sentinel.halt();
 		// Журнал сервера
@@ -1638,9 +1638,9 @@ TEST(GreaseTest, Openssl13){
 	// Сторож клиента openssl
 	sentinel_t sentinel(log + ".pid");
 	// Принимаем подключение
-	const int fd = greeted(listener);
+	const int own = greeted(listener);
 	// Проверяем подключение
-	ASSERT_GE(fd, 0);
+	ASSERT_GE(own, 0);
 	// Связь стороны сервера
 	server::context_t server;
 	// Наборы сервера
@@ -1656,7 +1656,7 @@ TEST(GreaseTest, Openssl13){
 	// Заводим сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Ведём связь до конца рукопожатия
-	ASSERT_TRUE(serve(server, fd)) << "отказ " << static_cast <int> (server.error());
+	ASSERT_TRUE(serve(server, own)) << "отказ " << static_cast <int> (server.error());
 	// Отказа не было
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	// Связь установлена
@@ -1668,7 +1668,7 @@ TEST(GreaseTest, Openssl13){
 	// Байты билета
 	const view_t granting = server.output();
 	// Отправляем билет
-	ASSERT_EQ(sending(fd, granting.data, granting.size), static_cast <ssize_t> (granting.size));
+	ASSERT_EQ(sending(own, granting.data, granting.size), static_cast <ssize_t> (granting.size));
 	// Снимаем байты билета
 	server.consume(granting.size);
 	// Признак того, что клиент openssl билет принял
@@ -1690,9 +1690,9 @@ TEST(GreaseTest, Openssl13){
 	// Клиент openssl обязан принять билет с расширением GREASE
 	ASSERT_TRUE(granted);
 	// Закрываем связь: по извещению клиент openssl уходит сам и выкладывает журнал
-	ASSERT_TRUE(farewell(server, fd));
+	ASSERT_TRUE(farewell(server, own));
 	// Закрываем сокет
-	closing(fd);
+	closing(own);
 	// Закрываем слушающий сокет
 	closing(listener);
 	// Текст журнала клиента
@@ -1734,7 +1734,7 @@ TEST(GreaseTest, OpensslGrease){
 	// Подлинность сторон
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Порт своего сервера
@@ -1750,15 +1750,15 @@ TEST(GreaseTest, OpensslGrease){
 	// Сторож клиента openssl
 	sentinel_t sentinel(log + ".pid");
 	// Принимаем подключение
-	const int fd = greeted(listener);
+	const int own = greeted(listener);
 	// Проверяем подключение
-	ASSERT_GE(fd, 0);
+	ASSERT_GE(own, 0);
 	// Предел ожидания приёма
-	patience(fd, 30, 0);
+	patience(own, 30, 0);
 	// Накопитель приветствия
 	uint8_t buffer[16384];
 	// Принимаем приветствие клиента с провода до разбора
-	const ssize_t received = ::recv(fd, reinterpret_cast <char *> (buffer), sizeof(buffer), 0);
+	const ssize_t received = ::recv(own, reinterpret_cast <char *> (buffer), sizeof(buffer), 0);
 	// Проверяем приём
 	ASSERT_GT(received, 0);
 	// Байты приветствия
@@ -1784,11 +1784,11 @@ TEST(GreaseTest, OpensslGrease){
 	// Признак набора GREASE в перечне наборов
 	bool suited = false;
 	/**
-	 * Выполняем перебор наборов приветствия
+	 * Перебираем наборы приветствия
 	 */
 	for(size_t i = 0; i < greeting.suites.size(); i++){
 		// Если набор имеет вид GREASE
-		if(shaped(greeting.suites[i])){
+		if(__nts_shaped__(greeting.suites[i])){
 			// Запоминаем признак
 			suited = true;
 			// Выходим из перебора
@@ -1800,11 +1800,11 @@ TEST(GreaseTest, OpensslGrease){
 	// Число расширений вида GREASE
 	size_t count = 0;
 	/**
-	 * Выполняем перебор расширений приветствия
+	 * Перебираем расширения приветствия
 	 */
 	for(size_t i = 0; i < greeting.extensions.size(); i++){
 		// Если расширение имеет вид GREASE
-		if(shaped(greeting.extensions[i].type))
+		if(__nts_shaped__(greeting.extensions[i].type))
 			// Считаем расширение
 			count++;
 	}
@@ -1821,11 +1821,11 @@ TEST(GreaseTest, OpensslGrease){
 	// Признак группы GREASE
 	bool grouped = false;
 	/**
-	 * Выполняем перебор групп приветствия
+	 * Перебираем группы приветствия
 	 */
 	for(size_t i = 0; i < groups.size(); i++){
 		// Если группа имеет вид GREASE
-		if(shaped(static_cast <uint16_t> (groups[i]))){
+		if(__nts_shaped__(static_cast <uint16_t> (groups[i]))){
 			// Запоминаем признак
 			grouped = true;
 			// Выходим из перебора
@@ -1845,11 +1845,11 @@ TEST(GreaseTest, OpensslGrease){
 	// Признак доли GREASE
 	bool shared = false;
 	/**
-	 * Выполняем перебор долей приветствия
+	 * Перебираем доли приветствия
 	 */
 	for(size_t i = 0; i < shares.size(); i++){
 		// Если группа доли имеет вид GREASE
-		if(shaped(static_cast <uint16_t> (shares[i].group))){
+		if(__nts_shaped__(static_cast <uint16_t> (shares[i].group))){
 			// Запоминаем признак
 			shared = true;
 			// Выходим из перебора
@@ -1869,11 +1869,11 @@ TEST(GreaseTest, OpensslGrease){
 	// Признак издания GREASE
 	bool versioned = false;
 	/**
-	 * Выполняем перебор изданий приветствия
+	 * Перебираем издания приветствия
 	 */
 	for(size_t i = 0; i < versions.size(); i++){
 		// Если издание имеет вид GREASE
-		if(shaped(versions[i])){
+		if(__nts_shaped__(versions[i])){
 			// Запоминаем признак
 			versioned = true;
 			// Выходим из перебора
@@ -1895,15 +1895,15 @@ TEST(GreaseTest, OpensslGrease){
 	// Подаём серверу принятое приветствие
 	server.push(view_t(wire.data(), wire.size()));
 	// Ведём связь до конца рукопожатия
-	ASSERT_TRUE(serve(server, fd)) << "отказ " << static_cast <int> (server.error());
+	ASSERT_TRUE(serve(server, own)) << "отказ " << static_cast <int> (server.error());
 	// Отказа не было
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	// Связь установлена: сервер принял приветствие со значениями GREASE
 	ASSERT_TRUE(server.established());
 	// Закрываем связь: по извещению клиент openssl уходит сам и выкладывает журнал
-	ASSERT_TRUE(farewell(server, fd));
+	ASSERT_TRUE(farewell(server, own));
 	// Закрываем сокет
-	closing(fd);
+	closing(own);
 	// Закрываем слушающий сокет
 	closing(listener);
 	// Текст журнала клиента
@@ -1941,7 +1941,7 @@ TEST(GreaseTest, Openssl12){
 	// Подлинность сторон
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Свободный порт
@@ -1955,9 +1955,9 @@ TEST(GreaseTest, Openssl12){
 	// Сторож сервера openssl
 	sentinel_t sentinel(log + ".pid");
 	// Подключаемся к серверу openssl
-	const int fd = dial(number);
+	const int own = dial(number);
 	// Проверяем подключение
-	ASSERT_GE(fd, 0) << "порт " << number;
+	ASSERT_GE(own, 0) << "порт " << number;
 	// Связь стороны клиента
 	client::context_t client;
 	// Наборы клиента
@@ -1973,11 +1973,11 @@ TEST(GreaseTest, Openssl12){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
-	 * Выполняем передачу байтов до установления связи
+	 * Передаём байты до установления связи
 	 */
 	for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 		// Передаём байты
-		relay(client, fd);
+		relay(client, own);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 	// Издание 1.2
@@ -1991,11 +1991,11 @@ TEST(GreaseTest, Openssl12){
 	// Накопитель ответа
 	vector <uint8_t> answer;
 	/**
-	 * Выполняем передачу байтов до получения ответа
+	 * Передаём байты до получения ответа
 	 */
 	for(size_t i = 0; (i < 16) && answer.empty(); i++){
 		// Передаём байты
-		relay(client, fd);
+		relay(client, own);
 		// Читаем принятые данные
 		ASSERT_EQ(client.read(answer), context::error_t::NONE);
 	}
@@ -2006,7 +2006,7 @@ TEST(GreaseTest, Openssl12){
 	// Сервер openssl видит издание 1.2
 	ASSERT_NE(text.find("TLSv1.2"), string::npos) << text;
 	// Закрываем сокет
-	closing(fd);
+	closing(own);
 	// Снимаем сервер до удаления журнала
 	sentinel.halt();
 	// Журнал сервера
@@ -2042,7 +2042,7 @@ TEST(GreaseTest, Dtls){
 	// Подлинность сторон
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Свободный порт UDP
@@ -2061,21 +2061,21 @@ TEST(GreaseTest, Dtls){
 	ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256" + grouping(toolkit, true, extension::group_t::SECP256R1) + " -mtu 300" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 	// Сторож сервера openssl
 	sentinel_t sentinel(log + ".pid");
-	// Журнал
+	// Текст журнала сервера
 	std::string text;
-	// Ждём подъёма сервера
+	// Дожидаемся подъёма сервера
 	ASSERT_TRUE(awaited(log, "ACCEPT", text)) << text;
 	// Порт своего сокета
 	uint16_t bound = 0;
 	// Свой сокет UDP
-	const int fd = socketing(0, bound);
+	const int own = socketing(0, bound);
 	// Проверяем сокет
-	ASSERT_GE(fd, 0);
+	ASSERT_GE(own, 0);
 	// Адрес сервера
 	struct sockaddr_in peer;
 	// Обнуляем адрес
 	::memset(&peer, 0, sizeof(peer));
-	// Семейство
+	// Семейство адресов IPv4
 	peer.sin_family = AF_INET;
 	// Петлевое устройство
 	peer.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
@@ -2085,7 +2085,7 @@ TEST(GreaseTest, Dtls){
 	client::context_t client;
 	// Перенос дейтаграммами
 	client.transport(context::transport_t::DATAGRAMS);
-	// Набор
+	// Набор шифрования клиента
 	client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 	// Группы: кривая обмена и кривые сертификатов
 	client.groups(vector <extension::group_t> {extension::group_t::SECP256R1, extension::group_t::SECP384R1});
@@ -2100,12 +2100,12 @@ TEST(GreaseTest, Dtls){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём связь до установления
-	const bool complete = relay(client, fd, peer, 400);
+	const bool complete = relay(client, own, peer, 400);
 	// Связь установлена
 	ASSERT_TRUE(complete) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 	// Издание DTLS 1.2
 	ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0303));
-	// Набор
+	// Согласованный набор шифрования
 	ASSERT_EQ(client.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256);
 	// Цепочка сервера
 	ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
@@ -2114,15 +2114,15 @@ TEST(GreaseTest, Dtls){
 	// Отправляем запрос по установленной связи
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 	// Отправляем дейтаграммы
-	relay(client, fd, peer, 1);
+	relay(client, own, peer, 1);
 	// Сервер печатает принятое в журнал
 	ASSERT_TRUE(awaited(log, request, text)) << text;
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Отправляем извещение
-	relay(client, fd, peer, 1);
+	relay(client, own, peer, 1);
 	// Закрываем сокет
-	closing(fd);
+	closing(own);
 	// Снимаем сервер
 	sentinel.halt();
 	// Дожидаемся отметки завершения
@@ -2142,13 +2142,13 @@ TEST(GreaseTest, Starved){
 	// Подлинность сторон
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Признак того, что нехватка памяти встретилась
 	bool starved = false;
 	// Признак того, что связь на щедром запасе установилась
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Связь стороны клиента
@@ -2156,7 +2156,7 @@ TEST(GreaseTest, Starved){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, credential, true);
+		__nts_arrange__(client, server, credential, true);
 		// Включаем вставку GREASE клиенту
 		client.grease(true);
 		// Включаем вставку GREASE серверу
@@ -2173,7 +2173,7 @@ TEST(GreaseTest, Starved){
 			// Если стороны заведены
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 				// Проводим рукопожатие
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Если связь установлена
 				if(client.established() && server.established()){
 					// Выдаём билет
@@ -2181,7 +2181,7 @@ TEST(GreaseTest, Starved){
 					// Если билет выдан
 					if(first == context::error_t::NONE){
 						// Доставляем билет
-						converse(client, server);
+						__nts_converse__(client, server);
 						// Ошибка сервера после доставки
 						first = server.error();
 					}

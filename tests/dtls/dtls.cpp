@@ -83,7 +83,7 @@ namespace {
 		// Разобранная область байтов
 		vector <uint8_t> result;
 		/**
-		 * Выполняем перебор пар символов записи
+		 * Перебираем пары символов записи
 		 */
 		for(size_t i = 0; text[i] != '\0' && text[i + 1] != '\0'; i += 2)
 			// Добавляем очередной разобранный байт
@@ -118,7 +118,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -127,7 +127,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочку сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -184,13 +184,13 @@ namespace {
 	 *
 	 */
 	template <typename T>
-	bool drain(T & from, vector <vector <uint8_t>> & result) noexcept {
+	bool __nts_drain__(T & from, vector <vector <uint8_t>> & result) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
-			 * Выполняем снятие дейтаграмм по одной
+			 * Снимаем дейтаграммы по одной
 			 */
 			while(from.output().size > 0){
 				// Получаем очередную дейтаграмму
@@ -224,11 +224,11 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, bond_t & bond, const size_t direction) noexcept {
+	bool __nts_carry__(A & from, B & to, bond_t & bond, const size_t direction) noexcept {
 		// Снятые дейтаграммы
 		vector <vector <uint8_t>> datagrams;
 		// Если дейтаграммы снять не удалось
-		if(!drain(from, datagrams))
+		if(!__nts_drain__(from, datagrams))
 			// Выводим признак того, что дейтаграммы не переносились
 			return false;
 		// Если переносить нечего
@@ -240,7 +240,7 @@ namespace {
 			// Переворачиваем порядок дейтаграмм переноса
 			std::reverse(datagrams.begin(), datagrams.end());
 		/**
-		 * Выполняем перебор снятых дейтаграмм
+		 * Перебираем снятые дейтаграммы
 		 */
 		for(size_t i = 0; i < datagrams.size(); i++){
 			// Считаем дейтаграмму направления
@@ -285,11 +285,11 @@ namespace {
 	 * @return       число кругов, ушедших на перенос
 	 *
 	 */
-	size_t converse(client::context_t & client, server::context_t & server, bond_t & bond, const size_t rounds = 400) noexcept {
+	size_t __nts_converse__(client::context_t & client, server::context_t & server, bond_t & bond, const size_t rounds = 400) noexcept {
 		// Число пройденных кругов
 		size_t round = 0;
 		/**
-		 * Выполняем перенос дейтаграмм, пока сторонам есть что сказать либо чего ждать
+		 * Переносим дейтаграммы, пока сторонам есть что сказать либо чего ждать
 		 */
 		for(; round < rounds; round++){
 			// Если связь одной из сторон оборвана
@@ -297,9 +297,9 @@ namespace {
 				// Прекращаем перенос
 				break;
 			// Признак того, что дейтаграммы переносились
-			bool moved = carry(client, server, bond, 0);
+			bool moved = __nts_carry__(client, server, bond, 0);
 			// Переносим дейтаграммы сервера клиенту
-			moved = (carry(server, client, bond, 1) || moved);
+			moved = (__nts_carry__(server, client, bond, 1) || moved);
 			// Если дейтаграммы переносились
 			if(moved)
 				// Переходим к следующему кругу
@@ -339,7 +339,7 @@ namespace {
 	 * @param mutual     запрашивается ли подлинность клиента
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual) noexcept {
 		// Устанавливаем перенос дейтаграммами клиенту
 		client.transport(context::transport_t::DATAGRAMS);
 		// Устанавливаем перенос дейтаграммами серверу
@@ -375,7 +375,7 @@ namespace {
 	 * @return       признак того, что обе стороны прочли отправленное
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server, bond_t & bond) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server, bond_t & bond) noexcept {
 		// Данные, отправляемые клиентом
 		const string request = "ping from the client over datagrams";
 		// Данные, отправляемые сервером
@@ -389,7 +389,7 @@ namespace {
 			// Выводим отказ обмена
 			return false;
 		// Переносим дейтаграммы
-		converse(client, server, bond);
+		__nts_converse__(client, server, bond);
 		// Принятые данные
 		vector <uint8_t> received;
 		// Если данные клиента сервером не прочтены
@@ -474,11 +474,11 @@ namespace {
 	 * @param suite      набор шифрования
 	 * @param secret     значение направления
 	 * @param protection защита записей, которой ставится ключевой материал
-	 * @param sn         место, в которое помещается ключ шифрования номера
+	 * @param serial         место, в которое помещается ключ шифрования номера
 	 * @return           признак успешности вывода ключей
 	 *
 	 */
-	bool keys(const protect::suite_t suite, const vector <uint8_t> & secret, protect::protection_t & protection, uint8_t * sn) noexcept {
+	bool __nts_keys__(const protect::suite_t suite, const vector <uint8_t> & secret, protect::protection_t & protection, uint8_t * serial) noexcept {
 		// Ключ и вектор замены из секрета
 		uint8_t key[protect::PROTECT_KEY], iv[protect::PROTECT_VECTOR];
 		// Если ключ и вектор замены вывести не удалось
@@ -486,7 +486,7 @@ namespace {
 			// Выводим отказ вывода ключей
 			return false;
 		// Если ключ шифрования номера меткой «sn» вывести не удалось
-		if(!schedule::derive(protect::hash(suite), view_t(secret.data(), secret.size()), view_t(reinterpret_cast <const uint8_t *> ("sn"), 2), view_t(nullptr, 0), sn, protect::key(suite)))
+		if(!schedule::derive(protect::hash(suite), view_t(secret.data(), secret.size()), view_t(reinterpret_cast <const uint8_t *> ("sn"), 2), view_t(nullptr, 0), serial, protect::key(suite)))
 			// Выводим отказ вывода ключей
 			return false;
 		// Выводим итог установки ключевого материала защите
@@ -508,9 +508,9 @@ namespace {
 		// Защита записей снаружи
 		protect::protection_t protection;
 		// Ключ шифрования номера записи
-		uint8_t sn[protect::PROTECT_KEY];
+		uint8_t serial[protect::PROTECT_KEY];
 		// Если ключи вывести не удалось
-		if(!keys(suite, secret, protection, sn))
+		if(!__nts_keys__(suite, secret, protection, serial))
 			// Выводим пустую дейтаграмму
 			return vector <uint8_t> ();
 		// Длина защищённого содержимого
@@ -526,7 +526,7 @@ namespace {
 		// Маска номера записи
 		uint8_t mask[datagram::DATAGRAM_MASK];
 		// Если маску выработать не удалось
-		if(!datagram::mask(suite, view_t(sn, protect::key(suite)), result.data() + sizeof(associated), mask))
+		if(!datagram::mask(suite, view_t(serial, protect::key(suite)), result.data() + sizeof(associated), mask))
 			// Выводим пустую дейтаграмму
 			return vector <uint8_t> ();
 		// Шифруем старший байт номера
@@ -547,7 +547,7 @@ namespace {
 	 * @return        признак успешности вскрытия
 	 *
 	 */
-	bool unseal(const protect::suite_t suite, const vector <uint8_t> & secret, const vector <uint8_t> & data, record::type_t & type, vector <uint8_t> & content) noexcept {
+	bool __nts_unseal__(const protect::suite_t suite, const vector <uint8_t> & secret, const vector <uint8_t> & data, record::type_t & type, vector <uint8_t> & content) noexcept {
 		// Заголовок записи
 		datagram::header_t header;
 		// Если заголовок не объединённый с шестнадцатиразрядным номером
@@ -557,15 +557,15 @@ namespace {
 		// Защита записей снаружи
 		protect::protection_t protection;
 		// Ключ шифрования номера записи
-		uint8_t sn[protect::PROTECT_KEY];
+		uint8_t serial[protect::PROTECT_KEY];
 		// Если ключи вывести не удалось
-		if(!keys(suite, secret, protection, sn))
+		if(!__nts_keys__(suite, secret, protection, serial))
 			// Выводим отказ вскрытия
 			return false;
 		// Маска номера записи
 		uint8_t mask[datagram::DATAGRAM_MASK];
 		// Если маску выработать не удалось
-		if(!datagram::mask(suite, view_t(sn, protect::key(suite)), data.data() + header.length, mask))
+		if(!datagram::mask(suite, view_t(serial, protect::key(suite)), data.data() + header.length, mask))
 			// Выводим отказ вскрытия
 			return false;
 		// Заголовок с открытым номером
@@ -576,7 +576,7 @@ namespace {
 		associated[2] ^= mask[1];
 		// Порядковый номер записи: номера в проверках малы, старшие разряды нулевые
 		const uint64_t sequence = ((static_cast <uint64_t> (associated[1]) << 8) | associated[2]);
-		// Выполняем сброс накопителя содержимого
+		// Сбрасываем накопитель содержимого
 		content.clear();
 		// Выводим итог снятия защиты
 		return (protection.open(view_t(associated.data(), associated.size()), sequence, view_t(data.data() + header.length, header.size), type, content) == protect::error_t::NONE);
@@ -625,9 +625,9 @@ namespace {
 	 * @return       признак того, что повторное приветствие доставлено серверу
 	 *
 	 */
-	bool greet(client::context_t & client, server::context_t & server, bond_t & bond) noexcept {
+	bool __nts_greet__(client::context_t & client, server::context_t & server, bond_t & bond) noexcept {
 		// Переносим приветствие, просьбу о повторе и повторное приветствие
-		return (carry(client, server, bond, 0) && carry(server, client, bond, 1) && carry(client, server, bond, 0));
+		return (__nts_carry__(client, server, bond, 0) && __nts_carry__(server, client, bond, 1) && __nts_carry__(client, server, bond, 0));
 	}
 	/**
 	 * Наборы шифрования перебора
@@ -939,19 +939,19 @@ TEST(DtlsTest, Framing){
  */
 TEST(DtlsTest, Loopback){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность из ключей набора
-		ASSERT_TRUE(identity(ENTRIES[k], credential)) << "ключ " << ENTRIES[k];
+		ASSERT_TRUE(__nts_identity__(ENTRIES[k], credential)) << "ключ " << ENTRIES[k];
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 			/**
-			 * Выполняем перебор групп обмена
+			 * Перебираем группы обмена
 			 */
 			for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 				// Связь стороны клиента
@@ -959,7 +959,7 @@ TEST(DtlsTest, Loopback){
 				// Связь стороны сервера
 				server::context_t server;
 				// Настраиваем стороны с подлинностью клиента
-				arrange(client, server, SUITES[s], GROUPS[g], credential, true);
+				__nts_arrange__(client, server, SUITES[s], GROUPS[g], credential, true);
 				// Проверяем способ переноса
 				ASSERT_EQ(client.transport(), context::transport_t::DATAGRAMS);
 				// Проверяем размер дейтаграммы по умолчанию
@@ -1011,7 +1011,7 @@ TEST(DtlsTest, Loopback){
 				// Путь между сторонами
 				bond_t bond;
 				// Переносим приветствие клиента серверу
-				ASSERT_TRUE(carry(client, server, bond, 0));
+				ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 				// Ответ сервера
 				const view_t answer = server.output();
 				// Проверяем наличие ответа
@@ -1037,7 +1037,7 @@ TEST(DtlsTest, Loopback){
 				// Просьба о повторе часов не ждёт
 				ASSERT_EQ(server.timeout(), static_cast <uint32_t> (0));
 				// Переносим просьбу о повторе клиенту
-				ASSERT_TRUE(carry(server, client, bond, 1));
+				ASSERT_TRUE(__nts_carry__(server, client, bond, 1));
 				// Повторное приветствие клиента
 				const view_t second = client.output();
 				// Проверяем наличие повторного приветствия
@@ -1051,7 +1051,7 @@ TEST(DtlsTest, Loopback){
 				// Повторное приветствие несёт метку дословно
 				ASSERT_NE(hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::COOKIE)), nullptr);
 				// Проводим рукопожатие до тишины
-				converse(client, server, bond);
+				__nts_converse__(client, server, bond);
 				// Проверяем установленность связи клиентом
 				ASSERT_TRUE(client.established()) << ENTRIES[k] << " " << s << " " << g << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 				// Проверяем установленность связи сервером
@@ -1087,7 +1087,7 @@ TEST(DtlsTest, Loopback){
 				// Секреты прикладного уровня сторон сходятся в обратную сторону
 				ASSERT_EQ(traffic(server, context::level_t::APPLICATION, context::direction_t::WRITE), traffic(client, context::level_t::APPLICATION, context::direction_t::READ));
 				// Обмениваемся данными в обе стороны
-				ASSERT_TRUE(barter(client, server, bond)) << ENTRIES[k] << " " << s << " " << g;
+				ASSERT_TRUE(__nts_barter__(client, server, bond)) << ENTRIES[k] << " " << s << " " << g;
 				// Прикладные данные идут третьей порой: младшие разряды поры в заголовке
 				ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
 				// Дейтаграмма с прикладными данными
@@ -1101,7 +1101,7 @@ TEST(DtlsTest, Loopback){
 				// Билет ждёт подтверждения
 				ASSERT_EQ(server.timeout(), datagram::DATAGRAM_TIMEOUT);
 				// Доставляем билет
-				converse(client, server, bond);
+				__nts_converse__(client, server, bond);
 				// Билет принят
 				ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 				// Билет подтверждён явно
@@ -1109,7 +1109,7 @@ TEST(DtlsTest, Loopback){
 				// Закрываем связь клиентом
 				ASSERT_EQ(client.close(), context::error_t::NONE);
 				// Доставляем извещение
-				converse(client, server, bond);
+				__nts_converse__(client, server, bond);
 				// Сервер принял закрытие
 				ASSERT_EQ(server.state(), context::state_t::CLOSED);
 			}
@@ -1127,7 +1127,7 @@ TEST(DtlsTest, Loss){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Шаги потерь перебора: ноль означает иной закон потерь
 	static const size_t PERIODS[] = {3, 0, 0, 0};
 	// Зёрна псевдослучайных потерь половины дейтаграмм
@@ -1135,7 +1135,7 @@ TEST(DtlsTest, Loss){
 	// Число начальных дейтаграмм, теряемых у сценариев без шага
 	static const size_t INITIALS[] = {0, 0, 1, 2};
 	/**
-	 * Выполняем перебор сценариев потерь
+	 * Перебираем сценарии потерь
 	 */
 	for(size_t i = 0; i < (sizeof(PERIODS) / sizeof(PERIODS[0])); i++){
 		// Связь стороны клиента
@@ -1143,7 +1143,7 @@ TEST(DtlsTest, Loss){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -1159,7 +1159,7 @@ TEST(DtlsTest, Loss){
 		// Если теряется первый залп целиком
 		if(INITIALS[i] == 1){
 			// Переносим приветствие клиента: оно теряется
-			ASSERT_TRUE(carry(client, server, bond, 0));
+			ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 			// Сервер молчит
 			ASSERT_EQ(server.output().size, static_cast <size_t> (0));
 			// Клиент ждёт
@@ -1174,7 +1174,7 @@ TEST(DtlsTest, Loss){
 			ASSERT_EQ(client.output().data[10], 1);
 		}
 		// Проводим рукопожатие до тишины
-		converse(client, server, bond);
+		__nts_converse__(client, server, bond);
 		// Проверяем установленность связи клиентом
 		ASSERT_TRUE(client.established()) << "сценарий " << i << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем установленность связи сервером
@@ -1192,7 +1192,7 @@ TEST(DtlsTest, Loss){
 		// Путь без потерь для обмена
 		bond_t clean;
 		// Обмениваемся данными
-		ASSERT_TRUE(barter(client, server, clean)) << "сценарий " << i;
+		ASSERT_TRUE(__nts_barter__(client, server, clean)) << "сценарий " << i;
 	}
 }
 
@@ -1204,9 +1204,9 @@ TEST(DtlsTest, Reorder){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("rsa2048", credential));
+	ASSERT_TRUE(__nts_identity__("rsa2048", credential));
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборы шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Связь стороны клиента
@@ -1214,7 +1214,7 @@ TEST(DtlsTest, Reorder){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны: цепочка RSA дробится на несколько дейтаграмм
-		arrange(client, server, SUITES[s], extension::group_t::SECP256R1, credential, true);
+		__nts_arrange__(client, server, SUITES[s], extension::group_t::SECP256R1, credential, true);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -1226,7 +1226,7 @@ TEST(DtlsTest, Reorder){
 		// Повторяем всякую дейтаграмму
 		bond.duplicate = true;
 		// Проводим рукопожатие
-		converse(client, server, bond);
+		__nts_converse__(client, server, bond);
 		// Проверяем установленность связи клиентом
 		ASSERT_TRUE(client.established()) << s << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем установленность связи сервером
@@ -1246,7 +1246,7 @@ TEST(DtlsTest, Reorder){
 		// Ни порчи, ни подделок, ни далёких кусков
 		ASSERT_EQ(server.discarded(datagram::reason_t::DAMAGE) + server.discarded(datagram::reason_t::AHEAD) + server.discarded(datagram::reason_t::COOKIE), static_cast <uint64_t> (0));
 		// Обмениваемся данными по тому же пути
-		ASSERT_TRUE(barter(client, server, bond)) << s;
+		ASSERT_TRUE(__nts_barter__(client, server, bond)) << s;
 	}
 }
 
@@ -1258,13 +1258,13 @@ TEST(DtlsTest, Mtu){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("rsa2048", credential));
+	ASSERT_TRUE(__nts_identity__("rsa2048", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::SECP256R1, credential, true);
+	__nts_arrange__(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::SECP256R1, credential, true);
 	// Размер ниже порога поднимается до порога
 	client.mtu(1);
 	// Проверяем порог
@@ -1282,15 +1282,15 @@ TEST(DtlsTest, Mtu){
 	// Путь без потерь
 	bond_t clean;
 	// Переносим приветствие
-	ASSERT_TRUE(carry(client, server, clean, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, clean, 0));
 	// Переносим просьбу о повторе
-	ASSERT_TRUE(carry(server, client, clean, 1));
+	ASSERT_TRUE(__nts_carry__(server, client, clean, 1));
 	// Переносим повторное приветствие
-	ASSERT_TRUE(carry(client, server, clean, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, clean, 0));
 	// Залп сервера раздроблен: цепочка RSA в 300 байтов не входит
 	vector <vector <uint8_t>> datagrams;
 	// Снимаем дейтаграммы залпа
-	ASSERT_TRUE(drain(server, datagrams));
+	ASSERT_TRUE(__nts_drain__(server, datagrams));
 	// Залп в три дейтаграммы и больше
 	ASSERT_GT(datagrams.size(), static_cast <size_t> (2));
 	// Обвязка куска приветствия сервера: первая дейтаграмма открытая
@@ -1302,7 +1302,7 @@ TEST(DtlsTest, Mtu){
 	// Первая дейтаграмма - открытая, прочие защищены: поры не смешиваются в одной дейтаграмме
 	ASSERT_EQ(datagrams[1][0] & 0xE0, 0x20);
 	/**
-	 * Выполняем перебор дейтаграмм залпа
+	 * Перебираем дейтаграммы залпа
 	 */
 	for(size_t i = 0; i < datagrams.size(); i++)
 		// Дейтаграммы не длиннее назначенного
@@ -1310,7 +1310,7 @@ TEST(DtlsTest, Mtu){
 	// Подаём приветствие сервера: без него ключей второй поры у клиента нет
 	ASSERT_EQ(client.push(view_t(datagrams[0].data(), datagrams[0].size())), context::error_t::NONE);
 	/**
-	 * Выполняем подачу защищённых дейтаграмм клиенту в обратном порядке: сборка из кусков идёт в любом порядке
+	 * Подаём защищённые дейтаграммы клиенту в обратном порядке: сборка из кусков идёт в любом порядке
 	 */
 	for(size_t i = datagrams.size(); i > 1; i--)
 		// Подаём очередную дейтаграмму
@@ -1322,7 +1322,7 @@ TEST(DtlsTest, Mtu){
 	// Теряется всякая четвёртая дейтаграмма
 	bond.period = 4;
 	// Проводим рукопожатие
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Проверяем установленность связи клиентом
 	ASSERT_TRUE(client.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем установленность связи сервером
@@ -1330,7 +1330,7 @@ TEST(DtlsTest, Mtu){
 	// Дейтаграммы не длиннее назначенного
 	ASSERT_LE(bond.largest, static_cast <size_t> (300));
 	// Обмениваемся данными без потерь: прикладные данные повторной передачи не знают
-	ASSERT_TRUE(barter(client, server, clean));
+	ASSERT_TRUE(__nts_barter__(client, server, clean));
 	// Длинные прикладные данные дробятся по записям в свои дейтаграммы
 	const vector <uint8_t> bulk(5000, 0x5A);
 	// Отправляем длинные данные
@@ -1338,7 +1338,7 @@ TEST(DtlsTest, Mtu){
 	// Путь без потерь для данных
 	bond_t plain;
 	// Переносим данные
-	converse(client, server, plain);
+	__nts_converse__(client, server, plain);
 	// Дейтаграммы данных не длиннее назначенного
 	ASSERT_LE(plain.largest, static_cast <size_t> (300));
 	// Принятые данные
@@ -1358,9 +1358,9 @@ TEST(DtlsTest, Replay){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборы шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Связь стороны клиента
@@ -1368,7 +1368,7 @@ TEST(DtlsTest, Replay){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, SUITES[s], extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, SUITES[s], extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -1376,7 +1376,7 @@ TEST(DtlsTest, Replay){
 		// Путь без потерь
 		bond_t bond;
 		// Проводим рукопожатие
-		converse(client, server, bond);
+		__nts_converse__(client, server, bond);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established()) << s;
 		// Отправляем данные клиентом
@@ -1414,9 +1414,9 @@ TEST(DtlsTest, Replay){
 		// Выводим ключ и вектор замены
 		ASSERT_EQ(session::material(view_t(secret.data(), secret.size()), SUITES[s], key, iv), session::error_t::NONE);
 		// Ключ шифрования номера записи
-		uint8_t sn[protect::PROTECT_KEY];
+		uint8_t serial[protect::PROTECT_KEY];
 		// Выводим ключ шифрования номера меткой «sn»
-		ASSERT_TRUE(schedule::derive(protect::hash(SUITES[s]), view_t(secret.data(), secret.size()), view_t(reinterpret_cast <const uint8_t *> ("sn"), 2), view_t(nullptr, 0), sn, protect::key(SUITES[s])));
+		ASSERT_TRUE(schedule::derive(protect::hash(SUITES[s]), view_t(secret.data(), secret.size()), view_t(reinterpret_cast <const uint8_t *> ("sn"), 2), view_t(nullptr, 0), serial, protect::key(SUITES[s])));
 		// Защита записей снаружи
 		protect::protection_t protection;
 		// Устанавливаем ключевой материал
@@ -1436,7 +1436,7 @@ TEST(DtlsTest, Replay){
 		// Маска номера записи
 		uint8_t mask[datagram::DATAGRAM_MASK];
 		// Вырабатываем маску
-		ASSERT_TRUE(datagram::mask(SUITES[s], view_t(sn, protect::key(SUITES[s])), crafted.data() + 4, mask));
+		ASSERT_TRUE(datagram::mask(SUITES[s], view_t(serial, protect::key(SUITES[s])), crafted.data() + 4, mask));
 		// Шифруем единственный байт номера
 		crafted[1] ^= mask[0];
 		// Подаём запись серверу
@@ -1465,9 +1465,9 @@ TEST(DtlsTest, KeyUpdate){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборы шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Связь стороны клиента
@@ -1475,7 +1475,7 @@ TEST(DtlsTest, KeyUpdate){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, SUITES[s], extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, SUITES[s], extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -1483,7 +1483,7 @@ TEST(DtlsTest, KeyUpdate){
 		// Путь без потерь
 		bond_t bond;
 		// Проводим рукопожатие
-		converse(client, server, bond);
+		__nts_converse__(client, server, bond);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established()) << s;
 		// Запись прежней поры, откладываемая до смены ключей
@@ -1505,7 +1505,7 @@ TEST(DtlsTest, KeyUpdate){
 		// Дейтаграмма смены ключей
 		vector <vector <uint8_t>> datagrams;
 		// Снимаем дейтаграммы
-		ASSERT_TRUE(drain(client, datagrams));
+		ASSERT_TRUE(__nts_drain__(client, datagrams));
 		// Смена ключей и данные
 		ASSERT_EQ(datagrams.size(), static_cast <size_t> (2));
 		// Обе дейтаграммы третьей поры
@@ -1523,7 +1523,7 @@ TEST(DtlsTest, KeyUpdate){
 		// Сервер подтвердил и ответил своей сменой
 		ASSERT_GT(server.output().size, static_cast <size_t> (0));
 		// Проводим обмен до тишины
-		converse(client, server, bond);
+		__nts_converse__(client, server, bond);
 		// Часы остановлены
 		ASSERT_EQ(client.timeout(), static_cast <uint32_t> (0));
 		// Часы сервера остановлены
@@ -1541,7 +1541,7 @@ TEST(DtlsTest, KeyUpdate){
 		// Дейтаграмма новой поры: четвёртая пора, младшие разряды нулевые
 		ASSERT_EQ(client.output().data[0] & 0x03, 0x00);
 		// Переносим данные
-		converse(client, server, bond);
+		__nts_converse__(client, server, bond);
 		// Читаем данные новой поры
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
 		// Данные новой поры дошли без искажений
@@ -1557,7 +1557,7 @@ TEST(DtlsTest, KeyUpdate){
 		// Четвёртая пора сервера
 		ASSERT_EQ(server.output().data[0] & 0x03, 0x00);
 		// Переносим данные
-		converse(client, server, bond);
+		__nts_converse__(client, server, bond);
 		// Читаем ответные данные сервера
 		ASSERT_EQ(client.read(received), context::error_t::NONE);
 		// Ответные данные сервера не искажены
@@ -1579,13 +1579,13 @@ TEST(DtlsTest, Discard){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Заводим сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Заводим клиента
@@ -1593,9 +1593,9 @@ TEST(DtlsTest, Discard){
 	// Путь без потерь
 	bond_t bond;
 	// Переносим приветствие
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Переносим просьбу о повторе
-	ASSERT_TRUE(carry(server, client, bond, 1));
+	ASSERT_TRUE(__nts_carry__(server, client, bond, 1));
 	// Повторное приветствие с меткой
 	vector <uint8_t> second(client.output().data, client.output().data + client.output().size);
 	// Снимаем дейтаграмму
@@ -1681,11 +1681,11 @@ TEST(DtlsTest, Discard){
 	// Клиент повторяет приветствие по часам новым номером записи
 	ASSERT_EQ(client.elapsed(), context::error_t::NONE);
 	// Настоящее повторное приветствие принято тем же номером сообщения
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Сервер ответил залпом
 	ASSERT_GT(server.output().size, static_cast <size_t> (0));
 	// Проводим рукопожатие
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Число отброшенного
@@ -1718,7 +1718,7 @@ TEST(DtlsTest, Discard){
 	identifier[0] |= 0x10;
 	// Подаём запись с опознавателем
 	ASSERT_EQ(server.push(view_t(identifier.data(), identifier.size())), context::error_t::NONE);
-	// Отброшена
+	// Всего отброшено две дейтаграммы
 	ASSERT_EQ(server.discarded(), before + 2);
 	// Отброшена опознавателем связи
 	ASSERT_EQ(server.discarded(datagram::reason_t::IDENTIFIER), static_cast <uint64_t> (1));
@@ -1730,7 +1730,7 @@ TEST(DtlsTest, Discard){
 	const uint64_t epochs = server.discarded(datagram::reason_t::EPOCH);
 	// Подаём запись чужой поры
 	ASSERT_EQ(server.push(view_t(foreign.data(), foreign.size())), context::error_t::NONE);
-	// Отброшена
+	// Всего отброшено три дейтаграммы
 	ASSERT_EQ(server.discarded(), before + 3);
 	// Отброшена порой
 	ASSERT_EQ(server.discarded(datagram::reason_t::EPOCH), epochs + 1);
@@ -1740,7 +1740,7 @@ TEST(DtlsTest, Discard){
 	const uint64_t replays = server.discarded(datagram::reason_t::REPLAY);
 	// Подаём запись нулевой поры: повтор нулевого номера отброшен окном
 	ASSERT_EQ(server.push(view_t(stale.data(), stale.size())), context::error_t::NONE);
-	// Отброшена
+	// Всего отброшено четыре дейтаграммы
 	ASSERT_EQ(server.discarded(), before + 4);
 	// Отброшена повтором окна
 	ASSERT_EQ(server.discarded(datagram::reason_t::REPLAY), replays + 1);
@@ -1770,30 +1770,30 @@ TEST(DtlsTest, Discard){
 	ASSERT_EQ(server.discarded(), before + 6);
 	// Прикладные данные до установления связи: клиент по своей поре
 	client::context_t hasty;
-	// Сервер
+	// Сервер, принимающий преждевременные данные
 	server::context_t patient;
 	// Настраиваем стороны
-	arrange(hasty, patient, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(hasty, patient, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Заводим сервер
 	ASSERT_EQ(patient.start(), context::error_t::NONE);
 	// Заводим клиента
 	ASSERT_EQ(hasty.start(), context::error_t::NONE);
-	// Путь
+	// Путь переноса дейтаграмм
 	bond_t road;
-	// Приветствие
-	ASSERT_TRUE(carry(hasty, patient, road, 0));
+	// Приветствие клиента серверу
+	ASSERT_TRUE(__nts_carry__(hasty, patient, road, 0));
 	// Просьба о повторе
-	ASSERT_TRUE(carry(patient, hasty, road, 1));
+	ASSERT_TRUE(__nts_carry__(patient, hasty, road, 1));
 	// Повторное приветствие
-	ASSERT_TRUE(carry(hasty, patient, road, 0));
+	ASSERT_TRUE(__nts_carry__(hasty, patient, road, 0));
 	// Залп сервера
-	ASSERT_TRUE(carry(patient, hasty, road, 1));
+	ASSERT_TRUE(__nts_carry__(patient, hasty, road, 1));
 	// Клиент завершил рукопожатие своей стороной и вправе слать данные
 	ASSERT_TRUE(hasty.established());
 	// Залп клиента с завершением
 	vector <vector <uint8_t>> flight;
 	// Снимаем залп
-	ASSERT_TRUE(drain(hasty, flight));
+	ASSERT_TRUE(__nts_drain__(hasty, flight));
 	// Данные клиента до доставки завершения
 	ASSERT_EQ(hasty.write(view_t(reinterpret_cast <const uint8_t *> ("early"), 5)), context::error_t::NONE);
 	// Дейтаграмма данных
@@ -1812,10 +1812,10 @@ TEST(DtlsTest, Discard){
 	vector <uint8_t> got;
 	// Данных до завершения связи не выдаётся
 	ASSERT_EQ(patient.read(got), context::error_t::NONE);
-	// Пусто
+	// Буфер чтения пуст
 	ASSERT_TRUE(got.empty());
 	/**
-	 * Выполняем подачу залпа клиента серверу
+	 * Подаём залп клиента серверу
 	 */
 	for(size_t i = 0; i < flight.size(); i++)
 		// Подаём очередную дейтаграмму залпа
@@ -1846,15 +1846,15 @@ TEST(DtlsTest, Refusals){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Наборы ГОСТ поверх дейтаграмм не предлагаются
 	{
 		// Сервер с одними наборами ГОСТ
 		server::context_t server;
-		// Клиент
+		// Клиент с теми же наборами
 		client::context_t client;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::KUZNYECHIK_MGM_L, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::KUZNYECHIK_MGM_L, extension::group_t::X25519, credential, false);
 		// Наборов с маской номера нет
 		ASSERT_EQ(server.start(), context::error_t::SETTINGS);
 		// Клиент тоже
@@ -1867,7 +1867,7 @@ TEST(DtlsTest, Refusals){
 		// Клиент с упреждающими данными
 		client::context_t client;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Разрешаем упреждение серверу
 		server.advance(true, 1024);
 		// Разрешаем упреждение клиенту
@@ -1879,12 +1879,12 @@ TEST(DtlsTest, Refusals){
 	}
 	// Подача по уровням, снятие дейтаграммы, просьба без метки и повторное заведение
 	{
-		// Сервер
+		// Серверная сторона связи
 		server::context_t server;
-		// Клиент
+		// Клиентская сторона связи
 		client::context_t client;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -1904,7 +1904,7 @@ TEST(DtlsTest, Refusals){
 		// Снятые дейтаграммы повтора
 		vector <vector <uint8_t>> repeated;
 		// Снимаем повтор приветствия
-		ASSERT_TRUE(drain(client, repeated));
+		ASSERT_TRUE(__nts_drain__(client, repeated));
 		// Обвязка куска приветствия
 		datagram::fragment_t fragment;
 		// Разбираем обвязку куска повторённого приветствия
@@ -1979,7 +1979,7 @@ TEST(DtlsTest, Refusals){
 		// Клиент-заглушка для настройки
 		client::context_t client;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Приветствие с изданием TLS 1.3 отвергается изданием
@@ -1999,13 +1999,13 @@ TEST(DtlsTest, Timeout){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Клиент без собеседника
 	client::context_t client;
 	// Сервер для настройки
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// До заведения ждать нечего
 	ASSERT_EQ(client.elapsed(), context::error_t::STATE);
 	// Заводим клиента
@@ -2013,15 +2013,15 @@ TEST(DtlsTest, Timeout){
 	// Ожидаемый срок
 	uint32_t expected = datagram::DATAGRAM_TIMEOUT;
 	/**
-	 * Выполняем перебор попыток повторной передачи
+	 * Перебираем попытки повторной передачи
 	 */
 	for(uint32_t attempt = 0; attempt < datagram::DATAGRAM_ATTEMPTS; attempt++){
 		// Проверяем срок ожидания
 		ASSERT_EQ(client.timeout(), expected) << "попытка " << attempt;
 		// Снимаем дейтаграммы
 		vector <vector <uint8_t>> datagrams;
-		// Снимаем
-		ASSERT_TRUE(drain(client, datagrams));
+		// Снимаем повторные дейтаграммы
+		ASSERT_TRUE(__nts_drain__(client, datagrams));
 		// Срок истёк
 		ASSERT_EQ(client.elapsed(), context::error_t::NONE) << "попытка " << attempt;
 		// Приветствие повторено
@@ -2044,10 +2044,10 @@ TEST(DtlsTest, Timeout){
 	// Сервер-заглушка
 	server::context_t dummy;
 	// Настраиваем стороны
-	arrange(again, dummy, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(again, dummy, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Заводим клиента
 	ASSERT_EQ(again.start(), context::error_t::NONE);
-	// Приветствие
+	// Приветствие клиента
 	const vector <uint8_t> greeting(again.output().data, again.output().data + again.output().size);
 	// Снимаем приветствие
 	again.consume(greeting.size());
@@ -2081,13 +2081,13 @@ TEST(DtlsTest, Starved){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Признак того, что нехватка памяти встретилась
 	bool starved = false;
 	// Признак того, что связь на щедром запасе установилась
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 6000) && !complete; budget += ((budget < 300) ? 1 : 41)){
 		// Связь стороны клиента
@@ -2095,7 +2095,7 @@ TEST(DtlsTest, Starved){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
 		// Отказы сторон
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		// Отказ отправки данных
@@ -2113,13 +2113,13 @@ TEST(DtlsTest, Starved){
 				// Путь без потерь
 				bond_t bond;
 				// Проводим рукопожатие
-				converse(client, server, bond);
+				__nts_converse__(client, server, bond);
 				// Если связь установлена
 				if(client.established() && server.established()){
 					// Пишем прикладные данные при ограниченном запасе выделений
 					written = client.write(view_t(reinterpret_cast <const uint8_t *> ("starved datagram payload"), 24));
 					// Переносим данные
-					converse(client, server, bond);
+					__nts_converse__(client, server, bond);
 				}
 				// Отказ сервера
 				first = server.error();
@@ -2155,13 +2155,13 @@ TEST(DtlsTest, Forgery){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Заводим сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Заводим клиента
@@ -2169,9 +2169,9 @@ TEST(DtlsTest, Forgery){
 	// Путь без потерь
 	bond_t bond;
 	// Доводим до повторного приветствия
-	ASSERT_TRUE(greet(client, server, bond));
+	ASSERT_TRUE(__nts_greet__(client, server, bond));
 	// Залп сервера
-	ASSERT_TRUE(carry(server, client, bond, 1));
+	ASSERT_TRUE(__nts_carry__(server, client, bond, 1));
 	// Клиент ответил завершением, а сервер ждёт его защищённым: ключи чтения второй поры у него есть
 	ASSERT_GT(client.output().size, static_cast <size_t> (0));
 	// Подделка: открытая запись с ожидаемым номером сообщения завершения
@@ -2187,15 +2187,15 @@ TEST(DtlsTest, Forgery){
 	// Отброшенное не подтверждается и залп не повторяется: сервер молчит
 	ASSERT_EQ(server.output().size, static_cast <size_t> (0));
 	// Настоящий залп клиента
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Связь установлена
 	ASSERT_TRUE(server.established());
 	// Доводим до тишины
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Обе стороны установлены
 	ASSERT_TRUE(client.established() && server.established());
 	// Обмениваемся данными
-	ASSERT_TRUE(barter(client, server, bond));
+	ASSERT_TRUE(__nts_barter__(client, server, bond));
 }
 
 /**
@@ -2206,13 +2206,13 @@ TEST(DtlsTest, Repeat){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("rsa2048", credential));
+	ASSERT_TRUE(__nts_identity__("rsa2048", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны с подлинностью клиента: его залп с цепочкой дробится
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
 	// Малый размер дейтаграммы клиенту
 	client.mtu(300);
 	// Заводим сервер
@@ -2222,25 +2222,25 @@ TEST(DtlsTest, Repeat){
 	// Путь без потерь
 	bond_t bond;
 	// Доводим до повторного приветствия
-	ASSERT_TRUE(greet(client, server, bond));
+	ASSERT_TRUE(__nts_greet__(client, server, bond));
 	// Залп сервера
 	vector <vector <uint8_t>> flight;
 	// Снимаем залп сервера: клиенту он пока не доставлен
-	ASSERT_TRUE(drain(server, flight));
+	ASSERT_TRUE(__nts_drain__(server, flight));
 	// Залп длиннее одной дейтаграммы
 	ASSERT_GT(flight.size(), static_cast <size_t> (1));
 	// Клиент не дождался ответа и повторяет приветствие по часам: настоящий повтор
 	ASSERT_EQ(client.elapsed(), context::error_t::NONE);
 	// Подаём повтор приветствия серверу
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Повтор залпа сервера
 	vector <vector <uint8_t>> again;
 	// Снимаем повтор
-	ASSERT_TRUE(drain(server, again));
+	ASSERT_TRUE(__nts_drain__(server, again));
 	// Настоящий повтор вызвал повтор залпа целиком
 	ASSERT_EQ(again.size(), flight.size());
 	/**
-	 * Выполняем подачу первого залпа клиенту
+	 * Подаём первый залп клиенту
 	 */
 	for(size_t i = 0; i < flight.size(); i++)
 		// Подаём очередную дейтаграмму залпа
@@ -2248,13 +2248,13 @@ TEST(DtlsTest, Repeat){
 	// Залп клиента: цепочка, подтверждение владения и завершение
 	vector <vector <uint8_t>> pieces;
 	// Снимаем залп клиента
-	ASSERT_TRUE(drain(client, pieces));
+	ASSERT_TRUE(__nts_drain__(client, pieces));
 	// Залп раздроблен на несколько дейтаграмм
 	ASSERT_GT(pieces.size(), static_cast <size_t> (1));
 	// Место первой дейтаграммы с куском залпа: впереди идут подтверждения частей залпа сервера
 	size_t start = pieces.size();
 	/**
-	 * Выполняем розыск первой дейтаграммы с куском рукопожатия
+	 * Отыскиваем первую дейтаграмму с куском рукопожатия
 	 */
 	for(size_t i = 0; (i < pieces.size()) && (start == pieces.size()); i++){
 		// Вид содержимого записи
@@ -2262,7 +2262,7 @@ TEST(DtlsTest, Repeat){
 		// Содержимое записи
 		vector <uint8_t> content;
 		// Вскрываем запись секретом рукопожатия клиента
-		ASSERT_TRUE(unseal(protect::suite_t::AES_128_GCM_SHA256, traffic(client, context::level_t::HANDSHAKE, context::direction_t::WRITE), pieces[i], type, content)) << "дейтаграмма " << i;
+		ASSERT_TRUE(__nts_unseal__(protect::suite_t::AES_128_GCM_SHA256, traffic(client, context::level_t::HANDSHAKE, context::direction_t::WRITE), pieces[i], type, content)) << "дейтаграмма " << i;
 		// Если запись несёт кусок рукопожатия
 		if(type == record::type_t::HANDSHAKE)
 			// Запоминаем место дейтаграммы
@@ -2279,7 +2279,7 @@ TEST(DtlsTest, Repeat){
 	// Ответ сервера
 	vector <vector <uint8_t>> answer;
 	// Снимаем ответ
-	ASSERT_TRUE(drain(server, answer));
+	ASSERT_TRUE(__nts_drain__(server, answer));
 	// Ответ - одно лишь подтверждение принятой записи, а не повтор залпа
 	ASSERT_EQ(answer.size(), static_cast <size_t> (1));
 	// Подтверждение короче любой дейтаграммы залпа
@@ -2293,7 +2293,7 @@ TEST(DtlsTest, Repeat){
 	// Повтора залпа и подтверждения нет
 	ASSERT_EQ(server.output().size, static_cast <size_t> (0));
 	/**
-	 * Выполняем подачу остатка залпа клиента
+	 * Подаём остаток залпа клиента
 	 */
 	for(size_t i = start + 1; i < pieces.size(); i++)
 		// Подаём очередную дейтаграмму залпа
@@ -2301,7 +2301,7 @@ TEST(DtlsTest, Repeat){
 	// Связь установлена
 	ASSERT_TRUE(server.established());
 	// Доводим до тишины
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Обе стороны установлены
 	ASSERT_TRUE(client.established() && server.established());
 }
@@ -2314,13 +2314,13 @@ TEST(DtlsTest, Rotation){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false);
 	// Заводим сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Заводим клиента
@@ -2328,7 +2328,7 @@ TEST(DtlsTest, Rotation){
 	// Путь без потерь
 	bond_t bond;
 	// Проводим рукопожатие
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Связь установлена
 	ASSERT_TRUE(client.established() && server.established());
 	// Первая смена ключей
@@ -2342,17 +2342,17 @@ TEST(DtlsTest, Rotation){
 	// Связь жива
 	ASSERT_TRUE(client.established() && server.established());
 	// Доводим до тишины: смены подтверждены
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Часы остановлены
 	ASSERT_EQ(client.timeout(), static_cast <uint32_t> (0));
 	// После подтверждения смена идёт вновь
 	ASSERT_EQ(client.update(false), context::error_t::NONE);
 	// Доводим до тишины
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Секреты сторон сходятся
 	ASSERT_EQ(traffic(client, context::level_t::APPLICATION, context::direction_t::WRITE), traffic(server, context::level_t::APPLICATION, context::direction_t::READ));
 	// Обмениваемся данными
-	ASSERT_TRUE(barter(client, server, bond));
+	ASSERT_TRUE(__nts_barter__(client, server, bond));
 	// Ничего не отброшено
 	ASSERT_EQ(server.discarded() + client.discarded(), static_cast <uint64_t> (0));
 }
@@ -2368,13 +2368,13 @@ TEST(DtlsTest, Deferral){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::SECP256R1, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::SECP256R1, credential, false);
 	// Заводим сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Заводим клиента
@@ -2382,11 +2382,11 @@ TEST(DtlsTest, Deferral){
 	// Путь без потерь
 	bond_t bond;
 	// Доводим до повторного приветствия
-	ASSERT_TRUE(greet(client, server, bond));
+	ASSERT_TRUE(__nts_greet__(client, server, bond));
 	// Залп сервера
 	vector <vector <uint8_t>> flight;
 	// Снимаем залп
-	ASSERT_TRUE(drain(server, flight));
+	ASSERT_TRUE(__nts_drain__(server, flight));
 	// Приветствие идёт своей открытой дейтаграммой, остаток защищён
 	ASSERT_GT(flight.size(), static_cast <size_t> (1));
 	// Первая дейтаграмма открытая
@@ -2394,7 +2394,7 @@ TEST(DtlsTest, Deferral){
 	// Вторая защищена второй порой
 	ASSERT_EQ(flight[1][0] & 0xE3, 0x22);
 	/**
-	 * Выполняем подачу клиенту одних лишь защищённых дейтаграмм: приветствие потеряно
+	 * Подаём клиенту одни лишь защищённые дейтаграммы: приветствие потеряно
 	 */
 	for(size_t i = 1; i < flight.size(); i++)
 		// Подаём очередную дейтаграмму
@@ -2408,13 +2408,13 @@ TEST(DtlsTest, Deferral){
 	// Срок сервера до подтверждения
 	ASSERT_EQ(server.timeout(), datagram::DATAGRAM_TIMEOUT);
 	// Переносим пустое подтверждение серверу
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Сервер повторил залп тотчас же, не считая попытки и не удваивая срока (аудит круга 2: девять открытых ACK рвали рукопожатие)
 	ASSERT_EQ(server.timeout(), datagram::DATAGRAM_TIMEOUT);
 	// Повтор залпа
 	vector <vector <uint8_t>> again;
 	// Снимаем повтор
-	ASSERT_TRUE(drain(server, again));
+	ASSERT_TRUE(__nts_drain__(server, again));
 	// Повторён весь залп
 	ASSERT_EQ(again.size(), flight.size());
 	// Клиенту довольно одного приветствия из повтора: остаток отложен с первого раза
@@ -2424,31 +2424,31 @@ TEST(DtlsTest, Deferral){
 	// Ничего не отброшено
 	ASSERT_EQ(client.discarded(), static_cast <uint64_t> (0));
 	// Завершение клиента серверу
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Связь установлена
 	ASSERT_TRUE(server.established());
 	// Доводим до тишины
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Обмениваемся данными
-	ASSERT_TRUE(barter(client, server, bond));
+	ASSERT_TRUE(__nts_barter__(client, server, bond));
 	// Второй клиент: доходит одно лишь приветствие сервера, остаток потерян
 	client::context_t lonely;
 	// Второй сервер
 	server::context_t remote;
 	// Настраиваем стороны
-	arrange(lonely, remote, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(lonely, remote, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Заводим сервер
 	ASSERT_EQ(remote.start(), context::error_t::NONE);
 	// Заводим клиента
 	ASSERT_EQ(lonely.start(), context::error_t::NONE);
-	// Путь
+	// Путь переноса дейтаграмм
 	bond_t road;
 	// Доводим до повторного приветствия
-	ASSERT_TRUE(greet(lonely, remote, road));
+	ASSERT_TRUE(__nts_greet__(lonely, remote, road));
 	// Залп сервера
 	vector <vector <uint8_t>> volley;
 	// Снимаем залп
-	ASSERT_TRUE(drain(remote, volley));
+	ASSERT_TRUE(__nts_drain__(remote, volley));
 	// Подаём одно лишь приветствие сервера
 	ASSERT_EQ(lonely.push(view_t(volley[0].data(), volley[0].size())), context::error_t::NONE);
 	// Раздел 7 RFC 9147: открытая запись подтверждается наивысшей порой записи - второй
@@ -2460,7 +2460,7 @@ TEST(DtlsTest, Deferral){
 	// Содержимое подтверждения
 	vector <uint8_t> content;
 	// Вскрываем подтверждение секретом рукопожатия клиента
-	ASSERT_TRUE(unseal(protect::suite_t::AES_128_GCM_SHA256, traffic(lonely, context::level_t::HANDSHAKE, context::direction_t::WRITE), ack, type, content));
+	ASSERT_TRUE(__nts_unseal__(protect::suite_t::AES_128_GCM_SHA256, traffic(lonely, context::level_t::HANDSHAKE, context::direction_t::WRITE), ack, type, content));
 	// Это подтверждение
 	ASSERT_EQ(type, record::type_t::ACK);
 	// Подтверждённые номера
@@ -2474,7 +2474,7 @@ TEST(DtlsTest, Deferral){
 	// Второй номер нулевой поры сервера: просьба о повторе шла первым
 	ASSERT_EQ(numbers[0].sequence, static_cast <uint64_t> (1));
 	// Переносим подтверждение серверу
-	ASSERT_TRUE(carry(lonely, remote, road, 0));
+	ASSERT_TRUE(__nts_carry__(lonely, remote, road, 0));
 	// Часть залпа подтверждена, остаток ведут часы: срок прежний
 	ASSERT_EQ(remote.timeout(), datagram::DATAGRAM_TIMEOUT);
 	// Часы истекли
@@ -2482,15 +2482,15 @@ TEST(DtlsTest, Deferral){
 	// Повтор без приветствия
 	vector <vector <uint8_t>> rest;
 	// Снимаем повтор
-	ASSERT_TRUE(drain(remote, rest));
+	ASSERT_TRUE(__nts_drain__(remote, rest));
 	/**
-	 * Выполняем перебор дейтаграмм повтора
+	 * Перебираем дейтаграммы повтора
 	 */
 	for(size_t i = 0; i < rest.size(); i++)
 		// Всякая дейтаграмма повтора защищена: приветствие подтверждено и не повторяется
 		ASSERT_EQ(rest[i][0] & 0xE0, 0x20) << "дейтаграмма " << i;
 	// Доводим до тишины
-	converse(lonely, remote, road);
+	__nts_converse__(lonely, remote, road);
 	// Обе стороны установлены
 	ASSERT_TRUE(lonely.established() && remote.established());
 }
@@ -2503,9 +2503,9 @@ TEST(DtlsTest, Unacked){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборы шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Связь стороны клиента
@@ -2513,7 +2513,7 @@ TEST(DtlsTest, Unacked){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, SUITES[s], extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, SUITES[s], extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -2521,9 +2521,9 @@ TEST(DtlsTest, Unacked){
 		// Путь без потерь
 		bond_t bond;
 		// Доводим до повторного приветствия
-		ASSERT_TRUE(greet(client, server, bond));
+		ASSERT_TRUE(__nts_greet__(client, server, bond));
 		// Залп сервера
-		ASSERT_TRUE(carry(server, client, bond, 1));
+		ASSERT_TRUE(__nts_carry__(server, client, bond, 1));
 		// Секрет записи клиента второй поры
 		const vector <uint8_t> secret = traffic(client, context::level_t::HANDSHAKE, context::direction_t::WRITE);
 		// Секрет выведен
@@ -2561,32 +2561,32 @@ TEST(DtlsTest, Address){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Снимаем адрес собеседника
 	ASSERT_TRUE(server.address(view_t(nullptr, 0)));
 	// Сервер без адреса не заводится: метку привязать не к чему
 	ASSERT_EQ(server.start(), context::error_t::SETTINGS);
 	// Адрес длиннее предела
 	const vector <uint8_t> lengthy(datagram::DATAGRAM_ADDRESS + 1, 0x7A);
-	// Отвергается
+	// Чрезмерный адрес отвергается
 	ASSERT_FALSE(server.address(view_t(lengthy.data(), lengthy.size())));
 	// Сервер по-прежнему без адреса
 	ASSERT_EQ(server.start(), context::error_t::SETTINGS);
 	// Адрес предельной длины
 	vector <uint8_t> widest(datagram::DATAGRAM_ADDRESS, 0);
 	/**
-	 * Выполняем заполнение адреса различимыми байтами
+	 * Заполняем адрес различимыми байтами
 	 */
 	for(size_t i = 0; i < widest.size(); i++)
 		// Записываем очередной байт адреса
 		widest[i] = static_cast <uint8_t> (i * 7 + 3);
-	// Принимается
+	// Предельный адрес принимается
 	ASSERT_TRUE(server.address(view_t(widest.data(), widest.size())));
 	// Сервер заводится
 	ASSERT_EQ(server.start(), context::error_t::NONE);
@@ -2595,7 +2595,7 @@ TEST(DtlsTest, Address){
 	// Путь без потерь
 	bond_t bond;
 	// Проводим рукопожатие: метка покрывает адрес целиком и сходится
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Связь установлена
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (server.error());
 	// Ничего не отброшено: метка признана
@@ -2614,7 +2614,7 @@ TEST(DtlsTest, Cookie){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Общий секрет метки двух серверов
 	const vector <uint8_t> secret(reinterpret_cast <const uint8_t *> ("shared stamp secret of two servers"), reinterpret_cast <const uint8_t *> ("shared stamp secret of two servers") + 34);
 	// Первый клиент
@@ -2626,9 +2626,9 @@ TEST(DtlsTest, Cookie){
 	// Второй сервер
 	server::context_t two;
 	// Настраиваем первую пару
-	arrange(first, one, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(first, one, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Настраиваем вторую пару
-	arrange(second, two, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(second, two, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Общий секрет первому серверу
 	one.stamp(secret);
 	// Общий секрет второму серверу
@@ -2646,9 +2646,9 @@ TEST(DtlsTest, Cookie){
 	// Путь второй пары
 	bond_t beta;
 	// Приветствие и просьба о повторе первой пары
-	ASSERT_TRUE(carry(first, one, alpha, 0) && carry(one, first, alpha, 1));
+	ASSERT_TRUE(__nts_carry__(first, one, alpha, 0) && __nts_carry__(one, first, alpha, 1));
 	// Приветствие и просьба о повторе второй пары
-	ASSERT_TRUE(carry(second, two, beta, 0) && carry(two, second, beta, 1));
+	ASSERT_TRUE(__nts_carry__(second, two, beta, 0) && __nts_carry__(two, second, beta, 1));
 	// Повторное приветствие первого клиента с меткой первого сервера
 	const vector <uint8_t> foreign(first.output().data, first.output().data + first.output().size);
 	// Повторное приветствие второго клиента с меткой второго сервера
@@ -2686,11 +2686,11 @@ TEST(DtlsTest, Cookie){
 	// Клиент повторяет приветствие по часам новым номером записи
 	ASSERT_EQ(second.elapsed(), context::error_t::NONE);
 	// Повтор доходит и принимается тем же номером сообщения: сервер повторяет залп
-	ASSERT_TRUE(carry(second, two, beta, 0));
+	ASSERT_TRUE(__nts_carry__(second, two, beta, 0));
 	// Сервер ответил залпом
 	ASSERT_GT(two.output().size, static_cast <size_t> (0));
 	// Доводим вторую пару до тишины
-	converse(second, two, beta);
+	__nts_converse__(second, two, beta);
 	// Связь установлена
 	ASSERT_TRUE(second.established() && two.established());
 }
@@ -2704,13 +2704,13 @@ TEST(DtlsTest, Ordered){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Наименьший размер дейтаграммы серверу: билеты уходят своими дейтаграммами
 	server.mtu(datagram::DATAGRAM_MTU_LEAST);
 	// Заводим сервер
@@ -2720,7 +2720,7 @@ TEST(DtlsTest, Ordered){
 	// Путь без потерь
 	bond_t bond;
 	// Проводим рукопожатие
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Связь установлена
 	ASSERT_TRUE(client.established() && server.established());
 	// Первый билет
@@ -2730,7 +2730,7 @@ TEST(DtlsTest, Ordered){
 	// Дейтаграммы билетов
 	vector <vector <uint8_t>> tickets;
 	// Снимаем дейтаграммы
-	ASSERT_TRUE(drain(server, tickets));
+	ASSERT_TRUE(__nts_drain__(server, tickets));
 	// Каждый билет своей дейтаграммой
 	ASSERT_EQ(tickets.size(), static_cast <size_t> (2));
 	// Дейтаграмма из двух записей в обратном порядке
@@ -2748,7 +2748,7 @@ TEST(DtlsTest, Ordered){
 	// Содержимое подтверждения
 	vector <uint8_t> content;
 	// Вскрываем подтверждение секретом прикладных данных клиента
-	ASSERT_TRUE(unseal(protect::suite_t::AES_128_GCM_SHA256, traffic(client, context::level_t::APPLICATION, context::direction_t::WRITE), ack, type, content));
+	ASSERT_TRUE(__nts_unseal__(protect::suite_t::AES_128_GCM_SHA256, traffic(client, context::level_t::APPLICATION, context::direction_t::WRITE), ack, type, content));
 	// Это подтверждение
 	ASSERT_EQ(type, record::type_t::ACK);
 	// Подтверждённые номера
@@ -2764,7 +2764,7 @@ TEST(DtlsTest, Ordered){
 	// Соседние номера
 	ASSERT_EQ(numbers[1].sequence, numbers[0].sequence + 1);
 	// Переносим подтверждение серверу
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Билеты подтверждены
 	ASSERT_EQ(server.timeout(), static_cast <uint32_t> (0));
 }
@@ -2778,13 +2778,13 @@ TEST(DtlsTest, Timer){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Заводим сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Заводим клиента
@@ -2792,7 +2792,7 @@ TEST(DtlsTest, Timer){
 	// Потерянное приветствие
 	vector <vector <uint8_t>> lost;
 	// Теряем приветствие
-	ASSERT_TRUE(drain(client, lost));
+	ASSERT_TRUE(__nts_drain__(client, lost));
 	// Срок истёк
 	ASSERT_EQ(client.elapsed(), context::error_t::NONE);
 	// Срок удвоен
@@ -2800,21 +2800,21 @@ TEST(DtlsTest, Timer){
 	// Путь без потерь
 	bond_t bond;
 	// Повтор приветствия доходит
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Просьба о повторе доходит: приветствие подтверждено, но с повтором
-	ASSERT_TRUE(carry(server, client, bond, 1));
+	ASSERT_TRUE(__nts_carry__(server, client, bond, 1));
 	// Повторное приветствие ждёт удвоенным сроком: срок держится
 	ASSERT_EQ(client.timeout(), datagram::DATAGRAM_TIMEOUT * 2);
 	// Повторное приветствие доходит
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Залп сервера доходит: повторное приветствие подтверждено без повторов
-	ASSERT_TRUE(carry(server, client, bond, 1));
+	ASSERT_TRUE(__nts_carry__(server, client, bond, 1));
 	// Завершение клиента ждёт начальным сроком: срок возвращён
 	ASSERT_EQ(client.timeout(), datagram::DATAGRAM_TIMEOUT);
 	// Завершение доходит
-	ASSERT_TRUE(carry(client, server, bond, 0));
+	ASSERT_TRUE(__nts_carry__(client, server, bond, 0));
 	// Подтверждение доходит
-	ASSERT_TRUE(carry(server, client, bond, 1));
+	ASSERT_TRUE(__nts_carry__(server, client, bond, 1));
 	// Повторять нечего: ноль
 	ASSERT_EQ(client.timeout(), static_cast <uint32_t> (0));
 	// У сервера тоже
@@ -2826,13 +2826,13 @@ TEST(DtlsTest, Timer){
 	// Срок начальный
 	ASSERT_EQ(client.timeout(), datagram::DATAGRAM_TIMEOUT);
 	// Подтверждение теряется, срок истекает
-	ASSERT_TRUE(drain(client, lost));
+	ASSERT_TRUE(__nts_drain__(client, lost));
 	// Срок истёк
 	ASSERT_EQ(client.elapsed(), context::error_t::NONE);
 	// Срок удвоен
 	ASSERT_EQ(client.timeout(), datagram::DATAGRAM_TIMEOUT * 2);
 	// Доводим до тишины
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Повторять нечего
 	ASSERT_EQ(client.timeout(), static_cast <uint32_t> (0));
 	// Билет сервера ждёт начальным сроком: свой залп сервера повторов не знал
@@ -2844,7 +2844,7 @@ TEST(DtlsTest, Timer){
 	// Срок держится удвоенным
 	ASSERT_EQ(client.timeout(), datagram::DATAGRAM_TIMEOUT * 2);
 	// Доводим до тишины
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Повторять нечего
 	ASSERT_EQ(client.timeout() + server.timeout(), static_cast <uint32_t> (0));
 	// Третья смена подтверждена без повторов: срок возвращён
@@ -2852,9 +2852,9 @@ TEST(DtlsTest, Timer){
 	// Срок начальный
 	ASSERT_EQ(client.timeout(), datagram::DATAGRAM_TIMEOUT);
 	// Доводим до тишины
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Обмениваемся данными
-	ASSERT_TRUE(barter(client, server, bond));
+	ASSERT_TRUE(__nts_barter__(client, server, bond));
 }
 
 /**
@@ -2866,13 +2866,13 @@ TEST(DtlsTest, Asymmetric){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("rsa2048", credential));
+	ASSERT_TRUE(__nts_identity__("rsa2048", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны с подлинностью клиента: обе цепочки дробятся
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
 	// Малый размер серверу
 	server.mtu(300);
 	// Клиент остаётся с размером по умолчанию
@@ -2884,7 +2884,7 @@ TEST(DtlsTest, Asymmetric){
 	// Путь без потерь
 	bond_t bond;
 	// Проводим рукопожатие
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Связь установлена: дейтаграммы клиента длиннее 300 сервером приняты
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Дейтаграммы клиента длиннее размера сервера были
@@ -2892,13 +2892,13 @@ TEST(DtlsTest, Asymmetric){
 	// Ничего не отброшено
 	ASSERT_EQ(server.discarded() + client.discarded(), static_cast <uint64_t> (0));
 	// Обмениваемся данными
-	ASSERT_TRUE(barter(client, server, bond));
+	ASSERT_TRUE(__nts_barter__(client, server, bond));
 	// Клиент с большим размером
 	client::context_t wide;
 	// Сервер с большим размером
 	server::context_t broad;
 	// Настраиваем стороны
-	arrange(wide, broad, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(wide, broad, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Верхний предел размера - наибольшая принимаемая дейтаграмма: шире собеседник отбросил бы её целиком (круг 6)
 	broad.mtu(70000);
 	// Проверяем размер
@@ -2911,10 +2911,10 @@ TEST(DtlsTest, Asymmetric){
 	ASSERT_EQ(broad.start(), context::error_t::NONE);
 	// Заводим клиента
 	ASSERT_EQ(wide.start(), context::error_t::NONE);
-	// Путь
+	// Путь переноса дейтаграмм
 	bond_t road;
 	// Проводим рукопожатие
-	converse(wide, broad, road);
+	__nts_converse__(wide, broad, road);
 	// Связь установлена
 	ASSERT_TRUE(wide.established() && broad.established());
 	// Длинные данные сервера
@@ -2924,11 +2924,11 @@ TEST(DtlsTest, Asymmetric){
 	// Дейтаграммы данных
 	vector <vector <uint8_t>> datagrams;
 	// Снимаем дейтаграммы
-	ASSERT_TRUE(drain(broad, datagrams));
+	ASSERT_TRUE(__nts_drain__(broad, datagrams));
 	// Данные ушли записями не шире предела протокола: три записи по 2^14
 	ASSERT_EQ(datagrams.size(), static_cast <size_t> (3));
 	/**
-	 * Выполняем перебор дейтаграмм данных
+	 * Перебираем дейтаграммы данных
 	 */
 	for(size_t i = 0; i < datagrams.size(); i++){
 		// Дейтаграмма длиннее 1500
@@ -2956,13 +2956,13 @@ TEST(DtlsTest, Output){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Заводим сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Заводим клиента
@@ -2970,13 +2970,13 @@ TEST(DtlsTest, Output){
 	// Путь без потерь
 	bond_t bond;
 	// Проводим рукопожатие
-	converse(client, server, bond);
+	__nts_converse__(client, server, bond);
 	// Связь установлена
 	ASSERT_TRUE(client.established() && server.established());
 	// Слова, отправляемые порознь
 	static const char * WORDS[] = {"first", "second", "third", "fourth"};
 	/**
-	 * Выполняем отправку слов по одному
+	 * Отправляем слова по одному
 	 */
 	for(size_t i = 0; i < (sizeof(WORDS) / sizeof(WORDS[0])); i++)
 		// Отправляем очередное слово
@@ -2984,7 +2984,7 @@ TEST(DtlsTest, Output){
 	// Число снятых дейтаграмм
 	size_t taken = 0;
 	/**
-	 * Выполняем снятие дейтаграмм по одной до пустоты
+	 * Снимаем дейтаграммы по одной до пустоты
 	 */
 	while(client.output().size > 0){
 		// Очередная дейтаграмма
@@ -3120,7 +3120,7 @@ TEST(DtlsTest, Openssl){
 		{protect::suite_t::CHACHA20_POLY1305_SHA256, "TLS_CHACHA20_POLY1305_SHA256", "ec256"}
 	};
 	/**
-	 * Выполняем перебор наборов шифрования: наш клиент против s_server
+	 * Перебираем наборы шифрования: наш клиент против s_server
 	 */
 	for(size_t s = 0; s < (sizeof(ROUNDS) / sizeof(ROUNDS[0])); s++){
 		// Если набор недоступен openssl
@@ -3133,11 +3133,11 @@ TEST(DtlsTest, Openssl){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(ROUNDS[s].key, credential));
+		ASSERT_TRUE(__nts_identity__(ROUNDS[s].key, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + ROUNDS[s].key + ".crt", key = std::string(CORPUS) + "/" + ROUNDS[s].key + ".pem";
 		/**
-		 * Выполняем перебор групп обмена
+		 * Перебираем группы обмена
 		 */
 		for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 			// Свободный порт UDP
@@ -3164,21 +3164,21 @@ TEST(DtlsTest, Openssl){
 			ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_3 -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -ciphersuites " + ROUNDS[s].title + grouping + " -trace" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 			// Сторож сервера openssl
 			sentinel_t sentinel(log + ".pid");
-			// Журнал
+			// Текст журнала сервера
 			std::string text;
-			// Ждём подъёма сервера
+			// Дожидаемся подъёма сервера
 			ASSERT_TRUE(awaited(log, "ACCEPT", text)) << text;
 			// Порт своего сокета
 			uint16_t bound = 0;
 			// Свой сокет UDP
-			const int fd = socketing(0, bound);
+			const int own = socketing(0, bound);
 			// Проверяем сокет
-			ASSERT_GE(fd, 0);
+			ASSERT_GE(own, 0);
 			// Адрес сервера
 			struct sockaddr_in peer;
 			// Обнуляем адрес
 			::memset(&peer, 0, sizeof(peer));
-			// Семейство
+			// Семейство адресов IPv4
 			peer.sin_family = AF_INET;
 			// Петлевое устройство
 			peer.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
@@ -3188,7 +3188,7 @@ TEST(DtlsTest, Openssl){
 			client::context_t client;
 			// Перенос дейтаграммами
 			client.transport(context::transport_t::DATAGRAMS);
-			// Набор
+			// Набор шифрования клиента
 			client.suites(vector <protect::suite_t> {ROUNDS[s].suite});
 			// Группы: обмен первой, кривые сертификатов следом
 			client.groups(vector <extension::group_t> {GROUPS[g], extension::group_t::SECP256R1, extension::group_t::SECP384R1});
@@ -3201,7 +3201,7 @@ TEST(DtlsTest, Openssl){
 			// Заводим клиента
 			ASSERT_EQ(client.start(), context::error_t::NONE);
 			// Ведём связь до установления
-			const bool complete = relay(client, fd, peer, 400);
+			const bool complete = relay(client, own, peer, 400);
 			/**
 			 * Если связь не сложилась: разбор круга 114 показал, что наша сторона выводит
 			 * переписку, общее значение обмена и секреты рукопожатия строго по RFC 9147,
@@ -3214,7 +3214,7 @@ TEST(DtlsTest, Openssl){
 				// Снимаем сервер
 				sentinel.halt();
 				// Закрываем сокет
-				closing(fd);
+				closing(own);
 				// Удаляем журнал
 				::remove(log.c_str());
 				// Удаляем именованный канал
@@ -3226,7 +3226,7 @@ TEST(DtlsTest, Openssl){
 			ASSERT_TRUE(complete) << ROUNDS[s].title << " " << naming(GROUPS[g]) << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 			// Издание DTLS 1.3
 			ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0304));
-			// Набор
+			// Согласованный набор шифрования
 			ASSERT_EQ(client.suite(), ROUNDS[s].suite);
 			// Цепочка сервера
 			ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
@@ -3237,15 +3237,15 @@ TEST(DtlsTest, Openssl){
 			// Пишем запрос серверу openssl поверх установленной связи DTLS 1.3
 			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 			// Отправляем дейтаграммы
-			relay(client, fd, peer, 1);
+			relay(client, own, peer, 1);
 			// Сервер печатает принятое в журнал
 			ASSERT_TRUE(awaited(log, request, text)) << text;
 			// Закрываем связь
 			ASSERT_EQ(client.close(), context::error_t::NONE);
 			// Отправляем извещение
-			relay(client, fd, peer, 1);
+			relay(client, own, peer, 1);
 			// Закрываем сокет
-			closing(fd);
+			closing(own);
 			// Снимаем сервер
 			sentinel.halt();
 			// Дожидаемся отметки завершения
@@ -3257,7 +3257,7 @@ TEST(DtlsTest, Openssl){
 		}
 	}
 	/**
-	 * Выполняем перебор наборов шифрования: s_client против нашего сервера
+	 * Перебираем наборы шифрования: s_client против нашего сервера
 	 */
 	for(size_t s = 0; s < (sizeof(ROUNDS) / sizeof(ROUNDS[0])); s++){
 		// Если набор недоступен openssl
@@ -3267,19 +3267,19 @@ TEST(DtlsTest, Openssl){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(ROUNDS[s].key, credential));
+		ASSERT_TRUE(__nts_identity__(ROUNDS[s].key, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + ROUNDS[s].key + ".crt", key = std::string(CORPUS) + "/" + ROUNDS[s].key + ".pem";
 		/**
-		 * Выполняем перебор групп обмена
+		 * Перебираем группы обмена
 		 */
 		for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 			// Порт сервера
 			uint16_t number = 0;
 			// Свой сокет UDP на свободном порту
-			const int fd = socketing(0, number);
+			const int own = socketing(0, number);
 			// Проверяем сокет
-			ASSERT_GE(fd, 0);
+			ASSERT_GE(own, 0);
 			// Журнал клиента openssl
 			const std::string log = "/tmp/ants-dtls13-client-" + std::to_string(number) + ".log";
 			// Ключ групп
@@ -3303,20 +3303,20 @@ TEST(DtlsTest, Openssl){
 			// Принятая дейтаграмма
 			ssize_t received = -1;
 			/**
-			 * Выполняем ожидание первого приветствия клиента
+			 * Дожидаемся первого приветствия клиента
 			 */
 			for(size_t i = 0; (i < 150) && (received <= 0); i++)
 				// Принимаем дейтаграмму с адресом
-				received = receivingfrom(fd, buffer, sizeof(buffer), reinterpret_cast <struct sockaddr *> (&peer), &length);
+				received = receivingfrom(own, buffer, sizeof(buffer), reinterpret_cast <struct sockaddr *> (&peer), &length);
 			// Приветствие принято
 			ASSERT_GT(received, 0) << ROUNDS[s].title << " " << naming(GROUPS[g]);
 			// Связь стороны сервера
 			server::context_t server;
 			// Перенос дейтаграммами
 			server.transport(context::transport_t::DATAGRAMS);
-			// Набор
+			// Набор шифрования сервера
 			server.suites(vector <protect::suite_t> {ROUNDS[s].suite});
-			// Группа
+			// Группа обмена сервера
 			server.groups(vector <extension::group_t> {GROUPS[g]});
 			// Подлинность сервера
 			server.credential(credential);
@@ -3333,22 +3333,22 @@ TEST(DtlsTest, Openssl){
 			// Принятые данные
 			vector <uint8_t> plaintext;
 			/**
-			 * Выполняем перенос дейтаграмм до приёма данных, закрытия либо обрыва связи
+			 * Переносим дейтаграммы до приёма данных, закрытия либо обрыва связи
 			 */
 			for(size_t i = 0; (i < 400) && (server.state() != context::state_t::FAILED) && (server.state() != context::state_t::CLOSED) && plaintext.empty(); i++){
 				/**
-				 * Выполняем отправку готовых дейтаграмм
+				 * Отправляем готовые дейтаграммы
 				 */
 				while(server.output().size > 0){
-					// Дейтаграмма
+					// Дейтаграмма к отправке
 					const view_t data = server.output();
 					// Отправляем клиенту
-					(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
-					// Снимаем
+					(void) sendingto(own, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
+					// Снимаем отправленную дейтаграмму
 					server.consume(data.size);
 				}
 				// Принимаем дейтаграмму
-				received = receiving(fd, buffer, sizeof(buffer));
+				received = receiving(own, buffer, sizeof(buffer));
 				// Если принята
 				if(received > 0)
 					// Подаём серверу
@@ -3367,7 +3367,7 @@ TEST(DtlsTest, Openssl){
 				// Снимаем клиента
 				sentinel.halt();
 				// Закрываем сокет
-				closing(fd);
+				closing(own);
 				// Удаляем журнал
 				::remove(log.c_str());
 				// Пропускаем проверку вслух
@@ -3379,7 +3379,7 @@ TEST(DtlsTest, Openssl){
 			ASSERT_EQ(string(plaintext.begin(), plaintext.end()), request);
 			// Издание DTLS 1.3
 			ASSERT_EQ(server.version(), static_cast <uint16_t> (0x0304));
-			// Набор
+			// Согласованный набор шифрования
 			ASSERT_EQ(server.suite(), ROUNDS[s].suite);
 			// Подлинность клиента
 			ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
@@ -3390,18 +3390,18 @@ TEST(DtlsTest, Openssl){
 			// Закрываем связь
 			ASSERT_EQ(server.close(), context::error_t::NONE);
 			/**
-			 * Выполняем отправку ответа и извещения
+			 * Отправляем ответ и извещение
 			 */
 			while(server.output().size > 0){
-				// Дейтаграмма
+				// Дейтаграмма к отправке
 				const view_t data = server.output();
 				// Отправляем клиенту
-				(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
-				// Снимаем
+				(void) sendingto(own, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
+				// Снимаем отправленную дейтаграмму
 				server.consume(data.size);
 			}
 			// Закрываем сокет
-			closing(fd);
+			closing(own);
 			// Текст журнала
 			std::string text;
 			// Клиент обязан завершиться

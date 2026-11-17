@@ -115,7 +115,7 @@ namespace {
 		// Буфер байтов результата разбора
 		std::vector <uint8_t> result;
 		/**
-		 * Выполняем итерацию цикла
+		 * Перебираем пары шестнадцатеричных знаков строки
 		 */
 		for(size_t i = 0; (i + 1) < text.size(); i += 2){
 			// Пара шестнадцатеричных знаков очередного байта
@@ -133,7 +133,7 @@ namespace {
 	 * @return     область
 	 *
 	 */
-	static view_t span(const std::vector <uint8_t> & data) {
+	static view_t __nts_span__(const std::vector <uint8_t> & data) {
 		// Возвращаем область байтов вектора
 		return view_t(data.empty() ? nullptr : data.data(), data.size());
 	}
@@ -144,7 +144,7 @@ namespace {
 	 * @return     область
 	 *
 	 */
-	static view_t span(const std::string & text) {
+	static view_t __nts_span__(const std::string & text) {
 		// Возвращаем область байтов строки
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -183,18 +183,19 @@ namespace {
 			open = false;
 		};
 		/**
-		 * Выполняем итерацию цикла
+		 * Перебираем строки файла корпуса
 		 */
 		while(std::getline(file, line)){
 			// Снимаем возврат каретки с конца строки
 			if(!line.empty() && (line.back() == '\r')) line.pop_back();
+			// Пустая строка завершает накопленную запись
 			if(line.empty()){ flush(); continue; }
 			// Позиция знака равенства в строке
-			const size_t eq = line.find('=');
+			const size_t separator = line.find('=');
 			// Строка без знака равенства - пропуск
-			if(eq == std::string::npos) continue;
+			if(separator == std::string::npos) continue;
 			// Ключ и значение поля записи
-			const std::string key = line.substr(0, eq), value = line.substr(eq + 1);
+			const std::string key = line.substr(0, separator), value = line.substr(separator + 1);
 			// Отмечаем запись начатой
 			open = true;
 			// Раскладываем поле записи по его ключу
@@ -204,7 +205,12 @@ namespace {
 			else if(key == "init_static") record.initStatic = unhex(value);
 			else if(key == "resp_static") record.respStatic = unhex(value);
 			else if(key == "preshared_key") record.psks.push_back(unhex(value));
-			else if(key == "prologue"){ record.initPrologue = unhex(value); record.respPrologue = record.initPrologue; }
+			else if(key == "prologue") {
+				// Пролог инициатора становится прологом отвечающего
+				record.initPrologue = unhex(value);
+				// Присваиваем его прологу отвечающего
+				record.respPrologue = record.initPrologue;
+			}
 			else if((key.compare(0, 4, "msg_") == 0)){
 				// Позиция второго подчёркивания ключа
 				const size_t second = key.find('_', 4);
@@ -214,6 +220,7 @@ namespace {
 				const std::string kind = key.substr(second + 1);
 				// Расширяем список сообщений до номера поля
 				if(record.messages.size() <= number) record.messages.resize(number + 1);
+				// Полезная часть сообщения по виду поля
 				if(kind == "payload") record.messages[number].first = unhex(value);
 				else if(kind == "ciphertext") record.messages[number].second = unhex(value);
 			}
@@ -238,7 +245,7 @@ namespace {
 		// Очередная строка файла
 		std::string line;
 		/**
-		 * Выполняем итерацию цикла
+		 * Перебираем строки файла хешей
 		 */
 		while(std::getline(file, line)){
 			// Позиция первого пробела строки
@@ -274,7 +281,7 @@ namespace {
 			 */
 			void blank() {
 				/**
-				 * Выполняем итерацию цикла
+				 * Пропускаем пробельные знаки текста
 				 */
 				while((this->_pos < this->_text.size()) && ((this->_text[this->_pos] == ' ') || (this->_text[this->_pos] == '\n') || (this->_text[this->_pos] == '\r') || (this->_text[this->_pos] == '\t'))) this->_pos++;
 			}
@@ -330,6 +337,7 @@ namespace {
 			bool strings(std::vector <std::string> & result) {
 				// Массив должен начинаться с квадратной скобки
 				if(!this->expect('[')) return false;
+				// Пустой массив допустим
 				if(this->expect(']')) return true;
 				// Читаем строки через запятую
 				do {
@@ -353,6 +361,7 @@ namespace {
 			bool objects(std::vector <std::map <std::string, std::string>> & result) {
 				// Список объектов открывается квадратной скобкой
 				if(!this->expect('[')) return false;
+				// Пустой список допустим
 				if(this->expect(']')) return true;
 				// Читаем объекты через запятую
 				do {
@@ -360,6 +369,7 @@ namespace {
 					std::map <std::string, std::string> item;
 					// Объект открывается фигурной скобкой
 					if(!this->expect('{')) return false;
+					// Непустой объект читает поля
 					if(!this->expect('}')){
 						// Читаем поля объекта через запятую
 						do {
@@ -402,13 +412,14 @@ namespace {
 					do {
 						// Читаем имя поля и двоеточие
 						if(!this->quoted(key) || !this->expect(':')) return false;
+						// Поле сообщений разбираем отдельно
 						if(key == "messages"){
 							// Сообщения записи - список объектов
 							std::vector <std::map <std::string, std::string>> items;
 							// Читаем список сообщений
 							if(!this->objects(items)) return false;
 							/**
-							 * Выполняем итерацию цикла
+							 * Перебираем прочитанные сообщения записи
 							 */
 							for(auto & item : items) record.messages.push_back(std::make_pair(unhex(item["payload"]), unhex(item["ciphertext"])));
 						} else if((key == "init_psks") || (key == "resp_psks")){
@@ -416,12 +427,14 @@ namespace {
 							std::vector <std::string> items;
 							// Читаем список ключей
 							if(!this->strings(items)) return false;
+							// Ключи инициатора замещают накопленный список
 							if(key == "init_psks"){ record.psks.clear(); for(auto & item : items) record.psks.push_back(unhex(item)); }
 						} else {
 							// Значение прочего поля
 							std::string value;
 							// Значение прочего поля
 							if(!this->quoted(value)) return false;
+							// Имя протокола записи
 							if(key == "protocol_name") record.name = value;
 							else if(key == "init_prologue") record.initPrologue = unhex(value);
 							else if(key == "resp_prologue") record.respPrologue = unhex(value);
@@ -486,21 +499,23 @@ namespace {
 	 * @return          признак успешности
 	 *
 	 */
-	static bool arm(const record_t & record, const bool initiator, noise::handshake_t & side, const bool derived) {
+	static bool __nts_arm__(const record_t & record, const bool initiator, noise::handshake_t & side, const bool derived) {
 		// Заводим сторону: имя протокола, роль, пролог
-		if(!side.start(span(record.name), initiator ? noise::role_t::INITIATOR : noise::role_t::RESPONDER, span(initiator ? record.initPrologue : record.respPrologue))) return false;
+		if(!side.start(__nts_span__(record.name), initiator ? noise::role_t::INITIATOR : noise::role_t::RESPONDER, __nts_span__(initiator ? record.initPrologue : record.respPrologue))) return false;
 		// Свой постоянный ключ стороны
 		const std::vector <uint8_t> & s = (initiator ? record.initStatic : record.respStatic);
 		// Свой временный ключ стороны
 		const std::vector <uint8_t> & e = (initiator ? record.initEphemeral : record.respEphemeral);
 		// Передаём стороне свой постоянный ключ
-		if(!s.empty() && !side.statics(span(s))) return false;
-		if(!e.empty() && !side.ephemeral(span(e))) return false;
+		if(!s.empty() && !side.statics(__nts_span__(s))) return false;
+		// Передаём стороне свой временный ключ
+		if(!e.empty() && !side.ephemeral(__nts_span__(e))) return false;
 		// Заданный заранее чужой постоянный ключ
 		const std::vector <uint8_t> & given = (initiator ? record.initRemote : record.respRemote);
 		// Чужой ключ задан явно - передаём его
 		if(!given.empty()){
-			if(!side.remote(span(given))) return false;
+			// Передаём стороне заданный чужой ключ
+			if(!side.remote(__nts_span__(given))) return false;
 		} else if(derived){
 			// Чужой ключ выводится из чужого постоянного, если предсообщение собеседника его несёт
 			noise::pattern_t pattern = noise::pattern_t::NONE;
@@ -509,7 +524,7 @@ namespace {
 			// Набор примитивов из имени
 			noise::suite_t suite;
 			// Разбираем имя протокола на узор и набор
-			noise::parse(span(record.name), pattern, psks, suite);
+			noise::parse(__nts_span__(record.name), pattern, psks, suite);
 			// Жетоны предсообщения собеседника
 			const noise::token_t * list = nullptr;
 			// Число жетонов предсообщения
@@ -521,7 +536,8 @@ namespace {
 				// Буфер выведенного ключа
 				uint8_t key[noise::KEY];
 				// Выводим чужой ключ из его постоянного
-				if(other.empty() || !noise::derive(noise::dh_t::X25519, span(other), key)) return false;
+				if(other.empty() || !noise::derive(noise::dh_t::X25519, __nts_span__(other), key)) return false;
+				// Передаём стороне выведенный чужой ключ
 				if(!side.remote(view_t(key, noise::KEY))) return false;
 			}
 		}
@@ -530,9 +546,9 @@ namespace {
 			// Области предразделённых ключей
 			std::vector <view_t> list;
 			/**
-			 * Выполняем итерацию цикла
+			 * Перебираем предразделённые ключи записи
 			 */
-			for(auto & item : record.psks) list.push_back(span(item));
+			for(auto & item : record.psks) list.push_back(__nts_span__(item));
 			// Передаём предразделённые ключи стороне
 			if(!side.psks(list.data(), list.size())) return false;
 		}
@@ -548,7 +564,7 @@ namespace {
 	 * @param given   хеш рукопожатия, порождённый отдельно (flynn), либо пусто
 	 *
 	 */
-	static void run(const record_t & record, const bool flynn, tally_t & tally, const std::vector <uint8_t> & given) {
+	static void __nts_run__(const record_t & record, const bool flynn, tally_t & tally, const std::vector <uint8_t> & given) {
 		// Узор протокола из имени записи
 		noise::pattern_t pattern = noise::pattern_t::NONE;
 		// Видоизменения протокола из имени
@@ -556,7 +572,8 @@ namespace {
 		// Набор примитивов из имени
 		noise::suite_t suite;
 		// Разбираем имя протокола на узор и набор
-		if(!noise::parse(span(record.name), pattern, psks, suite)){
+		if(!noise::parse(__nts_span__(record.name), pattern, psks, suite)){
+			// 448-й обмен не поддержан - запись пропускается
 			if((pattern != noise::pattern_t::NONE) && (suite.dh == noise::dh_t::NONE)){ tally.skipped448++; return; }
 			// Имя не разобрано - фиксируем расхождение
 			tally.failures.push_back(record.name + ": имя не разобрано");
@@ -566,40 +583,42 @@ namespace {
 		// Запись взята в работу
 		tally.taken++;
 		// Стороны рукопожатия
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Заводим обе стороны по записи
-		if(!arm(record, true, a, flynn) || !arm(record, false, b, flynn)){ tally.failures.push_back(record.name + ": стороны не заведены"); return; }
+		if(!__nts_arm__(record, true, initiator, flynn) || !__nts_arm__(record, false, responder, flynn)){ tally.failures.push_back(record.name + ": стороны не заведены"); return; }
 		// Число сообщений узора
 		const size_t count = noise::messages(pattern);
 		// Буферы шифротекста и расшифровки
 		std::vector <uint8_t> out(noise::MESSAGE), back(noise::MESSAGE);
 		/**
-		 * Выполняем итерацию цикла
+		 * Прогоняем сообщения узора рукопожатия
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Сообщений в записи меньше, чем требует узор
 			if(i >= record.messages.size()){ tally.failures.push_back(record.name + ": мало сообщений"); return; }
 			// Пишущая сторона очередного сообщения
-			noise::handshake_t & writer = ((i % 2) == 0) ? a : b;
+			noise::handshake_t & writer = ((i % 2) == 0) ? initiator : responder;
 			// Читающая сторона очередного сообщения
-			noise::handshake_t & reader = ((i % 2) == 0) ? b : a;
+			noise::handshake_t & reader = ((i % 2) == 0) ? responder : initiator;
 			// Вместимость буфера шифротекста
 			size_t size = out.size();
 			// Шифруем полезную часть очередного сообщения
-			if(!writer.write(span(record.messages[i].first), out.data(), size)){ tally.failures.push_back(record.name + ": запись " + std::to_string(i)); return; }
+			if(!writer.write(__nts_span__(record.messages[i].first), out.data(), size)){ tally.failures.push_back(record.name + ": запись " + std::to_string(i)); return; }
+			// Шифротекст сообщения совпадает с записью
 			if((size != record.messages[i].second.size()) || (::memcmp(out.data(), record.messages[i].second.data(), size) != 0)){ tally.failures.push_back(record.name + ": шифротекст " + std::to_string(i)); return; }
 			// Вместимость буфера расшифровки
 			size_t got = back.size();
 			// Расшифровываем сообщение второй стороной
 			if(!reader.read(view_t(out.data(), size), back.data(), got)){ tally.failures.push_back(record.name + ": чтение " + std::to_string(i)); return; }
+			// Расшифрованная часть совпадает с записью
 			if((got != record.messages[i].first.size()) || ((got > 0) && (::memcmp(back.data(), record.messages[i].first.data(), got) != 0))){ tally.failures.push_back(record.name + ": полезная часть " + std::to_string(i)); return; }
 		}
 		// Обе стороны должны завершить рукопожатие
-		if((a.step() != noise::step_t::DONE) || (b.step() != noise::step_t::DONE)){ tally.failures.push_back(record.name + ": не завершено"); return; }
+		if((initiator.step() != noise::step_t::DONE) || (responder.step() != noise::step_t::DONE)){ tally.failures.push_back(record.name + ": не завершено"); return; }
 		// Пары транспортных состояний после раскола
-		noise::cipher_t a1, a2, b1, b2;
+		noise::cipher_t initiatorOut, initiatorIn, responderIn, responderOut;
 		// Раскалываем обе стороны на пары состояний
-		if(!a.split(a1, a2) || !b.split(b1, b2)){ tally.failures.push_back(record.name + ": раскол"); return; }
+		if(!initiator.split(initiatorOut, initiatorIn) || !responder.split(responderIn, responderOut)){ tally.failures.push_back(record.name + ": раскол"); return; }
 		// Ожидаемый хеш: порождённый или из записи
 		const std::vector <uint8_t> & expected = (given.empty() ? record.hash : given);
 		// Хеш задан - сверяем его
@@ -607,30 +626,31 @@ namespace {
 			// Буферы хешей обеих сторон
 			uint8_t ha[noise::HASH_MAX], hb[noise::HASH_MAX];
 			// Сверяем хеши обеих сторон с ожидаемым
-			if(!a.digest(ha) || !b.digest(hb) || (a.length() != expected.size()) || (::memcmp(ha, expected.data(), expected.size()) != 0) || (::memcmp(hb, expected.data(), expected.size()) != 0)){ tally.failures.push_back(record.name + ": хеш рукопожатия"); return; }
+			if(!initiator.digest(ha) || !responder.digest(hb) || (initiator.length() != expected.size()) || (::memcmp(ha, expected.data(), expected.size()) != 0) || (::memcmp(hb, expected.data(), expected.size()) != 0)){ tally.failures.push_back(record.name + ": хеш рукопожатия"); return; }
 			// Хеши сошлись - увеличиваем счёт
 			tally.hashes++;
 		}
 		// Признак одностороннего узора
 		const bool oneWay = (count == 1);
 		/**
-		 * Выполняем итерацию цикла
+		 * Прогоняем транспортные сообщения записи
 		 */
 		for(size_t m = count; m < record.messages.size(); m++){
 			// Номер транспортного сообщения
-			const size_t k = (m - count);
+			const size_t serial = (m - count);
 			// Признак отправки от инициатора
 			bool fromInitiator;
 			// Первый корпус чередует заново с инициатора
-			if(flynn) fromInitiator = ((k % 2) == 0);
+			if(flynn) fromInitiator = ((serial % 2) == 0);
 			else fromInitiator = (oneWay ? true : ((m % 2) == 0));
 			// Обратный ход одностороннего узора не проверяем
 			if(oneWay && !fromInitiator){ tally.skippedOneWay++; continue; }
+			// Прямой ход одностороннего узора сличён
 			if(oneWay) tally.forwardOneWay++;
 			// Состояние отправителя транспортного сообщения
-			noise::cipher_t & sender = (fromInitiator ? a1 : b2);
+			noise::cipher_t & sender = (fromInitiator ? initiatorOut : responderOut);
 			// Состояние получателя транспортного сообщения
-			noise::cipher_t & receiver = (fromInitiator ? b1 : a2);
+			noise::cipher_t & receiver = (fromInitiator ? responderIn : initiatorIn);
 			// Полезная часть транспортного сообщения
 			const std::vector <uint8_t> & payload = record.messages[m].first;
 			// Шифротекст транспортного сообщения
@@ -638,9 +658,12 @@ namespace {
 			// Буфер метки подлинности
 			uint8_t tag[noise::TAG];
 			// Шифруем сообщение состоянием отправителя
-			if(!sender.encrypt(view_t(), span(payload), out.data(), tag)){ tally.failures.push_back(record.name + ": транспорт запись " + std::to_string(m)); return; }
+			if(!sender.encrypt(view_t(), __nts_span__(payload), out.data(), tag)){ tally.failures.push_back(record.name + ": транспорт запись " + std::to_string(m)); return; }
+			// Транспортный шифротекст совпадает с записью
 			if((cipher.size() != (payload.size() + noise::TAG)) || (::memcmp(out.data(), cipher.data(), payload.size()) != 0) || (::memcmp(tag, cipher.data() + payload.size(), noise::TAG) != 0)){ tally.failures.push_back(record.name + ": транспорт шифротекст " + std::to_string(m)); return; }
+			// Транспортное сообщение расшифровывается
 			if(!receiver.decrypt(view_t(), view_t(cipher.data(), payload.size()), view_t(cipher.data() + payload.size(), noise::TAG), back.data())){ tally.failures.push_back(record.name + ": транспорт чтение " + std::to_string(m)); return; }
+			// Расшифрованный транспорт совпадает с записью
 			if((payload.size() > 0) && (::memcmp(back.data(), payload.data(), payload.size()) != 0)){ tally.failures.push_back(record.name + ": транспорт полезная часть " + std::to_string(m)); return; }
 		}
 	}
@@ -648,28 +671,30 @@ namespace {
 	 * @brief Функция полного рукопожатия XX между двумя сторонами со случайными ключами
 	 *
 	 * @param name имя протокола
-	 * @param a    инициатор
-	 * @param b    отвечающий
+	 * @param initiator    инициатор
+	 * @param responder    отвечающий
 	 * @return     признак успешности
 	 *
 	 */
-	static bool converse(const char * name, noise::handshake_t & a, noise::handshake_t & b) {
+	static bool __nts_converse__(const char * name, noise::handshake_t & initiator, noise::handshake_t & responder) {
 		// Свои и открытые ключи обеих сторон
 		uint8_t sa[32], pa[32], sb[32], pb[32];
 		// Порождаем пары ключей обмена
 		if(!noise::generate(noise::dh_t::X25519, sa, pa) || !noise::generate(noise::dh_t::X25519, sb, pb)) return false;
-		if(!a.start(span(std::string(name)), noise::role_t::INITIATOR, view_t()) || !b.start(span(std::string(name)), noise::role_t::RESPONDER, view_t())) return false;
-		if(!a.statics(view_t(sa, 32)) || !b.statics(view_t(sb, 32))) return false;
+		// Заводим обе стороны с их ролями
+		if(!initiator.start(__nts_span__(std::string(name)), noise::role_t::INITIATOR, view_t()) || !responder.start(__nts_span__(std::string(name)), noise::role_t::RESPONDER, view_t())) return false;
+		// Передаём сторонам свои постоянные ключи
+		if(!initiator.statics(view_t(sa, 32)) || !responder.statics(view_t(sb, 32))) return false;
 		// Буферы сообщения и расшифровки
 		uint8_t out[256], back[256];
 		/**
-		 * Выполняем итерацию цикла
+		 * Обмениваемся сообщениями до завершения рукопожатия
 		 */
-		while((a.step() != noise::step_t::DONE) || (b.step() != noise::step_t::DONE)){
+		while((initiator.step() != noise::step_t::DONE) || (responder.step() != noise::step_t::DONE)){
 			// Пишущая сторона по шагу рукопожатия
-			noise::handshake_t & writer = (a.step() == noise::step_t::WRITE) ? a : b;
+			noise::handshake_t & writer = (initiator.step() == noise::step_t::WRITE) ? initiator : responder;
 			// Читающая сторона по шагу рукопожатия
-			noise::handshake_t & reader = (a.step() == noise::step_t::WRITE) ? b : a;
+			noise::handshake_t & reader = (initiator.step() == noise::step_t::WRITE) ? responder : initiator;
 			// Пишущая сторона должна ждать записи
 			if(writer.step() != noise::step_t::WRITE) return false;
 			// Вместимости буферов сообщения и расшифровки
@@ -690,17 +715,17 @@ namespace {
 	 * @param out   выходы по длине хеша
 	 *
 	 */
-	static void manual(const digest::hash_t hash, const std::vector <uint8_t> & chain, const std::vector <uint8_t> & ikm, const size_t count, std::vector <std::vector <uint8_t>> & out) {
+	static void __nts_manual__(const digest::hash_t hash, const std::vector <uint8_t> & chain, const std::vector <uint8_t> & ikm, const size_t count, std::vector <std::vector <uint8_t>> & out) {
 		// Длина выхода проверяемого хеша
 		const size_t length = digest::length(hash);
 		// Временный ключ цепи
 		std::vector <uint8_t> temp(length);
 		// Заводим ключ цепи из входного материала
-		digest::hmac(hash, span(chain), span(ikm), temp.data(), length);
+		digest::hmac(hash, __nts_span__(chain), __nts_span__(ikm), temp.data(), length);
 		// Предыдущий выход для цепочки
 		std::vector <uint8_t> previous;
 		/**
-		 * Выполняем итерацию цикла
+		 * Выводим очередные блоки цепочки HKDF
 		 */
 		for(size_t i = 1; i <= count; i++){
 			// Предыдущий выход с номером
@@ -710,7 +735,7 @@ namespace {
 			// Буфер очередного выхода
 			std::vector <uint8_t> item(length);
 			// Выводим очередной блок из ключа цепи
-			digest::hmac(hash, span(temp), span(input), item.data(), length);
+			digest::hmac(hash, __nts_span__(temp), __nts_span__(input), item.data(), length);
 			// Кладём выход в список
 			out.push_back(item);
 			// Запоминаем выход для цепочки следующего блока
@@ -735,20 +760,20 @@ TEST(NoiseTest, Flynn){
 	// Счёт прогона корпуса
 	tally_t tally;
 	/**
-	 * Выполняем итерацию цикла
+	 * Прогоняем записи корпуса flynn
 	 */
 	for(auto & record : records){
 		// Порождённый хеш записи по её номеру
-		auto it = given.find(record.index);
+		auto found = given.find(record.index);
 		// Порождённый хеш записи найден
-		ASSERT_NE(it, given.end());
+		ASSERT_NE(found, given.end());
 		// Имя порождённого хеша совпадает с именем записи
-		ASSERT_EQ(it->second.first, record.name) << record.index;
+		ASSERT_EQ(found->second.first, record.name) << record.index;
 		// Прогоняем запись с порождённым хешом
-		run(record, true, tally, it->second.second);
+		__nts_run__(record, true, tally, found->second.second);
 	}
 	/**
-	 * Выполняем итерацию цикла
+	 * Выдаём накопленные расхождения
 	 */
 	for(auto & failure : tally.failures) ADD_FAILURE() << failure;
 	// Докладываем счёт прогона корпуса
@@ -772,11 +797,11 @@ TEST(NoiseTest, Cacophony){
 	// Счёт прогона корпуса
 	tally_t tally;
 	/**
-	 * Выполняем итерацию цикла
+	 * Прогоняем записи корпуса Cacophony
 	 */
-	for(auto & record : records) run(record, false, tally, std::vector <uint8_t> ());
+	for(auto & record : records) __nts_run__(record, false, tally, std::vector <uint8_t> ());
 	/**
-	 * Выполняем итерацию цикла
+	 * Выдаём накопленные расхождения
 	 */
 	for(auto & failure : tally.failures) ADD_FAILURE() << failure;
 	// Докладываем счёт прогона корпуса
@@ -793,7 +818,7 @@ TEST(NoiseTest, Cacophony){
  */
 TEST(NoiseTest, Names){
 	/**
-	 * Выполняем итерацию цикла
+	 * Перебираем узоры протоколов
 	 */
 	for(uint8_t i = 1; i <= static_cast <uint8_t> (noise::pattern_t::I1X1); i++){
 		// Узор перебираемого значения
@@ -833,28 +858,28 @@ TEST(NoiseTest, Names){
 	// Набор разбираемого имени
 	noise::suite_t suite;
 	// Видоизменения psk0+psk3 разбираются
-	EXPECT_TRUE(noise::parse(span(std::string("Noise_XXpsk0+psk3_25519_ChaChaPoly_SHA512")), pattern, psks, suite));
+	EXPECT_TRUE(noise::parse(__nts_span__(std::string("Noise_XXpsk0+psk3_25519_ChaChaPoly_SHA512")), pattern, psks, suite));
 	// Имя несёт узор XX
 	EXPECT_EQ(pattern, noise::pattern_t::XX);
 	EXPECT_EQ(psks, 0x09);
 	EXPECT_EQ(suite.hash, digest::hash_t::SHA512);
 	// Отложенный узор XX1 разбирается
-	EXPECT_TRUE(noise::parse(span(std::string("Noise_XX1_25519_AESGCM_BLAKE2s")), pattern, psks, suite));
+	EXPECT_TRUE(noise::parse(__nts_span__(std::string("Noise_XX1_25519_AESGCM_BLAKE2s")), pattern, psks, suite));
 	// Имя несёт узор XX1
 	EXPECT_EQ(pattern, noise::pattern_t::XX1);
 	// 448: узор и хеш разобраны, dh пуст, итог отказ
-	EXPECT_FALSE(noise::parse(span(std::string("Noise_IK_448_ChaChaPoly_BLAKE2b")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Noise_IK_448_ChaChaPoly_BLAKE2b")), pattern, psks, suite));
 	// Узор разобран до отказа по DH
 	EXPECT_EQ(pattern, noise::pattern_t::IK);
 	EXPECT_EQ(suite.dh, noise::dh_t::NONE);
 	EXPECT_EQ(suite.hash, digest::hash_t::BLAKE2B512);
 	// Видоизменения вне очереди отклоняются
-	EXPECT_FALSE(noise::parse(span(std::string("Noise_XXpsk3+psk0_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("Noise_XXpsk4_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("Noise_XY_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("Noise_XX_25519_ChaChaPoly_SHA256_")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("Nois_XX_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
-	EXPECT_FALSE(noise::parse(span(std::string("Noise_XX_25519_ChaChaPoly_MD5")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Noise_XXpsk3+psk0_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Noise_XXpsk4_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Noise_XY_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Noise_XX_25519_ChaChaPoly_SHA256_")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Nois_XX_25519_ChaChaPoly_SHA256")), pattern, psks, suite));
+	EXPECT_FALSE(noise::parse(__nts_span__(std::string("Noise_XX_25519_ChaChaPoly_MD5")), pattern, psks, suite));
 	EXPECT_FALSE(noise::parse(view_t(), pattern, psks, suite));
 }
 /**
@@ -865,7 +890,7 @@ TEST(NoiseTest, Hkdf){
 	// Четыре хеша каркаса для проверки HKDF
 	const digest::hash_t hashes[] = {digest::hash_t::SHA256, digest::hash_t::SHA512, digest::hash_t::BLAKE2S256, digest::hash_t::BLAKE2B512};
 	/**
-	 * Выполняем итерацию цикла
+	 * Перебираем проверяемые хеши
 	 */
 	for(auto hash : hashes){
 		// Длина выхода проверяемого хеша
@@ -877,7 +902,7 @@ TEST(NoiseTest, Hkdf){
 		// Проверяемое симметричное состояние
 		noise::symmetric_t state;
 		// Состояние заводится по имени протокола
-		ASSERT_TRUE(state.start(span(name), suite));
+		ASSERT_TRUE(state.start(__nts_span__(name), suite));
 		// Начальные h и ck: имя с нулями (короче хеша)
 		std::vector <uint8_t> chain(length, 0);
 		::memcpy(chain.data(), name.data(), name.size());
@@ -887,14 +912,14 @@ TEST(NoiseTest, Hkdf){
 		ASSERT_TRUE(state.digest(h));
 		// Свёртка совпадает с именем, дополненным нулями
 		EXPECT_EQ(::memcmp(h, chain.data(), length), 0);
-		// MixKey
+		// Материал смешивания ключа по MixKey
 		std::vector <uint8_t> ikm(32, 0x5A);
 		// Выходы ручного счёта
 		std::vector <std::vector <uint8_t>> out;
 		// Ручной счёт HKDF на два выхода
-		manual(hash, chain, ikm, 2, out);
+		__nts_manual__(hash, chain, ikm, 2, out);
 		// Смешивание ключа по MixKey
-		ASSERT_TRUE(state.key(span(ikm)));
+		ASSERT_TRUE(state.key(__nts_span__(ikm)));
 		// Первый выход ручного счёта — новый ключ цепи
 		chain = out[0];
 		// Шифрование пустой полезной части сличается с состоянием шифра на усечённом ключе
@@ -923,9 +948,9 @@ TEST(NoiseTest, Hkdf){
 		// Очищаем выходы ручного счёта
 		out.clear();
 		// Ручной счёт HKDF на три выхода
-		manual(hash, chain, psk, 3, out);
+		__nts_manual__(hash, chain, psk, 3, out);
 		// Смешивание ключа и свёртки по MixKeyAndHash
-		ASSERT_TRUE(state.blend(span(psk)));
+		ASSERT_TRUE(state.blend(__nts_span__(psk)));
 		// Свёртка состояния как основа
 		std::vector <uint8_t> input(h, h + length);
 		// Добавляем второй выход к свёртке
@@ -933,7 +958,7 @@ TEST(NoiseTest, Hkdf){
 		// Ожидаемая свёртка после смешивания
 		std::vector <uint8_t> expected(length);
 		// Ожидаемая свёртка после смешивания
-		ASSERT_TRUE(digest::hash(hash, span(input), expected.data(), length));
+		ASSERT_TRUE(digest::hash(hash, __nts_span__(input), expected.data(), length));
 		ASSERT_TRUE(state.digest(h));
 		// Свёртка состояния сошлась с ручным счётом
 		EXPECT_EQ(::memcmp(h, expected.data(), length), 0);
@@ -959,7 +984,7 @@ TEST(NoiseTest, Nonce){
 	// Оба шифра каркаса для проверки счётчика
 	const noise::aead_t aeads[] = {noise::aead_t::CHACHAPOLY, noise::aead_t::AESGCM};
 	/**
-	 * Выполняем итерацию цикла
+	 * Перебираем шифры каркаса
 	 */
 	for(auto aead : aeads){
 		// Проверяемое состояние шифра
@@ -1025,7 +1050,7 @@ TEST(NoiseTest, Rekey){
 	// Исходный ключ шифра
 	uint8_t key[32];
 	/**
-	 * Выполняем итерацию цикла
+	 * Заполняем байты исходного ключа
 	 */
 	for(size_t i = 0; i < 32; i++) key[i] = static_cast <uint8_t> (i * 3);
 	// Ключ заведён, счётчик поставлен в 5, перевыработка выполнена
@@ -1064,44 +1089,44 @@ TEST(NoiseTest, OneWay){
 	// Пара ключей отвечающего
 	ASSERT_TRUE(noise::generate(noise::dh_t::X25519, sb, pb));
 	// Стороны одностороннего узора
-	noise::handshake_t a, b;
+	noise::handshake_t initiator, responder;
 	// Стороны одностороннего узора заведены
-	ASSERT_TRUE(a.start(noise::pattern_t::N, 0, noise::suite_t(noise::dh_t::X25519, noise::aead_t::AESGCM, digest::hash_t::SHA256), noise::role_t::INITIATOR, view_t()));
-	ASSERT_TRUE(b.start(noise::pattern_t::N, 0, noise::suite_t(noise::dh_t::X25519, noise::aead_t::AESGCM, digest::hash_t::SHA256), noise::role_t::RESPONDER, view_t()));
-	ASSERT_TRUE(a.remote(view_t(pb, 32)));
-	ASSERT_TRUE(b.statics(view_t(sb, 32)));
+	ASSERT_TRUE(initiator.start(noise::pattern_t::N, 0, noise::suite_t(noise::dh_t::X25519, noise::aead_t::AESGCM, digest::hash_t::SHA256), noise::role_t::INITIATOR, view_t()));
+	ASSERT_TRUE(responder.start(noise::pattern_t::N, 0, noise::suite_t(noise::dh_t::X25519, noise::aead_t::AESGCM, digest::hash_t::SHA256), noise::role_t::RESPONDER, view_t()));
+	ASSERT_TRUE(initiator.remote(view_t(pb, 32)));
+	ASSERT_TRUE(responder.statics(view_t(sb, 32)));
 	// Вместимости буферов сообщения и расшифровки
 	size_t size = sizeof(out), got = sizeof(back);
 	// Единственное сообщение узора проходит
-	ASSERT_TRUE(a.write(span(std::string("hello")), out, size));
-	ASSERT_TRUE(b.read(view_t(out, size), back, got));
+	ASSERT_TRUE(initiator.write(__nts_span__(std::string("hello")), out, size));
+	ASSERT_TRUE(responder.read(view_t(out, size), back, got));
 	// Полезная часть принята целиком
 	ASSERT_EQ(got, 5u);
 	// Расшифрованное сообщение — «hello»
 	EXPECT_EQ(::memcmp(back, "hello", 5), 0);
 	// Пары состояний после раскола
-	noise::cipher_t a1, a2, b1, b2;
+	noise::cipher_t initiatorOut, initiatorIn, responderIn, responderOut;
 	// Раскол на пары транспортных состояний
-	ASSERT_TRUE(a.split(a1, a2));
-	ASSERT_TRUE(b.split(b1, b2));
+	ASSERT_TRUE(initiator.split(initiatorOut, initiatorIn));
+	ASSERT_TRUE(responder.split(responderIn, responderOut));
 	// Прямые состояния несут ключи
-	EXPECT_TRUE(a1.has());
-	EXPECT_TRUE(b1.has());
+	EXPECT_TRUE(initiatorOut.has());
+	EXPECT_TRUE(responderIn.has());
 	// Встречные состояния без ключей
-	EXPECT_FALSE(a2.has());
-	EXPECT_FALSE(b2.has());
+	EXPECT_FALSE(initiatorIn.has());
+	EXPECT_FALSE(responderOut.has());
 	// Буфер метки подлинности
 	uint8_t tag[16];
 	// Шифрование встречным состоянием отказывает
-	EXPECT_FALSE(a2.encrypt(view_t(), view_t(out, 5), out, tag));
+	EXPECT_FALSE(initiatorIn.encrypt(view_t(), view_t(out, 5), out, tag));
 	// Буфер ключа собеседника
 	uint8_t peer[32];
 	// Ключ собеседника у инициатора
-	ASSERT_TRUE(a.peer(peer));
+	ASSERT_TRUE(initiator.peer(peer));
 	// Ключ собеседника совпадает с открытым ключом
 	EXPECT_EQ(::memcmp(peer, pb, 32), 0);
 	// Отвечающий ключа собеседника не хранит
-	EXPECT_FALSE(b.peer(peer));
+	EXPECT_FALSE(responder.peer(peer));
 }
 /**
  * @brief Предел сообщения 65535 целиком: полезная часть 65519 с ключом проходит, 65520 - отказ
@@ -1109,57 +1134,57 @@ TEST(NoiseTest, OneWay){
  */
 TEST(NoiseTest, Message){
 	// Стороны рукопожатия предела
-	noise::handshake_t a, b;
+	noise::handshake_t initiator, responder;
 	// Рукопожатие XX заведено
-	ASSERT_TRUE(converse("Noise_XX_25519_ChaChaPoly_SHA256", a, b));
+	ASSERT_TRUE(__nts_converse__("Noise_XX_25519_ChaChaPoly_SHA256", initiator, responder));
 	// Транспортные состояния после раскола
-	noise::cipher_t a1, a2, b1, b2;
+	noise::cipher_t initiatorOut, initiatorIn, responderIn, responderOut;
 	// Раскол на пары транспортных состояний
-	ASSERT_TRUE(a.split(a1, a2));
-	ASSERT_TRUE(b.split(b1, b2));
+	ASSERT_TRUE(initiator.split(initiatorOut, initiatorIn));
+	ASSERT_TRUE(responder.split(responderIn, responderOut));
 	// Полезная часть у предела и буферы
 	std::vector <uint8_t> payload(noise::MESSAGE - noise::TAG, 0x42), out(noise::MESSAGE), back(noise::MESSAGE);
 	// Буфер метки подлинности
 	uint8_t tag[16];
 	// Полезная часть у предела проходит в обе стороны
-	ASSERT_TRUE(a1.encrypt(view_t(), span(payload), out.data(), tag));
-	ASSERT_TRUE(b1.decrypt(view_t(), view_t(out.data(), payload.size()), view_t(tag, 16), back.data()));
+	ASSERT_TRUE(initiatorOut.encrypt(view_t(), __nts_span__(payload), out.data(), tag));
+	ASSERT_TRUE(responderIn.decrypt(view_t(), view_t(out.data(), payload.size()), view_t(tag, 16), back.data()));
 	// Добавляем байт за предел
 	payload.push_back(0x42);
 	// Байт за пределом отклоняется
-	EXPECT_FALSE(a1.encrypt(view_t(), span(payload), out.data(), tag));
+	EXPECT_FALSE(initiatorOut.encrypt(view_t(), __nts_span__(payload), out.data(), tag));
 	// Отказ не расходует счётчик
-	EXPECT_EQ(a1.nonce(), 1u);
+	EXPECT_EQ(initiatorOut.nonce(), 1u);
 	// Первое сообщение NN без ключа: 32 + полезная часть, предел 65503
-	noise::handshake_t c;
+	noise::handshake_t firstSide;
 	// Сторона узора NN без ключа заведена
-	ASSERT_TRUE(c.start(span(std::string("Noise_NN_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
+	ASSERT_TRUE(firstSide.start(__nts_span__(std::string("Noise_NN_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
 	// Полезная часть и буфер сообщения без ключа
 	std::vector <uint8_t> plain(noise::MESSAGE - noise::KEY, 1), place(noise::MESSAGE + 64);
 	// Вместимость буфера сообщения
 	size_t size = place.size();
 	// Первое сообщение без ключа записано
-	ASSERT_TRUE(c.write(span(plain), place.data(), size));
+	ASSERT_TRUE(firstSide.write(__nts_span__(plain), place.data(), size));
 	// Сообщение занимает ровно предел
 	EXPECT_EQ(size, noise::MESSAGE);
 	// Вторая сторона узора NN
-	noise::handshake_t d;
+	noise::handshake_t secondSide;
 	// Вторая сторона заведена
-	ASSERT_TRUE(d.start(span(std::string("Noise_NN_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
+	ASSERT_TRUE(secondSide.start(__nts_span__(std::string("Noise_NN_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
 	// Добавляем байт за предел
 	plain.push_back(1);
 	// Сбрасываем вместимость буфера
 	size = place.size();
 	// Полезная часть за пределом отклоняется
-	EXPECT_FALSE(d.write(span(plain), place.data(), size));
+	EXPECT_FALSE(secondSide.write(__nts_span__(plain), place.data(), size));
 	// Малая вместимость - отказ
-	noise::handshake_t e;
+	noise::handshake_t thirdSide;
 	// Третья сторона узора NN
-	ASSERT_TRUE(e.start(span(std::string("Noise_NN_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
+	ASSERT_TRUE(thirdSide.start(__nts_span__(std::string("Noise_NN_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
 	// Вместимость меньше временного ключа
 	size = 31;
 	// Малая вместимость отклоняется
-	EXPECT_FALSE(e.write(view_t(), place.data(), size));
+	EXPECT_FALSE(thirdSide.write(view_t(), place.data(), size));
 }
 /**
  * @brief Расхождение пролога, ход не в очередь, чужой ключ не сошёлся, порча метки, состояние после отказа
@@ -1176,176 +1201,176 @@ TEST(NoiseTest, Refusals){
 	// Пролог: у сторон разный - первое сообщение открыто и проходит, второе не сходится
 	{
 		// Стороны с разными прологами
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Стороны заведены на разных прологах
-		ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, span(std::string("one"))));
-		ASSERT_TRUE(b.start(span(name), noise::role_t::RESPONDER, span(std::string("two"))));
-		ASSERT_TRUE(a.statics(view_t(sa, 32)));
-		ASSERT_TRUE(b.statics(view_t(sb, 32)));
+		ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, __nts_span__(std::string("one"))));
+		ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, __nts_span__(std::string("two"))));
+		ASSERT_TRUE(initiator.statics(view_t(sa, 32)));
+		ASSERT_TRUE(responder.statics(view_t(sb, 32)));
 		// Вместимости буферов сообщения и расшифровки
 		size_t size = sizeof(out), got = sizeof(back);
 		// Первое сообщение с разными прологами проходит
-		ASSERT_TRUE(a.write(view_t(), out, size));
-		ASSERT_TRUE(b.read(view_t(out, size), back, got));
+		ASSERT_TRUE(initiator.write(view_t(), out, size));
+		ASSERT_TRUE(responder.read(view_t(out, size), back, got));
 		// Сбрасываем вместимости буферов
 		size = sizeof(out); got = sizeof(back);
 		// Второе сообщение записано
-		ASSERT_TRUE(b.write(view_t(), out, size));
+		ASSERT_TRUE(responder.write(view_t(), out, size));
 		// Второе сообщение с разными прологами отклоняется
-		EXPECT_FALSE(a.read(view_t(out, size), back, got));
+		EXPECT_FALSE(initiator.read(view_t(out, size), back, got));
 		// Сторона-инициатор после отказа не ждёт хода
-		EXPECT_EQ(a.step(), noise::step_t::NONE);
+		EXPECT_EQ(initiator.step(), noise::step_t::NONE);
 		// Повторное чтение после отказа отклоняется
-		EXPECT_FALSE(a.read(view_t(out, size), back, got));
+		EXPECT_FALSE(initiator.read(view_t(out, size), back, got));
 		// Пара состояний для раскола после отказа
 		noise::cipher_t one, two;
 		// Раскол после отказа отклоняется
-		EXPECT_FALSE(a.split(one, two));
+		EXPECT_FALSE(initiator.split(one, two));
 	}
 	// Ход не в очередь
 	{
 		// Сторона для проверки очерёдности
-		noise::handshake_t a;
+		noise::handshake_t turn;
 		// Сторона заведена
-		ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
-		ASSERT_TRUE(a.statics(view_t(sa, 32)));
+		ASSERT_TRUE(turn.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(turn.statics(view_t(sa, 32)));
 		// Сторона ждёт записи
-		EXPECT_EQ(a.step(), noise::step_t::WRITE);
+		EXPECT_EQ(turn.step(), noise::step_t::WRITE);
 		// Вместимости буферов сообщения и расшифровки
 		size_t size = sizeof(out), got = sizeof(back);
 		// Чтение вместо записи отклоняется
-		EXPECT_FALSE(a.read(view_t(out, 32), back, got));
+		EXPECT_FALSE(turn.read(view_t(out, 32), back, got));
 		// Очерёдность после отказа не тронута
-		EXPECT_EQ(a.step(), noise::step_t::WRITE);
+		EXPECT_EQ(turn.step(), noise::step_t::WRITE);
 		// Первое сообщение записано
-		ASSERT_TRUE(a.write(view_t(), out, size));
+		ASSERT_TRUE(turn.write(view_t(), out, size));
 		// Сторона ждёт чтения
-		EXPECT_EQ(a.step(), noise::step_t::READ);
+		EXPECT_EQ(turn.step(), noise::step_t::READ);
 		// Сбрасываем вместимость буфера сообщения
 		size = sizeof(out);
 		// Запись вместо чтения отклоняется
-		EXPECT_FALSE(a.write(view_t(), out, size));
+		EXPECT_FALSE(turn.write(view_t(), out, size));
 		// Ключи после первого сообщения не принимаются
-		EXPECT_FALSE(a.statics(view_t(sa, 32)));
-		EXPECT_FALSE(a.remote(view_t(pb, 32)));
-		EXPECT_FALSE(a.ephemeral(view_t(sa, 32)));
+		EXPECT_FALSE(turn.statics(view_t(sa, 32)));
+		EXPECT_FALSE(turn.remote(view_t(pb, 32)));
+		EXPECT_FALSE(turn.ephemeral(view_t(sa, 32)));
 		// Область предразделённого ключа
 		view_t psk(sa, 32);
 		// Предразделённый ключ после первого сообщения отклоняется
-		EXPECT_FALSE(a.psks(&psk, 1));
+		EXPECT_FALSE(turn.psks(&psk, 1));
 	}
 	// Чужой постоянный ключ задан заранее и не совпал с принятым
 	{
 		// Стороны с заданным заранее чужим ключом
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Сторона заведена заново
-		ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
-		ASSERT_TRUE(b.start(span(name), noise::role_t::RESPONDER, view_t()));
-		ASSERT_TRUE(a.statics(view_t(sa, 32)));
-		ASSERT_TRUE(b.statics(view_t(sb, 32)));
-		ASSERT_TRUE(a.remote(view_t(pa, 32)));
+		ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+		ASSERT_TRUE(initiator.statics(view_t(sa, 32)));
+		ASSERT_TRUE(responder.statics(view_t(sb, 32)));
+		ASSERT_TRUE(initiator.remote(view_t(pa, 32)));
 		// Вместимости буферов сообщения и расшифровки
 		size_t size = sizeof(out), got = sizeof(back);
 		// Первое сообщение с заданным чужим ключом проходит
-		ASSERT_TRUE(a.write(view_t(), out, size));
-		ASSERT_TRUE(b.read(view_t(out, size), back, got));
+		ASSERT_TRUE(initiator.write(view_t(), out, size));
+		ASSERT_TRUE(responder.read(view_t(out, size), back, got));
 		// Сбрасываем вместимости буферов
 		size = sizeof(out); got = sizeof(back);
 		// Второе сообщение записано
-		ASSERT_TRUE(b.write(view_t(), out, size));
+		ASSERT_TRUE(responder.write(view_t(), out, size));
 		// Второе сообщение с несошедшимся чужим ключом отклоняется
-		EXPECT_FALSE(a.read(view_t(out, size), back, got));
+		EXPECT_FALSE(initiator.read(view_t(out, size), back, got));
 		// Сторона-инициатор после отказа не ждёт хода
-		EXPECT_EQ(a.step(), noise::step_t::NONE);
+		EXPECT_EQ(initiator.step(), noise::step_t::NONE);
 	}
 	// Порча метки
 	{
 		// Стороны для порчи метки
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Сторона заведена заново
-		ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
-		ASSERT_TRUE(b.start(span(name), noise::role_t::RESPONDER, view_t()));
-		ASSERT_TRUE(a.statics(view_t(sa, 32)));
-		ASSERT_TRUE(b.statics(view_t(sb, 32)));
+		ASSERT_TRUE(initiator.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(responder.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+		ASSERT_TRUE(initiator.statics(view_t(sa, 32)));
+		ASSERT_TRUE(responder.statics(view_t(sb, 32)));
 		// Вместимости буферов сообщения и расшифровки
 		size_t size = sizeof(out), got = sizeof(back);
 		// Первое сообщение проходит
-		ASSERT_TRUE(a.write(view_t(), out, size));
-		ASSERT_TRUE(b.read(view_t(out, size), back, got));
+		ASSERT_TRUE(initiator.write(view_t(), out, size));
+		ASSERT_TRUE(responder.read(view_t(out, size), back, got));
 		// Сбрасываем вместимости буферов
 		size = sizeof(out); got = sizeof(back);
 		// Второе сообщение с полезной частью записано
-		ASSERT_TRUE(b.write(span(std::string("payload")), out, size));
+		ASSERT_TRUE(responder.write(__nts_span__(std::string("payload")), out, size));
 		// Портим последний байт метки
 		out[size - 1] ^= 0x80;
 		// Порченая метка отклоняется
-		EXPECT_FALSE(a.read(view_t(out, size), back, got));
+		EXPECT_FALSE(initiator.read(view_t(out, size), back, got));
 		// Полезная часть не выдана
 		EXPECT_EQ(got, 0u);
-		EXPECT_EQ(a.step(), noise::step_t::NONE);
+		EXPECT_EQ(initiator.step(), noise::step_t::NONE);
 		// Короткое сообщение
-		noise::handshake_t c;
+		noise::handshake_t shortSide;
 		// Отвечающий короткого сообщения заведён
-		ASSERT_TRUE(c.start(span(name), noise::role_t::RESPONDER, view_t()));
-		ASSERT_TRUE(c.statics(view_t(sb, 32)));
+		ASSERT_TRUE(shortSide.start(__nts_span__(name), noise::role_t::RESPONDER, view_t()));
+		ASSERT_TRUE(shortSide.statics(view_t(sb, 32)));
 		// Сбрасываем вместимость буфера расшифровки
 		got = sizeof(back);
 		// Короткое сообщение отклоняется
-		EXPECT_FALSE(c.read(view_t(out, 31), back, got));
+		EXPECT_FALSE(shortSide.read(view_t(out, 31), back, got));
 		// Отвечающий после отказа не ждёт хода
-		EXPECT_EQ(c.step(), noise::step_t::NONE);
+		EXPECT_EQ(shortSide.step(), noise::step_t::NONE);
 	}
 	// Ключи: чужие длины, лишние psk, недостающие ключи, 448, до заведения
 	{
 		// Незаведённая сторона
-		noise::handshake_t a;
+		noise::handshake_t probing;
 		// Незаведённая сторона не ждёт хода
-		EXPECT_EQ(a.step(), noise::step_t::NONE);
+		EXPECT_EQ(probing.step(), noise::step_t::NONE);
 		// Ключи незаведённой стороны отклоняются
-		EXPECT_FALSE(a.statics(view_t(sa, 32)));
-		EXPECT_FALSE(a.start(span(std::string("Noise_XX_448_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
-		EXPECT_FALSE(a.start(span(name), noise::role_t::NONE, view_t()));
-		EXPECT_FALSE(a.start(noise::pattern_t::NN, 0x08, noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256), noise::role_t::INITIATOR, view_t()));
+		EXPECT_FALSE(probing.statics(view_t(sa, 32)));
+		EXPECT_FALSE(probing.start(__nts_span__(std::string("Noise_XX_448_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
+		EXPECT_FALSE(probing.start(__nts_span__(name), noise::role_t::NONE, view_t()));
+		EXPECT_FALSE(probing.start(noise::pattern_t::NN, 0x08, noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256), noise::role_t::INITIATOR, view_t()));
 		// Сторона заведена
-		ASSERT_TRUE(a.start(span(name), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(probing.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
 		// Постоянный ключ чужой длины отклоняется
-		EXPECT_FALSE(a.statics(view_t(sa, 31)));
-		EXPECT_FALSE(a.remote(view_t(pb, 33)));
+		EXPECT_FALSE(probing.statics(view_t(sa, 31)));
+		EXPECT_FALSE(probing.remote(view_t(pb, 33)));
 		// Ключей больше положенных положений узора
 		view_t list[5] = {view_t(sa, 32), view_t(sa, 32), view_t(sa, 32), view_t(sa, 32), view_t(sa, 32)};
 		// Лишние предразделённые ключи отклоняются
-		EXPECT_FALSE(a.psks(list, 5));
+		EXPECT_FALSE(probing.psks(list, 5));
 		// Предразделённый ключ не той длины
 		view_t shorter(sa, 31);
 		// Предразделённый ключ чужой длины отклоняется
-		EXPECT_FALSE(a.psks(&shorter, 1));
-		EXPECT_FALSE(a.psks(nullptr, 1));
+		EXPECT_FALSE(probing.psks(&shorter, 1));
+		EXPECT_FALSE(probing.psks(nullptr, 1));
 		// XX без своего постоянного ключа: отказ первого сообщения
 		size_t size = sizeof(out);
 		// Запись без своего постоянного ключа отклоняется
-		EXPECT_FALSE(a.write(view_t(), out, size));
+		EXPECT_FALSE(probing.write(view_t(), out, size));
 		// psk задан без видоизменения - отказ по числу положений
-		noise::handshake_t c;
+		noise::handshake_t keyedSide;
 		// Сторона с предразделённым ключом заведена
-		ASSERT_TRUE(c.start(span(name), noise::role_t::INITIATOR, view_t()));
-		ASSERT_TRUE(c.statics(view_t(sa, 32)));
+		ASSERT_TRUE(keyedSide.start(__nts_span__(name), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(keyedSide.statics(view_t(sa, 32)));
 		// Область предразделённого ключа
 		view_t psk(sa, 32);
 		// Предразделённый ключ принят
-		ASSERT_TRUE(c.psks(&psk, 1));
+		ASSERT_TRUE(keyedSide.psks(&psk, 1));
 		// Сбрасываем вместимость буфера сообщения
 		size = sizeof(out);
 		// Запись с ключом без видоизменения отклоняется
-		EXPECT_FALSE(c.write(view_t(), out, size));
+		EXPECT_FALSE(keyedSide.write(view_t(), out, size));
 		// Видоизменение без ключа
-		noise::handshake_t d;
+		noise::handshake_t alteredSide;
 		// Сторона с видоизменением psk3 заведена
-		ASSERT_TRUE(d.start(span(std::string("Noise_XXpsk3_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
-		ASSERT_TRUE(d.statics(view_t(sa, 32)));
+		ASSERT_TRUE(alteredSide.start(__nts_span__(std::string("Noise_XXpsk3_25519_ChaChaPoly_SHA256")), noise::role_t::INITIATOR, view_t()));
+		ASSERT_TRUE(alteredSide.statics(view_t(sa, 32)));
 		// Сбрасываем вместимость буфера сообщения
 		size = sizeof(out);
 		// Запись с видоизменением без своего ключа отклоняется
-		EXPECT_FALSE(d.write(view_t(), out, size));
+		EXPECT_FALSE(alteredSide.write(view_t(), out, size));
 	}
 	// Состояния шифра: без функции, без ключа, чужая длина ключа
 	{
@@ -1368,19 +1393,19 @@ TEST(NoiseTest, Refusals){
 		noise::symmetric_t sym;
 		// Заведение с пустым именем и без DH отклоняется
 		EXPECT_FALSE(sym.start(view_t(), noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256)));
-		EXPECT_FALSE(sym.start(span(name), noise::suite_t(noise::dh_t::NONE, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256)));
+		EXPECT_FALSE(sym.start(__nts_span__(name), noise::suite_t(noise::dh_t::NONE, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256)));
 		EXPECT_FALSE(sym.key(view_t(sa, 32)));
 		// Хеш рукопожатия не тронут при несошедшейся метке
 		noise::symmetric_t keyed;
 		// Симметричное состояние с ключом заведено
-		ASSERT_TRUE(keyed.start(span(name), noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256)));
+		ASSERT_TRUE(keyed.start(__nts_span__(name), noise::suite_t(noise::dh_t::X25519, noise::aead_t::CHACHAPOLY, digest::hash_t::SHA256)));
 		ASSERT_TRUE(keyed.key(view_t(sa, 32)));
 		// Буферы хешей до и после и метки
 		uint8_t before[32], after[32], sealed[64];
 		// Вместимость буфера печати
 		size_t size = sizeof(sealed);
 		// Полезная часть запечатана с меткой
-		ASSERT_TRUE(keyed.seal(span(std::string("abc")), sealed, size));
+		ASSERT_TRUE(keyed.seal(__nts_span__(std::string("abc")), sealed, size));
 		// Печать — полезная часть плюс метка
 		ASSERT_EQ(size, 3u + noise::TAG);
 		// Хеш рукопожатия до порчи
@@ -1415,49 +1440,49 @@ TEST(NoiseTest, Suites){
 		"Noise_XX_25519_AESGCM_SHA256", "Noise_XX_25519_AESGCM_SHA512", "Noise_XX_25519_AESGCM_BLAKE2s", "Noise_XX_25519_AESGCM_BLAKE2b"
 	};
 	/**
-	 * Выполняем итерацию цикла
+	 * Перебираем наборы примитивов
 	 */
 	for(auto name : names){
 		// Стороны очередного набора
-		noise::handshake_t a, b;
+		noise::handshake_t initiator, responder;
 		// Рукопожатие очередного набора завершается
-		ASSERT_TRUE(converse(name, a, b)) << name;
+		ASSERT_TRUE(__nts_converse__(name, initiator, responder)) << name;
 		// Буферы хешей и ключей сторон
 		uint8_t ha[64], hb[64], pa[32], pb[32], sa[32], sb[32];
 		// Хеши рукопожатия обеих сторон
-		ASSERT_TRUE(a.digest(ha));
-		ASSERT_TRUE(b.digest(hb));
+		ASSERT_TRUE(initiator.digest(ha));
+		ASSERT_TRUE(responder.digest(hb));
 		// Хеши рукопожатия обеих сторон совпадают
-		EXPECT_EQ(::memcmp(ha, hb, a.length()), 0) << name;
+		EXPECT_EQ(::memcmp(ha, hb, initiator.length()), 0) << name;
 		// Ключи собеседника и свои у обеих сторон
-		ASSERT_TRUE(a.peer(pb));
-		ASSERT_TRUE(b.self(sb));
-		ASSERT_TRUE(b.peer(pa));
-		ASSERT_TRUE(a.self(sa));
+		ASSERT_TRUE(initiator.peer(pb));
+		ASSERT_TRUE(responder.self(sb));
+		ASSERT_TRUE(responder.peer(pa));
+		ASSERT_TRUE(initiator.self(sa));
 		// Ключи собеседника сходятся со своими у обеих сторон
 		EXPECT_EQ(::memcmp(pb, sb, 32), 0) << name;
 		EXPECT_EQ(::memcmp(pa, sa, 32), 0) << name;
 		// Транспортные состояния после раскола
-		noise::cipher_t a1, a2, b1, b2;
+		noise::cipher_t initiatorOut, initiatorIn, responderIn, responderOut;
 		// Раскол на пары транспортных состояний
-		ASSERT_TRUE(a.split(a1, a2));
-		ASSERT_TRUE(b.split(b1, b2));
+		ASSERT_TRUE(initiator.split(initiatorOut, initiatorIn));
+		ASSERT_TRUE(responder.split(responderIn, responderOut));
 		// Буферы транспортного сообщения
 		uint8_t out[64], tag[16], back[64];
 		// Сообщение от отвечающего проходит встречным состоянием
-		ASSERT_TRUE(b2.encrypt(view_t(), span(std::string("from responder")), out, tag));
-		ASSERT_TRUE(a2.decrypt(view_t(), view_t(out, 14), view_t(tag, 16), back));
+		ASSERT_TRUE(responderOut.encrypt(view_t(), __nts_span__(std::string("from responder")), out, tag));
+		ASSERT_TRUE(initiatorIn.decrypt(view_t(), view_t(out, 14), view_t(tag, 16), back));
 		// Расшифрованный текст совпадает с сообщением от отвечающего
 		EXPECT_EQ(::memcmp(back, "from responder", 14), 0) << name;
 		// Сообщение от инициатора проходит прямым состоянием
-		ASSERT_TRUE(a1.encrypt(view_t(), span(std::string("from initiator")), out, tag));
-		ASSERT_TRUE(b1.decrypt(view_t(), view_t(out, 14), view_t(tag, 16), back));
+		ASSERT_TRUE(initiatorOut.encrypt(view_t(), __nts_span__(std::string("from initiator")), out, tag));
+		ASSERT_TRUE(responderIn.decrypt(view_t(), view_t(out, 14), view_t(tag, 16), back));
 		// Расшифрованный текст совпадает с сообщением от инициатора
 		EXPECT_EQ(::memcmp(back, "from initiator", 14), 0) << name;
 		// Перекрёстные состояния не сходятся
-		ASSERT_TRUE(a1.encrypt(view_t(), span(std::string("x")), out, tag));
+		ASSERT_TRUE(initiatorOut.encrypt(view_t(), __nts_span__(std::string("x")), out, tag));
 		// Перекрёстные состояния не сходятся
-		EXPECT_FALSE(a2.decrypt(view_t(), view_t(out, 1), view_t(tag, 16), back));
+		EXPECT_FALSE(initiatorIn.decrypt(view_t(), view_t(out, 1), view_t(tag, 16), back));
 	}
 }
 /**
@@ -1477,30 +1502,30 @@ TEST(NoiseTest, Starved){
 	ASSERT_TRUE(noise::generate(noise::dh_t::X25519, sa, pa));
 	ASSERT_TRUE(noise::generate(noise::dh_t::X25519, sb, pb));
 	// Стороны рукопожатия под паёком
-	noise::handshake_t a, b;
+	noise::handshake_t initiator, responder;
 	// Транспортные состояния после раскола
-	noise::cipher_t a1, a2, b1, b2;
+	noise::cipher_t initiatorOut, initiatorIn, responderIn, responderOut;
 	// Нарастающий признак успеха прогона
 	bool status = true;
 	{
 		// Паёк на ноль выделений
 		starve::ration_t ration(0);
 		// Заведение обеих сторон под паёком
-		status = (a.start(name, noise::role_t::INITIATOR, view_t()) && b.start(name, noise::role_t::RESPONDER, view_t()));
+		status = (initiator.start(name, noise::role_t::INITIATOR, view_t()) && responder.start(name, noise::role_t::RESPONDER, view_t()));
 		// Передача ключей обеих сторон
-		status = (status && a.statics(view_t(sa, 32)) && b.statics(view_t(sb, 32)) && a.remote(view_t(pb, 32)));
+		status = (status && initiator.statics(view_t(sa, 32)) && responder.statics(view_t(sb, 32)) && initiator.remote(view_t(pb, 32)));
 		// Вместимости буферов сообщения и расшифровки
 		size_t size = sizeof(out), got = sizeof(back);
 		// Первое сообщение проходит без выделений
-		status = (status && a.write(view_t(ONE, 3), out, size) && b.read(view_t(out, size), back, got) && (got == 3));
+		status = (status && initiator.write(view_t(ONE, 3), out, size) && responder.read(view_t(out, size), back, got) && (got == 3));
 		// Сбрасываем вместимости буферов
 		size = sizeof(out); got = sizeof(back);
 		// Второе сообщение проходит без выделений
-		status = (status && b.write(view_t(TWO, 3), out, size) && a.read(view_t(out, size), back, got) && (got == 3));
+		status = (status && responder.write(view_t(TWO, 3), out, size) && initiator.read(view_t(out, size), back, got) && (got == 3));
 		// Раскол проходит без выделений
-		status = (status && a.split(a1, a2) && b.split(b1, b2));
+		status = (status && initiator.split(initiatorOut, initiatorIn) && responder.split(responderIn, responderOut));
 		// Транспортное сообщение проходит без выделений
-		status = (status && a1.encrypt(view_t(), view_t(THREE, 5), out, tag) && b1.decrypt(view_t(), view_t(out, 5), view_t(tag, 16), back));
+		status = (status && initiatorOut.encrypt(view_t(), view_t(THREE, 5), out, tag) && responderIn.decrypt(view_t(), view_t(out, 5), view_t(tag, 16), back));
 		// Останавливаем учёт выделений
 		ration.stop();
 	}
