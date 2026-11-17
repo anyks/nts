@@ -1793,3 +1793,56 @@ export(EXPORT ${PROJECT_NAME}Targets
     FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake"
     NAMESPACE ${PROJECT_NAME}::
 )
+
+##
+ # Цель фреймворка для macOS и iOS (по образцу AWH)
+ #
+ # Собирает ${ANTS_LIB_NAME}.framework: объединённая libtool'ом статическая
+ # библиотека, заголовки, сгенерированный зонтичный ${ANTS_LIB_NAME}.hpp,
+ # module.modulemap для Clang Modules и Info.plist с версией проекта.
+ # Для iOS дерево конфигурируется с CMAKE_SYSTEM_NAME=IOS - цель та же
+ ##
+if (APPLE)
+    SET(FRAMEWORK_OUTPUT_PATH "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.framework")
+
+    # 1. Библиотеки для объединения: у A-NTS внешних зависимостей нет
+    SET(ALL_LIBS "$<TARGET_FILE:${ANTS_LIB_NAME}>")
+
+    # 2. Преобразуем список CMake в строку для Bash (разделитель - пробел)
+    string(REPLACE ";" " " ALL_LIBS_STR "${ALL_LIBS}")
+
+    # 3. Файлы, которые будут созданы (для отслеживания изменений)
+    SET(FRAMEWORK_BYPRODUCTS
+        "${FRAMEWORK_OUTPUT_PATH}/Headers"
+        "${FRAMEWORK_OUTPUT_PATH}/Modules"
+        "${FRAMEWORK_OUTPUT_PATH}/Resources"
+        "${FRAMEWORK_OUTPUT_PATH}/${ANTS_LIB_NAME}"
+        "${FRAMEWORK_OUTPUT_PATH}/Versions/Current"
+    )
+
+    # 4. Создаем цель 'framework'
+    add_custom_target(framework
+        COMMAND ${CMAKE_COMMAND} -E echo "Собираем фреймворк ${ANTS_LIB_NAME}..."
+        COMMAND bash "${CMAKE_SOURCE_DIR}/sh/build_nts_framework.sh"
+            "${ANTS_LIB_NAME}"              # Аргумент 1: имя фреймворка
+            "${CMAKE_BINARY_DIR}"           # Аргумент 2: каталог сборки
+            "${CMAKE_BINARY_DIR}/dist"      # Аргумент 3: каталог результата
+            "${CMAKE_SOURCE_DIR}/include"   # Аргумент 4: каталог заголовков
+            "${ALL_LIBS_STR}"               # Аргумент 5: список .a библиотек через пробел
+            "${PROJECT_VERSION}"            # Аргумент 6: версия фреймворка
+        BYPRODUCTS ${FRAMEWORK_BYPRODUCTS}
+        DEPENDS ${ANTS_LIB_NAME}
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Упаковка ${ANTS_LIB_NAME} во фреймворк"
+        VERBATIM
+    )
+
+    # Выводим сообщение об удачной добавленной цели framework
+    message(STATUS "Цель 'framework' добавлена для сборки ${CMAKE_SYSTEM_NAME}")
+
+    # Устанавливаем собранный фреймворк
+    install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.framework"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        USE_SOURCE_PERMISSIONS
+    )
+endif()

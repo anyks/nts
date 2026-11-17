@@ -31,8 +31,8 @@
  */
 #if !defined(_WIN32)
 	#include <posix.hpp>
-	#include "sys/wait.h"
-	#include "sys/resource.h"
+	#include <sys/wait.h>
+	#include <sys/resource.h>
 #endif
 
 /**

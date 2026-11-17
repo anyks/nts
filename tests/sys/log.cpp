@@ -30,7 +30,7 @@
  * Системные заголовочные файлы
  */
 #if !defined(_WIN32)
-	#include "sys/resource.h"
+	#include <sys/resource.h>
 #endif
 
 /**

@@ -41,7 +41,7 @@
  */
 #if !defined(_WIN32) && !defined(_WIN64)
 	#include <unistd.h>
-	#include "sys/wait.h"
+	#include <sys/wait.h>
 #endif
 
 /**

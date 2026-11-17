@@ -39,7 +39,7 @@
 	#include <io.h>
 	#include <direct.h>
 	#include <process.h>
-	#include "sys/stat.h"
+	#include <sys/stat.h>
 	#include <cstring>
 	#include <cstdint>
 	#include <cstddef>
@@ -138,7 +138,7 @@
  */
 #else
 	#include <unistd.h>
-	#include "sys/stat.h"
+	#include <sys/stat.h>
 #endif
 
 #endif

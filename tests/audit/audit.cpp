@@ -31,7 +31,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "sys/stat.h"
+#include <sys/stat.h>
 #include <main.hpp>
 #include <openssl.hpp>
 #include <identity.hpp>

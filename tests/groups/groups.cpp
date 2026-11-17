@@ -29,7 +29,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <posix.hpp>
-#include "sys/stat.h"
+#include <sys/stat.h>
 
 /**
  * Подключаем заголовочные файлы проекта

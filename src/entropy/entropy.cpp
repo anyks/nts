@@ -92,14 +92,14 @@
 		/**
 		 * Заголовочные файлы вызова ядра, выдающего случайные байты
 		 */
-		#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
+		#if defined(__APPLE__) || defined(__MACH__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
 			#include <stdlib.h>
 		/**
 		 * Иначе подключаем заголовочные файлы вызова ядра Linux
 		 */
 		#else
 			#include <stdlib.h>
-			#include "sys/random.h"
+			#include <sys/random.h>
 		#endif
 	#endif
 #endif
