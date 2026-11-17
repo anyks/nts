@@ -64,6 +64,7 @@
 	#include <fcntl.h>
 	#include <unistd.h>
 	#include <pthread.h>
+
 	/**
 	 * @note Вызов getentropy есть у macOS, у всех четырёх BSD и у Linux, но у Solaris
 	 *       и illumos его нет: там остаётся одно лишь устройство случайных байтов
@@ -75,15 +76,16 @@
 		 */
 		#define __NTS_ENTROPY_CALL__ 1
 		/**
-		 * @note У macOS и четырёх BSD случайные байты выдаёт порождатель самой libc
-		 *       (arc4random_buf: ChaCha20, наполняемый ядром, с переналивкой по счётчику
-		 *       и при ветвлении процесса) - он и назван системой предпочтительным
-		 *       источником, а вызов ядра getentropy там заведён для наполнения таких
-		 *       порождателей. У Linux порождателя в libc нет (arc4random там лишь обёртка
-		 *       над вызовом ядра), и остаётся getentropy
+		 * @note У macOS, Android и четырёх BSD случайные байты выдаёт порождатель самой libc
+		 *       (у macOS и BSD arc4random_buf: ChaCha20, наполняемый ядром, с переналивкой по
+		 *       счётчику и при ветвлении процесса; у Android bionic тот же arc4random_buf
+		 *       с издания платформы 28) - он и назван системой предпочтительным источником,
+		 *       а вызов ядра getentropy там заведён для наполнения таких порождателей.
+		 *       У Linux порождателя в libc нет (arc4random там лишь обёртка над вызовом
+		 *       ядра), и остаётся getentropy
 		 *
 		 */
-		#if defined(__APPLE__) || defined(__MACH__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+		#if defined(__APPLE__) || defined(__MACH__) || defined(__ANDROID__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 			/**
 			 * Признак наличия порождателя случайных байтов у libc
 			 */
@@ -92,7 +94,7 @@
 		/**
 		 * Заголовочные файлы вызова ядра, выдающего случайные байты
 		 */
-		#if defined(__APPLE__) || defined(__MACH__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
+		#if defined(__APPLE__) || defined(__MACH__) || defined(__ANDROID__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
 			#include <stdlib.h>
 		/**
 		 * Иначе подключаем заголовочные файлы вызова ядра Linux
@@ -120,6 +122,11 @@ namespace {
 	using namespace nts;
 
 	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
+
+	/**
 	 * @brief Наибольшее количество попыток отбора случайного числа
 	 *
 	 * @details Модули криптографии старшим разрядом не короче половины своей
@@ -129,32 +136,32 @@ namespace {
 	 *
 	 */
 	static constexpr size_t ATTEMPTS = 100;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
-	/**
-	 * @brief Нулевой текст, покрытие которого гаммой и есть сама гамма
-	 *
-	 */
-	static const uint8_t ZEROS[internal::generator_t::BUFFER] = {0};
+	
 	/**
 	 * @brief Поколение процесса
 	 *
 	 * @details Растёт у потомка при разветвлении процесса: порождатель потока помнит
 	 *          поколение своей последней переналивки, и несовпадение велит ему
 	 *          переналиться прежде выдачи. У Windows разветвления нет, и поколение
-	 *          не меняется никогда
+	 *          не меняется никогда.
 	 *
 	 */
-	static atomic <uint64_t> generation{0};
+	static atomic_uint64_t generation{0};
+
 	/**
 	 * @brief Порождатель случайных байтов текущего потока
 	 *
 	 * @details Заводится при первом обращении потока и затирается деструктором при
-	 *          его завершении
+	 *          его завершении.
 	 *
 	 */
 	static thread_local internal::generator_t instance;
+	/**
+	 * @brief Нулевой текст, покрытие которого гаммой и есть сама гамма
+	 *
+	 */
+	static const uint8_t ZEROS[internal::generator_t::BUFFER] = {0};
+
 	/**
 	 * Разветвление процесса существует лишь у систем Unix
 	 */
@@ -173,7 +180,7 @@ namespace {
 		 * @details Заводится один раз на процесс; отказ заведения (нехватка памяти) не
 		 *          запоминается, и следующее обращение заводит обработчик заново. Двойное
 		 *          заведение при наперегонки идущих потоках безвредно: поколение у потомка
-		 *          вырастет дважды
+		 *          вырастет дважды.
 		 *
 		 * @return  признак того, что обработчик заведён
 		 *
@@ -183,12 +190,12 @@ namespace {
 			static atomic <bool> guarded{false};
 			// Если обработчик уже заведён
 			if(guarded.load(memory_order_acquire))
-			// Сообщаем, что обработчик заведён
-			return true;
+				// Сообщаем, что обработчик заведён
+				return true;
 			// Если обработчик разветвления завести не удалось
 			if(::pthread_atfork(nullptr, nullptr, &forked) != 0)
-			// Сообщаем об отказе заведения
-			return false;
+				// Сообщаем об отказе заведения
+				return false;
 			// Запоминаем, что обработчик заведён
 			guarded.store(true, memory_order_release);
 			// Сообщаем, что обработчик заведён
@@ -220,7 +227,7 @@ namespace {
 		 *
 		 * @details Путь этот запасной: он требует описателя файла, а описатели у
 		 *          потребителя могут быть исчерпаны либо каталог устройств недоступен
-		 *          из-за смены корня
+		 *          из-за смены корня.
 		 *
 		 * @param data место, в которое помещаются случайные байты
 		 * @param size количество получаемых случайных байтов
@@ -229,11 +236,11 @@ namespace {
 		 */
 		static bool device(uint8_t * data, const size_t size) noexcept {
 			// Открытие устройства случайных байтов
-			const int fd = ::open("/dev/urandom", O_RDONLY);
+			const int32_t fd = ::open("/dev/urandom", O_RDONLY);
 			// Если устройство случайных байтов открыть не удалось
 			if(fd < 0)
-			// Выводим отказ чтения случайных байтов
-			return false;
+				// Выводим отказ чтения случайных байтов
+				return false;
 			// Количество уже прочитанных случайных байтов
 			size_t offset = 0;
 			/**
@@ -244,8 +251,8 @@ namespace {
 				const ssize_t count = ::read(fd, data + offset, size - offset);
 				// Если чтение прервано сигналом
 				if((count < 0) && (errno == EINTR))
-				// Повторное чтение случайных байтов
-				continue;
+					// Повторное чтение случайных байтов
+					continue;
 				// Если чтение случайных байтов не удалось
 				if(count <= 0){
 					// Закрытие устройства случайных байтов
@@ -266,7 +273,7 @@ namespace {
 	 * @brief Функция получения случайных байтов у системы
 	 *
 	 * @details Единственное место, где модуль обращается к системе: им наполняется
-	 *          порождатель потока
+	 *          порождатель потока.
 	 *
 	 * @param data место, в которое помещаются случайные байты
 	 * @param size количество получаемых случайных байтов
@@ -322,8 +329,8 @@ namespace {
 					if(::getentropy(data + offset, count) != 0){
 						// Если вызов ядра прерван сигналом
 						if(errno == EINTR)
-						// Повторное получение случайных байтов
-						continue;
+							// Повторное получение случайных байтов
+							continue;
 						// Выводим итог чтения случайных байтов из устройства системы
 						return device(data, size);
 					}

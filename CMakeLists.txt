@@ -588,7 +588,17 @@ set(BRANCH_PROTECTION_PROBE [=[
 ]=])
 
 # Если сборка ведётся под ARM64 собирателем семейства GCC
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT MSVC)
+#
+# @note Кросс-сборке (Android NDK) проба запуска недоступна - try_run не исполняет
+#       двоичник изделия на машине сборки; ключ у NDK-clang заведомо принимается,
+#       оттого ставим его проверкой пригодности без запуска
+if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    check_cxx_compiler_flag("-mbranch-protection=standard" BRANCH_PROTECTION_FLAG)
+    if (BRANCH_PROTECTION_FLAG)
+        add_compile_options(-mbranch-protection=standard)
+        message(STATUS "Control-flow protection: BTI, PAC (кросс-проверка ключа)\n")
+    endif (BRANCH_PROTECTION_FLAG)
+elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT MSVC)
     # Выполняем проверку того, что под ключом standard перехват исключений работает
     set(CMAKE_REQUIRED_FLAGS "-mbranch-protection=standard")
     check_cxx_source_runs("${BRANCH_PROTECTION_PROBE}" BRANCH_PROTECTION_STANDARD)
@@ -1845,4 +1855,57 @@ if (APPLE)
         DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         USE_SOURCE_PERMISSIONS
     )
+
+    ##
+     # Цель XCFramework для iOS: срезы устройства и симулятора одним пакетом
+     #
+     # Собирает ${ANTS_LIB_NAME}.xcframework из двух фреймворков (iphoneos и
+     # iphonesimulator) - форма поставки для Xcode-потребителей. Целевую версию
+     # iOS задаёт CMAKE_OSX_DEPLOYMENT_TARGET конфигурации (умолчание 12.0)
+     ##
+    if (CMAKE_SYSTEM_NAME MATCHES "^[Ii][Oo][Ss]$")
+        if (NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
+        endif()
+        add_custom_target(xcframework
+            COMMAND bash "${CMAKE_SOURCE_DIR}/sh/build_nts_xcframework.sh"
+                "${CMAKE_SOURCE_DIR}"           # Аргумент 1: каталог исходников
+                "${CMAKE_BINARY_DIR}/xc"         # Аргумент 2: корень срезов сборки
+                "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.xcframework"
+                "${CMAKE_OSX_DEPLOYMENT_TARGET}" # Аргумент 4: целевая версия iOS
+            BYPRODUCTS "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.xcframework"
+            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+            COMMENT "Упаковка ${ANTS_LIB_NAME} в XCFramework (устройство и симулятор)"
+            VERBATIM
+        )
+        message(STATUS "Цель 'xcframework' добавлена, целевая версия iOS: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    endif()
+endif()
+
+##
+ # Цель пакета AAR для Android: срезы всех изделий одним пакетом prefab
+ #
+ # Собирает ${ANTS_LIB_NAME}-<версия>.aar из статических библиотур четырёх изделий
+ # (arm64-v8a, armeabi-v7a, x86_64, x86) с заголовками и описанием prefab -
+ # форма поставки для gradle-потребителей. Издание платформы задаёт
+ # ANDROID_PLATFORM конфигурации (умолчание android-28 - порождатель arc4random_buf
+ # у bionic); путь к NDK - переменная ANDROID_NDK или ANDROID_NDK_HOME
+ ##
+if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    if (NOT DEFINED ANDROID_PLATFORM)
+        set(ANDROID_PLATFORM "android-28")
+    endif()
+    add_custom_target(aar
+        COMMAND bash "${CMAKE_SOURCE_DIR}/sh/build_nts_android.sh"
+            "${CMAKE_SOURCE_DIR}"               # Аргумент 1: каталог исходников
+            "${CMAKE_BINARY_DIR}/aar"           # Аргумент 2: корень срезов сборки
+            "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}-${PROJECT_VERSION}.aar"
+            "${ANDROID_PLATFORM}"               # Аргумент 4: издание платформы Android
+            "${PROJECT_VERSION}"                # Аргумент 5: версия библиотеки
+        BYPRODUCTS "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}-${PROJECT_VERSION}.aar"
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+        COMMENT "Упаковка ${ANTS_LIB_NAME} в AAR (prefab, четыре изделия)"
+        VERBATIM
+    )
+    message(STATUS "Цель 'aar' добавлена, издание платформы: ${ANDROID_PLATFORM}")
 endif()

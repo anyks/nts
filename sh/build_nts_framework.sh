@@ -89,10 +89,13 @@ cat > "${VERSIONS_A_PATH}/Resources/Info.plist" <<EOF
 </plist>
 EOF
 
-# 6. module.modulemap
+# 6. module.modulemap: каталог-зонтик вместо одиночного зонтичного заголовка -
+#    заголовки библиотеки включают друг друга путями ("sys/global.hpp"), а карта
+#    заголовков фреймворка мапит только плоские имена; каталог-зонтик собирает
+#    модуль из всего дерева Headers
 cat > "${VERSIONS_A_PATH}/Modules/module.modulemap" <<EOF
 framework module ${FRAMEWORK_NAME} {
-    umbrella header "${FRAMEWORK_NAME}.hpp"
+    umbrella directory "Headers"
     export *
     module * { export * }
 }

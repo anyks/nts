@@ -2409,8 +2409,15 @@ namespace nts {
 				 * порчи одиннадцать, и ядро собирается и с указателем кадра. На Xeon E5-2630 v4 умножение
 				 * цепочкой 34,3 → 29,9 нс (ядро на mulq → на MULX), квадрат 28,3 → 24,8; удвоение точки
 				 * 262 → 221, полное сложение 450 → 343, смешанное 354 → 287, умножение точки 95,8 → 81,3 мкс
+				 *
+				 * @note Ядра закрыты и под x86-64 у Clang компании Apple (срез симулятора iOS
+				 *       и Rosetta) и у NDK-clang Android (срез эмулятора x86_64): распределители
+				 *       их регистров не собирают эти цепочки - «more registers than available»
+				 *       у squareminus4x; кривые идут переносимыми ядрами на C++. FreeBSD-clang
+				 *       и GCC эти цепочки собирают - ветка за ними сохранена
 				 */
-				#if !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE) && (defined(__clang__) || !defined(__GNUC__) || (__GNUC__ >= 9))
+				#if !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE) && (defined(__clang__) || \
+				    !defined(__GNUC__) || (__GNUC__ >= 9)) && !(defined(__x86_64__) && (defined(__APPLE__) || defined(__ANDROID__)))
 					/**
 					 * Признак наличия ядер P-256 и модуля вида 2^256 - c на MULX и ADCX/ADOX
 					 */
