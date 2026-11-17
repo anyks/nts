@@ -138,7 +138,7 @@ namespace {
 	 * @return     признак успешности записи
 	 *
 	 */
-	bool spill(const std::string & path, const vector <uint8_t> & data) noexcept {
+	bool __nts_spill__(const std::string & path, const vector <uint8_t> & data) noexcept {
 		// Открываем файл на запись
 		std::ofstream file(path, std::ios::binary);
 		// Если файл не открыт
@@ -199,7 +199,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool keyed(const char * name, context::credential_t & result) noexcept {
+	bool __nts_keyed__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -208,7 +208,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочку сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -221,7 +221,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool chained(const char * kind, context::credential_t & result) noexcept {
+	bool __nts_chained__(const char * kind, context::credential_t & result) noexcept {
 		// Читаем секретный ключ листа цепочки в записи PEM
 		result.secret = corpus((std::string("leaf-") + kind + ".key").c_str());
 		// Читаем цепочку набора в записи PEM
@@ -230,7 +230,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочку сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return ((pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE) && (result.chain.size() == 3));
@@ -248,7 +248,7 @@ namespace {
 	 * @return            отказ разбора либо проверки
 	 *
 	 */
-	ocsp::error_t judge(const char * name, const char * certificate, const char * issuer, const int64_t moment, const int64_t leeway, const view_t & nonce, ocsp::status_t & status) noexcept {
+	ocsp::error_t __nts_judge__(const char * name, const char * certificate, const char * issuer, const int64_t moment, const int64_t leeway, const view_t & nonce, ocsp::status_t & status) noexcept {
 		// Запись ответа
 		const vector <uint8_t> data = vectored(name);
 		// Запись проверяемого сертификата
@@ -283,7 +283,7 @@ namespace {
 	 * @return           признак успешности выработки ответа
 	 *
 	 */
-	bool gosted(const context::credential_t & credential, const ocsp::status_t status, vector <uint8_t> & result) noexcept {
+	bool __nts_gosted__(const context::credential_t & credential, const ocsp::status_t status, vector <uint8_t> & result) noexcept {
 		// Объект разбора сертификата стороны
 		x509::certificate_t certificate;
 		// Если сертификат стороны разобрать не удалось
@@ -545,7 +545,7 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
@@ -556,11 +556,11 @@ namespace {
 			view_t data = client.output();
 			// Если клиенту есть что отправить серверу
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемые байты
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя клиента
 				client.consume(buffer.size());
-				// Выполняем подачу отправленных байтов серверу
+				// Подаём отправленные байты серверу
 				server.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -569,11 +569,11 @@ namespace {
 			data = server.output();
 			// Если серверу есть что отправить клиенту
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемые байты
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя сервера
 				server.consume(buffer.size());
-				// Выполняем подачу отправленных байтов клиенту
+				// Подаём отправленные байты клиенту
 				client.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -595,11 +595,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байты между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	}
@@ -611,15 +611,15 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по связи со сшитым ответом о состоянии сертификата";
 		// Если отправить прикладные данные клиентом не удалось
 		if(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
+		// Передаём байты между сторонами связи
+		__nts_converse__(client, server);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
 		// Если получить принятые сервером прикладные данные не удалось
@@ -632,9 +632,9 @@ namespace {
 		if(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
-		// Выполняем сброс накопителя принятых данных
+		// Передаём байты между сторонами связи
+		__nts_converse__(client, server);
+		// Сбрасываем накопитель принятых данных
 		received.clear();
 		// Если получить принятые клиентом прикладные данные не удалось
 		if((client.read(received) != context::error_t::NONE) || (string(received.begin(), received.end()) != answer))
@@ -655,7 +655,7 @@ namespace {
 	 * @param levels     ведётся ли перенос по уровням QUIC
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual, const bool levels) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual, const bool levels) noexcept {
 		// Устанавливаем набор шифрования клиенту
 		client.suites(vector <protect::suite_t> {suite});
 		// Устанавливаем набор шифрования серверу
@@ -718,7 +718,7 @@ namespace {
 	 * @return         признак того, что сообщение найдено и искажено
 	 *
 	 */
-	bool mutate(vector <uint8_t> & buffer, const mutation_t & mutation) {
+	bool __nts_mutate__(vector <uint8_t> & buffer, const mutation_t & mutation) {
 		// Пересобираемый поток сообщений
 		vector <uint8_t> rebuilt;
 		// Признак того, что сообщение искажено
@@ -726,7 +726,7 @@ namespace {
 		// Смещение разбора
 		size_t offset = 0;
 		/**
-		 * Выполняем перебор сообщений потока
+		 * Перебираем сообщения потока
 		 */
 		while(offset < buffer.size()){
 			// Обвязка очередного сообщения
@@ -780,22 +780,22 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, const context::level_t level, const mutation_t * mutation, bool & applied) {
+	bool __nts_carry__(A & from, B & to, const context::level_t level, const mutation_t * mutation, bool & applied) {
 		// Получаем сообщения, отправляемые на уровне
 		const view_t data = from.output(level);
 		// Если отправлять на уровне нечего
 		if(data.size == 0)
 			// Выводим признак того, что сообщения не переносились
 			return false;
-		// Выполняем перенос отправляемых сообщений
+		// Переносим отправляемые сообщения
 		vector <uint8_t> buffer(data.data, data.data + data.size);
 		// Снимаем отправленные сообщения с накопителя уровня
 		from.consume(level, buffer.size());
 		// Если искажение задано и ещё не применено
 		if((mutation != nullptr) && !applied)
 			// Применяем искажение к потоку сообщений уровня
-			applied = mutate(buffer, *mutation);
-		// Выполняем подачу сообщений принимающей стороне на том же уровне
+			applied = __nts_mutate__(buffer, *mutation);
+		// Подаём сообщения принимающей стороне на том же уровне
 		to.push(level, view_t(buffer.data(), buffer.size()));
 		// Выводим признак того, что сообщения переносились
 		return true;
@@ -809,27 +809,27 @@ namespace {
 	 * @return         признак применённого искажения
 	 *
 	 */
-	bool converse(client::context_t & client, server::context_t & server, const mutation_t * mutation) {
+	bool __nts_converse__(client::context_t & client, server::context_t & server, const mutation_t * mutation) {
 		// Признак применённого искажения
 		bool applied = false;
 		/**
-		 * Выполняем передачу сообщений между сторонами, пока им есть что сказать
+		 * Передаём сообщения между сторонами, пока им есть что сказать
 		 */
 		for(size_t i = 0; i < 16; i++){
 			// Признак того, что сообщения передавались
 			bool moved = false;
 			/**
-			 * Выполняем перебор уровней защиты от клиента к серверу
+			 * Перебираем уровни защиты от клиента к серверу
 			 */
 			for(size_t j = 0; j < (sizeof(LEVELS) / sizeof(LEVELS[0])); j++)
 				// Переносим сообщения уровня от клиента к серверу
-				moved = (carry(client, server, LEVELS[j], (((mutation != nullptr) && !mutation->downstream) ? mutation : nullptr), applied) || moved);
+				moved = (__nts_carry__(client, server, LEVELS[j], (((mutation != nullptr) && !mutation->downstream) ? mutation : nullptr), applied) || moved);
 			/**
-			 * Выполняем перебор уровней защиты от сервера к клиенту
+			 * Перебираем уровни защиты от сервера к клиенту
 			 */
 			for(size_t j = 0; j < (sizeof(LEVELS) / sizeof(LEVELS[0])); j++)
 				// Переносим сообщения уровня от сервера к клиенту
-				moved = (carry(server, client, LEVELS[j], (((mutation != nullptr) && mutation->downstream) ? mutation : nullptr), applied) || moved);
+				moved = (__nts_carry__(server, client, LEVELS[j], (((mutation != nullptr) && mutation->downstream) ? mutation : nullptr), applied) || moved);
 			// Если сторонам сказать больше нечего
 			if(!moved)
 				// Прекращаем передачу
@@ -846,7 +846,7 @@ namespace {
 	 * @return          признак успешности искажения
 	 *
 	 */
-	bool retouch(vector <uint8_t> & body, const std::function <void (vector <uint8_t> &)> & transform) noexcept {
+	bool __nts_retouch__(vector <uint8_t> & body, const std::function <void (vector <uint8_t> &)> & transform) noexcept {
 		// Разбираемое сообщение цепочки сертификатов
 		message::certificate_t certificate;
 		// Если сообщение цепочки разобрать не удалось либо цепочка пуста
@@ -858,7 +858,7 @@ namespace {
 		// Признак того, что расширение состояния найдено
 		bool found = false;
 		/**
-		 * Выполняем перебор расширений первой записи цепочки
+		 * Перебираем расширения первой записи цепочки
 		 */
 		for(size_t i = 0; i < certificate.entries[0].extensions.size(); i++){
 			// Если это расширение состояния сертификата
@@ -1072,7 +1072,7 @@ TEST(OcspTest, Parse){
 		// Снимаем лишний байт
 		data.pop_back();
 		/**
-		 * Выполняем перебор усечений записи
+		 * Перебираем усечения записи
 		 */
 		for(size_t size = 1; size < data.size(); size += 7)
 			// Проверяем отказ разбора усечённой записи
@@ -1096,85 +1096,85 @@ TEST(OcspTest, Verify){
 	// Пустое неповторимое значение
 	const view_t none(nullptr, 0);
 	// Проверяем ответ good
-	ASSERT_EQ(judge("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Проверяем ответ revoked
-	ASSERT_EQ(judge("leaf-ec.revoked.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.revoked.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::REVOKED);
 	// Проверяем ответ unknown
-	ASSERT_EQ(judge("leaf-ec.unknown.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.unknown.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::UNKNOWN);
 	// Проверяем ответ делегированного ответчика по имени
-	ASSERT_EQ(judge("leaf-ec.delegated.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.delegated.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Проверяем ответ делегированного ответчика по хешу ключа
-	ASSERT_EQ(judge("leaf-ec.delegated.rid.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.delegated.rid.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Проверяем ответ делегированного ответчика вне срока его сертификата: сертификат издан 2026 годом
-	ASSERT_EQ(judge("leaf-ec.delegated.der", "leaf-ec.crt", "mid-ec.crt", 1600000000, 0, none, status), ocsp::error_t::RESPONDER);
+	ASSERT_EQ(__nts_judge__("leaf-ec.delegated.der", "leaf-ec.crt", "mid-ec.crt", 1600000000, 0, none, status), ocsp::error_t::RESPONDER);
 	// Проверяем ответ ответчика без назначения id-kp-OCSPSigning
-	ASSERT_EQ(judge("leaf-ec.unauthorized.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::RESPONDER);
+	ASSERT_EQ(__nts_judge__("leaf-ec.unauthorized.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::RESPONDER);
 	// Проверяем состояние: не установлено
 	ASSERT_EQ(status, ocsp::status_t::NONE);
 	// Проверяем ответ чужого ответчика, издателем не изданного
-	ASSERT_EQ(judge("leaf-ec.foreign.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::RESPONDER);
+	ASSERT_EQ(__nts_judge__("leaf-ec.foreign.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::RESPONDER);
 	// Проверяем ответ с опознавателем по sha256
-	ASSERT_EQ(judge("leaf-ec.sha256.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.sha256.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Проверяем ответ RSA
-	ASSERT_EQ(judge("leaf-rsa.good.der", "leaf-rsa.crt", "mid-rsa.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-rsa.good.der", "leaf-rsa.crt", "mid-rsa.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Проверяем ответ по самоподписанному ключу ec256
-	ASSERT_EQ(judge("ec256.good.der", "ec256.crt", "ec256.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("ec256.good.der", "ec256.crt", "ec256.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Проверяем ответ revoked по самоподписанному ключу ec256
-	ASSERT_EQ(judge("ec256.revoked.der", "ec256.crt", "ec256.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("ec256.revoked.der", "ec256.crt", "ec256.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::REVOKED);
 	// Проверяем ответ по самоподписанному ключу ec384
-	ASSERT_EQ(judge("ec384.good.der", "ec384.crt", "ec384.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("ec384.good.der", "ec384.crt", "ec384.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем ответ по самоподписанному ключу rsa2048
-	ASSERT_EQ(judge("rsa2048.good.der", "rsa2048.crt", "rsa2048.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("rsa2048.good.der", "rsa2048.crt", "rsa2048.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Проверяем ответ revoked по самоподписанному ключу rsa2048
-	ASSERT_EQ(judge("rsa2048.revoked.der", "rsa2048.crt", "rsa2048.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("rsa2048.revoked.der", "rsa2048.crt", "rsa2048.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::REVOKED);
 	// Проверяем чужой опознаватель: ответ по листу ec против листа rsa
-	ASSERT_EQ(judge("leaf-ec.good.der", "leaf-rsa.crt", "mid-rsa.crt", MOMENT, 0, none, status), ocsp::error_t::IDENTITY);
+	ASSERT_EQ(__nts_judge__("leaf-ec.good.der", "leaf-rsa.crt", "mid-rsa.crt", MOMENT, 0, none, status), ocsp::error_t::IDENTITY);
 	// Проверяем чужой издатель: хеши имени и ключа издателя не сходятся
-	ASSERT_EQ(judge("leaf-ec.good.der", "leaf-ec.crt", "ca-ec.crt", MOMENT, 0, none, status), ocsp::error_t::IDENTITY);
+	ASSERT_EQ(__nts_judge__("leaf-ec.good.der", "leaf-ec.crt", "ca-ec.crt", MOMENT, 0, none, status), ocsp::error_t::IDENTITY);
 	// Проверяем чужой лист того же издателя: порядковый номер не сходится
-	ASSERT_EQ(judge("leaf-ec.good.der", "ocsp/aia-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::IDENTITY);
+	ASSERT_EQ(__nts_judge__("leaf-ec.good.der", "ocsp/aia-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::IDENTITY);
 	// Проверяем срок: обещание короткого ответа вышло
-	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::EXPIRED);
+	ASSERT_EQ(__nts_judge__("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::EXPIRED);
 	// Проверяем срок с люфтом: сто секунд за обещанием при люфте двести
-	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", SOON + 100, 200, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", SOON + 100, 200, none, status), ocsp::error_t::NONE);
 	// Проверяем срок без люфта: сто секунд за обещанием
-	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", SOON + 100, 0, none, status), ocsp::error_t::EXPIRED);
+	ASSERT_EQ(__nts_judge__("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", SOON + 100, 0, none, status), ocsp::error_t::EXPIRED);
 	// Проверяем срок: миг верности в будущем
-	ASSERT_EQ(judge("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", EARLIER, 0, none, status), ocsp::error_t::EXPIRED);
+	ASSERT_EQ(__nts_judge__("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", EARLIER, 0, none, status), ocsp::error_t::EXPIRED);
 	// Проверяем срок: миг верности в будущем в пределах люфта
-	ASSERT_EQ(judge("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", UPDATED - 30, 60, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", UPDATED - 30, 60, none, status), ocsp::error_t::NONE);
 	// Проверяем срок без нулевого мига: сроки не судятся
-	ASSERT_EQ(judge("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", 0, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.short.der", "leaf-ec.crt", "mid-ec.crt", 0, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем ответ без обещания на близкий миг: обещания нет, давность в пределах OCSP_STALE
-	ASSERT_EQ(judge("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + 3600, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + 3600, 0, none, status), ocsp::error_t::NONE);
 	// Проверяем ответ без обещания на далёкий миг: давность больше OCSP_STALE - ответ негоден (круг 4, RFC 6960 §4.2.2.1)
-	ASSERT_EQ(judge("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + ocsp::OCSP_STALE + 3600, 0, none, status), ocsp::error_t::EXPIRED);
+	ASSERT_EQ(__nts_judge__("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + ocsp::OCSP_STALE + 3600, 0, none, status), ocsp::error_t::EXPIRED);
 	// Люфт покрывает давность на самой границе
-	ASSERT_EQ(judge("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + ocsp::OCSP_STALE + 30, 60, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.open.der", "leaf-ec.crt", "mid-ec.crt", UPDATED + ocsp::OCSP_STALE + 30, 60, none, status), ocsp::error_t::NONE);
 	// Проверяем неповторимое значение: ответ с запрошенным значением
-	ASSERT_EQ(judge("leaf-ec.nonce.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, view_t(NONCE, sizeof(NONCE)), status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.nonce.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, view_t(NONCE, sizeof(NONCE)), status), ocsp::error_t::NONE);
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Чужое неповторимое значение
@@ -1184,11 +1184,11 @@ TEST(OcspTest, Verify){
 	// Портим один байт
 	alien[7] = static_cast <uint8_t> (alien[7] ^ 0x01);
 	// Проверяем неповторимое значение: чужое
-	ASSERT_EQ(judge("leaf-ec.nonce.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, view_t(alien, sizeof(alien)), status), ocsp::error_t::NONCE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.nonce.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, view_t(alien, sizeof(alien)), status), ocsp::error_t::NONCE);
 	// Проверяем неповторимое значение: ответ без значения при запрошенном
-	ASSERT_EQ(judge("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, view_t(NONCE, sizeof(NONCE)), status), ocsp::error_t::NONCE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.good.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, view_t(NONCE, sizeof(NONCE)), status), ocsp::error_t::NONCE);
 	// Проверяем ответ с неповторимым значением без ожидания: значение не судится
-	ASSERT_EQ(judge("leaf-ec.nonce.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
+	ASSERT_EQ(__nts_judge__("leaf-ec.nonce.der", "leaf-ec.crt", "mid-ec.crt", MOMENT, 0, none, status), ocsp::error_t::NONE);
 	{
 		// Объект разбора ответа
 		ocsp::response_t response;
@@ -1305,7 +1305,7 @@ TEST(OcspTest, Request){
 	// Записываем наш запрос с неповторимым значением
 	ASSERT_EQ(ocsp::request(view_t(subject.data(), subject.size()), view_t(authority.data(), authority.size()), digest::hash_t::SHA256, view_t(NONCE, sizeof(NONCE)), request), ocsp::error_t::NONE);
 	// Сохраняем наш запрос
-	ASSERT_TRUE(spill(base + ".ours", request));
+	ASSERT_TRUE(__nts_spill__(base + ".ours", request));
 	// Проверяем, что openssl разбирает наш запрос и видит порядковый номер
 	ASSERT_EQ(shell("(openssl ocsp -reqin " + base + ".ours -req_text -noverify 2>/dev/null | grep -q 'Serial Number: 03')"), 0);
 	// Проверяем, что openssl видит наше неповторимое значение
@@ -1375,7 +1375,7 @@ TEST(OcspTest, Gost){
 	// Запись ответа
 	vector <uint8_t> data;
 	// Вырабатываем ответ good
-	ASSERT_TRUE(gosted(credential, ocsp::status_t::GOOD, data));
+	ASSERT_TRUE(__nts_gosted__(credential, ocsp::status_t::GOOD, data));
 	// Объект разбора ответа
 	ocsp::response_t response;
 	// Проверяем разбор ответа
@@ -1393,7 +1393,7 @@ TEST(OcspTest, Gost){
 	// Проверяем состояние
 	ASSERT_EQ(status, ocsp::status_t::GOOD);
 	// Вырабатываем ответ revoked
-	ASSERT_TRUE(gosted(credential, ocsp::status_t::REVOKED, data));
+	ASSERT_TRUE(__nts_gosted__(credential, ocsp::status_t::REVOKED, data));
 	// Проверяем разбор ответа
 	ASSERT_EQ(response.parse(view_t(data.data(), data.size())), ocsp::error_t::NONE);
 	// Проверяем миг отзыва
@@ -1411,7 +1411,7 @@ TEST(OcspTest, Gost){
 	// Проверяем, что ответ к чужому сертификату не относится: хеш ключа издателя иной
 	ASSERT_EQ(ocsp::verify(response, alien, alien, MOMENT, 0, view_t(nullptr, 0), status), ocsp::error_t::IDENTITY);
 	// Вырабатываем ответ unknown
-	ASSERT_TRUE(gosted(credential, ocsp::status_t::UNKNOWN, data));
+	ASSERT_TRUE(__nts_gosted__(credential, ocsp::status_t::UNKNOWN, data));
 	// Проверяем разбор ответа
 	ASSERT_EQ(response.parse(view_t(data.data(), data.size())), ocsp::error_t::NONE);
 	// Проверяем ответ ГОСТ
@@ -1434,11 +1434,11 @@ TEST(OcspTest, Gost){
  */
 TEST(OcspTest, Loopback){
 	/**
-	 * Выполняем перебор способов переноса: записи и уровни
+	 * Перебираем способы переноса: записи и уровни
 	 */
 	for(size_t t = 0; t < 2; t++){
 		/**
-		 * Выполняем перебор ключей набора
+		 * Перебираем ключи набора
 		 */
 		for(size_t k = 0; k < 3; k++){
 			// Имена ключей набора с ответами
@@ -1446,13 +1446,13 @@ TEST(OcspTest, Loopback){
 			// Подлинность стороны
 			context::credential_t credential;
 			// Составляем подлинность
-			ASSERT_TRUE(keyed(ENTRIES[k], credential)) << ENTRIES[k];
+			ASSERT_TRUE(__nts_keyed__(ENTRIES[k], credential)) << ENTRIES[k];
 			// Ответ о состоянии
 			const vector <uint8_t> answer = vectored((std::string(ENTRIES[k]) + ".good.der").c_str());
 			// Проверяем чтение ответа
 			ASSERT_FALSE(answer.empty());
 			/**
-			 * Выполняем перебор наборов шифрования
+			 * Перебираем наборы шифрования
 			 */
 			for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 				// Связь стороны клиента
@@ -1464,7 +1464,7 @@ TEST(OcspTest, Loopback){
 				// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 				gosting(server);
 				// Настраиваем стороны с подлинностью клиента
-				arrange(client, server, SUITES[s], extension::group_t::X25519, credential, true, (t == 1));
+				__nts_arrange__(client, server, SUITES[s], extension::group_t::X25519, credential, true, (t == 1));
 				// Пустой запас доверия: издатель самоподписанного сертификата - он сам
 				const trust::store_t store;
 				// Сервер отдаёт ответ
@@ -1486,11 +1486,11 @@ TEST(OcspTest, Loopback){
 				// Если перенос идёт записями
 				if(t == 0)
 					// Проводим рукопожатие по записям
-					converse(client, server);
+					__nts_converse__(client, server);
 				// Если перенос идёт по уровням
 				else
 					// Проводим рукопожатие по уровням
-					(void) converse(client, server, nullptr);
+					(void) __nts_converse__(client, server, nullptr);
 				// Проверяем установленность связи клиентом
 				ASSERT_TRUE(client.established()) << ENTRIES[k] << " " << s << " " << t << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 				// Проверяем установленность связи сервером
@@ -1506,11 +1506,11 @@ TEST(OcspTest, Loopback){
 				// Если перенос идёт записями
 				if(t == 0){
 					// Проверяем обмен данными
-					ASSERT_TRUE(barter(client, server));
+					ASSERT_TRUE(__nts_barter__(client, server));
 					// Выдаём билет
 					ASSERT_EQ(server.issue(), context::error_t::NONE);
 					// Доставляем билет
-					converse(client, server);
+					__nts_converse__(client, server);
 					// Проверяем получение билета
 					ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 					// Связь возобновляющего клиента
@@ -1522,7 +1522,7 @@ TEST(OcspTest, Loopback){
 					// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 					gosting(resumed);
 					// Настраиваем стороны без подлинности клиента
-					arrange(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false, false);
+					__nts_arrange__(resuming, resumed, SUITES[s], extension::group_t::X25519, credential, false, false);
 					// Сервер отдаёт ответ
 					resumed.status(answer);
 					// Клиент запрашивает состояние
@@ -1538,7 +1538,7 @@ TEST(OcspTest, Loopback){
 					// Заводим клиента
 					ASSERT_EQ(resuming.start(), context::error_t::NONE);
 					// Проводим рукопожатие
-					converse(resuming, resumed);
+					__nts_converse__(resuming, resumed);
 					// Проверяем установленность связи
 					ASSERT_TRUE(resuming.established() && resumed.established()) << ENTRIES[k] << " " << s;
 					// Проверяем возобновление билетом
@@ -1548,7 +1548,7 @@ TEST(OcspTest, Loopback){
 					// Состояние не установлено
 					ASSERT_EQ(resuming.certified(), ocsp::status_t::NONE);
 					// Проверяем обмен данными по возобновлённой связи
-					ASSERT_TRUE(barter(resuming, resumed));
+					ASSERT_TRUE(__nts_barter__(resuming, resumed));
 				}
 			}
 		}
@@ -1556,7 +1556,7 @@ TEST(OcspTest, Loopback){
 			// Подлинность стороны из цепочки трёх звеньев
 			context::credential_t credential;
 			// Составляем подлинность
-			ASSERT_TRUE(chained("ec", credential));
+			ASSERT_TRUE(__nts_chained__("ec", credential));
 			// Ответ о состоянии листа цепочки, подписанный издателем
 			const vector <uint8_t> answer = vectored("leaf-ec.delegated.der");
 			// Связь стороны клиента
@@ -1568,7 +1568,7 @@ TEST(OcspTest, Loopback){
 			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 			gosting(server);
 			// Настраиваем стороны без подлинности клиента
-			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false, (t == 1));
+			__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false, (t == 1));
 			// Пустой запас доверия: издатель берётся вторым звеном цепочки
 			const trust::store_t store;
 			// Сервер отдаёт ответ по листу
@@ -1586,11 +1586,11 @@ TEST(OcspTest, Loopback){
 			// Если перенос идёт записями
 			if(t == 0)
 				// Проводим рукопожатие по записям
-				converse(client, server);
+				__nts_converse__(client, server);
 			// Если перенос идёт по уровням
 			else
 				// Проводим рукопожатие по уровням
-				(void) converse(client, server, nullptr);
+				(void) __nts_converse__(client, server, nullptr);
 			// Проверяем установленность связи
 			ASSERT_TRUE(client.established() && server.established()) << t << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 			// Проверяем цепочку у клиента
@@ -1604,7 +1604,7 @@ TEST(OcspTest, Loopback){
 			// Подлинность стороны из одного листа цепочки: издатель разыскивается в запасе
 			context::credential_t credential;
 			// Составляем подлинность
-			ASSERT_TRUE(chained("ec", credential));
+			ASSERT_TRUE(__nts_chained__("ec", credential));
 			// Оставляем один лист
 			credential.chain.resize(1);
 			// Ответ о состоянии листа
@@ -1618,7 +1618,7 @@ TEST(OcspTest, Loopback){
 			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 			gosting(server);
 			// Настраиваем стороны без подлинности клиента
-			arrange(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::X25519, credential, false, (t == 1));
+			__nts_arrange__(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::X25519, credential, false, (t == 1));
 			// Запас доверия с издателем листа
 			trust::store_t store;
 			// Запись издателя
@@ -1638,11 +1638,11 @@ TEST(OcspTest, Loopback){
 			// Если перенос идёт записями
 			if(t == 0)
 				// Проводим рукопожатие по записям
-				converse(client, server);
+				__nts_converse__(client, server);
 			// Если перенос идёт по уровням
 			else
 				// Проводим рукопожатие по уровням
-				(void) converse(client, server, nullptr);
+				(void) __nts_converse__(client, server, nullptr);
 			// Проверяем установленность связи
 			ASSERT_TRUE(client.established() && server.established()) << t << " " << static_cast <int> (client.error());
 			// Проверяем состояние: издатель найден в запасе
@@ -1656,7 +1656,7 @@ TEST(OcspTest, Loopback){
 			// Ответ ГОСТ
 			vector <uint8_t> answer;
 			// Вырабатываем ответ good
-			ASSERT_TRUE(gosted(credential, ocsp::status_t::GOOD, answer));
+			ASSERT_TRUE(__nts_gosted__(credential, ocsp::status_t::GOOD, answer));
 			// Связь стороны клиента
 			client::context_t client;
 			// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1666,7 +1666,7 @@ TEST(OcspTest, Loopback){
 			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 			gosting(server);
 			// Настраиваем стороны с подлинностью клиента на наборе ГОСТ
-			arrange(client, server, protect::suite_t::KUZNYECHIK_MGM_L, extension::group_t::GC256B, credential, true, (t == 1));
+			__nts_arrange__(client, server, protect::suite_t::KUZNYECHIK_MGM_L, extension::group_t::GC256B, credential, true, (t == 1));
 			// Пустой запас доверия
 			const trust::store_t store;
 			// Сервер отдаёт ответ
@@ -1688,11 +1688,11 @@ TEST(OcspTest, Loopback){
 			// Если перенос идёт записями
 			if(t == 0)
 				// Проводим рукопожатие по записям
-				converse(client, server);
+				__nts_converse__(client, server);
 			// Если перенос идёт по уровням
 			else
 				// Проводим рукопожатие по уровням
-				(void) converse(client, server, nullptr);
+				(void) __nts_converse__(client, server, nullptr);
 			// Проверяем установленность связи
 			ASSERT_TRUE(client.established() && server.established()) << t << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 			// Проверяем ответ у клиента
@@ -1716,7 +1716,7 @@ TEST(OcspTest, Chain){
 	// Подлинность стороны из цепочки трёх звеньев: лист, промежуточный, корень
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(chained("ec", credential));
+	ASSERT_TRUE(__nts_chained__("ec", credential));
 	// Ответ о состоянии листа, подписанный промежуточным
 	const vector <uint8_t> leaf = vectored("leaf-ec.good.der");
 	// Ответ о состоянии промежуточного, подписанный корнем
@@ -1735,7 +1735,7 @@ TEST(OcspTest, Chain){
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Настраиваем стороны без подлинности клиента
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, false, false);
 	// Сервер отдаёт ответ по листу
 	server.status(leaf, 0);
 	// Сервер отдаёт ответ по промежуточному звену
@@ -1749,7 +1749,7 @@ TEST(OcspTest, Chain){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие по записям
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем цепочку у клиента
@@ -1783,7 +1783,7 @@ TEST(OcspTest, Chain){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перегоняем записи оповещения до сервера
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер обязан закрыть связь по оповещению клиента
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -1796,7 +1796,7 @@ TEST(OcspTest, ChainRefusals){
 	// Подлинность стороны из цепочки трёх звеньев
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(chained("ec", credential));
+	ASSERT_TRUE(__nts_chained__("ec", credential));
 	// Цепочка сертификатов собеседника
 	const vector <vector <uint8_t>> & chain = credential.chain;
 	// Проверяем цепочку
@@ -1859,7 +1859,7 @@ TEST(OcspTest, Absent){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(keyed("ec256", credential));
+	ASSERT_TRUE(__nts_keyed__("ec256", credential));
 	// Пустой запас доверия
 	const trust::store_t store;
 	{
@@ -1872,7 +1872,7 @@ TEST(OcspTest, Absent){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Клиент запрашивает состояние, сервер ответа не имеет
 		client.status(true);
 		// Клиент проверяет ответ
@@ -1884,7 +1884,7 @@ TEST(OcspTest, Absent){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи: отсутствие ответа - не отказ
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем, что ответа у клиента нет
@@ -1894,7 +1894,7 @@ TEST(OcspTest, Absent){
 		// Проверяем, что ответа у сервера нет
 		ASSERT_TRUE(server.status().empty());
 		// Проверяем обмен данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 	{
 		// Связь стороны клиента
@@ -1906,7 +1906,7 @@ TEST(OcspTest, Absent){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Сервер имеет ответ, клиент его не запрашивает
 		server.status(vectored("ec256.good.der"));
 		// Клиент имеет ответ, сервер его не запрашивает
@@ -1916,7 +1916,7 @@ TEST(OcspTest, Absent){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем, что ответ без запроса не послан клиенту
@@ -1934,7 +1934,7 @@ TEST(OcspTest, Absent){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны без подлинности клиента
-		arrange(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false, false);
+		__nts_arrange__(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false, false);
 		// Ответ revoked
 		const vector <uint8_t> answer = vectored("ec256.revoked.der");
 		// Сервер отдаёт ответ revoked
@@ -1946,7 +1946,7 @@ TEST(OcspTest, Absent){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи: без проверки ответ лишь хранится
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем, что ответ дошёл как есть
@@ -1976,11 +1976,11 @@ TEST(OcspTest, Refusals){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(keyed("ec256", credential));
+	ASSERT_TRUE(__nts_keyed__("ec256", credential));
 	// Пустой запас доверия
 	const trust::store_t store;
 	/**
-	 * Выполняем перебор способов переноса: записи и уровни
+	 * Перебираем способы переноса: записи и уровни
 	 */
 	for(size_t t = 0; t < 2; t++){
 		/**
@@ -2008,7 +2008,7 @@ TEST(OcspTest, Refusals){
 			{"good", "ec256.good.der", alert::description_t::CLOSE, true, ocsp::status_t::GOOD}
 		};
 		/**
-		 * Выполняем перебор случаев отказов
+		 * Перебираем случаи отказов
 		 */
 		for(size_t c = 0; c < (sizeof(CASES) / sizeof(CASES[0])); c++){
 			// Связь стороны клиента
@@ -2020,7 +2020,7 @@ TEST(OcspTest, Refusals){
 			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 			gosting(server);
 			// Настраиваем стороны без подлинности клиента
-			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, (t == 1));
+			__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, (t == 1));
 			// Сервер отдаёт ответ случая
 			server.status(vectored(CASES[c].answer));
 			// Клиент запрашивает состояние
@@ -2034,11 +2034,11 @@ TEST(OcspTest, Refusals){
 			// Если перенос идёт записями
 			if(t == 0)
 				// Проводим рукопожатие по записям
-				converse(client, server);
+				__nts_converse__(client, server);
 			// Если перенос идёт по уровням
 			else
 				// Проводим рукопожатие по уровням
-				(void) converse(client, server, nullptr);
+				(void) __nts_converse__(client, server, nullptr);
 			// Проверяем установленность связи по случаю
 			ASSERT_EQ(client.established(), CASES[c].established) << CASES[c].name << " " << t << " " << static_cast <int> (client.error());
 			// Проверяем состояние у клиента
@@ -2076,7 +2076,7 @@ TEST(OcspTest, Refusals){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true, false);
 		// Клиент отдаёт ответ revoked
 		client.status(vectored("ec256.revoked.der"));
 		// Сервер запрашивает состояние клиента
@@ -2088,7 +2088,7 @@ TEST(OcspTest, Refusals){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем, что сервер отверг клиента
 		ASSERT_EQ(server.error(), context::error_t::STATUS);
 		// Проверяем извещение сервера
@@ -2108,7 +2108,7 @@ TEST(OcspTest, Refusals){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны без подлинности клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, false);
 		// Сервер отдаёт ответ по чужому сертификату с состоянием unknown: опознаватель не сходится
 		server.status(vectored("leaf-ec.unknown.der"));
 		// Клиент запрашивает состояние
@@ -2120,7 +2120,7 @@ TEST(OcspTest, Refusals){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем обрыв: чужой опознаватель
 		ASSERT_EQ(client.error(), context::error_t::STATUS);
 	}
@@ -2142,35 +2142,35 @@ TEST(OcspTest, Refusals){
 		} twist_t;
 		// Ответ good
 		const vector <uint8_t> answer = vectored("ec256.good.der");
-		// Искажения
+		// Искажения ответа good
 		const twist_t TWISTS[] = {
 			{"вид состояния не ocsp", true, handshake::type_t::CERTIFICATE, alert::description_t::STATUS, [](vector <uint8_t> & body) -> handshake::type_t {
 				// Меняем вид состояния на 2
-				retouch(body, [](vector <uint8_t> & status){ status[0] = 0x02; });
+				__nts_retouch__(body, [](vector <uint8_t> & status){ status[0] = 0x02; });
 				// Вид сообщения прежний
 				return handshake::type_t::CERTIFICATE;
 			}},
 			{"лишний хвост", true, handshake::type_t::CERTIFICATE, alert::description_t::STATUS, [](vector <uint8_t> & body) -> handshake::type_t {
 				// Дописываем байт за записью ответа
-				retouch(body, [](vector <uint8_t> & status){ status.push_back(0x00); });
+				__nts_retouch__(body, [](vector <uint8_t> & status){ status.push_back(0x00); });
 				// Вид сообщения прежний
 				return handshake::type_t::CERTIFICATE;
 			}},
 			{"пустая запись ответа", true, handshake::type_t::CERTIFICATE, alert::description_t::STATUS, [](vector <uint8_t> & body) -> handshake::type_t {
 				// Оставляем вид ocsp и нулевую длину
-				retouch(body, [](vector <uint8_t> & status){ status.assign({0x01, 0x00, 0x00, 0x00}); });
+				__nts_retouch__(body, [](vector <uint8_t> & status){ status.assign({0x01, 0x00, 0x00, 0x00}); });
 				// Вид сообщения прежний
 				return handshake::type_t::CERTIFICATE;
 			}},
 			{"порченый ответ", true, handshake::type_t::CERTIFICATE, alert::description_t::STATUS, [](vector <uint8_t> & body) -> handshake::type_t {
 				// Портим исход обращения внутри записи ответа: седьмой байт DER за четырьмя байтами обвязки
-				retouch(body, [](vector <uint8_t> & status){ status[10] = 0x01; });
+				__nts_retouch__(body, [](vector <uint8_t> & status){ status[10] = 0x01; });
 				// Вид сообщения прежний
 				return handshake::type_t::CERTIFICATE;
 			}},
 			{"непрошенное расширение", false, handshake::type_t::CERTIFICATE, alert::description_t::EXTENSION, [answer](vector <uint8_t> & body) -> handshake::type_t {
 				// Добавляем расширение состояния, которого клиент не просил
-				retouch(body, [answer](vector <uint8_t> & status){
+				__nts_retouch__(body, [answer](vector <uint8_t> & status){
 					// Вид ocsp
 					status.assign({0x01, static_cast <uint8_t> (answer.size() >> 16), static_cast <uint8_t> (answer.size() >> 8), static_cast <uint8_t> (answer.size())});
 					// Запись ответа
@@ -2193,7 +2193,7 @@ TEST(OcspTest, Refusals){
 			}}
 		};
 		/**
-		 * Выполняем перебор искажений
+		 * Перебираем искажения
 		 */
 		for(size_t i = 0; i < (sizeof(TWISTS) / sizeof(TWISTS[0])); i++){
 			// Связь стороны клиента
@@ -2205,7 +2205,7 @@ TEST(OcspTest, Refusals){
 			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 			gosting(server);
 			// Настраиваем стороны без подлинности клиента по уровням
-			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, true);
+			__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false, true);
 			// Сервер отдаёт ответ
 			server.status(answer);
 			// Клиент запрашивает состояние по искажению
@@ -2222,10 +2222,10 @@ TEST(OcspTest, Refusals){
 			mutation.downstream = true;
 			// Вид искажаемого сообщения
 			mutation.type = TWISTS[i].type;
-			// Преобразование
+			// Преобразование очередного искажения
 			mutation.apply = TWISTS[i].apply;
 			// Проводим рукопожатие с искажением
-			ASSERT_TRUE(converse(client, server, &mutation)) << TWISTS[i].name;
+			ASSERT_TRUE(__nts_converse__(client, server, &mutation)) << TWISTS[i].name;
 			// Проверяем, что связь не установилась
 			ASSERT_FALSE(client.established()) << TWISTS[i].name;
 			// Проверяем извещение клиента
@@ -2263,7 +2263,7 @@ TEST(OcspTest, Openssl){
 	 */
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(chained("ec", credential));
+	ASSERT_TRUE(__nts_chained__("ec", credential));
 	// Пути к сертификату, ключу, цепочке, корню и ответу
 	const std::string crt = std::string(CORPUS) + "/leaf-ec.crt", key = std::string(CORPUS) + "/leaf-ec.key", chain = std::string(CORPUS) + "/chain-ec.pem", root = std::string(CORPUS) + "/ca-ec.crt", resp = std::string(CORPUS) + "/ocsp/leaf-ec.good.der";
 	// Ответ good по листу цепочки
@@ -2287,9 +2287,9 @@ TEST(OcspTest, Openssl){
 		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = dial(number);
+		const int own = dial(number);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(own, 0) << "порт " << number;
 		// Связь стороны клиента
 		client::context_t client;
 		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2309,11 +2309,11 @@ TEST(OcspTest, Openssl){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу байтов до установления связи
+		 * Передаём байты до установления связи
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, fd);
+			relay(client, own);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем цепочку сервера у клиента: s_server шлёт лист и следом цепочку с листом ещё раз
@@ -2329,18 +2329,18 @@ TEST(OcspTest, Openssl){
 		// Накопитель ответа
 		vector <uint8_t> reply;
 		/**
-		 * Выполняем передачу байтов до получения ответа
+		 * Передаём байты до получения ответа
 		 */
 		for(size_t i = 0; (i < 16) && reply.empty(); i++){
 			// Передаём байты
-			relay(client, fd);
+			relay(client, own);
 			// Читаем принятые данные
 			ASSERT_EQ(client.read(reply), context::error_t::NONE);
 		}
 		// Проверяем, что ответ HTTP получен
 		ASSERT_NE(string(reply.begin(), reply.end()).find("HTTP/1.0 200"), string::npos);
 		// Закрываем сокет
-		closing(fd);
+		closing(own);
 		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 		sentinel.halt();
 		// Журнал сервера
@@ -2364,9 +2364,9 @@ TEST(OcspTest, Openssl){
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = greeted(listener);
+		const int own = greeted(listener);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(own, 0);
 		// Связь стороны сервера
 		server::context_t server;
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -2382,15 +2382,15 @@ TEST(OcspTest, Openssl){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		const bool complete = serve(server, fd);
+		const bool complete = serve(server, own);
 		// Проверяем, что рукопожатие дошло до конца
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем, что отказа не было
 		ASSERT_EQ(server.error(), context::error_t::NONE);
 		// Закрываем связь, коли она ещё открыта
-		ASSERT_TRUE(farewell(server, fd));
+		ASSERT_TRUE(farewell(server, own));
 		// Закрываем сокет
-		closing(fd);
+		closing(own);
 		// Закрываем слушающий сокет
 		closing(listener);
 		// Содержимое журнала
@@ -2463,7 +2463,7 @@ TEST(OcspTest, Starved){
 		// Признак того, что на щедром запасе всё удалось
 		bool complete = false;
 		/**
-		 * Выполняем перебор запасов выделений
+		 * Перебираем запасы выделений
 		 */
 		for(size_t budget = 0; (budget < 6000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 			// Отказы разбора, проверки и составления
@@ -2506,7 +2506,7 @@ TEST(OcspTest, Starved){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(keyed("ec256", credential));
+		ASSERT_TRUE(__nts_keyed__("ec256", credential));
 		// Ответ good
 		const vector <uint8_t> answer = vectored("ec256.good.der");
 		// Пустой запас доверия
@@ -2516,7 +2516,7 @@ TEST(OcspTest, Starved){
 		// Признак того, что связь на щедром запасе установилась
 		bool complete = false;
 		/**
-		 * Выполняем перебор запасов выделений
+		 * Перебираем запасы выделений
 		 */
 		for(size_t budget = 0; (budget < 6000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 			// Связь стороны клиента
@@ -2528,7 +2528,7 @@ TEST(OcspTest, Starved){
 			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 			gosting(server);
 			// Настраиваем стороны с подлинностью клиента
-			arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true, false);
+			__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::SECP256R1, credential, true, false);
 			// Сервер отдаёт ответ
 			server.status(answer);
 			// Сервер запрашивает состояние
@@ -2553,7 +2553,7 @@ TEST(OcspTest, Starved){
 				// Если стороны заведены
 				if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 					// Проводим рукопожатие
-					converse(client, server);
+					__nts_converse__(client, server);
 					// Ошибка сервера после рукопожатия
 					first = server.error();
 					// Ошибка клиента
@@ -2601,7 +2601,7 @@ TEST(OcspTest, SameNameResponder){
 	// Ответы: делегат с именем издателя, делегат с иным именем, сам издатель
 	const char * const RESPONSES[3] = {"audit/r8-ocsp-samename.der", "audit/r8-ocsp-other.der", "audit/r8-ocsp-ca.der"};
 	/**
-	 * Выполняем перебор ответов
+	 * Перебираем ответы
 	 */
 	for(size_t i = 0; i < 3; i++){
 		// Запись ответа

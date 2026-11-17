@@ -199,7 +199,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool keyfile(context::credential_t & result) noexcept {
+	bool __nts_keyfile__(context::credential_t & result) noexcept {
 		// Считываем секретный ключ ec256
 		result.secret = keydata("ec256.pem");
 		// Считываем сертификат ec256
@@ -208,7 +208,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ чтения
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочку сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -220,7 +220,7 @@ namespace {
 	 * @return    признак успешности создания накопителя
 	 *
 	 */
-	int bioCreate(BIO * bio) noexcept {
+	int __nts_bio_create__(BIO * bio) noexcept {
 		// Занимаем накопитель переноса стороны эталона
 		channel_t * channel = new (std::nothrow) channel_t();
 		// Если накопитель занять не удалось
@@ -241,7 +241,7 @@ namespace {
 	 * @return    признак успешности освобождения
 	 *
 	 */
-	int bioDestroy(BIO * bio) noexcept {
+	int __nts_bio_destroy__(BIO * bio) noexcept {
 		// Получаем накопитель переноса стороны эталона
 		channel_t * channel = static_cast <channel_t *> (BIO_get_data(bio));
 		// Если накопитель был создан
@@ -264,7 +264,7 @@ namespace {
 	 * @return       число прочитанных байтов либо отказ с ожиданием
 	 *
 	 */
-	int bioRead(BIO * bio, char * buffer, const int length) noexcept {
+	int __nts_bio_read__(BIO * bio, char * buffer, const int length) noexcept {
 		// Снимаем прежние отметки ожидания переноса
 		BIO_clear_retry_flags(bio);
 		// Получаем накопитель переноса стороны эталона
@@ -316,7 +316,7 @@ namespace {
 	 * @return       число записанных байтов либо отказ
 	 *
 	 */
-	int bioWrite(BIO * bio, const char * buffer, const int length) noexcept {
+	int __nts_bio_write__(BIO * bio, const char * buffer, const int length) noexcept {
 		// Снимаем прежние отметки ожидания переноса
 		BIO_clear_retry_flags(bio);
 		// Получаем накопитель переноса стороны эталона
@@ -326,7 +326,7 @@ namespace {
 			// Выводим отказ записи
 			return -1;
 		/**
-		 * Выполняем перехват ошибок занятия памяти
+		 * Перехватываем ошибки занятия памяти
 		 */
 		try {
 			// Если перенос идёт дейтаграммами
@@ -337,7 +337,7 @@ namespace {
 				// Продолжаем накопитель потока записанным
 				channel->stream.insert(channel->stream.end(), reinterpret_cast <const uint8_t *> (buffer), reinterpret_cast <const uint8_t *> (buffer) + length);
 		/**
-		 * Выполняем перехват ошибок занятия памяти
+		 * Перехватываем ошибки занятия памяти
 		 */
 		} catch(const std::bad_alloc &) {
 			// Выводим отказ записи
@@ -356,7 +356,7 @@ namespace {
 	 * @return     итог команды управления накопителем
 	 *
 	 */
-	long bioCtrl(BIO * bio, const int cmd, const long num, void * ptr) noexcept {
+	long __nts_bio_ctrl__(BIO * bio, const int cmd, const long num, void * ptr) noexcept {
 		// Убираем предупреждение о неиспользуемом адресном доводе
 		(void) ptr;
 		// Получаем накопитель переноса стороны эталона
@@ -368,7 +368,7 @@ namespace {
 		// Итог команды управления накопителем
 		long result = 0;
 		/**
-		 * Выполняем разбор команды управления накопителем
+		 * Разбираем команду управления накопителем
 		 */
 		switch(cmd){
 			// Если запрашивается объём готового переноса
@@ -451,7 +451,7 @@ namespace {
 	 * @return         дескриптор способа переноса либо пустота
 	 *
 	 */
-	BIO_METHOD * bioMethod(const bool datagram) noexcept {
+	BIO_METHOD * __nts_bio_method__(const bool datagram) noexcept {
 		// Заводим способ переноса с служебным именем
 		BIO_METHOD * method = BIO_meth_new(datagram ? BIO_TYPE_DGRAM : BIO_TYPE_MEM, "ants");
 		// Если способ переноса завести не удалось
@@ -459,35 +459,35 @@ namespace {
 			// Выводим пустоту
 			return nullptr;
 		// Если приладить чтение к способу не удалось
-		if(BIO_meth_set_read(method, bioRead) != 1){
+		if(BIO_meth_set_read(method, __nts_bio_read__) != 1){
 			// Освобождаем способ переноса
 			BIO_meth_free(method);
 			// Выводим пустоту
 			return nullptr;
 		}
 		// Если приладить запись к способу не удалось
-		if(BIO_meth_set_write(method, bioWrite) != 1){
+		if(BIO_meth_set_write(method, __nts_bio_write__) != 1){
 			// Освобождаем способ переноса
 			BIO_meth_free(method);
 			// Выводим пустоту
 			return nullptr;
 		}
 		// Если приладить управление к способу не удалось
-		if(BIO_meth_set_ctrl(method, bioCtrl) != 1){
+		if(BIO_meth_set_ctrl(method, __nts_bio_ctrl__) != 1){
 			// Освобождаем способ переноса
 			BIO_meth_free(method);
 			// Выводим пустоту
 			return nullptr;
 		}
 		// Если приладить создание к способу не удалось
-		if(BIO_meth_set_create(method, bioCreate) != 1){
+		if(BIO_meth_set_create(method, __nts_bio_create__) != 1){
 			// Освобождаем способ переноса
 			BIO_meth_free(method);
 			// Выводим пустоту
 			return nullptr;
 		}
 		// Если приладить освобождение к способу не удалось
-		if(BIO_meth_set_destroy(method, bioDestroy) != 1){
+		if(BIO_meth_set_destroy(method, __nts_bio_destroy__) != 1){
 			// Освобождаем способ переноса
 			BIO_meth_free(method);
 			// Выводим пустоту
@@ -508,7 +508,7 @@ namespace {
 	 *       первом же вопросе, поэтому берётся наименьший рабочий срок
 	 *
 	 */
-	unsigned int timerClock(SSL * ssl, const unsigned int timerUs) noexcept {
+	unsigned int __nts_timer_clock__(SSL * ssl, const unsigned int timerUs) noexcept {
 		// Убираем предупреждение о неиспользуемой связи
 		(void) ssl;
 		// Если срок запрашивается впервые
@@ -527,7 +527,7 @@ namespace {
 	 * @param mtu         размер дейтаграммы
 	 *
 	 */
-	void configure(client::context_t & client, server::context_t & server, const bool datagram, const size_t mtu) noexcept {
+	void __nts_configure__(client::context_t & client, server::context_t & server, const bool datagram, const size_t mtu) noexcept {
 		// Зажимаем издание клиента выбранным протоколом
 		(void) client.versions(datagram ? TLS12 : TLS13, datagram ? TLS12 : TLS13);
 		// Зажимаем издание сервера выбранным протоколом
@@ -563,11 +563,11 @@ namespace {
 	 * @return         признак передачи хотя бы одного выходного потока
 	 *
 	 */
-	bool pumpStream(client::context_t & client, server::context_t & server, const settings_t & settings, const size_t round, bool & damaged) noexcept {
+	bool __nts_pump_stream__(client::context_t & client, server::context_t & server, const settings_t & settings, const size_t round, bool & damaged) noexcept {
 		// Признак передачи хотя бы одного выходного потока
 		bool moved = false;
 		/**
-		 * Выполняем перебор направлений передачи
+		 * Перебираем направления передачи
 		 */
 		for(size_t i = 0; i < 2; i++){
 			// Получаем выходной поток очередной стороны
@@ -593,7 +593,7 @@ namespace {
 				damaged = true;
 			}
 			/**
-			 * Выполняем подачу потока кусками заданной длины
+			 * Подаём поток кусками заданной длины
 			 */
 			for(size_t offset = 0; offset < buffer.size(); offset += settings.chunk){
 				// Определяем длину очередного куска
@@ -620,7 +620,7 @@ namespace {
 	 * @param settings настройки переноса сценария
 	 *
 	 */
-	void converseStream(client::context_t & client, server::context_t & server, const settings_t & settings) noexcept {
+	void __nts_converse_stream__(client::context_t & client, server::context_t & server, const settings_t & settings) noexcept {
 		// Сохраняем первое приветствие клиента для повторной подачи
 		const view_t greeting = client.output();
 		// Переносим приветствие до снятия его с накопителя, если оно уже выдано
@@ -628,7 +628,7 @@ namespace {
 		// Признак уже выполненной порчи
 		bool damaged = false;
 		/**
-		 * Выполняем передачу потоков ограниченное число кругов
+		 * Передаём потоки ограниченное число кругов
 		 */
 		for(size_t round = 0; round < 16; round++){
 			// Если связь одной из сторон оборвана
@@ -644,7 +644,7 @@ namespace {
 				// Подаём сохранённое приветствие повторно
 				server.push(view_t(repeated.data(), repeated.size()));
 			// Если потоки на этом круге не переносились
-			if(!pumpStream(client, server, settings, round, damaged))
+			if(!__nts_pump_stream__(client, server, settings, round, damaged))
 				// Прекращаем перенос
 				break;
 		}
@@ -663,11 +663,11 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, const settings_t & settings, const size_t round, const size_t direction, size_t (& counters)[2], bool & damaged) noexcept {
+	bool __nts_carry__(A & from, B & to, const settings_t & settings, const size_t round, const size_t direction, size_t (& counters)[2], bool & damaged) noexcept {
 		// Снятые дейтаграммы направления
 		std::vector <std::vector <uint8_t>> datagrams;
 		/**
-		 * Выполняем снятие всех готовых дейтаграмм стороны
+		 * Снимаем все готовые дейтаграммы стороны
 		 */
 		while(from.output().size > 0){
 			// Получаем очередную дейтаграмму
@@ -686,7 +686,7 @@ namespace {
 			// Переворачиваем порядок переноса
 			std::reverse(datagrams.begin(), datagrams.end());
 		/**
-		 * Выполняем перебор снятых дейтаграмм
+		 * Перебираем снятые дейтаграммы
 		 */
 		for(size_t i = 0; i < datagrams.size(); i++){
 			// Считаем дейтаграмму направления
@@ -720,13 +720,13 @@ namespace {
 	 * @param settings настройки переноса сценария
 	 *
 	 */
-	void converseDatagrams(client::context_t & client, server::context_t & server, const settings_t & settings) noexcept {
+	void __nts_converse_datagrams__(client::context_t & client, server::context_t & server, const settings_t & settings) noexcept {
 		// Счётчики дейтаграмм направлений
 		size_t counters[2] = {0, 0};
 		// Признак уже выполненной порчи
 		bool damaged = false;
 		/**
-		 * Выполняем перенос дейтаграмм и ход часов ограниченное число кругов
+		 * Переносим дейтаграммы и ведём часы ограниченное число кругов
 		 */
 		for(size_t round = 0; round < 64; round++){
 			// Если связь одной из сторон оборвана
@@ -738,9 +738,9 @@ namespace {
 				// Прекращаем перенос без завершения рукопожатия
 				break;
 			// Переносим дейтаграммы клиента серверу
-			bool moved = carry(client, server, settings, round, 0, counters, damaged);
+			bool moved = __nts_carry__(client, server, settings, round, 0, counters, damaged);
 			// Переносим дейтаграммы сервера клиенту
-			moved = (carry(server, client, settings, round, 1, counters, damaged) || moved);
+			moved = (__nts_carry__(server, client, settings, round, 1, counters, damaged) || moved);
 			// Если дейтаграммы переносились
 			if(moved)
 				// Переходим к следующему кругу
@@ -776,14 +776,14 @@ namespace {
 	 * @param datagram признак переноса дейтаграммами
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server, const settings_t & settings, const bool datagram) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server, const settings_t & settings, const bool datagram) noexcept {
 		// Если выбран перенос дейтаграммами
 		if(datagram)
 			// Проводим связь поверх дейтаграмм
-			converseDatagrams(client, server, settings);
+			__nts_converse_datagrams__(client, server, settings);
 		else
 			// Проводим связь поверх потока
-			converseStream(client, server, settings);
+			__nts_converse_stream__(client, server, settings);
 	}
 	/**
 	 * @brief Функция прикладного обмена A-NTS в обе стороны
@@ -796,7 +796,7 @@ namespace {
 	 * @return         признак получения обоих сообщений без искажения
 	 *
 	 */
-	bool exchange(client::context_t & client, server::context_t & server, const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
+	bool __nts_exchange__(client::context_t & client, server::context_t & server, const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
 		// Ответ сервера контрольного обмена
 		static const uint8_t RESPONSE[] = {'p', 'o', 'n', 'g'};
 		// Отправляем данные клиента
@@ -808,7 +808,7 @@ namespace {
 			// Выводим отказ отправки
 			return false;
 		// Переносим прикладные записи
-		converse(client, server, settings, datagram);
+		__nts_converse__(client, server, settings, datagram);
 		// Принятые данные направлений
 		std::vector <uint8_t> request, response;
 		// Если сервер не принял данные клиента без искажения
@@ -886,15 +886,15 @@ namespace {
 	 * @return признак готовности эталона к сличению
 	 *
 	 */
-	bool arrange() noexcept {
+	bool __nts_arrange__() noexcept {
 		// Если подлинность из ключей набора составить не удалось
-		if(!keyfile(credentials))
+		if(!__nts_keyfile__(credentials))
 			// Выводим отказ настройки
 			return false;
 		// Составляем потоковый способ переноса эталона
-		methods[0] = bioMethod(false);
+		methods[0] = __nts_bio_method__(false);
 		// Составляем дейтаграммный способ переноса эталона
-		methods[1] = bioMethod(true);
+		methods[1] = __nts_bio_method__(true);
 		// Если способы переноса составить не удалось
 		if((methods[0] == nullptr) || (methods[1] == nullptr))
 			// Выводим отказ настройки
@@ -906,7 +906,7 @@ namespace {
 		// Метка области возобновляемых сеансов сервера
 		static const uint8_t LABEL[] = {'a', 'n', 't', 's'};
 		/**
-		 * Выполняем настройку потокового и дейтаграммного переносов
+		 * Настраиваем потоковый и дейтаграммный переносы
 		 */
 		for(size_t datagram = 0; datagram < 2; datagram++){
 			// Способ связи клиента эталона
@@ -977,7 +977,7 @@ namespace {
 	 * @return          признак успешности заведения стороны
 	 *
 	 */
-	bool start(secure_t & peer, SSL_CTX * context, const bool datagram, const bool client, const size_t mtu, SSL_SESSION * session) noexcept {
+	bool __nts_start__(secure_t & peer, SSL_CTX * context, const bool datagram, const bool client, const size_t mtu, SSL_SESSION * session) noexcept {
 		// Заводим связь стороны эталона
 		peer.ssl = SSL_new(context);
 		// Если связь завести не удалось
@@ -1030,7 +1030,7 @@ namespace {
 		// Если выбран перенос дейтаграммами
 		if(datagram){
 			// Подменяем часы таймеров связи виртуальными часами сличителя
-			DTLS_set_timer_cb(peer.ssl, timerClock);
+			DTLS_set_timer_cb(peer.ssl, __nts_timer_clock__);
 			// Если размер дейтаграммы установить не удалось: вызов возвращает установленный размер
 			if(SSL_set_mtu(peer.ssl, static_cast <int> (mtu)) < 1)
 				// Выводим отказ заведения
@@ -1047,7 +1047,7 @@ namespace {
 	 * @return       признак продолжения связи без отказа
 	 *
 	 */
-	bool diagnose(secure_t & peer, const int result) noexcept {
+	bool __nts_diagnose__(secure_t & peer, const int result) noexcept {
 		// Код отказа операции стороны эталона
 		const int error = SSL_get_error(peer.ssl, result);
 		// Если операция ждёт чтения либо записи
@@ -1073,26 +1073,26 @@ namespace {
 	 * @return     признак продолжения связи без отказа
 	 *
 	 */
-	bool drive(secure_t & peer) noexcept {
+	bool __nts_drive__(secure_t & peer) noexcept {
 		// Если связь стороны уже отказала
 		if(peer.failed)
 			// Выводим отказ связи
 			return false;
 		// Если рукопожатие стороны ещё не закончено
 		if(SSL_is_init_finished(peer.ssl) != 1){
-			// Выполняем очередной шаг рукопожатия стороны
+			// Продвигаем очередной шаг рукопожатия стороны
 			const int result = SSL_do_handshake(peer.ssl);
 			// Если шаг рукопожатия не завершился
 			if(result != 1)
 				// Выводим разбор итога шага рукопожатия
-				return diagnose(peer, result);
+				return __nts_diagnose__(peer, result);
 			// Выводим продолжение связи
 			return true;
 		}
 		// Место чтения прикладных данных стороны
 		uint8_t buffer[0x1000];
 		/**
-		 * Выполняем чтение всех готовых прикладных данных и сообщений после рукопожатия
+		 * Читаем все готовые прикладные данные и сообщения после рукопожатия
 		 */
 		while(true){
 			// Читаем очередную порцию данных стороны
@@ -1105,7 +1105,7 @@ namespace {
 				continue;
 			}
 			// Выводим разбор итога чтения
-			return diagnose(peer, result);
+			return __nts_diagnose__(peer, result);
 		}
 	}
 	/**
@@ -1121,13 +1121,13 @@ namespace {
 	 * @return          признак переноса хотя бы одного байта либо дейтаграммы
 	 *
 	 */
-	bool transfer(secure_t & from, secure_t & to, const settings_t & settings, const size_t round, const size_t direction, size_t (& counters)[2], bool & damaged) noexcept {
+	bool __nts_transfer__(secure_t & from, secure_t & to, const settings_t & settings, const size_t round, const size_t direction, size_t (& counters)[2], bool & damaged) noexcept {
 		// Если перенос идёт дейтаграммами
 		if(from.writing->datagram){
 			// Снятые дейтаграммы направления
 			std::vector <std::vector <uint8_t>> datagrams;
 			/**
-			 * Выполняем снятие всех готовых дейтаграмм стороны
+			 * Снимаем все готовые дейтаграммы стороны
 			 */
 			while(!from.writing->packets.empty()){
 				// Переносим очередную дейтаграмму в перечень
@@ -1144,7 +1144,7 @@ namespace {
 				// Переворачиваем порядок переноса
 				std::reverse(datagrams.begin(), datagrams.end());
 			/**
-			 * Выполняем перебор снятых дейтаграмм
+			 * Перебираем снятые дейтаграммы
 			 */
 			for(size_t i = 0; i < datagrams.size(); i++){
 				// Считаем дейтаграмму направления
@@ -1199,7 +1199,7 @@ namespace {
 	 * @param datagram признак переноса дейтаграммами
 	 *
 	 */
-	void converse(secure_t & client, secure_t & server, const settings_t & settings, const bool datagram) noexcept {
+	void __nts_converse__(secure_t & client, secure_t & server, const settings_t & settings, const bool datagram) noexcept {
 		// Счётчики дейтаграмм направлений
 		size_t counters[2] = {0, 0};
 		// Признак уже выполненной порчи
@@ -1207,7 +1207,7 @@ namespace {
 		// Сохранённое первое приветствие клиента для повторной подачи
 		std::vector <uint8_t> repeated;
 		/**
-		 * Выполняем продвижение сторон и перенос ограниченное число кругов
+		 * Продвигаем стороны и переносим ограниченное число кругов
 		 */
 		for(size_t round = 0; round < (datagram ? 64 : 16); round++){
 			// Если связь одной из сторон отказала
@@ -1219,9 +1219,9 @@ namespace {
 				// Прекращаем перенос без завершения рукопожатия
 				break;
 			// Продвигаем клиента эталона по рукопожатию либо чтению
-			const bool liveClient = drive(client);
+			const bool liveClient = __nts_drive__(client);
 			// Продвигаем сервер эталона по рукопожатию либо чтению
-			const bool liveServer = drive(server);
+			const bool liveServer = __nts_drive__(server);
 			// Если одна из сторон отказала
 			if(!liveClient || !liveServer)
 				// Прекращаем перенос
@@ -1235,9 +1235,9 @@ namespace {
 				// Подаём сохранённое приветствие повторно
 				server.reading->stream.insert(server.reading->stream.end(), repeated.begin(), repeated.end());
 			// Переносим исходящий перенос клиента серверу
-			bool moved = transfer(client, server, settings, round, 0, counters, damaged);
+			bool moved = __nts_transfer__(client, server, settings, round, 0, counters, damaged);
 			// Переносим исходящий перенос сервера клиенту
-			moved = (transfer(server, client, settings, round, 1, counters, damaged) || moved);
+			moved = (__nts_transfer__(server, client, settings, round, 1, counters, damaged) || moved);
 			// Если перенос перемещался
 			if(moved)
 				// Переходим к следующему кругу
@@ -1302,7 +1302,7 @@ namespace {
 	 * @return         признак получения обоих сообщений без искажения
 	 *
 	 */
-	bool exchange(secure_t & client, secure_t & server, const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
+	bool __nts_exchange__(secure_t & client, secure_t & server, const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
 		// Ответ сервера контрольного обмена
 		static const uint8_t RESPONSE[] = {'p', 'o', 'n', 'g'};
 		// Очищаем принятые данные клиента
@@ -1318,7 +1318,7 @@ namespace {
 			// Выводим отказ отправки
 			return false;
 		// Переносим прикладные записи
-		converse(client, server, settings, datagram);
+		__nts_converse__(client, server, settings, datagram);
 		// Если сервер не принял данные клиента без искажения
 		if(server.failed || (server.received.size() != payload.size) || (::memcmp(server.received.data(), payload.data, payload.size) != 0))
 			// Выводим нарушение обмена
@@ -1339,13 +1339,13 @@ namespace {
 	 * @return         разряды итога выполненных стадий сценария
 	 *
 	 */
-	uint8_t run(const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
+	uint8_t __nts_run__(const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны выбранным переносом
-		configure(client, server, datagram, settings.mtu);
+		__nts_configure__(client, server, datagram, settings.mtu);
 		// Заводим сервер
 		if(server.start() != context::error_t::NONE)
 			// Выводим отсутствие итога
@@ -1355,7 +1355,7 @@ namespace {
 			// Выводим отсутствие итога
 			return 0;
 		// Проводим начальное рукопожатие
-		converse(client, server, settings, datagram);
+		__nts_converse__(client, server, settings, datagram);
 		// Если рукопожатие не установилось
 		if(!client.established() || !server.established())
 			// Выводим итог без установления
@@ -1375,7 +1375,7 @@ namespace {
 					// Выводим итог без возобновления
 					return stages;
 				// Доставляем билет клиенту
-				converse(client, server, clean, datagram);
+				__nts_converse__(client, server, clean, datagram);
 			}
 			// Если клиент билета не получил
 			if(client.tickets().empty())
@@ -1386,7 +1386,7 @@ namespace {
 			// Связь сервера нового возобновления
 			server::context_t resumed;
 			// Настраиваем новые стороны тем же переносом
-			configure(resuming, resumed, datagram, settings.mtu);
+			__nts_configure__(resuming, resumed, datagram, settings.mtu);
 			// Передаём клиенту билет прежней связи
 			resuming.resume(client.tickets()[0]);
 			// Передаём серверу признаваемые им билеты
@@ -1400,13 +1400,13 @@ namespace {
 				// Выводим итог без возобновления
 				return stages;
 			// Проводим возобновление сторон
-			converse(resuming, resumed, clean, datagram);
+			__nts_converse__(resuming, resumed, clean, datagram);
 			// Если возобновление не подтверждено обеими сторонами
 			if(!resuming.established() || !resumed.established() || !resuming.shared() || !resumed.shared())
 				// Выводим итог без возобновления
 				return stages;
 			// Если прикладной обмен возобновлённой связи не удался
-			if(!exchange(resuming, resumed, payload, clean, datagram))
+			if(!__nts_exchange__(resuming, resumed, payload, clean, datagram))
 				// Выводим итог без возобновления
 				return stages;
 			// Помечаем выполненное возобновление
@@ -1419,7 +1419,7 @@ namespace {
 				// Выводим итог без смены ключей
 				return stages;
 			// Доставляем смену ключей клиента
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 		}
 		// Если потоковому серверу заказана смена ключей
 		if(!datagram && ((settings.flags & SERVER_UPDATE) != 0)){
@@ -1428,7 +1428,7 @@ namespace {
 				// Выводим итог без смены ключей
 				return stages;
 			// Доставляем смену ключей сервера
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 		}
 		// Если заказана хоть одна смена ключей потокового переноса
 		if(!datagram && ((settings.flags & (CLIENT_UPDATE | SERVER_UPDATE)) != 0)){
@@ -1440,7 +1440,7 @@ namespace {
 			stages |= UPDATED;
 		}
 		// Если прикладной обмен после всех стадий не удался
-		if(!exchange(client, server, payload, clean, datagram))
+		if(!__nts_exchange__(client, server, payload, clean, datagram))
 			// Выводим итог без обмена
 			return stages;
 		// Помечаем выполненный прикладной обмен
@@ -1452,7 +1452,7 @@ namespace {
 				// Выводим итог без закрытия
 				return stages;
 			// Доставляем извещение о закрытии
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 			// Если сервер не подтвердил закрытие
 			if(server.state() != context::state_t::CLOSED)
 				// Выводим итог без закрытия
@@ -1472,7 +1472,7 @@ namespace {
 	 * @return         разряды итога выполненных стадий сценария
 	 *
 	 */
-	uint8_t runSecure(const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
+	uint8_t __nts_run_secure__(const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
 		// Очищаем очередь ошибок эталона от прежних сценариев
 		ERR_clear_error();
 		// Сторона клиента эталона
@@ -1480,15 +1480,15 @@ namespace {
 		// Сторона сервера эталона
 		secure_t server;
 		// Заводим сервер эталона
-		if(!start(server, servers[datagram ? 1 : 0], datagram, false, settings.mtu, nullptr))
+		if(!__nts_start__(server, servers[datagram ? 1 : 0], datagram, false, settings.mtu, nullptr))
 			// Выводим отсутствие итога
 			return 0;
 		// Заводим клиента эталона
-		if(!start(client, clients[datagram ? 1 : 0], datagram, true, settings.mtu, nullptr))
+		if(!__nts_start__(client, clients[datagram ? 1 : 0], datagram, true, settings.mtu, nullptr))
 			// Выводим отсутствие итога
 			return 0;
 		// Проводим начальное рукопожатие
-		converse(client, server, settings, datagram);
+		__nts_converse__(client, server, settings, datagram);
 		// Если рукопожатие не установилось
 		if(client.failed || server.failed || (SSL_is_init_finished(client.ssl) != 1) || (SSL_is_init_finished(server.ssl) != 1))
 			// Выводим итог без установления
@@ -1510,7 +1510,7 @@ namespace {
 					// Выводим итог без возобновления
 					return stages;
 				// Доставляем билет клиенту
-				converse(client, server, clean, datagram);
+				__nts_converse__(client, server, clean, datagram);
 			}
 			// Забираем билет возобновления у клиента эталона
 			session.value = SSL_get1_session(client.ssl);
@@ -1523,21 +1523,21 @@ namespace {
 			// Сторона сервера нового возобновления
 			secure_t resumed;
 			// Заводим сервер возобновления
-			if(!start(resumed, servers[datagram ? 1 : 0], datagram, false, settings.mtu, nullptr))
+			if(!__nts_start__(resumed, servers[datagram ? 1 : 0], datagram, false, settings.mtu, nullptr))
 				// Выводим итог без возобновления
 				return stages;
 			// Заводим клиента возобновления с билетом прежней связи
-			if(!start(resuming, clients[datagram ? 1 : 0], datagram, true, settings.mtu, session.value))
+			if(!__nts_start__(resuming, clients[datagram ? 1 : 0], datagram, true, settings.mtu, session.value))
 				// Выводим итог без возобновления
 				return stages;
 			// Проводим возобновление сторон
-			converse(resuming, resumed, clean, datagram);
+			__nts_converse__(resuming, resumed, clean, datagram);
 			// Если возобновление не подтверждено обеими сторонами
 			if(resuming.failed || resumed.failed || (SSL_is_init_finished(resuming.ssl) != 1) || (SSL_is_init_finished(resumed.ssl) != 1) || (SSL_session_reused(resuming.ssl) != 1) || (SSL_session_reused(resumed.ssl) != 1))
 				// Выводим итог без возобновления
 				return stages;
 			// Если прикладной обмен возобновлённой связи не удался
-			if(!exchange(resuming, resumed, payload, clean, datagram))
+			if(!__nts_exchange__(resuming, resumed, payload, clean, datagram))
 				// Выводим итог без возобновления
 				return stages;
 			// Помечаем выполненное возобновление
@@ -1550,7 +1550,7 @@ namespace {
 				// Выводим итог без смены ключей
 				return stages;
 			// Доставляем смену ключей клиента
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 		}
 		// Если потоковому серверу заказана смена ключей
 		if(!datagram && ((settings.flags & SERVER_UPDATE) != 0)){
@@ -1559,7 +1559,7 @@ namespace {
 				// Выводим итог без смены ключей
 				return stages;
 			// Доставляем смену ключей сервера
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 		}
 		// Если заказана хоть одна смена ключей потокового переноса
 		if(!datagram && ((settings.flags & (CLIENT_UPDATE | SERVER_UPDATE)) != 0)){
@@ -1571,7 +1571,7 @@ namespace {
 			stages |= UPDATED;
 		}
 		// Если прикладной обмен после всех стадий не удался
-		if(!exchange(client, server, payload, clean, datagram))
+		if(!__nts_exchange__(client, server, payload, clean, datagram))
 			// Выводим итог без обмена
 			return stages;
 		// Помечаем выполненный прикладной обмен
@@ -1583,7 +1583,7 @@ namespace {
 				// Выводим итог без закрытия
 				return stages;
 			// Доставляем извещение о закрытии
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 			// Если сервер не получил извещение о закрытии
 			if(!server.closed && ((SSL_get_shutdown(server.ssl) & SSL_RECEIVED_SHUTDOWN) == 0))
 				// Выводим итог без закрытия
@@ -1612,7 +1612,7 @@ extern "C" {
 		// Если подлинность и настройки эталона ещё не готовы
 		if(!ready){
 			// Составляем подлинность и настройки эталона один раз на процесс
-			ready = arrange();
+			ready = __nts_arrange__();
 			// Если настройка не удалась, сличать бессмысленно
 			if(!ready)
 				// Останавливаем сличитель на отказе инициализации
@@ -1644,25 +1644,25 @@ extern "C" {
 		static const uint8_t FALLBACK = 0x42;
 		// Определяем данные прикладного обмена
 		const view_t payload = ((size > 9) ? view_t(data + 9, std::min(size - 9, static_cast <size_t> (256))) : view_t(&FALLBACK, 1));
-		// Выполняем сценарий машинами состояний A-NTS
-		const uint8_t ours = run(payload, settings, datagram);
-		// Выполняем тот же сценарий машинами состояний эталона
-		const uint8_t reference = runSecure(payload, settings, datagram);
+		// Прогоняем сценарий машинами состояний A-NTS
+		const uint8_t ours = __nts_run__(payload, settings, datagram);
+		// Прогоняем тот же сценарий машинами состояний эталона
+		const uint8_t reference = __nts_run_secure__(payload, settings, datagram);
 		// Признак сценария с помехами, которым успех не обещан даже эталоном
 		const bool disturbed = (((settings.flags & (TRUNCATE | REORDER | LOSS | DAMAGE)) != 0));
 		// Ожидаемые разряды сценария без непредсказуемых помех переноса
 		uint8_t expected = (ESTABLISHED | EXCHANGED);
 		// Если заказано возобновление
 		if((settings.flags & RESUME) != 0)
-			// Ждём выполненного возобновления
+			// Дожидаемся выполненного возобновления
 			expected |= RESUMED;
 		// Если заказано закрытие
 		if((settings.flags & CLOSE) != 0)
-			// Ждём выполненного закрытия
+			// Дожидаемся выполненного закрытия
 			expected |= CLOSED;
 		// Если потоковому переносу заказана смена ключей
 		if(!datagram && ((settings.flags & (CLIENT_UPDATE | SERVER_UPDATE)) != 0))
-			// Ждём доставленной смены ключей
+			// Дожидаемся доставленной смены ключей
 			expected |= UPDATED;
 		// Если сценарий без непредсказуемых помех не выполнил обязательные стадии
 		if(!disturbed && ((ours != expected) || (reference != expected))){
@@ -1677,7 +1677,7 @@ extern "C" {
 			::fprintf(stderr, "Differential divergence: datagram=%d flags=%04x ours=%02x reference=%02x\n", datagram ? 1 : 0, settings.flags, ours, reference);
 			// Печатаем сценарий для воспроизведения
 			/**
-			 * Выполняем перебор байтов сценария
+			 * Перебираем байты сценария
 			 */
 			for(size_t i = 0; i < size; i++)
 				// Печатаем очередной байт сценария
