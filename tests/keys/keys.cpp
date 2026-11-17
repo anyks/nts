@@ -3096,10 +3096,16 @@ TEST(KeysTest, Ed448){
 		const std::string tool("openssl");
 		// Путь к изданию эталона
 		const std::string edition = sandbox.file("openssl.version");
-		// Снимаем издание эталона
-		ASSERT_EQ(shell(tool + " version > " + edition + " 2>&1"), 0);
+		// Снимаем издание эталона, если он есть в среде исполнения (у OpenWrt его нет)
+		if(shell(tool + " version > " + edition + " 2>&1") != 0)
+			// Пропускаем интероп без эталона OpenSSL
+			GTEST_SKIP() << "openssl отсутствует в среде исполнения";
 		// Читаем издание эталона
 		const std::string version = slurp(edition);
+		// LibreSSL не принимает ключи Ed448 - интероп с эталоном невозможен
+		if(version.find("LibreSSL") != std::string::npos)
+			// Пропускаем интероп без поддержки Ed448 у эталона
+			GTEST_SKIP() << "LibreSSL без Ed448: " << version;
 		// Если эталон строит PKCS #12 на устаревших RC2/3DES вместо PBES2/AES
 		if(version.find("OpenSSL 1.") == 0)
 			// Пропускаем интероп со старой схемой защиты PKCS #12

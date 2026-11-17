@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Регистрируем каталог библиотек экосистемы anyks у динамического загрузчика:
+# ручная линковка -lnts и запуск с libnts.so требуют /usr/lib/anyks в путях
+# поиска, потребители find_package(nts) работают и без записи
+if [ ! -f /etc/ld.so.conf.d/anyks-nts.conf ]; then
+	echo "/usr/lib/anyks" > /etc/ld.so.conf.d/anyks-nts.conf
+fi
+
+# Обновляем кеш динамического загрузчика
+ldconfig
+
+# Завершаем установку
+exit 0

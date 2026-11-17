@@ -1,0 +1,29 @@
+<html>
+<head>
+    <meta charset="utf-8" />
+    <style>
+        body { font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 13px; color: #222; margin: 24px; line-height: 1.5; }
+        h1 { font-size: 18px; }
+        code { font-family: Menlo, monospace; background: #f2f2f2; padding: 1px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>__PRODUCT__ __VERSION__ has been installed</h1>
+    <p>
+        Headers: <code>/usr/local/include/anyks/nts</code>, libraries:
+        <code>/usr/local/lib/anyks</code>, CMake package:
+        <code>/usr/local/lib/cmake/anyks/nts</code> (with the search link
+        <code>/usr/local/lib/cmake/nts</code>), framework:
+        <code>/usr/local/lib/anyks/nts.framework</code>.
+    </p>
+    <p>
+        A CMake consumer picks the library up with
+        <code>find_package(nts 1.0 CONFIG REQUIRED)</code> and
+        <code>target_link_libraries(app PRIVATE nts::nts)</code>.
+    </p>
+    <p>
+        To remove the library run
+        <code>/usr/local/share/nts/uninstall.sh</code>.
+    </p>
+</body>
+</html>

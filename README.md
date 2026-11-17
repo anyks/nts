@@ -226,10 +226,13 @@ add_subdirectory(submodules/anyks-tls nts)
 target_link_libraries(app PRIVATE nts::nts)
 ```
 
-The installation puts the headers into `include/nts`, the library into `lib` (the shared one under
-Windows — into `bin`), the description of the targets and the files `ntsConfig.cmake`, `ntsConfigVersion.cmake` into
-`lib/cmake/nts`; version compatibility is within the major number. The third way — bypassing
-CMake, with manual `-I` and `-l` — is described below.
+The installation follows the ecosystem layout of ANYKS: the headers go into `include/anyks/nts`, the
+library into `lib/anyks` (the shared one under Windows — into `bin`), the description of the targets
+and the files `ntsConfig.cmake`, `ntsConfigVersion.cmake` into `lib/cmake/nts`; next to them the
+installation builds the ecosystem subtree with the link `lib/cmake/anyks/nts` → `../nts`. The
+physical directory matches the search path of `find_package(nts)`, so the package is found from a
+clean prefix without Find-modules. Version compatibility is within the major
+number. The third way — bypassing CMake, with manual `-I` and `-l` — is described below.
 
 The shared library is built with the option `CMAKE_SHARED_BUILD_LIB=ON`: `libnts.so.1` →
 `libnts.so.1.0.0` under Linux and BSD, `libnts.1.dylib` under macOS, `nts.dll` under Windows;
@@ -1515,6 +1518,33 @@ bytes, a longer one is truncated.
 Pins: `tests/sys/log.cpp` — silent without a sink, the sink gets the level, the string and the context,
 truncation, removal of the sink, the abort of a connection into the sink, the lowering and the refusal of the vault into the sink. The sample
 `sys/sys-log` shows the adapter to a static log of the consumer, as at AWH.
+
+## Packages for the supported systems
+
+The drivers of `sh/dist/` build the system packages on the target machine itself; every driver makes
+two Release passes of the library (shared, then static) and runs the full `ctest` after each pass —
+the packaging starts only on green tests. The metadata lives in `sh/package/`.
+
+| Driver | System | Format |
+|---|---|---|
+| `make_tar_archive.sh` | Linux, macOS, BSD, Solaris | `tar.gz` |
+| `macos_make_installer.sh` | macOS | `pkg` (`nts-macos-installer-<arch>-<version>.pkg`, identifier `com.anyks.nts`, framework included) |
+| `linux_make_rpm.sh` | Linux | `rpm` |
+| `linux_make_deb.sh` | Linux | `deb` |
+| `linux_make_apk.sh` | Alpine | `apk` (`apk add --allow-untrusted`) |
+| `freebsd_make_pkg.sh` | FreeBSD, DragonFly | `pkg` |
+| `netbsd_make_pkg.sh` | NetBSD | `pkg_install` (`pkg_add`) |
+| `openbsd_make_pkg.sh` | OpenBSD | `pkg_create` (`pkg_add -D unsigned`) |
+| `windows_make_installer.sh` | Windows (MSYS2) | `exe` (Inno Setup, `Program Files\anyks\nts`, the `bin` directory goes into PATH) |
+| `solaris_make_installer.sh` | Solaris, illumos | `p5p` (IPS, `pkg install -g`) |
+| `adn_make_sdk.sh` | any layout | `adn` (the writer `dan` of Danube, method INTRACT, no password; three measures — DIAGNOSTIC OK 100 %, reverse unpacking, md5 of the module) |
+
+The packages carry the ecosystem layout of ANYKS: headers in `include/anyks/nts`, both libraries in
+`lib/anyks` (Solaris: `lib/amd64/anyks`), the CMake files in `lib/cmake/nts` with the ecosystem link
+`lib/cmake/anyks/nts`; the manual linking `-lnts` is served by the loader configuration of the
+system (`/etc/ld.so.conf.d` + `ldconfig` under Linux, `ld-musl-*.path` under Alpine, `/etc/ld.so.conf`
+under NetBSD/OpenBSD, `crle -64` under Solaris, PATH under Windows). The macOS package additionally
+carries `nts.framework` in `lib/anyks`.
 
 ## Development rules
 

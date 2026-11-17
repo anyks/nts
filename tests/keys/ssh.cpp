@@ -184,6 +184,12 @@ TEST(SshTest, DecodePlain) {
 	if(!run("command -v ssh-keygen >/dev/null 2>&1"))
 		// Пропускаем тест без ssh-keygen
 		GTEST_SKIP() << "ssh-keygen недоступен";
+	// Проба способностей ssh-keygen: ограниченный Dropbear-апплет ключей с паролем не строит
+	if(!run("ssh-keygen -t ed25519 -f /tmp/ants-ssh-probe -N probe -a 16 >/dev/null 2>&1"))
+		// Пропускаем интероп с ограниченным ssh-keygen среды (Dropbear у OpenWrt)
+		GTEST_SKIP() << "ssh-keygen среды не строит зашифрованные ключи";
+	// Убираем пробные файлы ключа
+	run("rm -f /tmp/ants-ssh-probe /tmp/ants-ssh-probe.pub");
 	// Формируем шаблон имени временного каталога
 	char pattern[] = "/tmp/ants-ssh-XXXXXX";
 	// Создаём временный каталог
@@ -241,6 +247,12 @@ TEST(SshTest, DecodeEncrypted) {
 	if(!run("command -v ssh-keygen >/dev/null 2>&1"))
 		// Пропускаем тест без ssh-keygen
 		GTEST_SKIP() << "ssh-keygen недоступен";
+	// Проба способностей ssh-keygen: ограниченный Dropbear-апплет ключей с паролем не строит
+	if(!run("ssh-keygen -t ed25519 -f /tmp/ants-ssh-probe -N probe -a 16 >/dev/null 2>&1"))
+		// Пропускаем интероп с ограниченным ssh-keygen среды (Dropbear у OpenWrt)
+		GTEST_SKIP() << "ssh-keygen среды не строит зашифрованные ключи";
+	// Убираем пробные файлы ключа
+	run("rm -f /tmp/ants-ssh-probe /tmp/ants-ssh-probe.pub");
 	// Формируем шаблон имени временного каталога
 	char pattern[] = "/tmp/ants-ssh-XXXXXX";
 	// Создаём временный каталог
@@ -389,6 +401,12 @@ TEST(SshTest, InteropWrite) {
 	if(!run("command -v ssh-keygen >/dev/null 2>&1"))
 		// Пропускаем тест без ssh-keygen
 		GTEST_SKIP() << "ssh-keygen недоступен";
+	// Проба способностей ssh-keygen: ограниченный Dropbear-апплет ключей с паролем не строит
+	if(!run("ssh-keygen -t ed25519 -f /tmp/ants-ssh-probe -N probe -a 16 >/dev/null 2>&1"))
+		// Пропускаем интероп с ограниченным ssh-keygen среды (Dropbear у OpenWrt)
+		GTEST_SKIP() << "ssh-keygen среды не строит зашифрованные ключи";
+	// Убираем пробные файлы ключа
+	run("rm -f /tmp/ants-ssh-probe /tmp/ants-ssh-probe.pub");
 	// Формируем шаблон имени временного каталога
 	char pattern[] = "/tmp/ants-ssh-XXXXXX";
 	// Создаём временный каталог

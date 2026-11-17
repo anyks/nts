@@ -775,10 +775,21 @@ TEST(CmpTest, OpensslMockResponse) {
  *
  */
 TEST(CmpTest, OpensslAcceptsOurs) {
-	// Пароль общего секрета
-	static const char * PASSWORD = "12345";
 	// Песочница файлов проверки
 	sandbox_t sandbox;
+	// Путь к изданию эталона
+	const std::string edition = sandbox.file("openssl.version");
+	// Снимаем издание эталона
+	// Снимаем издание эталона, если он есть в среде исполнения (у OpenWrt его нет)
+	if(shell(std::string("openssl version > ") + edition + " 2>&1") != 0)
+		// Пропускаем интероп без эталона OpenSSL
+		GTEST_SKIP() << "openssl отсутствует в среде исполнения";
+	// LibreSSL не несёт подкоманду cmp - интероп без эталона
+	if(slurp(edition).find("LibreSSL") != std::string::npos)
+		// Пропускаем интероп без подкоманды cmp у эталона
+		GTEST_SKIP() << "LibreSSL без подкоманды cmp";
+	// Пароль общего секрета
+	static const char * PASSWORD = "12345";
 	// Запись сертификата и набор блоков PEM
 	std::string text;
 	// Набор блоков PEM
@@ -940,14 +951,25 @@ TEST(CmpTest, DeepRefusals) {
  *
  */
 TEST(CmpTest, OpensslRefusals) {
+	// Песочница файлов проверки
+	sandbox_t sandbox;
+	// Путь к изданию эталона
+	const std::string edition = sandbox.file("openssl.version");
+	// Снимаем издание эталона
+	// Снимаем издание эталона, если он есть в среде исполнения (у OpenWrt его нет)
+	if(shell(std::string("openssl version > ") + edition + " 2>&1") != 0)
+		// Пропускаем интероп без эталона OpenSSL
+		GTEST_SKIP() << "openssl отсутствует в среде исполнения";
+	// LibreSSL не несёт подкоманду cmp - интероп без эталона
+	if(slurp(edition).find("LibreSSL") != std::string::npos)
+		// Пропускаем интероп без подкоманды cmp у эталона
+		GTEST_SKIP() << "LibreSSL без подкоманды cmp";
 	// Если эталон с поддержкой CMP недоступен
 	if(shell("openssl cmp -help >/dev/null 2>&1") != 0)
 		// Пропускаем интероп без эталона
 		GTEST_SKIP() << "openssl cmp is not available";
 	// Пароль общего секрета
 	static const char * PASSWORD = "12345";
-	// Песочница файлов проверки
-	sandbox_t sandbox;
 	// Запись сертификата и набор блоков PEM
 	std::string text;
 	// Набор блоков PEM

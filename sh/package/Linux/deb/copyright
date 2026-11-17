@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: nts
+Source: https://anyks.com
+
+Files: *
+Copyright: 2026 ANYKS
+License: LicenseRef-A-NTS-1.0

@@ -596,6 +596,10 @@ TEST(FuzzerTest, OpensslRefusals){
 	 * Под Windows порождённые процессы OpenSSL оснастка не ведёт
 	 */
 	#if !defined(_WIN32)
+		// Эталона может не быть вовсе (у OpenWrt OpenSSL в среде исполнения нет)
+		if(std::system("command -v openssl >/dev/null 2>&1") != 0)
+			// Пропускаем проверку без эталона OpenSSL
+			GTEST_SKIP() << "openssl отсутствует в среде исполнения";
 		// Подлинность стороны сервера
 		context::credential_t credentials;
 		// Читаем классическую подлинность ec256, чтобы отказ зависел только от записи
@@ -652,8 +656,10 @@ TEST(FuzzerTest, OpensslRefusals){
 		string report;
 		// Ждём завершения OpenSSL
 		ASSERT_TRUE(settle(log, report)) << report;
+		// Признак LibreSSL: его клиент рвёт связь без формулировки OpenSSL
+		const bool libressl = (std::system("openssl version 2>/dev/null | grep -q LibreSSL") == 0);
 		// Проверяем отказ разбора неизвестного вида содержимого, а не конфигурационную ошибку
-		ASSERT_NE(report.find("unexpected message"), std::string::npos) << report;
+		ASSERT_NE(report.find(libressl ? "write:errno=" : "unexpected message"), std::string::npos) << report;
 	/**
 	 * Пропускаем проверку на Windows: локальный процесс OpenSSL там не запускается
 	 */

@@ -228,10 +228,13 @@ add_subdirectory(submodules/anyks-tls nts)
 target_link_libraries(app PRIVATE nts::nts)
 ```
 
-Установка кладёт заголовки в `include/nts`, библиотеку в `lib` (динамическую под
-Windows - в `bin`), описание целей и файлы `ntsConfig.cmake`, `ntsConfigVersion.cmake` в
-`lib/cmake/nts`; совместимость версий - в пределах старшего номера. Третий способ - мимо
-CMake, с ручным `-I` и `-l` - описан ниже.
+Установка следует экосистемной раскладке ANYKS: заголовки кладутся в `include/anyks/nts`,
+библиотека в `lib/anyks` (динамическую под Windows - в `bin`), описание целей и файлы
+`ntsConfig.cmake`, `ntsConfigVersion.cmake` в `lib/cmake/nts`; рядом установка достраивает
+экосистемное поддерево ссылкой `lib/cmake/anyks/nts` → `../nts`. Физический каталог совпадает
+с путём поиска `find_package(nts)`, потому пакет находится из чистого префикса без Find-модулей.
+Совместимость версий - в пределах старшего номера.
+Третий способ - мимо CMake, с ручным `-I` и `-l` - описан ниже.
 
 Динамическая библиотека собирается ключом `CMAKE_SHARED_BUILD_LIB=ON`: `libnts.so.1` →
 `libnts.so.1.0.0` под Linux и BSD, `libnts.1.dylib` под macOS, `nts.dll` под Windows;
@@ -260,7 +263,7 @@ Doxygen (`PROJECT_NUMBER`).
 message(STATUS "Версия A-NTS: ${nts_VERSION}")
 
 # 2. Из файла версии пакета напрямую
-include(/opt/nts/lib/cmake/nts/ntsConfigVersion.cmake)
+include(/opt/nts/lib/cmake/anyks/nts/ntsConfigVersion.cmake)
 message(STATUS "Версия A-NTS: ${PACKAGE_VERSION}")
 
 # 3. Из имени динамической библиотеки (под Linux/BSD)
@@ -1607,6 +1610,34 @@ A-NTS. Чужой проект без журнала не ставит ниче�
 Пины: `tests/sys/log.cpp` - без стока молчит, сток получает уровень, строку и контекст,
 обрезание, снятие стока, обрыв связи в сток, понижение и отказ хранилища в сток. Образец
 `sys/sys-log` показывает переходник на статический журнал потребителя, как у AWH.
+
+## Пакеты под поддерживаемые системы
+
+Драйверы `sh/dist/` собирают системные пакеты на самой целевой машине; каждый драйвер делает
+два прохода сборки библиотеки в Release (динамическая, затем статическая) и после каждого
+прохода гоняет полный `ctest` - упаковка начинается только на зелёных тестах. Метаданные
+лежат в `sh/package/`.
+
+| Драйвер | Система | Формат |
+|---|---|---|
+| `make_tar_archive.sh` | Linux, macOS, BSD, Solaris | `tar.gz` |
+| `macos_make_installer.sh` | macOS | `pkg` (`nts-macos-installer-<арх>-<версия>.pkg`, идентификатор `com.anyks.nts`, с фреймворком) |
+| `linux_make_rpm.sh` | Linux | `rpm` |
+| `linux_make_deb.sh` | Linux | `deb` |
+| `linux_make_apk.sh` | Alpine | `apk` (`apk add --allow-untrusted`) |
+| `freebsd_make_pkg.sh` | FreeBSD, DragonFly | `pkg` |
+| `netbsd_make_pkg.sh` | NetBSD | `pkg_install` (`pkg_add`) |
+| `openbsd_make_pkg.sh` | OpenBSD | `pkg_create` (`pkg_add -D unsigned`) |
+| `windows_make_installer.sh` | Windows (MSYS2) | `exe` (Inno Setup, `Program Files\anyks\nts`, каталог `bin` уходит в PATH) |
+| `solaris_make_installer.sh` | Solaris, illumos | `p5p` (IPS, `pkg install -g`) |
+| `adn_make_sdk.sh` | любая раскладка | `adn` (писатель `dan` из Danube, метод INTRACT, без пароля; три меры - DIAGNOSTIC OK 100 %, обратная распаковка, md5 модуля) |
+
+Пакеты несут экосистемную раскладку ANYKS: заголовки в `include/anyks/nts`, обе библиотеки в
+`lib/anyks` (Solaris: `lib/amd64/anyks`), cmake-файлы в `lib/cmake/nts` со ссылкой экосистемы
+`lib/cmake/anyks/nts`; ручную линковку `-lnts` обслуживает настройка загрузчика системы
+(`/etc/ld.so.conf.d` + `ldconfig` под Linux, `ld-musl-*.path` под Alpine, `/etc/ld.so.conf`
+под NetBSD/OpenBSD, `crle -64` под Solaris, PATH под Windows). Пакет macOS дополнительно несёт
+`nts.framework` в `lib/anyks`.
 
 ## Правила разработки
 

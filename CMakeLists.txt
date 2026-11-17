@@ -698,12 +698,12 @@ endif (CMAKE_SHARED_BUILD_LIB)
 
 ##
  # Пути заголовков потребителя: в дереве сборки - каталог include проекта, после
- # установки - каталог include/nts под префиксом. Так цель годна и через
- # add_subdirectory, и через find_package(nts CONFIG)
+ # установки - экосистемный каталог include/anyks/nts под префиксом. Так цель
+ # годна и через add_subdirectory, и через find_package(nts CONFIG)
  ##
 target_include_directories(${ANTS_LIB_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+    $<INSTALL_INTERFACE:include/anyks/${PROJECT_NAME}>
 )
 
 # Требуемый стандарт языка доезжает до потребителя цели
@@ -1748,9 +1748,12 @@ endif (${CMAKE_BUILD_SAMPLES})
 ##
  # Установка и конфиг пакета для find_package(nts CONFIG)
  #
- # Ставятся заголовки в include/nts, библиотека в lib (динамическая под Windows -
- # в bin), описание целей ntsTargets.cmake и файлы ntsConfig.cmake /
- # ntsConfigVersion.cmake в lib/cmake/nts. Потребитель пишет:
+ # Экосистемная раскладка anyks: заголовки в include/anyks/nts, библиотеки в
+ # lib/anyks (под Solaris 64-битные библиотеки живут в lib/amd64/anyks),
+ # описание целей ntsTargets.cmake и файлы ntsConfig.cmake / ntsConfigVersion.cmake
+ # в lib/cmake/anyks/nts. Рядом со ссылкой lib/cmake/nts -> anyks/nts пакет
+ # автоматически находится поиском find_package без Find-модулей. Потребитель
+ # пишет:
  #   find_package(nts CONFIG REQUIRED)
  #   target_link_libraries(app PRIVATE nts::nts)
  # Совместимость версий - в пределах старшего номера
@@ -1758,8 +1761,27 @@ endif (${CMAKE_BUILD_SAMPLES})
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+# Заголовки лежат в экосистемном каталоге anyks с именем проекта
+set(CMAKE_INSTALL_INCLUDEDIR "include/anyks/${PROJECT_NAME}" CACHE PATH "Каталог заголовков экосистемы anyks" FORCE)
+
+# Корень библиотек системы: под Solaris 64-битные библиотеки живут в lib/amd64
+if (CMAKE_SYSTEM_NAME STREQUAL "SunOS")
+    set(NTS_LIBROOT "lib/amd64" CACHE STRING "Корень библиотек системы")
+else ()
+    set(NTS_LIBROOT "lib" CACHE STRING "Корень библиотек системы")
+endif ()
+
+# Библиотеки лежат в экосистемном каталоге anyks внутри корня библиотек
+set(CMAKE_INSTALL_LIBDIR "${NTS_LIBROOT}/anyks" CACHE PATH "Каталог библиотек экосистемы anyks" FORCE)
+
+# Каталог cmake-файлов пакета: физически в lib/cmake/<имя>, чтобы глубина пути
+# совпадала с путём поиска find_package - иначе импортированная цель считала бы
+# префикс на каталог короче. Экосистемное поддерево lib/cmake/anyks/<имя>
+# достраивается ссылкой
+set(NTS_CMAKE_DIR "${NTS_LIBROOT}/cmake/${PROJECT_NAME}")
+
 # Выполняем установку заголовочных файлов проекта
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}" FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.hpp")
 
 # Выполняем установку библиотеки с описанием цели для экспорта
 install(TARGETS ${ANTS_LIB_NAME}
@@ -1767,21 +1789,21 @@ install(TARGETS ${ANTS_LIB_NAME}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # Выполняем установку описания целей пакета
 install(EXPORT ${PROJECT_NAME}Targets
     FILE ${PROJECT_NAME}Targets.cmake
     NAMESPACE ${PROJECT_NAME}::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    DESTINATION ${NTS_CMAKE_DIR}
 )
 
 # Составляем файл настройки пакета
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    INSTALL_DESTINATION ${NTS_CMAKE_DIR}
 )
 
 # Составляем файл версии пакета: совместимость в пределах старшего номера
@@ -1795,8 +1817,24 @@ write_basic_package_version_file(
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    DESTINATION ${NTS_CMAKE_DIR}
 )
+
+# Экосистемное поддерево lib/cmake/anyks/<имя> достраивается ссылкой на
+# физический каталог lib/cmake/<имя>: поиск find_package(nts) ищет каталоги
+# lib*/cmake/<имя>* и находит физический каталог из чистого префикса без
+# Find-модулей. Под Windows вместо ссылки ставится копия каталога: создание
+# символических ссылок там требует прав разработчика
+install(CODE "
+    set(_nts_cmake_root \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${NTS_LIBROOT}/cmake\")
+    file(REMOVE_RECURSE \"\${_nts_cmake_root}/anyks/${PROJECT_NAME}\")
+    file(MAKE_DIRECTORY \"\${_nts_cmake_root}/anyks\")
+    if (WIN32)
+        file(COPY \"\${_nts_cmake_root}/${PROJECT_NAME}/\" DESTINATION \"\${_nts_cmake_root}/anyks/${PROJECT_NAME}\")
+    else ()
+        execute_process(COMMAND \"${CMAKE_COMMAND}\" -E create_symlink \"../${PROJECT_NAME}\" \"\${_nts_cmake_root}/anyks/${PROJECT_NAME}\")
+    endif ()
+")
 
 # Описание целей доступно и из дерева сборки без установки
 export(EXPORT ${PROJECT_NAME}Targets
@@ -1850,11 +1888,13 @@ if (APPLE)
     # Выводим сообщение об удачной добавленной цели framework
     message(STATUS "Цель 'framework' добавлена для сборки ${CMAKE_SYSTEM_NAME}")
 
-    # Устанавливаем собранный фреймворк
-    install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.framework"
-        DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-        USE_SOURCE_PERMISSIONS
-    )
+    # Устанавливаем собранный фреймворк, если он построен к моменту установки:
+    # цель framework факультативна, и установка без неё не должна падать
+    install(CODE "
+        if (EXISTS \"${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.framework\")
+            file(INSTALL DESTINATION \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\" TYPE DIRECTORY FILES \"${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.framework\" USE_SOURCE_PERMISSIONS)
+        endif ()
+    ")
 
     ##
      # Цель XCFramework для iOS: срезы устройства и симулятора одним пакетом

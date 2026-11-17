@@ -366,6 +366,7 @@ TEST(VaultTest, Allocator) {
 	/**
 	 * Проверка требования укрытия: под пределом запрета подкачки в нуль новый кусок отвергается
 	 */
+#if defined(RLIMIT_MEMLOCK)
 	TEST(VaultTest, Demand) {
 		// Хранилище процесса
 		sys::vault_t & vault = sys::Vault::instance();
@@ -419,4 +420,5 @@ TEST(VaultTest, Allocator) {
 		// Возвращаем прежний предел
 		::setrlimit(RLIMIT_MEMLOCK, &previous);
 	}
+#endif
 #endif

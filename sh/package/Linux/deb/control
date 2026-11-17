@@ -1,0 +1,10 @@
+Package: @package@
+Version: @version@
+Priority: standard
+Section: libdevel
+Architecture: @architecture@
+Depends: @dependencies@
+Maintainer: ANYKS
+Homepage: https://anyks.com
+Installed-Size: @size@
+Description: @description@
