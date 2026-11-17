@@ -152,7 +152,7 @@ namespace {
 	 * @return     результат составления
 	 *
 	 */
-	static bool foxhello(vector <uint8_t> & body) {
+	static bool __nts_foxhello__(vector <uint8_t> & body) {
 		// Составляемое приветствие
 		hello::client_t greeting;
 		// Издание приветствия
@@ -164,7 +164,7 @@ namespace {
 		// Набор GREASE впереди
 		greeting.suites.push_back(0x2A2A);
 		/**
-		 * Выполняем перебор наборов примера
+		 * Перебираем наборов примера
 		 */
 		for(size_t i = 0; i < (sizeof(FOX_SUITES) / sizeof(FOX_SUITES[0])); i++)
 			// Добавляем набор
@@ -196,7 +196,7 @@ namespace {
 		// Схемы подписи
 		vector <extension::scheme_t> list;
 		/**
-		 * Выполняем перебор схем примера
+		 * Перебираем схем примера
 		 */
 		for(size_t i = 0; i < (sizeof(FOX_SCHEMES) / sizeof(FOX_SCHEMES[0])); i++)
 			// Добавляем схему
@@ -211,7 +211,7 @@ namespace {
 		EXPECT_EQ(extension::formats(vector <uint8_t> {0x00}, formats), extension::error_t::NONE);
 		// Группы с GREASE впереди
 		EXPECT_EQ(extension::groups(vector <extension::group_t> {static_cast <extension::group_t> (0x2A2A), extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1}, groups), extension::error_t::NONE);
-		// Заполнение
+		// Заполняем набивку двумястами нулевыми байтами
 		padding.assign(200, 0x00);
 		// Безопасное пересогласование
 		renegotiation = vector <uint8_t> {0x00};
@@ -247,7 +247,7 @@ namespace {
 	 * @return     результат составления
 	 *
 	 */
-	static bool oldhello(vector <uint8_t> & body) {
+	static bool __nts_oldhello__(vector <uint8_t> & body) {
 		// Составляемое приветствие
 		hello::client_t greeting;
 		// Издание приветствия TLS 1.0
@@ -255,7 +255,7 @@ namespace {
 		// Случайное значение
 		::memset(greeting.random, 0x07, sizeof(greeting.random));
 		/**
-		 * Выполняем перебор наборов примера
+		 * Перебираем наборов примера
 		 */
 		for(size_t i = 0; i < (sizeof(JA3_SUITES) / sizeof(JA3_SUITES[0])); i++)
 			// Добавляем набор
@@ -290,7 +290,7 @@ namespace {
 	static vector <uint8_t> chromestream() {
 		// Составляемый поток
 		vector <uint8_t> result;
-		// Предисловие
+		// Объявляем предисловие HTTP/2 соединения
 		static const char PREFACE[] = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 		// Дописываем предисловие
 		result.insert(result.end(), PREFACE, PREFACE + sizeof(PREFACE) - 1);
@@ -356,7 +356,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	static bool identity(const char * name, context::credential_t & result) noexcept {
+	static bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -365,7 +365,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочки сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -378,22 +378,22 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	static bool pump(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
-		 * Выполняем перехват ошибок
+		 * Перехватываем ошибок
 		 */
 		try {
 			// Получаем байты, отправляемые клиентом
 			view_t data = client.output();
 			// Если клиенту есть что отправить серверу
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемых байтов
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя клиента
 				client.consume(buffer.size());
-				// Выполняем подачу отправленных байтов серверу
+				// Подаём отправленных байтов серверу
 				server.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -402,17 +402,17 @@ namespace {
 			data = server.output();
 			// Если серверу есть что отправить клиенту
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемых байтов
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя сервера
 				server.consume(buffer.size());
-				// Выполняем подачу отправленных байтов клиенту
+				// Подаём отправленных байтов клиенту
 				client.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
 			}
 		/**
-		 * Выполняем перехват ошибок
+		 * Перехватываем ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим признак того, что байты между сторонами не передавались
@@ -428,11 +428,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	static void converse(client::context_t & client, server::context_t & server) noexcept {
+	static void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байтов между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	}
@@ -444,7 +444,7 @@ namespace {
 	 * @return       признак успешности снятия
 	 *
 	 */
-	static bool captured(client::context_t & client, fingerprint::profile_t & result) noexcept {
+	static bool __nts_captured__(client::context_t & client, fingerprint::profile_t & result) noexcept {
 		// Получаем байты, отправляемые клиентом
 		const view_t sending = client.output();
 		// Выводим итог разбора записи с приветствием
@@ -460,7 +460,7 @@ namespace {
 	 */
 	static bool __nts_seek_type__(const fingerprint::profile_t & profile, const uint16_t type) noexcept {
 		/**
-		 * Выполняем перебор расширений
+		 * Перебираем расширений
 		 */
 		for(size_t i = 0; i < profile.extensions.size(); i++){
 			// Если вид совпал
@@ -480,7 +480,7 @@ namespace {
 	 * @return       признак совпадения отпечатков
 	 *
 	 */
-	static bool matched(const fingerprint::profile_t & source, const fingerprint::profile_t & made, string & why) noexcept {
+	static bool __nts_matched__(const fingerprint::profile_t & source, const fingerprint::profile_t & made, string & why) noexcept {
 		// Отпечатки профилей
 		fingerprint::imprint_t before, after;
 		// Если отпечатки вычислить не удалось
@@ -535,7 +535,7 @@ namespace {
  */
 TEST(FingerprintTest, Grease){
 	/**
-	 * Выполняем перебор старших половин байта
+	 * Перебираем старших половин байта
 	 */
 	for(uint16_t high = 0; high < 16; high++){
 		// Значение GREASE
@@ -558,7 +558,7 @@ TEST(FingerprintTest, Ja4){
 	// Тело приветствия
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль приветствия
@@ -625,7 +625,7 @@ TEST(FingerprintTest, Ja4){
 	// Число разделов PeetPrint
 	size_t sections = 1;
 	/**
-	 * Выполняем перебор знаков PeetPrint
+	 * Перебираем знаков PeetPrint
 	 */
 	for(size_t i = 0; i < imprint.peetprint.size(); i++)
 		// Считаем разделители
@@ -668,7 +668,7 @@ TEST(FingerprintTest, Ja3){
 	// Тело приветствия
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(oldhello(body));
+	ASSERT_TRUE(__nts_oldhello__(body));
 	// Профиль приветствия из голого сообщения с заголовком
 	fingerprint::profile_t profile;
 	// Запись рукопожатия
@@ -705,7 +705,7 @@ TEST(FingerprintTest, Datagram){
 	// Тело приветствия
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(oldhello(body));
+	ASSERT_TRUE(__nts_oldhello__(body));
 	// Запись поверх дейтаграмм с меткой возврата: тело потокового устройства получает метку
 	hello::client_t greeting;
 	// Разбираем тело потокового устройства
@@ -777,7 +777,7 @@ TEST(FingerprintTest, Refusals){
 	// Тело приветствия
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0303);
 	// Профиль приветствия
@@ -785,7 +785,7 @@ TEST(FingerprintTest, Refusals){
 	// Пустой вход
 	EXPECT_EQ(fingerprint::parse(view_t(nullptr, 0), profile), fingerprint::error_t::HUNGRY);
 	/**
-	 * Выполняем перебор длин усечения
+	 * Перебираем длин усечения
 	 */
 	for(size_t size = 1; size < record.size(); size++)
 		// Усечённая запись не разбирается
@@ -835,7 +835,7 @@ TEST(FingerprintTest, Refusals){
 	// Порченое тело групп
 	static const uint8_t ODD[] = {0x00, 0x03, 0x00, 0x1D, 0x00};
 	/**
-	 * Выполняем перебор расширений
+	 * Перебираем расширений
 	 */
 	for(size_t i = 0; i < greeting.extensions.size(); i++){
 		// Если расширение есть перечень групп
@@ -861,7 +861,7 @@ TEST(FingerprintTest, Extensions){
 	// Тело приветствия
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Разбираем тело
 	hello::client_t greeting;
 	// Разбор обязан удаться
@@ -880,7 +880,7 @@ TEST(FingerprintTest, Extensions){
 		// Приветствие с подменённым телом
 		hello::client_t changed = greeting;
 		/**
-		 * Выполняем перебор расширений
+		 * Перебираем расширений
 		 */
 		for(size_t i = 0; i < changed.extensions.size(); i++){
 			// Если расширение искомого вида
@@ -972,8 +972,8 @@ TEST(FingerprintTest, Snapshot){
 	// Тела приветствий
 	vector <uint8_t> first, second;
 	// Составляем приветствия
-	ASSERT_TRUE(foxhello(first));
-	ASSERT_TRUE(oldhello(second));
+	ASSERT_TRUE(__nts_foxhello__(first));
+	ASSERT_TRUE(__nts_oldhello__(second));
 	// Профили приветствий
 	fingerprint::profile_t fox, old, loaded;
 	// Разбираем приветствия
@@ -1012,7 +1012,7 @@ TEST(FingerprintTest, Snapshot){
 	// Проверяем совпадение снимков
 	EXPECT_EQ(again, snapshot);
 	/**
-	 * Выполняем перебор длин усечения снимка
+	 * Перебираем длин усечения снимка
 	 */
 	for(size_t size = 0; size < snapshot.size(); size++)
 		// Усечённый снимок не читается
@@ -1088,7 +1088,7 @@ TEST(FingerprintTest, Snapshot){
 	// Проверяем совпадение
 	EXPECT_EQ(twice, bundle);
 	/**
-	 * Выполняем перебор длин усечения снимка хранилища
+	 * Перебираем длин усечения снимка хранилища
 	 */
 	for(size_t size = 0; size < bundle.size(); size++)
 		// Усечённый снимок не читается
@@ -1157,7 +1157,7 @@ TEST(FingerprintTest, Starved){
 	// Тело приветствия
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0303);
 	// Поток HTTP/2
@@ -1167,7 +1167,7 @@ TEST(FingerprintTest, Starved){
 	// Признак того, что на щедром запасе всё удалось
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасов выделений
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Отказы шагов
@@ -1175,9 +1175,9 @@ TEST(FingerprintTest, Starved){
 		{
 			// Ограничиваем запас выделений
 			starve::ration_t ration(budget);
-			// Профили
+			// Профили разбора и его копии для сверки
 			fingerprint::profile_t profile, copy;
-			// Отпечатки
+			// Отпечатки вычисляемого профиля
 			fingerprint::imprint_t imprint;
 			// Снимок, печать, поток
 			vector <uint8_t> snapshot;
@@ -1210,7 +1210,7 @@ TEST(FingerprintTest, Starved){
 		// Отказы шагов
 		const fingerprint::error_t outcomes[] = {parsed, imprinted, dumped, loaded, printed, streamed, hashed};
 		/**
-		 * Выполняем перебор отказов
+		 * Перебираем отказов
 		 */
 		for(size_t i = 0; i < (sizeof(outcomes) / sizeof(outcomes[0])); i++){
 			// Всякий отказ либо NONE, либо MEMORY
@@ -1234,7 +1234,7 @@ TEST(ProfileTest, Loopback){
 	// Тело приветствия примера
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль снимка
@@ -1244,7 +1244,7 @@ TEST(ProfileTest, Loopback){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связи сторон
 	client::context_t client;
 	// Контекст сервера
@@ -1263,11 +1263,11 @@ TEST(ProfileTest, Loopback){
 	// Профиль сложенного приветствия
 	fingerprint::profile_t made;
 	// Снимаем сложенное приветствие
-	ASSERT_TRUE(captured(client, made));
+	ASSERT_TRUE(__nts_captured__(client, made));
 	// Причина расхождения
 	string why;
 	// Отпечатки сложенного приветствия равны снимку
-	EXPECT_TRUE(matched(source, made, why)) << why;
+	EXPECT_TRUE(__nts_matched__(source, made, why)) << why;
 	// Случайное значение и опознаватель связи свежие, длина опознавателя та же
 	EXPECT_NE(::memcmp(made.random, source.random, fingerprint::FINGERPRINT_RANDOM), 0);
 	// Длина опознавателя связи совпадает со снимком
@@ -1304,7 +1304,7 @@ TEST(ProfileTest, Loopback){
 	EXPECT_EQ(made.extensions[17].type, 0x0015);
 	EXPECT_EQ(made.length + 4, static_cast <uint32_t> (512));
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем выбранный набор: сервер выбирает из ведомых наборов профиля по своему порядку
@@ -1316,7 +1316,7 @@ TEST(ProfileTest, Loopback){
 	// Снимаем профиль на сервере
 	ASSERT_EQ(server.profile(seen), context::error_t::NONE);
 	// Отпечатки принятого приветствия равны снимку
-	EXPECT_TRUE(matched(source, seen, why)) << why;
+	EXPECT_TRUE(__nts_matched__(source, seen, why)) << why;
 	// Сырые байты приветствия у сервера начинаются сообщением приветствия
 	ASSERT_GT(server.greeting().size, static_cast <size_t> (4));
 	// Первый байт сырых данных — сообщение ClientHello (0x01)
@@ -1332,7 +1332,7 @@ TEST(ProfileTest, Retry){
 	// Тело приветствия примера
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль снимка
@@ -1342,14 +1342,14 @@ TEST(ProfileTest, Retry){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связи сторон
 	client::context_t client;
 	// Контекст сервера
 	server::context_t server;
 	// Имя узла
 	client.name("example.com");
-	// Профиль
+	// Заказываем у клиента профиль рукопожатия
 	ASSERT_EQ(client.profile(source), context::error_t::NONE);
 	// Сервер ведёт лишь P-256: доли по ней клиент не шлёт, идёт просьба о повторе
 	server.groups(vector <extension::group_t> {extension::group_t::SECP256R1});
@@ -1361,16 +1361,16 @@ TEST(ProfileTest, Retry){
 	// Профили первого и второго приветствий
 	fingerprint::profile_t first, second;
 	// Снимаем первое приветствие
-	ASSERT_TRUE(captured(client, first));
+	ASSERT_TRUE(__nts_captured__(client, first));
 	// Передаём приветствие серверу и просьбу о повторе клиенту
-	ASSERT_TRUE(pump(client, server));
+	ASSERT_TRUE(__nts_pump__(client, server));
 	// Снимаем второе приветствие
-	ASSERT_TRUE(captured(client, second));
+	ASSERT_TRUE(__nts_captured__(client, second));
 	// Причина расхождения
 	string why;
 	// Отпечатки обоих приветствий равны снимку
-	EXPECT_TRUE(matched(source, first, why)) << why;
-	EXPECT_TRUE(matched(source, second, why)) << why;
+	EXPECT_TRUE(__nts_matched__(source, first, why)) << why;
+	EXPECT_TRUE(__nts_matched__(source, second, why)) << why;
 	// Значения GREASE и опознаватель связи те же у обоих приветствий
 	EXPECT_EQ(first.suites[0], second.suites[0]);
 	EXPECT_EQ(first.extensions[0].type, second.extensions[0].type);
@@ -1381,7 +1381,7 @@ TEST(ProfileTest, Retry){
 	EXPECT_EQ(second.extensions[3].shares.size(), static_cast <size_t> (1));
 	EXPECT_EQ(second.extensions[3].shares[0].group, extension::group_t::SECP256R1);
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 }
@@ -1393,7 +1393,7 @@ TEST(ProfileTest, Refusals){
 	// Тело приветствия примера
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль снимка
@@ -1415,7 +1415,7 @@ TEST(ProfileTest, Refusals){
 	// Профиль без единой ведомой группы отвергается
 	alien = source;
 	/**
-	 * Выполняем перебор расширений
+	 * Перебираем расширений
 	 */
 	for(size_t i = 0; i < alien.extensions.size(); i++){
 		// Если расширение есть перечень групп
@@ -1441,7 +1441,7 @@ TEST(ProfileTest, Refusals){
 	// Профиль сложенного приветствия
 	fingerprint::profile_t made;
 	// Снимаем приветствие
-	ASSERT_TRUE(captured(client, made));
+	ASSERT_TRUE(__nts_captured__(client, made));
 	// Число расширений по профилю, а не по ручке
 	EXPECT_EQ(made.extensions.size(), source.extensions.size());
 	// Профиль без имени узла: расширение имени не идёт
@@ -1451,14 +1451,14 @@ TEST(ProfileTest, Refusals){
 	// Заводим клиента
 	ASSERT_EQ(nameless.start(), context::error_t::NONE);
 	// Снимаем приветствие
-	ASSERT_TRUE(captured(nameless, made));
+	ASSERT_TRUE(__nts_captured__(nameless, made));
 	// Расширений на одно меньше, имени узла нет
 	EXPECT_EQ(made.extensions.size(), source.extensions.size() - 1);
 	EXPECT_EQ(__nts_seek_type__(made, 0x0000), false);
 	// Профиль без опознавателя связи: приветствие идёт без опознавателя
 	vector <uint8_t> plain;
 	// Составляем приветствие примера JA3
-	ASSERT_TRUE(oldhello(plain));
+	ASSERT_TRUE(__nts_oldhello__(plain));
 	// Запись рукопожатия
 	const vector <uint8_t> older = wrapped(plain, false, 0x0301);
 	// Профиль примера JA3
@@ -1472,7 +1472,7 @@ TEST(ProfileTest, Refusals){
 	// Заводим клиента
 	ASSERT_EQ(sessionless.start(), context::error_t::NONE);
 	// Снимаем приветствие
-	ASSERT_TRUE(captured(sessionless, made));
+	ASSERT_TRUE(__nts_captured__(sessionless, made));
 	// Опознаватель связи пуст, как у снимка
 	EXPECT_TRUE(made.session.empty());
 	// Издание приветствия — TLS 1.0 (0x0301), как у снимка
@@ -1486,7 +1486,7 @@ TEST(ProfileTest, Unknown){
 	// Тело приветствия примера
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль снимка
@@ -1496,7 +1496,7 @@ TEST(ProfileTest, Unknown){
 	// Добавляем группу X25519MLKEM768 первой и долю по ней, как у Chrome, и неведомый набор первым
 	source.suites.insert(source.suites.begin() + 1, static_cast <protect::suite_t> (0xC0AC));
 	/**
-	 * Выполняем перебор расширений
+	 * Перебираем расширений
 	 */
 	for(size_t i = 0; i < source.extensions.size(); i++){
 		// Если расширение есть перечень групп
@@ -1518,14 +1518,14 @@ TEST(ProfileTest, Unknown){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связи сторон
 	client::context_t client;
 	// Контекст сервера
 	server::context_t server;
 	// Имя узла
 	client.name("example.com");
-	// Профиль
+	// Заказываем у клиента профиль рукопожатия
 	ASSERT_EQ(client.profile(source), context::error_t::NONE);
 	// Подлинность сервера
 	server.credential(credential);
@@ -1535,7 +1535,7 @@ TEST(ProfileTest, Unknown){
 	// Профиль сложенного приветствия
 	fingerprint::profile_t made;
 	// Снимаем приветствие
-	ASSERT_TRUE(captured(client, made));
+	ASSERT_TRUE(__nts_captured__(client, made));
 	// Неведомый набор идёт как есть на своём месте
 	EXPECT_EQ(static_cast <uint16_t> (made.suites[1]), 0xC0AC);
 	// Неведомая гибридная группа 0x11EB в перечне на своём месте, доля по ней опущена
@@ -1543,7 +1543,7 @@ TEST(ProfileTest, Unknown){
 	EXPECT_EQ(made.extensions[3].shares.size(), static_cast <size_t> (2));
 	EXPECT_EQ(made.extensions[3].shares[1].group, extension::group_t::X25519);
 	// Проводим рукопожатие: сервер выбирает ведомый набор и группу
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 }
@@ -1567,7 +1567,7 @@ TEST(ProfileTest, Openssl){
 	// Тело приветствия примера
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль снимка
@@ -1577,7 +1577,7 @@ TEST(ProfileTest, Openssl){
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	/**
-	 * Выполняем перебор случаев: рукопожатие по профилю и выбор сервером неведомого набора
+	 * Перебираем случаев: рукопожатие по профилю и выбор сервером неведомого набора
 	 */
 	for(size_t alien = 0; alien < 2; alien++){
 		// Если у openssl нет набора, связи неведомого
@@ -1597,9 +1597,9 @@ TEST(ProfileTest, Openssl){
 		// Сторож сервера openssl
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = dial(number);
+		const int peer = dial(number);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(peer, 0) << "порт " << number;
 		// Связь стороны клиента
 		client::context_t client;
 		// Профиль с неведомым набором первым среди ведомых
@@ -1610,16 +1610,16 @@ TEST(ProfileTest, Openssl){
 			profile.suites.insert(profile.suites.begin() + 1, static_cast <protect::suite_t> (0xC0AC));
 		// Имя узла
 		client.name("localhost");
-		// Профиль
+		// Заказываем у клиента профиль рукопожатия
 		ASSERT_EQ(client.profile(profile), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу байтов до установления связи либо отказа
+		 * Передаём байтов до установления связи либо отказа
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, fd);
+			relay(client, peer);
 		// Если сервер выбрал неведомый набор
 		if(alien == 1){
 			// Связь обрывается отказом исполнения профиля
@@ -1636,11 +1636,11 @@ TEST(ProfileTest, Openssl){
 			// Накопитель ответа
 			vector <uint8_t> answer;
 			/**
-			 * Выполняем передачу байтов до получения ответа
+			 * Передаём байтов до получения ответа
 			 */
 			for(size_t i = 0; (i < 16) && answer.empty(); i++){
 				// Передаём байты
-				relay(client, fd);
+				relay(client, peer);
 				// Читаем принятые данные
 				ASSERT_EQ(client.read(answer), context::error_t::NONE);
 			}
@@ -1650,7 +1650,7 @@ TEST(ProfileTest, Openssl){
 			ASSERT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
 		}
 		// Закрываем сокет
-		closing(fd);
+		closing(peer);
 		// Снимаем сервер до удаления журнала
 		sentinel.halt();
 		// Журнал сервера
@@ -1669,7 +1669,7 @@ TEST(ProfileTest, Starved){
 	// Тело приветствия примера
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль снимка
@@ -1679,7 +1679,7 @@ TEST(ProfileTest, Starved){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Признак того, что нехватка памяти встретилась
 	bool starved = false;
 	// Признак того, что на щедром запасе всё удалось
@@ -1687,7 +1687,7 @@ TEST(ProfileTest, Starved){
 	// Имя узла складывается до ограничения запаса: строка из литерала под старым ABI libstdc++ выделяет память в теле проверки
 	const string host = "example.com";
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасов выделений
 	 */
 	for(size_t budget = 0; (budget < 6000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Отказы установки профиля и заведения
@@ -1718,7 +1718,7 @@ TEST(ProfileTest, Starved){
 				// Если стороны заведены
 				if(started == context::error_t::NONE){
 					// Проводим рукопожатие
-					converse(client, server);
+					__nts_converse__(client, server);
 					// Запоминаем установленность связи
 					established = (client.established() && server.established());
 					// Если связь не установилась: отказ клиента либо NONE, либо MEMORY
@@ -1749,7 +1749,7 @@ TEST(ProfileTest, Alien){
 	// Тело приветствия примера
 	vector <uint8_t> body;
 	// Составляем приветствие
-	ASSERT_TRUE(foxhello(body));
+	ASSERT_TRUE(__nts_foxhello__(body));
 	// Запись рукопожатия
 	const vector <uint8_t> record = wrapped(body, false, 0x0301);
 	// Профиль снимка
@@ -1759,21 +1759,21 @@ TEST(ProfileTest, Alien){
 	// Неведомый набор первым за GREASE
 	source.suites.insert(source.suites.begin() + 1, static_cast <protect::suite_t> (0xC0AC));
 	/**
-	 * Выполняем перебор случаев: издание 1.3 и издание 1.2
+	 * Перебираем случаев: издание 1.3 и издание 1.2
 	 */
 	for(size_t legacy = 0; legacy < 2; legacy++){
 		// Связь стороны клиента
 		client::context_t client;
 		// Имя узла
 		client.name("example.com");
-		// Профиль
+		// Заказываем у клиента профиль рукопожатия
 		ASSERT_EQ(client.profile(source), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Профиль сложенного приветствия
 		fingerprint::profile_t made;
 		// Снимаем приветствие
-		ASSERT_TRUE(captured(client, made));
+		ASSERT_TRUE(__nts_captured__(client, made));
 		// Снимаем отправленные байты
 		client.consume(client.output().size);
 		// Приветствие сервера с неведомым набором

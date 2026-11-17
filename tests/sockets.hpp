@@ -90,25 +90,28 @@
 	// Единственный экземпляр поднимает Winsock при загрузке оснастки
 	static const AntsWinsock __nts_winsock__;
 	/**
-	 * @brief Закрытие сокета: у Windows close() сокет не закрывает
+	 * @brief Функция закрытия сокета: у Windows close() сокет не закрывает
 	 *
-	 * @param fd описатель сокета
+	 * @param peer описатель сокета
 	 *
 	 */
-	static inline void closing(const int fd) noexcept { ::closesocket(static_cast <SOCKET> (fd)); }
+	static inline void closing(const int peer) noexcept {
+		// Закрываем сокет собеседника
+		::closesocket(static_cast <SOCKET> (peer));
+	}
 	/**
-	 * @brief Срок ожидания приёма: у Windows это число миллисекунд, а не timeval
+	 * @brief Функция срока ожидания приёма: у Windows это число миллисекунд, а не timeval
 	 *
-	 * @param fd      описатель сокета
+	 * @param peer    описатель сокета
 	 * @param seconds секунды
 	 * @param micros  микросекунды
 	 *
 	 */
-	static inline void patience(const int fd, const long seconds, const long micros) noexcept {
+	static inline void patience(const int peer, const long seconds, const long micros) noexcept {
 		// Срок ожидания приёма в миллисекундах
 		const DWORD limit = static_cast <DWORD> ((seconds * 1000) + (micros / 1000));
 		// Устанавливаем срок ожидания приёма на сокете
-		(void) ::setsockopt(static_cast <SOCKET> (fd), SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast <const char *> (&limit), sizeof(limit));
+		(void) ::setsockopt(static_cast <SOCKET> (peer), SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast <const char *> (&limit), sizeof(limit));
 	}
 	/**
 	 * Опрос готовности сокетов через WSAPoll
@@ -119,21 +122,24 @@
  */
 #else
 	/**
-	 * @brief Закрытие сокета
+	 * @brief Функция закрытия сокета
 	 *
-	 * @param fd описатель сокета
+	 * @param peer описатель сокета
 	 *
 	 */
-	static inline void closing(const int fd) noexcept { ::close(fd); }
+	static inline void closing(const int peer) noexcept {
+		// Закрываем сокет собеседника
+		::close(peer);
+	}
 	/**
-	 * @brief Срок ожидания приёма
+	 * @brief Функция срока ожидания приёма
 	 *
-	 * @param fd      описатель сокета
+	 * @param peer    описатель сокета
 	 * @param seconds секунды
 	 * @param micros  микросекунды
 	 *
 	 */
-	static inline void patience(const int fd, const long seconds, const long micros) noexcept {
+	static inline void patience(const int peer, const long seconds, const long micros) noexcept {
 		// Срок ожидания приёма в виде timeval
 		struct timeval limit;
 		// Секунды срока ожидания
@@ -141,7 +147,7 @@
 		// Микросекунды срока ожидания
 		limit.tv_usec = static_cast <suseconds_t> (micros);
 		// Устанавливаем срок ожидания приёма на сокете
-		(void) ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
+		(void) ::setsockopt(peer, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit));
 	}
 	/**
 	 * Опрос готовности сокетов через poll
@@ -150,34 +156,64 @@
 #endif
 
 /**
- * @brief Отправка и приём: у Winsock буферы char *, у POSIX void *; длины - int у Winsock
+ * @brief Функции отправки и приёма: у Winsock буферы char *, у POSIX void *; длины - int у Winsock
  *
  */
 #if defined(_WIN32)
 	// Отправка байт собеседнику через Winsock
-	static inline long sending(const int fd, const void * data, const size_t size) noexcept { return ::send(static_cast <SOCKET> (fd), static_cast <const char *> (data), static_cast <int> (size), 0); }
+	static inline long sending(const int peer, const void * data, const size_t size) noexcept {
+		// Отправляем байты собеседнику и возвращаем их число
+		return ::send(static_cast <SOCKET> (peer), static_cast <const char *> (data), static_cast <int> (size), 0);
+	}
 	// Приём байт от собеседника через Winsock
-	static inline long receiving(const int fd, void * data, const size_t size) noexcept { return ::recv(static_cast <SOCKET> (fd), static_cast <char *> (data), static_cast <int> (size), 0); }
+	static inline long receiving(const int peer, void * data, const size_t size) noexcept {
+		// Принимаем байты от собеседника и возвращаем их число
+		return ::recv(static_cast <SOCKET> (peer), static_cast <char *> (data), static_cast <int> (size), 0);
+	}
 	// Отправка дейтаграммы адресату через Winsock
-	static inline long sendingto(const int fd, const void * data, const size_t size, const struct sockaddr * peer, const socklen_t length) noexcept { return ::sendto(static_cast <SOCKET> (fd), static_cast <const char *> (data), static_cast <int> (size), 0, peer, static_cast <int> (length)); }
+	static inline long sendingto(const int peer, const void * data, const size_t size, const struct sockaddr * address, const socklen_t length) noexcept {
+		// Отправляем дейтаграмму адресату и возвращаем её размер
+		return ::sendto(static_cast <SOCKET> (peer), static_cast <const char *> (data), static_cast <int> (size), 0, address, static_cast <int> (length));
+	}
 	// Приём дейтаграммы с адресом отправителя через Winsock
-	static inline long receivingfrom(const int fd, void * data, const size_t size, struct sockaddr * peer, socklen_t * length) noexcept { int width = static_cast <int> (*length); const int result = ::recvfrom(static_cast <SOCKET> (fd), static_cast <char *> (data), static_cast <int> (size), 0, peer, &width); *length = static_cast <socklen_t> (width); return result; }
+	static inline long receivingfrom(const int peer, void * data, const size_t size, struct sockaddr * address, socklen_t * length) noexcept {
+		// Ширина адреса отправителя в терминах Winsock
+		int width = static_cast <int> (*length);
+		// Принимаем дейтаграмму с адресом отправителя и возвращаем её размер
+		const int result = ::recvfrom(static_cast <SOCKET> (peer), static_cast <char *> (data), static_cast <int> (size), 0, address, &width);
+		// Возвращаем ширину адреса отправителя
+		*length = static_cast <socklen_t> (width);
+		// Возвращаем размер принятой дейтаграммы
+		return result;
+	}
 /**
  * Прочие системы: POSIX-варианты отправки и приёма
  */
 #else
 	// Отправка байт собеседнику
-	static inline long sending(const int fd, const void * data, const size_t size) noexcept { return static_cast <long> (::send(fd, data, size, 0)); }
+	static inline long sending(const int peer, const void * data, const size_t size) noexcept {
+		// Отправляем байты собеседнику и возвращаем их число
+		return static_cast <long> (::send(peer, data, size, 0));
+	}
 	// Приём байт от собеседника
-	static inline long receiving(const int fd, void * data, const size_t size) noexcept { return static_cast <long> (::recv(fd, data, size, 0)); }
+	static inline long receiving(const int peer, void * data, const size_t size) noexcept {
+		// Принимаем байты от собеседника и возвращаем их число
+		return static_cast <long> (::recv(peer, data, size, 0));
+	}
 	// Отправка дейтаграммы адресату
-	static inline long sendingto(const int fd, const void * data, const size_t size, const struct sockaddr * peer, const socklen_t length) noexcept { return static_cast <long> (::sendto(fd, data, size, 0, peer, length)); }
+	static inline long sendingto(const int peer, const void * data, const size_t size, const struct sockaddr * address, const socklen_t length) noexcept {
+		// Отправляем дейтаграмму адресату и возвращаем её размер
+		return static_cast <long> (::sendto(peer, data, size, 0, address, length));
+	}
 	// Приём дейтаграммы с адресом отправителя
-	static inline long receivingfrom(const int fd, void * data, const size_t size, struct sockaddr * peer, socklen_t * length) noexcept { return static_cast <long> (::recvfrom(fd, data, size, 0, peer, length)); }
+	static inline long receivingfrom(const int peer, void * data, const size_t size, struct sockaddr * address, socklen_t * length) noexcept {
+		// Принимаем дейтаграмму с адресом отправителя и возвращаем её размер
+		return static_cast <long> (::recvfrom(peer, data, size, 0, address, length));
+	}
 #endif
 
 /**
- * @brief Именованный канал для команд серверу openssl: у Windows его нет, и оснастка
+ * @brief Функция именованного канала для команд серверу openssl: у Windows его нет, и оснастка
  *        честно отвечает отказом - интероп там пропускается
  *
  * @param path путь канала

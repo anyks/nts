@@ -62,7 +62,7 @@ namespace {
 	 * @return       признак успешности составления записи имени
 	 *
 	 */
-	bool title(asn1::writer_t & writer, const string & name) noexcept {
+	bool __nts_title__(asn1::writer_t & writer, const string & name) noexcept {
 		// Открываем набор записей имени стороны сертификата
 		if(!writer.open(asn1::tag_t::SEQUENCE))
 			// Выводим отказ составления записи имени
@@ -103,7 +103,7 @@ namespace {
 	 * @return            признак успешности чтения подлинности
 	 *
 	 */
-	bool keyed(const char * key, const char * certificate, context::credential_t & result) noexcept {
+	bool __nts_keyed__(const char * key, const char * certificate, context::credential_t & result) noexcept {
 		// Чтение файла набора ключей
 		const auto reading = [](const char * name) noexcept -> vector <uint8_t> {
 			// Открываем файл набора
@@ -135,7 +135,7 @@ namespace {
 	 *       а подпись владения ключом сличается именно с этим сертификатом
 	 *
 	 */
-	bool identity(const string & name, context::credential_t & result, const bool alien) noexcept {
+	bool __nts_identity__(const string & name, context::credential_t & result, const bool alien) noexcept {
 		// Эллиптическая кривая ключа стороны связи
 		curve::curve_t curve;
 		// Если кривую ключа стороны связи завести не удалось
@@ -173,7 +173,7 @@ namespace {
 		// Место, в которое помещается запись открытого ключа
 		uint8_t opened[64];
 		/**
-		 * Выполняем разворот записи координат: раздел 4 RFC 9215 велит записывать их в
+		 * Разворачиваем записи координат: раздел 4 RFC 9215 велит записывать их в
 		 * сертификат от младшего байта к старшему
 		 */
 		for(size_t i = 0; i < curve.size(); i++){
@@ -225,7 +225,7 @@ namespace {
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Если имя издателя сертификата записать не удалось
-		if(!title(body, name))
+		if(!__nts_title__(body, name))
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Открываем набор записи срока действия сертификата
@@ -245,7 +245,7 @@ namespace {
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Если имя владельца сертификата записать не удалось
-		if(!title(body, name))
+		if(!__nts_title__(body, name))
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Открываем набор сведений об открытом ключе
@@ -310,7 +310,7 @@ namespace {
 		// Место, в которое помещается подпись в записи сертификата
 		uint8_t reversed[64];
 		/**
-		 * Выполняем перестановку частей подписи: раздел 2 RFC 9215 велит записывать в
+		 * Переставляем частей подписи: раздел 2 RFC 9215 велит записывать в
 		 * сертификат сперва число s, а затем число r
 		 */
 		::memcpy(reversed, signature + curve.size(), curve.size());
@@ -356,7 +356,7 @@ namespace {
 			return false;
 		// Получаем составленную запись сертификата
 		const view_t data = writer.data();
-		// Выполняем сброс цепочки сертификатов стороны связи
+		// Сбрасываем цепочки сертификатов стороны связи
 		result.chain.clear();
 		// Добавляем составленный сертификат в цепочку стороны связи
 		result.chain.push_back(vector <uint8_t> (data.data, data.data + data.size));
@@ -371,9 +371,9 @@ namespace {
 	 * @return       признак успешности выработки подлинности стороны
 	 *
 	 */
-	bool identity(const string & name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const string & name, context::credential_t & result) noexcept {
 		// Вырабатываем подлинность своим алгоритмом
-		return identity(name, result, false);
+		return __nts_identity__(name, result, false);
 	}
 	/**
 	 * @brief Функция подачи связи одиночного сообщения рукопожатия открытой записью
@@ -387,7 +387,7 @@ namespace {
 	 *       завела: так проверяются заслоны черёда, стоящие до всякого разбора тела
 	 *
 	 */
-	bool sole(const handshake::type_t type, const view_t & body, vector <uint8_t> & wire) noexcept {
+	bool __nts_sole__(const handshake::type_t type, const view_t & body, vector <uint8_t> & wire) noexcept {
 		// Объект составителя отправляемых сообщений рукопожатия
 		handshake::writer_t writer;
 		// Если сообщение рукопожатия составить не удалось
@@ -405,13 +405,13 @@ namespace {
 		// Получаем нарезанные записи сообщения рукопожатия
 		const view_t plaintext = plain.data();
 		/**
-		 * Выполняем перехват ошибок
+		 * Перехватываем ошибок
 		 */
 		try {
-			// Выполняем перенос нарезанных записей в накопитель
+			// Переносим нарезанных записей в накопитель
 			wire.assign(plaintext.data, plaintext.data + plaintext.size);
 		/**
-		 * Выполняем перехват ошибок
+		 * Перехватываем ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим отказ составления записи связи
@@ -428,22 +428,22 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		/**
-		 * Выполняем перехват ошибок
+		 * Перехватываем ошибок
 		 */
 		try {
 			// Получаем байты, отправляемые клиентом
 			view_t data = client.output();
 			// Если клиенту есть что отправить серверу
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемых байтов
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя клиента
 				client.consume(buffer.size());
-				// Выполняем подачу отправленных байтов серверу
+				// Подаём отправленных байтов серверу
 				server.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
@@ -452,17 +452,17 @@ namespace {
 			data = server.output();
 			// Если серверу есть что отправить клиенту
 			if(data.size > 0){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемых байтов
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя сервера
 				server.consume(buffer.size());
-				// Выполняем подачу отправленных байтов клиенту
+				// Подаём отправленных байтов клиенту
 				client.push(view_t(buffer.data(), buffer.size()));
 				// Запоминаем, что байты между сторонами передавались
 				moved = true;
 			}
 		/**
-		 * Выполняем перехват ошибок
+		 * Перехватываем ошибок
 		 */
 		} catch(const bad_alloc &) {
 			// Выводим признак того, что байты между сторонами не передавались
@@ -478,11 +478,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байтов между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	}
@@ -511,7 +511,7 @@ namespace {
 		string asked;
 	} selecting_t;
 	/**
-	 * @brief Отклик выбора подлинности сервера по имени узла для пинов
+	 * @brief Функция отклика выбора подлинности сервера по имени узла для пинов
 	 *
 	 * @param name       имя узла, предъявленное клиентом
 	 * @param credential накопитель выдаваемой подлинности
@@ -519,7 +519,7 @@ namespace {
 	 * @return           итог выбора подлинности
 	 *
 	 */
-	context::select_t::outcome_t answering(const string & name, context::credential_t & credential, void * context) noexcept {
+	context::select_t::outcome_t __nts_answering__(const string & name, context::credential_t & credential, void * context) noexcept {
 		// Настройки отклика выбора
 		selecting_t & settings = * static_cast <selecting_t *> (context);
 		// Запоминаем имя, предъявленное отклику
@@ -572,17 +572,17 @@ namespace {
 	 * @param state       состояние проверяемой стороны связи
 	 * @param error       отказ, которым сторона связи оборвана
 	 * @param description описание извещения, которым сторона связи оборвана
-	 * @param torn        признак обрыва связи, выставляемый по итогу проверки
+	 * @param __nts_torn__        признак обрыва связи, выставляемый по итогу проверки
 	 * @return            обнаруженное нарушение договора связи
 	 *
 	 */
-	breach_t torn(const context::state_t state, const context::error_t error, const alert::description_t description, bool & torn) noexcept {
+	breach_t __nts_torn__(const context::state_t state, const context::error_t error, const alert::description_t description, bool & __nts_torn__) noexcept {
 		// Если связь стороной не оборвана
 		if(state != context::state_t::FAILED)
 			// Выводим отсутствие нарушения договора связи
 			return breach_t::NONE;
 		// Запоминаем, что связь оборвана
-		torn = true;
+		__nts_torn__ = true;
 		// Если связь оборвана отказом, отличным от нехватки памяти
 		if(error != context::error_t::MEMORY)
 			// Выводим нарушение вида обрыва связи
@@ -604,7 +604,7 @@ namespace {
 	 *       следствием обрыва связи либо несостоявшегося рукопожатия
 	 *
 	 */
-	bool lawful(const context::error_t error) noexcept {
+	bool __nts_lawful__(const context::error_t error) noexcept {
 		// Выводим признак того, что отказ вызова договору отвечает
 		return (
 			(error == context::error_t::NONE) || (error == context::error_t::MEMORY) ||
@@ -624,10 +624,10 @@ namespace {
 	 *       заведёнными как внутри запаса, так и вне его
 	 *
 	 */
-	breach_t starving(client::context_t & client, server::context_t & server, const context::credential_t & credentials, bool & starved) noexcept {
+	breach_t __nts_starving__(client::context_t & client, server::context_t & server, const context::credential_t & credentials, bool & starved) noexcept {
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		context::error_t error = server.start();
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || (error == context::error_t::MEMORY));
@@ -635,7 +635,7 @@ namespace {
 		if((error != context::error_t::NONE) && (error != context::error_t::MEMORY))
 			// Выводим нарушение договора заведения связи
 			return breach_t::SETUP;
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		error = client.start();
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || (error == context::error_t::MEMORY));
@@ -643,18 +643,18 @@ namespace {
 		if((error != context::error_t::NONE) && (error != context::error_t::MEMORY))
 			// Выводим нарушение договора заведения связи
 			return breach_t::SETUP;
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Признак того, что связь оборвана одной из сторон
 		bool failed = false;
-		// Выполняем проверку обрыва связи стороной клиента
-		breach_t breach = torn(client.state(), client.error(), client.alert().description, failed);
+		// Проверяем обрыва связи стороной клиента
+		breach_t breach = __nts_torn__(client.state(), client.error(), client.alert().description, failed);
 		// Если договор обрыва связи нарушен
 		if(breach != breach_t::NONE)
 			// Выводим обнаруженное нарушение договора связи
 			return breach;
-		// Выполняем проверку обрыва связи стороной сервера
-		breach = torn(server.state(), server.error(), server.alert().description, failed);
+		// Проверяем обрыва связи стороной сервера
+		breach = __nts_torn__(server.state(), server.error(), server.alert().description, failed);
 		// Если договор обрыва связи нарушен
 		if(breach != breach_t::NONE)
 			// Выводим обнаруженное нарушение договора связи
@@ -665,32 +665,32 @@ namespace {
 		static const char text[] = "Запрос прикладного протокола при нехватке памяти";
 		// Прикладные данные, отправляемые клиентом
 		const view_t request(reinterpret_cast <const uint8_t *> (text), sizeof(text) - 1);
-		// Выполняем отправку прикладных данных клиентом
+		// Отправляем прикладных данных клиентом
 		error = client.write(request);
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || (error == context::error_t::MEMORY));
 		// Если отправка прикладных данных ответила отказом вне договора
-		if(!lawful(error))
+		if(!__nts_lawful__(error))
 			// Выводим нарушение договора отправки прикладных данных
 			return breach_t::WRITE;
 		// Признак того, что прикладные данные отправлены
 		const bool written = (error == context::error_t::NONE);
-		// Выполняем передачу байтов между сторонами связи
-		pump(client, server);
-		// Выполняем проверку обрыва связи стороной сервера
-		breach = torn(server.state(), server.error(), server.alert().description, failed);
+		// Передаём байтов между сторонами связи
+		__nts_pump__(client, server);
+		// Проверяем обрыва связи стороной сервера
+		breach = __nts_torn__(server.state(), server.error(), server.alert().description, failed);
 		// Если договор обрыва связи нарушен
 		if(breach != breach_t::NONE)
 			// Выводим обнаруженное нарушение договора связи
 			return breach;
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
-		// Выполняем получение принятых сервером прикладных данных
+		// Получаем принятых сервером прикладных данных
 		error = server.read(received);
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || (error == context::error_t::MEMORY));
 		// Если получение прикладных данных ответило отказом вне договора
-		if(!lawful(error))
+		if(!__nts_lawful__(error))
 			// Выводим нарушение договора получения прикладных данных
 			return breach_t::READ;
 		/**
@@ -701,34 +701,34 @@ namespace {
 		if(written && (error == context::error_t::NONE) && !received.empty() && ((received.size() != request.size) || (::memcmp(received.data(), request.data, request.size) != 0)))
 			// Выводим нарушение целости прикладных данных
 			return breach_t::PAYLOAD;
-		// Выполняем закрытие связи стороной клиента
+		// Закрываем связи стороной клиента
 		error = client.close();
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || (error == context::error_t::MEMORY));
 		// Если закрытие связи ответило отказом вне договора
-		if(!lawful(error))
+		if(!__nts_lawful__(error))
 			// Выводим нарушение договора закрытия связи
 			return breach_t::CLOSE;
-		// Выполняем передачу байтов между сторонами связи
-		pump(client, server);
-		// Выполняем закрытие связи стороной сервера
+		// Передаём байтов между сторонами связи
+		__nts_pump__(client, server);
+		// Закрываем связи стороной сервера
 		error = server.close();
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || (error == context::error_t::MEMORY));
 		// Если закрытие связи ответило отказом вне договора
-		if(!lawful(error))
+		if(!__nts_lawful__(error))
 			// Выводим нарушение договора закрытия связи
 			return breach_t::CLOSE;
-		// Выполняем передачу байтов между сторонами связи
-		pump(client, server);
-		// Выполняем проверку обрыва связи стороной клиента
-		breach = torn(client.state(), client.error(), client.alert().description, failed);
+		// Передаём байтов между сторонами связи
+		__nts_pump__(client, server);
+		// Проверяем обрыва связи стороной клиента
+		breach = __nts_torn__(client.state(), client.error(), client.alert().description, failed);
 		// Если договор обрыва связи нарушен
 		if(breach != breach_t::NONE)
 			// Выводим обнаруженное нарушение договора связи
 			return breach;
-		// Выполняем проверку обрыва связи стороной сервера
-		breach = torn(server.state(), server.error(), server.alert().description, failed);
+		// Проверяем обрыва связи стороной сервера
+		breach = __nts_torn__(server.state(), server.error(), server.alert().description, failed);
 		// Если договор обрыва связи нарушен
 		if(breach != breach_t::NONE)
 			// Выводим обнаруженное нарушение договора связи
@@ -746,8 +746,8 @@ namespace {
 TEST(ContextTest, Handshake){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -758,12 +758,12 @@ TEST(ContextTest, Handshake){
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи стороной клиента
 	ASSERT_TRUE(client.established());
 	// Проверяем установленность связи стороной сервера
@@ -776,30 +776,30 @@ TEST(ContextTest, Handshake){
 	ASSERT_EQ(client.peer()[0], credentials.chain[0]);
 	// Прикладные данные, отправляемые клиентом
 	const string request = "Запрос прикладного протокола";
-	// Выполняем отправку прикладных данных клиентом
+	// Отправляем прикладных данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), request);
 	// Прикладные данные, отправляемые сервером
 	const string answer = "Ответ прикладного протокола";
-	// Выполняем отправку прикладных данных сервером
+	// Отправляем прикладных данных сервером
 	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
-	// Выполняем получение принятых клиентом прикладных данных
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
+	// Получаем принятых клиентом прикладных данных
 	ASSERT_EQ(client.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), answer);
-	// Выполняем закрытие связи стороной клиента
+	// Закрываем связи стороной клиента
 	ASSERT_EQ(client.close(), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Проверяем закрытие связи стороной сервера
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -810,10 +810,10 @@ TEST(ContextTest, Handshake){
 TEST(ContextTest, Mutual){
 	// Подлинность сторон связи
 	context::credential_t first, second;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", first));
-	// Выполняем выработку подлинности стороны клиента
-	ASSERT_TRUE(identity("client.anyks.com", second));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", first));
+	// Вырабатываем подлинности стороны клиента
+	ASSERT_TRUE(__nts_identity__("client.anyks.com", second));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -828,12 +828,12 @@ TEST(ContextTest, Mutual){
 	server.request(true);
 	// Устанавливаем подлинность стороны клиента
 	client.credential(second);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи стороной клиента
 	ASSERT_TRUE(client.established());
 	// Проверяем установленность связи стороной сервера
@@ -850,12 +850,12 @@ TEST(ContextTest, Mutual){
 TEST(ContextTest, Selection){
 	// Общая подлинность слушателя
 	context::credential_t common;
-	// Выполняем выработку общей подлинности слушателя
-	ASSERT_TRUE(identity("anyks.com", common));
+	// Вырабатываем общей подлинности слушателя
+	ASSERT_TRUE(__nts_identity__("anyks.com", common));
 	// Подлинность, выдаваемая по имени узла
 	context::credential_t named;
-	// Выполняем выработку подлинности, выдаваемой по имени узла
-	ASSERT_TRUE(identity("shop.example.com", named));
+	// Вырабатываем подлинности, выдаваемой по имени узла
+	ASSERT_TRUE(__nts_identity__("shop.example.com", named));
 	// Настройки отклика выбора подлинности
 	selecting_t settings;
 	// Устанавливаем имя, по которому выдаётся подлинность
@@ -863,7 +863,7 @@ TEST(ContextTest, Selection){
 	// Устанавливаем подлинность, выдаваемую по имени
 	settings.named = &named;
 	/**
-	 * Выполняем перебор исходов выбора: точное имя выдаёт именованную подлинность, чужое имя и имя без расширения оставляют общую
+	 * Перебираем исходов выбора: точное имя выдаёт именованную подлинность, чужое имя и имя без расширения оставляют общую
 	 */
 	for(size_t i = 0; i < 3; i++){
 		// Предъявляемое клиентом имя узла: вторая связь приходит вовсе без имени
@@ -881,17 +881,17 @@ TEST(ContextTest, Selection){
 		// Устанавливаем общую подлинность слушателя
 		server.credential(common);
 		// Устанавливаем выбор подлинности по имени узла
-		server.select(context::select_t(answering, &settings));
+		server.select(context::select_t(__nts_answering__, &settings));
 		// Если имя клиентом предъявляется
 		if(visited != nullptr)
 			// Устанавливаем имя узла, предъявляемое клиентом
 			client.name(visited);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи стороной клиента
 		ASSERT_TRUE(client.established());
 		// Проверяем установленность связи стороной сервера
@@ -911,12 +911,12 @@ TEST(ContextTest, Selection){
 TEST(ContextTest, SelectionLegacy){
 	// Общая подлинность слушателя из корпуса: наборы издания 1.2 просят ECDSA/RSA
 	context::credential_t common;
-	// Выполняем чтение общей подлинности слушателя
-	ASSERT_TRUE(keyed("rsa2048.pem", "rsa2048.crt", common));
+	// Читаем общей подлинности слушателя
+	ASSERT_TRUE(__nts_keyed__("rsa2048.pem", "rsa2048.crt", common));
 	// Подлинность, выдаваемая по имени узла, из корпуса
 	context::credential_t named;
-	// Выполняем чтение подлинности, выдаваемой по имени узла
-	ASSERT_TRUE(keyed("ec256.pem", "ec256.crt", named));
+	// Читаем подлинности, выдаваемой по имени узла
+	ASSERT_TRUE(__nts_keyed__("ec256.pem", "ec256.crt", named));
 	// Настройки отклика выбора подлинности
 	selecting_t settings;
 	// Устанавливаем имя, по которому выдаётся подлинность
@@ -940,15 +940,15 @@ TEST(ContextTest, SelectionLegacy){
 	// Устанавливаем общую подлинность слушателя
 	server.credential(common);
 	// Устанавливаем выбор подлинности по имени узла
-	server.select(context::select_t(answering, &settings));
+	server.select(context::select_t(__nts_answering__, &settings));
 	// Устанавливаем имя узла, предъявляемое клиентом
 	client.name("shop.example.com");
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем отсутствие отказа заведения связи стороной сервера
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	// Проверяем отсутствие отказа заведения связи стороной клиента
@@ -973,12 +973,12 @@ TEST(ContextTest, SelectionLegacy){
 TEST(ContextTest, SelectionRefusals){
 	// Общая подлинность слушателя
 	context::credential_t common;
-	// Выполняем выработку общей подлинности слушателя
-	ASSERT_TRUE(identity("anyks.com", common));
+	// Вырабатываем общей подлинности слушателя
+	ASSERT_TRUE(__nts_identity__("anyks.com", common));
 	// Подлинность, выдаваемая по имени узла
 	context::credential_t named;
-	// Выполняем выработку подлинности, выдаваемой по имени узла
-	ASSERT_TRUE(identity("shop.example.com", named));
+	// Вырабатываем подлинности, выдаваемой по имени узла
+	ASSERT_TRUE(__nts_identity__("shop.example.com", named));
 	// Настройки отклика выбора подлинности
 	selecting_t settings;
 	// Устанавливаем имя, по которому выдаётся подлинность
@@ -988,7 +988,7 @@ TEST(ContextTest, SelectionRefusals){
 	// Отказы выбора подлинности, ожидаемые по видам поведения отклика
 	const context::error_t expected[] = {context::error_t::NAME, context::error_t::SIGNATURE};
 	/**
-	 * Выполняем перебор видов поведения отклика: отказ вести имя и порченый выданный ключ
+	 * Перебираем видов поведения отклика: отказ вести имя и порченый выданный ключ
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Устанавливаем вид поведения отклика
@@ -1004,15 +1004,15 @@ TEST(ContextTest, SelectionRefusals){
 		// Устанавливаем общую подлинность слушателя
 		server.credential(common);
 		// Устанавливаем выбор подлинности по имени узла
-		server.select(context::select_t(answering, &settings));
+		server.select(context::select_t(__nts_answering__, &settings));
 		// Устанавливаем имя узла, предъявляемое клиентом
 		client.name("shop.example.com");
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем неустановленность связи сторон
 		ASSERT_FALSE(client.established() || server.established());
 		// Проверяем отказ выбора подлинности стороной сервера
@@ -1028,8 +1028,8 @@ TEST(ContextTest, SelectionRefusals){
 TEST(ContextTest, Prepared){
 	// Подлинность сервера ГОСТ: голый скаляр по кривой сертификата
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Неподготовленная подлинность не готова
 	ASSERT_FALSE(credentials.ready());
 	ASSERT_FALSE(credentials.signer);
@@ -1042,7 +1042,7 @@ TEST(ContextTest, Prepared){
 	ASSERT_EQ(credentials.signer->kind(), keys::kind_t::GOST);
 	ASSERT_EQ(credentials.stamp.size(), static_cast <size_t> (32));
 	/**
-	 * Выполняем два рукопожатия подряд: связи делят один подготовленный ключ
+	 * Ведём два рукопожатия подряд: связи делят один подготовленный ключ
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Связи сторон
@@ -1057,11 +1057,11 @@ TEST(ContextTest, Prepared){
 		server.credential(credentials);
 		// Подготовленный ключ разделён связью
 		ASSERT_EQ(credentials.signer.use_count(), 2L);
-		// Выполняем заведение связей
+		// Заводим связей
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия
-		converse(client, server);
+		// Проводим рукопожатия
+		__nts_converse__(client, server);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -1076,7 +1076,7 @@ TEST(ContextTest, Prepared){
 	// Встречная подлинность клиента, тоже подготовленная
 	context::credential_t second;
 	// Подлинность клиента читается из ключей
-	ASSERT_TRUE(identity("client.anyks.com", second));
+	ASSERT_TRUE(__nts_identity__("client.anyks.com", second));
 	// Подготовка встречной подлинности удаётся
 	ASSERT_EQ(second.prepare(), context::error_t::NONE);
 	{
@@ -1094,11 +1094,11 @@ TEST(ContextTest, Prepared){
 		server.request(true);
 		// Устанавливаем подлинность стороны клиента
 		client.credential(second);
-		// Выполняем заведение связей и рукопожатие
+		// Заводим связей и рукопожатие
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи и сертификат клиента у сервера
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -1111,13 +1111,13 @@ TEST(ContextTest, Prepared){
 	// Ожидаемые виды ключей
 	const keys::kind_t kinds[] = {keys::kind_t::EC, keys::kind_t::RSA, keys::kind_t::ED25519};
 	/**
-	 * Выполняем перебор классических подлинностей
+	 * Перебираем классических подлинностей
 	 */
 	for(size_t i = 0; i < 3; i++){
 		// Подлинность из набора ключей
 		context::credential_t classic;
 		// Читаем подлинность
-		ASSERT_TRUE(keyed(files[i][0], files[i][1], classic)) << "Ключ: " << files[i][0];
+		ASSERT_TRUE(__nts_keyed__(files[i][0], files[i][1], classic)) << "Ключ: " << files[i][0];
 		// Готовим ключ подлинности
 		ASSERT_EQ(classic.prepare(), context::error_t::NONE) << "Ключ: " << files[i][0];
 		// Классическая подлинность готова
@@ -1138,11 +1138,11 @@ TEST(ContextTest, Prepared){
 		server.groups(vector <extension::group_t> {extension::group_t::X25519});
 		// Устанавливаем подлинность стороны сервера
 		server.credential(classic);
-		// Выполняем заведение связей и рукопожатие
+		// Заводим связей и рукопожатие
 		ASSERT_EQ(server.start(), context::error_t::NONE) << "Ключ: " << files[i][0];
 		ASSERT_EQ(client.start(), context::error_t::NONE) << "Ключ: " << files[i][0];
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи и принятый сертификат
 		ASSERT_TRUE(client.established()) << "Ключ: " << files[i][0];
 		ASSERT_TRUE(server.established()) << "Ключ: " << files[i][0];
@@ -1174,7 +1174,7 @@ TEST(ContextTest, Prepared){
 	// Голый скаляр при сертификате не ГОСТ
 	context::credential_t classic;
 	// Классическая подлинность читается из пары файлов
-	ASSERT_TRUE(keyed("ec256.pem", "ec256.crt", classic));
+	ASSERT_TRUE(__nts_keyed__("ec256.pem", "ec256.crt", classic));
 	// Переносим цепочку годного классического ключа в мусорную подлинность
 	garbage.chain = classic.chain;
 	// Подготовка мусорного ключа отказывает подписью
@@ -1189,9 +1189,9 @@ TEST(ContextTest, Prepared){
 TEST(ContextTest, Outdated){
 	// Подлинности стороны сервера: подготовленная и подменяющая
 	context::credential_t credentials, other;
-	// Выполняем выработку подлинностей
-	ASSERT_TRUE(identity("anyks.com", credentials));
-	ASSERT_TRUE(identity("other.anyks.com", other));
+	// Вырабатываем подлинностей
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("other.anyks.com", other));
 	// Готовим ключ первой подлинности
 	ASSERT_EQ(credentials.prepare(), context::error_t::NONE);
 	// Подлинность готова
@@ -1215,11 +1215,11 @@ TEST(ContextTest, Outdated){
 		gosting(server);
 		// Устанавливаем подменённую подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей и рукопожатие
+		// Заводим связей и рукопожатие
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		/**
 		 * Связь обязана подписать владение новым ключом: клиент сличает подпись с
 		 * сертификатом подменённой цепочки, и устаревший ключ рукопожатие сорвал бы
@@ -1264,8 +1264,8 @@ TEST(ContextTest, Outdated){
 TEST(ContextTest, Retry){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1283,12 +1283,12 @@ TEST(ContextTest, Retry){
 	client.groups({extension::group_t::GC256B, extension::group_t::GC512C});
 	// Устанавливаем единственную кривую обмена ключами сервера
 	server.groups({extension::group_t::GC512C});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи стороной клиента
 	ASSERT_TRUE(client.established());
 	// Проверяем установленность связи стороной сервера
@@ -1301,8 +1301,8 @@ TEST(ContextTest, Retry){
 TEST(ContextTest, Corrupted){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1313,29 +1313,29 @@ TEST(ContextTest, Corrupted){
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Получаем приветствие, отправляемое клиентом серверу
 	view_t greeting = client.output();
-	// Выполняем перенос отправляемого клиентом приветствия
+	// Переносим отправляемого клиентом приветствия
 	const vector <uint8_t> hello(greeting.data, greeting.data + greeting.size);
 	// Снимаем отправленное приветствие с накопителя клиента
 	client.consume(hello.size());
-	// Выполняем подачу приветствия клиента серверу
+	// Подаём приветствия клиента серверу
 	ASSERT_EQ(server.push(view_t(hello.data(), hello.size())), context::error_t::NONE);
 	// Получаем байты, отправляемые сервером клиенту
 	const view_t data = server.output();
 	// Проверяем наличие отправляемых сервером байтов
 	ASSERT_GT(data.size, static_cast <size_t> (0));
-	// Выполняем перенос отправляемых сервером байтов
+	// Переносим отправляемых сервером байтов
 	vector <uint8_t> buffer(data.data, data.data + data.size);
 	// Снимаем отправленные байты с накопителя сервера
 	server.consume(buffer.size());
 	// Портим последний байт отправленных сервером записей
 	buffer[buffer.size() - 1] ^= 0x01;
-	// Выполняем подачу испорченных байтов клиенту
+	// Подаём испорченных байтов клиенту
 	client.push(view_t(buffer.data(), buffer.size()));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.state(), context::state_t::FAILED);
@@ -1368,13 +1368,13 @@ TEST(ContextTest, Settings){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проверяем отказ повторного заведения связи
 	ASSERT_EQ(client.start(), context::error_t::STATE);
 	// Проверяем отказ отправки прикладных данных до установления связи
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("test"), 4)), context::error_t::STATE);
-	// Выполняем сброс состояния связи стороны клиента
+	// Сбрасываем состояния связи стороны клиента
 	client.clear();
 	// Проверяем сброс состояния связи стороны клиента
 	ASSERT_EQ(client.state(), context::state_t::NONE);
@@ -1388,8 +1388,8 @@ TEST(ContextTest, Settings){
 TEST(ContextTest, Update){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1400,58 +1400,58 @@ TEST(ContextTest, Update){
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
 	// Прикладные данные, отправляемые до смены ключевого материала
 	const string first = "Данные до смены ключей";
-	// Выполняем смену ключевого материала своего направления клиентом
+	// Меняем ключевого материала своего направления клиентом
 	ASSERT_EQ(client.update(false), context::error_t::NONE);
-	// Выполняем отправку прикладных данных новыми ключами клиента
+	// Отправляем прикладных данных новыми ключами клиента
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (first.data()), first.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Проверяем сохранность связи стороной сервера
 	ASSERT_TRUE(server.established());
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), first);
 	// Прикладные данные, отправляемые за просьбою о встречной смене
 	const string second = "Данные после встречной смены";
 	/**
-	 * Выполняем смену ключевого материала сервером с просьбою о встречной смене:
+	 * Меняем ключевого материала сервером с просьбою о встречной смене:
 	 * клиент обязан сменить ключи своего направления в ответ
 	 */
 	ASSERT_EQ(server.update(true), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Проверяем сохранность связи стороной клиента
 	ASSERT_TRUE(client.established());
-	// Выполняем передачу встречной смены ключей серверу
-	pump(client, server);
-	// Выполняем отправку прикладных данных новыми ключами клиента
+	// Передаём встречной смены ключей серверу
+	__nts_pump__(client, server);
+	// Отправляем прикладных данных новыми ключами клиента
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (second.data()), second.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
-	// Выполняем получение принятых сервером прикладных данных
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), second);
 	// Прикладные данные, отправляемые сервером новыми ключами
 	const string third = "Ответ сервера новыми ключами";
-	// Выполняем отправку прикладных данных новыми ключами сервера
+	// Отправляем прикладных данных новыми ключами сервера
 	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (third.data()), third.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
-	// Выполняем получение принятых клиентом прикладных данных
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
+	// Получаем принятых клиентом прикладных данных
 	ASSERT_EQ(client.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), third);
@@ -1467,7 +1467,7 @@ TEST(ContextTest, Rotation){
 	gosting(client);
 	// Проверяем отказ смены ключевого материала до заведения связи
 	ASSERT_EQ(client.update(false), context::error_t::STATE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проверяем отказ смены ключевого материала до рукопожатия
 	ASSERT_EQ(client.update(false), context::error_t::STATE);
@@ -1479,8 +1479,8 @@ TEST(ContextTest, Rotation){
 TEST(ContextTest, Ticket){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1491,28 +1491,28 @@ TEST(ContextTest, Ticket){
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем отсутствие билетов до их выдачи сервером
 	ASSERT_TRUE(client.tickets().empty());
-	// Выполняем выдачу первого билета возобновления связи
+	// Выдаём первого билета возобновления связи
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
-	// Выполняем выдачу второго билета возобновления связи
+	// Выдаём второго билета возобновления связи
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Проверяем число билетов, принятых клиентом
 	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (2));
 	// Проверяем число билетов, выданных сервером
 	ASSERT_EQ(server.tickets().size(), static_cast <size_t> (2));
 	/**
-	 * Выполняем перебор билетов возобновления связи
+	 * Перебираем билетов возобновления связи
 	 */
 	for(size_t i = 0; i < client.tickets().size(); i++){
 		// Проверяем схождение тела принятого билета с выданным
@@ -1538,13 +1538,13 @@ TEST(ContextTest, Ticket){
 	ASSERT_NE(client.tickets()[0].identity, client.tickets()[1].identity);
 	// Прикладные данные, отправляемые за выдачей билетов
 	const string request = "Данные после выдачи билетов";
-	// Выполняем отправку прикладных данных клиентом
+	// Отправляем прикладных данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), request);
@@ -1562,11 +1562,11 @@ TEST(ContextTest, Issue){
 	ASSERT_EQ(server.issue(), context::error_t::STATE);
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Проверяем отказ выдачи билета до рукопожатия
 	ASSERT_EQ(server.issue(), context::error_t::STATE);
@@ -1578,8 +1578,8 @@ TEST(ContextTest, Issue){
 TEST(ContextTest, Resume){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты возобновления связи, выданные первой связью
 	vector <context::ticket_t> issued;
 	/**
@@ -1596,20 +1596,20 @@ TEST(ContextTest, Resume){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем, что первая связь билетом не возобновлялась
 		ASSERT_FALSE(client.shared());
-		// Выполняем выдачу билета возобновления связи
+		// Выдаём билета возобновления связи
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
-		// Выполняем передачу билета возобновления связи клиенту
-		pump(client, server);
+		// Передаём билета возобновления связи клиенту
+		__nts_pump__(client, server);
 		// Проверяем приём билета возобновления связи клиентом
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Запоминаем билеты, выданные первой связью
@@ -1633,12 +1633,12 @@ TEST(ContextTest, Resume){
 	server.resume(vector <context::ticket_t> {issued[0]});
 	// Предъявляем серверу билет, принятый прошлой связью
 	client.resume(issued[1]);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established());
 	// Проверяем установленность связи стороной сервера
@@ -1654,13 +1654,13 @@ TEST(ContextTest, Resume){
 	ASSERT_TRUE(client.peer().empty());
 	// Прикладные данные, отправляемые по возобновлённой связи
 	const string request = "Данные возобновлённой связи";
-	// Выполняем отправку прикладных данных клиентом
+	// Отправляем прикладных данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), request);
@@ -1672,8 +1672,8 @@ TEST(ContextTest, Resume){
 TEST(ContextTest, Unknown){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1692,12 +1692,12 @@ TEST(ContextTest, Unknown){
 	ticket.secret.assign(32, 0x22);
 	// Предъявляем серверу билет, которого он не выдавал
 	client.resume(ticket);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	/**
 	 * Непризнанный билет связи не рвёт: она идёт полным рукопожатием, будто билета
 	 * и не предъявлялось вовсе
@@ -1717,8 +1717,8 @@ TEST(ContextTest, Unknown){
 TEST(ContextTest, Binder){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билет, признаваемый сервером
 	context::ticket_t known;
 	// Устанавливаем тело признаваемого билета
@@ -1746,12 +1746,12 @@ TEST(ContextTest, Binder){
 	server.resume(vector <context::ticket_t> {known});
 	// Предъявляем серверу билет с испорченным ключом
 	client.resume(offered);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем обрыв связи стороной сервера
 	ASSERT_EQ(server.state(), context::state_t::FAILED);
 	// Проверяем отказ, которым связь оборвана
@@ -1766,8 +1766,8 @@ TEST(ContextTest, Binder){
 TEST(ContextTest, Retried){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты возобновления связи, выданные первой связью
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом первой связи
@@ -1786,18 +1786,18 @@ TEST(ContextTest, Retried){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
-		// Выполняем выдачу билета возобновления связи
+		// Выдаём билета возобновления связи
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
-		// Выполняем передачу билета возобновления связи клиенту
-		pump(client, server);
+		// Передаём билета возобновления связи клиенту
+		__nts_pump__(client, server);
 		// Проверяем приём билета возобновления связи клиентом
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Запоминаем билеты, признаваемые будущим сервером
@@ -1826,12 +1826,12 @@ TEST(ContextTest, Retried){
 	client.groups({extension::group_t::GC256B, extension::group_t::GC512C});
 	// Устанавливаем единственную кривую обмена ключами сервера
 	server.groups({extension::group_t::GC512C});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	/**
@@ -1845,13 +1845,13 @@ TEST(ContextTest, Retried){
 	ASSERT_TRUE(client.peer().empty());
 	// Прикладные данные, отправляемые по возобновлённой связи
 	const string request = "Данные связи, возобновлённой с повтором приветствия";
-	// Выполняем отправку прикладных данных клиентом
+	// Отправляем прикладных данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), request);
@@ -1871,7 +1871,7 @@ namespace {
 	 * @return            признак успешности выдачи билета возобновления связи
 	 *
 	 */
-	bool granted(const context::credential_t & credentials, vector <context::ticket_t> & issued, context::ticket_t & accepted) noexcept {
+	bool __nts_granted__(const context::credential_t & credentials, vector <context::ticket_t> & issued, context::ticket_t & accepted) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
 		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1895,8 +1895,8 @@ namespace {
 		if(client.start() != context::error_t::NONE)
 			// Выводим отказ выдачи билета возобновления связи
 			return false;
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Если рукопожатие сторонами связи не пройдено
 		if(!client.established() || !server.established())
 			// Выводим отказ выдачи билета возобновления связи
@@ -1905,8 +1905,8 @@ namespace {
 		if(server.issue() != context::error_t::NONE)
 			// Выводим отказ выдачи билета возобновления связи
 			return false;
-		// Выполняем передачу билета возобновления связи клиенту
-		pump(client, server);
+		// Передаём билета возобновления связи клиенту
+		__nts_pump__(client, server);
 		// Если билет возобновления связи клиентом не принят
 		if(client.tickets().empty())
 			// Выводим отказ выдачи билета возобновления связи
@@ -1926,14 +1926,14 @@ namespace {
 TEST(ContextTest, Disallowed){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Проверяем, что выданный билет упреждающие данные дозволяет
 	ASSERT_GT(accepted.advance, static_cast <uint32_t> (0));
 	// Объявляем принятый билет упреждающих данных не дозволяющим
@@ -1956,16 +1956,16 @@ TEST(ContextTest, Disallowed){
 	client.resume(accepted);
 	// Устанавливаем предложение упреждающих данных клиентом
 	client.advance(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
 	 * Предложение связи и дозволение билета сверяются РАЗНЫМИ половинами условия:
 	 * связь упреждающие данные предлагает, а билет их не дозволяет, и расширение
 	 * упреждающих данных в приветствие не ложится
 	 */
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем возобновление связи заранее разделённым ключом
@@ -1982,14 +1982,14 @@ TEST(ContextTest, Disallowed){
 TEST(ContextTest, Advance){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2008,9 +2008,9 @@ TEST(ContextTest, Advance){
 	client.resume(accepted);
 	// Устанавливаем предложение упреждающих данных сервером
 	client.advance(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Прикладные данные, отправляемые вместе с приветствием клиента
 	const string request = "Упреждающие данные, посланные до ответа сервера";
@@ -2021,8 +2021,8 @@ TEST(ContextTest, Advance){
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 	// Проверяем, что связь на миг отправки ещё не установлена
 	ASSERT_FALSE(client.established());
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем возобновление связи заранее разделённым ключом
@@ -2033,17 +2033,17 @@ TEST(ContextTest, Advance){
 	ASSERT_TRUE(server.accepted());
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых упреждающих данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), request);
 	// Прикладные данные, отправляемые по установленной связи
 	const string answer = "Ответ по установленной связи";
-	// Выполняем отправку прикладных данных сервером
+	// Отправляем прикладных данных сервером
 	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
-	// Выполняем получение принятых клиентом прикладных данных
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
+	// Получаем принятых клиентом прикладных данных
 	ASSERT_EQ(client.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), answer);
@@ -2055,14 +2055,14 @@ TEST(ContextTest, Advance){
 TEST(ContextTest, ExportingEarly){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2081,9 +2081,9 @@ TEST(ContextTest, ExportingEarly){
 	client.resume(accepted);
 	// Устанавливаем предложение упреждающих данных сервером
 	client.advance(true);
-	// Выполняем завод связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем завод связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Прикладные данные, отправляемые вместе с приветствием клиента
 	const string request = "Упреждающие данные для раннего экспорта";
@@ -2100,8 +2100,8 @@ TEST(ContextTest, ExportingEarly){
 	uint8_t late[32];
 	// Обычный экспорт до установления связи отказывает состоянием
 	ASSERT_EQ(client.exporting(view_t(reinterpret_cast <const uint8_t *> ("early label"), 11), view_t(nullptr, 0), late, sizeof(late)), context::error_t::STATE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Ранний экспорт сервера обязан сойтись с ранним экспортом клиента
@@ -2121,15 +2121,15 @@ TEST(ContextTest, ExportingEarly){
 TEST(ContextTest, Trailing){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного сервера с данными за закрытием
+	// Ведём рукопожатие враждебного сервера с данными за закрытием
 	ASSERT_TRUE(adversary(client, distortion_t::AFTERCLOSE, &credentials));
 	/**
 	 * Раздел 6.1 RFC 8446 велит пропускать всё, что пришло за извещением о закрытии:
@@ -2138,7 +2138,7 @@ TEST(ContextTest, Trailing){
 	ASSERT_EQ(client.error(), context::error_t::NONE);
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых клиентом прикладных данных
+	// Получаем принятых клиентом прикладных данных
 	client.read(received);
 	// Проверяем, что данные за извещением о закрытии связью пропущены
 	ASSERT_TRUE(received.empty());
@@ -2150,8 +2150,8 @@ TEST(ContextTest, Trailing){
 TEST(ContextTest, Farewell){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -2160,9 +2160,9 @@ TEST(ContextTest, Farewell){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного клиента с концом упреждающих данных
+	// Ведём рукопожатие враждебного клиента с концом упреждающих данных
 	ASSERT_TRUE(intruder(server, distortion_t::FAREWELL, &credentials));
 	/**
 	 * Раздел 4.5 RFC 8446: конец упреждающих данных закрывает поток, идущий ключами
@@ -2181,8 +2181,8 @@ TEST(ContextTest, Farewell){
 TEST(ContextTest, Dialect){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
 	// Билеты, признаваемые сервером возобновляемой связи
@@ -2207,20 +2207,20 @@ TEST(ContextTest, Dialect){
 		server.advance(true);
 		// Устанавливаем прикладной протокол, предлагаемый клиентом
 		client.protocols({"h2"});
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем выбор прикладного протокола сторонами связи
 		ASSERT_EQ(client.protocol(), "h2");
-		// Выполняем выдачу билета возобновления связи сервером
+		// Выдаём билета возобновления связи сервером
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
-		// Выполняем передачу билета возобновления связи клиенту
-		pump(client, server);
+		// Передаём билета возобновления связи клиенту
+		__nts_pump__(client, server);
 		// Проверяем приём билета возобновления связи клиентом
 		ASSERT_FALSE(client.tickets().empty());
 		// Запоминаем билеты, признаваемые будущим сервером
@@ -2255,16 +2255,16 @@ TEST(ContextTest, Dialect){
 	client.resume(accepted);
 	// Устанавливаем предложение упреждающих данных сервером
 	client.advance(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Прикладные данные, отправляемые вместе с приветствием клиента
 	const string request = "Упреждающие данные, сложенные по прежнему протоколу";
-	// Выполняем отправку упреждающих данных клиентом
+	// Отправляем упреждающих данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем возобновление связи заранее разделённым ключом
@@ -2284,14 +2284,14 @@ TEST(ContextTest, Dialect){
 TEST(ContextTest, Divergent){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Проверяем, что билет выдан набором шифрования на шифре «Кузнечик»
 	ASSERT_EQ(accepted.suite, protect::suite_t::KUZNYECHIK_MGM_L);
 	// Связь стороны клиента, возобновляющая прошлую
@@ -2317,16 +2317,16 @@ TEST(ContextTest, Divergent){
 	client.resume(accepted);
 	// Устанавливаем предложение упреждающих данных сервером
 	client.advance(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Прикладные данные, отправляемые вместе с приветствием клиента
 	const string request = "Упреждающие данные, зашифрованные набором билета";
-	// Выполняем отправку упреждающих данных клиентом
+	// Отправляем упреждающих данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем возобновление связи заранее разделённым ключом
@@ -2344,14 +2344,14 @@ TEST(ContextTest, Divergent){
 TEST(ContextTest, Rejected){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2373,16 +2373,16 @@ TEST(ContextTest, Rejected){
 	client.resume(accepted);
 	// Устанавливаем предложение упреждающих данных сервером
 	client.advance(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Прикладные данные, отправляемые вместе с приветствием клиента
 	const string request = "Упреждающие данные, которые сервер не примет";
-	// Выполняем отправку упреждающих данных клиентом
+	// Отправляем упреждающих данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	/**
 	 * Отвергнутые упреждающие данные связи не рвут: их записи сервер пропускает, а
 	 * рукопожатие идёт своим чередом
@@ -2394,17 +2394,17 @@ TEST(ContextTest, Rejected){
 	ASSERT_FALSE(client.accepted());
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем, что отвергнутые упреждающие данные сервера не достигли
 	ASSERT_TRUE(received.empty());
 	// Прикладные данные, отправляемые по установленной связи
 	const string repeated = "Те же данные, посланные заново по установленной связи";
-	// Выполняем отправку прикладных данных клиентом
+	// Отправляем прикладных данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (repeated.data()), repeated.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
-	// Выполняем получение принятых сервером прикладных данных
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), repeated);
@@ -2420,7 +2420,7 @@ TEST(ContextTest, Untimely){
 	gosting(client);
 	// Устанавливаем предложение упреждающих данных сервером
 	client.advance(true);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
 	 * Без билета возобновления связи упреждающих данных не бывает: ключи их выводить
@@ -2435,8 +2435,8 @@ TEST(ContextTest, Untimely){
 TEST(ContextTest, Protocol){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2456,12 +2456,12 @@ TEST(ContextTest, Protocol){
 	 * серверу, и выбран должен быть протокол, стоящий первым именно у него
 	 */
 	server.protocols({"h2", "http/1.1"});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи стороной клиента
 	ASSERT_TRUE(client.established());
 	// Проверяем установленность связи стороной сервера
@@ -2480,8 +2480,8 @@ TEST(ContextTest, Protocol){
 TEST(ContextTest, Mismatch){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2496,12 +2496,12 @@ TEST(ContextTest, Mismatch){
 	client.protocols({"http/1.1"});
 	// Устанавливаем прикладные протоколы, признаваемые сервером
 	server.protocols({"h2"});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем обрыв связи стороной сервера
 	ASSERT_EQ(server.error(), context::error_t::PROTOCOL);
 	/**
@@ -2521,8 +2521,8 @@ TEST(ContextTest, Mismatch){
 TEST(ContextTest, Foreign){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2537,9 +2537,9 @@ TEST(ContextTest, Foreign){
 	client.protocols({"h2"});
 	// Устанавливаем прикладные протоколы, признаваемые сервером
 	server.protocols({"h2"});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
 	 * Приветствие клиента составлено заведением связи и уже лежит в накопителе: сменив
@@ -2547,8 +2547,8 @@ TEST(ContextTest, Foreign){
 	 * не предлагала, - именно этот случай раздел 3.2 RFC 7301 и запрещает принимать
 	 */
 	client.protocols({"http/1.1"});
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::PROTOCOL);
 	// Проверяем извещение, которым связь оборвана клиентом
@@ -2565,8 +2565,8 @@ TEST(ContextTest, Foreign){
 TEST(ContextTest, Lifetime){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Миг выдачи билета возобновления связи
 	const int64_t issued = 1800000000;
 	// Билет, выданный сервером, и билет, принятый клиентом
@@ -2589,18 +2589,18 @@ TEST(ContextTest, Lifetime){
 		server.moment(issued);
 		// Устанавливаем миг, которым клиент судит сроки билетов
 		client.moment(issued);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
-		// Выполняем выдачу билета возобновления связи
+		// Выдаём билета возобновления связи
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
-		// Выполняем передачу билета возобновления связи клиенту
-		pump(client, server);
+		// Передаём билета возобновления связи клиенту
+		__nts_pump__(client, server);
 		// Проверяем приём билета возобновления связи клиентом
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Запоминаем билет, выданный сервером
@@ -2613,7 +2613,7 @@ TEST(ContextTest, Lifetime){
 		ASSERT_EQ(tickets[1].moment, issued);
 	}
 	/**
-	 * Выполняем перебор мигов, которыми судится срок билета
+	 * Перебираем мигов, которыми судится срок билета
 	 */
 	for(size_t item = 0; item < 2; item++){
 		/**
@@ -2640,12 +2640,12 @@ TEST(ContextTest, Lifetime){
 		server.resume(vector <context::ticket_t> (1, tickets[0]));
 		// Предъявляем билет возобновления связи серверу
 		client.resume(tickets[1]);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << "миг " << moment;
 		/**
@@ -2665,8 +2665,8 @@ TEST(ContextTest, Lifetime){
 TEST(ContextTest, Freshness){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Миг выдачи билета возобновления связи
 	const int64_t issued = 1800000000;
 	// Билет, выданный сервером, и билет, принятый клиентом
@@ -2691,16 +2691,16 @@ TEST(ContextTest, Freshness){
 		client.moment(issued);
 		// Объявляем дозволение упреждающих данных будущим билетом
 		server.advance(true);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
-		// Выполняем выдачу билета возобновления связи
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
+		// Выдаём билета возобновления связи
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
-		// Выполняем передачу билета возобновления связи клиенту
-		pump(client, server);
+		// Передаём билета возобновления связи клиенту
+		__nts_pump__(client, server);
 		// Проверяем приём билета возобновления связи клиентом
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Запоминаем билет, выданный сервером
@@ -2709,7 +2709,7 @@ TEST(ContextTest, Freshness){
 		tickets.push_back(client.tickets()[0]);
 	}
 	/**
-	 * Выполняем перебор расхождений часов сторон связи
+	 * Перебираем расхождений часов сторон связи
 	 */
 	for(size_t item = 0; item < 2; item++){
 		/**
@@ -2739,16 +2739,16 @@ TEST(ContextTest, Freshness){
 		client.advance(true);
 		// Объявляем приём упреждающих данных сервером
 		server.advance(true);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Прикладные данные, отправляемые клиентом с упреждением
 		const string request = "Упреждающие данные";
-		// Выполняем отправку упреждающих данных клиентом
+		// Отправляем упреждающих данных клиентом
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE) << "расхождение " << drift;
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << "расхождение " << drift;
 		// Проверяем возобновление связи билетом при всяком расхождении часов
@@ -2768,8 +2768,8 @@ TEST(ContextTest, Freshness){
 TEST(ContextTest, Overrun){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Предел упреждающих данных, объявляемый билетом
 	const uint32_t limit = 64;
 	// Билет, выданный сервером, и билет, принятый клиентом
@@ -2790,16 +2790,16 @@ TEST(ContextTest, Overrun){
 		server.credential(credentials);
 		// Объявляем предел упреждающих данных будущим билетом
 		server.advance(true, limit);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
-		// Выполняем выдачу билета возобновления связи
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
+		// Выдаём билета возобновления связи
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
-		// Выполняем передачу билета возобновления связи клиенту
-		pump(client, server);
+		// Передаём билета возобновления связи клиенту
+		__nts_pump__(client, server);
 		// Проверяем приём билета возобновления связи клиентом
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Запоминаем билет, выданный сервером
@@ -2827,21 +2827,21 @@ TEST(ContextTest, Overrun){
 	client.resume(tickets[1]);
 	// Объявляем предложение упреждающих данных клиентом
 	client.advance(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Упреждающие данные, укладывающиеся в объявленный предел
 	const vector <uint8_t> fitting(limit, 0x41);
-	// Выполняем отправку упреждающих данных в пределах дозволенного
+	// Отправляем упреждающих данных в пределах дозволенного
 	ASSERT_EQ(client.write(view_t(fitting.data(), fitting.size())), context::error_t::NONE);
 	/**
 	 * Предел упреждающих данных объявлен билетом, и выход за него связь отвергает
 	 * своей же стороной: раздел 4.2.10 RFC 8446 велит клиенту за предел не выходить
 	 */
 	ASSERT_EQ(client.write(view_t(fitting.data(), 1)), context::error_t::LIMIT);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем приём упреждающих данных сервером
@@ -2850,7 +2850,7 @@ TEST(ContextTest, Overrun){
 	ASSERT_TRUE(server.accepted());
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером упреждающих данных
+	// Получаем принятых сервером упреждающих данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых упреждающих данных с отправленными
 	ASSERT_EQ(received, fitting);
@@ -2862,8 +2862,8 @@ TEST(ContextTest, Overrun){
 TEST(ContextTest, Excess){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Предел упреждающих данных, объявляемый билетом
 	const uint32_t limit = 64;
 	// Билет, выданный сервером, и билет, принятый клиентом
@@ -2884,16 +2884,16 @@ TEST(ContextTest, Excess){
 		server.credential(credentials);
 		// Объявляем предел упреждающих данных будущим билетом
 		server.advance(true, limit);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
-		// Выполняем выдачу билета возобновления связи
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
+		// Выдаём билета возобновления связи
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
-		// Выполняем передачу билета возобновления связи клиенту
-		pump(client, server);
+		// Передаём билета возобновления связи клиенту
+		__nts_pump__(client, server);
 		// Проверяем приём билета возобновления связи клиентом
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Запоминаем билет, выданный сервером
@@ -2924,16 +2924,16 @@ TEST(ContextTest, Excess){
 	client.resume(tickets[1]);
 	// Объявляем предложение упреждающих данных клиентом
 	client.advance(true, tickets[1].advance);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Упреждающие данные, выходящие за объявленный сервером предел
 	const vector <uint8_t> excess(limit * 2, 0x42);
-	// Выполняем отправку упреждающих данных сверх дозволенного сервером
+	// Отправляем упреждающих данных сверх дозволенного сервером
 	ASSERT_EQ(client.write(view_t(excess.data(), excess.size())), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем обрыв связи стороной сервера
 	ASSERT_EQ(server.error(), context::error_t::LIMIT);
 	/**
@@ -2964,14 +2964,14 @@ namespace {
 	 *       и подделать его на пути к клиенту можно прямо в потоке байтов
 	 *
 	 */
-	bool forge(client::context_t & client, server::context_t & server, const size_t offset, const uint8_t * data, const size_t size) noexcept {
+	bool __nts_forge__(client::context_t & client, server::context_t & server, const size_t offset, const uint8_t * data, const size_t size) noexcept {
 		// Получаем байты, отправляемые клиентом серверу
 		view_t sending = client.output();
-		// Выполняем перенос отправляемых клиентом байтов
+		// Переносим отправляемых клиентом байтов
 		const vector <uint8_t> greeting(sending.data, sending.data + sending.size);
 		// Снимаем отправленные байты с накопителя клиента
 		client.consume(greeting.size());
-		// Выполняем подачу приветствия клиента серверу
+		// Подаём приветствия клиента серверу
 		server.push(view_t(greeting.data(), greeting.size()));
 		// Получаем байты, отправляемые сервером клиенту
 		sending = server.output();
@@ -2979,17 +2979,17 @@ namespace {
 		if(sending.size < (offset + size))
 			// Выводим отказ подделки приветствия сервера
 			return false;
-		// Выполняем перенос отправляемых сервером байтов
+		// Переносим отправляемых сервером байтов
 		vector <uint8_t> answer(sending.data, sending.data + sending.size);
 		// Снимаем отправленные байты с накопителя сервера
 		server.consume(answer.size());
 		/**
-		 * Выполняем подделку байтов приветствия сервера
+		 * Подделываем байтов приветствия сервера
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Записываем очередной подделываемый байт приветствия
 			answer[offset + i] = data[i];
-		// Выполняем подачу подделанного приветствия клиенту
+		// Подаём подделанного приветствия клиенту
 		client.push(view_t(answer.data(), answer.size()));
 		// Выводим успешность подделки приветствия сервера
 		return true;
@@ -3002,8 +3002,8 @@ namespace {
 TEST(ContextTest, Echo){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -3014,9 +3014,9 @@ TEST(ContextTest, Echo){
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
 	 * Опознаватель связи подделывается целиком, а не одним байтом: сам он случаен, и
@@ -3027,7 +3027,7 @@ TEST(ContextTest, Echo){
 	 * Опознаватель связи лежит за заголовком записи, обвязкой сообщения, изданием
 	 * протокола, случайным значением и длиною самого опознавателя
 	 */
-	ASSERT_TRUE(forge(client, server, 5 + 4 + 2 + 32 + 1, session.data(), session.size()));
+	ASSERT_TRUE(__nts_forge__(client, server, 5 + 4 + 2 + 32 + 1, session.data(), session.size()));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	/**
@@ -3045,8 +3045,8 @@ TEST(ContextTest, Echo){
 TEST(ContextTest, Truncated){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -3057,23 +3057,23 @@ TEST(ContextTest, Truncated){
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Получаем байты, отправляемые клиентом серверу
 	view_t sending = client.output();
-	// Выполняем перенос отправляемых клиентом байтов
+	// Переносим отправляемых клиентом байтов
 	const vector <uint8_t> greeting(sending.data, sending.data + sending.size);
 	// Снимаем отправленные байты с накопителя клиента
 	client.consume(greeting.size());
-	// Выполняем подачу приветствия клиента серверу
+	// Подаём приветствия клиента серверу
 	ASSERT_EQ(server.push(view_t(greeting.data(), greeting.size())), context::error_t::NONE);
 	// Получаем байты, отправляемые сервером клиенту
 	sending = server.output();
 	// Проверяем наличие отправляемых сервером байтов
 	ASSERT_GT(sending.size, static_cast <size_t> (0));
-	// Выполняем перенос отправляемых сервером байтов
+	// Переносим отправляемых сервером байтов
 	vector <uint8_t> answer(sending.data, sending.data + sending.size);
 	// Снимаем отправленные байты с накопителя сервера
 	server.consume(answer.size());
@@ -3104,7 +3104,7 @@ TEST(ContextTest, Truncated){
 	answer[3] = static_cast <uint8_t> ((volume >> 8) & 0xFF);
 	// Правим младший байт длины записи
 	answer[4] = static_cast <uint8_t> (volume & 0xFF);
-	// Выполняем подачу подделанного приветствия клиенту
+	// Подаём подделанного приветствия клиенту
 	client.push(view_t(answer.data(), answer.size()));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
@@ -3124,10 +3124,10 @@ TEST(ContextTest, Truncated){
 TEST(ContextTest, Downgrade){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	/**
-	 * Выполняем перебор заслонов понижения издания протокола
+	 * Перебираем заслонов понижения издания протокола
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
@@ -3140,9 +3140,9 @@ TEST(ContextTest, Downgrade){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Заслон понижения издания протокола
 		const uint8_t downgrade[8] = {0x44, 0x4F, 0x57, 0x4E, 0x47, 0x52, 0x44, static_cast <uint8_t> (item)};
@@ -3150,7 +3150,7 @@ TEST(ContextTest, Downgrade){
 		 * Заслон лежит в хвосте случайного значения сервера, а само оно идёт за
 		 * заголовком записи, обвязкой сообщения и изданием протокола
 		 */
-		ASSERT_TRUE(forge(client, server, 5 + 4 + 2 + 32 - sizeof(downgrade), downgrade, sizeof(downgrade)));
+		ASSERT_TRUE(__nts_forge__(client, server, 5 + 4 + 2 + 32 - sizeof(downgrade), downgrade, sizeof(downgrade)));
 		// Проверяем обрыв связи стороной клиента
 		ASSERT_EQ(client.error(), context::error_t::VERSION) << "заслон " << item;
 		// Проверяем извещение, которым связь оборвана клиентом
@@ -3166,8 +3166,8 @@ TEST(ContextTest, Downgrade){
 TEST(ContextTest, Chosen){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	/**
 	 * Первый заход подделывает просьбу о кривой, ключ по которой клиент уже отправил,
 	 * второй - о кривой, клиентом не предложенной вовсе
@@ -3190,21 +3190,21 @@ TEST(ContextTest, Chosen){
 		client.groups({extension::group_t::GC256B, extension::group_t::GC512C});
 		// Устанавливаем единственную кривую обмена ключами сервера
 		server.groups({extension::group_t::GC512C});
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Получаем байты, отправляемые клиентом серверу
 		view_t sending = client.output();
-		// Выполняем перенос отправляемых клиентом байтов
+		// Переносим отправляемых клиентом байтов
 		const vector <uint8_t> greeting(sending.data, sending.data + sending.size);
 		// Снимаем отправленные байты с накопителя клиента
 		client.consume(greeting.size());
-		// Выполняем подачу приветствия клиента серверу
+		// Подаём приветствия клиента серверу
 		server.push(view_t(greeting.data(), greeting.size()));
 		// Получаем байты, отправляемые сервером клиенту
 		sending = server.output();
-		// Выполняем перенос отправляемых сервером байтов
+		// Переносим отправляемых сервером байтов
 		vector <uint8_t> answer(sending.data, sending.data + sending.size);
 		// Снимаем отправленные байты с накопителя сервера
 		server.consume(answer.size());
@@ -3216,7 +3216,7 @@ TEST(ContextTest, Chosen){
 		// Место опознавателя кривой в просьбе о повторе приветствия
 		size_t place = answer.size();
 		/**
-		 * Выполняем розыск расширения открытой части ключа обмена
+		 * Разыскиваем расширения открытой части ключа обмена
 		 */
 		for(size_t i = 0; (i + sizeof(pattern) + 2) <= answer.size(); i++){
 			// Если расширение открытой части ключа обмена найдено
@@ -3238,7 +3238,7 @@ TEST(ContextTest, Chosen){
 		answer[place] = static_cast <uint8_t> ((group >> 8) & 0xFF);
 		// Записываем младший байт опознавателя подделанной кривой
 		answer[place + 1] = static_cast <uint8_t> (group & 0xFF);
-		// Выполняем подачу подделанной просьбы о повторе клиенту
+		// Подаём подделанной просьбы о повторе клиенту
 		client.push(view_t(answer.data(), answer.size()));
 		/**
 		 * Раздел 4.1.4 RFC 8446: просить повтора сервер вправе лишь на кривой, которую
@@ -3269,7 +3269,7 @@ namespace {
 	 *       никогда не переступит
 	 *
 	 */
-	bool submit(server::context_t & server, const hello::client_t & greeting) noexcept {
+	bool __nts_submit__(server::context_t & server, const hello::client_t & greeting) noexcept {
 		// Накопитель, в который складывается тело приветствия клиента
 		vector <uint8_t> body;
 		// Если тело приветствия клиента составить не удалось
@@ -3309,7 +3309,7 @@ namespace {
 			return false;
 		// Переносим сообщение приветствия в запись протокола
 		::memcpy(data.data() + record::RECORD_HEADER, message.data, message.size);
-		// Выполняем подачу записи приветствия клиента серверу
+		// Подаём записи приветствия клиента серверу
 		server.push(view_t(data.data(), data.size()));
 		// Выводим успешность подачи приветствия серверу
 		return true;
@@ -3322,7 +3322,7 @@ namespace {
 	 * @return         признак успешности составления приветствия клиента
 	 *
 	 */
-	bool compose(hello::client_t & greeting, vector <vector <uint8_t>> & bodies) noexcept {
+	bool __nts_compose__(hello::client_t & greeting, vector <vector <uint8_t>> & bodies) noexcept {
 		// Устанавливаем издание протокола, доставшееся от предыдущих изданий
 		greeting.version = 0x0303;
 		// Устанавливаем опознаватель связи приветствия
@@ -3332,7 +3332,7 @@ namespace {
 		// Устанавливаем перечень способов сжатия
 		greeting.methods.assign(1, 0x00);
 		/**
-		 * Выполняем заполнение случайного значения приветствия
+		 * Заполняем случайного значения приветствия
 		 */
 		for(size_t i = 0; i < hello::HELLO_RANDOM; i++)
 			// Записываем очередной байт случайного значения
@@ -3379,10 +3379,10 @@ namespace {
 TEST(ContextTest, Malformed){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	/**
-	 * Выполняем перебор заслонов приветствия клиента
+	 * Перебираем заслонов приветствия клиента
 	 */
 	for(size_t item = 0; item < 5; item++){
 		// Связь стороны сервера
@@ -3393,16 +3393,16 @@ TEST(ContextTest, Malformed){
 		server.credential(credentials);
 		// Устанавливаем набор шифрования, признаваемый сервером
 		server.suites({protect::suite_t::MAGMA_MGM_L});
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Составляемое приветствие клиента
 		hello::client_t greeting;
 		// Накопители, в которых лежат тела расширений приветствия
 		vector <vector <uint8_t>> bodies;
-		// Выполняем составление годного приветствия клиента
-		ASSERT_TRUE(compose(greeting, bodies)) << "заслон " << item;
+		// Составляем годного приветствия клиента
+		ASSERT_TRUE(__nts_compose__(greeting, bodies)) << "заслон " << item;
 		/**
-		 * Выполняем порчу составленного приветствия клиента
+		 * Портим составленного приветствия клиента
 		 */
 		switch(item){
 			/**
@@ -3439,14 +3439,14 @@ TEST(ContextTest, Malformed){
 			 */
 			case 3: {
 				// Опознаватель предъявляемого заранее разделённого ключа
-				const vector <uint8_t> identity(32, 0x44);
+				const vector <uint8_t> __nts_identity__(32, 0x44);
 				// Привязка предъявляемого заранее разделённого ключа
 				const vector <uint8_t> binder(32, 0x55);
 				// Занимаем место под тело расширения заранее разделённых ключей
 				bodies.push_back(vector <uint8_t> ());
 				// Если предложение заранее разделённых ключей составить не удалось
 				ASSERT_EQ(extension::identities(
-					vector <extension::identity_t> (1, extension::identity_t(view_t(identity.data(), identity.size()), 0)),
+					vector <extension::identity_t> (1, extension::identity_t(view_t(__nts_identity__.data(), __nts_identity__.size()), 0)),
 					vector <view_t> (1, view_t(binder.data(), binder.size())), bodies.back()
 				), extension::error_t::NONE);
 				// Добавляем расширение заранее разделённых ключей
@@ -3462,8 +3462,8 @@ TEST(ContextTest, Malformed){
 				greeting.extensions.push_back(hello::extension_t(static_cast <uint16_t> (extension::type_t::NAME), view_t(bodies.back().data(), bodies.back().size())));
 			} break;
 		}
-		// Выполняем подачу подделанного приветствия серверу
-		ASSERT_TRUE(submit(server, greeting)) << "заслон " << item;
+		// Подаём подделанного приветствия серверу
+		ASSERT_TRUE(__nts_submit__(server, greeting)) << "заслон " << item;
 		// Проверяем обрыв связи стороной сервера
 		ASSERT_NE(server.error(), context::error_t::NONE) << "заслон " << item;
 		/**
@@ -3483,8 +3483,8 @@ TEST(ContextTest, Malformed){
 TEST(ContextTest, Signing){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3493,16 +3493,16 @@ TEST(ContextTest, Signing){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Составляемое приветствие клиента
 	hello::client_t greeting;
 	// Накопители, в которых лежат тела расширений приветствия
 	vector <vector <uint8_t>> bodies;
-	// Выполняем составление годного приветствия клиента
-	ASSERT_TRUE(compose(greeting, bodies));
+	// Составляем годного приветствия клиента
+	ASSERT_TRUE(__nts_compose__(greeting, bodies));
 	/**
-	 * Выполняем перебор расширений составленного приветствия
+	 * Перебираем расширений составленного приветствия
 	 */
 	for(size_t i = 0; i < greeting.extensions.size(); i++){
 		// Если найдено расширение схем подписи
@@ -3513,8 +3513,8 @@ TEST(ContextTest, Signing){
 			break;
 		}
 	}
-	// Выполняем подачу подделанного приветствия серверу
-	ASSERT_TRUE(submit(server, greeting));
+	// Подаём подделанного приветствия серверу
+	ASSERT_TRUE(__nts_submit__(server, greeting));
 	/**
 	 * Раздел 9.2 RFC 8446: без схем подписи сервер, подтверждающий подлинность
 	 * сертификатом, подписать владение своим ключом не вправе ничем
@@ -3534,9 +3534,9 @@ TEST(ContextTest, Adorned){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного сервера с непрошенным расширением записи
+	// Ведём рукопожатие враждебного сервера с непрошенным расширением записи
 	ASSERT_TRUE(adversary(client, distortion_t::ADORNED));
 	/**
 	 * Раздел 4.4.2 RFC 8446: расширения записи цепочки отвечают тем, которые клиент
@@ -3557,9 +3557,9 @@ TEST(ContextTest, Voiceless){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного сервера с запросом без схем подписи
+	// Ведём рукопожатие враждебного сервера с запросом без схем подписи
 	ASSERT_TRUE(adversary(client, distortion_t::SILENT));
 	/**
 	 * Раздел 4.3.2 RFC 8446: запрос подлинности обязан нести схемы подписи, ибо без
@@ -3578,8 +3578,8 @@ TEST(ContextTest, Voiceless){
 TEST(ContextTest, Ancient){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3593,7 +3593,7 @@ TEST(ContextTest, Ancient){
 	ASSERT_EQ(server.versions(0x0304, 0x0304), context::error_t::NONE);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -3623,8 +3623,8 @@ TEST(ContextTest, Ancient){
 TEST(ContextTest, Antique){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3638,7 +3638,7 @@ TEST(ContextTest, Antique){
 	ASSERT_EQ(server.versions(0x0304, 0x0304), context::error_t::NONE);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -3662,8 +3662,8 @@ TEST(ContextTest, Antique){
 TEST(ContextTest, Estranged){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3672,7 +3672,7 @@ TEST(ContextTest, Estranged){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -3696,8 +3696,8 @@ TEST(ContextTest, Estranged){
 TEST(ContextTest, Naked){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3706,7 +3706,7 @@ TEST(ContextTest, Naked){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -3730,8 +3730,8 @@ TEST(ContextTest, Naked){
 TEST(ContextTest, Foreignness){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3740,7 +3740,7 @@ TEST(ContextTest, Foreignness){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -3764,8 +3764,8 @@ TEST(ContextTest, Foreignness){
 TEST(ContextTest, Voided){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3774,7 +3774,7 @@ TEST(ContextTest, Voided){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -3800,7 +3800,7 @@ TEST(ContextTest, Precocious){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Прикладные данные, поданные связи до её установления
 	const uint8_t grain[4] = {0x41, 0x4E, 0x54, 0x53};
@@ -3814,11 +3814,11 @@ TEST(ContextTest, Precocious){
 	header.version = record::version_t::TLS12;
 	// Устанавливаем размер содержимого составляемой записи
 	header.size = sizeof(grain);
-	// Выполняем составление заголовка записи связи
+	// Составляем заголовка записи связи
 	ASSERT_EQ(record::build(header, wire.data()), record::error_t::NONE);
 	// Переносим прикладные данные в составляемую запись
 	::memcpy(wire.data() + record::RECORD_HEADER, grain, sizeof(grain));
-	// Выполняем подачу записи прикладных данных клиенту
+	// Подаём записи прикладных данных клиенту
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 5.1 RFC 8446: прикладные данные идут лишь по установлении связи, а
@@ -3839,14 +3839,14 @@ TEST(ContextTest, Nondescript){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
 	 * Заголовок набивается здесь вручную: свой составитель записей вид содержимого
 	 * сличает и неподдержанного не пропускает, а заслон проверяется приёмный
 	 */
 	const vector <uint8_t> wire = {0xFF, 0x03, 0x03, 0x00, 0x01, 0x00};
-	// Выполняем подачу записи неподдержанного вида клиенту
+	// Подаём записи неподдержанного вида клиенту
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 5.1 RFC 8446 велит обрывать связь на записи с видом содержимого,
@@ -3867,13 +3867,13 @@ TEST(ContextTest, Renewal){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
 	vector <uint8_t> wire;
-	// Выполняем составление подаваемой записи связи
-	ASSERT_TRUE(sole(handshake::type_t::UPDATE, view_t(reinterpret_cast <const uint8_t *> ("\x00"), 1), wire));
-	// Выполняем подачу составленной записи связи
+	// Составляем подаваемой записи связи
+	ASSERT_TRUE(__nts_sole__(handshake::type_t::UPDATE, view_t(reinterpret_cast <const uint8_t *> ("\x00"), 1), wire));
+	// Подаём составленной записи связи
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 4.6.3 RFC 8446: смена ключевого материала идёт лишь по установлении
@@ -3894,13 +3894,13 @@ TEST(ContextTest, Granted){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
 	vector <uint8_t> wire;
-	// Выполняем составление подаваемой записи связи
-	ASSERT_TRUE(sole(handshake::type_t::TICKET, view_t(nullptr, 0), wire));
-	// Выполняем подачу составленной записи связи
+	// Составляем подаваемой записи связи
+	ASSERT_TRUE(__nts_sole__(handshake::type_t::TICKET, view_t(nullptr, 0), wire));
+	// Подаём составленной записи связи
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 4.6.1 RFC 8446: билет возобновления выдаётся лишь по установлении
@@ -3919,21 +3919,21 @@ TEST(ContextTest, Granted){
 TEST(ContextTest, Misdirected){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
 	vector <uint8_t> wire;
-	// Выполняем составление подаваемой записи связи
-	ASSERT_TRUE(sole(handshake::type_t::EXTENSIONS, view_t(nullptr, 0), wire));
-	// Выполняем подачу составленной записи связи
+	// Составляем подаваемой записи связи
+	ASSERT_TRUE(__nts_sole__(handshake::type_t::EXTENSIONS, view_t(nullptr, 0), wire));
+	// Подаём составленной записи связи
 	server.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Защищённые расширения шлёт сервер, и приход их серверу же означает либо
@@ -3954,13 +3954,13 @@ TEST(ContextTest, Reversed){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
 	vector <uint8_t> wire;
-	// Выполняем составление подаваемой записи связи
-	ASSERT_TRUE(sole(handshake::type_t::EARLY, view_t(nullptr, 0), wire));
-	// Выполняем подачу составленной записи связи
+	// Составляем подаваемой записи связи
+	ASSERT_TRUE(__nts_sole__(handshake::type_t::EARLY, view_t(nullptr, 0), wire));
+	// Подаём составленной записи связи
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Конец упреждающих данных шлёт клиент, и приход его клиенту же означает либо
@@ -3981,7 +3981,7 @@ TEST(ContextTest, Unheard){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
 	 * Запись набивается здесь вручную: свой составитель вид сообщения рукопожатия
@@ -3989,7 +3989,7 @@ TEST(ContextTest, Unheard){
 	 * байтов - заголовок записи, за ними вид сообщения и нулевая его длина
 	 */
 	const vector <uint8_t> wire = {0x16, 0x03, 0x03, 0x00, 0x04, 0xEE, 0x00, 0x00, 0x00};
-	// Выполняем подачу составленной записи связи
+	// Подаём составленной записи связи
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 4 RFC 8446: сообщение рукопожатия неведомого вида разбору не подлежит,
@@ -4010,12 +4010,12 @@ TEST(ContextTest, Unheard){
 TEST(ContextTest, Unsolicited){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Запись просьбы о пересогласовании
 	vector <uint8_t> wire;
 	// Составляем открытую запись просьбы с пустым телом
-	ASSERT_TRUE(sole(handshake::type_t::HELLO_REQUEST, view_t(nullptr, 0), wire));
+	ASSERT_TRUE(__nts_sole__(handshake::type_t::HELLO_REQUEST, view_t(nullptr, 0), wire));
 	{
 		// Связь стороны клиента
 		client::context_t client;
@@ -4023,9 +4023,9 @@ TEST(ContextTest, Unsolicited){
 		gosting(client);
 		// Клиент ведёт лишь издание 1.3
 		ASSERT_EQ(client.versions(0x0304, 0x0304), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем подачу просьбы клиенту
+		// Подаём просьбы клиенту
 		ASSERT_EQ(client.push(view_t(wire.data(), wire.size())), context::error_t::ORDER);
 		// Проверяем извещение, которым связь оборвана
 		ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
@@ -4039,9 +4039,9 @@ TEST(ContextTest, Unsolicited){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем подачу просьбы серверу: просьбу шлёт лишь сервер
+		// Подаём просьбы серверу: просьбу шлёт лишь сервер
 		ASSERT_EQ(server.push(view_t(wire.data(), wire.size())), context::error_t::ORDER);
 		// Проверяем извещение, которым связь оборвана
 		ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
@@ -4063,9 +4063,9 @@ TEST(ContextTest, Speechless){
 	 * расширения издания законно вело бы связь изданием 1.2 (приложение D.1 RFC 8446)
 	 */
 	ASSERT_EQ(client.versions(0x0304, 0x0304), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::SPEECHLESS));
 	/**
 	 * Раздел 4.2.1 RFC 8446 велит серверу объявлять выбранное издание протокола
@@ -4092,9 +4092,9 @@ TEST(ContextTest, Regressed){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::REGRESSED));
 	/**
 	 * Раздел 4.2.1 RFC 8446: связь ведётся единственным изданием, и объявление
@@ -4120,9 +4120,9 @@ TEST(ContextTest, Keyless){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::KEYLESS));
 	/**
 	 * Раздел 4.2.8 RFC 8446: при обмене мимолётными ключами сервер обязан объявить
@@ -4143,9 +4143,9 @@ TEST(ContextTest, Swapped){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::SWAPPED));
 	/**
 	 * Раздел 4.2.8 RFC 8446: доля сервера обязана идти по той же кривой, по какой
@@ -4164,15 +4164,15 @@ TEST(ContextTest, Swapped){
 TEST(ContextTest, Wordless){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4199,9 +4199,9 @@ TEST(ContextTest, Presumed){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::PRESUMED));
 	/**
 	 * Раздел 4.2.11 RFC 8446: сервер вправе выбрать лишь тот заранее разделённый
@@ -4222,9 +4222,9 @@ TEST(ContextTest, Unoffered){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::UNOFFERED));
 	/**
 	 * Место выбранного ключа и наличие самого предложения сверяются РАЗНЫМИ половинами
@@ -4246,13 +4246,13 @@ TEST(ContextTest, Synthetic){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Накопитель, в который складывается подаваемая запись связи
 	vector <uint8_t> wire;
-	// Выполняем составление подаваемой записи связи
-	ASSERT_TRUE(sole(handshake::type_t::DIGEST, view_t(nullptr, 0), wire));
-	// Выполняем подачу составленной записи связи
+	// Составляем подаваемой записи связи
+	ASSERT_TRUE(__nts_sole__(handshake::type_t::DIGEST, view_t(nullptr, 0), wire));
+	// Подаём составленной записи связи
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 4.4.1 RFC 8446: сообщение это связь складывает себе сама, заменяя им
@@ -4272,14 +4272,14 @@ TEST(ContextTest, Synthetic){
 TEST(ContextTest, Modeless){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4290,7 +4290,7 @@ TEST(ContextTest, Modeless){
 	server.resume(issued);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4314,14 +4314,14 @@ TEST(ContextTest, Modeless){
 TEST(ContextTest, Garbled){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4332,7 +4332,7 @@ TEST(ContextTest, Garbled){
 	server.resume(issued);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4356,14 +4356,14 @@ TEST(ContextTest, Garbled){
 TEST(ContextTest, Spurious){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4374,7 +4374,7 @@ TEST(ContextTest, Spurious){
 	server.resume(issued);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4400,14 +4400,14 @@ TEST(ContextTest, Curtailed){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
 	 * Извещение кладёт в тело записи два байта - его строгость и его причину.
 	 * Запись набивается вручную: единственный байт тела разбору не поддастся
 	 */
 	const vector <uint8_t> wire = {0x15, 0x03, 0x03, 0x00, 0x01, 0x01};
-	// Выполняем подачу усечённого извещения клиенту
+	// Подаём усечённого извещения клиенту
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 6 RFC 8446 кладёт извещению ровно два байта, и усечённое разбору не
@@ -4426,15 +4426,15 @@ TEST(ContextTest, Curtailed){
 TEST(ContextTest, Mangled){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым сообщением
+	// Формируем ответ враждебного сервера искажённым сообщением
 	ASSERT_TRUE(adversary(client, distortion_t::MANGLED, &credentials));
 	/**
 	 * Тело защищённых расширений объявляет длину перечня свыше собственного размера:
@@ -4451,15 +4451,15 @@ TEST(ContextTest, Mangled){
 TEST(ContextTest, Tattered){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым сообщением
+	// Формируем ответ враждебного сервера искажённым сообщением
 	ASSERT_TRUE(adversary(client, distortion_t::TATTERED, &credentials));
 	/**
 	 * Раздел 4.6.1 RFC 8446: билет несёт срок, добавку к возрасту, неповторимое
@@ -4476,15 +4476,15 @@ TEST(ContextTest, Tattered){
 TEST(ContextTest, Scrambled){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым сообщением
+	// Формируем ответ враждебного сервера искажённым сообщением
 	ASSERT_TRUE(adversary(client, distortion_t::SCRAMBLED, &credentials));
 	/**
 	 * Раздел 4.6.3 RFC 8446 кладёт смене ключевого материала тело ровно в один байт,
@@ -4505,8 +4505,8 @@ TEST(ContextTest, Scrambled){
 TEST(ContextTest, Malversion){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4515,7 +4515,7 @@ TEST(ContextTest, Malversion){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4539,8 +4539,8 @@ TEST(ContextTest, Malversion){
 TEST(ContextTest, Malshare){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4549,7 +4549,7 @@ TEST(ContextTest, Malshare){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4573,8 +4573,8 @@ TEST(ContextTest, Malshare){
 TEST(ContextTest, Malgroups){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4583,7 +4583,7 @@ TEST(ContextTest, Malgroups){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4607,8 +4607,8 @@ TEST(ContextTest, Malgroups){
 TEST(ContextTest, Malcurves){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4617,7 +4617,7 @@ TEST(ContextTest, Malcurves){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4641,8 +4641,8 @@ TEST(ContextTest, Malcurves){
 TEST(ContextTest, Malname){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4651,7 +4651,7 @@ TEST(ContextTest, Malname){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4675,8 +4675,8 @@ TEST(ContextTest, Malname){
 TEST(ContextTest, Malprotocol){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4690,7 +4690,7 @@ TEST(ContextTest, Malprotocol){
 	 * разбирает лишь тогда, когда есть с чем его сличать
 	 */
 	server.protocols({"h2"});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -4716,9 +4716,9 @@ TEST(ContextTest, Oddset){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::ODDSUITE));
 	/**
 	 * Раздел 4.1.3 RFC 8446: сервер вправе выбрать лишь тот набор шифрования, какой
@@ -4739,9 +4739,9 @@ TEST(ContextTest, Prepicked){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::PICKEDEARLY));
 	/**
 	 * Раздел 4.1.4 RFC 8446: просьба о повторе приветствия заранее разделённого ключа
@@ -4767,9 +4767,9 @@ TEST(ContextTest, Belated){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::LATECOOKIE));
 	/**
 	 * Раздел 4.2.2 RFC 8446: метку возврата состояния несёт просьба о повторе, и в
@@ -4795,9 +4795,9 @@ TEST(ContextTest, Malselect){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::MALSELECT));
 	/**
 	 * Тело расширения выбранной кривой объявляет длину свыше собственного размера:
@@ -4818,9 +4818,9 @@ TEST(ContextTest, Maledition){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::MALEDITION));
 	/**
 	 * Тело расширения издания протокола объявляет длину свыше собственного размера:
@@ -4841,9 +4841,9 @@ TEST(ContextTest, Malchosen){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::MALCHOSEN));
 	/**
 	 * Тело расширения выбранного ключа объявляет длину свыше собственного размера:
@@ -4864,9 +4864,9 @@ TEST(ContextTest, Malsharing){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера искажённым приветствием
+	// Формируем ответ враждебного сервера искажённым приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::MALSHARING));
 	/**
 	 * Тело расширения открытой части ключа объявляет длину свыше собственного
@@ -4887,7 +4887,7 @@ TEST(ContextTest, Muddled){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	/**
 	 * Тело приветствия сервера подаётся негодным целиком: составителем такого не
@@ -4896,9 +4896,9 @@ TEST(ContextTest, Muddled){
 	const uint8_t grain[3] = {0x03, 0x03, 0xFF};
 	// Накопитель, в который складывается подаваемая запись связи
 	vector <uint8_t> wire;
-	// Выполняем составление подаваемой записи связи
-	ASSERT_TRUE(sole(handshake::type_t::SERVER, view_t(grain, sizeof(grain)), wire));
-	// Выполняем подачу составленной записи связи
+	// Составляем подаваемой записи связи
+	ASSERT_TRUE(__nts_sole__(handshake::type_t::SERVER, view_t(grain, sizeof(grain)), wire));
+	// Подаём составленной записи связи
 	client.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 4.1.3 RFC 8446 кладёт приветствию сервера строгий состав, и обрубок
@@ -4917,8 +4917,8 @@ TEST(ContextTest, Muddled){
 TEST(ContextTest, Twice){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -4927,7 +4927,7 @@ TEST(ContextTest, Twice){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь на втором
@@ -4953,9 +4953,9 @@ TEST(ContextTest, Doubled){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера двойным приветствием
+	// Формируем ответ враждебного сервера двойным приветствием
 	ASSERT_TRUE(adversary(client, distortion_t::DOUBLED));
 	/**
 	 * Раздел 4.1.3 RFC 8446: приветствие сервер шлёт единожды, и второе им же
@@ -4974,15 +4974,15 @@ TEST(ContextTest, Doubled){
 TEST(ContextTest, Twinned){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера повторными расширениями
+	// Формируем ответ враждебного сервера повторными расширениями
 	ASSERT_TRUE(adversary(client, distortion_t::TWINNED, &credentials));
 	/**
 	 * Раздел 4.3.1 RFC 8446 кладёт защищённым расширениям единственное место в
@@ -5008,9 +5008,9 @@ TEST(ContextTest, Malalpn){
 	 * лишь тогда, когда сама протоколы объявляла
 	 */
 	client.protocols({"h2"});
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера негодным прикладным протоколом
+	// Формируем ответ враждебного сервера негодным прикладным протоколом
 	ASSERT_TRUE(adversary(client, distortion_t::MALALPN));
 	/**
 	 * Тело расширения прикладного протокола объявляет длину свыше собственного
@@ -5029,15 +5029,15 @@ TEST(ContextTest, Malalpn){
 TEST(ContextTest, Maladvance){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера билетом с негодным пределом
+	// Формируем ответ враждебного сервера билетом с негодным пределом
 	ASSERT_TRUE(adversary(client, distortion_t::MALADVANCE, &credentials));
 	/**
 	 * Раздел 4.6.1 RFC 8446: предел упреждающих данных объявляется расширением
@@ -5054,8 +5054,8 @@ TEST(ContextTest, Maladvance){
 TEST(ContextTest, Unsettled){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -5064,7 +5064,7 @@ TEST(ContextTest, Unsettled){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Враждебный клиент с искажением UNSETTLED срывает рукопожатие сервера
 	ASSERT_TRUE(intruder(server, distortion_t::UNSETTLED, &credentials));
@@ -5086,8 +5086,8 @@ TEST(ContextTest, Unsettled){
 TEST(ContextTest, Malcookie){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -5096,7 +5096,7 @@ TEST(ContextTest, Malcookie){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -5122,9 +5122,9 @@ TEST(ContextTest, Recurrent){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера приветствием и просьбою о повторе
+	// Формируем ответ враждебного сервера приветствием и просьбою о повторе
 	ASSERT_TRUE(adversary(client, distortion_t::RECURRENT));
 	/**
 	 * Раздел 4.1.4 RFC 8446: просьба о повторе идёт вместо приветствия сервера,
@@ -5143,14 +5143,14 @@ TEST(ContextTest, Recurrent){
 TEST(ContextTest, Spoiled){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Связь стороны клиента, возобновляющая прошлую
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -5169,19 +5169,19 @@ TEST(ContextTest, Spoiled){
 	client.resume(accepted);
 	// Устанавливаем предложение упреждающих данных сервером
 	client.advance(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Прикладные данные, отправляемые вместе с приветствием клиента
 	const string request = "Упреждающие данные, испорченные по дороге";
-	// Выполняем отправку упреждающих данных клиентом
+	// Отправляем упреждающих данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 	// Получаем байты, отправленные клиентом
 	const view_t sending = client.output();
 	// Проверяем, что клиенту нашлось что отправить
 	ASSERT_GT(sending.size, static_cast <size_t> (record::RECORD_HEADER));
-	// Выполняем перенос отправленных клиентом байтов
+	// Переносим отправленных клиентом байтов
 	vector <uint8_t> wire(sending.data, sending.data + sending.size);
 	/**
 	 * Первою записью идёт приветствие клиента, а упреждающие данные - за ним: длина
@@ -5195,7 +5195,7 @@ TEST(ContextTest, Spoiled){
 	 * снятия защиты обязан на том связь оборвать, а не принять порченое
 	 */
 	wire[leading + record::RECORD_HEADER] = static_cast <uint8_t> (wire[leading + record::RECORD_HEADER] ^ 0xFF);
-	// Выполняем подачу порченых байтов серверу
+	// Подаём порченых байтов серверу
 	server.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 5.2 RFC 8446: не снявшаяся защита означает либо подделку, либо порчу
@@ -5214,14 +5214,14 @@ TEST(ContextTest, Spoiled){
 TEST(ContextTest, Lingering){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Связь стороны сервера, признающая выданный билет
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -5232,9 +5232,9 @@ TEST(ContextTest, Lingering){
 	server.resume(issued);
 	// Устанавливаем приём упреждающих данных сервером
 	server.advance(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем возобновление связи враждебным клиентом с упреждающими данными
+	// Возобновляем связи враждебным клиентом с упреждающими данными
 	ASSERT_TRUE(precursor(server, accepted, distortion_t::LINGERING));
 	/**
 	 * Раздел 4.5 RFC 8446 кладёт концу упреждающих данных пустое тело: всё, что за
@@ -5253,14 +5253,14 @@ TEST(ContextTest, Lingering){
 TEST(ContextTest, Backdated){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Миг выдачи билета возобновления связи
 	const int64_t moment = 1800000000;
 	// Проставляем мигом выдачи билет, принятый клиентом
@@ -5288,12 +5288,12 @@ TEST(ContextTest, Backdated){
 	client.moment(moment - 3600);
 	// Устанавливаем миг, которым сервер судит сроки билетов
 	server.moment(moment - 3600);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	/**
@@ -5311,14 +5311,14 @@ TEST(ContextTest, Backdated){
 TEST(ContextTest, Misaged){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Миг выдачи билета возобновления связи
 	const int64_t moment = 1800000000;
 	// Проставляем мигом выдачи билет, принятый клиентом
@@ -5342,9 +5342,9 @@ TEST(ContextTest, Misaged){
 		server.advance(true);
 		// Устанавливаем миг, которым сервер судит сроки билетов
 		server.moment(moment);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE) << "заход " << item;
-		// Выполняем возобновление связи враждебным клиентом
+		// Возобновляем связи враждебным клиентом
 		ASSERT_TRUE(precursor(server, accepted, ((item == 0) ? distortion_t::MISAGED : distortion_t::NONE))) << "заход " << item;
 		// Проверяем, что связь обоих заходов осталась цела
 		ASSERT_EQ(server.error(), context::error_t::NONE) << "заход " << item;
@@ -5352,7 +5352,7 @@ TEST(ContextTest, Misaged){
 		ASSERT_TRUE(server.shared()) << "заход " << item;
 		// Накопитель, в который помещаются принятые упреждающие данные
 		vector <uint8_t> received;
-		// Выполняем получение принятых сервером упреждающих данных
+		// Получаем принятых сервером упреждающих данных
 		(void) server.read(received);
 		/**
 		 * Раздел 4.2.10 RFC 8446 велит отвергать упреждающие данные при расхождении
@@ -5375,8 +5375,8 @@ TEST(ContextTest, Misaged){
 TEST(ContextTest, Discord){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -5385,7 +5385,7 @@ TEST(ContextTest, Discord){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -5412,9 +5412,9 @@ TEST(ContextTest, Misplaced){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера расширением не в своём месте
+	// Формируем ответ враждебного сервера расширением не в своём месте
 	ASSERT_TRUE(adversary(client, distortion_t::MISPLACED));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
@@ -5435,15 +5435,15 @@ TEST(ContextTest, Misplaced){
 TEST(ContextTest, Outplaced){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного сервера с билетом не в своём расширении
+	// Ведём рукопожатие враждебного сервера с билетом не в своём расширении
 	ASSERT_TRUE(adversary(client, distortion_t::OUTPLACED, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
@@ -5461,15 +5461,15 @@ TEST(ContextTest, Outplaced){
 TEST(ContextTest, Offplaced){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера запросом не в своём расширении
+	// Формируем ответ враждебного сервера запросом не в своём расширении
 	ASSERT_TRUE(adversary(client, distortion_t::OFFPLACED, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::EXTENSION);
@@ -5491,9 +5491,9 @@ TEST(ContextTest, Unwanted){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера непрошенным расширением
+	// Формируем ответ враждебного сервера непрошенным расширением
 	ASSERT_TRUE(adversary(client, distortion_t::EXTENSION));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::EXTENSION);
@@ -5513,16 +5513,16 @@ TEST(ContextTest, Chain){
 	// Искажения цепочки сертификатов, вносимые враждебным сервером
 	const distortion_t distortions[2] = {distortion_t::CONTEXT, distortion_t::EMPTINESS};
 	/**
-	 * Выполняем перебор искажений цепочки сертификатов
+	 * Перебираем искажений цепочки сертификатов
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Связь стороны клиента
 		client::context_t client;
 		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 		gosting(client);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << "искажение " << item;
-		// Выполняем ответ враждебного сервера искажённой цепочкой сертификатов
+		// Формируем ответ враждебного сервера искажённой цепочкой сертификатов
 		ASSERT_TRUE(adversary(client, distortions[item])) << "искажение " << item;
 		/**
 		 * Раздел 4.4.2 RFC 8446: непустой опознаватель запроса объявляется отказом
@@ -5545,15 +5545,15 @@ TEST(ContextTest, Chain){
 TEST(ContextTest, Declared){
 	// Подлинность враждебного сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности враждебного сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности враждебного сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера неизвестной схемой подписи
+	// Формируем ответ враждебного сервера неизвестной схемой подписи
 	ASSERT_TRUE(adversary(client, distortion_t::SCHEME, &credentials));
 	/**
 	 * Заслон схемы стоит прежде проверки самой подписи: оттого отказ приходит именно
@@ -5571,7 +5571,7 @@ TEST(ContextTest, Declared){
 	client::context_t foreign;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(foreign);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(foreign.start(), context::error_t::NONE);
 	/**
 	 * Схема известная, но положенная кривой, которой в сертификате нет: подпись по
@@ -5592,15 +5592,15 @@ TEST(ContextTest, Declared){
 TEST(ContextTest, Expiry){
 	// Подлинность враждебного сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности враждебного сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности враждебного сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного сервера с билетом свыше семи суток
+	// Ведём рукопожатие враждебного сервера с билетом свыше семи суток
 	ASSERT_TRUE(adversary(client, distortion_t::LIFETIME, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
@@ -5619,8 +5619,8 @@ TEST(ContextTest, Expiry){
 TEST(ContextTest, Changing){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	/**
 	 * Составляем запись смены набора шифрования с негодным содержимым
 	 */
@@ -5631,17 +5631,17 @@ TEST(ContextTest, Changing){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Содержимое записи смены набора шифрования
 		const uint8_t content[1] = {0x02};
 		// Объект нарезчика отправляемых записей
 		record::writer_t writer;
-		// Выполняем нарезку записи смены набора шифрования
+		// Нарезаем записи смены набора шифрования
 		ASSERT_EQ(writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(content, sizeof(content))), record::error_t::NONE);
 		// Получаем нарезанную запись смены набора шифрования
 		const view_t records = writer.data();
-		// Выполняем подачу записи смены набора шифрования серверу
+		// Подаём записи смены набора шифрования серверу
 		server.push(records);
 		/**
 		 * Раздел 5 RFC 8446: запись смены набора шифрования несёт единственное
@@ -5661,15 +5661,15 @@ TEST(ContextTest, Changing){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Содержимое записи смены набора шифрования длиною в два байта
 		const uint8_t content[2] = {0x01, 0x01};
 		// Объект нарезчика отправляемых записей
 		record::writer_t writer;
-		// Выполняем нарезку записи смены набора шифрования
+		// Нарезаем записи смены набора шифрования
 		ASSERT_EQ(writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(content, sizeof(content))), record::error_t::NONE);
-		// Выполняем подачу записи смены набора шифрования серверу
+		// Подаём записи смены набора шифрования серверу
 		server.push(writer.data());
 		/**
 		 * Раздел 5 RFC 8446 отводит записи смены набора ровно один байт содержимого.
@@ -5694,21 +5694,21 @@ TEST(ContextTest, Changing){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи стороной клиента
 		ASSERT_TRUE(client.established());
 		// Содержимое записи смены набора шифрования
 		const uint8_t content[1] = {0x01};
 		// Объект нарезчика отправляемых записей
 		record::writer_t writer;
-		// Выполняем нарезку записи смены набора шифрования
+		// Нарезаем записи смены набора шифрования
 		ASSERT_EQ(writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(content, sizeof(content))), record::error_t::NONE);
-		// Выполняем подачу записи смены набора шифрования клиенту
+		// Подаём записи смены набора шифрования клиенту
 		client.push(writer.data());
 		/**
 		 * Раздел 5 RFC 8446: за установленной связью эта запись не значит ничего, и
@@ -5732,23 +5732,23 @@ TEST(ContextTest, Changing){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Получаем приветствие, отправляемое клиентом серверу
 		const view_t greeting = client.output();
-		// Выполняем перенос отправляемого клиентом приветствия
+		// Переносим отправляемого клиентом приветствия
 		const vector <uint8_t> message(greeting.data, greeting.data + greeting.size);
 		// Снимаем отправленное приветствие с накопителя клиента
 		client.consume(message.size());
-		// Выполняем подачу приветствия клиента серверу
+		// Подаём приветствия клиента серверу
 		ASSERT_EQ(server.push(view_t(message.data(), message.size())), context::error_t::NONE);
 		// Содержимое годной записи смены набора шифрования
 		const uint8_t content[1] = {0x01};
 		// Объект нарезчика отправляемых записей
 		record::writer_t writer;
-		// Выполняем нарезку годной записи смены набора шифрования
+		// Нарезаем годной записи смены набора шифрования
 		ASSERT_EQ(writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(content, sizeof(content))), record::error_t::NONE);
 		/**
 		 * Раздел 5 RFC 8446 велит ПРОПУСКАТЬ эту запись по ходу рукопожатия: она
@@ -5769,8 +5769,8 @@ TEST(ContextTest, Changing){
 TEST(ContextTest, Oversize){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	/**
 	 * Размеров два: первый перерос предел открытого содержимого, но в предел
 	 * сборщика записей укладывается, а второй перерос и его - так проверяются оба
@@ -5778,7 +5778,7 @@ TEST(ContextTest, Oversize){
 	 */
 	const size_t sizes[2] = {(record::RECORD_PLAINTEXT + 128), (record::RECORD_CIPHERTEXT + 128)};
 	/**
-	 * Выполняем перебор размеров переросшего содержимого
+	 * Перебираем размеров переросшего содержимого
 	 */
 	for(size_t item = 0; item < 2; item++){
 	// Размер содержимого, переросшего дозволенный предел
@@ -5789,7 +5789,7 @@ TEST(ContextTest, Oversize){
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE) << "размер " << item;
 	// Составляемая запись связи, переросшая дозволенный предел
 	vector <uint8_t> wire(record::RECORD_HEADER + size, 0x00);
@@ -5801,9 +5801,9 @@ TEST(ContextTest, Oversize){
 	header.version = record::version_t::TLS12;
 	// Устанавливаем размер содержимого составляемой записи
 	header.size = size;
-	// Выполняем составление заголовка записи связи
+	// Составляем заголовка записи связи
 	ASSERT_EQ(record::build(header, wire.data()), record::error_t::NONE) << "размер " << item;
-	// Выполняем подачу переросшей записи серверу
+	// Подаём переросшей записи серверу
 	server.push(view_t(wire.data(), wire.size()));
 	/**
 	 * Раздел 5.2 RFC 8446: открытое содержимое свыше 16384 байтов объявляется
@@ -5823,9 +5823,9 @@ TEST(ContextTest, Divided){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера разорванным сообщением рукопожатия
+	// Формируем ответ враждебного сервера разорванным сообщением рукопожатия
 	ASSERT_TRUE(adversary(client, distortion_t::INTERLEAVE));
 	/**
 	 * Раздел 5.1 RFC 8446: сообщения рукопожатия перемежать записями иного
@@ -5844,8 +5844,8 @@ TEST(ContextTest, Divided){
 TEST(ContextTest, Intruder){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -5854,9 +5854,9 @@ TEST(ContextTest, Intruder){
 	server.credential(credentials);
 	// Устанавливаем набор шифрования, признаваемый сервером
 	server.suites({protect::suite_t::MAGMA_MGM_L});
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного клиента, ничего не искажающего
+	// Ведём рукопожатие враждебного клиента, ничего не искажающего
 	ASSERT_TRUE(intruder(server, distortion_t::NONE));
 	/**
 	 * Оснастка проверяется прежде заслонов: рукопожатие, сложенное вручную, обязано
@@ -5873,8 +5873,8 @@ TEST(ContextTest, Intruder){
 TEST(ContextTest, Echoed){
 	// Подлинность сторон связи
 	context::credential_t credentials;
-	// Выполняем выработку подлинности сторон связи
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности сторон связи
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -5885,9 +5885,9 @@ TEST(ContextTest, Echoed){
 	server.suites({protect::suite_t::MAGMA_MGM_L});
 	// Запрашиваем подлинность клиента стороной сервера
 	server.request(true);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного клиента с чужим опознавателем запроса
+	// Ведём рукопожатие враждебного клиента с чужим опознавателем запроса
 	ASSERT_TRUE(intruder(server, distortion_t::CONTEXT, &credentials));
 	/**
 	 * Раздел 4.4.2 RFC 8446: опознаватель запроса, взятый с потолка, отвечает не тому
@@ -5908,9 +5908,9 @@ TEST(ContextTest, Label){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем просьбу враждебного сервера о повторе приветствия с меткой
+	// Удовлетворяем просьбу враждебного сервера о повторе приветствия с меткой
 	ASSERT_TRUE(adversary(client, distortion_t::COOKIE));
 	// Проверяем, что связь просьбу о повторе приняла
 	ASSERT_EQ(client.error(), context::error_t::NONE);
@@ -5920,29 +5920,29 @@ TEST(ContextTest, Label){
 	ASSERT_GT(sending.size, static_cast <size_t> (0));
 	// Объект сборщика записей повторного приветствия
 	record::reader_t records;
-	// Выполняем подачу повторного приветствия сборщику записей
+	// Подаём повторного приветствия сборщику записей
 	ASSERT_EQ(records.push(sending), record::error_t::NONE);
 	// Заголовок записи повторного приветствия
 	record::header_t header;
 	// Содержимое записи повторного приветствия
 	view_t payload;
-	// Выполняем чтение записи повторного приветствия
+	// Читаем записи повторного приветствия
 	ASSERT_EQ(records.next(header, payload), record::error_t::NONE);
 	// Объект сборщика сообщений повторного приветствия
 	handshake::reader_t messages;
-	// Выполняем подачу содержимого записи сборщику сообщений
+	// Подаём содержимого записи сборщику сообщений
 	ASSERT_EQ(messages.push(payload), handshake::error_t::NONE);
 	// Заголовок сообщения повторного приветствия
 	handshake::header_t item;
 	// Тело сообщения повторного приветствия
 	view_t body;
-	// Выполняем чтение сообщения повторного приветствия
+	// Читаем сообщения повторного приветствия
 	ASSERT_EQ(messages.next(item, body), handshake::error_t::NONE);
 	// Проверяем, что прочитано именно приветствие клиента
 	ASSERT_EQ(item.type, handshake::type_t::CLIENT);
 	// Разбираемое повторное приветствие клиента
 	hello::client_t greeting;
-	// Выполняем разбор повторного приветствия клиента
+	// Разбираем повторного приветствия клиента
 	ASSERT_EQ(hello::parse(body, greeting), hello::error_t::NONE);
 	// Разыскиваем расширение метки возврата состояния сервера
 	const hello::extension_t * label = hello::extension(greeting.extensions, static_cast <uint16_t> (extension::type_t::COOKIE));
@@ -5967,9 +5967,9 @@ TEST(ContextTest, Compression){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного сервера, объявившего способ сжатия
+	// Ведём рукопожатие враждебного сервера, объявившего способ сжатия
 	ASSERT_TRUE(adversary(client, distortion_t::METHOD));
 	/**
 	 * Раздел 4.1.3 RFC 8446: способ сжатия достался изданию 1.3 от предыдущих и
@@ -5990,15 +5990,15 @@ TEST(ContextTest, Kept){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем просьбу враждебного сервера о повторе приветствия
+	// Удовлетворяем просьбу враждебного сервера о повторе приветствия
 	ASSERT_TRUE(adversary(client, distortion_t::PROPOSAL));
 	// Проверяем, что связь просьбу о повторе приняла
 	ASSERT_EQ(client.error(), context::error_t::NONE);
 	// Проверяем отправку повторного приветствия клиентом
 	ASSERT_GT(client.output().size, static_cast <size_t> (0));
-	// Выполняем ответ враждебного сервера с иным набором шифрования
+	// Формируем ответ враждебного сервера с иным набором шифрования
 	ASSERT_TRUE(adversary(client, distortion_t::PROPOSED));
 	/**
 	 * Раздел 4.1.4 RFC 8446: набор шифрования между просьбой о повторе и самим
@@ -6019,15 +6019,15 @@ TEST(ContextTest, Insistent){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем первую просьбу враждебного сервера о повторе приветствия
+	// Удовлетворяем первую просьбу враждебного сервера о повторе приветствия
 	ASSERT_TRUE(adversary(client, distortion_t::PROPOSAL));
 	// Проверяем, что связь первую просьбу о повторе приняла
 	ASSERT_EQ(client.error(), context::error_t::NONE);
 	// Проверяем отправку повторного приветствия клиентом
 	ASSERT_GT(client.output().size, static_cast <size_t> (0));
-	// Выполняем вторую просьбу враждебного сервера о повторе приветствия
+	// Удовлетворяем вторую просьбу враждебного сервера о повторе приветствия
 	ASSERT_TRUE(adversary(client, distortion_t::REPEATED));
 	/**
 	 * Раздел 4.1.4 RFC 8446: просьба о повторе приветствия дозволена за связь лишь
@@ -6048,9 +6048,9 @@ TEST(ContextTest, Composition){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера расширением не своего сообщения
+	// Формируем ответ враждебного сервера расширением не своего сообщения
 	ASSERT_TRUE(adversary(client, distortion_t::GREETING));
 	/**
 	 * Раздел 4.1.3 RFC 8446: приветствию сервера положены всего три расширения, а
@@ -6074,8 +6074,8 @@ TEST(ContextTest, Composition){
 TEST(ContextTest, Stateless){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6095,16 +6095,16 @@ TEST(ContextTest, Stateless){
 	server.groups({extension::group_t::GC512C});
 	// Метка возврата состояния, выдаваемая сервером
 	const vector <uint8_t> cookie = {0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02};
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Устанавливаем метку возврата состояния стороны сервера
 	server.cookie(cookie);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проверяем, что метки от клиента сервер ещё не принял
 	ASSERT_TRUE(server.cookie().empty());
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи стороной клиента
 	ASSERT_TRUE(client.established());
 	// Проверяем установленность связи стороной сервера
@@ -6144,8 +6144,8 @@ TEST(ContextTest, Unprovisioned){
 	ASSERT_EQ(server.start(), context::error_t::SETTINGS);
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Подлинность, у которой оставлена одна лишь цепочка сертификатов
 	context::credential_t keyless;
 	// Переносим цепочку сертификатов в подлинность без секретного ключа
@@ -6164,7 +6164,7 @@ TEST(ContextTest, Unprovisioned){
 	ASSERT_EQ(server.start(), context::error_t::SETTINGS);
 	// Устанавливаем полную подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Проверяем отказ повторного заведения уже заведённой связи
 	ASSERT_EQ(server.start(), context::error_t::STATE);
@@ -6176,8 +6176,8 @@ TEST(ContextTest, Unprovisioned){
 TEST(ContextTest, Premature){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6197,14 +6197,14 @@ TEST(ContextTest, Premature){
 	 * сверяются РАЗНЫМИ половинами заслона, и всякая отвергает подачу в одиночку
 	 */
 	ASSERT_EQ(client.push(view_t(payload, sizeof(payload))), context::error_t::STATE);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проверяем отказ отправки прикладных данных до окончания рукопожатия
 	ASSERT_EQ(client.write(view_t(payload, sizeof(payload))), context::error_t::STATE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи стороной клиента
 	ASSERT_TRUE(client.established());
 	/**
@@ -6214,7 +6214,7 @@ TEST(ContextTest, Premature){
 	ASSERT_EQ(client.write(view_t(nullptr, sizeof(payload))), context::error_t::NONE);
 	// Проверяем успешность отправки прикладных данных нулевой длины
 	ASSERT_EQ(client.write(view_t(payload, 0)), context::error_t::NONE);
-	// Выполняем закрытие связи стороны клиента
+	// Закрываем связи стороны клиента
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Проверяем отказ повторного закрытия уже закрытой связи
 	ASSERT_EQ(client.close(), context::error_t::CLOSED);
@@ -6228,14 +6228,14 @@ TEST(ContextTest, Premature){
 TEST(ContextTest, Timeless){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, признаваемые сервером возобновляемой связи
 	vector <context::ticket_t> issued;
 	// Билет, принятый клиентом прошлой связи
 	context::ticket_t accepted;
-	// Выполняем проведение связи, выдающей билет возобновления
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	// Проводим связи, выдающей билет возобновления
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	/**
 	 * Метка времени выдачи билета необязательна: потребитель фреймворка волен
 	 * хранить билеты без неё, и тогда судить о сроке билета не по чему. Раздел
@@ -6244,7 +6244,7 @@ TEST(ContextTest, Timeless){
 	 */
 	accepted.moment = 0;
 	/**
-	 * Выполняем обнуление метки времени выдачи билетов стороны сервера
+	 * Обнуляем метки времени выдачи билетов стороны сервера
 	 */
 	for(auto & ticket : issued)
 		// Обнуляем метку времени выдачи очередного билета
@@ -6271,12 +6271,12 @@ TEST(ContextTest, Timeless){
 	client.moment(1800000000);
 	// Устанавливаем миг суждения о сроках стороне сервера
 	server.moment(1800000000);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем возобновление связи заранее разделённым ключом
@@ -6292,16 +6292,16 @@ TEST(ContextTest, Hollow){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера защищённой записью с пустым содержимым
+	// Формируем ответ враждебного сервера защищённой записью с пустым содержимым
 	/**
 	 * Враждебный сервер подтверждает себя сертификатом: завершение без сертификата
 	 * клиент отвергает раньше, чем дело дошло бы до подделанной записи
 	 */
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	ASSERT_TRUE(adversary(client, distortion_t::VACANT, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::RECORD);
@@ -6326,9 +6326,9 @@ TEST(ContextTest, Retrograde){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем просьбу враждебного сервера о повторе с изданием ниже TLS 1.3
+	// Удовлетворяем просьбу враждебного сервера о повторе с изданием ниже TLS 1.3
 	ASSERT_TRUE(adversary(client, distortion_t::RETROGRADE));
 	/**
 	 * Раздел 9.2 RFC 8446 требует расширения издания и от просьбы о повторе, а раздел
@@ -6350,15 +6350,15 @@ TEST(ContextTest, Retrograde){
 TEST(ContextTest, Lengthy){
 	// Подлинность враждебного сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности враждебного сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности враждебного сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера подписью непомерной длины
+	// Формируем ответ враждебного сервера подписью непомерной длины
 	ASSERT_TRUE(adversary(client, distortion_t::LENGTHY, &credentials));
 	/**
 	 * Длина подписи приходит с той стороны связи и пределом сообщения ограничена лишь
@@ -6379,15 +6379,15 @@ TEST(ContextTest, Lengthy){
 TEST(ContextTest, Malsigned){
 	// Подлинность враждебного сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности враждебного сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности враждебного сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера испорченной подписью владения ключом
+	// Формируем ответ враждебного сервера испорченной подписью владения ключом
 	ASSERT_TRUE(adversary(client, distortion_t::MALSIGN, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::SIGNATURE);
@@ -6408,15 +6408,15 @@ TEST(ContextTest, Malsigned){
 TEST(ContextTest, Malfinished){
 	// Подлинность враждебного сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности враждебного сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности враждебного сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера испорченным завершением рукопожатия
+	// Формируем ответ враждебного сервера испорченным завершением рукопожатия
 	ASSERT_TRUE(adversary(client, distortion_t::MALFINISH, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::COMPLETION);
@@ -6436,15 +6436,15 @@ TEST(ContextTest, Malfinished){
 TEST(ContextTest, Misordered){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	/**
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
@@ -6473,9 +6473,9 @@ TEST(ContextTest, Offcurve){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера долей обмена вне кривой
+	// Формируем ответ враждебного сервера долей обмена вне кривой
 	ASSERT_TRUE(adversary(client, distortion_t::OFFCURVE));
 	/**
 	 * Точка, кривой не принадлежащая, отвергается выработкой общего значения: без
@@ -6497,17 +6497,17 @@ TEST(ContextTest, Offcurve){
 TEST(ContextTest, Offpoint){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем приветствие враждебного клиента долей обмена вне кривой
+	// Составляем приветствие враждебного клиента долей обмена вне кривой
 	(void) intruder(server, distortion_t::OFFPOINT, &credentials);
 	// Проверяем обрыв связи стороной сервера
 	ASSERT_EQ(server.error(), context::error_t::EXCHANGE);
@@ -6526,9 +6526,9 @@ TEST(ContextTest, Synthesized){
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем ответ враждебного сервера сообщением поддельного вида
+	// Формируем ответ враждебного сервера сообщением поддельного вида
 	ASSERT_TRUE(adversary(client, distortion_t::SYNTHETIC));
 	/**
 	 * Вид message_hash заведён разделом 4.4.1 RFC 8446 для ПОДМЕНЫ первого приветствия
@@ -6553,17 +6553,17 @@ TEST(ContextTest, Synthesized){
 TEST(ContextTest, Malschemes){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем приветствие враждебного клиента с негодными схемами подписи
+	// Составляем приветствие враждебного клиента с негодными схемами подписи
 	(void) intruder(server, distortion_t::MALSCHEMES, &credentials);
 	// Проверяем обрыв связи стороной сервера
 	ASSERT_EQ(server.error(), context::error_t::MESSAGE);
@@ -6583,7 +6583,7 @@ TEST(ContextTest, Malrequest){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6606,7 +6606,7 @@ TEST(ContextTest, Overrequest){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6629,7 +6629,7 @@ TEST(ContextTest, Malreqschemes){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6652,7 +6652,7 @@ TEST(ContextTest, Malchain){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6676,7 +6676,7 @@ TEST(ContextTest, Malverify){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6700,7 +6700,7 @@ TEST(ContextTest, Garbageleaf){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6722,7 +6722,7 @@ TEST(ContextTest, Oddsign){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6744,7 +6744,7 @@ TEST(ContextTest, Alientype){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6792,7 +6792,7 @@ TEST(ContextTest, Unknownpsk){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Билеты, выданные сервером: без них запас пуст, и до поиска ключа сервер не доходит
 	vector <context::ticket_t> issued;
 	{
@@ -6810,13 +6810,13 @@ TEST(ContextTest, Unknownpsk){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
 		// Выдача билетов продолжения сервером удаётся
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Забираем выданные сервером билеты продолжения
 		issued = server.tickets();
 		// Сервер выдал один билет продолжения
@@ -6847,7 +6847,7 @@ TEST(ContextTest, Alienleaf){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Удостоверение, ключ которого записан чужим алгоритмом
-	ASSERT_TRUE(identity("anyks.com", credentials, true));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials, true));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6868,8 +6868,8 @@ TEST(ContextTest, Alienleaf){
 TEST(ContextTest, Automatic){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6884,12 +6884,12 @@ TEST(ContextTest, Automatic){
 	client.renewal(true, 3);
 	// Устанавливаем смену ключей сервером по трём записям
 	server.renewal(true, 3);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем, что счётчики прикладных записей начинаются с нуля
@@ -6900,35 +6900,35 @@ TEST(ContextTest, Automatic){
 	// Накопитель, в который складываются все принятые сервером данные
 	string gathered;
 	/**
-	 * Выполняем отправку семи записей: раздел 5.5 RFC 8446 велит сменять ключи
+	 * Отправляем семи записей: раздел 5.5 RFC 8446 велит сменять ключи
 	 * впереди предела, и порог в три записи счётчик своего направления переступать
 	 * не должен ни разу
 	 */
 	for(size_t i = 0; i < 7; i++){
 		// Отправляемые прикладные данные
 		const string data = ("Запись " + std::to_string(i));
-		// Выполняем отправку прикладных данных клиентом
+		// Отправляем прикладных данных клиентом
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (data.data()), data.size())), context::error_t::NONE);
 		// Проверяем, что счётчик своего направления клиента порога не переступил
 		ASSERT_LT(client.sequence(), 3);
-		// Выполняем передачу байтов между сторонами, пока им есть что сказать
-		converse(client, server);
+		// Передаём байтов между сторонами, пока им есть что сказать
+		__nts_converse__(client, server);
 		// Проверяем сохранность связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем, что счётчик направления клиента у сервера порога не переступил
 		ASSERT_LT(server.sequence(true), 3);
-		// Выполняем получение принятых сервером прикладных данных
+		// Получаем принятых сервером прикладных данных
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
-		// Выполняем складывание принятых данных
+		// Складываем принятых данных
 		gathered.append(received.begin(), received.end());
 	}
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(gathered, "Запись 0Запись 1Запись 2Запись 3Запись 4Запись 5Запись 6");
 	// Проверяем, что связь по-прежнему пригодна к обмену в обе стороны
 	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> ("ok"), 2)), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	converse(client, server);
-	// Выполняем получение принятых клиентом прикладных данных
+	// Передаём байтов между сторонами связи
+	__nts_converse__(client, server);
+	// Получаем принятых клиентом прикладных данных
 	ASSERT_EQ(client.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), "ok");
@@ -6940,8 +6940,8 @@ TEST(ContextTest, Automatic){
 TEST(ContextTest, Manual){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -6956,33 +6956,33 @@ TEST(ContextTest, Manual){
 	client.renewal(false, 3);
 	// Устанавливаем ручной порядок смены ключей сервером с порогом в три записи
 	server.renewal(false, 3);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	/**
-	 * Выполняем отправку пяти записей: в ручном порядке порог движку не указ,
+	 * Отправляем пяти записей: в ручном порядке порог движку не указ,
 	 * и счётчики обоих концов направления доходят до пяти
 	 */
 	for(size_t i = 0; i < 5; i++)
-		// Выполняем отправку прикладных данных клиентом
+		// Отправляем прикладных данных клиентом
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами, пока им есть что сказать
-	converse(client, server);
+	// Передаём байтов между сторонами, пока им есть что сказать
+	__nts_converse__(client, server);
 	// Проверяем, что счётчик своего направления клиента дошёл до пяти
 	ASSERT_EQ(client.sequence(), 5);
 	// Проверяем, что счётчик направления клиента у сервера дошёл до пяти
 	ASSERT_EQ(server.sequence(true), 5);
 	// Проверяем, что своё направление сервер не сменял
 	ASSERT_EQ(server.sequence(), 0);
-	// Выполняем смену ключей вручную тем, кто связь ведёт
+	// Меняем ключей вручную тем, кто связь ведёт
 	ASSERT_EQ(client.update(false), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	converse(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_converse__(client, server);
 	// Проверяем, что счётчики направления клиента начались заново
 	ASSERT_EQ(client.sequence(), 0);
 	ASSERT_EQ(server.sequence(true), 0);
@@ -6996,8 +6996,8 @@ TEST(ContextTest, Manual){
 TEST(ContextTest, Requested){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7012,28 +7012,28 @@ TEST(ContextTest, Requested){
 	client.renewal(false);
 	// Устанавливаем смену ключей сервером по трём записям
 	server.renewal(true, 3);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем проведение рукопожатия сторон связи
-	converse(client, server);
+	// Проводим рукопожатия сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	/**
-	 * Выполняем два круга по четыре записи: сервер обязан испросить смену ключей
+	 * Ведём два круга по четыре записи: сервер обязан испросить смену ключей
 	 * направления клиента на третьей записи каждого круга, а клиент по разделу
 	 * 4.6.3 RFC 8446 обязан на просьбу ответить и в ручном порядке
 	 */
 	for(size_t round = 0; round < 2; round++){
 		/**
-		 * Выполняем отправку четырёх записей клиентом
+		 * Отправляем четырёх записей клиентом
 		 */
 		for(size_t i = 0; i < 4; i++){
-			// Выполняем отправку прикладных данных клиентом
+			// Отправляем прикладных данных клиентом
 			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
-			// Выполняем передачу байтов между сторонами, пока им есть что сказать
-			converse(client, server);
+			// Передаём байтов между сторонами, пока им есть что сказать
+			__nts_converse__(client, server);
 		}
 		// Проверяем сохранность связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
@@ -7082,7 +7082,7 @@ TEST(ContextTest, Unproven){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -7109,7 +7109,7 @@ TEST(ContextTest, Spanning){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7132,13 +7132,13 @@ TEST(ContextTest, Unpicked){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём перечень объектов
 	vector <context::ticket_t> issued;
 	// Создаём объект билета
 	context::ticket_t accepted;
 	// Выдача и приём билета продолжения удаются
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7165,13 +7165,13 @@ TEST(ContextTest, Endless){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём перечень объектов
 	vector <context::ticket_t> issued;
 	// Создаём объект билета
 	context::ticket_t accepted;
 	// Выдача и приём билета продолжения удаются
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Создаём контекст стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -7200,7 +7200,7 @@ TEST(ContextTest, Stale){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Объявляем переменную с начальным значением
 	const int64_t issued = 1800000000;
 	// Создаём объект билета
@@ -7224,11 +7224,11 @@ TEST(ContextTest, Stale){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Выдача билетов продолжения сервером удаётся
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Клиент получил один билет продолжения
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Забираем полученный клиентом билет продолжения
@@ -7264,7 +7264,7 @@ TEST(ContextTest, Recovered){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Объявляем переменную с начальным значением
 	const int64_t issued = 1800000000;
 	// Создаём перечень объектов
@@ -7290,11 +7290,11 @@ TEST(ContextTest, Recovered){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Выдача билетов продолжения сервером удаётся
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Клиент получил один билет продолжения
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Начинаем набор с билетов сервера
@@ -7311,7 +7311,7 @@ TEST(ContextTest, Recovered){
 	// Продвигаем сервер с ожиданием записей
 	server.advance(true);
 	/**
-	 * Выполняем перебор вариантов со сдвигом времени
+	 * Перебираем вариантов со сдвигом времени
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Объявляем переменную с начальным значением
@@ -7340,7 +7340,7 @@ TEST(ContextTest, Recovered){
 		// Запись данных клиентом удаётся
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена в каждом круге
 		ASSERT_TRUE(client.established() && server.established()) << "круг " << item;
 		/**
@@ -7359,15 +7359,15 @@ TEST(ContextTest, Hastened){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём перечень объектов
 	vector <context::ticket_t> issued;
 	// Создаём объект билета
 	context::ticket_t accepted;
 	// Выдача и приём билета продолжения удаются
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	/**
-	 * Выполняем перебор вариантов со сдвигом времени
+	 * Перебираем вариантов со сдвигом времени
 	 */
 	for(size_t item = 0; item < 2; item++){
 		// Создаём контекст стороны клиента
@@ -7400,7 +7400,7 @@ TEST(ContextTest, Hastened){
 		// Запись данных клиентом удаётся
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		/**
 		 * Разделы 4.1.2 и 4.2.10 RFC 8446: за просьбою о повторе упреждение не идёт,
 		 * повторное приветствие уходит открытой записью, а уже ушедшие записи
@@ -7421,7 +7421,7 @@ TEST(ContextTest, Hastened){
 		// Запись данных по установленной связи удаётся
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (repeated.data()), repeated.size())), context::error_t::NONE);
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Чтение данных сервером удаётся
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
 		ASSERT_EQ(string(received.begin(), received.end()), repeated) << "круг " << item;
@@ -7435,13 +7435,13 @@ TEST(ContextTest, Shredded){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём перечень объектов
 	vector <context::ticket_t> issued;
 	// Создаём объект билета
 	context::ticket_t accepted;
 	// Выдача и приём билета продолжения удаются
-	ASSERT_TRUE(granted(credentials, issued, accepted));
+	ASSERT_TRUE(__nts_granted__(credentials, issued, accepted));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7472,7 +7472,7 @@ TEST(ContextTest, Shredded){
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("x"), 1)), context::error_t::NONE);
 	}
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Упреждающие данные связью не приняты
@@ -7486,7 +7486,7 @@ TEST(ContextTest, Hoarded){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7501,7 +7501,7 @@ TEST(ContextTest, Hoarded){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	/**
@@ -7512,7 +7512,7 @@ TEST(ContextTest, Hoarded){
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 	}
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Связь установлена клиентом
 	ASSERT_TRUE(client.established());
 	// Клиент хранит шестнадцать последних билетов
@@ -7529,7 +7529,7 @@ TEST(ContextTest, Amplified){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7544,7 +7544,7 @@ TEST(ContextTest, Amplified){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	/**
@@ -7579,7 +7579,7 @@ TEST(ContextTest, Amplified){
 	// Связь пригодна к обмену новыми ключами в обе стороны
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> ("ok"), 2)), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Создаём перечень объектов
 	vector <uint8_t> received;
 	// Чтение данных сервером удаётся
@@ -7601,7 +7601,7 @@ TEST(ContextTest, Unopened){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -7625,8 +7625,8 @@ TEST(ContextTest, Unopened){
 TEST(ContextTest, Halfclosed){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7637,19 +7637,19 @@ TEST(ContextTest, Halfclosed){
 	gosting(server);
 	// Устанавливаем подлинность стороны сервера
 	server.credential(credentials);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие сторон связи
-	converse(client, server);
+	// Ведём рукопожатие сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Прикладные данные, отправляемые сервером до сведений о закрытии
 	const string answer = "Ответ, разошедшийся с закрытием";
-	// Выполняем отправку прикладных данных сервером
+	// Отправляем прикладных данных сервером
 	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
-	// Выполняем закрытие своей передачи стороной клиента
+	// Закрываем своей передачи стороной клиента
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Проверяем состояние закрытия связи стороной клиента
 	ASSERT_EQ(client.state(), context::state_t::CLOSED);
@@ -7659,9 +7659,9 @@ TEST(ContextTest, Halfclosed){
 	const size_t before = server.output().size;
 	// Извещение о закрытии, отправляемое клиентом
 	const view_t closing = client.output();
-	// Выполняем подачу извещения о закрытии серверу
+	// Подаём извещения о закрытии серверу
 	ASSERT_EQ(server.push(closing), context::error_t::NONE);
-	// Выполняем снятие отправленного извещения с накопителя клиента
+	// Снимаем отправленного извещения с накопителя клиента
 	client.consume(closing.size);
 	/**
 	 * Принявший извещение о закрытии обязан ответить своим: ответ сложен в
@@ -7674,8 +7674,8 @@ TEST(ContextTest, Halfclosed){
 	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::STATE);
 	// Проверяем отказ повторного закрытия уже завершённой передачи
 	ASSERT_EQ(server.close(), context::error_t::CLOSED);
-	// Выполняем передачу разошедшихся данных и ответного извещения клиенту
-	pump(client, server);
+	// Передаём разошедшихся данных и ответного извещения клиенту
+	__nts_pump__(client, server);
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
 	/**
@@ -7701,8 +7701,8 @@ TEST(ContextTest, Halfclosed){
 TEST(ContextTest, Termed){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7715,26 +7715,26 @@ TEST(ContextTest, Termed){
 	server.credential(credentials);
 	// Устанавливаем срок жизни выдаваемых билетов в минуту
 	server.lifetime(60);
-	// Выполняем заведение связи стороны сервера
+	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие сторон связи
-	converse(client, server);
+	// Ведём рукопожатие сторон связи
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
-	// Выполняем выдачу билета со сроком в минуту
+	// Выдаём билета со сроком в минуту
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
 	// Устанавливаем срок жизни выдаваемых билетов выше предела стандарта
 	server.lifetime(700000);
-	// Выполняем выдачу билета с усечённым сроком
+	// Выдаём билета с усечённым сроком
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
 	// Возвращаем срок жизни выдаваемых билетов к принятому по умолчанию
 	server.lifetime(0);
-	// Выполняем выдачу билета со сроком по умолчанию
+	// Выдаём билета со сроком по умолчанию
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
-	// Выполняем передачу билетов клиенту
-	pump(client, server);
+	// Передаём билетов клиенту
+	__nts_pump__(client, server);
 	// Проверяем число принятых клиентом билетов
 	ASSERT_EQ(client.tickets().size(), 3);
 	// Проверяем срок билета, выданного со сроком в минуту
@@ -7751,15 +7751,15 @@ TEST(ContextTest, Termed){
 TEST(ContextTest, Overgrown){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного сервера с непомерным сообщением после
+	// Ведём рукопожатие враждебного сервера с непомерным сообщением после
 	ASSERT_TRUE(adversary(client, distortion_t::OVERGROWN, &credentials));
 	/**
 	 * После установления связи сообщения рукопожатия шире билета не ходят: связь
@@ -7778,15 +7778,15 @@ TEST(ContextTest, Overgrown){
 TEST(ContextTest, Impostor){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
 	gosting(client);
-	// Выполняем заведение связи стороны клиента
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
-	// Выполняем рукопожатие враждебного сервера с повторной цепочкой после
+	// Ведём рукопожатие враждебного сервера с повторной цепочкой после
 	ASSERT_TRUE(adversary(client, distortion_t::IMPOSTOR, &credentials));
 	/**
 	 * За установленной связью законны лишь смена ключей и билеты: цепочка
@@ -7815,8 +7815,8 @@ TEST(ContextTest, Starved){
 		GTEST_SKIP() << "COW-ABI строк libstdc++ OpenWrt меняет счёт выделений";
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
@@ -7826,7 +7826,7 @@ TEST(ContextTest, Starved){
 	 */
 	const size_t top = 512;
 	/**
-	 * Выполняем перебор запасов выделений: до трёхсот по одному, дальше шагом в
+	 * Перебираем запасов выделений: до трёхсот по одному, дальше шагом в
 	 * пятьдесят три до самого верха (полный путь связи укладывается в 244 выделения,
 	 * и всякий перехват задевается первой сотней с лишним). На всяком запасе связь
 	 * обязана ответить либо успехом, либо отказом памяти, но не прерыванием
@@ -7849,8 +7849,8 @@ TEST(ContextTest, Starved){
 			gosting(server);
 			// Отмеряем запас выделений на время ведения связи
 			starve::ration_t ration(budget);
-			// Выполняем ведение связи при отмеренном запасе выделений
-			breach = starving(client, server, credentials, hungry);
+			// Ведём связь при отмеренном запасе выделений
+			breach = __nts_starving__(client, server, credentials, hungry);
 			// Снимаем запас: дальнейшие выделения принадлежат проверке, а не связи
 			ration.stop();
 			/**
@@ -7882,8 +7882,8 @@ TEST(ContextTest, Starved){
 			server::context_t server;
 			// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 			gosting(server);
-			// Выполняем ведение связи при отмеренном запасе выделений
-			breach = starving(client, server, credentials, hungry);
+			// Ведём связь при отмеренном запасе выделений
+			breach = __nts_starving__(client, server, credentials, hungry);
 			// Снимаем запас: дальнейшие выделения принадлежат проверке, а не связи
 			ration.stop();
 			/**
@@ -7915,7 +7915,7 @@ TEST(ContextTest, Sheltered){
 	// Создаём учётные данные стороны
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Создаём контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -7930,13 +7930,13 @@ TEST(ContextTest, Sheltered){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Выдача билетов продолжения сервером удаётся
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Клиент получил один билет продолжения
 	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 	// Ключ билета у обеих сторон лежит в хранилище
@@ -7991,7 +7991,7 @@ TEST(ContextTest, Sheltered){
 	ASSERT_EQ(peer.start(), context::error_t::NONE);
 	ASSERT_EQ(again.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(again, peer);
+	__nts_converse__(again, peer);
 	// Связь по копиям билетов установлена
 	ASSERT_TRUE(again.established() && peer.established());
 	// Заранее разделённый ключ у потребителя: assign из обычного набора, память хранилища
@@ -8039,7 +8039,7 @@ namespace {
 	 * @return       признак того, что приветствие извлечено и разобрано
 	 *
 	 */
-	bool opening(client::context_t & client, opened_t & result) noexcept {
+	bool __nts_opening__(client::context_t & client, opened_t & result) noexcept {
 		// Получаем байты, отправляемые клиентом серверу
 		const view_t sending = client.output();
 		// Если клиент серверу ничего не отправил
@@ -8081,13 +8081,13 @@ namespace {
 	 * @return       число ходов, за которые сторонам было что сказать: два без просьбы о повторе, три с ней
 	 *
 	 */
-	size_t rounds(client::context_t & client, server::context_t & server) noexcept {
+	size_t __nts_rounds__(client::context_t & client, server::context_t & server) noexcept {
 		// Число ходов передачи байтов
 		size_t result = 0;
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байтов между сторонами, пока им есть что сказать
 		 */
-		for(; (result < 16) && pump(client, server); result++)
+		for(; (result < 16) && __nts_pump__(client, server); result++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 		// Выводим число ходов
@@ -8100,7 +8100,7 @@ namespace {
 	 * @return      признак набора ГОСТ
 	 *
 	 */
-	bool gostSuite(const protect::suite_t suite) noexcept {
+	bool __nts_gost_suite__(const protect::suite_t suite) noexcept {
 		// Выводим признак набора «Кузнечик» либо «Магма» в MGM
 		return ((suite == protect::suite_t::KUZNYECHIK_MGM_L) || (suite == protect::suite_t::MAGMA_MGM_L) || (suite == protect::suite_t::KUZNYECHIK_MGM_S) || (suite == protect::suite_t::MAGMA_MGM_S));
 	}
@@ -8111,7 +8111,7 @@ namespace {
 	 * @return       признак схемы ГОСТ
 	 *
 	 */
-	bool gostScheme(const extension::scheme_t scheme) noexcept {
+	bool __nts_gost_scheme__(const extension::scheme_t scheme) noexcept {
 		// Выводим признак схемы ГОСТ Р 34.10-2012
 		return ((extension::hash(scheme) == digest::hash_t::STREEBOG256) || (extension::hash(scheme) == digest::hash_t::STREEBOG512));
 	}
@@ -8122,7 +8122,7 @@ namespace {
 	 * @return      признак кривой ГОСТ
 	 *
 	 */
-	bool gostGroup(const extension::group_t group) noexcept {
+	bool __nts_gost_group__(const extension::group_t group) noexcept {
 		// Выводим признак кривой ГОСТ: коды 0x0022…0x0028
 		return ((static_cast <uint16_t> (group) >= 0x0022) && (static_cast <uint16_t> (group) <= 0x0028));
 	}
@@ -8174,17 +8174,17 @@ TEST(ContextTest, Defaults){
 	EXPECT_EQ(client.suites()[2], protect::suite_t::AES_128_GCM_SHA256);
 	EXPECT_EQ(client.suites(), server.suites());
 	/**
-	 * Выполняем перебор наборов умолчания
+	 * Перебираем наборов умолчания
 	 */
 	for(size_t i = 0; i < client.suites().size(); i++)
 		// Наборов ГОСТ в умолчании нет
-		EXPECT_FALSE(gostSuite(client.suites()[i])) << "набор " << static_cast <uint16_t> (client.suites()[i]);
-	// Выполняем заведение связи стороны клиента
+		EXPECT_FALSE(__nts_gost_suite__(client.suites()[i])) << "набор " << static_cast <uint16_t> (client.suites()[i]);
+	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Разобранное приветствие клиента с его байтами
 	opened_t opened;
 	// Разбираем приветствие клиента
-	ASSERT_TRUE(opening(client, opened));
+	ASSERT_TRUE(__nts_opening__(client, opened));
 	// Приветствие клиента
 	hello::client_t & greeting = opened.greeting;
 	// Разыскиваем расширение перечня кривых обмена ключами
@@ -8225,11 +8225,11 @@ TEST(ContextTest, Defaults){
 	// Место схемы в перечне умолчания
 	size_t place = 0;
 	/**
-	 * Выполняем перебор объявленных схем подписи
+	 * Перебираем объявленных схем подписи
 	 */
 	for(size_t i = 0; i < declared.size(); i++){
 		// Схем ГОСТ в приветствии нет
-		EXPECT_FALSE(gostScheme(declared[i])) << "схема " << static_cast <uint16_t> (declared[i]);
+		EXPECT_FALSE(__nts_gost_scheme__(declared[i])) << "схема " << static_cast <uint16_t> (declared[i]);
 		/**
 		 * Разыскиваем схему в перечне умолчания начиная с места прежней: порядок объявления тот же
 		 */
@@ -8244,17 +8244,17 @@ TEST(ContextTest, Defaults){
 	EXPECT_EQ(greeting.suites[1], static_cast <uint16_t> (protect::suite_t::CHACHA20_POLY1305_SHA256));
 	EXPECT_EQ(greeting.suites[2], static_cast <uint16_t> (protect::suite_t::AES_128_GCM_SHA256));
 	/**
-	 * Выполняем перебор наборов приветствия
+	 * Перебираем наборов приветствия
 	 */
 	for(size_t i = 0; i < greeting.suites.size(); i++)
 		// Наборов ГОСТ в приветствии нет
-		EXPECT_FALSE(gostSuite(static_cast <protect::suite_t> (greeting.suites[i]))) << "набор " << greeting.suites[i];
+		EXPECT_FALSE(__nts_gost_suite__(static_cast <protect::suite_t> (greeting.suites[i]))) << "набор " << greeting.suites[i];
 	/**
-	 * Выполняем перебор кривых приветствия
+	 * Перебираем кривых приветствия
 	 */
 	for(size_t i = 0; i < offered.size(); i++)
 		// Кривых ГОСТ в приветствии нет
-		EXPECT_FALSE(gostGroup(offered[i])) << "кривая " << static_cast <uint16_t> (offered[i]);
+		EXPECT_FALSE(__nts_gost_group__(offered[i])) << "кривая " << static_cast <uint16_t> (offered[i]);
 }
 
 /**
@@ -8267,7 +8267,7 @@ TEST(ContextTest, Compatible){
 	// Подлинность стороны сервера ключом ECDSA P-256
 	context::credential_t ecdsa;
 	// Читаем подлинность из набора ключей
-	ASSERT_TRUE(keyed("ec256.pem", "ec256.crt", ecdsa));
+	ASSERT_TRUE(__nts_keyed__("ec256.pem", "ec256.crt", ecdsa));
 	/**
 	 * Умолчания против умолчаний: гибрид X25519MLKEM768 и AES-256-GCM за два хода
 	 */
@@ -8278,11 +8278,11 @@ TEST(ContextTest, Compatible){
 		server::context_t server;
 		// Устанавливаем подлинность стороны сервера
 		server.credential(ecdsa);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за два хода: просьбы о повторе нет
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (2));
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -8304,11 +8304,11 @@ TEST(ContextTest, Compatible){
 		server.groups({extension::group_t::X25519});
 		// Устанавливаем подлинность стороны сервера
 		server.credential(ecdsa);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за два хода: сервер взял вторую долю
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (2));
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -8328,11 +8328,11 @@ TEST(ContextTest, Compatible){
 		server.groups({extension::group_t::SECP256R1});
 		// Устанавливаем подлинность стороны сервера
 		server.credential(ecdsa);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за три хода: просьба о повторе
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (3));
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (3));
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -8349,12 +8349,12 @@ TEST(ContextTest, Compatible){
 		client::context_t client;
 		// Устанавливаем кривые: гибрид NIST впереди, X25519 раньше secp256r1
 		client.groups({extension::group_t::SECP256R1MLKEM768, extension::group_t::X25519, extension::group_t::SECP256R1});
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Разобранное приветствие клиента с его байтами
 		opened_t opened;
 		// Разбираем приветствие клиента
-		ASSERT_TRUE(opening(client, opened));
+		ASSERT_TRUE(__nts_opening__(client, opened));
 		// Приветствие клиента
 		hello::client_t & greeting = opened.greeting;
 		// Разыскиваем расширение долей ключа
@@ -8380,12 +8380,12 @@ TEST(ContextTest, Compatible){
 		client::context_t client;
 		// Устанавливаем кривые: гибрид с X25519, а из классических лишь secp256r1
 		client.groups({extension::group_t::X25519MLKEM768, extension::group_t::SECP256R1});
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Разобранное приветствие клиента с его байтами
 		opened_t opened;
 		// Разбираем приветствие клиента
-		ASSERT_TRUE(opening(client, opened));
+		ASSERT_TRUE(__nts_opening__(client, opened));
 		// Приветствие клиента
 		hello::client_t & greeting = opened.greeting;
 		// Разыскиваем расширение долей ключа
@@ -8420,7 +8420,7 @@ TEST(ContextTest, Compatible){
 			// Разобранное приветствие клиента с его байтами
 			opened_t opened;
 			// Если приветствие разобрать не удалось
-			if(!opening(client, opened))
+			if(!__nts_opening__(client, opened))
 				// Приветствие не разобрано — долей нет
 				return false;
 			// Приветствие клиента
@@ -8440,7 +8440,7 @@ TEST(ContextTest, Compatible){
 			// Опорожняем итог перед сбором групп долей
 			result.clear();
 			/**
-			 * Выполняем перебор долей
+			 * Перебираем долей
 			 */
 			for(size_t i = 0; i < shares.size(); i++)
 				// Добавляем группу доли в итог
@@ -8485,12 +8485,12 @@ TEST(ContextTest, Compatible){
 		client.shares({extension::group_t::X25519});
 		// Получатель отдаёт назначенные доли
 		EXPECT_EQ(client.shares(), vector <extension::group_t> {extension::group_t::X25519});
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Разобранное приветствие клиента с его байтами
 		opened_t opened;
 		// Разбираем приветствие клиента
-		ASSERT_TRUE(opening(client, opened));
+		ASSERT_TRUE(__nts_opening__(client, opened));
 		// Приветствие клиента
 		hello::client_t & greeting = opened.greeting;
 		// Разыскиваем расширение долей ключа
@@ -8517,8 +8517,8 @@ TEST(ContextTest, Compatible){
 TEST(ContextTest, Gost){
 	// Подлинность стороны сервера ключом ГОСТ
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	/**
 	 * ГОСТ как единственный вариант: обе стороны объявляют лишь ГОСТ
 	 */
@@ -8545,11 +8545,11 @@ TEST(ContextTest, Gost){
 		EXPECT_EQ(client.schemes(), GOST_SCHEMES);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за два хода
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (2));
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -8592,11 +8592,11 @@ TEST(ContextTest, Gost){
 		server.schemes(schemes);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за два хода
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (2));
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -8617,11 +8617,11 @@ TEST(ContextTest, Gost){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за два хода
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (2));
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -8660,11 +8660,11 @@ TEST(ContextTest, Gost){
 		gosting(server);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за два хода: доля ГОСТ у клиента есть
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2));
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (2));
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established());
 		ASSERT_TRUE(server.established());
@@ -8688,11 +8688,11 @@ TEST(ContextTest, Gost){
 		client.schemes(GOST_SCHEMES);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Связь не установлена: у сторон нет общего набора шифрования
 		EXPECT_FALSE(client.established());
 		EXPECT_FALSE(server.established());
@@ -8710,11 +8710,11 @@ TEST(ContextTest, Gost){
 		server::context_t server;
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Связь не установлена: схемы подписи по ключу сервера не объявлено
 		EXPECT_FALSE(client.established());
 		EXPECT_FALSE(server.established());
@@ -8732,8 +8732,8 @@ TEST(ContextTest, Gost){
 TEST(ContextTest, Preference){
 	// Подлинность стороны сервера ключом ГОСТ
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Перечни клиента: ГОСТ впереди классики
 	const vector <extension::group_t> & cgroups = gostlists::GROUPS;
 	// Перечни наборов шифрования клиента: ГОСТ впереди классики
@@ -8747,7 +8747,7 @@ TEST(ContextTest, Preference){
 	// Дополняем перечень наборов сервера наборами ГОСТ
 	ssuites.insert(ssuites.end(), GOST_SUITES.begin(), GOST_SUITES.end());
 	/**
-	 * Выполняем перебор порядков выбора: свой у сервера, затем порядок клиента
+	 * Перебираем порядков выбора: свой у сервера, затем порядок клиента
 	 */
 	for(size_t own = 0; own < 2; own++){
 		// Связи сторон
@@ -8770,11 +8770,11 @@ TEST(ContextTest, Preference){
 		server.preference(own == 0);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за два хода: у клиента доли по GC512C, гибриду и X25519
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (2)) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (2)) << "порядок " << (own == 0 ? "сервера" : "клиента");
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established()) << "порядок " << (own == 0 ? "сервера" : "клиента");
 		ASSERT_TRUE(server.established()) << "порядок " << (own == 0 ? "сервера" : "клиента");
@@ -8812,11 +8812,11 @@ TEST(ContextTest, Preference){
 		server.preference(own == 0);
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Рукопожатие идёт за три хода: просьба о повторе
-		EXPECT_EQ(rounds(client, server), static_cast <size_t> (3)) << "порядок " << (own == 0 ? "сервера" : "клиента");
+		EXPECT_EQ(__nts_rounds__(client, server), static_cast <size_t> (3)) << "порядок " << (own == 0 ? "сервера" : "клиента");
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established()) << "порядок " << (own == 0 ? "сервера" : "клиента");
 		ASSERT_TRUE(server.established()) << "порядок " << (own == 0 ? "сервера" : "клиента");
@@ -8834,8 +8834,8 @@ TEST(ContextTest, Preference){
 TEST(ContextTest, Wiping){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	/**
 	 * Умолчание связи - только секреты, у обеих ролей
 	 */
@@ -8861,7 +8861,7 @@ TEST(ContextTest, Wiping){
 		{context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT}
 	};
 	/**
-	 * Выполняем перебор перечней классов затирания
+	 * Перебираем перечней классов затирания
 	 */
 	for(size_t i = 0; i < policies.size(); i++){
 		// Связь стороны клиента
@@ -8882,12 +8882,12 @@ TEST(ContextTest, Wiping){
 		EXPECT_EQ(server.wiping(), policies[i]) << "перечень " << i;
 		// Устанавливаем подлинность стороны сервера
 		server.credential(credentials);
-		// Выполняем заведение связи стороны сервера
+		// Заводим связи стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE) << "перечень " << i;
-		// Выполняем заведение связи стороны клиента
+		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << "перечень " << i;
-		// Выполняем проведение рукопожатия сторон связи
-		converse(client, server);
+		// Проводим рукопожатия сторон связи
+		__nts_converse__(client, server);
 		// Проверяем установленность связи стороной клиента
 		ASSERT_TRUE(client.established()) << "перечень " << i;
 		// Проверяем установленность связи стороной сервера
@@ -8895,34 +8895,34 @@ TEST(ContextTest, Wiping){
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
 		/**
-		 * Выполняем два круга обмена: затирание между записями касается второй записи
+		 * Ведём два круга обмена: затирание между записями касается второй записи
 		 */
 		for(size_t round = 0; round < 2; round++){
 			// Прикладные данные, отправляемые клиентом
 			const string request = ("Запрос " + std::to_string(round));
-			// Выполняем отправку прикладных данных клиентом
+			// Отправляем прикладных данных клиентом
 			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-			// Выполняем передачу байтов между сторонами связи
-			pump(client, server);
-			// Выполняем получение принятых сервером прикладных данных
+			// Передаём байтов между сторонами связи
+			__nts_pump__(client, server);
+			// Получаем принятых сервером прикладных данных
 			ASSERT_EQ(server.read(received), context::error_t::NONE);
 			// Проверяем схождение принятых данных с отправленными
 			ASSERT_EQ(string(received.begin(), received.end()), request) << "перечень " << i << ", круг " << round;
 			// Прикладные данные, отправляемые сервером
 			const string answer = ("Ответ " + std::to_string(round));
-			// Выполняем отправку прикладных данных сервером
+			// Отправляем прикладных данных сервером
 			ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
-			// Выполняем передачу байтов между сторонами связи
-			pump(client, server);
-			// Выполняем получение принятых клиентом прикладных данных
+			// Передаём байтов между сторонами связи
+			__nts_pump__(client, server);
+			// Получаем принятых клиентом прикладных данных
 			ASSERT_EQ(client.read(received), context::error_t::NONE);
 			// Проверяем схождение принятых данных с отправленными
 			ASSERT_EQ(string(received.begin(), received.end()), answer) << "перечень " << i << ", круг " << round;
 		}
-		// Выполняем закрытие связи стороной клиента
+		// Закрываем связи стороной клиента
 		ASSERT_EQ(client.close(), context::error_t::NONE);
-		// Выполняем передачу байтов между сторонами связи
-		pump(client, server);
+		// Передаём байтов между сторонами связи
+		__nts_pump__(client, server);
 		// Проверяем закрытие связи стороной сервера
 		ASSERT_EQ(server.state(), context::state_t::CLOSED) << "перечень " << i;
 	}
@@ -8953,7 +8953,7 @@ TEST(ContextTest, Keylog){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента
@@ -8970,7 +8970,7 @@ TEST(ContextTest, Keylog){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена клиентом
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -8984,9 +8984,13 @@ TEST(ContextTest, Keylog){
 	for(const auto & entry : log.entries){
 		// Если метка принадлежит секрету рукопожатия клиента
 		if(entry.first == "CLIENT_HANDSHAKE_TRAFFIC_SECRET") hsClient = true;
+		// Если метка принадлежит секрету рукопожатия сервера
 		if(entry.first == "SERVER_HANDSHAKE_TRAFFIC_SECRET") hs_server = true;
+		// Если метка принадлежит прикладному секрету клиента
 		if(entry.first == "CLIENT_TRAFFIC_SECRET_0") ap_client = true;
+		// Если метка принадлежит прикладному секрету сервера
 		if(entry.first == "SERVER_TRAFFIC_SECRET_0") ap_server = true;
+		// Если метка принадлежит секрету экспорта
 		if(entry.first == "EXPORTER_SECRET") exporter = true;
 		// Секреты непустые
 		EXPECT_FALSE(entry.second.empty());
@@ -9000,7 +9004,7 @@ TEST(ContextTest, Keylog){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9012,7 +9016,7 @@ TEST(ContextTest, RawPublicKey){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Извлекаем SPKI листа цепочки
 	x509::certificate_t leaf;
 	// Разбор листа цепочки удаётся
@@ -9038,7 +9042,7 @@ TEST(ContextTest, RawPublicKey){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -9049,7 +9053,7 @@ TEST(ContextTest, RawPublicKey){
 	// Запись данных клиентом удаётся
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Создаём перечень объектов
 	vector <uint8_t> received;
 	// Чтение данных сервером удаётся
@@ -9059,7 +9063,7 @@ TEST(ContextTest, RawPublicKey){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9071,7 +9075,7 @@ TEST(ContextTest, RawPublicKeyMismatch){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Чужой ключ: вырабатываем свой
 	keys::key_t foreign;
 	// Чужой ключ объявляем ключом Ed25519
@@ -9079,13 +9083,13 @@ TEST(ContextTest, RawPublicKeyMismatch){
 	// Задаём чужому ключу нулевую долю
 	foreign.d.assign(32, 0);
 	// Съёмник пары Ed25519 для чужого ключа
-	sign::ed25519_t ed;
+	sign::ed25519_t maker;
 	// Вырабатываем пару чужого ключа Ed25519
-	ASSERT_TRUE(ed.generate(foreign.d.data(), foreign.d.size()));
+	ASSERT_TRUE(maker.generate(foreign.d.data(), foreign.d.size()));
 	// Задаём чужому ключу нулевую открытую часть
 	foreign.key.assign(32, 0);
 	// Выводим открытую часть чужого ключа
-	ASSERT_TRUE(ed.key(foreign.key.data(), foreign.key.size()));
+	ASSERT_TRUE(maker.key(foreign.key.data(), foreign.key.size()));
 	// Записываем SPKI чужого ключа
 	string spki;
 	// Кодируем SPKI чужого ключа
@@ -9106,7 +9110,7 @@ TEST(ContextTest, RawPublicKeyMismatch){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь не должна установиться: ключ сервера не совпал с закреплённым
 	EXPECT_FALSE(client.established());
 }
@@ -9118,10 +9122,10 @@ TEST(ContextTest, RawPublicKeyMismatch){
 TEST(ContextTest, RawPublicKeyClient){
 	// Подлинность сторон связи
 	context::credential_t first, second;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", first));
-	// Выполняем выработку подлинности стороны клиента
-	ASSERT_TRUE(identity("client.anyks.com", second));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", first));
+	// Вырабатываем подлинности стороны клиента
+	ASSERT_TRUE(__nts_identity__("client.anyks.com", second));
 	// Извлекаем SPKI листа цепочки клиента
 	x509::certificate_t leaf;
 	// Разбор листа цепочки клиента удаётся
@@ -9151,7 +9155,7 @@ TEST(ContextTest, RawPublicKeyClient){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -9166,7 +9170,7 @@ TEST(ContextTest, RawPublicKeyClient){
 	// Запись данных клиентом удаётся
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Создаём перечень объектов
 	vector <uint8_t> received;
 	// Чтение данных сервером удаётся
@@ -9176,7 +9180,7 @@ TEST(ContextTest, RawPublicKeyClient){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9187,10 +9191,10 @@ TEST(ContextTest, RawPublicKeyClient){
 TEST(ContextTest, RawPublicKeyClientMismatch){
 	// Подлинность сторон связи
 	context::credential_t first, second;
-	// Выполняем выработку подлинности стороны сервера
-	ASSERT_TRUE(identity("anyks.com", first));
-	// Выполняем выработку подлинности стороны клиента
-	ASSERT_TRUE(identity("client.anyks.com", second));
+	// Вырабатываем подлинности стороны сервера
+	ASSERT_TRUE(__nts_identity__("anyks.com", first));
+	// Вырабатываем подлинности стороны клиента
+	ASSERT_TRUE(__nts_identity__("client.anyks.com", second));
 	// Чужой ключ: вырабатываем свой
 	keys::key_t foreign;
 	// Чужой ключ объявляем ключом Ed25519
@@ -9198,13 +9202,13 @@ TEST(ContextTest, RawPublicKeyClientMismatch){
 	// Задаём чужому ключу нулевую долю
 	foreign.d.assign(32, 0);
 	// Съёмник пары Ed25519 для чужого ключа
-	sign::ed25519_t ed;
+	sign::ed25519_t maker;
 	// Вырабатываем пару чужого ключа Ed25519
-	ASSERT_TRUE(ed.generate(foreign.d.data(), foreign.d.size()));
+	ASSERT_TRUE(maker.generate(foreign.d.data(), foreign.d.size()));
 	// Задаём чужому ключу нулевую открытую часть
 	foreign.key.assign(32, 0);
 	// Выводим открытую часть чужого ключа
-	ASSERT_TRUE(ed.key(foreign.key.data(), foreign.key.size()));
+	ASSERT_TRUE(maker.key(foreign.key.data(), foreign.key.size()));
 	// Записываем SPKI чужого ключа
 	string spki;
 	// Кодируем SPKI чужого ключа
@@ -9229,7 +9233,7 @@ TEST(ContextTest, RawPublicKeyClientMismatch){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь не должна установиться: ключ клиента не совпал с закреплённым
 	EXPECT_FALSE(server.established());
 }
@@ -9241,7 +9245,7 @@ TEST(ContextTest, OcspStapling){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента
@@ -9256,7 +9260,7 @@ TEST(ContextTest, OcspStapling){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена клиентом
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -9272,7 +9276,7 @@ TEST(ContextTest, OcspStapling){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9287,11 +9291,11 @@ TEST(ContextTest, RsaPssPss){
 	// Подлинность стороны сервера ключом id-RSASSA-PSS
 	context::credential_t pss;
 	// Читаем подлинность из набора ключей
-	ASSERT_TRUE(keyed("rsapss.key", "rsapss.crt", pss));
+	ASSERT_TRUE(__nts_keyed__("rsapss.key", "rsapss.crt", pss));
 	// Подлинность стороны сервера ключом rsaEncryption
 	context::credential_t rsae;
 	// Читаем подлинность из набора ключей
-	ASSERT_TRUE(keyed("rsa2048.pem", "rsa2048.crt", rsae));
+	ASSERT_TRUE(__nts_keyed__("rsa2048.pem", "rsa2048.crt", rsae));
 	/**
 	 * Связь издания 1.3 с сертификатом id-RSASSA-PSS: схема rsa_pss_pss_sha256
 	 * выбирается по опознавателю ключа, подпись владения сходится, данные идут в обе
@@ -9308,11 +9312,11 @@ TEST(ContextTest, RsaPssPss){
 		server.schemes({extension::scheme_t::RSA_PSS_PSS_SHA256});
 		// Устанавливаем подлинность стороны сервера
 		server.credential(pss);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи обеими сторонами
 		ASSERT_TRUE(client.established()) << static_cast <int> (client.error());
 		ASSERT_TRUE(server.established()) << static_cast <int> (server.error());
@@ -9321,20 +9325,20 @@ TEST(ContextTest, RsaPssPss){
 		ASSERT_EQ(client.peer()[0], pss.chain[0]);
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по связи с подписью id-RSASSA-PSS";
-		// Выполняем отправку прикладных данных клиентом
+		// Отправляем прикладных данных клиентом
 		ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-		// Выполняем передачу байтов между сторонами связи
-		pump(client, server);
+		// Передаём байтов между сторонами связи
+		__nts_pump__(client, server);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
-		// Выполняем получение принятых сервером прикладных данных
+		// Получаем принятых сервером прикладных данных
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
 		// Проверяем схождение принятых данных с отправленными
 		ASSERT_EQ(string(received.begin(), received.end()), request);
 		// Закрываем связь
 		ASSERT_EQ(client.close(), context::error_t::NONE);
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Сервер закрыл связь
 		ASSERT_EQ(server.state(), context::state_t::CLOSED);
 	}
@@ -9353,11 +9357,11 @@ TEST(ContextTest, RsaPssPss){
 		server.schemes({extension::scheme_t::RSA_PSS_RSAE_SHA256});
 		// Устанавливаем подлинность стороны сервера ключом id-RSASSA-PSS
 		server.credential(pss);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь не установлена: схема ключу не отвечает
 		EXPECT_FALSE(client.established());
 		EXPECT_FALSE(server.established());
@@ -9377,11 +9381,11 @@ TEST(ContextTest, RsaPssPss){
 		server.schemes({extension::scheme_t::RSA_PSS_PSS_SHA256});
 		// Устанавливаем подлинность стороны сервера ключом rsaEncryption
 		server.credential(rsae);
-		// Выполняем заведение связей сторон
+		// Заводим связей сторон
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь не установлена: схема ключу не отвечает
 		EXPECT_FALSE(client.established());
 		EXPECT_FALSE(server.established());
@@ -9397,7 +9401,7 @@ TEST(ContextTest, Ed448){
 	// Подлинность стороны сервера ключом Ed448
 	context::credential_t ed448;
 	// Читаем подлинность из набора ключей
-	ASSERT_TRUE(keyed("ed448.key", "ed448.crt", ed448));
+	ASSERT_TRUE(__nts_keyed__("ed448.key", "ed448.crt", ed448));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
@@ -9408,11 +9412,11 @@ TEST(ContextTest, Ed448){
 	server.schemes({extension::scheme_t::ED448});
 	// Устанавливаем подлинность стороны сервера
 	server.credential(ed448);
-	// Выполняем заведение связей сторон
+	// Заводим связей сторон
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи обеими сторонами
 	ASSERT_TRUE(client.established()) << static_cast <int> (client.error());
 	ASSERT_TRUE(server.established()) << static_cast <int> (server.error());
@@ -9421,32 +9425,32 @@ TEST(ContextTest, Ed448){
 	ASSERT_EQ(client.peer()[0], ed448.chain[0]);
 	// Прикладные данные, отправляемые клиентом
 	const string request = "Запрос по связи с подписью Ed448";
-	// Выполняем отправку прикладных данных клиентом
+	// Отправляем прикладных данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), request);
 	// Прикладные данные, отправляемые сервером
 	const string answer = "Ответ по связи с подписью Ed448";
-	// Выполняем отправку прикладных данных сервером
+	// Отправляем прикладных данных сервером
 	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
-	// Выполняем передачу байтов между сторонами связи
-	pump(client, server);
-	// Выполняем сброс накопителя принятых данных
+	// Передаём байтов между сторонами связи
+	__nts_pump__(client, server);
+	// Сбрасываем накопителя принятых данных
 	received.clear();
-	// Выполняем получение принятых клиентом прикладных данных
+	// Получаем принятых клиентом прикладных данных
 	ASSERT_EQ(client.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), answer);
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9458,7 +9462,7 @@ TEST(ContextTest, Exporting){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента
@@ -9481,7 +9485,7 @@ TEST(ContextTest, Exporting){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена клиентом
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -9518,7 +9522,7 @@ TEST(ContextTest, Exporting){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9569,7 +9573,7 @@ TEST(ContextTest, ExportingLegacy){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена клиентом
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -9592,7 +9596,7 @@ TEST(ContextTest, ExportingLegacy){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9604,7 +9608,7 @@ TEST(ContextTest, FiniteLegacy){
 	// Подлинность стороны сервера из корпуса: наборам DHE_RSA нужен ключ RSA
 	context::credential_t credentials;
 	// Читаем подлинность из файлов корпуса
-	ASSERT_TRUE(keyed("rsa2048.pem", "rsa2048.crt", credentials));
+	ASSERT_TRUE(__nts_keyed__("rsa2048.pem", "rsa2048.crt", credentials));
 	// Перечень наборов обмена ключами конечного поля
 	const vector <protect::suite_t> offered = {
 		protect::suite_t::DHE_RSA_AES_256_GCM_SHA384, protect::suite_t::DHE_RSA_AES_128_GCM_SHA256,
@@ -9634,7 +9638,7 @@ TEST(ContextTest, FiniteLegacy){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена обеими сторонами
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -9644,30 +9648,30 @@ TEST(ContextTest, FiniteLegacy){
 	ASSERT_EQ(client.suite(), server.suite());
 	// Прикладные данные, отправляемые клиентом
 	const string request = "Запрос прикладного протокола";
-	// Выполняем отправку прикладных данных клиентом
+	// Отправляем прикладных данных клиентом
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Накопитель, в который помещаются принятые прикладные данные
 	vector <uint8_t> received;
-	// Выполняем получение принятых сервером прикладных данных
+	// Получаем принятых сервером прикладных данных
 	ASSERT_EQ(server.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), request);
 	// Прикладные данные, отправляемые сервером
 	const string answer = "Ответ прикладного протокола";
-	// Выполняем отправку прикладных данных сервером
+	// Отправляем прикладных данных сервером
 	ASSERT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
-	// Выполняем получение принятых клиентом прикладных данных
+	__nts_pump__(client, server);
+	// Получаем принятых клиентом прикладных данных
 	ASSERT_EQ(client.read(received), context::error_t::NONE);
 	// Проверяем схождение принятых данных с отправленными
 	ASSERT_EQ(string(received.begin(), received.end()), answer);
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9679,7 +9683,7 @@ TEST(ContextTest, Srtp){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента: профили AEAD AES-256 GCM и AES-128 GCM (RFC 7714)
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента
@@ -9698,7 +9702,7 @@ TEST(ContextTest, Srtp){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена клиентом
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -9717,7 +9721,7 @@ TEST(ContextTest, Srtp){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9766,7 +9770,7 @@ TEST(ContextTest, SrtpLegacy){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь установлена клиентом
 	ASSERT_TRUE(client.established());
 	ASSERT_TRUE(server.established());
@@ -9785,7 +9789,7 @@ TEST(ContextTest, SrtpLegacy){
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Перекачиваем записи между сторонами
-	pump(client, server);
+	__nts_pump__(client, server);
 	// Сервер закрыл связь
 	ASSERT_EQ(server.state(), context::state_t::CLOSED);
 }
@@ -9797,7 +9801,7 @@ TEST(ContextTest, SrtpMismatch){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Связь стороны клиента: лишь AES-256 GCM
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента
@@ -9816,7 +9820,7 @@ TEST(ContextTest, SrtpMismatch){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь оборвана отсутствием общего профиля
 	ASSERT_FALSE(client.established());
 	ASSERT_FALSE(server.established());
@@ -9850,7 +9854,7 @@ TEST(ContextTest, Sm){
 	// Наборы SM семейства
 	const protect::suite_t suites[] = {protect::suite_t::SM4_GCM_SM3, protect::suite_t::SM4_CCM_SM3};
 	/**
-	 * Выполняем перебор наборов SM семейства
+	 * Перебираем наборов SM семейства
 	 */
 	for(size_t s = 0; s < 2; s++){
 		// Связь стороны клиента: набор, группа и схема SM
@@ -9879,7 +9883,7 @@ TEST(ContextTest, Sm){
 		ASSERT_EQ(server.start(), context::error_t::NONE) << "набор " << s;
 		ASSERT_EQ(client.start(), context::error_t::NONE) << "набор " << s;
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена обеими сторонами
 		ASSERT_TRUE(client.established()) << "набор " << s;
 		ASSERT_TRUE(server.established()) << "набор " << s;
@@ -9895,7 +9899,7 @@ TEST(ContextTest, Sm){
 		// Запись клиентом в выбранном наборе удаётся
 		ASSERT_EQ(client.write(view_t(outgoing, sizeof(outgoing) - 1)), context::error_t::NONE) << "набор " << s;
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Чтение сервером в выбранном наборе удаётся
 		ASSERT_EQ(server.read(received), context::error_t::NONE) << "набор " << s;
 		ASSERT_EQ(received.size(), (sizeof(outgoing) - 1)) << "набор " << s;
@@ -9906,7 +9910,7 @@ TEST(ContextTest, Sm){
 		// Запись сервером в выбранном наборе удаётся
 		ASSERT_EQ(server.write(view_t(incoming, sizeof(incoming) - 1)), context::error_t::NONE) << "набор " << s;
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Чтение клиентом в выбранном наборе удаётся
 		ASSERT_EQ(client.read(received), context::error_t::NONE) << "набор " << s;
 		ASSERT_EQ(received.size(), (sizeof(incoming) - 1)) << "набор " << s;
@@ -9915,7 +9919,7 @@ TEST(ContextTest, Sm){
 		// Закрываем связь
 		ASSERT_EQ(client.close(), context::error_t::NONE) << "набор " << s;
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Сервер закрыл связь
 		ASSERT_EQ(server.state(), context::state_t::CLOSED) << "набор " << s;
 	}
@@ -9947,7 +9951,7 @@ TEST(ContextTest, SmHybrid){
 	// Наборы SM семейства
 	const protect::suite_t suites[] = {protect::suite_t::SM4_GCM_SM3, protect::suite_t::SM4_CCM_SM3};
 	/**
-	 * Выполняем перебор наборов SM семейства
+	 * Перебираем наборов SM семейства
 	 */
 	for(size_t s = 0; s < 2; s++){
 		// Связь стороны клиента: набор, гибридная группа и схема SM
@@ -9976,7 +9980,7 @@ TEST(ContextTest, SmHybrid){
 		ASSERT_EQ(server.start(), context::error_t::NONE) << "набор " << s;
 		ASSERT_EQ(client.start(), context::error_t::NONE) << "набор " << s;
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь установлена обеими сторонами
 		ASSERT_TRUE(client.established()) << "набор " << s;
 		ASSERT_TRUE(server.established()) << "набор " << s;
@@ -9995,7 +9999,7 @@ TEST(ContextTest, SmHybrid){
 		// Запись клиентом в выбранном наборе удаётся
 		ASSERT_EQ(client.write(view_t(outgoing, sizeof(outgoing) - 1)), context::error_t::NONE) << "набор " << s;
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Чтение сервером в выбранном наборе удаётся
 		ASSERT_EQ(server.read(received), context::error_t::NONE) << "набор " << s;
 		ASSERT_EQ(received.size(), (sizeof(outgoing) - 1)) << "набор " << s;
@@ -10006,7 +10010,7 @@ TEST(ContextTest, SmHybrid){
 		// Запись сервером в выбранном наборе удаётся
 		ASSERT_EQ(server.write(view_t(incoming, sizeof(incoming) - 1)), context::error_t::NONE) << "набор " << s;
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Чтение клиентом в выбранном наборе удаётся
 		ASSERT_EQ(client.read(received), context::error_t::NONE) << "набор " << s;
 		ASSERT_EQ(received.size(), (sizeof(incoming) - 1)) << "набор " << s;
@@ -10015,7 +10019,7 @@ TEST(ContextTest, SmHybrid){
 		// Закрываем связь
 		ASSERT_EQ(client.close(), context::error_t::NONE) << "набор " << s;
 		// Перекачиваем записи между сторонами
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Сервер закрыл связь
 		ASSERT_EQ(server.state(), context::state_t::CLOSED) << "набор " << s;
 	}

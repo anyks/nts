@@ -132,7 +132,7 @@ namespace {
 	 * @return       признак успешности выработки ключевой пары
 	 *
 	 */
-	bool fabricate(keys_t & result) noexcept {
+	bool __nts_fabricate__(keys_t & result) noexcept {
 		// Эллиптическая кривая ключа стороны сертификата
 		curve::curve_t curve;
 		// Если кривую ключа стороны завести не удалось
@@ -170,7 +170,7 @@ namespace {
 		// Занимаем место под запись открытого ключа стороны
 		result.opened.assign(curve.size() * 2, 0);
 		/**
-		 * Выполняем разворот записи координат: раздел 4 RFC 9215 велит записывать их в
+		 * Разворачиваем записи координат: раздел 4 RFC 9215 велит записывать их в
 		 * сертификат от младшего байта к старшему
 		 */
 		for(size_t i = 0; i < curve.size(); i++){
@@ -190,7 +190,7 @@ namespace {
 	 * @return       признак успешности составления записи имени
 	 *
 	 */
-	bool title(asn1::writer_t & writer, const string & name) noexcept {
+	bool __nts_title__(asn1::writer_t & writer, const string & name) noexcept {
 		// Открываем набор записей имени стороны сертификата
 		if(!writer.open(asn1::tag_t::SEQUENCE))
 			// Выводим отказ составления записи имени
@@ -230,7 +230,7 @@ namespace {
 	 * @return        признак успешности составления расширений
 	 *
 	 */
-	bool extensions(asn1::writer_t & writer, const options_t & options) noexcept {
+	bool __nts_extensions__(asn1::writer_t & writer, const options_t & options) noexcept {
 		// Открываем запись расширений сертификата
 		if(!writer.open(asn1::cls_t::CONTEXT, 3))
 			// Выводим отказ составления расширений
@@ -392,7 +392,7 @@ namespace {
 	 * @return        признак успешности выработки сертификата
 	 *
 	 */
-	bool make(const string & subject, const string & issuer, const keys_t & keys, const vector <uint8_t> & signer, const options_t & options, vector <uint8_t> & result) noexcept {
+	bool __nts_make__(const string & subject, const string & issuer, const keys_t & keys, const vector <uint8_t> & signer, const options_t & options, vector <uint8_t> & result) noexcept {
 		// Эллиптическая кривая подписи сертификата
 		curve::curve_t curve;
 		// Если кривую подписи сертификата завести не удалось
@@ -440,7 +440,7 @@ namespace {
 			// Выводим отказ выработки сертификата
 			return false;
 		// Если имя издателя сертификата записать не удалось
-		if(!title(body, issuer))
+		if(!__nts_title__(body, issuer))
 			// Выводим отказ выработки сертификата
 			return false;
 		// Открываем набор записи срока действия сертификата
@@ -460,7 +460,7 @@ namespace {
 			// Выводим отказ выработки сертификата
 			return false;
 		// Если имя владельца сертификата записать не удалось
-		if(!(options.unnamed ? (body.open(asn1::tag_t::SEQUENCE) && body.close()) : title(body, subject)))
+		if(!(options.unnamed ? (body.open(asn1::tag_t::SEQUENCE) && body.close()) : __nts_title__(body, subject)))
 			// Выводим отказ выработки сертификата
 			return false;
 		// Открываем набор сведений об открытом ключе
@@ -500,7 +500,7 @@ namespace {
 			// Выводим отказ выработки сертификата
 			return false;
 		// Если расширения сертификата составить не удалось
-		if(!extensions(body, options))
+		if(!__nts_extensions__(body, options))
 			// Выводим отказ выработки сертификата
 			return false;
 		// Закрываем набор записей тела сертификата
@@ -536,7 +536,7 @@ namespace {
 		// Место, в которое помещается подпись в записи сертификата
 		uint8_t reversed[64];
 		/**
-		 * Выполняем перестановку частей подписи: раздел 2 RFC 9215 велит записывать в
+		 * Переставляем частей подписи: раздел 2 RFC 9215 велит записывать в
 		 * сертификат сперва число s, а затем число r
 		 */
 		::memcpy(reversed, signature + curve.size(), curve.size());
@@ -582,7 +582,7 @@ namespace {
 			return false;
 		// Получаем составленную запись сертификата
 		const view_t data = writer.data();
-		// Выполняем перенос составленной записи сертификата
+		// Переносим составленной записи сертификата
 		result.assign(data.data, data.data + data.size);
 		// Выводим успешность выработки сертификата
 		return true;
@@ -600,29 +600,29 @@ namespace {
 TEST(TrustTest, Chain){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
 	options.authority = true;
 	// Запись сертификата издателя цепочки
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
 	// Настройки сертификата владельца
 	options_t settings;
 	// Устанавливаем дополнительное доменное имя владельца
 	settings.alternative = "anyks.com";
 	// Запись сертификата владельца цепочки
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного издателем
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, settings, leaf));
+	// Вырабатываем сертификата владельца, изданного издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, settings, leaf));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Проверяем число доверенных сертификатов запаса
 	ASSERT_EQ(store.size(), static_cast <size_t> (1));
@@ -645,7 +645,7 @@ TEST(TrustTest, Chain){
 	// Сличаемое имя узла, заводимое до отмеривания запаса: строка сама выделяет
 	const string named = "ANYKS.com";
 	/**
-	 * Выполняем перебор запасов выделений: сличение имени обязано на всяком запасе
+	 * Перебираем запасов выделений: сличение имени обязано на всяком запасе
 	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -654,7 +654,7 @@ TEST(TrustTest, Chain){
 		{
 			// Отмеряем запас выделений на время сличения
 			starve::ration_t ration(budget);
-			// Выполняем сличение имени при отмеренном запасе
+			// Сличаем имени при отмеренном запасе
 			outcome = trust::belongs(view_t(leaf.data(), leaf.size()), named);
 		}
 		// Проверяем, что сличение ответило успехом либо отказом памяти
@@ -672,22 +672,22 @@ TEST(TrustTest, Chain){
 TEST(TrustTest, Authority){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
 	options.authority = true;
 	// Запись сертификата издателя цепочки
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
 	// Запись сертификата владельца цепочки
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного издателем
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
+	// Вырабатываем сертификата владельца, изданного издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
 	// Пустой запас доверенных сертификатов
 	trust::store_t store;
 	// Проверяемая цепочка сертификатов
@@ -696,13 +696,13 @@ TEST(TrustTest, Authority){
 	ASSERT_EQ(trust::verify(chain, store, MOMENT), trust::error_t::AUTHORITY);
 	// Ключевая пара чужого издателя
 	keys_t alien;
-	// Выполняем выработку ключевой пары чужого издателя
-	ASSERT_TRUE(fabricate(alien));
+	// Вырабатываем ключевой пары чужого издателя
+	ASSERT_TRUE(__nts_fabricate__(alien));
 	// Запись сертификата чужого издателя
 	vector <uint8_t> foreign;
-	// Выполняем выработку самоподписанного сертификата чужого издателя
-	ASSERT_TRUE(make("alien root", "alien root", alien, vector <uint8_t> (), options, foreign));
-	// Выполняем добавление чужого сертификата в запас доверенных
+	// Вырабатываем самоподписанного сертификата чужого издателя
+	ASSERT_TRUE(__nts_make__("alien root", "alien root", alien, vector <uint8_t> (), options, foreign));
+	// Добавляем чужого сертификата в запас доверенных
 	ASSERT_TRUE(store.add(view_t(foreign.data(), foreign.size())));
 	// Проверяем отказ доверия цепочке чужого издателя
 	ASSERT_EQ(trust::verify(chain, store, MOMENT), trust::error_t::AUTHORITY);
@@ -721,21 +721,21 @@ TEST(TrustTest, Authority){
 TEST(TrustTest, Reject){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
 	options.authority = true;
 	// Запись сертификата издателя цепочки
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Настройки сертификата с истёкшим сроком действия
 	options_t expired;
@@ -745,8 +745,8 @@ TEST(TrustTest, Reject){
 	expired.after = 1700000000;
 	// Запись сертификата с истёкшим сроком действия
 	vector <uint8_t> outdated;
-	// Выполняем выработку сертификата с истёкшим сроком действия
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, expired, outdated));
+	// Вырабатываем сертификата с истёкшим сроком действия
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, expired, outdated));
 	// Проверяем отказ доверия сертификату с истёкшим сроком действия
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {outdated}, store, MOMENT), trust::error_t::EXPIRED);
 	/**
@@ -760,20 +760,20 @@ TEST(TrustTest, Reject){
 	upcoming.after = 2000000000;
 	// Запись сертификата, срок действия которого ещё не наступил
 	vector <uint8_t> premature;
-	// Выполняем выработку сертификата с ненаступившим сроком действия
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, upcoming, premature));
+	// Вырабатываем сертификата с ненаступившим сроком действия
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, upcoming, premature));
 	// Проверяем отказ доверия сертификату с ненаступившим сроком действия
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {premature}, store, MOMENT), trust::error_t::EXPIRED);
 	// Запись сертификата, изданного не тем издателем
 	vector <uint8_t> alien;
-	// Выполняем выработку сертификата с чужим именем издателя
-	ASSERT_TRUE(make("anyks.com", "alien root", subject, issuer.secret, options_t (), alien));
+	// Вырабатываем сертификата с чужим именем издателя
+	ASSERT_TRUE(__nts_make__("anyks.com", "alien root", subject, issuer.secret, options_t (), alien));
 	// Проверяем отказ доверия цепочке с разошедшимся издателем
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {alien, root}, store, MOMENT), trust::error_t::ISSUER);
 	// Запись сертификата, подписанного чужим ключом
 	vector <uint8_t> forged;
-	// Выполняем выработку сертификата, подписанного ключом владельца
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, subject.secret, options_t (), forged));
+	// Вырабатываем сертификата, подписанного ключом владельца
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, subject.secret, options_t (), forged));
 	// Проверяем отказ доверия сертификату с несошедшейся подписью
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {forged}, store, MOMENT), trust::error_t::AUTHORITY);
 	// Проверяем отказ доверия пустой цепочке сертификатов
@@ -804,10 +804,10 @@ TEST(TrustTest, Reject){
 	for(size_t i = 0; (i < 32) && (outsider.size() != root.size()); i++){
 		// Ключевая пара постороннего издателя, доверием не объявленного
 		keys_t stranger;
-		// Выполняем выработку ключевой пары постороннего издателя
-		ASSERT_TRUE(fabricate(stranger));
-		// Выполняем выработку самоподписанного сертификата постороннего издателя
-		ASSERT_TRUE(make("anyks main", "anyks main", stranger, vector <uint8_t> (), options, outsider));
+		// Вырабатываем ключевой пары постороннего издателя
+		ASSERT_TRUE(__nts_fabricate__(stranger));
+		// Вырабатываем самоподписанного сертификата постороннего издателя
+		ASSERT_TRUE(__nts_make__("anyks main", "anyks main", stranger, vector <uint8_t> (), options, outsider));
 	}
 	// Проверяем совпадение длин записей доверенного и постороннего издателей
 	ASSERT_EQ(outsider.size(), root.size());
@@ -821,10 +821,10 @@ TEST(TrustTest, Reject){
 TEST(TrustTest, Unstated){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата издателя с правом издавать сертификаты
 	options_t options;
 	// Объявляем принадлежность издателя удостоверяющему центру
@@ -833,15 +833,15 @@ TEST(TrustTest, Unstated){
 	options.usage = false;
 	// Запись сертификата издателя цепочки
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
 	// Запись сертификата владельца цепочки
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного издателем
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
+	// Вырабатываем сертификата владельца, изданного издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	/**
 	 * Раздел 4.2.1.3 RFC 5280 кладёт назначение открытого ключа расширением
@@ -857,23 +857,23 @@ TEST(TrustTest, Unstated){
 TEST(TrustTest, Constraint){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата издателя без права издавать сертификаты
 	options_t options;
 	// Запись сертификата издателя цепочки
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
 	// Запись сертификата владельца цепочки
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного издателем
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
+	// Вырабатываем сертификата владельца, изданного издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	/**
 	 * Сертификат без права издавать другие сертификаты издателем цепочки быть не
@@ -888,12 +888,12 @@ TEST(TrustTest, Constraint){
 	silent.constraints = false;
 	// Запись сертификата издателя без объявленных ограничений
 	vector <uint8_t> quiet;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("quiet root", "quiet root", issuer, vector <uint8_t> (), silent, quiet));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("quiet root", "quiet root", issuer, vector <uint8_t> (), silent, quiet));
 	// Запись сертификата владельца, изданного молчаливым издателем
 	vector <uint8_t> issued;
-	// Выполняем выработку сертификата владельца
-	ASSERT_TRUE(make("anyks.com", "quiet root", subject, issuer.secret, options_t (), issued));
+	// Вырабатываем сертификата владельца
+	ASSERT_TRUE(__nts_make__("anyks.com", "quiet root", subject, issuer.secret, options_t (), issued));
 	/**
 	 * Отсутствие расширения умолчанием в пользу издателя не считается: раздел
 	 * 4.2.1.9 RFC 5280 велит объявлять право издавать сертификаты явно
@@ -907,16 +907,16 @@ TEST(TrustTest, Constraint){
 TEST(TrustTest, Wildcard){
 	// Ключевая пара владельца сертификата
 	keys_t subject;
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата владельца
 	options_t options;
 	// Устанавливаем дополнительное доменное имя владельца со звёздочкой
 	options.alternative = "*.anyks.com";
 	// Запись сертификата владельца
 	vector <uint8_t> leaf;
-	// Выполняем выработку самоподписанного сертификата владельца
-	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), options, leaf));
+	// Вырабатываем самоподписанного сертификата владельца
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks.com", subject, vector <uint8_t> (), options, leaf));
 	// Получаем запись сличаемого сертификата
 	const view_t certificate(leaf.data(), leaf.size());
 	// Проверяем сличение имени узла со звёздочкой
@@ -934,8 +934,8 @@ TEST(TrustTest, Wildcard){
 	options_t settings;
 	// Запись сертификата без дополнительных имён владельца
 	vector <uint8_t> common;
-	// Выполняем выработку самоподписанного сертификата владельца
-	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), settings, common));
+	// Вырабатываем самоподписанного сертификата владельца
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks.com", subject, vector <uint8_t> (), settings, common));
 	/**
 	 * Общее имя владельца берётся лишь тогда, когда дополнительных имён нет вовсе:
 	 * раздел 6.4.4 RFC 6125
@@ -945,8 +945,8 @@ TEST(TrustTest, Wildcard){
 	ASSERT_EQ(trust::belongs(view_t(common.data(), common.size()), "example.com"), trust::error_t::NAME);
 	// Запись сертификата с пустым общим именем владельца
 	vector <uint8_t> nameless;
-	// Выполняем выработку сертификата с пустым общим именем владельца
-	ASSERT_TRUE(make("", "anyks.com", subject, vector <uint8_t> (), settings, nameless));
+	// Вырабатываем сертификата с пустым общим именем владельца
+	ASSERT_TRUE(__nts_make__("", "anyks.com", subject, vector <uint8_t> (), settings, nameless));
 	/**
 	 * Пустое имя сертификата не отвечает никакому имени узла: имя сертификата и имя
 	 * узла сверяются РАЗНЫМИ половинами условия, и всякая отвергает сличение в
@@ -968,7 +968,7 @@ TEST(TrustTest, TrailingDotHost){
 	// Объявляем ключ владельца
 	keys_t subject;
 	// Проверяем выработку ключа владельца
-	ASSERT_TRUE(fabricate(subject));
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Объявляем настройки издания
 	options_t options;
 	// Записываем дополнительное имя владельца
@@ -976,7 +976,7 @@ TEST(TrustTest, TrailingDotHost){
 	// Объявляем буфер листа
 	vector <uint8_t> leaf;
 	// Проверяем издание листа с дополнительным именем
-	ASSERT_TRUE(make("www.anyks.com", "www.anyks.com", subject, vector <uint8_t> (), options, leaf));
+	ASSERT_TRUE(__nts_make__("www.anyks.com", "www.anyks.com", subject, vector <uint8_t> (), options, leaf));
 	// Объявляем вид сертификата
 	const view_t certificate(leaf.data(), leaf.size());
 	// Контроль: имя без точки отвечает
@@ -995,12 +995,12 @@ TEST(TrustTest, TrailingDotHost){
 TEST(TrustTest, Deepness){
 	// Ключевые пары корня, промежуточного звена и владельца цепочки
 	keys_t root, middle, subject;
-	// Выполняем выработку ключевой пары корня цепочки
-	ASSERT_TRUE(fabricate(root));
-	// Выполняем выработку ключевой пары промежуточного звена
-	ASSERT_TRUE(fabricate(middle));
-	// Выполняем выработку ключевой пары владельца цепочки
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары корня цепочки
+	ASSERT_TRUE(__nts_fabricate__(root));
+	// Вырабатываем ключевой пары промежуточного звена
+	ASSERT_TRUE(__nts_fabricate__(middle));
+	// Вырабатываем ключевой пары владельца цепочки
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	/**
 	 * Раздел 4.2.1.9 RFC 5280: предел числа звеньев считает промежуточные звенья под
 	 * сертификатом, и ноль его значит, что издавать корень вправе один лишь
@@ -1013,30 +1013,30 @@ TEST(TrustTest, Deepness){
 	strict.depth = 0;
 	// Запись сертификата корня цепочки
 	vector <uint8_t> anchor;
-	// Выполняем выработку самоподписанного сертификата корня цепочки
-	ASSERT_TRUE(make("strict root", "strict root", root, vector <uint8_t> (), strict, anchor));
+	// Вырабатываем самоподписанного сертификата корня цепочки
+	ASSERT_TRUE(__nts_make__("strict root", "strict root", root, vector <uint8_t> (), strict, anchor));
 	// Настройки промежуточного звена цепочки
 	options_t authorized;
 	// Наделяем промежуточное звено правом издавать другие сертификаты
 	authorized.authority = true;
 	// Запись сертификата промежуточного звена цепочки
 	vector <uint8_t> intermediate;
-	// Выполняем выработку сертификата промежуточного звена, изданного корнем
-	ASSERT_TRUE(make("strict middle", "strict root", middle, root.secret, authorized, intermediate));
+	// Вырабатываем сертификата промежуточного звена, изданного корнем
+	ASSERT_TRUE(__nts_make__("strict middle", "strict root", middle, root.secret, authorized, intermediate));
 	// Запись сертификата владельца цепочки
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного промежуточным звеном
-	ASSERT_TRUE(make("anyks.com", "strict middle", subject, middle.secret, options_t (), leaf));
+	// Вырабатываем сертификата владельца, изданного промежуточным звеном
+	ASSERT_TRUE(__nts_make__("anyks.com", "strict middle", subject, middle.secret, options_t (), leaf));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата корня в запас доверенных
+	// Добавляем сертификата корня в запас доверенных
 	ASSERT_TRUE(store.add(view_t(anchor.data(), anchor.size())));
 	// Проверяем отказ доверия цепочке, вышедшей за предел числа звеньев
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, intermediate, anchor}, store, MOMENT), trust::error_t::CONSTRAINT);
 	// Запись сертификата владельца, изданного корнем напрямую
 	vector <uint8_t> direct;
-	// Выполняем выработку сертификата владельца, изданного корнем
-	ASSERT_TRUE(make("anyks.com", "strict root", subject, root.secret, options_t (), direct));
+	// Вырабатываем сертификата владельца, изданного корнем
+	ASSERT_TRUE(__nts_make__("anyks.com", "strict root", subject, root.secret, options_t (), direct));
 	// Проверяем доверие цепочке, в предел числа звеньев уложившейся
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {direct, anchor}, store, MOMENT), trust::error_t::NONE);
 	// Настройки корня цепочки, дозволяющего одно промежуточное звено
@@ -1047,17 +1047,17 @@ TEST(TrustTest, Deepness){
 	lenient.depth = 1;
 	// Запись сертификата корня, дозволяющего промежуточное звено
 	vector <uint8_t> spacious;
-	// Выполняем выработку самоподписанного сертификата корня цепочки
-	ASSERT_TRUE(make("lenient root", "lenient root", root, vector <uint8_t> (), lenient, spacious));
+	// Вырабатываем самоподписанного сертификата корня цепочки
+	ASSERT_TRUE(__nts_make__("lenient root", "lenient root", root, vector <uint8_t> (), lenient, spacious));
 	// Запись сертификата промежуточного звена под просторным корнем
 	vector <uint8_t> linked;
-	// Выполняем выработку сертификата промежуточного звена
-	ASSERT_TRUE(make("lenient middle", "lenient root", middle, root.secret, authorized, linked));
+	// Вырабатываем сертификата промежуточного звена
+	ASSERT_TRUE(__nts_make__("lenient middle", "lenient root", middle, root.secret, authorized, linked));
 	// Запись сертификата владельца под просторным корнем
 	vector <uint8_t> issued;
-	// Выполняем выработку сертификата владельца
-	ASSERT_TRUE(make("anyks.com", "lenient middle", subject, middle.secret, options_t (), issued));
-	// Выполняем добавление просторного корня в запас доверенных
+	// Вырабатываем сертификата владельца
+	ASSERT_TRUE(__nts_make__("anyks.com", "lenient middle", subject, middle.secret, options_t (), issued));
+	// Добавляем просторного корня в запас доверенных
 	ASSERT_TRUE(store.add(view_t(spacious.data(), spacious.size())));
 	// Проверяем доверие цепочке, в дозволенное промежуточное звено уложившейся
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {issued, linked, spacious}, store, MOMENT), trust::error_t::NONE);
@@ -1074,33 +1074,33 @@ TEST(TrustTest, Deepness){
 TEST(TrustTest, Interlinked){
 	// Ключевые пары корня, промежуточного звена, владельца и постороннего
 	keys_t root, middle, subject, stranger;
-	// Выполняем выработку ключевой пары корня цепочки
-	ASSERT_TRUE(fabricate(root));
-	// Выполняем выработку ключевой пары промежуточного звена
-	ASSERT_TRUE(fabricate(middle));
-	// Выполняем выработку ключевой пары владельца цепочки
-	ASSERT_TRUE(fabricate(subject));
-	// Выполняем выработку ключевой пары постороннего издателя
-	ASSERT_TRUE(fabricate(stranger));
+	// Вырабатываем ключевой пары корня цепочки
+	ASSERT_TRUE(__nts_fabricate__(root));
+	// Вырабатываем ключевой пары промежуточного звена
+	ASSERT_TRUE(__nts_fabricate__(middle));
+	// Вырабатываем ключевой пары владельца цепочки
+	ASSERT_TRUE(__nts_fabricate__(subject));
+	// Вырабатываем ключевой пары постороннего издателя
+	ASSERT_TRUE(__nts_fabricate__(stranger));
 	// Настройки сертификата, наделённого правом издавать другие сертификаты
 	options_t authorized;
 	// Наделяем сертификат правом издавать другие сертификаты
 	authorized.authority = true;
 	// Запись сертификата корня цепочки
 	vector <uint8_t> anchor;
-	// Выполняем выработку самоподписанного сертификата корня цепочки
-	ASSERT_TRUE(make("chain root", "chain root", root, vector <uint8_t> (), authorized, anchor));
+	// Вырабатываем самоподписанного сертификата корня цепочки
+	ASSERT_TRUE(__nts_make__("chain root", "chain root", root, vector <uint8_t> (), authorized, anchor));
 	// Запись сертификата промежуточного звена цепочки
 	vector <uint8_t> intermediate;
-	// Выполняем выработку сертификата промежуточного звена, изданного корнем
-	ASSERT_TRUE(make("chain middle", "chain root", middle, root.secret, authorized, intermediate));
+	// Вырабатываем сертификата промежуточного звена, изданного корнем
+	ASSERT_TRUE(__nts_make__("chain middle", "chain root", middle, root.secret, authorized, intermediate));
 	// Запись сертификата владельца цепочки
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного промежуточным звеном
-	ASSERT_TRUE(make("anyks.com", "chain middle", subject, middle.secret, options_t (), leaf));
+	// Вырабатываем сертификата владельца, изданного промежуточным звеном
+	ASSERT_TRUE(__nts_make__("anyks.com", "chain middle", subject, middle.secret, options_t (), leaf));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата корня в запас доверенных
+	// Добавляем сертификата корня в запас доверенных
 	ASSERT_TRUE(store.add(view_t(anchor.data(), anchor.size())));
 	// Проверяем доверие цепочке из трёх звеньев
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, intermediate, anchor}, store, MOMENT), trust::error_t::NONE);
@@ -1110,8 +1110,8 @@ TEST(TrustTest, Interlinked){
 	 * издателя у него и сходилось с именем корня
 	 */
 	vector <uint8_t> forged;
-	// Выполняем выработку промежуточного звена, подписанного посторонним ключом
-	ASSERT_TRUE(make("chain middle", "chain root", middle, stranger.secret, authorized, forged));
+	// Вырабатываем промежуточного звена, подписанного посторонним ключом
+	ASSERT_TRUE(__nts_make__("chain middle", "chain root", middle, stranger.secret, authorized, forged));
 	// Проверяем отказ доверия цепочке с несошедшейся подписью промежуточного звена
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, forged, anchor}, store, MOMENT), trust::error_t::SIGNATURE);
 	/**
@@ -1119,8 +1119,8 @@ TEST(TrustTest, Interlinked){
 	 * имён посреди цепочки означает цепочку, звеньями не связанную
 	 */
 	vector <uint8_t> renamed;
-	// Выполняем выработку промежуточного звена с чужим именем владельца
-	ASSERT_TRUE(make("other middle", "chain root", middle, root.secret, authorized, renamed));
+	// Вырабатываем промежуточного звена с чужим именем владельца
+	ASSERT_TRUE(__nts_make__("other middle", "chain root", middle, root.secret, authorized, renamed));
 	// Проверяем отказ доверия цепочке с разошедшимися именами звеньев
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, renamed, anchor}, store, MOMENT), trust::error_t::ISSUER);
 	/**
@@ -1135,19 +1135,19 @@ TEST(TrustTest, Interlinked){
 	unsigning.signing = false;
 	// Ключевая пара корня, не вправе подписывать другие сертификаты
 	keys_t barren;
-	// Выполняем выработку ключевой пары корня без права подписи
-	ASSERT_TRUE(fabricate(barren));
+	// Вырабатываем ключевой пары корня без права подписи
+	ASSERT_TRUE(__nts_fabricate__(barren));
 	// Запись сертификата корня, не вправе подписывать другие сертификаты
 	vector <uint8_t> unsigned_;
-	// Выполняем выработку корня без права подписывать другие сертификаты
-	ASSERT_TRUE(make("barren root", "barren root", barren, vector <uint8_t> (), unsigning, unsigned_));
+	// Вырабатываем корня без права подписывать другие сертификаты
+	ASSERT_TRUE(__nts_make__("barren root", "barren root", barren, vector <uint8_t> (), unsigning, unsigned_));
 	// Запись сертификата владельца, изданного корнем без права подписи
 	vector <uint8_t> issued;
-	// Выполняем выработку сертификата владельца, изданного таким корнем
-	ASSERT_TRUE(make("anyks.com", "barren root", subject, barren.secret, options_t (), issued));
+	// Вырабатываем сертификата владельца, изданного таким корнем
+	ASSERT_TRUE(__nts_make__("anyks.com", "barren root", subject, barren.secret, options_t (), issued));
 	// Запас доверенных сертификатов, несущий корень без права подписи
 	trust::store_t barrens;
-	// Выполняем добавление корня без права подписи в запас доверенных
+	// Добавляем корня без права подписи в запас доверенных
 	ASSERT_TRUE(barrens.add(view_t(unsigned_.data(), unsigned_.size())));
 	/**
 	 * Отказ приходит отсутствием издателя в запасе, а не нарушением ограничений:
@@ -1161,7 +1161,7 @@ TEST(TrustTest, Interlinked){
 	 */
 	vector <vector <uint8_t>> lengthy;
 	/**
-	 * Выполняем набор цепочки длиннее дозволенной
+	 * Составляем набор цепочки длиннее дозволенной
 	 */
 	for(size_t i = 0; i <= trust::TRUST_DEPTH; i++)
 		// Добавляем в цепочку очередное её звено
@@ -1177,10 +1177,10 @@ TEST(TrustTest, Interlinked){
 TEST(TrustTest, Belonging){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Запись сертификата, разобрать которую нельзя вовсе
 	const vector <uint8_t> garbage(64, 0x41);
 	// Проверяем отказ сличения имени узла с неразбираемой записью
@@ -1196,8 +1196,8 @@ TEST(TrustTest, Belonging){
 	spoiled.alternative = "anyks.com";
 	// Запись сертификата с порченым телом расширений
 	vector <uint8_t> broken;
-	// Выполняем выработку сертификата с порченым телом расширений
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, spoiled, broken));
+	// Вырабатываем сертификата с порченым телом расширений
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, spoiled, broken));
 	// Проверяем отказ сличения имени узла при порченом расширении имён
 	EXPECT_EQ(trust::belongs(view_t(broken.data(), broken.size()), "anyks.com"), trust::error_t::PARSE);
 	/**
@@ -1210,8 +1210,8 @@ TEST(TrustTest, Belonging){
 	wildcard.alternative = "*.anyks.com";
 	// Запись сертификата с именем владельца со звёздочкой
 	vector <uint8_t> covered;
-	// Выполняем выработку сертификата с именем владельца со звёздочкой
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, wildcard, covered));
+	// Вырабатываем сертификата с именем владельца со звёздочкой
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, wildcard, covered));
 	// Проверяем схождение имени узла из двух частей с именем со звёздочкой
 	EXPECT_EQ(trust::belongs(view_t(covered.data(), covered.size()), "www.anyks.com"), trust::error_t::NONE);
 	// Проверяем несовпадение имени узла из одной части с именем со звёздочкой
@@ -1227,8 +1227,8 @@ TEST(TrustTest, Belonging){
 	nameless.unnamed = true;
 	// Запись сертификата без имени владельца вовсе
 	vector <uint8_t> anonymous;
-	// Выполняем выработку сертификата без имени владельца
-	ASSERT_TRUE(make("", "anyks root", subject, issuer.secret, nameless, anonymous));
+	// Вырабатываем сертификата без имени владельца
+	ASSERT_TRUE(__nts_make__("", "anyks root", subject, issuer.secret, nameless, anonymous));
 	// Проверяем отказ сличения имени узла с сертификатом без имён владельца
 	EXPECT_EQ(trust::belongs(view_t(anonymous.data(), anonymous.size()), "anyks.com"), trust::error_t::NAME);
 	/**
@@ -1244,9 +1244,9 @@ TEST(TrustTest, Belonging){
 	authorized.authority = true;
 	// Запись самоподписанного сертификата издателя
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), authorized, root));
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), authorized, root));
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Проверяем выдачу записи первого сертификата запаса доверенных
 	EXPECT_EQ(store.get(0).size, root.size());
@@ -1257,8 +1257,8 @@ TEST(TrustTest, Belonging){
 	 * отвергает цепочку целиком
 	 */
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного издателем
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
+	// Вырабатываем сертификата владельца, изданного издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
 	// Проверяем отказ доверия цепочке с неразбираемым звеном
 	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {leaf, garbage}, store, MOMENT), trust::error_t::PARSE);
 	/**
@@ -1272,20 +1272,20 @@ TEST(TrustTest, Belonging){
 	damaged.spoiled = SPOIL_CONSTRAINTS;
 	// Ключевая пара издателя с порченым телом расширений
 	keys_t spoiler;
-	// Выполняем выработку ключевой пары издателя с порченым телом расширений
-	ASSERT_TRUE(fabricate(spoiler));
+	// Вырабатываем ключевой пары издателя с порченым телом расширений
+	ASSERT_TRUE(__nts_fabricate__(spoiler));
 	// Запись самоподписанного сертификата издателя с порченым телом расширений
 	vector <uint8_t> ruined;
-	// Выполняем выработку издателя с порченым телом расширений
-	ASSERT_TRUE(make("ruined root", "ruined root", spoiler, vector <uint8_t> (), damaged, ruined));
+	// Вырабатываем издателя с порченым телом расширений
+	ASSERT_TRUE(__nts_make__("ruined root", "ruined root", spoiler, vector <uint8_t> (), damaged, ruined));
 	// Запас доверенных, несущий издателя с порченым телом расширений
 	trust::store_t ruins;
-	// Выполняем добавление издателя с порченым телом расширений в запас
+	// Добавляем издателя с порченым телом расширений в запас
 	ASSERT_TRUE(ruins.add(view_t(ruined.data(), ruined.size())));
 	// Запись сертификата владельца, изданного издателем с порченым телом расширений
 	vector <uint8_t> issued;
-	// Выполняем выработку сертификата владельца, изданного таким издателем
-	ASSERT_TRUE(make("anyks.com", "ruined root", subject, spoiler.secret, options_t (), issued));
+	// Вырабатываем сертификата владельца, изданного таким издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "ruined root", subject, spoiler.secret, options_t (), issued));
 	// Проверяем отказ доверия сертификату, изданному издателем с порченым расширением
 	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {issued}, ruins, MOMENT), trust::error_t::AUTHORITY);
 	/**
@@ -1300,20 +1300,20 @@ TEST(TrustTest, Belonging){
 	misused.spoiled = SPOIL_USAGE;
 	// Ключевая пара издателя с порченым назначением ключа
 	keys_t misuser;
-	// Выполняем выработку ключевой пары издателя с порченым назначением ключа
-	ASSERT_TRUE(fabricate(misuser));
+	// Вырабатываем ключевой пары издателя с порченым назначением ключа
+	ASSERT_TRUE(__nts_fabricate__(misuser));
 	// Запись самоподписанного издателя с порченым назначением ключа
 	vector <uint8_t> misuse;
-	// Выполняем выработку издателя с порченым назначением ключа
-	ASSERT_TRUE(make("misused root", "misused root", misuser, vector <uint8_t> (), misused, misuse));
+	// Вырабатываем издателя с порченым назначением ключа
+	ASSERT_TRUE(__nts_make__("misused root", "misused root", misuser, vector <uint8_t> (), misused, misuse));
 	// Запас доверенных, несущий издателя с порченым назначением ключа
 	trust::store_t misuses;
-	// Выполняем добавление издателя с порченым назначением ключа в запас
+	// Добавляем издателя с порченым назначением ключа в запас
 	ASSERT_TRUE(misuses.add(view_t(misuse.data(), misuse.size())));
 	// Запись сертификата владельца, изданного таким издателем
 	vector <uint8_t> granted;
-	// Выполняем выработку сертификата владельца, изданного таким издателем
-	ASSERT_TRUE(make("anyks.com", "misused root", subject, misuser.secret, options_t (), granted));
+	// Вырабатываем сертификата владельца, изданного таким издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "misused root", subject, misuser.secret, options_t (), granted));
 	// Проверяем отказ доверия сертификату, изданному издателем с порченым назначением
 	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {granted}, misuses, MOMENT), trust::error_t::AUTHORITY);
 }
@@ -1325,9 +1325,9 @@ TEST(TrustTest, Critical){
 	// Объявляем ключи корня и владельца
 	keys_t root, subject;
 	// Проверяем выработку ключа корня
-	ASSERT_TRUE(fabricate(root));
+	ASSERT_TRUE(__nts_fabricate__(root));
 	// Проверяем выработку ключа владельца
-	ASSERT_TRUE(fabricate(subject));
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Объявляем настройки издания корня
 	options_t authorized;
 	// Устанавливаем признак издателя сертификатов
@@ -1335,7 +1335,7 @@ TEST(TrustTest, Critical){
 	// Объявляем буфер якоря
 	vector <uint8_t> anchor;
 	// Проверяем издание корня с признаком издателя
-	ASSERT_TRUE(make("crit root", "crit root", root, vector <uint8_t> (), authorized, anchor));
+	ASSERT_TRUE(__nts_make__("crit root", "crit root", root, vector <uint8_t> (), authorized, anchor));
 	// Объявляем запас доверенных сертификатов
 	trust::store_t store;
 	// Проверяем добавление якоря в запас
@@ -1347,7 +1347,7 @@ TEST(TrustTest, Critical){
 	// Объявляем буфер листа
 	vector <uint8_t> leaf;
 	// Проверяем издание листа с критичным расширением
-	ASSERT_TRUE(make("anyks.com", "crit root", subject, root.secret, marked, leaf));
+	ASSERT_TRUE(__nts_make__("anyks.com", "crit root", subject, root.secret, marked, leaf));
 	/**
 	 * Раздел 4.2 RFC 5280: сертификат с неизвестным критичным расширением
 	 * отвергается, ибо его требование исполнить нечем
@@ -1360,7 +1360,7 @@ TEST(TrustTest, Critical){
 	// Объявляем буфер допустимого листа
 	vector <uint8_t> tolerable;
 	// Проверяем издание листа с некритичным расширением
-	ASSERT_TRUE(make("anyks.com", "crit root", subject, root.secret, plain, tolerable));
+	ASSERT_TRUE(__nts_make__("anyks.com", "crit root", subject, root.secret, plain, tolerable));
 	// Неизвестное расширение без признака критичности пропускается
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {tolerable, anchor}, store, MOMENT), trust::error_t::NONE);
 	// Якорь с неизвестным критичным расширением якорем служить не может
@@ -1372,7 +1372,7 @@ TEST(TrustTest, Critical){
 	// Объявляем буфер порченого якоря
 	vector <uint8_t> tainted;
 	// Проверяем издание якоря с критичным расширением
-	ASSERT_TRUE(make("taint root", "taint root", root, vector <uint8_t> (), spoiled, tainted));
+	ASSERT_TRUE(__nts_make__("taint root", "taint root", root, vector <uint8_t> (), spoiled, tainted));
 	// Объявляем запас с порченым якорем
 	trust::store_t weak;
 	// Проверяем добавление порченого якоря в запас
@@ -1380,7 +1380,7 @@ TEST(TrustTest, Critical){
 	// Объявляем буфер листа под порченым якорем
 	vector <uint8_t> child;
 	// Проверяем издание листа под порченым якорем
-	ASSERT_TRUE(make("anyks.com", "taint root", subject, root.secret, options_t (), child));
+	ASSERT_TRUE(__nts_make__("anyks.com", "taint root", subject, root.secret, options_t (), child));
 	// Проверяем отказ доверия листу под порченым якорем
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {child}, weak, MOMENT), trust::error_t::AUTHORITY);
 }
@@ -1392,8 +1392,8 @@ TEST(TrustTest, Purpose){
 	// Объявляем ключи корня и владельца
 	keys_t root, subject;
 	// Проверяем выработку ключа корня
-	ASSERT_TRUE(fabricate(root));
-	ASSERT_TRUE(fabricate(subject));
+	ASSERT_TRUE(__nts_fabricate__(root));
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Объявляем настройки издания корня
 	options_t authorized;
 	// Устанавливаем признак издателя сертификатов
@@ -1401,7 +1401,7 @@ TEST(TrustTest, Purpose){
 	// Объявляем буфер якоря
 	vector <uint8_t> anchor;
 	// Проверяем издание корня с признаком издателя
-	ASSERT_TRUE(make("use root", "use root", root, vector <uint8_t> (), authorized, anchor));
+	ASSERT_TRUE(__nts_make__("use root", "use root", root, vector <uint8_t> (), authorized, anchor));
 	// Объявляем запас доверенных сертификатов
 	trust::store_t store;
 	// Проверяем добавление якоря в запас
@@ -1413,7 +1413,7 @@ TEST(TrustTest, Purpose){
 	// Объявляем буфер листа
 	vector <uint8_t> leaf;
 	// Проверяем издание листа с назначением согласования
-	ASSERT_TRUE(make("anyks.com", "use root", subject, root.secret, agreeing, leaf));
+	ASSERT_TRUE(__nts_make__("anyks.com", "use root", subject, root.secret, agreeing, leaf));
 	/**
 	 * Раздел 4.4.2.2 RFC 8446: ключ листа, назначенный одному согласованию ключей,
 	 * подпись владения ставить не вправе
@@ -1422,7 +1422,7 @@ TEST(TrustTest, Purpose){
 	// Объявляем буфер листа с подписью владения
 	vector <uint8_t> signing;
 	// Проверяем издание листа без ограничения назначения
-	ASSERT_TRUE(make("anyks.com", "use root", subject, root.secret, options_t (), signing));
+	ASSERT_TRUE(__nts_make__("anyks.com", "use root", subject, root.secret, options_t (), signing));
 	// Проверяем доверие листу с назначением подписи владения
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> {signing, anchor}, store, MOMENT), trust::error_t::NONE);
 }
@@ -1434,7 +1434,7 @@ TEST(TrustTest, Addressed){
 	// Объявляем ключ владельца
 	keys_t subject;
 	// Проверяем выработку ключа владельца
-	ASSERT_TRUE(fabricate(subject));
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Объявляем настройки имени адресом сети
 	options_t addressed;
 	// Записываем общее имя адресом сети
@@ -1444,7 +1444,7 @@ TEST(TrustTest, Addressed){
 	// Объявляем буфер листа
 	vector <uint8_t> leaf;
 	// Проверяем издание листа с адресом сети
-	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), addressed, leaf));
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks.com", subject, vector <uint8_t> (), addressed, leaf));
 	/**
 	 * Раздел 6.4 RFC 6125: адрес сети сличается лишь с адресами сети в двоичном
 	 * виде; доменное имя, записанное цифрами адреса, ему не отвечает
@@ -1461,7 +1461,7 @@ TEST(TrustTest, Addressed){
 	// Объявляем буфер листа с адресом сети IPv6
 	vector <uint8_t> six;
 	// Проверяем издание листа с адресом сети IPv6
-	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), wide, six));
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks.com", subject, vector <uint8_t> (), wide, six));
 	// Проверяем ответ адресу сети в сжатой записи
 	ASSERT_EQ(trust::belongs(view_t(six.data(), six.size()), "2001:db8::1"), trust::error_t::NONE);
 	// Проверяем ответ адресу сети в развёрнутой записи
@@ -1475,7 +1475,7 @@ TEST(TrustTest, Addressed){
 	// Объявляем буфер листа с общим именем адресом
 	vector <uint8_t> named;
 	// Проверяем издание листа с общим именем адресом
-	ASSERT_TRUE(make("10.0.0.2", "10.0.0.2", subject, vector <uint8_t> (), bare, named));
+	ASSERT_TRUE(__nts_make__("10.0.0.2", "10.0.0.2", subject, vector <uint8_t> (), bare, named));
 	// Проверяем отказ адресу сети общего имени владельца
 	ASSERT_EQ(trust::belongs(view_t(named.data(), named.size()), "10.0.0.2"), trust::error_t::NAME);
 }
@@ -1538,7 +1538,7 @@ static bool listing(const char * name, vector <uint8_t> & result) {
 TEST(TrustTest, Mldsa){
 	// Запись цепочки ML-DSA набора образцов: лист, промежуточный издатель, корень
 	vector <vector <uint8_t>> chain;
-	// Выполняем чтение цепочки набора образцов
+	// Читаем цепочки набора образцов
 	ASSERT_TRUE(corpus("chain-mldsa.pem", chain));
 	// Проверяем, что цепочка состоит из трёх звеньев
 	ASSERT_EQ(chain.size(), static_cast <size_t> (3));
@@ -1548,7 +1548,7 @@ TEST(TrustTest, Mldsa){
 	trust::store_t store;
 	// Проверяем отказ доверия при пустом запасе
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::AUTHORITY);
-	// Выполняем добавление корня в запас доверенных
+	// Добавляем корня в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Проверяем доверие цепочке из листа и промежуточного издателя
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::NONE);
@@ -1589,7 +1589,7 @@ TEST(TrustTest, Mldsa){
 TEST(TrustTest, Slhdsa){
 	// Запись цепочки SLH-DSA набора образцов: лист, промежуточный издатель, корень
 	vector <vector <uint8_t>> chain;
-	// Выполняем чтение цепочки набора образцов
+	// Читаем цепочки набора образцов
 	ASSERT_TRUE(corpus("chain-slhdsa.pem", chain));
 	// Проверяем, что цепочка состоит из трёх звеньев
 	ASSERT_EQ(chain.size(), static_cast <size_t> (3));
@@ -1599,7 +1599,7 @@ TEST(TrustTest, Slhdsa){
 	trust::store_t store;
 	// Проверяем отказ доверия при пустом запасе
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::AUTHORITY);
-	// Выполняем добавление корня в запас доверенных
+	// Добавляем корня в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Проверяем доверие цепочке из листа и промежуточного издателя
 	ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::NONE);
@@ -1630,16 +1630,16 @@ TEST(TrustTest, Classic){
 	// Записи цепочек набора образцов: лист, промежуточный издатель, корень
 	vector <vector <uint8_t>> chains[2];
 	/**
-	 * Выполняем перебор цепочек набора образцов
+	 * Перебираем цепочек набора образцов
 	 */
 	for(size_t i = 0; i < 2; i++){
-		// Выполняем чтение цепочки набора образцов
+		// Читаем цепочки набора образцов
 		ASSERT_TRUE(corpus(CHAINS[i], chains[i])) << CHAINS[i];
 		// Проверяем, что цепочка состоит из трёх звеньев
 		ASSERT_EQ(chains[i].size(), static_cast <size_t> (3)) << CHAINS[i];
 	}
 	/**
-	 * Выполняем перебор цепочек набора образцов
+	 * Перебираем цепочек набора образцов
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Получаем записи звеньев цепочки
@@ -1648,7 +1648,7 @@ TEST(TrustTest, Classic){
 		trust::store_t store;
 		// Проверяем отказ доверия при пустом запасе
 		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::AUTHORITY) << CHAINS[i];
-		// Выполняем добавление корня в запас доверенных
+		// Добавляем корня в запас доверенных
 		ASSERT_TRUE(store.add(view_t(root.data(), root.size()))) << CHAINS[i];
 		// Проверяем доверие цепочке из листа и промежуточного издателя
 		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), store, MOMENT), trust::error_t::NONE) << CHAINS[i];
@@ -1670,7 +1670,7 @@ TEST(TrustTest, Classic){
 		ASSERT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "anyks.com"), trust::error_t::NAME) << CHAINS[i];
 		// Запас доверенных сертификатов с корнем другой цепочки
 		trust::store_t foreign;
-		// Выполняем добавление корня другой цепочки в запас доверенных
+		// Добавляем корня другой цепочки в запас доверенных
 		ASSERT_TRUE(foreign.add(view_t(chains[1 - i][2].data(), chains[1 - i][2].size()))) << CHAINS[i];
 		// Проверяем отказ доверия цепочке при чужом корне в запасе
 		ASSERT_EQ(trust::verify(vector <vector <uint8_t>> ({leaf, mid}), foreign, MOMENT), trust::error_t::AUTHORITY) << CHAINS[i];
@@ -1689,13 +1689,13 @@ TEST(TrustTest, Classic){
 	}
 	// Записи файла просроченного листа
 	vector <vector <uint8_t>> expired;
-	// Выполняем чтение просроченного листа набора образцов
+	// Читаем просроченного листа набора образцов
 	ASSERT_TRUE(corpus("expired.crt", expired));
 	// Проверяем, что файл несёт один сертификат
 	ASSERT_EQ(expired.size(), static_cast <size_t> (1));
 	// Запас доверенных сертификатов с корнем цепочки эллиптической кривой
 	trust::store_t store;
-	// Выполняем добавление корня в запас доверенных
+	// Добавляем корня в запас доверенных
 	ASSERT_TRUE(store.add(view_t(chains[1][2].data(), chains[1][2].size())));
 	// Проверяем отказ доверия просроченному листу, изданному корнем
 	ASSERT_EQ(trust::verify(expired, store, MOMENT), trust::error_t::EXPIRED);
@@ -1716,7 +1716,7 @@ TEST(TrustTest, Classic){
  * @return     запись DER сертификата либо пустой накопитель
  *
  */
-static vector <uint8_t> certified(const char * name) {
+static vector <uint8_t> __nts_certified__(const char * name) {
 	// Перечень записей сертификатов файла
 	vector <vector <uint8_t>> chain;
 	// Если сертификаты файла прочитать не удалось либо файл их не несёт
@@ -1734,7 +1734,7 @@ static vector <uint8_t> certified(const char * name) {
  */
 TEST(TrustTest, WildcardExcludedLeadingDot){
 	// Корень, промежуточный издатель с запретом «.secure.example.com» и лист «*.example.com»
-	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-leaddot.crt"), star = certified("audit/r8-nc-leaf-star.crt");
+	const vector <uint8_t> root = __nts_certified__("audit/r8-nc-root.crt"), mid = __nts_certified__("audit/r8-nc-mid-leaddot.crt"), star = __nts_certified__("audit/r8-nc-leaf-star.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || mid.empty() || star.empty());
 	// Запас доверенных сертификатов
@@ -1754,10 +1754,10 @@ TEST(TrustTest, WildcardExcludedLeadingDot){
  */
 TEST(TrustTest, TrailingDotExcluded){
 	// Корень, промежуточный издатель с запретом secure.example.com, лист с точкой на конце и лист без неё
-	// Выполняем чтение корня и промежуточного издателя с запретом
-	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-secure.crt");
-	// Выполняем чтение листов с точкой на конце и без неё
-	const vector <uint8_t> dot = certified("audit/r8-nc-leaf-dot.crt"), plain = certified("audit/r8-nc-leaf-plain.crt");
+	// Читаем корня и промежуточного издателя с запретом
+	const vector <uint8_t> root = __nts_certified__("audit/r8-nc-root.crt"), mid = __nts_certified__("audit/r8-nc-mid-secure.crt");
+	// Читаем листов с точкой на конце и без неё
+	const vector <uint8_t> dot = __nts_certified__("audit/r8-nc-leaf-dot.crt"), plain = __nts_certified__("audit/r8-nc-leaf-plain.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || mid.empty() || dot.empty() || plain.empty());
 	// Запас доверенных сертификатов
@@ -1791,9 +1791,9 @@ TEST(TrustTest, TrailingDotExcluded){
  */
 TEST(TrustTest, EmptySubjectDirName){
 	// Корень, промежуточный издатель с дозволенным поддеревом C=US,O=Corp и три листа
-	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-dn.crt");
-	// Выполняем чтение листов с пустым полем, в поддереве и вне его
-	const vector <uint8_t> empty = certified("audit/r8-nc-leaf-empty.crt"), inside = certified("audit/r8-nc-leaf-dn.crt"), foreign = certified("audit/r8-nc-leaf-foreign.crt");
+	const vector <uint8_t> root = __nts_certified__("audit/r8-nc-root.crt"), mid = __nts_certified__("audit/r8-nc-mid-dn.crt");
+	// Читаем листов с пустым полем, в поддереве и вне его
+	const vector <uint8_t> empty = __nts_certified__("audit/r8-nc-leaf-empty.crt"), inside = __nts_certified__("audit/r8-nc-leaf-dn.crt"), foreign = __nts_certified__("audit/r8-nc-leaf-foreign.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || mid.empty() || empty.empty() || inside.empty() || foreign.empty());
 	// Запас доверенных сертификатов
@@ -1820,12 +1820,12 @@ TEST(TrustTest, EmptySubjectDirName){
 TEST(TrustTest, AddressRefusal){
 	// Ключевая пара владельца сертификата
 	keys_t subject;
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Запись сертификата владельца с доменным именем
 	vector <uint8_t> leaf;
-	// Выполняем выработку самоподписанного сертификата владельца
-	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), options_t (), leaf));
+	// Вырабатываем самоподписанного сертификата владельца
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks.com", subject, vector <uint8_t> (), options_t (), leaf));
 	// Получаем запись сличаемого сертификата
 	const view_t certificate(leaf.data(), leaf.size());
 	// Проверяем отказ сличения адреса IPv4 с пустой частью
@@ -1867,25 +1867,25 @@ TEST(TrustTest, AddressRefusal){
 TEST(TrustTest, StoreReset){
 	// Ключевая пара издателя сертификата
 	keys_t issuer;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
 	options.authority = true;
 	// Запись сертификата издателя
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Проверяем число доверенных сертификатов запаса
 	ASSERT_EQ(store.size(), static_cast <size_t> (1));
 	// Проверяем чтение сертификата за границей запаса
 	ASSERT_EQ(store.get(1).data, static_cast <const uint8_t *> (nullptr));
-	// Выполняем сброс запаса доверенных сертификатов
+	// Сбрасываем запаса доверенных сертификатов
 	store.clear();
 	// Проверяем число доверенных сертификатов запаса после сброса
 	ASSERT_EQ(store.size(), static_cast <size_t> (0));
@@ -1894,7 +1894,7 @@ TEST(TrustTest, StoreReset){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: добавление в запас обязано на всяком запасе
+	 * Перебираем запасов выделений: добавление в запас обязано на всяком запасе
 	 * ответить либо успехом, либо отказом, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 64; budget++){
@@ -1903,12 +1903,12 @@ TEST(TrustTest, StoreReset){
 		{
 			// Отмеряем запас выделений на время добавления
 			starve::ration_t ration(budget);
-			// Выполняем добавление сертификата в запас при отмеренном запасе
+			// Добавляем сертификата в запас при отмеренном запасе
 			added = store.add(view_t(root.data(), root.size()));
 		}
 		// Запоминаем объявленный отказ памяти
 		starved = (starved || !added);
-		// Выполняем сброс запаса доверенных сертификатов
+		// Сбрасываем запаса доверенных сертификатов
 		store.clear();
 	}
 	// Проверяем, что нехватка памяти объявлена отказом хоть раз
@@ -1925,36 +1925,36 @@ TEST(TrustTest, StoreReset){
 TEST(TrustTest, StarvedVerify){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
 	options.authority = true;
 	// Запись сертификата издателя цепочки
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя с длинным именем: приведение имени выделяет память
-	ASSERT_TRUE(make("anyks very long root name of the chain", "anyks very long root name of the chain", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя с длинным именем: приведение имени выделяет память
+	ASSERT_TRUE(__nts_make__("anyks very long root name of the chain", "anyks very long root name of the chain", issuer, vector <uint8_t> (), options, root));
 	// Настройки сертификата владельца
 	options_t settings;
 	// Устанавливаем дополнительное доменное имя владельца подлиннее: приведение его выделяет память
 	settings.alternative = "www.very-long-host-name.that-needs-allocation.anyks.com";
 	// Запись сертификата владельца цепочки
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного издателем
-	ASSERT_TRUE(make("www.very-long-host-name.that-needs-allocation.anyks.com", "anyks very long root name of the chain", subject, issuer.secret, settings, leaf));
+	// Вырабатываем сертификата владельца, изданного издателем
+	ASSERT_TRUE(__nts_make__("www.very-long-host-name.that-needs-allocation.anyks.com", "anyks very long root name of the chain", subject, issuer.secret, settings, leaf));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Проверяемая цепочка сертификатов вместе с издателем
 	const vector <vector <uint8_t>> chain = {leaf, root};
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: проверка цепочки обязана на всяком запасе
+	 * Перебираем запасов выделений: проверка цепочки обязана на всяком запасе
 	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 768; budget++){
@@ -1963,7 +1963,7 @@ TEST(TrustTest, StarvedVerify){
 		{
 			// Отмеряем запас выделений на время проверки
 			starve::ration_t ration(budget);
-			// Выполняем проверку цепочки при отмеренном запасе
+			// Проверяем цепочки при отмеренном запасе
 			outcome = trust::verify(chain, store, MOMENT);
 		}
 		// Проверяем, что проверка ответила успехом либо отказом памяти
@@ -1978,7 +1978,7 @@ TEST(TrustTest, StarvedVerify){
 	// Сбрасываем признак отказа памяти
 	starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: проверка листа с разысканием издателя в
+	 * Перебираем запасов выделений: проверка листа с разысканием издателя в
 	 * запасе обязана на всяком запасе ответить либо успехом, либо отказом памяти
 	 */
 	for(size_t budget = 0; budget < 768; budget++){
@@ -1987,7 +1987,7 @@ TEST(TrustTest, StarvedVerify){
 		{
 			// Отмеряем запас выделений на время проверки
 			starve::ration_t ration(budget);
-			// Выполняем проверку цепочки при отмеренном запасе
+			// Проверяем цепочки при отмеренном запасе
 			outcome = trust::verify(lone, store, MOMENT);
 		}
 		// Проверяем, что проверка ответила успехом либо отказом памяти
@@ -1999,14 +1999,14 @@ TEST(TrustTest, StarvedVerify){
 	ASSERT_TRUE(starved);
 	// Запись сертификата владельца без дополнительных имён: сличается общее имя
 	vector <uint8_t> common;
-	// Выполняем выработку сертификата владельца без дополнительных имён
-	ASSERT_TRUE(make("www.very-long-host-name.that-needs-allocation.anyks.com", "anyks very long root name of the chain", subject, issuer.secret, options_t (), common));
+	// Вырабатываем сертификата владельца без дополнительных имён
+	ASSERT_TRUE(__nts_make__("www.very-long-host-name.that-needs-allocation.anyks.com", "anyks very long root name of the chain", subject, issuer.secret, options_t (), common));
 	// Сличаемое имя узла, заводимое до отмеривания запаса: строка сама выделяет
 	const string plain = "www.very-long-host-name.that-needs-allocation.anyks.com";
 	// Сбрасываем признак отказа памяти
 	starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: сличение имени узла с общим именем владельца
+	 * Перебираем запасов выделений: сличение имени узла с общим именем владельца
 	 * обязано на всяком запасе ответить либо штатным итогом, либо отказом памяти
 	 */
 	for(size_t budget = 0; budget < 768; budget++){
@@ -2015,7 +2015,7 @@ TEST(TrustTest, StarvedVerify){
 		{
 			// Отмеряем запас выделений на время сличения
 			starve::ration_t ration(budget);
-			// Выполняем сличение имени при отмеренном запасе
+			// Сличаем имени при отмеренном запасе
 			outcome = trust::belongs(view_t(common.data(), common.size()), plain);
 		}
 		// Проверяем, что сличение ответило штатным итогом либо отказом памяти
@@ -2030,7 +2030,7 @@ TEST(TrustTest, StarvedVerify){
 	// Сбрасываем признак объявленного отказа памяти
 	starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: сличение длинного имени обязано на всяком
+	 * Перебираем запасов выделений: сличение длинного имени обязано на всяком
 	 * запасе ответить либо штатным итогом, либо отказом памяти, но не прерыванием
 	 */
 	for(size_t budget = 0; budget < 768; budget++){
@@ -2039,7 +2039,7 @@ TEST(TrustTest, StarvedVerify){
 		{
 			// Отмеряем запас выделений на время сличения
 			starve::ration_t ration(budget);
-			// Выполняем сличение имени при отмеренном запасе
+			// Сличаем имени при отмеренном запасе
 			outcome = trust::belongs(view_t(leaf.data(), leaf.size()), named);
 		}
 		// Проверяем, что сличение ответило штатным итогом либо отказом памяти
@@ -2060,7 +2060,7 @@ TEST(TrustTest, StarvedVerify){
  */
 TEST(TrustTest, WeakChain){
 	// Корень и листы со слабостями набора образцов
-	const vector <uint8_t> root = certified("audit/weak-root.crt"), sha1 = certified("audit/weak-sha1.crt"), rsa = certified("audit/weak-rsa.crt"), ok = certified("audit/weak-ok.crt");
+	const vector <uint8_t> root = __nts_certified__("audit/weak-root.crt"), sha1 = __nts_certified__("audit/weak-sha1.crt"), rsa = __nts_certified__("audit/weak-rsa.crt"), ok = __nts_certified__("audit/weak-ok.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || sha1.empty() || rsa.empty() || ok.empty());
 	// Запас доверенных сертификатов
@@ -2092,10 +2092,10 @@ TEST(TrustTest, WeakChain){
 TEST(TrustTest, AnchorOutdated){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата издателя с узким сроком действия
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
@@ -2106,15 +2106,15 @@ TEST(TrustTest, AnchorOutdated){
 	options.after = 1800000000;
 	// Запись сертификата издателя цепочки
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
 	// Запись сертификата владельца цепочки
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного издателем
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
+	// Вырабатываем сертификата владельца, изданного издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, options_t (), leaf));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Проверяем отказ доверия цепочке: якорь вне срока действия запасом не признаётся
 	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {leaf}, store, 1900000000), trust::error_t::AUTHORITY);
@@ -2132,21 +2132,21 @@ TEST(TrustTest, AnchorOutdated){
 TEST(TrustTest, LeafUsageSpoiled){
 	// Ключевые пары издателя и владельца сертификатов
 	keys_t issuer, subject;
-	// Выполняем выработку ключевой пары издателя
-	ASSERT_TRUE(fabricate(issuer));
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары издателя
+	ASSERT_TRUE(__nts_fabricate__(issuer));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата издателя
 	options_t options;
 	// Устанавливаем право издавать другие сертификаты
 	options.authority = true;
 	// Запись сертификата издателя цепочки
 	vector <uint8_t> root;
-	// Выполняем выработку самоподписанного сертификата издателя
-	ASSERT_TRUE(make("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
+	// Вырабатываем самоподписанного сертификата издателя
+	ASSERT_TRUE(__nts_make__("anyks root", "anyks root", issuer, vector <uint8_t> (), options, root));
 	// Запас доверенных сертификатов
 	trust::store_t store;
-	// Выполняем добавление сертификата издателя в запас доверенных
+	// Добавляем сертификата издателя в запас доверенных
 	ASSERT_TRUE(store.add(view_t(root.data(), root.size())));
 	// Настройки сертификата владельца с порченым телом назначения ключа
 	options_t spoiled;
@@ -2154,8 +2154,8 @@ TEST(TrustTest, LeafUsageSpoiled){
 	spoiled.spoiled = SPOIL_USAGE;
 	// Запись сертификата владельца с порченым телом назначения ключа
 	vector <uint8_t> leaf;
-	// Выполняем выработку сертификата владельца, изданного издателем
-	ASSERT_TRUE(make("anyks.com", "anyks root", subject, issuer.secret, spoiled, leaf));
+	// Вырабатываем сертификата владельца, изданного издателем
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks root", subject, issuer.secret, spoiled, leaf));
 	// Проверяем отказ доверия листу с порченым телом назначения ключа
 	EXPECT_EQ(trust::verify(vector <vector <uint8_t>> {leaf}, store, MOMENT), trust::error_t::PURPOSE);
 }
@@ -2177,7 +2177,7 @@ TEST(TrustTest, StarvedConstrained){
 		// Пропускаем счётную проверку исчерпания в среде OpenWrt
 		GTEST_SKIP() << "COW-ABI строк libstdc++ OpenWrt меняет счёт выделений";
 	// Корень, промежуточный издатель с дозволенным поддеревом C=US,O=Corp и лист в нём
-	const vector <uint8_t> root = certified("audit/r8-nc-root.crt"), mid = certified("audit/r8-nc-mid-dn.crt"), inside = certified("audit/r8-nc-leaf-dn.crt");
+	const vector <uint8_t> root = __nts_certified__("audit/r8-nc-root.crt"), mid = __nts_certified__("audit/r8-nc-mid-dn.crt"), inside = __nts_certified__("audit/r8-nc-leaf-dn.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || mid.empty() || inside.empty());
 	// Запас доверенных сертификатов
@@ -2191,7 +2191,7 @@ TEST(TrustTest, StarvedConstrained){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: проверка цепочки с ограничениями имён
+	 * Перебираем запасов выделений: проверка цепочки с ограничениями имён
 	 * обязана на всяком запасе ответить либо успехом, либо отказом памяти
 	 */
 	for(size_t budget = 0; budget < 768; budget++){
@@ -2200,7 +2200,7 @@ TEST(TrustTest, StarvedConstrained){
 		{
 			// Отмеряем запас выделений на время проверки
 			starve::ration_t ration(budget);
-			// Выполняем проверку цепочки при отмеренном запасе
+			// Проверяем цепочки при отмеренном запасе
 			outcome = trust::verify(chain, store, moment, trust::role_t::SERVER);
 		}
 		// Проверяем, что проверка ответила успехом либо отказом памяти
@@ -2219,7 +2219,7 @@ TEST(TrustTest, StarvedConstrained){
 	// Сбрасываем признак отказа памяти
 	starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: проверка листа под ограничениями якоря
+	 * Перебираем запасов выделений: проверка листа под ограничениями якоря
 	 * обязана на всяком запасе ответить либо успехом, либо отказом памяти
 	 */
 	for(size_t budget = 0; budget < 768; budget++){
@@ -2228,7 +2228,7 @@ TEST(TrustTest, StarvedConstrained){
 		{
 			// Отмеряем запас выделений на время проверки
 			starve::ration_t ration(budget);
-			// Выполняем проверку цепочки при отмеренном запасе
+			// Проверяем цепочки при отмеренном запасе
 			outcome = trust::verify(lone, anchors, moment, trust::role_t::SERVER);
 		}
 		// Проверяем, что проверка ответила успехом либо отказом памяти
@@ -2250,7 +2250,7 @@ TEST(TrustTest, StarvedConstrained){
  */
 TEST(TrustTest, StarvedIntended){
 	// Корень, промежуточный издатель и лист с расширенным назначением clientAuth
-	const vector <uint8_t> root = certified("audit/eku-root.crt"), mid = certified("audit/eku-mid.crt"), leaf = certified("audit/eku-client.crt");
+	const vector <uint8_t> root = __nts_certified__("audit/eku-root.crt"), mid = __nts_certified__("audit/eku-mid.crt"), leaf = __nts_certified__("audit/eku-client.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || mid.empty() || leaf.empty());
 	// Запас доверенных сертификатов
@@ -2266,7 +2266,7 @@ TEST(TrustTest, StarvedIntended){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: проверка цепочки с расширенным назначением
+	 * Перебираем запасов выделений: проверка цепочки с расширенным назначением
 	 * обязана на всяком запасе ответить либо успехом, либо отказом памяти
 	 */
 	for(size_t budget = 0; budget < 768; budget++){
@@ -2275,7 +2275,7 @@ TEST(TrustTest, StarvedIntended){
 		{
 			// Отмеряем запас выделений на время проверки
 			starve::ration_t ration(budget);
-			// Выполняем проверку цепочки при отмеренном запасе
+			// Проверяем цепочки при отмеренном запасе
 			outcome = trust::verify(chain, store, moment, trust::role_t::CLIENT);
 		}
 		// Проверяем, что проверка ответила успехом либо отказом памяти
@@ -2297,7 +2297,7 @@ TEST(TrustTest, StarvedIntended){
  */
 TEST(TrustTest, StarvedExcluded){
 	// Корень, промежуточный издатель с запрещённым поддеревом C=RU и лист с именем вида directoryName
-	const vector <uint8_t> root = certified("audit/r4-root.crt"), mid = certified("audit/r4-mid-ex.crt"), leaf = certified("audit/r4-leafA.crt");
+	const vector <uint8_t> root = __nts_certified__("audit/r4-root.crt"), mid = __nts_certified__("audit/r4-mid-ex.crt"), leaf = __nts_certified__("audit/r4-leafA.crt");
 	// Проверяем чтение образцов
 	ASSERT_FALSE(root.empty() || mid.empty() || leaf.empty());
 	// Запас доверенных сертификатов
@@ -2311,7 +2311,7 @@ TEST(TrustTest, StarvedExcluded){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: проверка цепочки с запрещённым поддеревом
+	 * Перебираем запасов выделений: проверка цепочки с запрещённым поддеревом
 	 * обязана на всяком запасе ответить либо штатным итогом, либо отказом памяти
 	 */
 	for(size_t budget = 0; budget < 768; budget++){
@@ -2320,7 +2320,7 @@ TEST(TrustTest, StarvedExcluded){
 		{
 			// Отмеряем запас выделений на время проверки
 			starve::ration_t ration(budget);
-			// Выполняем проверку цепочки при отмеренном запасе
+			// Проверяем цепочки при отмеренном запасе
 			outcome = trust::verify(chain, store, moment, trust::role_t::SERVER);
 		}
 		// Проверяем, что проверка ответила штатным итогом либо отказом памяти
@@ -2342,22 +2342,22 @@ TEST(TrustTest, StarvedExcluded){
 TEST(TrustTest, RootedPattern){
 	// Ключевая пара владельца сертификата
 	keys_t subject;
-	// Выполняем выработку ключевой пары владельца
-	ASSERT_TRUE(fabricate(subject));
+	// Вырабатываем ключевой пары владельца
+	ASSERT_TRUE(__nts_fabricate__(subject));
 	// Настройки сертификата владельца с негодным дополнительным именем
 	options_t options;
 	// Устанавливаем дополнительное доменное имя владельца с двумя точками на конце
 	options.alternative = "www.anyks.com..";
 	// Запись сертификата владельца
 	vector <uint8_t> leaf;
-	// Выполняем выработку самоподписанного сертификата владельца
-	ASSERT_TRUE(make("anyks.com", "anyks.com", subject, vector <uint8_t> (), options, leaf));
+	// Вырабатываем самоподписанного сертификата владельца
+	ASSERT_TRUE(__nts_make__("anyks.com", "anyks.com", subject, vector <uint8_t> (), options, leaf));
 	// Проверяем, что негодное дополнительное имя пропускается, а прочих имён нет
 	EXPECT_EQ(trust::belongs(view_t(leaf.data(), leaf.size()), "www.anyks.com"), trust::error_t::NAME);
 	// Запись сертификата владельца с негодным общим именем
 	vector <uint8_t> common;
-	// Выполняем выработку самоподписанного сертификата с общим именем с двумя точками на конце
-	ASSERT_TRUE(make("anyks.com..", "anyks.com..", subject, vector <uint8_t> (), options_t (), common));
+	// Вырабатываем самоподписанного сертификата с общим именем с двумя точками на конце
+	ASSERT_TRUE(__nts_make__("anyks.com..", "anyks.com..", subject, vector <uint8_t> (), options_t (), common));
 	// Проверяем отказ сличения имени узла с негодным общим именем владельца
 	EXPECT_EQ(trust::belongs(view_t(common.data(), common.size()), "anyks.com"), trust::error_t::NAME);
 }
@@ -2371,33 +2371,33 @@ TEST(TrustTest, RootedPattern){
 TEST(TrustTest, Revocation){
 	// Запись корня издателя набора
 	vector <vector <uint8_t>> root;
-	// Выполняем чтение корня издателя набора
+	// Читаем корня издателя набора
 	ASSERT_TRUE(corpus("ca-crlrev.crt", root));
 	// Запись отозванного листа набора
-	vector <vector <uint8_t>> revoked;
-	// Выполняем чтение отозванного листа набора
-	ASSERT_TRUE(corpus("leaf-revoked.crt", revoked));
+	vector <vector <uint8_t>> __nts_revoked__;
+	// Читаем отозванного листа набора
+	ASSERT_TRUE(corpus("leaf-revoked.crt", __nts_revoked__));
 	// Запись чистого листа набора
 	vector <vector <uint8_t>> clean;
-	// Выполняем чтение чистого листа набора
+	// Читаем чистого листа набора
 	ASSERT_TRUE(corpus("leaf-clean.crt", clean));
 	// Запись списка отзыва корня набора
 	vector <uint8_t> crl;
-	// Выполняем чтение списка отзыва корня набора
+	// Читаем списка отзыва корня набора
 	ASSERT_TRUE(listing("ca-crlrev.crl", crl));
 	// Миг проверки внутри срока действия списка отзыва (10.11.2026)
 	constexpr int64_t INSIDE = 1794268800;
 	// Миг проверки за сроком действия списка отзыва (01.06.2037)
 	constexpr int64_t LATER = 2127427200;
 	// Цепочка из отозванного листа
-	const vector <vector <uint8_t>> torn = {revoked.front()};
+	const vector <vector <uint8_t>> torn = {__nts_revoked__.front()};
 	// Цепочка из чистого листа
 	const vector <vector <uint8_t>> whole = {clean.front()};
 	// Запас без списков отзыва: отзыва нет вовсе
 	{
 		// Запас доверенных сертификатов
 		trust::store_t store;
-		// Выполняем добавление корня издателя в запас доверенных
+		// Добавляем корня издателя в запас доверенных
 		ASSERT_TRUE(store.add(view_t(root.front().data(), root.front().size())));
 		// Проверяем, что запас списков отзыва не ведёт
 		ASSERT_EQ(store.lists(), static_cast <size_t> (0));
@@ -2408,9 +2408,9 @@ TEST(TrustTest, Revocation){
 	{
 		// Запас доверенных сертификатов
 		trust::store_t store;
-		// Выполняем добавление корня издателя в запас доверенных
+		// Добавляем корня издателя в запас доверенных
 		ASSERT_TRUE(store.add(view_t(root.front().data(), root.front().size())));
-		// Выполняем добавление списка отзыва корня в запас
+		// Добавляем списка отзыва корня в запас
 		ASSERT_TRUE(store.addList(view_t(crl.data(), crl.size())));
 		// Проверяем число списков отзыва запаса
 		ASSERT_EQ(store.lists(), static_cast <size_t> (1));
@@ -2431,9 +2431,9 @@ TEST(TrustTest, Revocation){
 		broken.back() ^= 0xFF;
 		// Запас доверенных сертификатов
 		trust::store_t store;
-		// Выполняем добавление корня издателя в запас доверенных
+		// Добавляем корня издателя в запас доверенных
 		ASSERT_TRUE(store.add(view_t(root.front().data(), root.front().size())));
-		// Выполняем добавление испорченного списка отзыва в запас: разбор записи проходит
+		// Добавляем испорченного списка отзыва в запас: разбор записи проходит
 		ASSERT_TRUE(store.addList(view_t(broken.data(), broken.size())));
 		// Чистый лист отторгается негодной подписью списка издателя
 		EXPECT_EQ(trust::verify(whole, store, INSIDE), trust::error_t::FORGED);
@@ -2442,13 +2442,13 @@ TEST(TrustTest, Revocation){
 	{
 		// Запись списка отзыва чужого издателя
 		vector <uint8_t> foreign;
-		// Выполняем чтение списка отзыва чужого издателя
+		// Читаем списка отзыва чужого издателя
 		ASSERT_TRUE(listing("ca-rsa.crl", foreign));
 		// Запас доверенных сертификатов
 		trust::store_t store;
-		// Выполняем добавление корня издателя в запас доверенных
+		// Добавляем корня издателя в запас доверенных
 		ASSERT_TRUE(store.add(view_t(root.front().data(), root.front().size())));
-		// Выполняем добавление чужого списка отзыва в запас
+		// Добавляем чужого списка отзыва в запас
 		ASSERT_TRUE(store.addList(view_t(foreign.data(), foreign.size())));
 		// Чистый лист отторгается отсутствием списка у своего издателя
 		EXPECT_EQ(trust::verify(whole, store, INSIDE), trust::error_t::MISSING);
