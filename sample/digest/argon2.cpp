@@ -32,9 +32,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/argon2.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "digest/argon2.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

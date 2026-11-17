@@ -34,13 +34,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <hello/hello.hpp>
-#include <digest/hash.hpp>
+#include "hello/hello.hpp"
+#include "digest/hash.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <fingerprint/fingerprint.hpp>
+#include "fingerprint/fingerprint.hpp"
 
 /**
  * Подписываемся на стандартное пространство имён

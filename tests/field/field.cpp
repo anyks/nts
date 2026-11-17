@@ -29,7 +29,7 @@
 #include <cstring>
 #include <main.hpp>
 #include <starve.hpp>
-#include <field/field.hpp>
+#include "field/field.hpp"
 
 /**
  * Используем пространство имён проекта
@@ -364,7 +364,7 @@ TEST(FieldTest, Starved){
 /**
  * Подключаем открытый API затирания области памяти: им же затирается накопитель
  */
-#include <sys/wipe.hpp>
+#include "sys/wipe.hpp"
 
 /**
  * Если проверка собрана под наблюдателем адресов: чтение накопителя за его сбросом

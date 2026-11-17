@@ -28,7 +28,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/pbkdf2.hpp>
+#include "digest/pbkdf2.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

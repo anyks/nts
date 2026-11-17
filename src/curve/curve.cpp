@@ -95,13 +95,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <curve/curve.hpp>
-#include <internal/curve/tables.hpp>
-#include <internal/math/kernels.hpp>
-#include <sys/machine.hpp>
+#include "curve/curve.hpp"
+#include "internal/curve/tables.hpp"
+#include "internal/math/kernels.hpp"
+#include "sys/machine.hpp"
 #include <cstring>
 #include <type_traits>
-#include <sys/wipe.hpp>
+#include "sys/wipe.hpp"
 
 /**
  * Выборка кратного из таблицы перебором всей таблицы под маской идёт векторными

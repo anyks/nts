@@ -39,8 +39,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/cshake.hpp>
-#include <sys/wipe.hpp>
+#include "digest/cshake.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -89,7 +89,7 @@ namespace {
 		// Записываем длину записи числа
 		result.push_back(static_cast <uint8_t> (width));
 		/**
-		 * Выполняем перебор байтов числа от старшего к младшему
+		 * Записываем байты числа от старшего к младшему
 		 */
 		for(size_t i = width; i > 0; i--)
 			// Записываем очередной байт числа
@@ -115,7 +115,7 @@ namespace {
 			// Учитываем очередной значащий байт
 			width++;
 		/**
-		 * Выполняем перебор байтов числа от старшего к младшему
+		 * Записываем байты числа от старшего к младшему
 		 */
 		for(size_t i = width; i > 0; i--)
 			// Записываем очередной байт числа
@@ -149,7 +149,7 @@ namespace {
 	 *          до длины, кратной скорости
 	 *
 	 */
-	void bytepad(const view_t & data, const size_t rate, vector <uint8_t> & result) {
+	void __nts_bytepad__(const view_t & data, const size_t rate, vector <uint8_t> & result) {
 		// Длина записи до дополнения: длина префикса скорости и длина строки
 		const size_t before = (result.size() + 2 + data.size);
 		// Записываем скорость разновидности: у скоростей Keccak запись всегда двухбайтовая
@@ -166,7 +166,7 @@ namespace {
 	 * @return     разновидность cSHAKE той же скорости либо NONE у чужой разновидности
 	 *
 	 */
-	digest::sha3_t customized(const digest::sha3_t type) noexcept {
+	digest::sha3_t __nts_customized__(const digest::sha3_t type) noexcept {
 		// Если разновидность - SHAKE128
 		if(type == digest::sha3_t::SHAKE128)
 			// Выводим разновидность cSHAKE128
@@ -202,7 +202,7 @@ bool nts::digest::cshake(const sha3_t type, const view_t & data, const view_t & 
 		// Выводим итог вычисления SHAKE
 		return nts::digest::sha3(type, data, result, size);
 	// Разновидность cSHAKE той же скорости
-	const sha3_t kind = ::customized(type);
+	const sha3_t kind = ::__nts_customized__(type);
 	// Если разновидность чужая
 	if(kind == sha3_t::NONE)
 		// Выводим отказ вычисления итога
@@ -220,7 +220,7 @@ bool nts::digest::cshake(const sha3_t type, const view_t & data, const view_t & 
 		// Записываем настройку потребителя
 		::__nts_encode_string__(custom, both);
 		// Записываем строку имени и настройки дополнением до кратности скорости
-		::bytepad(view_t(both.data(), both.size()), rate(kind), prefix);
+		::__nts_bytepad__(view_t(both.data(), both.size()), rate(kind), prefix);
 		// Объект губки настраиваемой разновидности
 		keccak_t sponge(kind);
 		// Поглощаем запись кодирования и сообщение, выжимаем итог запрошенной длины
@@ -251,7 +251,7 @@ bool nts::digest::kmac(const sha3_t type, const view_t & key, const view_t & dat
 		// Выводим отказ вычисления имитовставки
 		return false;
 	// Разновидность cSHAKE той же скорости
-	const sha3_t kind = ::customized(type);
+	const sha3_t kind = ::__nts_customized__(type);
 	// Если разновидность чужая
 	if(kind == sha3_t::NONE)
 		// Выводим отказ вычисления имитовставки
@@ -267,7 +267,7 @@ bool nts::digest::kmac(const sha3_t type, const view_t & key, const view_t & dat
 		// Записываем ключ имитовставки
 		::__nts_encode_string__(key, encoded);
 		// Записываем строку ключа дополнением до кратности скорости
-		::bytepad(view_t(encoded.data(), encoded.size()), rate(kind), message);
+		::__nts_bytepad__(view_t(encoded.data(), encoded.size()), rate(kind), message);
 		// Записываем сообщение
 		message.insert(message.end(), data.data, data.data + data.size);
 		// Записываем длину имитовставки в разрядах
@@ -302,7 +302,7 @@ bool nts::digest::kmacxof(const sha3_t type, const view_t & key, const view_t & 
 		// Выводим отказ вычисления имитовставки
 		return false;
 	// Разновидность cSHAKE той же скорости
-	const sha3_t kind = ::customized(type);
+	const sha3_t kind = ::__nts_customized__(type);
 	// Если разновидность чужая
 	if(kind == sha3_t::NONE)
 		// Выводим отказ вычисления имитовставки
@@ -318,7 +318,7 @@ bool nts::digest::kmacxof(const sha3_t type, const view_t & key, const view_t & 
 		// Записываем ключ имитовставки
 		::__nts_encode_string__(key, encoded);
 		// Записываем строку ключа дополнением до кратности скорости
-		::bytepad(view_t(encoded.data(), encoded.size()), rate(kind), message);
+		::__nts_bytepad__(view_t(encoded.data(), encoded.size()), rate(kind), message);
 		// Записываем сообщение
 		message.insert(message.end(), data.data, data.data + data.size);
 		// Записываем нулевую длину итога: раздел 4.3.1 SP 800-185

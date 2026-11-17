@@ -46,15 +46,15 @@
 #include <openssl.hpp>
 #include <identity.hpp>
 #include <gost.hpp>
-#include <pem/pem.hpp>
-#include <ocsp/ocsp.hpp>
-#include <x509/x509.hpp>
-#include <trust/trust.hpp>
-#include <digest/hash.hpp>
+#include "pem/pem.hpp"
+#include "ocsp/ocsp.hpp"
+#include "x509/x509.hpp"
+#include "trust/trust.hpp"
+#include "digest/hash.hpp"
 #include <handshake/handshake.hpp>
 #include <message/message.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Используем пространство имён проекта

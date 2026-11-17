@@ -31,11 +31,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <noise/noise.hpp>
-#include <agreement/mlkem.hpp>
-#include <agreement/x25519.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "noise/noise.hpp"
+#include "agreement/mlkem.hpp"
+#include "agreement/x25519.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля

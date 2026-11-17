@@ -29,7 +29,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <agreement/sntrup761.hpp>
+#include "agreement/sntrup761.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

@@ -24,8 +24,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/sha1.hpp>
-#include <sys/wipe.hpp>
+#include "digest/sha1.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

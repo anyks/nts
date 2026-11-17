@@ -32,7 +32,7 @@
 #include <vector>
 #include <fstream>
 #include <main.hpp>
-#include <sign/slhdsa.hpp>
+#include "sign/slhdsa.hpp"
 
 /**
  * Используем пространство имён проекта

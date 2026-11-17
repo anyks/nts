@@ -41,10 +41,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/mgm.hpp>
-#include <cipher/blowfish.hpp>
+#include "sys/wipe.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/mgm.hpp"
+#include "cipher/blowfish.hpp"
 
 /**
  * Используем стандартное пространство имён

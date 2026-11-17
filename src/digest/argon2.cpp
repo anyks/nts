@@ -47,14 +47,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <digest/blake2.hpp>
-#include <internal/codec/base64.hpp>
+#include "sys/wipe.hpp"
+#include "digest/blake2.hpp"
+#include "internal/codec/base64.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <digest/argon2.hpp>
+#include "digest/argon2.hpp"
 
 /**
  * Используем стандартное пространство имён

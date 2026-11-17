@@ -33,15 +33,15 @@
 #include <cerrno>
 #include <cstring>
 #include <main.hpp>
-#include <entropy/entropy.hpp>
-#include <internal/entropy/generator.hpp>
+#include "entropy/entropy.hpp"
+#include "internal/entropy/generator.hpp"
 
 /**
  * Разветвление процесса существует лишь у систем Unix
  */
 #if !defined(_WIN32) && !defined(_WIN64)
 	#include <unistd.h>
-	#include <sys/wait.h>
+	#include "sys/wait.h"
 #endif
 
 /**

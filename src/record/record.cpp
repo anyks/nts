@@ -54,8 +54,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <record/record.hpp>
-#include <sys/wipe.hpp>
+#include "record/record.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

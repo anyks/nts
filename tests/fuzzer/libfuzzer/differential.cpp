@@ -43,15 +43,15 @@
 /**
  * Системные заголовочные файлы
  */
-#include <sys/time.h>
+#include "sys/time.h"
 #include <unistd.h>
 
 /**
  * Подключаем заголовочные файлы проекта и проверочной оснастки
  */
-#include <pem/pem.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "pem/pem.hpp"
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Подключаем заголовочные файлы эталона сличения

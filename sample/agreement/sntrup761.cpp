@@ -35,8 +35,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/sntrup761.hpp>
-#include <agreement/sntrup761x25519.hpp>
+#include "agreement/sntrup761.hpp"
+#include "agreement/sntrup761x25519.hpp"
 
 /**
  * Используем стандартное пространство имён

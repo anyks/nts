@@ -41,8 +41,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <jws/jws.hpp>
+#include "sys/global.hpp"
+#include "jws/jws.hpp"
 
 /**
  * \~russian

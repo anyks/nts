@@ -57,11 +57,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/x448.hpp>
-#include <math/field448.hpp>
-#include <internal/math/field448.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "agreement/x448.hpp"
+#include "math/field448.hpp"
+#include "internal/math/field448.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

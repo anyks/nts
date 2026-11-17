@@ -44,10 +44,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <datagram/datagram.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/chacha.hpp>
-#include <sys/wipe.hpp>
+#include "datagram/datagram.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/chacha.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

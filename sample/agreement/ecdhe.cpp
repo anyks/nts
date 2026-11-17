@@ -33,8 +33,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/ecdhe.hpp>
-#include <curve/parameters.hpp>
+#include "agreement/ecdhe.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем стандартное пространство имён

@@ -31,9 +31,9 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <keys/ssh.hpp>
-#include <sign/ed25519.hpp>
-#include <entropy/entropy.hpp>
+#include "keys/ssh.hpp"
+#include "sign/ed25519.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

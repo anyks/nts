@@ -41,8 +41,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <asn1/asn1.hpp>
+#include "sys/global.hpp"
+#include "asn1/asn1.hpp"
 
 /**
  * \~russian

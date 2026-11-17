@@ -35,11 +35,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/poly1305.hpp>
-#include <math/wide.hpp>
-#include <sys/machine.hpp>
-#include <sys/wipe.hpp>
-#include <internal/cipher/poly1305.hpp>
+#include "cipher/poly1305.hpp"
+#include "math/wide.hpp"
+#include "sys/machine.hpp"
+#include "sys/wipe.hpp"
+#include "internal/cipher/poly1305.hpp"
 
 /**
  * @note Пути (круг 37, 23.09.2026). Переносимый путь - пять конечностей по 26 разрядов,

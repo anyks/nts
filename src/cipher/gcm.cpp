@@ -91,18 +91,18 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/gcm.hpp>
+#include "cipher/gcm.hpp"
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/machine.hpp>
-#include <sys/wipe.hpp>
+#include "sys/machine.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Подключаем внутренний модуль сшитых ядер AES-CTR + GHASH на ассемблере
  */
-#include <internal/cipher/gcm.hpp>
+#include "internal/cipher/gcm.hpp"
 
 /**
  * Если сборка ведётся под ARM64

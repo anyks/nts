@@ -30,10 +30,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <noise/cipher.hpp>
-#include <cipher/gcm.hpp>
-#include <cipher/chachapoly.hpp>
-#include <sys/wipe.hpp>
+#include "noise/cipher.hpp"
+#include "cipher/gcm.hpp"
+#include "cipher/chachapoly.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля

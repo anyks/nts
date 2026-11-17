@@ -34,8 +34,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/ed448.hpp>
-#include <entropy/entropy.hpp>
+#include "sign/ed448.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Используем стандартное пространство имён

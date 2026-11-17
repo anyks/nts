@@ -28,7 +28,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <internal/codec/base64.hpp>
+#include "internal/codec/base64.hpp"
 
 /**
  * Ядро собирается лишь там, где собиратель принял ключ -mavx2 либо несёт команды AVX2

@@ -38,19 +38,19 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/rsa.hpp>
-#include <sign/gost.hpp>
-#include <sign/ecdsa.hpp>
-#include <sign/sm2.hpp>
-#include <sign/ed25519.hpp>
-#include <sign/ed448.hpp>
-#include <sign/mldsa.hpp>
-#include <sign/slhdsa.hpp>
-#include <asn1/asn1.hpp>
-#include <digest/hash.hpp>
-#include <digest/streebog.hpp>
-#include <x509/signature.hpp>
-#include <curve/parameters.hpp>
+#include "sign/rsa.hpp"
+#include "sign/gost.hpp"
+#include "sign/ecdsa.hpp"
+#include "sign/sm2.hpp"
+#include "sign/ed25519.hpp"
+#include "sign/ed448.hpp"
+#include "sign/mldsa.hpp"
+#include "sign/slhdsa.hpp"
+#include "asn1/asn1.hpp"
+#include "digest/hash.hpp"
+#include "digest/streebog.hpp"
+#include "x509/signature.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем стандартное пространство имён

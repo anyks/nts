@@ -39,13 +39,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <cipher/magma.hpp>
-#include <cipher/kuznyechik.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/sm4.hpp>
-#include <cipher/des.hpp>
-#include <cipher/blowfish.hpp>
+#include "sys/global.hpp"
+#include "cipher/magma.hpp"
+#include "cipher/kuznyechik.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/sm4.hpp"
+#include "cipher/des.hpp"
+#include "cipher/blowfish.hpp"
 
 /**
  * \~russian

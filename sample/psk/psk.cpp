@@ -41,8 +41,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Используем стандартное пространство имён

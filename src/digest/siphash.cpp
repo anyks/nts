@@ -26,8 +26,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/siphash.hpp>
-#include <sys/wipe.hpp>
+#include "digest/siphash.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля

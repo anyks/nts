@@ -25,7 +25,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <internal/sign/tables.hpp>
+#include "internal/sign/tables.hpp"
 
 /**
  * @brief Метод поиска заготовленной гребёнки кратных точки основания

@@ -29,14 +29,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <digest/sha2.hpp>
-#include <entropy/entropy.hpp>
+#include "sys/wipe.hpp"
+#include "digest/sha2.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <agreement/sntrup761.hpp>
+#include "agreement/sntrup761.hpp"
 
 /**
  * Используем стандартное пространство имён

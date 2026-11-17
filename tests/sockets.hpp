@@ -64,11 +64,11 @@
  * Прочие системы: POSIX-заголовки сокетов
  */
 #else
-	#include <sys/stat.h>
+	#include "sys/stat.h"
 	#include <posix.hpp>
 	#include <poll.h>
-	#include <sys/socket.h>
-	#include <sys/select.h>
+	#include "sys/socket.h"
+	#include "sys/select.h"
 	#include <netinet/in.h>
 	#include <arpa/inet.h>
 #endif

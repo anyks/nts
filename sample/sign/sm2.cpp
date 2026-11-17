@@ -34,9 +34,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/sm2.hpp>
-#include <curve/parameters.hpp>
-#include <entropy/entropy.hpp>
+#include "sign/sm2.hpp"
+#include "curve/parameters.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Используем стандартное пространство имён

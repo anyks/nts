@@ -44,8 +44,8 @@
 /**
  * Заголовочные файлы проекта
  */
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Подписываемся на пространство имён

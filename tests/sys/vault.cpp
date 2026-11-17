@@ -31,15 +31,15 @@
  */
 #if !defined(_WIN32)
 	#include <posix.hpp>
-	#include <sys/wait.h>
-	#include <sys/resource.h>
+	#include "sys/wait.h"
+	#include "sys/resource.h"
 #endif
 
 /**
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <sys/vault.hpp>
+#include "sys/vault.hpp"
 
 /**
  * Пространство имён библиотеки

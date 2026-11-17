@@ -29,8 +29,8 @@
  */
 #include <cstring>
 #include <main.hpp>
-#include <curve/parameters.hpp>
-#include <agreement/ecdhe.hpp>
+#include "curve/parameters.hpp"
+#include "agreement/ecdhe.hpp"
 
 /**
  * Используем пространство имён проекта

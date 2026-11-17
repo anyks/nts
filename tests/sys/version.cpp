@@ -26,7 +26,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <sys/version.hpp>
+#include "sys/version.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

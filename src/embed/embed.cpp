@@ -28,8 +28,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <embed/embed.hpp>
-#include <sys/wipe.hpp>
-#include <digest/hkdf.hpp>
+#include "sys/wipe.hpp"
+#include "digest/hkdf.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

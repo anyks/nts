@@ -37,9 +37,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <keys/keys.hpp>
-#include <sign/rsa.hpp>
-#include <digest/sha2.hpp>
+#include "keys/keys.hpp"
+#include "sign/rsa.hpp"
+#include "digest/sha2.hpp"
 
 /**
  * Используем стандартное пространство имён

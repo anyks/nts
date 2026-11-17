@@ -51,7 +51,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
+#include "sys/global.hpp"
 
 /**
  * Ядра берутся у gcc и clang на x86-64 и на AArch64 с командами AES и PMULL, разрешёнными ключами

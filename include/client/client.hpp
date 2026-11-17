@@ -40,12 +40,12 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <ocsp/ocsp.hpp>
-#include <trust/trust.hpp>
-#include <context/context.hpp>
-#include <fingerprint/fingerprint.hpp>
-#include <datagram/datagram.hpp>
+#include "sys/global.hpp"
+#include "ocsp/ocsp.hpp"
+#include "trust/trust.hpp"
+#include "context/context.hpp"
+#include "fingerprint/fingerprint.hpp"
+#include "datagram/datagram.hpp"
 
 /**
  * \~russian

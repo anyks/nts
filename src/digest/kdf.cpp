@@ -29,9 +29,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/kdf.hpp>
-#include <digest/hmac.hpp>
-#include <sys/wipe.hpp>
+#include "digest/kdf.hpp"
+#include "digest/hmac.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

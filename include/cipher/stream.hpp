@@ -40,9 +40,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/gcm.hpp>
+#include "sys/global.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/gcm.hpp"
 
 /**
  * \~russian

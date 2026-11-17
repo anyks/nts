@@ -22,18 +22,18 @@
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <jws/jws.hpp>
+#include "jws/jws.hpp"
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/hash.hpp>
-#include <curve/parameters.hpp>
-#include <sign/rsa.hpp>
-#include <sign/ecdsa.hpp>
-#include <sign/ed25519.hpp>
-#include <sys/wipe.hpp>
-#include <internal/codec/base64.hpp>
+#include "digest/hash.hpp"
+#include "curve/parameters.hpp"
+#include "sign/rsa.hpp"
+#include "sign/ecdsa.hpp"
+#include "sign/ed25519.hpp"
+#include "sys/wipe.hpp"
+#include "internal/codec/base64.hpp"
 
 /**
  * Стандартные заголовочные файлы

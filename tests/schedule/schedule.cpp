@@ -33,8 +33,8 @@
 #include <vector>
 #include <cstring>
 #include <main.hpp>
-#include <digest/streebog.hpp>
-#include <schedule/schedule.hpp>
+#include "digest/streebog.hpp"
+#include "schedule/schedule.hpp"
 
 /**
  * Используем пространство имён проекта

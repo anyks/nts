@@ -46,10 +46,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <field/field.hpp>
-#include <extension/extension.hpp>
-#include <agreement/mlkem.hpp>
-#include <agreement/x25519.hpp>
+#include "field/field.hpp"
+#include "extension/extension.hpp"
+#include "agreement/mlkem.hpp"
+#include "agreement/x25519.hpp"
 
 /**
  * Используем стандартное пространство имён

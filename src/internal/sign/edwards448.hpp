@@ -39,10 +39,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <sys/wipe.hpp>
-#include <math/field448.hpp>
-#include <internal/math/field448.hpp>
+#include "sys/global.hpp"
+#include "sys/wipe.hpp"
+#include "math/field448.hpp"
+#include "internal/math/field448.hpp"
 
 /**
  * @brief Основное пространство имён

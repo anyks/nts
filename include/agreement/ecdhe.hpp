@@ -41,8 +41,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <curve/curve.hpp>
+#include "sys/global.hpp"
+#include "curve/curve.hpp"
 
 /**
  * \~russian

@@ -35,8 +35,8 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
-#include <sys/machine.hpp>
-#include <cipher/chacha.hpp>
+#include "sys/machine.hpp"
+#include "cipher/chacha.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

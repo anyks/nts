@@ -32,7 +32,7 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
-#include <cipher/poly1305.hpp>
+#include "cipher/poly1305.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

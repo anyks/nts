@@ -23,7 +23,7 @@
  */
 #include <vector>
 #include <string>
-#include <sign/ed448.hpp>
+#include "sign/ed448.hpp"
 
 /**
  * Подключаем библиотеку Google Test

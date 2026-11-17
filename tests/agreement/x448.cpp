@@ -27,7 +27,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <main.hpp>
-#include <agreement/x448.hpp>
+#include "agreement/x448.hpp"
 
 /**
  * Используем пространство имён проекта

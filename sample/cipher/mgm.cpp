@@ -37,9 +37,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <cipher/mgm.hpp>
-#include <cipher/kuznyechik.hpp>
+#include "sys/wipe.hpp"
+#include "cipher/mgm.hpp"
+#include "cipher/kuznyechik.hpp"
 
 /**
  * Используем стандартное пространство имён

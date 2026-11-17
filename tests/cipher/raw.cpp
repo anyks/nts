@@ -31,10 +31,10 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/chacha.hpp>
-#include <cipher/chachapoly.hpp>
+#include "cipher/aes.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/chacha.hpp"
+#include "cipher/chachapoly.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

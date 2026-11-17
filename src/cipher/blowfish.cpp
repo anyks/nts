@@ -30,12 +30,12 @@
 /**
  * Подключаем заголовочный файл проекта
  */
-#include <sys/wipe.hpp>
+#include "sys/wipe.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <cipher/blowfish.hpp>
+#include "cipher/blowfish.hpp"
 
 /**
  * Используем стандартное пространство имён

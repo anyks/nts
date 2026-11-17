@@ -33,11 +33,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <math/number.hpp>
-#include <sign/gost.hpp>
-#include <entropy/entropy.hpp>
-#include <curve/parameters.hpp>
-#include <digest/streebog.hpp>
+#include "math/number.hpp"
+#include "sign/gost.hpp"
+#include "entropy/entropy.hpp"
+#include "curve/parameters.hpp"
+#include "digest/streebog.hpp"
 
 /**
  * Используем стандартное пространство имён

@@ -47,15 +47,15 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <sign/rsa.hpp>
-#include <sign/gost.hpp>
-#include <sign/ecdsa.hpp>
-#include <sign/sm2.hpp>
-#include <sign/ed25519.hpp>
-#include <sign/ed448.hpp>
-#include <sign/mldsa.hpp>
-#include <curve/curve.hpp>
+#include "sys/global.hpp"
+#include "sign/rsa.hpp"
+#include "sign/gost.hpp"
+#include "sign/ecdsa.hpp"
+#include "sign/sm2.hpp"
+#include "sign/ed25519.hpp"
+#include "sign/ed448.hpp"
+#include "sign/mldsa.hpp"
+#include "curve/curve.hpp"
 
 /**
  * \~russian

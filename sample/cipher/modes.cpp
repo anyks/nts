@@ -40,9 +40,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/kuznyechik.hpp>
+#include "sys/wipe.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/kuznyechik.hpp"
 
 /**
  * Используем стандартное пространство имён

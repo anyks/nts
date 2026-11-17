@@ -26,8 +26,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <codec/base64.hpp>
-#include <sys/machine.hpp>
+#include "codec/base64.hpp"
+#include "sys/machine.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

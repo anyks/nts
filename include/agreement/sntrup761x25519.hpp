@@ -39,9 +39,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <agreement/sntrup761.hpp>
-#include <agreement/x25519.hpp>
+#include "sys/global.hpp"
+#include "agreement/sntrup761.hpp"
+#include "agreement/x25519.hpp"
 
 /**
  * \~russian

@@ -40,10 +40,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <cipher/chacha.hpp>
-#include <entropy/entropy.hpp>
-#include <internal/entropy/generator.hpp>
+#include "sys/wipe.hpp"
+#include "cipher/chacha.hpp"
+#include "entropy/entropy.hpp"
+#include "internal/entropy/generator.hpp"
 
 /**
  * Определяем платформу, под которую ведётся сборка
@@ -99,7 +99,7 @@
 		 */
 		#else
 			#include <stdlib.h>
-			#include <sys/random.h>
+			#include "sys/random.h"
 		#endif
 	#endif
 #endif

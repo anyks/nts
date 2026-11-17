@@ -31,9 +31,9 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
-#include <agreement/vko.hpp>
-#include <agreement/ecdhe.hpp>
-#include <curve/parameters.hpp>
+#include "agreement/vko.hpp"
+#include "agreement/ecdhe.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем пространство имён проекта

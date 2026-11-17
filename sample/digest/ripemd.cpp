@@ -34,9 +34,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/hash.hpp>
-#include <digest/hmac.hpp>
-#include <digest/ripemd.hpp>
+#include "digest/hash.hpp"
+#include "digest/hmac.hpp"
+#include "digest/ripemd.hpp"
 
 /**
  * Используем стандартное пространство имён

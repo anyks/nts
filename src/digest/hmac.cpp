@@ -29,8 +29,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/hmac.hpp>
-#include <sys/wipe.hpp>
+#include "digest/hmac.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

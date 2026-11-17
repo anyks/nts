@@ -34,11 +34,11 @@
 #include <posix.hpp>
 #include <main.hpp>
 #include <starve.hpp>
-#include <sign/gost.hpp>
-#include <keys/keys.hpp>
-#include <math/integer.hpp>
-#include <entropy/entropy.hpp>
-#include <curve/parameters.hpp>
+#include "sign/gost.hpp"
+#include "keys/keys.hpp"
+#include "math/integer.hpp"
+#include "entropy/entropy.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем пространство имён проекта

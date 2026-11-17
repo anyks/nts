@@ -57,10 +57,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <digest/sha3.hpp>
-#include <entropy/entropy.hpp>
-#include <internal/digest/keccak.hpp>
+#include "sys/wipe.hpp"
+#include "digest/sha3.hpp"
+#include "entropy/entropy.hpp"
+#include "internal/digest/keccak.hpp"
 
 /**
  * На x86-64 с командами Keccak-x4 нужен опрос признаков машины
@@ -69,7 +69,7 @@
 	/**
 	 * Подключаем заголовочный файл проекта
 	 */
-	#include <sys/machine.hpp>
+	#include "sys/machine.hpp"
 #endif
 
 /**
@@ -123,13 +123,13 @@
 	/**
 	 * Подключаем заголовочный файл проекта
 	 */
-	#include <sys/machine.hpp>
+	#include "sys/machine.hpp"
 #endif
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <sign/mldsa.hpp>
+#include "sign/mldsa.hpp"
 
 /**
  * Пространство имён библиотеки

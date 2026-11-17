@@ -37,10 +37,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <noise/noise.hpp>
-#include <noise/cipher.hpp>
-#include <noise/symmetric.hpp>
+#include "sys/global.hpp"
+#include "noise/noise.hpp"
+#include "noise/cipher.hpp"
+#include "noise/symmetric.hpp"
 
 /**
  * \~russian

@@ -29,9 +29,9 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
-#include <math/integer.hpp>
-#include <sys/machine.hpp>
-#include <internal/math/power.hpp>
+#include "math/integer.hpp"
+#include "sys/machine.hpp"
+#include "internal/math/power.hpp"
 
 /**
  * Используем пространство имён проекта

@@ -31,7 +31,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <sys/machine.hpp>
+#include "sys/machine.hpp"
 
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC

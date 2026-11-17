@@ -27,9 +27,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/sntrup761x25519.hpp>
-#include <digest/hash.hpp>
-#include <sys/wipe.hpp>
+#include "agreement/sntrup761x25519.hpp"
+#include "digest/hash.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Внутренние служебные объекты

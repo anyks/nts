@@ -31,9 +31,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <noise/symmetric.hpp>
-#include <digest/hkdf.hpp>
-#include <sys/wipe.hpp>
+#include "noise/symmetric.hpp"
+#include "digest/hkdf.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля

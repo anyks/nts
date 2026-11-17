@@ -28,11 +28,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <srtp/srtp.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/gcm.hpp>
-#include <digest/hmac.hpp>
-#include <sys/wipe.hpp>
+#include "srtp/srtp.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/gcm.hpp"
+#include "digest/hmac.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Внутренние служебные объекты

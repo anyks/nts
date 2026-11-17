@@ -49,30 +49,30 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <curve/parameters.hpp>
-#include <hello/hello.hpp>
+#include "curve/parameters.hpp"
+#include "hello/hello.hpp"
 #include <flow/flow.hpp>
-#include <record/record.hpp>
+#include "record/record.hpp"
 #include <message/message.hpp>
 #include <session/session.hpp>
-#include <protect/protect.hpp>
-#include <schedule/schedule.hpp>
-#include <agreement/ecdhe.hpp>
-#include <x509/x509.hpp>
-#include <x509/signature.hpp>
-#include <math/number.hpp>
-#include <sign/gost.hpp>
+#include "protect/protect.hpp"
+#include "schedule/schedule.hpp"
+#include "agreement/ecdhe.hpp"
+#include "x509/x509.hpp"
+#include "x509/signature.hpp"
+#include "math/number.hpp"
+#include "sign/gost.hpp"
 #include <alert/alert.hpp>
-#include <cipher/mgm.hpp>
-#include <cipher/magma.hpp>
-#include <cipher/kuznyechik.hpp>
-#include <field/field.hpp>
-#include <digest/streebog.hpp>
-#include <extension/extension.hpp>
+#include "cipher/mgm.hpp"
+#include "cipher/magma.hpp"
+#include "cipher/kuznyechik.hpp"
+#include "field/field.hpp"
+#include "digest/streebog.hpp"
+#include "extension/extension.hpp"
 #include <handshake/handshake.hpp>
-#include <context/context.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "context/context.hpp"
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * @brief Служебные объекты враждебного сервера проверок

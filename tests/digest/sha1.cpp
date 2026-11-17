@@ -29,7 +29,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/sha1.hpp>
+#include "digest/sha1.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

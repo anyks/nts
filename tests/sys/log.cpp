@@ -30,7 +30,7 @@
  * Системные заголовочные файлы
  */
 #if !defined(_WIN32)
-	#include <sys/resource.h>
+	#include "sys/resource.h"
 #endif
 
 /**
@@ -39,10 +39,10 @@
 #include <main.hpp>
 #include <identity.hpp>
 #include <gost.hpp>
-#include <sys/log.hpp>
-#include <sys/vault.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "sys/log.hpp"
+#include "sys/vault.hpp"
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Пространство имён библиотеки

@@ -34,14 +34,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <math/wide.hpp>
-#include <cipher/aes.hpp>
+#include "sys/wipe.hpp"
+#include "math/wide.hpp"
+#include "cipher/aes.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <digest/umac.hpp>
+#include "digest/umac.hpp"
 
 /**
  * Если сборка ведётся под x86-64: слой NH идёт SSE2 (базовый на архитектуре)

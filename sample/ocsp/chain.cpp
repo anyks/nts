@@ -37,9 +37,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <pem/pem.hpp>
-#include <ocsp/ocsp.hpp>
-#include <trust/trust.hpp>
+#include "pem/pem.hpp"
+#include "ocsp/ocsp.hpp"
+#include "trust/trust.hpp"
 
 /**
  * Используем стандартное пространство имён

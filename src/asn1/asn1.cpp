@@ -36,8 +36,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <asn1/asn1.hpp>
-#include <sys/wipe.hpp>
+#include "asn1/asn1.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

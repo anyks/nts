@@ -37,7 +37,7 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
-#include <digest/argon2.hpp>
+#include "digest/argon2.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

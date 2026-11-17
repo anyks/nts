@@ -30,11 +30,11 @@
 #include <cstring>
 #include <main.hpp>
 #include <starve.hpp>
-#include <hello/hello.hpp>
-#include <curve/curve.hpp>
-#include <curve/parameters.hpp>
+#include "hello/hello.hpp"
+#include "curve/curve.hpp"
+#include "curve/parameters.hpp"
 #include <handshake/handshake.hpp>
-#include <extension/extension.hpp>
+#include "extension/extension.hpp"
 
 /**
  * Используем пространство имён проекта

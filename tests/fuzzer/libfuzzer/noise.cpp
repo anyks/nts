@@ -32,8 +32,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <noise/noise.hpp>
-#include <noise/handshake.hpp>
+#include "noise/noise.hpp"
+#include "noise/handshake.hpp"
 
 /**
  * Используем пространство имён проекта

@@ -28,8 +28,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <main.hpp>
-#include <asn1/asn1.hpp>
-#include <agreement/ffdhe.hpp>
+#include "asn1/asn1.hpp"
+#include "agreement/ffdhe.hpp"
 
 /**
  * Используем пространство имён проекта

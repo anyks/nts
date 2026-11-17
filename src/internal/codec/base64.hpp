@@ -46,9 +46,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <codec/base64.hpp>
-#include <sys/machine.hpp>
+#include "sys/global.hpp"
+#include "codec/base64.hpp"
+#include "sys/machine.hpp"
 
 /**
  * Компиляционные стены машинных ядер: x86-64 требует SSSE3, ARM64 - NEON основания.

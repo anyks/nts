@@ -28,7 +28,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/ripemd.hpp>
+#include "digest/ripemd.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

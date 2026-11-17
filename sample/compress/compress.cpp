@@ -52,9 +52,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <pem/pem.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "pem/pem.hpp"
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Подключаем частный кодек сжатия повторами

@@ -46,16 +46,16 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <digest/sha2.hpp>
-#include <digest/sha3.hpp>
-#include <digest/hmac.hpp>
-#include <entropy/entropy.hpp>
+#include "sys/wipe.hpp"
+#include "digest/sha2.hpp"
+#include "digest/sha3.hpp"
+#include "digest/hmac.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <sign/slhdsa.hpp>
+#include "sign/slhdsa.hpp"
 
 /**
  * @brief Служебные объекты модуля

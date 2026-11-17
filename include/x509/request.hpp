@@ -41,10 +41,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <x509/x509.hpp>
-#include <keys/keys.hpp>
-#include <digest/hash.hpp>
+#include "sys/global.hpp"
+#include "x509/x509.hpp"
+#include "keys/keys.hpp"
+#include "digest/hash.hpp"
 
 /**
  * \~russian

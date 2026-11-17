@@ -47,8 +47,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/kuznyechik.hpp>
-#include <sys/wipe.hpp>
+#include "cipher/kuznyechik.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Если сборка ведётся под x86-64: векторное сложение итогов таблицы идёт SSE2,

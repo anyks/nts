@@ -55,9 +55,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/ecdhe.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "agreement/ecdhe.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

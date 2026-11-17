@@ -34,7 +34,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/cshake.hpp>
+#include "digest/cshake.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

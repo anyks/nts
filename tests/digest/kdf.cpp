@@ -30,7 +30,7 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
-#include <digest/kdf.hpp>
+#include "digest/kdf.hpp"
 
 /**
  * Используем пространство имён проекта

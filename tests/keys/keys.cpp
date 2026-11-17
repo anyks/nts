@@ -40,12 +40,12 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
-#include <keys/keys.hpp>
-#include <sign/gost.hpp>
-#include <pem/pem.hpp>
-#include <asn1/asn1.hpp>
-#include <digest/hash.hpp>
-#include <curve/parameters.hpp>
+#include "keys/keys.hpp"
+#include "sign/gost.hpp"
+#include "pem/pem.hpp"
+#include "asn1/asn1.hpp"
+#include "digest/hash.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем пространство имён проекта

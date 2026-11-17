@@ -33,17 +33,17 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <x509/issue.hpp>
-#include <x509/signature.hpp>
-#include <asn1/asn1.hpp>
-#include <sign/rsa.hpp>
-#include <sign/ecdsa.hpp>
-#include <sign/ed25519.hpp>
-#include <sign/gost.hpp>
-#include <sign/mldsa.hpp>
-#include <sign/sm2.hpp>
-#include <sys/wipe.hpp>
-#include <entropy/entropy.hpp>
+#include "x509/issue.hpp"
+#include "x509/signature.hpp"
+#include "asn1/asn1.hpp"
+#include "sign/rsa.hpp"
+#include "sign/ecdsa.hpp"
+#include "sign/ed25519.hpp"
+#include "sign/gost.hpp"
+#include "sign/mldsa.hpp"
+#include "sign/sm2.hpp"
+#include "sys/wipe.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Используем стандартное пространство имён

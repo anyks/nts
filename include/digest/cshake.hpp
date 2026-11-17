@@ -39,8 +39,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <digest/sha3.hpp>
+#include "sys/global.hpp"
+#include "digest/sha3.hpp"
 
 /**
  * \~russian

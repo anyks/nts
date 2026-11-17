@@ -35,11 +35,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <hello/hello.hpp>
-#include <entropy/entropy.hpp>
+#include "hello/hello.hpp"
+#include "entropy/entropy.hpp"
 #include <session/session.hpp>
 #include <message/message.hpp>
-#include <protect/protect.hpp>
+#include "protect/protect.hpp"
 #include <handshake/handshake.hpp>
 
 /**

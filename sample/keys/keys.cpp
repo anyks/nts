@@ -40,12 +40,12 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <keys/keys.hpp>
-#include <sign/ecdsa.hpp>
-#include <sign/ed25519.hpp>
-#include <digest/hash.hpp>
-#include <curve/parameters.hpp>
+#include "sys/wipe.hpp"
+#include "keys/keys.hpp"
+#include "sign/ecdsa.hpp"
+#include "sign/ed25519.hpp"
+#include "digest/hash.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем стандартное пространство имён

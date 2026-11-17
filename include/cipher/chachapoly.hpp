@@ -39,9 +39,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <cipher/chacha.hpp>
-#include <cipher/poly1305.hpp>
+#include "sys/global.hpp"
+#include "cipher/chacha.hpp"
+#include "cipher/poly1305.hpp"
 
 /**
  * \~russian

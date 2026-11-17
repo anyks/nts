@@ -46,8 +46,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <field/field.hpp>
-#include <hello/hello.hpp>
+#include "field/field.hpp"
+#include "hello/hello.hpp"
 
 /**
  * Используем стандартное пространство имён

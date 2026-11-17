@@ -28,7 +28,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/siphash.hpp>
+#include "digest/siphash.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

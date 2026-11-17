@@ -30,9 +30,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/sm2.hpp>
-#include <digest/sm3.hpp>
-#include <sys/wipe.hpp>
+#include "sign/sm2.hpp"
+#include "digest/sm3.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

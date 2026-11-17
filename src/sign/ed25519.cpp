@@ -68,14 +68,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/ed25519.hpp>
-#include <digest/sha2.hpp>
-#include <entropy/entropy.hpp>
-#include <math/field25519.hpp>
-#include <sys/wipe.hpp>
-#include <internal/math/field25519.hpp>
-#include <internal/sign/edwards.hpp>
-#include <internal/sign/tables.hpp>
+#include "sign/ed25519.hpp"
+#include "digest/sha2.hpp"
+#include "entropy/entropy.hpp"
+#include "math/field25519.hpp"
+#include "sys/wipe.hpp"
+#include "internal/math/field25519.hpp"
+#include "internal/sign/edwards.hpp"
+#include "internal/sign/tables.hpp"
 /**
  * Векторная выборка окна доступна на ARM64 с NEON: собиратель Microsoft Visual C++ признака
  * набора не объявляет, но команды NEON доступны ему на ARM64 без ключей сборки

@@ -29,8 +29,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <cipher/des.hpp>
-#include <cipher/mode.hpp>
+#include "cipher/des.hpp"
+#include "cipher/mode.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

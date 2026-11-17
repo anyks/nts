@@ -31,8 +31,8 @@
 #include <cstring>
 #include <main.hpp>
 #include <starve.hpp>
-#include <agreement/x25519.hpp>
-#include <keys/keys.hpp>
+#include "agreement/x25519.hpp"
+#include "keys/keys.hpp"
 
 /**
  * Используем пространство имён проекта

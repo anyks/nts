@@ -29,8 +29,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/sm4.hpp>
-#include <sys/wipe.hpp>
+#include "cipher/sm4.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

@@ -81,9 +81,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <trust/trust.hpp>
-#include <x509/signature.hpp>
-#include <x509/crl.hpp>
+#include "trust/trust.hpp"
+#include "x509/signature.hpp"
+#include "x509/crl.hpp"
 
 /**
  * Используем стандартное пространство имён

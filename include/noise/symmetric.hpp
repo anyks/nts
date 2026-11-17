@@ -37,9 +37,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <noise/noise.hpp>
-#include <noise/cipher.hpp>
+#include "sys/global.hpp"
+#include "noise/noise.hpp"
+#include "noise/cipher.hpp"
 
 /**
  * \~russian

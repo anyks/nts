@@ -28,8 +28,8 @@
 #include <cstring>
 #include <main.hpp>
 #include <vector>
-#include <curve/curve.hpp>
-#include <curve/parameters.hpp>
+#include "curve/curve.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем пространство имён проекта

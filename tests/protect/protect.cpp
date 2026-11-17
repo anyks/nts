@@ -36,11 +36,11 @@
 #include <limits>
 #include <main.hpp>
 #include <starve.hpp>
-#include <cipher/mgm.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/mode.hpp>
-#include <digest/hmac.hpp>
-#include <protect/protect.hpp>
+#include "cipher/mgm.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/mode.hpp"
+#include "digest/hmac.hpp"
+#include "protect/protect.hpp"
 
 /**
  * Используем пространство имён проекта

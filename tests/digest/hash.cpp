@@ -29,8 +29,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/hash.hpp>
-#include <digest/hmac.hpp>
+#include "digest/hash.hpp"
+#include "digest/hmac.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

@@ -42,19 +42,19 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/gcm.hpp>
-#include <digest/hmac.hpp>
-#include <cipher/mgm.hpp>
-#include <cipher/mode.hpp>
-#include <digest/hash.hpp>
-#include <cipher/magma.hpp>
-#include <cipher/kuznyechik.hpp>
-#include <cipher/chachapoly.hpp>
-#include <cipher/ccm.hpp>
-#include <cipher/sm4.hpp>
-#include <record/record.hpp>
+#include "sys/global.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/gcm.hpp"
+#include "digest/hmac.hpp"
+#include "cipher/mgm.hpp"
+#include "cipher/mode.hpp"
+#include "digest/hash.hpp"
+#include "cipher/magma.hpp"
+#include "cipher/kuznyechik.hpp"
+#include "cipher/chachapoly.hpp"
+#include "cipher/ccm.hpp"
+#include "cipher/sm4.hpp"
+#include "record/record.hpp"
 
 /**
  * \~russian

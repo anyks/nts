@@ -33,13 +33,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/aes.hpp>
+#include "cipher/aes.hpp"
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/machine.hpp>
-#include <sys/wipe.hpp>
+#include "sys/machine.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @note Табличный путь ведёт круги прямой линией по количеству кругов ключа (шаблон на 10, 12

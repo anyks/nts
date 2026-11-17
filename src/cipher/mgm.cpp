@@ -54,9 +54,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/mgm.hpp>
-#include <sys/machine.hpp>
-#include <sys/wipe.hpp>
+#include "cipher/mgm.hpp"
+#include "sys/machine.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @note Признак ANTS_NO_CARRYLESS отключает машинное умножение принудительно:

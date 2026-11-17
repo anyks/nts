@@ -25,7 +25,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <noise/noise.hpp>
+#include "noise/noise.hpp"
 
 /**
  * @brief Служебные объекты модуля

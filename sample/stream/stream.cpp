@@ -42,12 +42,12 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/stream.hpp>
-#include <cipher/chachapoly.hpp>
-#include <entropy/entropy.hpp>
+#include "sys/wipe.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/stream.hpp"
+#include "cipher/chachapoly.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Используем стандартное пространство имён

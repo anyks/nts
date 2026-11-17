@@ -36,8 +36,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <sign/sm2.hpp>
-#include <curve/parameters.hpp>
+#include "sign/sm2.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

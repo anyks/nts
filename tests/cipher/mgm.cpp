@@ -27,7 +27,7 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
-#include <cipher/mgm.hpp>
+#include "cipher/mgm.hpp"
 
 /**
  * Используем пространство имён проекта

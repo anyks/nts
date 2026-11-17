@@ -36,8 +36,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <keys/ssh.hpp>
-#include <sign/ed25519.hpp>
+#include "keys/ssh.hpp"
+#include "sign/ed25519.hpp"
 
 /**
  * Используем стандартное пространство имён

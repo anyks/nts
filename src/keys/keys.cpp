@@ -70,22 +70,22 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <pem/pem.hpp>
-#include <asn1/asn1.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/mode.hpp>
-#include <digest/hash.hpp>
-#include <digest/hmac.hpp>
-#include <digest/pbkdf2.hpp>
-#include <entropy/entropy.hpp>
-#include <agreement/x25519.hpp>
-#include <curve/parameters.hpp>
+#include "sys/wipe.hpp"
+#include "pem/pem.hpp"
+#include "asn1/asn1.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/mode.hpp"
+#include "digest/hash.hpp"
+#include "digest/hmac.hpp"
+#include "digest/pbkdf2.hpp"
+#include "entropy/entropy.hpp"
+#include "agreement/x25519.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <keys/keys.hpp>
+#include "keys/keys.hpp"
 
 /**
  * Используем стандартное пространство имён

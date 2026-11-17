@@ -29,7 +29,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/bcrypt.hpp>
+#include "digest/bcrypt.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

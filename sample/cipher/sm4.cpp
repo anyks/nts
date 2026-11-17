@@ -33,9 +33,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/gcm.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/sm4.hpp>
+#include "cipher/gcm.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/sm4.hpp"
 
 /**
  * Используем стандартное пространство имён

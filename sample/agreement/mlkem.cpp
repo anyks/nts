@@ -32,10 +32,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/mlkem.hpp>
-#include <agreement/x25519.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "agreement/mlkem.hpp"
+#include "agreement/x25519.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

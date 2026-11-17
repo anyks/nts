@@ -29,7 +29,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/blake2.hpp>
+#include "digest/blake2.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

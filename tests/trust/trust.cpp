@@ -30,13 +30,13 @@
 #include <cstring>
 #include <main.hpp>
 #include <starve.hpp>
-#include <pem/pem.hpp>
-#include <asn1/asn1.hpp>
-#include <sign/gost.hpp>
-#include <trust/trust.hpp>
-#include <entropy/entropy.hpp>
-#include <digest/streebog.hpp>
-#include <curve/parameters.hpp>
+#include "pem/pem.hpp"
+#include "asn1/asn1.hpp"
+#include "sign/gost.hpp"
+#include "trust/trust.hpp"
+#include "entropy/entropy.hpp"
+#include "digest/streebog.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем пространство имён проекта

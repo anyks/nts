@@ -43,12 +43,12 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <pem/pem.hpp>
-#include <ocsp/ocsp.hpp>
-#include <trust/trust.hpp>
-#include <digest/hash.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "pem/pem.hpp"
+#include "ocsp/ocsp.hpp"
+#include "trust/trust.hpp"
+#include "digest/hash.hpp"
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Используем стандартное пространство имён

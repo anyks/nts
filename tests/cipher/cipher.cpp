@@ -27,8 +27,8 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
-#include <cipher/magma.hpp>
-#include <cipher/kuznyechik.hpp>
+#include "cipher/magma.hpp"
+#include "cipher/kuznyechik.hpp"
 
 /**
  * Используем пространство имён проекта

@@ -35,8 +35,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <entropy/entropy.hpp>
-#include <protect/protect.hpp>
+#include "entropy/entropy.hpp"
+#include "protect/protect.hpp"
 
 /**
  * Используем стандартное пространство имён

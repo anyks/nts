@@ -40,10 +40,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <math/number.hpp>
-#include <curve/curve.hpp>
-#include <digest/hash.hpp>
+#include "sys/global.hpp"
+#include "math/number.hpp"
+#include "curve/curve.hpp"
+#include "digest/hash.hpp"
 
 /**
  * \~russian

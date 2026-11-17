@@ -53,25 +53,25 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <digest/hash.hpp>
-#include <digest/hmac.hpp>
-#include <digest/sha3.hpp>
-#include <cipher/gcm.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/chachapoly.hpp>
-#include <entropy/entropy.hpp>
-#include <agreement/x25519.hpp>
-#include <agreement/x448.hpp>
-#include <agreement/ecdhe.hpp>
-#include <agreement/mlkem.hpp>
-#include <curve/parameters.hpp>
-#include <internal/digest/keccak.hpp>
+#include "sys/wipe.hpp"
+#include "digest/hash.hpp"
+#include "digest/hmac.hpp"
+#include "digest/sha3.hpp"
+#include "cipher/gcm.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/chachapoly.hpp"
+#include "entropy/entropy.hpp"
+#include "agreement/x25519.hpp"
+#include "agreement/x448.hpp"
+#include "agreement/ecdhe.hpp"
+#include "agreement/mlkem.hpp"
+#include "curve/parameters.hpp"
+#include "internal/digest/keccak.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <hpke/hpke.hpp>
+#include "hpke/hpke.hpp"
 
 /**
  * Подписываемся на стандартное пространство имён

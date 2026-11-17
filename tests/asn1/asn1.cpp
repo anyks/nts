@@ -25,7 +25,7 @@
 #include <main.hpp>
 #include <starve.hpp>
 #include <cstring>
-#include <asn1/asn1.hpp>
+#include "asn1/asn1.hpp"
 
 /**
  * Используем пространство имён проекта

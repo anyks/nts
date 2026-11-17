@@ -33,7 +33,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <srtp/srtp.hpp>
+#include "srtp/srtp.hpp"
 
 /**
  * Используем пространство имён проекта

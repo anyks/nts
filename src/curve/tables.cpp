@@ -29,7 +29,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <internal/curve/tables.hpp>
+#include "internal/curve/tables.hpp"
 
 /**
  * @brief Функция поиска заготовленных кратных по точке основания кривой

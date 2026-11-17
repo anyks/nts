@@ -29,7 +29,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/md5.hpp>
+#include "digest/md5.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

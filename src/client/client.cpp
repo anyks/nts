@@ -40,9 +40,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <client/client.hpp>
-#include <record/record.hpp>
-#include <internal/engine/engine.hpp>
+#include "client/client.hpp"
+#include "record/record.hpp"
+#include "internal/engine/engine.hpp"
 
 /**
  * Используем стандартное пространство имён

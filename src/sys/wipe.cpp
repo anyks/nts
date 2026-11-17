@@ -28,7 +28,7 @@
  */
 #include <cstring>
 #include <cstdint>
-#include <sys/wipe.hpp>
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

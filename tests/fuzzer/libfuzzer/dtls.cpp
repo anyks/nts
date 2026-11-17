@@ -32,9 +32,9 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <alert/alert.hpp>
-#include <hello/hello.hpp>
+#include "hello/hello.hpp"
 #include <message/message.hpp>
-#include <datagram/datagram.hpp>
+#include "datagram/datagram.hpp"
 
 /**
  * Используем пространство имён проекта

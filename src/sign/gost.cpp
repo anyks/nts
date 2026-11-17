@@ -26,9 +26,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/gost.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "sign/gost.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

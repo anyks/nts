@@ -44,9 +44,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <internal/sign/edwards.hpp>
-#include <internal/sign/edwards448.hpp>
+#include "sys/global.hpp"
+#include "internal/sign/edwards.hpp"
+#include "internal/sign/edwards448.hpp"
 
 /**
  * @brief Основное пространство имён

@@ -33,8 +33,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/magma.hpp>
-#include <sys/wipe.hpp>
+#include "cipher/magma.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

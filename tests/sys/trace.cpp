@@ -59,8 +59,8 @@
 #include <main.hpp>
 #include <identity.hpp>
 #include <gost.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Пространство имён библиотеки

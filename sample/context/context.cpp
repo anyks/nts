@@ -37,15 +37,15 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <asn1/asn1.hpp>
-#include <sign/gost.hpp>
-#include <sys/wipe.hpp>
-#include <sys/vault.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
-#include <entropy/entropy.hpp>
-#include <digest/streebog.hpp>
-#include <curve/parameters.hpp>
+#include "asn1/asn1.hpp"
+#include "sign/gost.hpp"
+#include "sys/wipe.hpp"
+#include "sys/vault.hpp"
+#include "client/client.hpp"
+#include "server/server.hpp"
+#include "entropy/entropy.hpp"
+#include "digest/streebog.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Используем стандартное пространство имён

@@ -41,8 +41,8 @@
 #include <main.hpp>
 #include <posix.hpp>
 #include <starve.hpp>
-#include <pem/pem.hpp>
-#include <jws/jws.hpp>
+#include "pem/pem.hpp"
+#include "jws/jws.hpp"
 
 /**
  * Используем пространство имён проекта

@@ -36,9 +36,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <curve/curve.hpp>
-#include <curve/parameters.hpp>
-#include <internal/curve/tables.hpp>
+#include "curve/curve.hpp"
+#include "curve/parameters.hpp"
+#include "internal/curve/tables.hpp"
 
 /**
  * Используем пространство имён проекта
@@ -211,7 +211,7 @@ int main() noexcept {
 		" * Подключаем заголовочные файлы проекта\n"
 		" */\n"
 		"#include <cstring>\n"
-		"#include <internal/curve/tables.hpp>\n\n"
+		"#include \"internal/curve/tables.hpp\"\n\n"
 		"/**\n"
 		" * Пространство имён локальных объектов\n"
 		" */\n"

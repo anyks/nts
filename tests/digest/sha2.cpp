@@ -31,8 +31,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <sys/machine.hpp>
-#include <digest/sha2.hpp>
+#include "sys/machine.hpp"
+#include "digest/sha2.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

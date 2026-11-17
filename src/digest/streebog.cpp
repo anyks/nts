@@ -73,8 +73,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/streebog.hpp>
-#include <sys/wipe.hpp>
+#include "digest/streebog.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

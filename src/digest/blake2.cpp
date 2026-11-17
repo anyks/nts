@@ -41,8 +41,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/blake2.hpp>
-#include <sys/wipe.hpp>
+#include "digest/blake2.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля

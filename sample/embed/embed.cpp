@@ -36,9 +36,9 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <embed/embed.hpp>
-#include <digest/hash.hpp>
-#include <sys/vault.hpp>
-#include <sys/wipe.hpp>
+#include "digest/hash.hpp"
+#include "sys/vault.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

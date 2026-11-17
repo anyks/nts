@@ -34,7 +34,7 @@
 #include <main.hpp>
 #include <starve.hpp>
 #include <vectors.hpp>
-#include <hpke/hpke.hpp>
+#include "hpke/hpke.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

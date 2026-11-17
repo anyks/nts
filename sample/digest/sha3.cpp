@@ -32,9 +32,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/sha3.hpp>
-#include <digest/blake2.hpp>
-#include <digest/siphash.hpp>
+#include "digest/sha3.hpp"
+#include "digest/blake2.hpp"
+#include "digest/siphash.hpp"
 
 /**
  * Используем стандартное пространство имён

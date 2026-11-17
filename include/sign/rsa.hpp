@@ -42,9 +42,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <math/integer.hpp>
-#include <digest/hash.hpp>
+#include "sys/global.hpp"
+#include "math/integer.hpp"
+#include "digest/hash.hpp"
 
 /**
  * \~russian

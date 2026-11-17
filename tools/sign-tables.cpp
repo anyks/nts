@@ -36,9 +36,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <internal/sign/edwards.hpp>
-#include <internal/sign/edwards448.hpp>
-#include <internal/sign/tables.hpp>
+#include "internal/sign/edwards.hpp"
+#include "internal/sign/edwards448.hpp"
+#include "internal/sign/tables.hpp"
 
 /**
  * Используем пространство имён проекта
@@ -163,7 +163,7 @@ int main() noexcept {
 		"/**\n"
 		" * Подключаем заголовочные файлы проекта\n"
 		" */\n"
-		"#include <internal/sign/tables.hpp>\n\n"
+		"#include \"internal/sign/tables.hpp\"\n\n"
 		"/**\n"
 		" * Пространство имён локальных объектов\n"
 		" */\n"

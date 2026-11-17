@@ -26,7 +26,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/version.hpp>
+#include "sys/version.hpp"
 
 /**
  * @brief Служебные объекты модуля

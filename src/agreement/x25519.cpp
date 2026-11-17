@@ -118,17 +118,17 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/x25519.hpp>
-#include <math/field25519.hpp>
-#include <internal/math/field25519.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "agreement/x25519.hpp"
+#include "math/field25519.hpp"
+#include "internal/math/field25519.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Под x86-64 путь на словах выбирается по признакам машины
  */
 #if defined(__NTS_FIELD25519_WORDS__)
-	#include <sys/machine.hpp>
+	#include "sys/machine.hpp"
 #endif
 
 /**

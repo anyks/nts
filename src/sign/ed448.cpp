@@ -71,15 +71,15 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/ed448.hpp>
-#include <math/number.hpp>
-#include <math/field448.hpp>
-#include <digest/sha3.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
-#include <internal/math/field448.hpp>
-#include <internal/sign/edwards448.hpp>
-#include <internal/sign/tables.hpp>
+#include "sign/ed448.hpp"
+#include "math/number.hpp"
+#include "math/field448.hpp"
+#include "digest/sha3.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
+#include "internal/math/field448.hpp"
+#include "internal/sign/edwards448.hpp"
+#include "internal/sign/tables.hpp"
 
 /**
  * Используем стандартное пространство имён

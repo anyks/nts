@@ -35,9 +35,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <hello/hello.hpp>
-#include <entropy/entropy.hpp>
-#include <extension/extension.hpp>
+#include "hello/hello.hpp"
+#include "entropy/entropy.hpp"
+#include "extension/extension.hpp"
 #include <handshake/handshake.hpp>
 
 /**

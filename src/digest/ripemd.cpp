@@ -32,8 +32,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/ripemd.hpp>
-#include <sys/wipe.hpp>
+#include "digest/ripemd.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @note Проход ведётся развёрткой восьмидесяти шагов по номеру шага в шаблоне, а не циклом:

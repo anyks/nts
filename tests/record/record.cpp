@@ -29,7 +29,7 @@
 #include <cstring>
 #include <main.hpp>
 #include <starve.hpp>
-#include <record/record.hpp>
+#include "record/record.hpp"
 
 /**
  * Используем пространство имён проекта

@@ -28,7 +28,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <curve/parameters.hpp>
+#include "curve/parameters.hpp"
 
 /**
  * Стандартные заголовочные файлы

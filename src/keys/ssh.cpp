@@ -30,15 +30,15 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <keys/ssh.hpp>
-#include <sys/wipe.hpp>
-#include <codec/base64.hpp>
-#include <digest/bcrypt.hpp>
-#include <digest/hmac.hpp>
-#include <digest/sha2.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/mode.hpp>
-#include <entropy/entropy.hpp>
+#include "keys/ssh.hpp"
+#include "sys/wipe.hpp"
+#include "codec/base64.hpp"
+#include "digest/bcrypt.hpp"
+#include "digest/hmac.hpp"
+#include "digest/sha2.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/mode.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Используем стандартное пространство имён

@@ -37,11 +37,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/ecdsa.hpp>
-#include <asn1/asn1.hpp>
-#include <entropy/entropy.hpp>
-#include <digest/hmac.hpp>
-#include <sys/wipe.hpp>
+#include "sign/ecdsa.hpp"
+#include "asn1/asn1.hpp"
+#include "entropy/entropy.hpp"
+#include "digest/hmac.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

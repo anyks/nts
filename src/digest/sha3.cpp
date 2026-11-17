@@ -73,9 +73,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <digest/sha3.hpp>
-#include <sys/wipe.hpp>
-#include <internal/digest/keccak.hpp>
+#include "digest/sha3.hpp"
+#include "sys/wipe.hpp"
+#include "internal/digest/keccak.hpp"
 
 /**
  * @brief Служебные объекты модуля

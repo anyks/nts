@@ -28,7 +28,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/umac.hpp>
+#include "digest/umac.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

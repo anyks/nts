@@ -34,15 +34,15 @@
 	#else
 		#include <unistd.h>
 	#include <pthread.h>
-	#include <sys/mman.h>
+	#include "sys/mman.h"
 #endif
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/vault.hpp>
-#include <sys/wipe.hpp>
-#include <sys/log.hpp>
+#include "sys/vault.hpp"
+#include "sys/wipe.hpp"
+#include "sys/log.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

@@ -34,9 +34,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/vko.hpp>
-#include <digest/streebog.hpp>
-#include <sys/wipe.hpp>
+#include "agreement/vko.hpp"
+#include "digest/streebog.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

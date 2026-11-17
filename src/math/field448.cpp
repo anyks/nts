@@ -69,9 +69,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <math/field448.hpp>
-#include <math/wide.hpp>
-#include <internal/math/field448.hpp>
+#include "math/field448.hpp"
+#include "math/wide.hpp"
+#include "internal/math/field448.hpp"
 
 /**
  * Используем стандартное пространство имён

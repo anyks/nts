@@ -29,8 +29,8 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/sm3.hpp>
-#include <digest/hash.hpp>
+#include "digest/sm3.hpp"
+#include "digest/hash.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

@@ -44,9 +44,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <protect/protect.hpp>
-#include <extension/extension.hpp>
+#include "sys/global.hpp"
+#include "protect/protect.hpp"
+#include "extension/extension.hpp"
 
 /**
  * \~russian

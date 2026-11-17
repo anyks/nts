@@ -43,7 +43,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <handshake/handshake.hpp>
-#include <sys/wipe.hpp>
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

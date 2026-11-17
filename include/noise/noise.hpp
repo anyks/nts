@@ -37,8 +37,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <digest/hash.hpp>
+#include "sys/global.hpp"
+#include "digest/hash.hpp"
 
 /**
  * \~russian

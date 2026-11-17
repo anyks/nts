@@ -29,7 +29,7 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
-#include <math/number.hpp>
+#include "math/number.hpp"
 
 /**
  * Используем пространство имён проекта
@@ -914,8 +914,8 @@ TEST(NumberTest, Inverse) {
 
 /** Проверка ядер собирается и исполняется только под x86-64 на компиляторах GCC и Clang */
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
-#include <sys/machine.hpp>
-#include <internal/math/kernels.hpp>
+#include "sys/machine.hpp"
+#include "internal/math/kernels.hpp"
 /**
  * Проверка ядер поля вида 2^256 - c на значениях (сборка формул точки под x86-64, круг 61): умножение и
  * квадрат kernel::multiply <4, true> и kernel::square <4, true> (MULX и ADCX/ADOX) сличаются с ядрами той

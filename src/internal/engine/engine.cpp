@@ -206,32 +206,32 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/log.hpp>
-#include <sys/wipe.hpp>
-#include <sign/rsa.hpp>
-#include <sign/gost.hpp>
-#include <sign/ecdsa.hpp>
-#include <sign/ed25519.hpp>
-#include <keys/keys.hpp>
-#include <asn1/asn1.hpp>
-#include <field/field.hpp>
-#include <digest/hash.hpp>
-#include <digest/hmac.hpp>
-#include <digest/streebog.hpp>
-#include <x509/x509.hpp>
-#include <x509/signature.hpp>
-#include <agreement/x448.hpp>
-#include <agreement/ecdhe.hpp>
-#include <agreement/ffdhe.hpp>
-#include <agreement/mlkem.hpp>
-#include <agreement/x25519.hpp>
-#include <entropy/entropy.hpp>
-#include <curve/parameters.hpp>
+#include "sys/log.hpp"
+#include "sys/wipe.hpp"
+#include "sign/rsa.hpp"
+#include "sign/gost.hpp"
+#include "sign/ecdsa.hpp"
+#include "sign/ed25519.hpp"
+#include "keys/keys.hpp"
+#include "asn1/asn1.hpp"
+#include "field/field.hpp"
+#include "digest/hash.hpp"
+#include "digest/hmac.hpp"
+#include "digest/streebog.hpp"
+#include "x509/x509.hpp"
+#include "x509/signature.hpp"
+#include "agreement/x448.hpp"
+#include "agreement/ecdhe.hpp"
+#include "agreement/ffdhe.hpp"
+#include "agreement/mlkem.hpp"
+#include "agreement/x25519.hpp"
+#include "entropy/entropy.hpp"
+#include "curve/parameters.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <internal/engine/engine.hpp>
+#include "internal/engine/engine.hpp"
 
 /**
  * Используем стандартное пространство имён

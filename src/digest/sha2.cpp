@@ -125,14 +125,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <sys/machine.hpp>
-#include <internal/digest/sha2.hpp>
+#include "sys/wipe.hpp"
+#include "sys/machine.hpp"
+#include "internal/digest/sha2.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <digest/sha2.hpp>
+#include "digest/sha2.hpp"
 
 /**
  * Если сборка ведётся под ARM64

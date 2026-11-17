@@ -42,11 +42,11 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <noise/noise.hpp>
-#include <noise/cipher.hpp>
-#include <noise/handshake.hpp>
-#include <digest/hash.hpp>
-#include <digest/blake2.hpp>
+#include "noise/noise.hpp"
+#include "noise/cipher.hpp"
+#include "noise/handshake.hpp"
+#include "digest/hash.hpp"
+#include "digest/blake2.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

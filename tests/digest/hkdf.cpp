@@ -30,7 +30,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <digest/hkdf.hpp>
+#include "digest/hkdf.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

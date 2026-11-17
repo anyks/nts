@@ -33,7 +33,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <sys/wipe.hpp>
+#include "sys/wipe.hpp"
 
 /**
  * Пространство имён библиотеки

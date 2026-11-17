@@ -32,11 +32,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <noise/noise.hpp>
-#include <noise/cipher.hpp>
-#include <noise/handshake.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "noise/noise.hpp"
+#include "noise/cipher.hpp"
+#include "noise/handshake.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

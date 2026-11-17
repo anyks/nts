@@ -30,7 +30,7 @@
 #include <string>
 #include <vector>
 #include <main.hpp>
-#include <digest/streebog.hpp>
+#include "digest/streebog.hpp"
 
 /**
  * Используем пространство имён проекта

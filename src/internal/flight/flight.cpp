@@ -106,12 +106,12 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <internal/flight/flight.hpp>
-#include <digest/hash.hpp>
-#include <digest/hmac.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
-#include <sys/log.hpp>
+#include "internal/flight/flight.hpp"
+#include "digest/hash.hpp"
+#include "digest/hmac.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
+#include "sys/log.hpp"
 
 /**
  * Используем стандартное пространство имён

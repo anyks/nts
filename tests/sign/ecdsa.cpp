@@ -42,12 +42,12 @@
  */
 #include <main.hpp>
 #include <starve.hpp>
-#include <sign/ecdsa.hpp>
-#include <digest/hash.hpp>
-#include <curve/parameters.hpp>
-#include <keys/keys.hpp>
-#include <math/integer.hpp>
-#include <entropy/entropy.hpp>
+#include "sign/ecdsa.hpp"
+#include "digest/hash.hpp"
+#include "curve/parameters.hpp"
+#include "keys/keys.hpp"
+#include "math/integer.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Используем пространство имён проекта

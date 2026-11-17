@@ -38,8 +38,8 @@
  */
 #include <gost.hpp>
 #include <identity.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
+#include "client/client.hpp"
+#include "server/server.hpp"
 
 /**
  * Используем пространство имён проекта

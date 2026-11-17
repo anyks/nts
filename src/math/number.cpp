@@ -76,11 +76,11 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <math/number.hpp>
-#include <sys/wipe.hpp>
+#include "math/number.hpp"
+#include "sys/wipe.hpp"
 
-#include <math/wide.hpp>
-#include <internal/math/kernels.hpp>
+#include "math/wide.hpp"
+#include "internal/math/kernels.hpp"
 
 /**
  * Используем стандартное пространство имён

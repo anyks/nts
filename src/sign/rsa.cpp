@@ -68,10 +68,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/rsa.hpp>
-#include <asn1/asn1.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "sign/rsa.hpp"
+#include "asn1/asn1.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

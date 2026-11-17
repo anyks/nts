@@ -36,12 +36,12 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sign/gost.hpp>
-#include <math/number.hpp>
-#include <entropy/entropy.hpp>
-#include <schedule/schedule.hpp>
-#include <curve/parameters.hpp>
-#include <digest/streebog.hpp>
+#include "sign/gost.hpp"
+#include "math/number.hpp"
+#include "entropy/entropy.hpp"
+#include "schedule/schedule.hpp"
+#include "curve/parameters.hpp"
+#include "digest/streebog.hpp"
 #include <message/message.hpp>
 #include <handshake/handshake.hpp>
 

@@ -30,7 +30,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <cipher/sm4.hpp>
+#include "cipher/sm4.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

@@ -31,10 +31,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/ffdhe.hpp>
-#include <math/integer.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "agreement/ffdhe.hpp"
+#include "math/integer.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

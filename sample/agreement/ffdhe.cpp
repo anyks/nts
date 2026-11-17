@@ -35,7 +35,7 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <agreement/ffdhe.hpp>
+#include "agreement/ffdhe.hpp"
 
 /**
  * Используем стандартное пространство имён

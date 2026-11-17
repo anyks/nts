@@ -27,8 +27,8 @@
  */
 #include <string>
 #include <main.hpp>
-#include <math/field25519.hpp>
-#include <internal/math/field25519.hpp>
+#include "math/field25519.hpp"
+#include "internal/math/field25519.hpp"
 
 /**
  * Используем пространство имён проекта

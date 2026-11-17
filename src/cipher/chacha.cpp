@@ -37,10 +37,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/chacha.hpp>
-#include <sys/machine.hpp>
-#include <sys/wipe.hpp>
-#include <internal/cipher/chacha.hpp>
+#include "cipher/chacha.hpp"
+#include "sys/machine.hpp"
+#include "sys/wipe.hpp"
+#include "internal/cipher/chacha.hpp"
 
 /**
  * @note Переносимый путь и векторные ветви собираются в один двоичный файл, а выбор

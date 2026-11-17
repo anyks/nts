@@ -32,7 +32,7 @@
 #include <vector>
 #include <fstream>
 #include <main.hpp>
-#include <sign/mldsa.hpp>
+#include "sign/mldsa.hpp"
 
 /**
  * Используем пространство имён проекта

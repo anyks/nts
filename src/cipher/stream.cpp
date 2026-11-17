@@ -33,9 +33,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/stream.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
+#include "cipher/stream.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён

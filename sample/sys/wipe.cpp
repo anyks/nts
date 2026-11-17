@@ -39,10 +39,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/wipe.hpp>
-#include <client/client.hpp>
-#include <server/server.hpp>
-#include <entropy/entropy.hpp>
+#include "sys/wipe.hpp"
+#include "client/client.hpp"
+#include "server/server.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Используем стандартное пространство имён

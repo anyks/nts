@@ -34,9 +34,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/mgm.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/kuznyechik.hpp>
+#include "cipher/mgm.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/kuznyechik.hpp"
 
 /**
  * Используем стандартное пространство имён

@@ -332,24 +332,24 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <math/wide.hpp>
-#include <sys/wipe.hpp>
-#include <sys/machine.hpp>
-#include <entropy/entropy.hpp>
+#include "math/wide.hpp"
+#include "sys/wipe.hpp"
+#include "sys/machine.hpp"
+#include "entropy/entropy.hpp"
 
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <math/integer.hpp>
+#include "math/integer.hpp"
 
 /**
  * Подключаем внутренний модуль квадрата Монтгомери на mulq для x86-64 без BMI2 и ADX
  */
-#include <internal/math/mont.hpp>
+#include "internal/math/mont.hpp"
 /**
  * Подключаем внутренний модуль степени на AVX2 для шестнадцати слов
  */
-#include <internal/math/power.hpp>
+#include "internal/math/power.hpp"
 
 /**
  * Используем стандартное пространство имён

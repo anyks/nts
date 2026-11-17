@@ -90,8 +90,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <sys/wipe.hpp>
+#include "sys/global.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Векторный путь доступен gcc и clang на x86-64; прочие сборки используют обычные ядра

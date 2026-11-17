@@ -29,12 +29,12 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
-#include <sign/gost.hpp>
-#include <entropy/entropy.hpp>
-#include <curve/parameters.hpp>
-#include <agreement/ecdhe.hpp>
-#include <sign/ecdsa.hpp>
-#include <entropy/entropy.hpp>
+#include "sign/gost.hpp"
+#include "entropy/entropy.hpp"
+#include "curve/parameters.hpp"
+#include "agreement/ecdhe.hpp"
+#include "sign/ecdsa.hpp"
+#include "entropy/entropy.hpp"
 #include <cstring>
 #include <chrono>
 

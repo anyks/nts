@@ -34,7 +34,7 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <sign/lms.hpp>
+#include "sign/lms.hpp"
 
 /**
  * Используем пространство имён проекта

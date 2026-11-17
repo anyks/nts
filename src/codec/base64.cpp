@@ -34,10 +34,10 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <codec/base64.hpp>
-#include <sys/machine.hpp>
-#include <sys/wipe.hpp>
-#include <internal/codec/base64.hpp>
+#include "codec/base64.hpp"
+#include "sys/machine.hpp"
+#include "sys/wipe.hpp"
+#include "internal/codec/base64.hpp"
 
 /**
  * @brief Служебные объекты модуля

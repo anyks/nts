@@ -39,14 +39,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <digest/md5.hpp>
-#include <digest/sha1.hpp>
-#include <digest/sha2.hpp>
-#include <digest/sm3.hpp>
-#include <digest/ripemd.hpp>
-#include <digest/streebog.hpp>
-#include <digest/blake2.hpp>
+#include "sys/global.hpp"
+#include "digest/md5.hpp"
+#include "digest/sha1.hpp"
+#include "digest/sha2.hpp"
+#include "digest/sm3.hpp"
+#include "digest/ripemd.hpp"
+#include "digest/streebog.hpp"
+#include "digest/blake2.hpp"
 
 /**
  * \~russian

@@ -38,8 +38,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/des.hpp>
-#include <sys/wipe.hpp>
+#include "cipher/des.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля

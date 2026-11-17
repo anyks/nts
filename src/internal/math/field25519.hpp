@@ -67,9 +67,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <sys/global.hpp>
-#include <math/wide.hpp>
-#include <math/field25519.hpp>
+#include "sys/global.hpp"
+#include "math/wide.hpp"
+#include "math/field25519.hpp"
 
 /**
  * @brief Основное пространство имён

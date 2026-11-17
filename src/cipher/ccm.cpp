@@ -25,8 +25,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <cipher/ccm.hpp>
-#include <sys/wipe.hpp>
+#include "cipher/ccm.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * Стандартные заголовочные файлы

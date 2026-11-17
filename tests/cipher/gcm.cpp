@@ -31,9 +31,9 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <sys/machine.hpp>
-#include <cipher/aes.hpp>
-#include <cipher/gcm.hpp>
+#include "sys/machine.hpp"
+#include "cipher/aes.hpp"
+#include "cipher/gcm.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

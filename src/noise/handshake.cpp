@@ -35,8 +35,8 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <noise/handshake.hpp>
-#include <sys/wipe.hpp>
+#include "noise/handshake.hpp"
+#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля

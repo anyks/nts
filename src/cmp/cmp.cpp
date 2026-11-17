@@ -22,16 +22,16 @@
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <cmp/cmp.hpp>
+#include "cmp/cmp.hpp"
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <asn1/asn1.hpp>
-#include <digest/hmac.hpp>
-#include <entropy/entropy.hpp>
-#include <sys/wipe.hpp>
-#include <x509/signature.hpp>
+#include "asn1/asn1.hpp"
+#include "digest/hmac.hpp"
+#include "entropy/entropy.hpp"
+#include "sys/wipe.hpp"
+#include "x509/signature.hpp"
 
 /**
  * Стандартные заголовочные файлы

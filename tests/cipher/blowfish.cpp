@@ -29,9 +29,9 @@
  * Подключаем заголовочные файлы проекта
  */
 #include <main.hpp>
-#include <cipher/blowfish.hpp>
-#include <cipher/mode.hpp>
-#include <cipher/mgm.hpp>
+#include "cipher/blowfish.hpp"
+#include "cipher/mode.hpp"
+#include "cipher/mgm.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки

@@ -31,7 +31,7 @@
 #include <string>
 #include <cstring>
 #include <main.hpp>
-#include <digest/hmac.hpp>
+#include "digest/hmac.hpp"
 
 /**
  * Используем пространство имён проекта
