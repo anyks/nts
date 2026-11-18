@@ -353,6 +353,10 @@ TEST(GostTest, Failures) {
 }
 
 /**
+ * Приватные помощники файла
+ */
+namespace {
+/**
  * @brief Функция запуска команды оболочки без консоли на входе
  *
  * @details stdin подаётся из /dev/null: у оболочки инструмента разработки он бывает
@@ -366,6 +370,7 @@ TEST(GostTest, Failures) {
 static int __nts_shell__(const std::string & command) {
 	// Запускаем команду с пустым входом
 	return ::system((command + " </dev/null").c_str());
+}
 }
 /**
  * @brief Функция чтения файла целиком

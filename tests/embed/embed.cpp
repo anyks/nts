@@ -152,7 +152,7 @@ TEST(EmbedTest, KeyContextDiverges){
 	const std::vector <uint8_t> ca = {0xAA, 0xBB};
 	// Вторая связка: младший байт на единицу больше
 	const std::vector <uint8_t> cb = {0xAA, 0xBC};
-	// Приёмники
+	// Приёмники ключей двух сторон
 	uint8_t ka[32], kb[32];
 	// Вывод ключа с первой связкой
 	ASSERT_TRUE(embed::key(digest::hash_t::SHA256, view_t(material.data(), material.size()), view_t(salt.data(), salt.size()), view_t(ca.data(), ca.size()), 1, ka, sizeof(ka)));
@@ -190,7 +190,7 @@ TEST(EmbedTest, KeyNotMaterial){
 TEST(EmbedTest, KeyRejectsBadInput){
 	// Годный материал
 	const std::vector <uint8_t> material = {0x11, 0x22, 0x33, 0x44};
-	// Приёмник
+	// Приёмник выведенного ключа
 	uint8_t out[32];
 	// Неизвестный хеш — отказ
 	ASSERT_FALSE(embed::key(digest::hash_t::NONE, view_t(material.data(), material.size()), view_t(), view_t(), 1, out, sizeof(out)));
@@ -241,7 +241,7 @@ TEST(EmbedTest, SecretRejectsBadInput){
 	const std::vector <uint8_t> password = {'p', 'w'};
 	// Соль растяжения
 	const std::vector <uint8_t> salt = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-	// Приёмник
+	// Приёмник растянутого секрета
 	uint8_t out[32];
 	// Отсутствующий приёмник — отказ
 	ASSERT_FALSE(embed::secret(params, view_t(password.data(), password.size()), view_t(salt.data(), salt.size()), view_t(), 1, nullptr, sizeof(out)));

@@ -448,7 +448,7 @@ TEST(HpkeTest, Vectors){
 			// Зашифрование контрольного примера
 			const vectors::encryption_t & encryption = vector.encryption[j];
 			// Данные зашифрования
-			const std::vector <uint8_t> aad = bytes(encryption.aad), pt = bytes(encryption.pt), ct = bytes(encryption.ct);
+			const std::vector <uint8_t> aad = bytes(encryption.aad), pt = bytes(encryption.plain), ct = bytes(encryption.sealed);
 			// Переставляем порядковые номера
 			ASSERT_EQ(sending.sequence(encryption.sequence), hpke::error_t::NONE);
 			// Переставляем порядковый номер получателя
@@ -458,7 +458,7 @@ TEST(HpkeTest, Vectors){
 			// Зашифровываем сообщение
 			ASSERT_EQ(sending.seal(__nts_viewed__(aad), __nts_viewed__(pt), sealed), hpke::error_t::NONE) << __nts_named__(vector) << " номер " << encryption.sequence;
 			// Проверяем шифртекст байт в байт
-			ASSERT_EQ(__nts_text__(sealed.data(), sealed.size()), encryption.ct) << __nts_named__(vector) << " номер " << encryption.sequence;
+			ASSERT_EQ(__nts_text__(sealed.data(), sealed.size()), encryption.sealed) << __nts_named__(vector) << " номер " << encryption.sequence;
 			// Проверяем рост порядкового номера
 			ASSERT_EQ(sending.sequence(), encryption.sequence + 1);
 			// Накопитель открытого текста
@@ -466,7 +466,7 @@ TEST(HpkeTest, Vectors){
 			// Расшифровываем сообщение
 			ASSERT_EQ(receiving.open(__nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::NONE) << __nts_named__(vector) << " номер " << encryption.sequence;
 			// Проверяем открытый текст
-			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.pt) << __nts_named__(vector);
+			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.plain) << __nts_named__(vector);
 			// Проверяем рост порядкового номера получателя
 			ASSERT_EQ(receiving.sequence(), encryption.sequence + 1);
 		}
@@ -530,13 +530,13 @@ TEST(HpkeTest, Single){
 			// Первое зашифрование вектора
 			const vectors::encryption_t & encryption = vector.encryption[0];
 			// Данные зашифрования
-			const std::vector <uint8_t> aad = bytes(encryption.aad), pt = bytes(encryption.pt), ct = bytes(encryption.ct), enc = bytes(vector.enc);
+			const std::vector <uint8_t> aad = bytes(encryption.aad), pt = bytes(encryption.plain), ct = bytes(encryption.sealed), enc = bytes(vector.enc);
 			// Накопитель открытого текста
 			std::vector <uint8_t> opened;
 			// Расшифровываем сообщение вектора одним шагом
 			ASSERT_EQ(hpke::open(suite, mode, own, __nts_viewed__(enc), __nts_viewed__(info), shared, point, __nts_viewed__(aad), __nts_viewed__(ct), opened), hpke::error_t::NONE) << __nts_named__(vector);
 			// Проверяем открытый текст
-			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.pt) << __nts_named__(vector);
+			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.plain) << __nts_named__(vector);
 			// Накопители зашифрования живьём
 			std::vector <uint8_t> fresh, sealed;
 			// Зашифровываем сообщение одним шагом со свежей мимолётной парой
@@ -550,7 +550,7 @@ TEST(HpkeTest, Single){
 			// Расшифровываем свежее сообщение
 			ASSERT_EQ(hpke::open(suite, mode, own, __nts_viewed__(fresh), __nts_viewed__(info), shared, point, __nts_viewed__(aad), __nts_viewed__(sealed), opened), hpke::error_t::NONE) << __nts_named__(vector);
 			// Проверяем открытый текст
-			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.pt) << __nts_named__(vector);
+			ASSERT_EQ(__nts_text__(opened.data(), opened.size()), encryption.plain) << __nts_named__(vector);
 		}
 		// Первый экспорт вектора
 		const vectors::export_t & exported = vector.exports[1];
@@ -692,7 +692,7 @@ TEST(HpkeTest, Refusals){
 	// Материал и данные
 	const std::vector <uint8_t> ikmE = bytes(vector.ikmE), ikmR = bytes(vector.ikmR), info = bytes(vector.info), enc = bytes(vector.enc);
 	// Первое зашифрование
-	const std::vector <uint8_t> aad = bytes(vector.encryption[0].aad), pt = bytes(vector.encryption[0].pt), ct = bytes(vector.encryption[0].ct);
+	const std::vector <uint8_t> aad = bytes(vector.encryption[0].aad), pt = bytes(vector.encryption[0].plain), ct = bytes(vector.encryption[0].sealed);
 	// Ключ и опознаватель
 	const std::vector <uint8_t> psk = bytes(PSK), identity = bytes(PSK_ID);
 	// Пары ключей
@@ -1112,7 +1112,7 @@ typedef struct VectorPQ {
 	// Пример экспорта: привязка, длина, значение
 	std::vector <uint8_t> exportContext, exportValue;
 	// Пример зашифрования: связанные данные, открытый текст, шифртекст
-	std::vector <uint8_t> aad, pt, ct;
+	std::vector <uint8_t> aad, plain, sealed;
 } vectorpq_t;
 
 /**
@@ -1171,9 +1171,9 @@ static void readpq(std::vector <vectorpq_t> & result){
 		// Данные аутентификации из примера
 		item.aad = bytes(aad);
 		// Открытый текст из примера
-		item.pt = bytes(pt);
+		item.plain = bytes(pt);
 		// Шифротекст из примера
-		item.ct = bytes(ct);
+		item.sealed = bytes(ct);
 		// Добавляем пример
 		result.push_back(item);
 	}
@@ -1264,17 +1264,17 @@ TEST(HpkeTest, PostQuantum){
 			// Проверяем совпадение сторон
 			ASSERT_EQ(::memcmp(outS, outR, sizeof(outS)), 0) << "пример " << i;
 			// Буфер шифртекста с меткой
-			std::vector <uint8_t> ct(item.pt.size() + hpke::TAG_SIZE);
+			std::vector <uint8_t> ct(item.plain.size() + hpke::TAG_SIZE);
 			// Зашифровываем сообщение
-			ASSERT_EQ(sealer.seal(__nts_viewed__(item.aad), __nts_viewed__(item.pt), ct.data()), hpke::error_t::NONE) << "пример " << i;
+			ASSERT_EQ(sealer.seal(__nts_viewed__(item.aad), __nts_viewed__(item.plain), ct.data()), hpke::error_t::NONE) << "пример " << i;
 			// Проверяем шифртекст
-			ASSERT_EQ(__nts_text__(ct.data(), ct.size()), __nts_text__(item.ct.data(), item.ct.size())) << "пример " << i;
+			ASSERT_EQ(__nts_text__(ct.data(), ct.size()), __nts_text__(item.sealed.data(), item.sealed.size())) << "пример " << i;
 			// Открытый текст
-			std::vector <uint8_t> back(item.pt.size());
+			std::vector <uint8_t> back(item.plain.size());
 			// Расшифровываем сообщение
 			ASSERT_EQ(opener.open(__nts_viewed__(item.aad), __nts_viewed__(ct.data(), ct.size()), back.data()), hpke::error_t::NONE) << "пример " << i;
 			// Проверяем открытый текст
-			ASSERT_EQ(__nts_text__(back.data(), back.size()), __nts_text__(item.pt.data(), item.pt.size())) << "пример " << i;
+			ASSERT_EQ(__nts_text__(back.data(), back.size()), __nts_text__(item.plain.data(), item.plain.size())) << "пример " << i;
 		// Если способ гибридный: отправитель не воспроизводится через зерно 32, сличаем recipient-сторону
 		} else {
 			// Общее значение

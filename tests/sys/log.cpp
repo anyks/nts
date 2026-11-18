@@ -122,7 +122,7 @@ TEST(LogTest, Sink) {
 	// Объявляем накопитель сообщений
 	journal_t journal;
 	// Устанавливаем проверочный сток
-	sys::log::sink(&collect, &journal);
+	sys::log::sink(&__nts_collect__, &journal);
 	// Проверяем включение журнала
 	ASSERT_TRUE(sys::log::enabled());
 	// Отправляем готовую строку в сток
@@ -166,7 +166,7 @@ TEST(LogTest, Abort) {
 	// Объявляем накопитель сообщений
 	journal_t journal;
 	// Устанавливаем проверочный сток
-	sys::log::sink(&collect, &journal);
+	sys::log::sink(&__nts_collect__, &journal);
 	// Объявляем учётные данные
 	context::credential_t credentials;
 	// Загружаем учётные данные стороны сервера
@@ -245,7 +245,7 @@ TEST(LogTest, Abort) {
 		// Объявляем накопитель сообщений
 		journal_t journal;
 		// Устанавливаем проверочный сток
-		sys::log::sink(&collect, &journal);
+		sys::log::sink(&__nts_collect__, &journal);
 		// Получаем хранилище укрытия
 		sys::vault_t & vault = sys::Vault::instance();
 		// Объявляем прежний предел блокировки памяти

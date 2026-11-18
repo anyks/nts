@@ -49,7 +49,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -108,7 +108,7 @@ TEST(RipemdTest, Vectors){
 		// Хеш «message digest» совпадает со значением спецификации
 		ASSERT_EQ(hashed(std::vector <uint8_t> (message.begin(), message.end())), "5d0689ef49d2fae572b881b123a85ffa21595f36");
 	}
-	// Алфавит
+	// Проверяем хеширование алфавита
 	{
 		// Алфавит в нижнем регистре
 		const std::string message = "abcdefghijklmnopqrstuvwxyz";

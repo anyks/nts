@@ -53,7 +53,7 @@ extern "C" {
 		// Если внешняя запись PKIMessage разобрана
 		if(message.parse(view_t(data, size)) == cmp::error_t::NONE){
 			/**
-			 * Выполняем разбор тела по виду сообщения
+			 * Разбираем тело по виду сообщения
 			 */
 			switch(static_cast <uint8_t> (message.kind())){
 				// Если тело содержит запрос инициализации
@@ -68,7 +68,7 @@ extern "C" {
 				case static_cast <uint8_t> (cmp::body_t::CCR): {
 					// Разбираемые запросы сертификатов
 					std::vector <cmp::request_t> requests;
-					// Выполняем разбор содержимого CertReqMessages
+					// Разбираем содержимое CertReqMessages
 					cmp::requests(message.body(), requests);
 				} break;
 				// Если тело содержит ответ инициализации
@@ -83,7 +83,7 @@ extern "C" {
 					std::vector <view_t> caPubs;
 					// Разбираемые ответы о сертификатах
 					std::vector <cmp::response_t> responses;
-					// Выполняем разбор содержимого CertRepMessage
+					// Разбираем содержимое CertRepMessage
 					cmp::response(message.body(), caPubs, responses);
 				} break;
 			}

@@ -135,13 +135,13 @@ TEST(Argon2Test, Openssl){
 			// Проверяем удачу открытия
 			ASSERT_NE(file, nullptr);
 			// Объявляем текущий знак
-			int ch = 0;
+			int symbol = 0;
 			/** Повторяем: чтение знаков, пока файл не исчерпан */
-			while((ch = ::fgetc(file)) != EOF){
+			while((symbol = ::fgetc(file)) != EOF){
 				// Отбираем шестнадцатеричные знаки записи
-				if(((ch >= '0') && (ch <= '9')) || ((ch >= 'A') && (ch <= 'F')))
+				if(((symbol >= '0') && (symbol <= '9')) || ((symbol >= 'A') && (symbol <= 'F')))
 					// Приводим заглавные к строчным и дописываем знак
-					expected.push_back(static_cast <char> (((ch >= 'A') && (ch <= 'F')) ? (ch - 'A' + 'a') : ch));
+					expected.push_back(static_cast <char> (((symbol >= 'A') && (symbol <= 'F')) ? (symbol - 'A' + 'a') : symbol));
 			}
 			::fclose(file);
 			::remove(out.c_str());
@@ -158,7 +158,7 @@ TEST(Argon2Test, Refusals){
 	// Задаём пароль и соль проверки
 	const std::string password = "p", salt = "12345678";
 	// Описываем байты пароля и соли
-	const view_t pw(reinterpret_cast <const uint8_t *> (password.data()), password.size()), sl(reinterpret_cast <const uint8_t *> (salt.data()), salt.size());
+	const view_t passView(reinterpret_cast <const uint8_t *> (password.data()), password.size()), saltView(reinterpret_cast <const uint8_t *> (salt.data()), salt.size());
 	// Объявляем буферы меток
 	uint8_t tag[32], again[32];
 	// Умолчания: 64 МиБ, три прохода, четыре дорожки
@@ -167,29 +167,29 @@ TEST(Argon2Test, Refusals){
 	EXPECT_EQ(defaults.type, digest::argon_t::ARGON2ID);
 	EXPECT_EQ(defaults.memory, 65536u);
 	// Память меньше 8·lanes
-	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 31, 1, 4), pw, sl, view_t(), view_t(), tag, sizeof(tag)));
+	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 31, 1, 4), passView, saltView, view_t(), view_t(), tag, sizeof(tag)));
 	// Ноль проходов и дорожек
-	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 0, 4), pw, sl, view_t(), view_t(), tag, sizeof(tag)));
-	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 0), pw, sl, view_t(), view_t(), tag, sizeof(tag)));
+	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 0, 4), passView, saltView, view_t(), view_t(), tag, sizeof(tag)));
+	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 0), passView, saltView, view_t(), view_t(), tag, sizeof(tag)));
 	// Соль короче восьми и метка короче четырёх
-	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), pw, view_t(sl.data, 7), view_t(), view_t(), tag, sizeof(tag)));
-	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), pw, sl, view_t(), view_t(), tag, 3));
-	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), pw, sl, view_t(), view_t(), nullptr, 32));
+	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), passView, view_t(saltView.data, 7), view_t(), view_t(), tag, sizeof(tag)));
+	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), passView, saltView, view_t(), view_t(), tag, 3));
+	EXPECT_FALSE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), passView, saltView, view_t(), view_t(), nullptr, 32));
 	// Годный вызов и повтор
-	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), pw, sl, view_t(), view_t(), tag, sizeof(tag)));
-	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), pw, sl, view_t(), view_t(), again, sizeof(again)));
+	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), passView, saltView, view_t(), view_t(), tag, sizeof(tag)));
+	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 1), passView, saltView, view_t(), view_t(), again, sizeof(again)));
 	// Сверяем повторный вывод с первым
 	EXPECT_EQ(text(tag, 32), text(again, 32));
 	// Иная разновидность даёт иную метку
-	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2I, 32, 1, 1), pw, sl, view_t(), view_t(), again, sizeof(again)));
+	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2I, 32, 1, 1), passView, saltView, view_t(), view_t(), again, sizeof(again)));
 	// Сверяем метки разных разновидностей
 	EXPECT_NE(text(tag, 32), text(again, 32));
 	// Память, не кратная 4·p, округляется вниз: 33 КиБ на четырёх дорожках равно 32
 	uint8_t rounded[32];
 	// Выводим метку с округлением памяти вниз
-	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 33, 1, 4), pw, sl, view_t(), view_t(), rounded, sizeof(rounded)));
+	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 33, 1, 4), passView, saltView, view_t(), view_t(), rounded, sizeof(rounded)));
 	// но H0 берёт m как задано, оттого метка иная
-	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 4), pw, sl, view_t(), view_t(), again, sizeof(again)));
+	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 32, 1, 4), passView, saltView, view_t(), view_t(), again, sizeof(again)));
 	// Сверяем метку с округлённой памятью
 	EXPECT_NE(text(rounded, 32), text(again, 32));
 }
@@ -203,11 +203,11 @@ TEST(Argon2Test, Memory){
 	// Задаём пароль и соль проверки
 	const std::string password = "p", salt = "12345678";
 	// Описываем байты пароля и соли
-	const view_t pw(reinterpret_cast <const uint8_t *> (password.data()), password.size()), sl(reinterpret_cast <const uint8_t *> (salt.data()), salt.size());
+	const view_t passView(reinterpret_cast <const uint8_t *> (password.data()), password.size()), saltView(reinterpret_cast <const uint8_t *> (salt.data()), salt.size());
 	// Объявляем буферы меток
 	uint8_t tag[32], again[32];
 	// Контрольный вызов без пайка обязан пройти
-	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 8192u, 1, 1), pw, sl, view_t(), view_t(), tag, sizeof(tag)));
+	ASSERT_TRUE(digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 8192u, 1, 1), passView, saltView, view_t(), view_t(), tag, sizeof(tag)));
 	// Признаки: нехватка встречена, полный успех достигнут
 	bool starved = false, complete = false;
 	/** Перебираем: пайки выделений от нуля, пока не достигнут полный успех */
@@ -218,7 +218,7 @@ TEST(Argon2Test, Memory){
 			// Устанавливаем паёк выделений
 			starve::ration_t ration(budget);
 			// Выводим метку под пайком
-			derived = digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 8192u, 1, 1), pw, sl, view_t(), view_t(), again, sizeof(again));
+			derived = digest::argon2(digest::argon_params_t(digest::argon_t::ARGON2ID, 8192u, 1, 1), passView, saltView, view_t(), view_t(), again, sizeof(again));
 		}
 		// Запоминаем встреченную нехватку
 		starved = (starved || !derived);

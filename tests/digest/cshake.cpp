@@ -55,7 +55,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -134,7 +134,7 @@ static std::vector <uint8_t> pattern(const size_t size) {
 	// Составляемое сообщение
 	std::vector <uint8_t> result(size, 0);
 	/**
-	 * Выполняем перебор байтов сообщения
+	 * Перебираем байты сообщения
 	 */
 	for(size_t i = 0; i < size; i++)
 		// Записываем очередной байт образца
@@ -152,7 +152,7 @@ static std::vector <uint8_t> keying() {
 	// Составляемый ключ
 	std::vector <uint8_t> result(32, 0);
 	/**
-	 * Выполняем перебор байтов ключа
+	 * Перебираем байты ключа
 	 */
 	for(size_t i = 0; i < result.size(); i++)
 		// Записываем очередной байт ключа

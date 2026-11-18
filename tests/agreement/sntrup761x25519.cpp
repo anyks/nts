@@ -122,7 +122,7 @@ TEST(Sntrup761x25519Test, Combine) {
 	ASSERT_TRUE(agreement::decapsSntrup761x25519(view_t(serverCipher, sizeof(serverCipher)), view_t(clientSecret, sizeof(clientSecret)), clientShared));
 	// Общий секрет обязан совпасть с самостоятельной склейкой побайтно
 	ASSERT_EQ(::memcmp(clientShared, want, sizeof(want)), 0);
-	// Выполняем затирание рабочих областей
+	// Затираем рабочие области
 	sys::wipe(pq, sizeof(pq));
 	sys::wipe(cl, sizeof(cl));
 }

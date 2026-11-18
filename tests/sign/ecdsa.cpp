@@ -55,6 +55,10 @@
 using namespace nts;
 
 /**
+ * Приватные помощники файла
+ */
+namespace {
+/**
  * @brief Функция запуска команды оболочки без консоли на входе
  *
  * @details stdin подаётся из /dev/null: у оболочки инструмента разработки он бывает
@@ -68,6 +72,7 @@ using namespace nts;
 static int __nts_shell__(const std::string & command) {
 	// Запускаем команду с пустым входом
 	return ::system((command + " </dev/null").c_str());
+}
 }
 /**
  * Опознаватели наборов параметров кривых P-256 и P-384

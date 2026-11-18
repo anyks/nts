@@ -73,9 +73,9 @@ using namespace nts;
 		 * Область жизни связей: заведение, отказ запуска и разрушение
 		 */
 		{
-			// Клиент
+			// Контекст клиента
 			client::context_t client;
-			// Сервер
+			// Контекст сервера
 			server::context_t server;
 			// Настраиваем клиента
 			client.name("example.com");

@@ -53,6 +53,10 @@
 using namespace nts;
 
 /**
+ * Приватные помощники файла
+ */
+namespace {
+/**
  * @brief Функция запуска команды оболочки без консоли на входе
  *
  * @details stdin подаётся из /dev/null: у оболочки инструмента разработки он бывает
@@ -78,6 +82,7 @@ static int __nts_shell__(const std::string & command) {
 		// Пустое устройство POSIX называется /dev/null
 		return ::system((command + " </dev/null").c_str());
 	#endif
+}
 }
 /**
  * Пароль ко всем зашифрованным ключам набора: кириллица в UTF-8, десять октетов

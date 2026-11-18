@@ -50,11 +50,11 @@ namespace vectors {
 		// Связанные данные
 		const char * aad;
 		// Открытый текст
-		const char * pt;
+		const char * plain;
 		// Начальное заполнение
 		const char * nonce;
 		// Шифртекст с меткой
-		const char * ct;
+		const char * sealed;
 	} encryption_t;
 	/**
 	 * @brief Один экспорт вектора

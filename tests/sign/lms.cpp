@@ -70,7 +70,7 @@ namespace {
 	 * @return     просмотр набора
 	 *
 	 */
-	static view_t view(const std::vector <uint8_t> & data) noexcept {
+	static view_t __nts_view__(const std::vector <uint8_t> & data) noexcept {
 		// Выводим просмотр набора
 		return view_t(data.data(), data.size());
 	}
@@ -91,7 +91,7 @@ TEST(LmsTest, HssVector) {
 	ASSERT_EQ(message.size(), 162U);
 	ASSERT_EQ(signature.size(), 2644U);
 	// Подпись контрольного примера обязана сойтись
-	ASSERT_TRUE(sign::lms::verify(view(key), view(message), view(signature)));
+	ASSERT_TRUE(sign::lms::verify(__nts_view__(key), __nts_view__(message), __nts_view__(signature)));
 }
 
 /**
@@ -109,25 +109,25 @@ TEST(LmsTest, Refusals) {
 	// Портим байт внутри звена цепочки нижнего уровня
 	forged[forged.size() - 200] ^= 0x01;
 	// Подделка обязана отказать
-	ASSERT_FALSE(sign::lms::verify(view(key), view(forged), view(signature)));
+	ASSERT_FALSE(sign::lms::verify(__nts_view__(key), __nts_view__(forged), __nts_view__(signature)));
 	// Подделанное сообщение: копия контрольного
 	std::vector <uint8_t> altered(message);
 	// Портим первый байт сообщения
 	altered[0] ^= 0x01;
 	// Проверка порченого сообщения обязана отказать
-	ASSERT_FALSE(sign::lms::verify(view(key), view(altered), view(signature)));
+	ASSERT_FALSE(sign::lms::verify(__nts_view__(key), __nts_view__(altered), __nts_view__(signature)));
 	// Усечённая подпись обязана отказать
-	ASSERT_FALSE(sign::lms::verify(view(key), view(message), view_t(signature.data(), signature.size() - 1)));
+	ASSERT_FALSE(sign::lms::verify(__nts_view__(key), __nts_view__(message), view_t(signature.data(), signature.size() - 1)));
 	// Чужой открытый ключ: копия контрольного
 	std::vector <uint8_t> alien(key);
 	// Портим последний байт открытого ключа
 	alien[alien.size() - 1] ^= 0x01;
 	// Проверка чужим ключом обязана отказать
-	ASSERT_FALSE(sign::lms::verify(view(alien), view(message), view(signature)));
+	ASSERT_FALSE(sign::lms::verify(__nts_view__(alien), __nts_view__(message), __nts_view__(signature)));
 	// Непереданные записи обязаны отказать
-	ASSERT_FALSE(sign::lms::verify(view_t(nullptr, 0), view(message), view(signature)));
-	ASSERT_FALSE(sign::lms::verify(view(key), view_t(nullptr, 0), view(signature)));
-	ASSERT_FALSE(sign::lms::verify(view(key), view(message), view_t(nullptr, 0)));
+	ASSERT_FALSE(sign::lms::verify(view_t(nullptr, 0), __nts_view__(message), __nts_view__(signature)));
+	ASSERT_FALSE(sign::lms::verify(__nts_view__(key), view_t(nullptr, 0), __nts_view__(signature)));
+	ASSERT_FALSE(sign::lms::verify(__nts_view__(key), __nts_view__(message), view_t(nullptr, 0)));
 }
 
 /**
@@ -151,11 +151,11 @@ TEST(LmsTest, SingleLevel) {
 	// Подпись сообщения нижним уровнем
 	const view_t sig1(signature.data() + 4 + lmsLength + 56, lmsLength);
 	// Одноуровневая подпись обязана сойтись
-	ASSERT_TRUE(sign::lms::verify(pub1, view(message), sig1));
+	ASSERT_TRUE(sign::lms::verify(pub1, __nts_view__(message), sig1));
 	// Подделанная подпись: копия звена нижнего уровня
 	std::vector <uint8_t> forged(sig1.data, sig1.data + sig1.size);
 	// Портим байт пути Меркла
 	forged[forged.size() - 10] ^= 0x40;
 	// Проверка с порченым путём Меркла обязана отказать
-	ASSERT_FALSE(sign::lms::verify(pub1, view(message), view(forged)));
+	ASSERT_FALSE(sign::lms::verify(pub1, __nts_view__(message), __nts_view__(forged)));
 }

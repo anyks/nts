@@ -71,7 +71,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 static std::string whole(const digest::blake_t type, const std::string & key, const std::string & message, const size_t size) {
 	// Объявляем буфер итога
 	std::vector <uint8_t> result(size, 0);
-	// Выполняем хеширование за один вызов
+	// Хешируем за один вызов
 	if(!digest::blake2(type, view_t(reinterpret_cast <const uint8_t *> (key.data()), key.size()), view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), result.data(), size))
 		// Возвращаем пустую запись при отказе
 		return std::string();
@@ -165,19 +165,19 @@ TEST(Blake2Test, Selftest){
 	// Порождение последовательности из приложения E
 	auto selftestSeq = [](std::vector <uint8_t> & out, const size_t len, const uint32_t seed) {
 		// Инициализируем регистры последовательности
-		uint32_t a = 0xDEAD4BAD * seed, b = 1;
+		uint32_t first = 0xDEAD4BAD * seed, second = 1;
 		// Выделяем буфер заданной длины
 		out.assign(len, 0);
 		/** Перебираем: байты последовательности по порядку */
 		for(size_t i = 0; i < len; i++){
 			// Вычисляем следующее значение суммы
-			const uint32_t t = a + b;
+			const uint32_t sum = first + second;
 			// Сдвигаем первый регистр
-			a = b;
+			first = second;
 			// Записываем сумму во второй регистр
-			b = t;
+			second = sum;
 			// Записываем старший байт значения
-			out[i] = static_cast <uint8_t> (t >> 24);
+			out[i] = static_cast <uint8_t> (sum >> 24);
 		}
 	};
 	// Таблицы длин итога и сообщения самопроверки BLAKE2b

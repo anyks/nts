@@ -37,7 +37,7 @@ TEST(AlertTest, Build){
 	uint8_t buffer[alert::ALERT_LENGTH] = {0};
 	// Составляем извещение о завершении передачи данных
 	const alert::alert_t alert(alert::level_t::WARNING, alert::description_t::CLOSE);
-	// Выполняем запись извещения
+	// Записываем извещение
 	ASSERT_EQ(alert::build(alert, buffer), alert::error_t::NONE);
 	// Проверяем уровень записанного извещения
 	ASSERT_EQ(buffer[0], 1);
@@ -45,7 +45,7 @@ TEST(AlertTest, Build){
 	ASSERT_EQ(buffer[1], 0);
 	// Разобранное извещение
 	alert::alert_t result;
-	// Выполняем разбор записанного извещения
+	// Разбираем записанное извещение
 	ASSERT_EQ(alert::parse(view_t(buffer, sizeof(buffer)), result), alert::error_t::NONE);
 	// Проверяем уровень разобранного извещения
 	ASSERT_EQ(result.level, alert::level_t::WARNING);
@@ -145,7 +145,7 @@ TEST(AlertTest, Names){
 		alert::description_t::PROTOCOL
 	};
 	/**
-	 * Выполняем перебор описаний извещения
+	 * Перебираем описания извещения
 	 */
 	for(size_t i = 0; i < (sizeof(descriptions) / sizeof(descriptions[0])); i++){
 		// Проверяем известность описания извещения
