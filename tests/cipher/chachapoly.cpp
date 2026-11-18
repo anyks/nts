@@ -52,7 +52,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков
+	 * Перебираем пары знаков
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2)
 		// Добавляем очередной байт
@@ -75,7 +75,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -175,7 +175,7 @@ static void slice(const std::vector <uint8_t> & key, const std::vector <uint8_t>
 	// Проверяем запуск режима
 	ASSERT_TRUE(aead.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()))) << "кусок " << chunk;
 	/**
-	 * Выполняем подачу связанных данных кусками
+	 * Подаём связанные данные кусками
 	 */
 	for(size_t offset = 0; offset < associated.size(); offset += chunk)
 		// Проверяем подачу куска связанных данных
@@ -187,7 +187,7 @@ static void slice(const std::vector <uint8_t> & key, const std::vector <uint8_t>
 	// Проверяем пустой кусок данных
 	ASSERT_TRUE(aead.encrypt(view_t(), nullptr)) << "кусок " << chunk;
 	/**
-	 * Выполняем подачу открытого текста кусками
+	 * Подаём открытый текст кусками
 	 */
 	for(size_t offset = 0; offset < plain.size(); offset += chunk)
 		// Проверяем зашифрование куска
@@ -209,7 +209,7 @@ static void slice(const std::vector <uint8_t> & key, const std::vector <uint8_t>
 	// Открытый текст потока
 	std::vector <uint8_t> opened(plain.size() + 1);
 	/**
-	 * Выполняем подачу шифртекста кусками
+	 * Подаём шифртекст кусками
 	 */
 	for(size_t offset = 0; offset < sealed.size(); offset += chunk)
 		// Проверяем расшифрование куска
@@ -244,9 +244,9 @@ static void check(const std::string & key, const std::string & nonce, const std:
 	ASSERT_TRUE(aead.start(view_t(k.data(), k.size()), view_t(n.data(), n.size()))) << "случай " << tag;
 	// Проверяем длину метки
 	ASSERT_EQ(aead.size(), 16u);
-	// Шифртекст
+	// Буфер шифртекста
 	std::vector <uint8_t> c(p.size() + 1);
-	// Метка
+	// Буфер метки подлинности
 	uint8_t t[cipher::CHACHAPOLY_TAG];
 	// Проверяем зашифрование
 	ASSERT_TRUE(aead.encrypt(view_t(a.data(), a.size()), view_t(p.data(), p.size()), c.data(), t)) << "случай " << tag;
@@ -294,7 +294,7 @@ static void check(const std::string & key, const std::string & nonce, const std:
 	// Проверяем отказ расшифрования на чужом заполнении
 	ASSERT_FALSE(aead.decrypt(view_t(a.data(), a.size()), view_t(c.data(), p.size()), o.data(), view_t(t, sizeof(t)))) << "случай " << tag;
 	/**
-	 * Выполняем поточную проверку по всем размерам куска
+	 * Проверяем поточно по всем размерам куска
 	 */
 	for(const size_t chunk : CHUNKS)
 		// Проверяем поток кусками заданного размера
@@ -339,7 +339,7 @@ TEST(ChachapolyTest, Empty){
 	cipher::chachapoly_t aead;
 	// Проверяем запуск режима
 	ASSERT_TRUE(aead.start(view_t(k.data(), k.size()), view_t(n.data(), n.size())));
-	// Метка
+	// Буфер метки подлинности
 	uint8_t tag[cipher::CHACHAPOLY_TAG];
 	// Проверяем зашифрование пустого текста без связанных данных
 	ASSERT_TRUE(aead.encrypt(view_t(), view_t(), nullptr, tag));
@@ -369,9 +369,9 @@ TEST(ChachapolyTest, Refusals){
 	const std::vector <uint8_t> k = bytes(KEY_282), n = bytes(NONCE_282), p = bytes(PLAIN_282);
 	// Объект режима
 	cipher::chachapoly_t aead;
-	// Шифртекст
+	// Буфер шифртекста
 	std::vector <uint8_t> sealed(p.size());
-	// Метка
+	// Буфер метки подлинности
 	uint8_t tag[cipher::CHACHAPOLY_TAG];
 	// Проверяем неготовность до запуска
 	ASSERT_FALSE(aead.ready());
@@ -415,7 +415,7 @@ TEST(ChachapolyTest, Refusals){
 	ASSERT_TRUE(aead.decrypt(view_t(), view_t(sealed.data(), sealed.size()), opened.data(), view_t(tag, sizeof(tag))));
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(opened, p);
-	// Выполняем сброс режима
+	// Сбрасываем режим
 	aead.clear();
 	// Проверяем неготовность после сброса
 	ASSERT_FALSE(aead.ready());
@@ -432,7 +432,7 @@ TEST(ChachapolyTest, Stream){
 	// Открытый текст в 100 байтов
 	std::vector <uint8_t> plain(100);
 	/**
-	 * Выполняем заполнение открытого текста
+	 * Заполняем открытый текст
 	 */
 	for(size_t i = 0; i < plain.size(); i++)
 		// Записываем очередной байт
@@ -523,7 +523,7 @@ TEST(ChachapolyTest, Stream){
 	ASSERT_FALSE(aead.encrypt(view_t(), view_t(), nullptr, tag));
 	// Проверяем, что расшифрование после израсходованного заполнения по-прежнему допустимо
 	ASSERT_TRUE(aead.decrypt(view_t(), view_t(), nullptr, view_t(tag, sizeof(tag))));
-	// Выполняем сброс режима
+	// Сбрасываем режим
 	aead.clear();
 	// Проверяем отказ потока после сброса
 	ASSERT_FALSE(aead.encrypt(view_t(plain.data(), 1), sealed));
@@ -541,7 +541,7 @@ TEST(ChachapolyTest, Restart){
 	// Открытый текст в 100 байтов
 	std::vector <uint8_t> plain(100);
 	/**
-	 * Выполняем заполнение открытого текста
+	 * Заполняем открытый текст
 	 */
 	for(size_t i = 0; i < plain.size(); i++)
 		// Записываем очередной байт
@@ -612,7 +612,7 @@ TEST(ChachapolyTest, AssociatedPadding){
 	// Связанные данные в 33 байта: два блока и один байт дополнения
 	std::vector <uint8_t> associated(33);
 	/**
-	 * Выполняем заполнение связанных данных
+	 * Заполняем связанные данные
 	 */
 	for(size_t i = 0; i < associated.size(); i++)
 		// Записываем очередной байт
@@ -623,14 +623,14 @@ TEST(ChachapolyTest, AssociatedPadding){
 	ASSERT_TRUE(aead.start(view_t(k.data(), k.size()), view_t(n.data(), n.size())));
 	// Шифртекст и метка разового зашифрования
 	std::vector <uint8_t> sealed(p.size());
-	// Метка
+	// Буфер метки подлинности
 	uint8_t tag[cipher::CHACHAPOLY_TAG];
 	// Проверяем разовое зашифрование
 	ASSERT_TRUE(aead.encrypt(view_t(associated.data(), associated.size()), view_t(p.data(), p.size()), sealed.data(), tag));
 	// Проверяем перезапуск
 	ASSERT_TRUE(aead.start(view_t(k.data(), k.size()), view_t(n.data(), n.size())));
 	/**
-	 * Выполняем подачу связанных данных по одному байту
+	 * Подаём связанные данные по одному байту
 	 */
 	for(size_t i = 0; i < associated.size(); i++)
 		// Проверяем подачу байта
@@ -661,9 +661,9 @@ TEST(ChachapolyTest, AssociatedPadding){
 TEST(ChachapolyTest, Starved){
 	// Разобранные байты
 	const std::vector <uint8_t> k = bytes(KEY_A5), n = bytes(NONCE_A5), a = bytes(AAD_A5), p = bytes(PLAIN_A5), s = bytes(SEALED_A5), t = bytes(TAG_A5);
-	// Шифртекст
+	// Буфер шифртекста
 	std::vector <uint8_t> sealed(p.size());
-	// Метка
+	// Буфер метки подлинности
 	uint8_t tag[cipher::CHACHAPOLY_TAG] = {0};
 	// Открытый текст
 	std::vector <uint8_t> opened(p.size());
@@ -676,14 +676,14 @@ TEST(ChachapolyTest, Starved){
 		starve::ration_t ration(0);
 		// Объект режима
 		cipher::chachapoly_t aead;
-		// Выполняем запуск режима
+		// Запускаем режим
 		outcome = aead.start(view_t(k.data(), k.size()), view_t(n.data(), n.size()));
 		// Если запуск прошёл
 		if(outcome)
 			// Подаём связанные данные
 			outcome = aead.associate(view_t(a.data(), a.size()));
 		/**
-		 * Выполняем подачу текста кусками по 37 байтов
+		 * Подаём текст кусками по 37 байтов
 		 */
 		for(size_t offset = 0; outcome && (offset < p.size()); offset += 37)
 			// Подаём очередной кусок
@@ -692,11 +692,11 @@ TEST(ChachapolyTest, Starved){
 		if(outcome)
 			// Снимаем метку
 			outcome = aead.finish(tag);
-		// Выполняем перезапуск режима
+		// Перезапускаем режим
 		reverse = aead.start(view_t(k.data(), k.size()), view_t(n.data(), n.size()));
 		// Если перезапуск прошёл
 		if(reverse)
-			// Выполняем разовое расшифрование
+			// Расшифровываем разово
 			reverse = aead.decrypt(view_t(a.data(), a.size()), view_t(s.data(), s.size()), opened.data(), view_t(t.data(), t.size()));
 	}
 	// Проверяем успешность зашифрования без единого выделения
@@ -724,7 +724,7 @@ TEST(ChachapolyTest, Paths){
 	// Объект режима
 	cipher::chachapoly_t aead;
 	/**
-	 * Выполняем перебор длин
+	 * Перебираем длины
 	 */
 	for(size_t length = 0; length <= 2048; length++){
 		// Смещения буферов от выравнивания
@@ -732,7 +732,7 @@ TEST(ChachapolyTest, Paths){
 		// Связанные данные случайной длины
 		std::vector <uint8_t> associated(generator() % 40);
 		/**
-		 * Выполняем заполнение связанных данных
+		 * Заполняем связанные данные
 		 */
 		for(size_t i = 0; i < associated.size(); i++)
 			// Записываем очередной байт
@@ -740,7 +740,7 @@ TEST(ChachapolyTest, Paths){
 		// Открытый текст с запасом под смещение
 		std::vector <uint8_t> plain(length + 16);
 		/**
-		 * Выполняем заполнение открытого текста
+		 * Заполняем открытый текст
 		 */
 		for(size_t i = 0; i < plain.size(); i++)
 			// Записываем очередной байт
@@ -762,7 +762,7 @@ TEST(ChachapolyTest, Paths){
 		// Позиция внутри данных
 		size_t position = 0;
 		/**
-		 * Выполняем расшифрование кусками случайной длины
+		 * Расшифровываем кусками случайной длины
 		 */
 		while(position < length){
 			// Длина очередного куска
@@ -787,7 +787,7 @@ TEST(ChachapolyTest, Paths){
 		// Сбрасываем позицию внутри данных
 		position = 0;
 		/**
-		 * Выполняем зашифрование кусками случайной длины
+		 * Зашифровываем кусками случайной длины
 		 */
 		while(position < length){
 			// Длина очередного куска

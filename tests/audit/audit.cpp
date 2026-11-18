@@ -116,7 +116,7 @@ namespace {
 	 * @return       признак успешности
 	 *
 	 */
-	static bool keyfile(const char * name, context::credential_t & result) noexcept {
+	static bool __nts_keyfile__(const char * name, context::credential_t & result) noexcept {
 		// Секрет читается из корпуса по имени ключа
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Присваиваем const vector <uint8_t> chain значение результат вызова corpus()
@@ -136,7 +136,7 @@ namespace {
 	 * @return       признак передачи
 	 *
 	 */
-	static bool pump(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Объявляем moved и инициализируем значение «false»
 		bool moved = false;
 		// Объявляем data и инициализируем результат вызова client.output()
@@ -175,9 +175,9 @@ namespace {
 	 * @param server сервер
 	 *
 	 */
-	static void converse(client::context_t & client, server::context_t & server) noexcept {
+	static void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/** Перебираем: size_t i = 0 при условии (i < 16) && pump(client, server) */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			continue;
 	}
 	/**
@@ -226,7 +226,7 @@ namespace {
 	 * @return           признак успешности
 	 *
 	 */
-	static bool ticketed(const context::credential_t & credential, const vector <protect::suite_t> & suites, context::ticket_t & accepted, vector <context::ticket_t> & issued) noexcept {
+	static bool __nts_ticketed__(const context::credential_t & credential, const vector <protect::suite_t> & suites, context::ticket_t & accepted, vector <context::ticket_t> & issued) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
 		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -251,7 +251,7 @@ namespace {
 			// Возвращаем значение «false»
 			return false;
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем, что «!client.established() || !server.established()»
 		if(!client.established() || !server.established())
 			// Возвращаем значение «false»
@@ -261,7 +261,7 @@ namespace {
 			// Возвращаем значение «false»
 			return false;
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем, что «client.tickets().empty()»
 		if(client.tickets().empty())
 			// Возвращаем значение «false»
@@ -287,14 +287,14 @@ TEST(AuditTest, TicketHistory){
 	// Подлинность стороны и её копия для переноса
 	context::credential_t credential, mine;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
-	ASSERT_TRUE(keyfile("ec384", mine));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec384", mine));
 	// Объявляем accepted
 	context::ticket_t accepted;
 	// Объявляем issued — накопитель изданных билетов
 	vector <context::ticket_t> issued;
 	// Подлинность с билетом стороны
-	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> (), accepted, issued));
+	ASSERT_TRUE(__nts_ticketed__(credential, vector <protect::suite_t> (), accepted, issued));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -317,7 +317,7 @@ TEST(AuditTest, TicketHistory){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (client.alert().description);
 	// Проверяем равенство client.version() и 0x0303
@@ -331,13 +331,13 @@ TEST(AuditTest, TicketReselect){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем accepted
 	context::ticket_t accepted;
 	// Объявляем issued — накопитель изданных билетов
 	vector <context::ticket_t> issued;
 	// Подлинность с билетом стороны
-	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256}, accepted, issued));
+	ASSERT_TRUE(__nts_ticketed__(credential, vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256}, accepted, issued));
 	// Присваиваем const vector <protect::suite_t> suites значение значение «{protect::suite_t::AES_256_GCM_SHA384, protect::suite_t…»
 	const vector <protect::suite_t> suites = {protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, protect::suite_t::AES_128_GCM_SHA256};
 	// Связь стороны клиента
@@ -362,7 +362,7 @@ TEST(AuditTest, TicketReselect){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем равенство server.suite() и protect::suite_t::AES_128_GCM_SHA256
@@ -379,13 +379,13 @@ TEST(AuditTest, EarlyBeforeRetry){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем accepted
 	context::ticket_t accepted;
 	// Объявляем issued — накопитель изданных билетов
 	vector <context::ticket_t> issued;
 	// Подлинность с билетом стороны
-	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> (), accepted, issued));
+	ASSERT_TRUE(__nts_ticketed__(credential, vector <protect::suite_t> (), accepted, issued));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -416,7 +416,7 @@ TEST(AuditTest, EarlyBeforeRetry){
 	// Требуем равенство client.write(view_t(payload.data(),… и context::error_t::NONE
 	ASSERT_EQ(client.write(view_t(payload.data(), payload.size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 	// Проверяем ложность «client.accepted()»
@@ -431,13 +431,13 @@ TEST(AuditTest, StaleTicketBudget){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем accepted
 	context::ticket_t accepted;
 	// Объявляем issued — накопитель изданных билетов
 	vector <context::ticket_t> issued;
 	// Подлинность с билетом стороны
-	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> (), accepted, issued));
+	ASSERT_TRUE(__nts_ticketed__(credential, vector <protect::suite_t> (), accepted, issued));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -462,7 +462,7 @@ TEST(AuditTest, StaleTicketBudget){
 	// Требуем равенство client.write(view_t(payload.data(),… и context::error_t::NONE
 	ASSERT_EQ(client.write(view_t(payload.data(), payload.size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 	// Проверяем ложность «server.shared()»
@@ -571,7 +571,7 @@ TEST(AuditTest, CcsAfterRetry){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -608,7 +608,7 @@ TEST(AuditTest, CcsAfterRetry){
 	// Требуем равенство server.push(view_t(second.data(), s… и context::error_t::NONE
 	ASSERT_EQ(server.push(view_t(second.data(), second.size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established());
 	// До первого приветствия та же запись по-прежнему отвергается
@@ -915,13 +915,13 @@ TEST(AuditTest, PskAfterRetry){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем accepted
 	context::ticket_t accepted;
 	// Объявляем issued — накопитель изданных билетов
 	vector <context::ticket_t> issued;
 	// Подлинность с билетом стороны
-	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> (), accepted, issued));
+	ASSERT_TRUE(__nts_ticketed__(credential, vector <protect::suite_t> (), accepted, issued));
 	// Объявляем first
 	client::context_t first;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -994,7 +994,7 @@ TEST(AuditTest, TicketEdition){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем accepted
 	context::ticket_t accepted;
 	// Объявляем issued — накопитель изданных билетов
@@ -1033,7 +1033,7 @@ TEST(AuditTest, TicketEdition){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь обеих сторон установлена
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Требуем равенство client.version() и 0x0303
@@ -1082,7 +1082,7 @@ TEST(AuditTest, TicketEdition){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем ложность «server.shared()»
@@ -1270,7 +1270,7 @@ TEST(AuditTest, PlainInjection){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1293,7 +1293,7 @@ TEST(AuditTest, PlainInjection){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	ASSERT_TRUE(client.established() && server.established());
 	// Открытая запись прикладных данных: заголовок DTLS и тело
@@ -1329,7 +1329,7 @@ TEST(AuditTest, PlainInjection){
 	// Защищённые данные ходят по-прежнему
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем равенство server.read(received) и context::error_t::NONE
 	EXPECT_EQ(server.read(received), context::error_t::NONE);
 	EXPECT_EQ(string(received.begin(), received.end()), text);
@@ -1342,7 +1342,7 @@ TEST(AuditTest, AckNudge){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1423,7 +1423,7 @@ TEST(AuditTest, AckNudge){
 		// Требуем равенство client.push(view_t(flight[i].data()… и context::error_t::NONE
 		ASSERT_EQ(client.push(view_t(flight[i].data(), flight[i].size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 }
@@ -1494,34 +1494,34 @@ TEST(AuditTest, GcmMostOneShot){
  */
 TEST(AuditTest, IntegerAlias){
 	// Объявляем a, b, m, expected и check
-	math::integer_t a, b, m, expected, check;
+	math::integer_t first, second, modulus, expected, check;
 	// Присваиваем const uint8_t modulus[8] значение значение «{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc5}»
-	const uint8_t modulus[8] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc5};
+	const uint8_t modulusBytes[8] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc5};
 	// Модуль загружен в структуру
-	ASSERT_TRUE(m.load(view_t(modulus, sizeof(modulus))));
+	ASSERT_TRUE(modulus.load(view_t(modulusBytes, sizeof(modulusBytes))));
 	// Формируем машинное слово
-	a.word(123456789);
+	first.word(123456789);
 	// Формируем машинное слово
-	b.word(987654321);
+	second.word(987654321);
 	// Произведение по модулю эталонным путём
-	ASSERT_TRUE(expected.mulmod(a, b, m, true));
-	ASSERT_TRUE(b.mulmod(a, b, m, true));
+	ASSERT_TRUE(expected.mulmod(first, second, modulus, true));
+	ASSERT_TRUE(second.mulmod(first, second, modulus, true));
 	// Итог совпал с эталонным произведением
-	EXPECT_TRUE(b.equal(expected));
+	EXPECT_TRUE(second.equal(expected));
 	// Объявляем e
-	math::integer_t e;
+	math::integer_t exponent;
 	// Формируем машинное слово
-	e.word(65537);
+	exponent.word(65537);
 	// Возведение в степень по модулю эталонным путём
-	ASSERT_TRUE(expected.power(a, e, m, static_cast <size_t> (17)));
-	ASSERT_TRUE(check.power(a, e, m, false));
+	ASSERT_TRUE(expected.power(first, exponent, modulus, static_cast <size_t> (17)));
+	ASSERT_TRUE(check.power(first, exponent, modulus, false));
 	// Итог совпал с контрольным значением
 	EXPECT_TRUE(expected.equal(check));
 	// Объявляем alias
 	math::integer_t alias;
 	// Модуль загружен в структуру
-	ASSERT_TRUE(alias.load(view_t(modulus, sizeof(modulus))));
-	ASSERT_TRUE(alias.power(a, e, alias, static_cast <size_t> (17)));
+	ASSERT_TRUE(alias.load(view_t(modulusBytes, sizeof(modulusBytes))));
+	ASSERT_TRUE(alias.power(first, exponent, alias, static_cast <size_t> (17)));
 	// Итог на совмещённом месте совпал с эталонным
 	EXPECT_TRUE(alias.equal(expected));
 }
@@ -1534,13 +1534,13 @@ TEST(AuditTest, SuiteAfterRetry){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем accepted
 	context::ticket_t accepted;
 	// Объявляем issued — накопитель изданных билетов
 	vector <context::ticket_t> issued;
 	// Подлинность с билетом стороны
-	ASSERT_TRUE(ticketed(credential, vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256}, accepted, issued));
+	ASSERT_TRUE(__nts_ticketed__(credential, vector <protect::suite_t> {protect::suite_t::AES_128_GCM_SHA256}, accepted, issued));
 	// Присваиваем const vector <protect::suite_t> suites значение значение «{protect::suite_t::AES_256_GCM_SHA384, protect::suite_t…»
 	const vector <protect::suite_t> suites = {protect::suite_t::AES_256_GCM_SHA384, protect::suite_t::AES_128_GCM_SHA256};
 	// Связь стороны клиента
@@ -1571,7 +1571,7 @@ TEST(AuditTest, SuiteAfterRetry){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем равенство server.suite() и protect::suite_t::AES_128_GCM_SHA256
@@ -1618,7 +1618,7 @@ TEST(AuditTest, OwedUpdate){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1641,7 +1641,7 @@ TEST(AuditTest, OwedUpdate){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	ASSERT_TRUE(client.established() && server.established());
 	// Клиент меняет ключи и ждёт подтверждения; сервер просит смену у клиента
@@ -1656,7 +1656,7 @@ TEST(AuditTest, OwedUpdate){
 	// Проверяем равенство client.write(view_t(reinterpret_cas… и context::error_t::NONE
 	EXPECT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Объявляем received — принятые байты
 	vector <uint8_t> received;
 	// Проверяем равенство server.read(received) и context::error_t::NONE
@@ -1667,7 +1667,7 @@ TEST(AuditTest, OwedUpdate){
 	// Проверяем равенство server.write(view_t(reinterpret_cas… и context::error_t::NONE
 	EXPECT_EQ(server.write(view_t(reinterpret_cast <const uint8_t *> (back.data()), back.size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Вызываем received.clear()
 	received.clear();
 	// Проверяем равенство client.read(received) и context::error_t::NONE
@@ -1748,7 +1748,7 @@ TEST(AuditTest, ChangeSpoof){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1778,7 +1778,7 @@ TEST(AuditTest, ChangeSpoof){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	ASSERT_TRUE(client.established() && server.established());
 	// Открытая запись смены набора руками: datagram::build() смену не складывает (круг 7)
@@ -1793,7 +1793,7 @@ TEST(AuditTest, ChangeSpoof){
 	// Требуем равенство client.write(view_t(reinterpret_cas… и context::error_t::NONE
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Объявляем received — принятые байты
 	vector <uint8_t> received;
 	// Проверяем равенство server.read(received) и context::error_t::NONE
@@ -1809,7 +1809,7 @@ TEST(AuditTest, PoisonedWindow){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -1850,7 +1850,7 @@ TEST(AuditTest, PoisonedWindow){
 	// Проверяем равенство client.push(view_t(poison.data(), p… и context::error_t::NONE
 	EXPECT_EQ(client.push(view_t(poison.data(), poison.size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 }
@@ -1952,6 +1952,7 @@ TEST(AuditTest, Residue){
 			ASSERT_TRUE(odd.add(modulus, one));
 			// Если число чётное, приводим его к нечётному добавлением модуля
 			if(!odd.odd()) odd.add(modulus, one), odd.add(odd, one);
+			// Короткие числа пропускаем
 			if(odd.bits() < 2) continue;
 			// Число всей ёмкости
 			ASSERT_TRUE(value.random(math::INTEGER_BITS));
@@ -2024,7 +2025,7 @@ TEST(AuditTest, FormerAck){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2272,7 +2273,7 @@ TEST(AuditTest, ServerProfileDatagram){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2295,7 +2296,7 @@ TEST(AuditTest, ServerProfileDatagram){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	ASSERT_TRUE(client.established() && server.established());
 	// Объявляем profile
@@ -2314,7 +2315,7 @@ TEST(AuditTest, WarningAlert){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2346,7 +2347,7 @@ TEST(AuditTest, WarningAlert){
 	// Проверяем неравенство client.state() и context::state_t::FAILED
 	EXPECT_NE(client.state(), context::state_t::FAILED);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Смертельный уровень рвёт связь по-прежнему
@@ -2386,7 +2387,7 @@ TEST(AuditTest, StatusAbsent){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа rsa2048
-	ASSERT_TRUE(keyfile("rsa2048", credential));
+	ASSERT_TRUE(__nts_keyfile__("rsa2048", credential));
 	// Присваиваем const vector <uint8_t> answer значение результат вызова corpus()
 	const vector <uint8_t> answer = corpus("ocsp/rsa2048.good.der");
 	// Требуем ложность «answer.empty()»
@@ -2447,7 +2448,7 @@ TEST(AuditTest, StatusAbsent){
 	EXPECT_NE(client.state(), context::state_t::FAILED);
 	EXPECT_NE(client.error(), context::error_t::ORDER);
 	// Переписка разошлась с сервером (он CertificateStatus слал): завершение не сойдётся у сервера, не у клиента
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем неравенство client.error() и context::error_t::ORDER
 	EXPECT_NE(client.error(), context::error_t::ORDER);
 	EXPECT_NE(client.alert().description, alert::description_t::UNEXPECTED);
@@ -2460,7 +2461,7 @@ TEST(AuditTest, Heartroom){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Профиль с расширением heartbeat (режим 1) от клиента-донора
 	fingerprint::profile_t profile;
 	{
@@ -2513,7 +2514,7 @@ TEST(AuditTest, Heartroom){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Вызываем client.mtu(600)
@@ -2534,7 +2535,7 @@ TEST(AuditTest, WarningModern){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Присваиваем const uint8_t DESCRIPTIONS[] значение значение «{51, 42, 109, 255}»
 	const uint8_t DESCRIPTIONS[] = {51, 42, 109, 255};
 	/** Перебираем: size_t i = 0 при условии i < sizeof(DESCRIPTIONS) */
@@ -2554,12 +2555,13 @@ TEST(AuditTest, WarningModern){
 			bool moved = false;
 			// Объявляем data и инициализируем результат вызова client.output()
 			view_t data = client.output();
-			// Выполняем «if(data.size > 0){ vector <uint8_t> buffer(data.data, d…», затем client.consume(buffer.size())
+			// // Снимаем готовый вывод клиента целикомfer.size())
 			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); client.consume(buffer.size()); server.push(view_t(buffer.data(), buffer.size())); moved = true; }
 			// Вывод сервера забирается целиком
 			data = server.output();
-			// Выполняем «if(data.size > 0){ vector <uint8_t> buffer(data.data, d…», затем server.consume(buffer.size())
+			// // Снимаем готовый вывод сервера целикомfer.size())
 			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); server.consume(buffer.size()); client.push(view_t(buffer.data(), buffer.size())); moved = true; }
+			// Перестаём гнать данные при простое сторон
 			if(!moved) break;
 		}
 		// Требуем равенство client.state() и context::state_t::ESTABLISHED
@@ -2601,7 +2603,7 @@ TEST(AuditTest, HeartbeatForbidden){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	/** Перебираем: uint8_t mode = 1 при условии mode <= 2 */
 	for(uint8_t mode = 1; mode <= 2; mode++){
 		// Объявляем profile
@@ -2644,7 +2646,7 @@ TEST(AuditTest, HeartbeatForbidden){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь обеих сторон установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Сервер шлёт запрос сердцебиения: при режиме 2 клиента ему это не дозволено (SETTINGS), при режиме 1 клиент отвечает
@@ -2652,7 +2654,7 @@ TEST(AuditTest, HeartbeatForbidden){
 		// Проверяем равенство server.heartbeat(view_t(reinterpret… и ((mode == 1) ? context::error_t::NO…
 		EXPECT_EQ(server.heartbeat(view_t(reinterpret_cast <const uint8_t *> (payload.data()), payload.size())), ((mode == 1) ? context::error_t::NONE : context::error_t::SETTINGS)) << static_cast <int> (mode);
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// При режиме 1 ответ пришёл, при режиме 2 - нет
 				EXPECT_EQ(server.pulses(), static_cast <size_t> ((mode == 1) ? 1 : 0)) << static_cast <int> (mode);
 	}
@@ -2666,7 +2668,7 @@ TEST(AuditTest, EchNoSkip){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -2856,7 +2858,7 @@ TEST(AuditTest, EchProfile){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем profile
 	fingerprint::profile_t profile;
 	{
@@ -2931,7 +2933,7 @@ TEST(AuditTest, EchProfile){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(second.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(second, server);
+	__nts_converse__(second, server);
 	// Связь второй стороны и сервера установлена
 	EXPECT_TRUE(second.established() && server.established()) << static_cast <int> (second.error()) << " " << static_cast <int> (server.error());
 	EXPECT_TRUE(second.shrouded());
@@ -3223,7 +3225,7 @@ TEST(AuditTest, DowngradeAfterRetry){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Присваиваем const vector <protect::suite_t> suites значение значение «{protect::suite_t::AES_128_GCM_SHA256, protect::suite_t…»
 	const vector <protect::suite_t> suites = {protect::suite_t::AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256};
 	// Связь стороны сервера
@@ -3290,7 +3292,7 @@ TEST(AuditTest, SuitesEmptyKept){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3328,7 +3330,7 @@ TEST(AuditTest, StapleIndex){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -3528,7 +3530,7 @@ TEST(AuditTest, ChangeMidflight){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -3599,7 +3601,7 @@ TEST(AuditTest, ChangeMidflight){
 		// Требуем равенство client.push(view_t(parts[i].data(),… и context::error_t::NONE
 		ASSERT_EQ(client.push(view_t(parts[i].data(), parts[i].size())), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established());
 }
@@ -3612,7 +3614,7 @@ TEST(AuditTest, EchGreaseProfile){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем profile
 	fingerprint::profile_t profile;
 	{
@@ -3672,7 +3674,7 @@ TEST(AuditTest, EchGreaseProfile){
 	// Проверяем равенство count и static_cast <size_t> (1)
 	EXPECT_EQ(count, static_cast <size_t> (1));
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established());
 	EXPECT_TRUE(client.shrouded());
@@ -3687,7 +3689,7 @@ TEST(AuditTest, PlainRepeat){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -3714,7 +3716,7 @@ TEST(AuditTest, PlainRepeat){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	ASSERT_TRUE(client.established() && server.established());
 	// Забираем все дейтаграммы стороны, отбрасывая результат
@@ -3795,7 +3797,7 @@ TEST(AuditTest, LimitCarve){
 	// Объявляем records и инициализируем значение «0»
 	size_t records = 0;
 	/**
-	 * Выполняем перебор дейтаграмм и записей в них
+	 * Перебираем дейтаграммы и записи в них
 	 */
 	while(flight.output().size > 0){
 		// Объявляем data и инициализируем результат вызова flight.output()
@@ -3855,9 +3857,9 @@ TEST(AuditTest, PlainOversizeLimit){
 	// Объявляем bound и инициализируем значение «0»
 	uint16_t bound = 0;
 	// Объявляем fd и инициализируем результат вызова __nts_socketing__()
-	const int fd = __nts_socketing__(0, bound);
+	const int own = __nts_socketing__(0, bound);
 	// Требуем: fd не меньше 0
-	ASSERT_GE(fd, 0);
+	ASSERT_GE(own, 0);
 	// Объявляем sockaddr_in размером peer
 	struct sockaddr_in peer;
 	// Заполняем область &peer (sizeof(peer) нулевым байтом
@@ -3911,7 +3913,7 @@ TEST(AuditTest, PlainOversizeLimit){
 	ASSERT_EQ(client.profile(profile), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Перекачка дейтаграмм через сокет
-	ASSERT_TRUE(__nts_relay__(client, fd, peer, 400));
+	ASSERT_TRUE(__nts_relay__(client, own, peer, 400));
 	ASSERT_TRUE(client.established());
 	// Чужая открытая запись рукопожатия в 700 байтов содержимого номером далеко впереди окна
 	datagram::fragment_t fragment;
@@ -3965,7 +3967,7 @@ TEST(AuditTest, PlainOversizeLimit){
 		// Проверяем: data.size не больше static_cast <size_t> (512 + datagra…
 		EXPECT_LE(data.size, static_cast <size_t> (512 + datagram::DATAGRAM_PLAIN_HEADER + 8 + 16));
 		// Отправляем дейтаграмму на адрес стороны
-		(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
+		(void) sendingto(own, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
 		// Забираем обработанные стороной байты
 		client.consume(data.size);
 		// Увеличиваем счётчик полученных дейтаграмм
@@ -3976,9 +3978,9 @@ TEST(AuditTest, PlainOversizeLimit){
 	// Сервер данные принял и связи не рвал
 	(void) client.close();
 	// Вызываем __nts_relay__(client, fd, peer, 2)
-	__nts_relay__(client, fd, peer, 2);
+	__nts_relay__(client, own, peer, 2);
 	// Вызываем closing(fd)
-	closing(fd);
+	closing(own);
 	// Вызываем sentinel.halt()
 	sentinel.halt();
 	// Даём обмену стихнуть
@@ -4164,7 +4166,7 @@ TEST(AuditTest, OcspWeak){
 	// Требуем ложность «root.empty()»
 	ASSERT_FALSE(root.empty());
 	ASSERT_FALSE(leaf.empty());
-	// Выполняем «const struct { const char * name;», затем ocsp::error_t expected
+	// // Перебираем случаи разбора откликов OCSP
 	const struct { const char * name; ocsp::error_t expected; } CASES[] = {
 		// Файл отклика OCSP и ожидаемый статус его разбора
 		{"audit/r7-ocsp-sha256.der", ocsp::error_t::NONE},
@@ -4462,7 +4464,7 @@ TEST(AuditTest, KeyShareNoGroups){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -4613,7 +4615,7 @@ TEST(AuditTest, ChangeBadBody){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -4665,7 +4667,7 @@ TEST(AuditTest, ChangeBadBody){
 	EXPECT_EQ(server.push(view_t(forged.data(), forged.size())), context::error_t::NONE);
 	EXPECT_EQ(server.state(), context::state_t::HANDSHAKE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Связь обеих сторон установлена
 	EXPECT_TRUE(client.established() && server.established());
 }
@@ -4679,7 +4681,7 @@ TEST(AuditTest, AuthenticationAge){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем vault — хранилище секрета и заполняем накопитель (48, 0x5C)
 	const vector <uint8_t> vault(48, 0x5C);
 	// Объявляем origin и инициализируем значение «1700000000»
@@ -4723,7 +4725,7 @@ TEST(AuditTest, AuthenticationAge){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь обеих сторон установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Требуем равенство client.tickets().size() и static_cast <size_t> (1)
@@ -4768,7 +4770,7 @@ TEST(AuditTest, AuthenticationAge){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь обеих сторон установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Клиент разделил секреты со стороной
@@ -4815,7 +4817,7 @@ TEST(AuditTest, AuthenticationAge){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь обеих сторон установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем ложность «client.shared()»
@@ -4862,7 +4864,7 @@ TEST(AuditTest, AuthenticationAge){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь обеих сторон установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем ложность «client.shared()»
@@ -4878,7 +4880,7 @@ TEST(AuditTest, TicketEditionMismatch){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем vault — хранилище секрета и заполняем накопитель (48, 0x5C)
 	const vector <uint8_t> vault(48, 0x5C);
 	// Объявляем ticket
@@ -4907,7 +4909,7 @@ TEST(AuditTest, TicketEditionMismatch){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь сторон до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Связь обеих сторон установлена
 		ASSERT_TRUE(client.established() && server.established());
 		// Требуем равенство client.tickets().size() и static_cast <size_t> (1)
@@ -4944,7 +4946,7 @@ TEST(AuditTest, TicketEditionMismatch){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим связь сторон до тишины
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем равенство client.state() и context::state_t::FAILED
 	EXPECT_EQ(client.state(), context::state_t::FAILED);
 	EXPECT_EQ(client.error(), context::error_t::VERSION);
@@ -5013,7 +5015,7 @@ TEST(AuditTest, HeartbeatBleed){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны из файла ключа ec256
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Профиль клиента с расширением heartbeat в режиме peer_allowed_to_send
 	fingerprint::profile_t profile;
 	{
@@ -5059,12 +5061,13 @@ TEST(AuditTest, HeartbeatBleed){
 			bool moved = false;
 			// Объявляем data и инициализируем результат вызова client.output()
 			view_t data = client.output();
-			// Выполняем «if(data.size > 0){ vector <uint8_t> buffer(data.data, d…», затем client.consume(buffer.size())
+			// // Снимаем готовый вывод клиента целикомfer.size())
 			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); client.consume(buffer.size()); server.push(view_t(buffer.data(), buffer.size())); moved = true; }
 			// Вывод сервера забирается целиком
 			data = server.output();
-			// Выполняем «if(data.size > 0){ vector <uint8_t> buffer(data.data, d…», затем server.consume(buffer.size())
+			// // Снимаем готовый вывод сервера целикомfer.size())
 			if(data.size > 0){ vector <uint8_t> buffer(data.data, data.data + data.size); server.consume(buffer.size()); client.push(view_t(buffer.data(), buffer.size())); moved = true; }
+			// Перестаём гнать данные при простое сторон
 			if(!moved) break;
 		}
 		// Требуем равенство server.state() и context::state_t::ESTABLISHED)
@@ -5160,7 +5163,7 @@ namespace {
 	template <typename Tag, typename Tag::type Member>
 	struct Peek {
 		/**
-		 * @brief Дружественная функция: указатель на член по метке
+		 * @brief Функция возврата указателя на член по метке (дружественная)
 		 *
 		 */
 		friend typename Tag::type peek(Tag){ return Member; }
@@ -5198,11 +5201,11 @@ namespace {
 	 * @return     число нулевых байтов
 	 *
 	 */
-	static size_t zeros(const uint8_t * data, const size_t size) noexcept {
+	static size_t __nts_zeros__(const uint8_t * data, const size_t size) noexcept {
 		// Число нулевых байтов
 		size_t result = 0;
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байты
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Учитываем нулевой байт
@@ -5223,18 +5226,18 @@ namespace {
 TEST(AuditTest, PlaintextCleansing){
 	// Подлинность стороны сервера
 	context::credential_t credential;
-	// Выполняем чтение подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	// Читаем подлинность из набора
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Прикладные данные без нулевых байтов
 	vector <uint8_t> payload(700);
 	/**
-	 * Выполняем заполнение прикладных данных
+	 * Заполняем прикладные данные
 	 */
 	for(size_t i = 0; i < payload.size(); i++)
 		// Заполняем байт ненулевым значением
 		payload[i] = static_cast <uint8_t> (0x21 + (i % 90));
 	/**
-	 * Выполняем перебор режимов: без класса и с классом
+	 * Перебираем режимы: без класса и с классом
 	 */
 	for(uint8_t mode = 0; mode < 2; mode++){
 		// Движки сторон связи
@@ -5247,12 +5250,12 @@ TEST(AuditTest, PlaintextCleansing){
 		if(mode == 1)
 			// Устанавливаем классы затирания серверу
 			server.wiping(vector <context::wiping_t> {context::wiping_t::SECRETS, context::wiping_t::PLAINTEXT});
-		// Выполняем заведение связи стороны сервера
+		// Заводим связь стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
-		// Выполняем заведение связи стороны клиента
+		// Заводим связь стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем проведение рукопожатия сторон связи
+		 * Проводим рукопожатие сторон связи
 		 */
 		for(size_t round = 0; round < 16; round++){
 			// Признак передачи байтов
@@ -5281,7 +5284,7 @@ TEST(AuditTest, PlaintextCleansing){
 		 */
 		ASSERT_GT(opened.size(), static_cast <size_t> (0)) << "режим " << static_cast <int> (mode);
 		// Число нулевых байтов в накопителе открытого содержимого
-		const size_t cleared = zeros(opened.data(), opened.size());
+		const size_t cleared = __nts_zeros__(opened.data(), opened.size());
 		// Проверяем: накопитель прикладных данных после отзыва пуст, память его остаётся с движком
 		ASSERT_TRUE(plain.empty()) << "режим " << static_cast <int> (mode);
 		// Требуем: plain.capacity() не меньше opened.size())
@@ -5289,7 +5292,7 @@ TEST(AuditTest, PlaintextCleansing){
 		// Снимаем отраву с буфера накопителя за его размером
 		ANTS_AUDIT_UNPOISON(plain.data(), opened.size());
 		// Число нулевых байтов в отозванном хвосте накопителя прикладных данных
-		const size_t retracted = zeros(plain.data(), opened.size());
+		const size_t retracted = __nts_zeros__(plain.data(), opened.size());
 		// Если режим без класса
 		if(mode == 0){
 			// Проверяем сохранность открытого содержимого: затирания нет (нули заголовка сообщения не в счёт)
@@ -5303,7 +5306,7 @@ TEST(AuditTest, PlaintextCleansing){
 			// Проверяем затирание отозванного хвоста целиком
 			EXPECT_EQ(retracted, opened.size()) << "с классом PLAINTEXT отозванный хвост не затёрт";
 		}
-		// Выполняем отправку прикладных данных клиентом
+		// Отправляем прикладные данные клиентом
 		ASSERT_EQ(client.write(view_t(payload.data(), payload.size())), context::error_t::NONE);
 		// Байты клиента серверу
 		const view_t data = client.output();
@@ -5311,9 +5314,9 @@ TEST(AuditTest, PlaintextCleansing){
 		ASSERT_GT(data.size, static_cast <size_t> (0));
 		// Копия записи
 		const vector <uint8_t> buffer(data.data, data.data + data.size);
-		// Выполняем снятие записи с накопителя клиента
+		// Снимаем запись с накопителя клиента
 		client.consume(buffer.size());
-		// Выполняем подачу записи серверу
+		// Подаём запись серверу
 		ASSERT_EQ(server.push(view_t(buffer.data(), buffer.size())), context::error_t::NONE) << "режим " << static_cast <int> (mode);
 		// Проверяем: прикладные данные лежат в накопителе прикладных данных без копии
 		ASSERT_EQ(plain.size(), payload.size()) << "режим " << static_cast <int> (mode);
@@ -5321,7 +5324,7 @@ TEST(AuditTest, PlaintextCleansing){
 		ASSERT_TRUE(opened.empty()) << "режим " << static_cast <int> (mode);
 		// Накопитель принятых данных
 		vector <uint8_t> received;
-		// Выполняем получение принятых сервером прикладных данных
+		// Получаем принятые сервером прикладные данные
 		ASSERT_EQ(server.read(received), context::error_t::NONE);
 		// Проверяем схождение принятых данных с отправленными
 		ASSERT_EQ(received, payload) << "режим " << static_cast <int> (mode);
@@ -5341,7 +5344,7 @@ TEST(AuditTest, PlaintextCleansing){
 		// Снимаем отраву с буфера накопителя за его размером
 		ANTS_AUDIT_UNPOISON(plain.data(), payload.size());
 		// Число нулевых байтов в буфере прикладных данных
-		const size_t blanked = zeros(plain.data(), payload.size());
+		const size_t blanked = __nts_zeros__(plain.data(), payload.size());
 		// Если режим без класса
 		if(mode == 0)
 			// Проверяем сохранность прежних байтов в буфере: затирания нет
@@ -5375,14 +5378,14 @@ TEST(AuditTest, SecretsViaPurge){
 	// Начало очередной строки
 	size_t offset = 0;
 	/**
-	 * Выполняем перебор строк исходника
+	 * Перебираем строки исходника
 	 */
 	while(offset < source.size()){
 		// Конец строки
 		size_t end = source.find('\n', offset);
 		// Если конца строки нет
 		if(end == std::string::npos) end = source.size();
-		// Строка
+		// Очередная строка исходника
 		const std::string line = source.substr(offset, end - offset);
 		// Начало содержимого строки без отступа
 		const size_t start = line.find_first_not_of('\t');

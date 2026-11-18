@@ -50,7 +50,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков
+	 * Перебираем пары знаков
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2)
 		// Добавляем очередной байт
@@ -73,7 +73,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -122,7 +122,7 @@ static void check(const std::string & key, const std::string & message, const st
 	ASSERT_TRUE(poly.start(view_t(k.data(), k.size()))) << "случай " << expected;
 	// Проверяем подачу разом
 	ASSERT_TRUE(poly.update(view_t(m.data(), m.size()))) << "случай " << expected;
-	// Метка
+	// Буфер метки подлинности
 	uint8_t tag[cipher::POLY1305_TAG];
 	// Проверяем снятие метки
 	ASSERT_TRUE(poly.finish(tag)) << "случай " << expected;
@@ -133,7 +133,7 @@ static void check(const std::string & key, const std::string & message, const st
 	// Проверяем отказ подачи после снятия
 	ASSERT_FALSE(poly.update(view_t(m.data(), m.size())));
 	/**
-	 * Выполняем поточную проверку по всем размерам куска
+	 * Проверяем поточно по всем размерам куска
 	 */
 	for(const size_t chunk : CHUNKS){
 		// Проверяем перезапуск
@@ -141,7 +141,7 @@ static void check(const std::string & key, const std::string & message, const st
 		// Проверяем подачу пустого куска
 		ASSERT_TRUE(poly.update(view_t())) << "кусок " << chunk;
 		/**
-		 * Выполняем подачу сообщения кусками
+		 * Подаём сообщение кусками
 		 */
 		for(size_t offset = 0; offset < m.size(); offset += chunk)
 			// Проверяем подачу куска
@@ -195,11 +195,11 @@ TEST(Poly1305Test, Appendix){
  * Проверка отказов договора
  */
 TEST(Poly1305Test, Refusals){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes("85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b");
 	// Объект имитовставки
 	cipher::poly1305_t poly;
-	// Метка
+	// Буфер метки подлинности
 	uint8_t tag[cipher::POLY1305_TAG];
 	// Проверяем неготовность до запуска
 	ASSERT_FALSE(poly.ready());
@@ -229,7 +229,7 @@ TEST(Poly1305Test, Refusals){
 	ASSERT_FALSE(poly.ready());
 	// Проверяем перезапуск
 	ASSERT_TRUE(poly.start(view_t(key.data(), key.size())));
-	// Выполняем сброс
+	// Сбрасываем состояние
 	poly.clear();
 	// Проверяем неготовность после сброса
 	ASSERT_FALSE(poly.ready());
@@ -241,11 +241,11 @@ TEST(Poly1305Test, Refusals){
  * Нехватка памяти: имитовставка не выделяет памяти вовсе и обязана работать при нулевом запасе
  */
 TEST(Poly1305Test, Starved){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes("1c9240a5eb55d38af333888604f6b5f0473917c1402b80099dca5cbc207075c0");
-	// Сообщение
+	// Сообщение контрольного примера
 	const std::vector <uint8_t> message = bytes(IETF);
-	// Метка
+	// Буфер метки подлинности
 	uint8_t tag[cipher::POLY1305_TAG] = {0};
 	// Итог работы
 	bool outcome = false;
@@ -254,10 +254,10 @@ TEST(Poly1305Test, Starved){
 		starve::ration_t ration(0);
 		// Объект имитовставки
 		cipher::poly1305_t poly;
-		// Выполняем запуск
+		// Запускаем имитовставку
 		outcome = poly.start(view_t(key.data(), key.size()));
 		/**
-		 * Выполняем подачу сообщения кусками по 37 байтов
+		 * Подаём сообщение кусками по 37 байтов
 		 */
 		for(size_t offset = 0; outcome && (offset < message.size()); offset += 37)
 			// Подаём очередной кусок
@@ -296,23 +296,23 @@ TEST(Poly1305Test, Resume){
 	// Длины сообщений: от двух восьмёрок блоков до нескольких тысяч байтов
 	const size_t lengths[] = {256, 300, 512, 640, 777, 1024, 1200, 2048, 2303, 4096};
 	/**
-	 * Выполняем перебор длин
+	 * Перебираем длины
 	 */
 	for(const size_t length : lengths){
 		/**
-		 * Выполняем несколько нарезок на каждую длину
+		 * Повторяем нарезку несколько раз на каждую длину
 		 */
 		for(size_t round = 0; round < 8; round++){
 			// Ключ и сообщение
 			std::vector <uint8_t> key(cipher::POLY1305_KEY), message(length);
 			/**
-			 * Выполняем заполнение ключа
+			 * Заполняем ключ
 			 */
 			for(size_t i = 0; i < key.size(); i++)
 				// Записываем очередной байт
 				key[i] = static_cast <uint8_t> (generator());
 			/**
-			 * Выполняем заполнение сообщения
+			 * Заполняем сообщение
 			 */
 			for(size_t i = 0; i < message.size(); i++)
 				// Записываем очередной байт
@@ -330,7 +330,7 @@ TEST(Poly1305Test, Resume){
 			// Позиция внутри сообщения
 			size_t position = 0;
 			/**
-			 * Выполняем подачу кусками, среди которых длинные: путь машины входит в
+			 * Подаём кусками, среди которых длинные: путь машины входит в
 			 * сложение восьмёрок с ненулевым накопителем от прежних кусков
 			 */
 			while(position < length){
@@ -364,19 +364,19 @@ TEST(Poly1305Test, Pairs){
 	// Объект имитовставки
 	cipher::poly1305_t poly;
 	/**
-	 * Выполняем перебор длин
+	 * Перебираем длины
 	 */
 	for(size_t length = 0; length <= 1024; length++){
 		// Ключ и сообщение
 		std::vector <uint8_t> key(cipher::POLY1305_KEY), message(length);
 		/**
-		 * Выполняем заполнение ключа
+		 * Заполняем ключ
 		 */
 		for(size_t i = 0; i < key.size(); i++)
 			// Записываем очередной байт
 			key[i] = static_cast <uint8_t> (generator());
 		/**
-		 * Выполняем заполнение сообщения
+		 * Заполняем сообщение
 		 */
 		for(size_t i = 0; i < message.size(); i++)
 			// Записываем очередной байт
@@ -392,7 +392,7 @@ TEST(Poly1305Test, Pairs){
 		// Проверяем перезапуск имитовставки
 		ASSERT_TRUE(poly.start(view_t(key.data(), key.size())));
 		/**
-		 * Выполняем подачу сообщения по блокам: только одиночными
+		 * Подаём сообщение по блокам: только одиночными
 		 */
 		for(size_t position = 0; position < length; position += cipher::POLY1305_TAG)
 			// Проверяем подачу очередного блока
@@ -402,7 +402,7 @@ TEST(Poly1305Test, Pairs){
 		// Проверяем перезапуск имитовставки
 		ASSERT_TRUE(poly.start(view_t(key.data(), key.size())));
 		/**
-		 * Выполняем подачу сообщения по одному байту: через накопитель
+		 * Подаём сообщение по одному байту: через накопитель
 		 */
 		for(size_t position = 0; position < length; position++)
 			// Проверяем подачу очередного байта
@@ -432,23 +432,23 @@ TEST(Poly1305Test, Reuse){
 	// Длины сообщений вперемешку: длинные ведут векторные ветви со степенями, короткие - неполный блок
 	static const size_t LENGTHS[] = {1200, 34, 1200, 5, 0, 1201, 17, 2048, 15, 16, 1024, 1};
 	/**
-	 * Выполняем три круга по длинам
+	 * Повторяем три круга по длинам
 	 */
 	for(size_t round = 0; round < 3; round++){
 		/**
-		 * Выполняем перебор длин
+		 * Перебираем длины
 		 */
 		for(const size_t length : LENGTHS){
 			// Ключ и сообщение
 			std::vector <uint8_t> key(cipher::POLY1305_KEY), message(length);
 			/**
-			 * Выполняем заполнение ключа
+			 * Заполняем ключ
 			 */
 			for(size_t i = 0; i < key.size(); i++)
 				// Записываем очередной байт
 				key[i] = static_cast <uint8_t> (generator());
 			/**
-			 * Выполняем заполнение сообщения
+			 * Заполняем сообщение
 			 */
 			for(size_t i = 0; i < message.size(); i++)
 				// Записываем очередной байт
@@ -464,7 +464,7 @@ TEST(Poly1305Test, Reuse){
 			// Проверяем перезапуск живущего объекта под новый ключ
 			ASSERT_TRUE(poly.start(view_t(key.data(), key.size()))) << "длина " << length << " круг " << round;
 			/**
-			 * Выполняем подачу сообщения кусками по семь байтов: неполный блок на каждом шаге
+			 * Подаём сообщение кусками по семь байтов: неполный блок на каждом шаге
 			 */
 			for(size_t offset = 0; offset < length; offset += 7)
 				// Проверяем подачу очередного куска
@@ -486,7 +486,7 @@ TEST(Poly1305Test, Reuse){
 	// Брошенное сообщение с неполным блоком: запуск, подача без снятия метки
 	std::vector <uint8_t> abandoned(1205);
 	/**
-	 * Выполняем заполнение брошенного сообщения
+	 * Заполняем брошенное сообщение
 	 */
 	for(size_t i = 0; i < abandoned.size(); i++)
 		// Записываем очередной байт

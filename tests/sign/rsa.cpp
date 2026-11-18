@@ -70,13 +70,13 @@ static std::vector <uint8_t> bytes(const char * text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -104,7 +104,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -404,6 +404,12 @@ static const char * COEFFICIENT =
 #elif defined(__linux__) || defined(__FreeBSD__)
 	#include <malloc.h>
 #endif
+/**
+ * @brief Служебные объекты наблюдения кучи
+ *
+ */
+namespace {
+
 // Образец приватного DER, по которому ищутся следы в куче
 static std::vector <uint8_t> imprint;
 // Число найденных следов образца в освобождённых блоках
@@ -438,6 +444,8 @@ static void __nts_inspect__(void * data) noexcept {
 		// След найден: приватный DER лежит в освобождённом блоке незатёртым
 		if(::memcmp(bytes + i, imprint.data(), imprint.size()) == 0){ traces++; return; }
 	}
+}
+
 }
 
 TEST(RsaTest, Decode) {
@@ -610,7 +618,7 @@ TEST(RsaTest, Starved) {
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе запись обязана ответить
+	 * Перебираем запасы выделений: на всяком запасе запись обязана ответить
 	 * либо успехом, либо отказом, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 64; budget++){
@@ -621,7 +629,7 @@ TEST(RsaTest, Starved) {
 		{
 			// Отмеряем запас выделений на время записи
 			starve::ration_t ration(budget);
-			// Выполняем запись ключа при отмеренном запасе
+			// Записываем ключ при отмеренном запасе
 			outcome = rsa.encode(true, result);
 		}
 		// Если запись удалась, она обязана совпасть с записью OpenSSL
@@ -752,13 +760,13 @@ TEST(RsaTest, Verify) {
 	// Обе подписи
 	std::vector <uint8_t> signatures[2] = {bytes(SIGNATURE_PKCS1), bytes(SIGNATURE_PSS)};
 	/**
-	 * Выполняем перебор схем подписи
+	 * Перебираем схемы подписи
 	 */
 	for(size_t j = 0; j < 2; j++){
 		// Схема подписи
 		const sign::scheme_t scheme = ((j == 0) ? sign::scheme_t::PKCS1 : sign::scheme_t::PSS);
 		/**
-		 * Выполняем порчу подписи по одному байту в разных местах
+		 * Портим подпись по одному байту в разных местах
 		 */
 		for(size_t i = 0; i < signatures[j].size(); i += 17){
 			// Портим байт подписи
@@ -802,7 +810,7 @@ TEST(RsaTest, Sign) {
 	// Соль подписи PSS: байты от 1 до 32
 	uint8_t salt[32];
 	/**
-	 * Выполняем заполнение соли
+	 * Заполняем соль
 	 */
 	for(size_t i = 0; i < sizeof(salt); i++)
 		// Записываем очередной байт соли
@@ -834,7 +842,7 @@ TEST(RsaTest, Sign) {
 	// Схема OAEP для подписи не годится
 	ASSERT_FALSE(rsa.make(sign::scheme_t::OAEP, digest::hash_t::SHA256, view_t(hash, size), signature));
 	/**
-	 * Выполняем перебор всех допустимых хешей PKCS #1: подпись и проверка своими
+	 * Перебираем все допустимые хеши PKCS #1: подпись и проверка своими
 	 */
 	for(const digest::hash_t algorithm : {digest::hash_t::MD5, digest::hash_t::SHA1, digest::hash_t::SHA224, digest::hash_t::SHA256, digest::hash_t::SHA384, digest::hash_t::SHA512}){
 		// Вырабатываем хеш сообщения
@@ -869,7 +877,7 @@ TEST(RsaTest, Blinding) {
 	// Место подписи
 	uint8_t signature[256];
 	/**
-	 * Выполняем семьдесят подписей подряд: пара ослепления обновляется квадратами и дважды сменяется свежей;
+	 * Подписываем семьдесят раз подряд: пара ослепления обновляется квадратами и дважды сменяется свежей;
 	 * подпись PKCS #1 детерминирована и сличается с подписью OpenSSL на каждом действии
 	 */
 	for(size_t i = 0; i < 70; i++){
@@ -910,7 +918,7 @@ TEST(RsaTest, Concurrent) {
 	// Потоки подписи
 	std::vector <std::thread> threads;
 	/**
-	 * Выполняем запуск потоков: каждый подписывает одним и тем же объектом ключа
+	 * Запускаем потоки: каждый подписывает одним и тем же объектом ключа
 	 */
 	for(size_t t = 0; t < THREADS; t++)
 		// Запускаем очередной поток
@@ -918,7 +926,7 @@ TEST(RsaTest, Concurrent) {
 			// Место подписи
 			uint8_t signature[256];
 			/**
-			 * Выполняем подписи подряд
+			 * Подписываем подряд
 			 */
 			for(size_t i = 0; i < ROUNDS; i++){
 				// Если подпись не выработалась
@@ -932,7 +940,7 @@ TEST(RsaTest, Concurrent) {
 			}
 		});
 	/**
-	 * Выполняем ожидание потоков
+	 * Дожидаемся потоков
 	 */
 	for(auto & thread : threads)
 		// Ожидаем очередной поток
@@ -982,13 +990,13 @@ TEST(RsaTest, Decrypt) {
 	// Оба шифротекста
 	std::vector <uint8_t> ciphertexts[2] = {bytes(CIPHERTEXT_OAEP), bytes(CIPHERTEXT_PKCS1)};
 	/**
-	 * Выполняем перебор схем шифрования
+	 * Перебираем схемы шифрования
 	 */
 	for(size_t j = 0; j < 2; j++){
 		// Схема шифрования
 		const sign::scheme_t scheme = ((j == 0) ? sign::scheme_t::OAEP : sign::scheme_t::PKCS1);
 		/**
-		 * Выполняем порчу шифротекста по одному байту в разных местах
+		 * Портим шифротекст по одному байту в разных местах
 		 */
 		for(size_t i = 0; i < ciphertexts[j].size(); i += 31){
 			// Портим байт шифротекста
@@ -1020,7 +1028,7 @@ TEST(RsaTest, Encrypt) {
 	// Затравка OAEP: байты от 0xA0
 	uint8_t seed[32];
 	/**
-	 * Выполняем заполнение затравки
+	 * Заполняем затравку
 	 */
 	for(size_t i = 0; i < sizeof(seed); i++)
 		// Записываем очередной байт затравки
@@ -1034,7 +1042,7 @@ TEST(RsaTest, Encrypt) {
 	// Дополнение PKCS #1 v1.5: байты от 1 до 255 по кругу
 	std::vector <uint8_t> padding(256 - 3 - ::strlen(PLAINTEXT));
 	/**
-	 * Выполняем заполнение дополнения
+	 * Заполняем дополнение
 	 */
 	for(size_t i = 0; i < padding.size(); i++)
 		// Записываем очередной байт дополнения
@@ -1061,7 +1069,7 @@ TEST(RsaTest, Encrypt) {
 	::memset(message, 0x5A, sizeof(message));
 	// Шифруем самое длинное сообщение
 	ASSERT_TRUE(rsa.encrypt(sign::scheme_t::OAEP, digest::hash_t::SHA256, view_t(message, 190), ciphertext));
-	// Расшифровываем
+	// Расшифровываем самое длинное сообщение
 	ASSERT_TRUE(rsa.decrypt(sign::scheme_t::OAEP, digest::hash_t::SHA256, view_t(ciphertext, sizeof(ciphertext)), output, size));
 	// Проверяем длину
 	ASSERT_EQ(size, static_cast <size_t> (190));
@@ -1071,7 +1079,7 @@ TEST(RsaTest, Encrypt) {
 	ASSERT_FALSE(rsa.encrypt(sign::scheme_t::OAEP, digest::hash_t::SHA256, view_t(message, 191), ciphertext));
 	// Самое длинное сообщение PKCS #1 v1.5: 256 - 11 байтов
 	ASSERT_TRUE(rsa.encrypt(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(message, 245), ciphertext));
-	// Расшифровываем
+	// Расшифровываем самое длинное сообщение
 	ASSERT_TRUE(rsa.decrypt(sign::scheme_t::PKCS1, digest::hash_t::NONE, view_t(ciphertext, sizeof(ciphertext)), output, size));
 	// Проверяем длину
 	ASSERT_EQ(size, static_cast <size_t> (245));
@@ -1117,15 +1125,15 @@ TEST(RsaTest, Raw) {
 	const std::vector <uint8_t> input = bytes(PRIME1);
 	// Места итогов
 	uint8_t enciphered[256], deciphered[256];
-	// Выполняем открытое действие
+	// Возводим сообщение в открытую степень
 	ASSERT_TRUE(rsa.encipher(view(input), enciphered));
-	// Выполняем секретное действие над итогом
+	// Возводим итог в секретную степень
 	ASSERT_TRUE(rsa.decipher(view_t(enciphered, sizeof(enciphered)), deciphered));
 	// Итог дополнен ведущими нулями до размера модуля
 	ASSERT_EQ(text(deciphered, sizeof(deciphered)), std::string((256 - input.size()) * 2, '0').append(text(input.data(), input.size())));
 	// Действия перестановочны
 	ASSERT_TRUE(rsa.decipher(view(input), deciphered));
-	// Выполняем открытое действие над итогом секретного
+	// Возводим итог секретного действия в открытую степень
 	ASSERT_TRUE(rsa.encipher(view_t(deciphered, sizeof(deciphered)), enciphered));
 	// Проверяем восстановление
 	ASSERT_EQ(text(enciphered, sizeof(enciphered)), std::string((256 - input.size()) * 2, '0').append(text(input.data(), input.size())));
@@ -1197,7 +1205,7 @@ TEST(RsaTest, Generate) {
 	ASSERT_TRUE(product.multiply(prime1, prime2));
 	// Сличаем с модулем
 	ASSERT_TRUE(product.equal(modulus));
-	// Единица
+	// Единичное число
 	math::integer_t one, lessened, unit;
 	// Записываем единицу
 	one.word(1);
@@ -1244,7 +1252,7 @@ TEST(RsaTest, Generate) {
 	uint8_t hash[32];
 	// Вырабатываем хеш
 	const size_t size = hashed(digest::hash_t::SHA256, hash);
-	// Подпись
+	// Буфер подписи
 	uint8_t signature[256];
 	// Подписываем порождённым ключом
 	ASSERT_TRUE(rsa.make(sign::scheme_t::PSS, digest::hash_t::SHA256, view_t(hash, size), signature));
@@ -1260,7 +1268,7 @@ TEST(RsaTest, Generate) {
 	size_t length = 0;
 	// Шифруем порождённым ключом
 	ASSERT_TRUE(rsa.encrypt(sign::scheme_t::OAEP, digest::hash_t::SHA256, view(PLAINTEXT), ciphertext));
-	// Расшифровываем
+	// Расшифровываем зашифрованное сообщение
 	ASSERT_TRUE(rsa.decrypt(sign::scheme_t::OAEP, digest::hash_t::SHA256, view_t(ciphertext, sizeof(ciphertext)), output, length));
 	// Сличаем сообщение
 	ASSERT_EQ(std::string(reinterpret_cast <const char *> (output), length), std::string(PLAINTEXT));
@@ -1302,11 +1310,11 @@ TEST(RsaTest, Limit) {
 	::memset(hash, 0x42, sizeof(hash));
 	// Место подписи по пределу
 	std::vector <uint8_t> signature(rsa.limit(), 0);
-	// Выполняем выработку подписи PKCS #1 v1.5
+	// Вырабатываем подпись PKCS #1 v1.5
 	ASSERT_TRUE(rsa.make(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, sizeof(hash)), signature.data()));
 	// Подпись сходится
 	ASSERT_TRUE(rsa.check(sign::scheme_t::PKCS1, digest::hash_t::SHA256, view_t(hash, sizeof(hash)), view_t(signature.data(), signature.size())));
-	// Выполняем сброс состояния модуля
+	// Сбрасываем состояние модуля
 	rsa.clear();
 	// Предел после сброса нулевой
 	ASSERT_EQ(rsa.limit(), static_cast <size_t> (0));
