@@ -66,7 +66,7 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Открываем файл на чтение
 		std::ifstream file(path, std::ios::binary);
 		// Читаем содержимое файла в поток
@@ -83,9 +83,9 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string corpus(const std::string & name) {
+	static std::string __nts_corpus__(const std::string & name) {
 		// Выводим содержимое файла набора
-		return slurp(std::string(CORPUS) + "/" + name);
+		return __nts_slurp__(std::string(CORPUS) + "/" + name);
 	}
 	/**
 	 * @brief Функция получения просмотра набора байтов
@@ -94,7 +94,7 @@ namespace {
 	 * @return     просмотр набора байтов
 	 *
 	 */
-	static view_t view(const std::vector <uint8_t> & data) {
+	static view_t __nts_view__(const std::vector <uint8_t> & data) {
 		// Выводим просмотр набора байтов
 		return view_t(data.data(), data.size());
 	}
@@ -122,7 +122,7 @@ namespace {
 	 * @return     значение признака CN либо пустая строка
 	 *
 	 */
-	static std::string common(const x509::name_t & name) {
+	static std::string __nts_common__(const x509::name_t & name) {
 		// Признак CN имени
 		const x509::attribute_t * attribute = x509::attribute(name, "2.5.4.3");
 		// Выводим значение признака либо пустую строку
@@ -137,15 +137,15 @@ namespace {
 	 * @return            признак успешности разбора
 	 *
 	 */
-	static bool certificate(const std::string & name, std::vector <uint8_t> & der, x509::certificate_t & certificate) {
+	static bool __nts_certificate__(const std::string & name, std::vector <uint8_t> & der, x509::certificate_t & certificate) {
 		// Тело записи сертификата в кодировке DER
-		der = body(corpus(name));
+		der = body(__nts_corpus__(name));
 		// Если записи нет
 		if(der.empty())
 			// Выводим отрицательный результат - записи нет
 			return false;
 		// Выводим итог разбора сертификата
-		return (certificate.parse(view(der)) == x509::error_t::NONE);
+		return (certificate.parse(__nts_view__(der)) == x509::error_t::NONE);
 	}
 };
 
@@ -165,19 +165,19 @@ TEST(CrlTest, Corpus){
 	// Причины отзыва записей наборов: keyCompromise (1) у RSA, cessationOfOperation (5) у EC
 	const uint8_t reasons[] = {0x01, 0x05};
 	/**
-	 * Выполняем перебор списков набора
+	 * Перебираем списки набора
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Тело записи списка в кодировке DER
-		const std::vector <uint8_t> der = body(corpus(std::string(names[i]) + ".crl"));
+		const std::vector <uint8_t> der = body(__nts_corpus__(std::string(names[i]) + ".crl"));
 		// Проверяем наличие записи
 		ASSERT_FALSE(der.empty()) << "Список: " << names[i];
 		// Разбираемый список
 		x509::crl_t crl;
 		// Проверяем разбор записи списка
-		ASSERT_EQ(crl.parse(view(der)), x509::error_t::NONE) << "Список: " << names[i];
+		ASSERT_EQ(crl.parse(__nts_view__(der)), x509::error_t::NONE) << "Список: " << names[i];
 		// Проверяем имя издателя списка
-		ASSERT_EQ(common(crl.issuers()), issuers[i]) << "Список: " << names[i];
+		ASSERT_EQ(__nts_common__(crl.issuers()), issuers[i]) << "Список: " << names[i];
 		// Проверяем опознаватель алгоритма подписи списка
 		ASSERT_EQ(crl.algorithms(), signatures[i]) << "Список: " << names[i];
 		// Даты списка
@@ -214,11 +214,11 @@ TEST(CrlTest, Corpus){
 		// Тело записи сертификата издателя
 		std::vector <uint8_t> caDer;
 		// Сертификат издателя
-		x509::certificate_t ca;
+		x509::certificate_t authority;
 		// Проверяем разбор сертификата издателя
-		ASSERT_TRUE(certificate(std::string(names[i]) + ".crt", caDer, ca)) << "Список: " << names[i];
+		ASSERT_TRUE(__nts_certificate__(std::string(names[i]) + ".crt", caDer, authority)) << "Список: " << names[i];
 		// Проверяем подпись списка сведениями об открытом ключе издателя
-		ASSERT_EQ(x509::verify(crl, ca.key()), x509::error_t::NONE) << "Список: " << names[i];
+		ASSERT_EQ(x509::verify(crl, authority.key()), x509::error_t::NONE) << "Список: " << names[i];
 	}
 }
 
@@ -228,43 +228,43 @@ TEST(CrlTest, Corpus){
  */
 TEST(CrlTest, Refusal){
 	// Тело записи списка в кодировке DER
-	const std::vector <uint8_t> der = body(corpus("ca-rsa.crl"));
+	const std::vector <uint8_t> der = body(__nts_corpus__("ca-rsa.crl"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(der.empty());
 	// Разбираемый список
 	x509::crl_t crl;
 	// Проверяем разбор записи списка
-	ASSERT_EQ(crl.parse(view(der)), x509::error_t::NONE);
+	ASSERT_EQ(crl.parse(__nts_view__(der)), x509::error_t::NONE);
 	// Тело записи сертификата издателя
 	std::vector <uint8_t> caDer;
 	// Сертификат издателя
-	x509::certificate_t ca;
+	x509::certificate_t authority;
 	// Проверяем разбор сертификата издателя
-	ASSERT_TRUE(certificate("ca-rsa.crt", caDer, ca));
+	ASSERT_TRUE(__nts_certificate__("ca-rsa.crt", caDer, authority));
 	// Порченая запись: последний байт подписи перевёрнут
 	std::vector <uint8_t> damaged(der);
 	// Переворачиваем все разряды последнего байта подписи
 	damaged[damaged.size() - 1] = static_cast <uint8_t> (damaged[damaged.size() - 1] ^ 0xFF);
 	// Разбор порченой записи проходит: подпись не проверяется разбором
-	ASSERT_EQ(crl.parse(view(damaged)), x509::error_t::NONE);
+	ASSERT_EQ(crl.parse(__nts_view__(damaged)), x509::error_t::NONE);
 	// Проверяем отказ проверки порченой подписи
-	ASSERT_EQ(x509::verify(crl, ca.key()), x509::error_t::SIGNATURE);
+	ASSERT_EQ(x509::verify(crl, authority.key()), x509::error_t::SIGNATURE);
 	// Обрезанная запись: без последних восьми байтов подписи
 	const std::vector <uint8_t> cut(der.begin(), der.end() - 8);
 	// Проверяем отказ разбора обрезанной записи
-	ASSERT_NE(crl.parse(view(cut)), x509::error_t::NONE);
+	ASSERT_NE(crl.parse(__nts_view__(cut)), x509::error_t::NONE);
 	// Проверяем отказ разбора пустой записи
 	ASSERT_NE(crl.parse(view_t()), x509::error_t::NONE);
 	// Проверяем отказ разбора чужой записи: сертификат не список
-	ASSERT_NE(crl.parse(view(body(corpus("ca-rsa.crt")))), x509::error_t::NONE);
+	ASSERT_NE(crl.parse(__nts_view__(body(__nts_corpus__("ca-rsa.crt")))), x509::error_t::NONE);
 	// Тело записи чужого сертификата
 	std::vector <uint8_t> foreignDer;
 	// Чужой сертификат: издатель EC, не RSA
 	x509::certificate_t foreign;
 	// Проверяем разбор чужого сертификата
-	ASSERT_TRUE(certificate("ca-ec.crt", foreignDer, foreign));
+	ASSERT_TRUE(__nts_certificate__("ca-ec.crt", foreignDer, foreign));
 	// Проверяем разбор записи списка заново
-	ASSERT_EQ(crl.parse(view(der)), x509::error_t::NONE);
+	ASSERT_EQ(crl.parse(__nts_view__(der)), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи чужим ключом
 	ASSERT_NE(x509::verify(crl, foreign.key()), x509::error_t::NONE);
 }
@@ -275,13 +275,13 @@ TEST(CrlTest, Refusal){
  */
 TEST(CrlTest, Lookup){
 	// Тело записи списка в кодировке DER
-	const std::vector <uint8_t> der = body(corpus("ca-ec.crl"));
+	const std::vector <uint8_t> der = body(__nts_corpus__("ca-ec.crl"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(der.empty());
 	// Разбираемый список
 	x509::crl_t crl;
 	// Проверяем разбор записи списка
-	ASSERT_EQ(crl.parse(view(der)), x509::error_t::NONE);
+	ASSERT_EQ(crl.parse(__nts_view__(der)), x509::error_t::NONE);
 	// Порядковый номер отозванного сертификата набора
 	const uint8_t present[] = {0x03};
 	// Порядковый номер сертификата вне списка
@@ -289,7 +289,7 @@ TEST(CrlTest, Lookup){
 	// Признак нахождения отозванного серийника
 	bool found = false;
 	/**
-	 * Выполняем обход записей отозванных сертификатов
+	 * Обходим записи отозванных сертификатов
 	 */
 	for(size_t i = 0; i < crl.revoked().size(); i++){
 		// Если серийник записи совпал с отозванным

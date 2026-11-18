@@ -76,14 +76,14 @@ static std::vector <uint8_t> bytes(const std::string & hex) {
 	return result;
 }
 /**
- * @brief Статистика гаммы: монобитный критерий и χ² по байтам
+ * @brief Функция вычисления статистики гаммы: монобитный критерий и χ² по байтам
  *
  * @param gamma  гамма
- * @param z      место z-оценки монобитного критерия
+ * @param score  место z-оценки монобитного критерия
  * @param chi    место статистики χ² (255 степеней свободы)
  *
  */
-static void statistics(const std::vector <uint8_t> & gamma, double & z, double & chi) {
+static void statistics(const std::vector <uint8_t> & gamma, double & score, double & chi) {
 	// Объявляем счётчики единиц и частот байтов
 	size_t ones = 0, counts[256] = {0};
 	/** Перебираем: все байты гаммы по порядку */
@@ -96,9 +96,9 @@ static void statistics(const std::vector <uint8_t> & gamma, double & z, double &
 			ones += ((gamma[i] >> b) & 1);
 	}
 	// Вычисляем число разрядов гаммы
-	const double n = static_cast <double> (gamma.size() * 8);
+	const double bits = static_cast <double> (gamma.size() * 8);
 	// Вычисляем z-оценку монобитного критерия
-	z = ((2.0 * static_cast <double> (ones)) - n) / std::sqrt(n);
+	score = ((2.0 * static_cast <double> (ones)) - bits) / std::sqrt(bits);
 	// Вычисляем ожидаемую частоту байта
 	const double expected = static_cast <double> (gamma.size()) / 256.0;
 	// Обнуляем статистику
@@ -106,9 +106,9 @@ static void statistics(const std::vector <uint8_t> & gamma, double & z, double &
 	/** Перебираем: все значения байта от нуля до 255 */
 	for(size_t i = 0; i < 256; i++){
 		// Вычисляем отклонение частоты байта
-		const double d = (static_cast <double> (counts[i]) - expected);
+		const double deviation = (static_cast <double> (counts[i]) - expected);
 		// Накапливаем вклад в статистику
-		chi += ((d * d) / expected);
+		chi += ((deviation * deviation) / expected);
 	}
 }
 
@@ -126,7 +126,7 @@ TEST(RawTest, Hchacha){
 	ASSERT_TRUE(cipher::chacha_t::hchacha(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), subkey));
 	// Сверяем подключ с вектором приложения A.1
 	EXPECT_EQ(text(subkey, 32), "82413b4227b27bfed30e42508a877d73a0f9e4d58a74a853c12ec41326d3ecdc");
-	// Отказы
+	// Проверяем отказы при неверных длинах ключа и заполнения
 	EXPECT_FALSE(cipher::chacha_t::hchacha(view_t(key.data(), 31), view_t(nonce.data(), 16), subkey));
 	EXPECT_FALSE(cipher::chacha_t::hchacha(view_t(key.data(), 32), view_t(nonce.data(), 12), subkey));
 	EXPECT_FALSE(cipher::chacha_t::hchacha(view_t(key.data(), 32), view_t(nonce.data(), 16), nullptr));
@@ -146,10 +146,10 @@ TEST(RawTest, Xchacha){
 	// Объявляем два буфера под гамму
 	std::vector <uint8_t> first(message.size(), 0), second(message.size(), 0);
 	// Объявляем шифр XChaCha20
-	cipher::chacha_t x;
+	cipher::chacha_t xchacha;
 	// Заводим шифр на ключе и заполнении
-	ASSERT_TRUE(x.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), 1));
-	ASSERT_TRUE(x.encrypt(view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), first.data()));
+	ASSERT_TRUE(xchacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), 1));
+	ASSERT_TRUE(xchacha.encrypt(view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), first.data()));
 	// Объявляем подключ и укороченное заполнение
 	uint8_t subkey[32], shorter[12] = {0};
 	// Выводим подключ HChaCha20
@@ -166,10 +166,10 @@ TEST(RawTest, Xchacha){
 	// Расшифрование возвращает сообщение
 	std::vector <uint8_t> back(message.size(), 0);
 	// Объявляем шифр для расшифрования
-	cipher::chacha_t y;
+	cipher::chacha_t decipher;
 	// Заводим шифр на исходном ключе
-	ASSERT_TRUE(y.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), 1));
-	ASSERT_TRUE(y.decrypt(view_t(first.data(), first.size()), back.data()));
+	ASSERT_TRUE(decipher.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), 1));
+	ASSERT_TRUE(decipher.decrypt(view_t(first.data(), first.size()), back.data()));
 	// Проверяем возврат исходного сообщения
 	EXPECT_EQ(std::string(back.begin(), back.end()), message);
 	// Заполнение чужой длины
@@ -204,7 +204,7 @@ TEST(RawTest, Xchachapoly){
 	EXPECT_EQ(text(tag, 16), "c0875924c1c7987947deafd8780acf49");
 	// Шифротекст A.3.1 целиком (114 байтов): сырой текст черновика, сверен и с libsodium 1.0.22
 	EXPECT_EQ(text(sealed.data(), sealed.size()), "bd6d179d3e83d43b9576579493c0e939572a1700252bfaccbed2902c21396cbb731c7f1b0b4aa6440bf3a82f4eda7e39ae64c6708c54c216cb96b72e1213b4522f8c9ba40db5d945b11b69b982c1bb9e3f3fac2bc369488f76b2383565d3fff921f9664c97637da9768812f615c68b13b52e");
-	// Круг
+	// Проверяем обратный круг расшифрованием исходного сообщения
 	std::vector <uint8_t> opened(message.size(), 0);
 	// Объявляем шифр для обратного круга
 	cipher::chachapoly_t back;
@@ -247,16 +247,16 @@ TEST(RawTest, Statistics){
 		// Заведомо неверный ключ: соседний по одному разряду
 		if(attempt == 3) key[0] ^= 0x01;
 		// Объявляем места статистик
-		double z = 0, chi = 0;
+		double score = 0, chi = 0;
 		// XChaCha20
-		cipher::chacha_t x;
+		cipher::chacha_t xchacha;
 		// Заводим шифр на заведомо неверном ключе
-		ASSERT_TRUE(x.start(view_t(key, 32), view_t(nonce, 24), 0));
-		ASSERT_TRUE(x.encrypt(view_t(zeros.data(), zeros.size()), gamma.data()));
+		ASSERT_TRUE(xchacha.start(view_t(key, 32), view_t(nonce, 24), 0));
+		ASSERT_TRUE(xchacha.encrypt(view_t(zeros.data(), zeros.size()), gamma.data()));
 		// Вычисляем статистики гаммы
-		statistics(gamma, z, chi);
+		statistics(gamma, score, chi);
 		// Проверяем монобитный критерий в пределах пяти сигм
-		EXPECT_LT(std::fabs(z), 5.0) << "XChaCha20 монобит, попытка " << attempt;
+		EXPECT_LT(std::fabs(score), 5.0) << "XChaCha20 монобит, попытка " << attempt;
 		// Проверяем нижнюю границу статистики
 		EXPECT_GT(chi, 150.0) << "XChaCha20 χ², попытка " << attempt;
 		// Проверяем верхнюю границу статистики
@@ -271,9 +271,9 @@ TEST(RawTest, Statistics){
 		ASSERT_TRUE(ctr.start(cipher::block_t(base), view_t(iv, 8)));
 		ASSERT_TRUE(ctr.encrypt(view_t(zeros.data(), zeros.size()), gamma.data()));
 		// Вычисляем статистики гаммы
-		statistics(gamma, z, chi);
+		statistics(gamma, score, chi);
 		// Проверяем монобитный критерий в пределах пяти сигм
-		EXPECT_LT(std::fabs(z), 5.0) << "AES-CTR монобит, попытка " << attempt;
+		EXPECT_LT(std::fabs(score), 5.0) << "AES-CTR монобит, попытка " << attempt;
 		// Проверяем нижнюю границу статистики
 		EXPECT_GT(chi, 150.0) << "AES-CTR χ², попытка " << attempt;
 		// Проверяем верхнюю границу статистики

@@ -88,7 +88,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool keyfile(const char * name, context::credential_t & result) noexcept {
+	bool __nts_keyfile__(const char * name, context::credential_t & result) noexcept {
 		// Считываем секретный ключ набора
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Считываем сертификат набора
@@ -110,7 +110,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool chained(const char * kind, context::credential_t & result) noexcept {
+	bool __nts_chained__(const char * kind, context::credential_t & result) noexcept {
 		// Считываем секретный ключ листа
 		result.secret = corpus((std::string("leaf-") + kind + ".key").c_str());
 		// Считываем цепочку из трёх звеньев
@@ -176,7 +176,7 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак передачи байтов
 		bool moved = false;
 		/**
@@ -226,11 +226,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байты между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			continue;
 	}
 	/**
@@ -243,7 +243,7 @@ namespace {
 	 * @param list       перечень меток времени сервера, пустой - не задаётся
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const context::credential_t & credential, const bool asking, const vector <uint8_t> & list) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const context::credential_t & credential, const bool asking, const vector <uint8_t> & list) noexcept {
 		// Задаём подлинность сервера
 		server.credential(credential);
 		// Задаём запрос меток у клиента
@@ -263,7 +263,7 @@ TEST(SctTest, Loopback){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность из цепочки набора
-	ASSERT_TRUE(chained("ec", credential));
+	ASSERT_TRUE(__nts_chained__("ec", credential));
 	// Перечень меток времени
 	const vector <uint8_t> list = listing();
 	// Проверяем непустоту перечня
@@ -278,12 +278,12 @@ TEST(SctTest, Loopback){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, true, list);
+		__nts_arrange__(client, server, credential, true, list);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем число сертификатов стороны клиента
@@ -301,7 +301,7 @@ TEST(SctTest, Loopback){
 		// Возобновление без сертификата перечня не несёт
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем выдачу билета
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Связь возобновляющего клиента
@@ -313,7 +313,7 @@ TEST(SctTest, Loopback){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(resumed);
 		// Настраиваем стороны связи
-		arrange(resuming, resumed, credential, true, list);
+		__nts_arrange__(resuming, resumed, credential, true, list);
 		// Задаём билет клиенту
 		resuming.resume(client.tickets()[0]);
 		// Задаём билеты серверу
@@ -322,7 +322,7 @@ TEST(SctTest, Loopback){
 		ASSERT_EQ(resumed.start(), context::error_t::NONE);
 		ASSERT_EQ(resuming.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(resuming, resumed);
+		__nts_converse__(resuming, resumed);
 		// Проверяем установление связи и общий секрет
 		ASSERT_TRUE(resuming.established() && resumed.established() && resuming.shared());
 		// Проверяем пустоту перечня при возобновлении
@@ -338,12 +338,12 @@ TEST(SctTest, Loopback){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи без запроса меток
-		arrange(client, server, credential, false, list);
+		__nts_arrange__(client, server, credential, false, list);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем пустоту перечня без запроса
@@ -359,12 +359,12 @@ TEST(SctTest, Loopback){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи без перечня сервера
-		arrange(client, server, credential, true, vector <uint8_t> ());
+		__nts_arrange__(client, server, credential, true, vector <uint8_t> ());
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем пустоту перечня без перечня сервера
@@ -380,7 +380,7 @@ TEST(SctTest, Legacy){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность из цепочки набора
-	ASSERT_TRUE(chained("ec", credential));
+	ASSERT_TRUE(__nts_chained__("ec", credential));
 	// Перечень меток времени
 	const vector <uint8_t> list = listing();
 	// Связь стороны клиента
@@ -392,7 +392,7 @@ TEST(SctTest, Legacy){
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Настраиваем стороны связи
-	arrange(client, server, credential, true, list);
+	__nts_arrange__(client, server, credential, true, list);
 	// Задаём издание 1.2 стороне клиента
 	ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 	ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -404,7 +404,7 @@ TEST(SctTest, Legacy){
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем совпадение перечня с заданным
@@ -420,7 +420,7 @@ TEST(SctTest, Legacy){
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(resumed);
 	// Настраиваем стороны связи
-	arrange(resuming, resumed, credential, true, list);
+	__nts_arrange__(resuming, resumed, credential, true, list);
 	// Задаём издание 1.2 стороне клиента
 	ASSERT_EQ(resuming.versions(0x0303, 0x0303), context::error_t::NONE);
 	ASSERT_EQ(resumed.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -434,7 +434,7 @@ TEST(SctTest, Legacy){
 	ASSERT_EQ(resumed.start(), context::error_t::NONE);
 	ASSERT_EQ(resuming.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(resuming, resumed);
+	__nts_converse__(resuming, resumed);
 	// Проверяем установление связи
 	ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error());
 	ASSERT_TRUE(resuming.shared() && resumed.shared());
@@ -450,7 +450,7 @@ TEST(SctTest, Profile){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность из цепочки набора
-	ASSERT_TRUE(chained("ec", credential));
+	ASSERT_TRUE(__nts_chained__("ec", credential));
 	// Перечень меток времени
 	const vector <uint8_t> list = listing();
 	// Снимок профиля отпечатка
@@ -471,7 +471,7 @@ TEST(SctTest, Profile){
 	// Признак нахождения расширения меток
 	bool found = false;
 	/**
-	 * Выполняем перебор расширений снимка
+	 * Перебираем расширения снимка
 	 */
 	for(size_t i = 0; i < source.extensions.size(); i++){
 		// Проверяем вид расширения на запрос меток
@@ -509,13 +509,13 @@ TEST(SctTest, Profile){
 	ASSERT_EQ(fingerprint::parse(client.output(), made), fingerprint::error_t::NONE);
 	ASSERT_EQ(made.extensions.size(), source.extensions.size());
 	/**
-	 * Выполняем сличение видов расширений снимка и сложенного приветствия
+	 * Сличаем виды расширений снимка и сложенного приветствия
 	 */
 	for(size_t i = 0; i < made.extensions.size(); i++)
 		// Сверяем вид расширения снимка и сложенного приветствия
 		EXPECT_EQ(made.extensions[i].type, source.extensions[i].type) << i;
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем совпадение перечня с заданным
@@ -535,7 +535,7 @@ TEST(SctTest, Lying){
 	// Таблица негодных перечней
 	static const distortion_t MALFORMED[] = {distortion_t::MALSCT, distortion_t::HOLLOWSCT, distortion_t::TRAILSCT};
 	/**
-	 * Выполняем перебор негодных перечней
+	 * Перебираем негодные перечни
 	 */
 	for(size_t i = 0; i < (sizeof(MALFORMED) / sizeof(MALFORMED[0])); i++){
 		// Связь стороны клиента
@@ -635,7 +635,7 @@ TEST(SctTest, Refusals){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность из цепочки набора
-	ASSERT_TRUE(chained("ec", credential));
+	ASSERT_TRUE(__nts_chained__("ec", credential));
 	// Таблица негодных перечней разборщика
 	static const uint8_t EMPTYLIST[] = {0x00, 0x00}, HOLLOWLIST[] = {0x00, 0x02, 0x00, 0x00}, TRAILLIST[] = {0x00, 0x03, 0x00, 0x01, 0xAA, 0xFF};
 	{
@@ -737,7 +737,7 @@ TEST(SctTest, Openssl){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность из цепочки набора
-	ASSERT_TRUE(chained("ec", credential));
+	ASSERT_TRUE(__nts_chained__("ec", credential));
 	// Путь к корневому сертификату набора
 	const std::string root = std::string(CORPUS) + "/ca-ec.crt";
 	// Номер порта прослушки
@@ -773,9 +773,9 @@ TEST(SctTest, Openssl){
 	// Страж завершения s_client
 	sentinel_t sentinel(log + ".pid");
 	// Принимаем подключение на прослушке
-	const int fd = __nts_greeted__(listener);
+	const int connection = __nts_greeted__(listener);
 	// Проверяем успех принятия
-	ASSERT_GE(fd, 0);
+	ASSERT_GE(connection, 0);
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -791,15 +791,15 @@ TEST(SctTest, Openssl){
 	// Запускаем сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Обслуживаем подключение
-	const bool complete = __nts_serve__(server, fd);
+	const bool complete = __nts_serve__(server, connection);
 	// Проверяем полноту обслуживания
 	ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 	// Проверяем чистоту завершения сервера
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	// Проверяем корректное завершение сервером
-	ASSERT_TRUE(__nts_farewell__(server, fd));
+	ASSERT_TRUE(__nts_farewell__(server, connection));
 	// Закрываем подключение
-	closing(fd);
+	closing(connection);
 	closing(listener);
 	// Текст журнала вывода
 	std::string text;
@@ -822,7 +822,7 @@ TEST(SctTest, Starved){
 	// Подлинность сервера
 	context::credential_t credential;
 	// Составляем подлинность из ключей набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Перечень меток времени
 	const vector <uint8_t> list = listing();
 	// Признак обнаруженной нехватки памяти
@@ -830,7 +830,7 @@ TEST(SctTest, Starved){
 	// Признак завершённости связи
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Связь стороны клиента
@@ -842,7 +842,7 @@ TEST(SctTest, Starved){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, true, list);
+		__nts_arrange__(client, server, credential, true, list);
 		// Итоги сторон сервера и клиента
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{
@@ -855,7 +855,7 @@ TEST(SctTest, Starved){
 			// Проверяем чистоту запуска сторон
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 				// Проводим рукопожатие сторон
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Запоминаем итог сервера
 				first = server.error();
 				// Запоминаем итог клиента

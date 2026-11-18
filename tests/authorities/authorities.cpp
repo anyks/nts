@@ -87,7 +87,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool keyfile(const char * name, context::credential_t & result) noexcept {
+	bool __nts_keyfile__(const char * name, context::credential_t & result) noexcept {
 		// Загружаем секретный ключ стороны из набора
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Загружаем сертификат стороны из набора
@@ -136,7 +136,7 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Объявляем признак передачи байтов
 		bool moved = false;
 		/**
@@ -186,11 +186,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байты между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			continue;
 	}
 	/**
@@ -203,7 +203,7 @@ namespace {
 	 * @param names  перечень имён центров, пустой - не задаётся
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const context::credential_t & mine, const context::credential_t & theirs, const vector <vector <uint8_t>> & names) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const context::credential_t & mine, const context::credential_t & theirs, const vector <vector <uint8_t>> & names) noexcept {
 		// Назначаем подлинность стороне сервера
 		server.credential(mine);
 		// Включаем запрос подлинности у сервера
@@ -225,8 +225,8 @@ TEST(AuthoritiesTest, Loopback){
 	// Объявляем подлинности сторон связи
 	context::credential_t mine, theirs;
 	// Составляем подлинность сервера из ключа набора
-	ASSERT_TRUE(keyfile("ec256", mine));
-	ASSERT_TRUE(keyfile("rsa2048", theirs));
+	ASSERT_TRUE(__nts_keyfile__("ec256", mine));
+	ASSERT_TRUE(__nts_keyfile__("rsa2048", theirs));
 	// Извлекаем имена владельцев центров набора
 	const vector <uint8_t> root = subject("ca-ec"), other = subject("ca-rsa");
 	// Проверяем, что имена центров извлечены
@@ -243,12 +243,12 @@ TEST(AuthoritiesTest, Loopback){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны: подлинности, запрос и перечень центров
-		arrange(client, server, mine, theirs, vector <vector <uint8_t>> {root, other});
+		__nts_arrange__(client, server, mine, theirs, vector <vector <uint8_t>> {root, other});
 		// Запускаем связь стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон связи
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем, что обе стороны связи установили связь
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем, что перечень центров дошёл до клиента двумя именами
@@ -271,12 +271,12 @@ TEST(AuthoritiesTest, Loopback){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи без перечня центров
-		arrange(client, server, mine, theirs, vector <vector <uint8_t>> ());
+		__nts_arrange__(client, server, mine, theirs, vector <vector <uint8_t>> ());
 		// Запускаем связь стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон связи
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем, что обе стороны связи установили связь
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем, что перечень центров не дошёл до клиента
@@ -299,7 +299,7 @@ TEST(AuthoritiesTest, Loopback){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон связи
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем, что обе стороны связи установили связь
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем, что перечень центров не дошёл до клиента
@@ -314,8 +314,8 @@ TEST(AuthoritiesTest, Legacy){
 	// Объявляем подлинности сторон связи
 	context::credential_t mine, theirs;
 	// Составляем подлинность сервера из ключа набора
-	ASSERT_TRUE(keyfile("ec256", mine));
-	ASSERT_TRUE(keyfile("rsa2048", theirs));
+	ASSERT_TRUE(__nts_keyfile__("ec256", mine));
+	ASSERT_TRUE(__nts_keyfile__("rsa2048", theirs));
 	// Извлекаем имя владельца центра набора
 	const vector <uint8_t> root = subject("ca-ec");
 	// Проверяем, что имя центра извлечено
@@ -333,14 +333,14 @@ TEST(AuthoritiesTest, Legacy){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи с перечнем по условию итерации
-		arrange(client, server, mine, theirs, ((named == 1) ? vector <vector <uint8_t>> {root} : vector <vector <uint8_t>> ()));
+		__nts_arrange__(client, server, mine, theirs, ((named == 1) ? vector <vector <uint8_t>> {root} : vector <vector <uint8_t>> ()));
 		// Ограничиваем издание протокола стороны клиента изданием 1.2
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон связи
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем, что обе стороны связи установили связь
 		ASSERT_TRUE(client.established() && server.established()) << named << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем, что перечень центров дошёл до клиента по условию итерации
@@ -362,7 +362,7 @@ TEST(AuthoritiesTest, Lying){
 	// Задаём таблицу видов искажённых перечней центров
 	static const distortion_t MALFORMED[] = {distortion_t::MALCA, distortion_t::HOLLOWCA, distortion_t::TRAILCA, distortion_t::NOTSEQCA};
 	/**
-	 * Выполняем перебор негодных перечней
+	 * Перебираем негодные перечни
 	 */
 	for(size_t i = 0; i < (sizeof(MALFORMED) / sizeof(MALFORMED[0])); i++){
 		// Враждебный сервер набора проверок говорит лишь наборами ГОСТ
@@ -393,7 +393,7 @@ TEST(AuthoritiesTest, Refusals){
 	// Объявляем подлинность стороны сервера
 	context::credential_t mine;
 	// Составляем подлинность сервера из ключа набора
-	ASSERT_TRUE(keyfile("ec256", mine));
+	ASSERT_TRUE(__nts_keyfile__("ec256", mine));
 	{
 		// Объявляем связь стороны сервера
 		server::context_t server;
@@ -483,7 +483,7 @@ TEST(AuthoritiesTest, Openssl){
 	// Объявляем подлинность стороны сервера
 	context::credential_t credential;
 	// Составляем подлинность сервера из ключа набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Извлекаем имя владельца сертификата набора
 	const vector <uint8_t> owner = subject("ec256");
 	// Проверяем, что имя владельца извлечено
@@ -502,9 +502,9 @@ TEST(AuthoritiesTest, Openssl){
 		// Объявляем стража процесса чужого эталона
 		sentinel_t sentinel(log + ".pid");
 		// Налаживаем соединение с портом стенда
-		const int fd = __nts_dial__(number);
+		const int connection = __nts_dial__(number);
 		// Проверяем, что соединение с портом налажено
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(connection, 0) << "порт " << number;
 		// Объявляем связь стороны клиента
 		client::context_t client;
 		// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -524,7 +524,7 @@ TEST(AuthoritiesTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между клиентом и чужим эталоном
-			__nts_relay__(client, fd);
+			__nts_relay__(client, connection);
 		// Проверяем, что связь клиента с чужим эталоном установилась
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// s_server с -CAfile объявляет владельца файла центров приемлемым издателем
@@ -532,7 +532,7 @@ TEST(AuthoritiesTest, Openssl){
 		// Проверяем, что до клиента дошло имя владельца центра
 		EXPECT_EQ(client.authorities()[0], owner);
 		// Завершаем соединение с портом стенда
-		closing(fd);
+		closing(connection);
 		// Останавливаем процесс чужого эталона
 		sentinel.halt();
 		// Объявляем буфер журнала чужого эталона
@@ -555,9 +555,9 @@ TEST(AuthoritiesTest, Openssl){
 		// Объявляем стража процесса чужого эталона
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем соединение чужого эталона
-		const int fd = __nts_greeted__(listener);
+		const int connection = __nts_greeted__(listener);
 		// Проверяем, что соединение чужого эталона принято
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(connection, 0);
 		// Объявляем связь стороны сервера
 		server::context_t server;
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -575,16 +575,16 @@ TEST(AuthoritiesTest, Openssl){
 		// Запускаем связь стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Обслуживаем соединение чужого эталона до завершения
-		const bool complete = __nts_serve__(server, fd);
+		const bool complete = __nts_serve__(server, connection);
 		// Проверяем, что соединение чужого эталона завершилось
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем, что связь сервера завершилась без отказа
 		ASSERT_EQ(server.error(), context::error_t::NONE);
 		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 		// Проверяем, что обслуживание чужого эталона завершилось штатно
-		ASSERT_TRUE(__nts_farewell__(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, connection));
 		// Завершаем соединение с портом стенда
-		closing(fd);
+		closing(connection);
 		closing(listener);
 		// Объявляем буфер журнала чужого эталона
 		std::string text;
@@ -606,8 +606,8 @@ TEST(AuthoritiesTest, Starved){
 	// Объявляем подлинности сторон связи
 	context::credential_t mine, theirs;
 	// Составляем подлинность сервера из ключа набора
-	ASSERT_TRUE(keyfile("ec256", mine));
-	ASSERT_TRUE(keyfile("ec384", theirs));
+	ASSERT_TRUE(__nts_keyfile__("ec256", mine));
+	ASSERT_TRUE(__nts_keyfile__("ec384", theirs));
 	// Извлекаем имя владельца центра набора
 	const vector <uint8_t> root = subject("ca-ec");
 	// Проверяем, что имя центра извлечено
@@ -617,7 +617,7 @@ TEST(AuthoritiesTest, Starved){
 	// Объявляем признак установленной связи
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Объявляем связь стороны клиента
@@ -629,7 +629,7 @@ TEST(AuthoritiesTest, Starved){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны: подлинности, запрос и перечень центров
-		arrange(client, server, mine, theirs, vector <vector <uint8_t>> {root});
+		__nts_arrange__(client, server, mine, theirs, vector <vector <uint8_t>> {root});
 		// Объявляем итоги заведения сторон связи
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{
@@ -642,7 +642,7 @@ TEST(AuthoritiesTest, Starved){
 			// Проверяем, что обе стороны завелись под пайком
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 				// Проводим рукопожатие сторон связи
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Снимаем итог заведения стороны сервера
 				first = server.error();
 				// Снимаем итог заведения стороны клиента

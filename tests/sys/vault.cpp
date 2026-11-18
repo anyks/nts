@@ -90,7 +90,7 @@ TEST(VaultTest, GiveWipes) {
 	// Хранилище отдаёт тот же участок
 	EXPECT_EQ(second, first);
 	/**
-	 * Выполняем перебор байтов участка
+	 * Перебираем байты участка
 	 */
 	for(size_t i = 0; i < 64; i++)
 		// Байт тайны затёрт
@@ -106,26 +106,26 @@ TEST(VaultTest, Coalesce) {
 	// Хранилище процесса
 	sys::vault_t & vault = sys::Vault::instance();
 	// Берём три соседних участка
-	uint8_t * a = static_cast <uint8_t *> (vault.take(32));
+	uint8_t * first = static_cast <uint8_t *> (vault.take(32));
 	// Второй участок берём следом за первым
-	uint8_t * b = static_cast <uint8_t *> (vault.take(32));
+	uint8_t * second = static_cast <uint8_t *> (vault.take(32));
 	// Третий участок следует за вторым
-	uint8_t * c = static_cast <uint8_t *> (vault.take(32));
+	uint8_t * third = static_cast <uint8_t *> (vault.take(32));
 	// Участки обязаны быть выданы
-	ASSERT_NE(a, nullptr);
-	ASSERT_NE(b, nullptr);
-	ASSERT_NE(c, nullptr);
+	ASSERT_NE(first, nullptr);
+	ASSERT_NE(second, nullptr);
+	ASSERT_NE(third, nullptr);
 	// Участки идут подряд
-	ASSERT_EQ(b, a + 32);
-	ASSERT_EQ(c, b + 32);
+	ASSERT_EQ(second, first + 32);
+	ASSERT_EQ(third, second + 32);
 	// Возвращаем средний, затем крайние: слияние с обоих боков
-	vault.give(b, 32);
-	vault.give(c, 32);
-	vault.give(a, 32);
+	vault.give(second, 32);
+	vault.give(third, 32);
+	vault.give(first, 32);
 	// Берём участок на всю длину троих
 	uint8_t * whole = static_cast <uint8_t *> (vault.take(96));
 	// Слитый участок начинается с первого
-	EXPECT_EQ(whole, a);
+	EXPECT_EQ(whole, first);
 	// Возвращаем участок
 	vault.give(whole, 96);
 }
@@ -238,7 +238,7 @@ TEST(VaultTest, Secret) {
 	// Заведённый размер совпадает с запрошенным
 	EXPECT_EQ(secret.size(), 40u);
 	/**
-	 * Выполняем перебор байтов участка
+	 * Перебираем байты участка
 	 */
 	for(size_t i = 0; i < 40; i++)
 		// Участок обнулён
@@ -311,7 +311,7 @@ TEST(VaultTest, Allocator) {
 	// Участок тот же
 	EXPECT_EQ(data, address);
 	/**
-	 * Выполняем перебор байтов участка
+	 * Перебираем байты участка
 	 */
 	for(size_t i = 0; i < 48; i++)
 		// Тайна набора затёрта освобождением
@@ -343,7 +343,7 @@ TEST(VaultTest, Allocator) {
 			// Признак того, что тайна найдена у потомка
 			bool leaked = false;
 			/**
-			 * Выполняем перебор байтов участка
+			 * Перебираем байты участка
 			 */
 			for(size_t i = 0; i < 32; i++)
 				// Ищем байт тайны
@@ -353,7 +353,7 @@ TEST(VaultTest, Allocator) {
 		}
 		// Код завершения потомка
 		int status = 0;
-		// Ждём потомка
+		// Дожидаемся завершения потомка
 		ASSERT_EQ(::waitpid(pid, &status, 0), pid);
 		// Потомок завершился сам
 		ASSERT_TRUE(WIFEXITED(status));
@@ -367,6 +367,7 @@ TEST(VaultTest, Allocator) {
 	 * Проверка требования укрытия: под пределом запрета подкачки в нуль новый кусок отвергается
 	 */
 #if defined(RLIMIT_MEMLOCK)
+	// Проверяем отказ нового куска под заниженным пределом запрета подкачки
 	TEST(VaultTest, Demand) {
 		// Хранилище процесса
 		sys::vault_t & vault = sys::Vault::instance();

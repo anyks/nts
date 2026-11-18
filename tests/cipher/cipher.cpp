@@ -47,13 +47,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -81,7 +81,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -162,7 +162,7 @@ TEST(CipherTest, Reversibility) {
 	// Ключ шифрования
 	uint8_t key[32];
 	/**
-	 * Выполняем сборку ключа шифрования
+	 * Собираем ключ шифрования
 	 */
 	for(size_t i = 0; i < sizeof(key); i++)
 		// Записываем очередной байт ключа шифрования
@@ -177,11 +177,11 @@ TEST(CipherTest, Reversibility) {
 	// Преобразуемые блоки
 	uint8_t plain[16], result[16], back[16];
 	/**
-	 * Выполняем перебор преобразуемых блоков
+	 * Перебираем преобразуемые блоки
 	 */
 	for(size_t i = 0; i < 256; i++){
 		/**
-		 * Выполняем сборку очередного преобразуемого блока
+		 * Собираем очередной преобразуемый блок
 		 */
 		for(size_t j = 0; j < sizeof(plain); j++)
 			// Записываем очередной байт преобразуемого блока
@@ -215,13 +215,13 @@ TEST(CipherTest, InPlace) {
 	cipher::kuznyechik_t engine;
 	// Проверяем успешность установки ключа
 	ASSERT_TRUE(engine.key(view_t(key, sizeof(key))));
-	// Выполняем зашифрование блока на месте
+	// Зашифровываем блок на месте
 	ASSERT_TRUE(engine.encrypt(block, block));
 	// Проверяем совпадение зашифрованного блока с контрольным примером
 	ASSERT_STREQ(text(block, sizeof(block)).c_str(), "7f679d90bebc24305a468d42b9d4edcd");
 	// Разбираем ожидаемый открытый блок
 	ASSERT_EQ(bytes("1122334455667700ffeeddccbbaa9988", expected), size_t(16));
-	// Выполняем расшифрование блока на месте
+	// Расшифровываем блок на месте
 	ASSERT_TRUE(engine.decrypt(block, block));
 	// Проверяем совпадение расшифрованного блока с исходным
 	ASSERT_EQ(::memcmp(block, expected, sizeof(block)), 0);
@@ -259,7 +259,7 @@ TEST(CipherTest, Refusal) {
 	ASSERT_FALSE(engine.decrypt(block, nullptr));
 	// Проверяем отказ расшифрования отсутствующего блока
 	ASSERT_FALSE(engine.decrypt(nullptr, block));
-	// Выполняем затирание раундовых ключей
+	// Затираем раундовые ключи
 	engine.clear();
 	// Проверяем неготовность шифра после затирания ключей
 	ASSERT_FALSE(engine.ready());
@@ -290,7 +290,7 @@ TEST(CipherTest, Refusal) {
 	ASSERT_FALSE(magma.decrypt(nullptr, block));
 	// Проверяем отказ расшифрования в непереданное место
 	ASSERT_FALSE(magma.decrypt(block, nullptr));
-	// Выполняем затирание раундовых ключей шифра
+	// Затираем раундовые ключи шифра
 	magma.clear();
 	// Проверяем неготовность шифра после затирания ключей
 	ASSERT_FALSE(magma.ready());

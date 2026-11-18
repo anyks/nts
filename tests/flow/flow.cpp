@@ -39,7 +39,7 @@ using namespace nts;
 TEST(FlowTest, Complete){
 	// Объект хода рукопожатия связи
 	flow::machine_t machine;
-	// Выполняем заведение хода рукопожатия клиентом
+	// Заводим ход рукопожатия клиентом
 	ASSERT_TRUE(machine.start(flow::role_t::CLIENT));
 	// Проверяем роль стороны, ведущей ход рукопожатия
 	ASSERT_EQ(machine.role(), flow::role_t::CLIENT);
@@ -96,7 +96,7 @@ TEST(FlowTest, Complete){
 TEST(FlowTest, Shared){
 	// Объект хода рукопожатия связи
 	flow::machine_t machine;
-	// Выполняем заведение хода рукопожатия сервером
+	// Заводим ход рукопожатия сервером
 	ASSERT_TRUE(machine.start(flow::role_t::SERVER));
 	// Объявляем приветствие клиента
 	ASSERT_EQ(machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT), flow::error_t::NONE);
@@ -123,7 +123,7 @@ TEST(FlowTest, Shared){
 TEST(FlowTest, Mutual){
 	// Объект хода рукопожатия связи
 	flow::machine_t machine;
-	// Выполняем заведение хода рукопожатия сервером
+	// Заводим ход рукопожатия сервером
 	ASSERT_TRUE(machine.start(flow::role_t::SERVER));
 	// Объявляем приветствие клиента
 	machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
@@ -153,7 +153,7 @@ TEST(FlowTest, Mutual){
 	ASSERT_TRUE(machine.established());
 	// Объект хода рукопожатия с пустой цепочкой клиента
 	flow::machine_t empty;
-	// Выполняем заведение хода рукопожатия сервером
+	// Заводим ход рукопожатия сервером
 	empty.start(flow::role_t::SERVER);
 	// Объявляем приветствие клиента
 	empty.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
@@ -188,7 +188,7 @@ TEST(FlowTest, Mutual){
 TEST(FlowTest, Retry){
 	// Объект хода рукопожатия связи
 	flow::machine_t machine;
-	// Выполняем заведение хода рукопожатия клиентом
+	// Заводим ход рукопожатия клиентом
 	ASSERT_TRUE(machine.start(flow::role_t::CLIENT));
 	// Объявляем приветствие клиента
 	machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
@@ -225,7 +225,7 @@ TEST(FlowTest, Reject){
 	ASSERT_EQ(machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT), flow::error_t::STATE);
 	// Проверяем отказ заведения хода рукопожатия без роли стороны
 	ASSERT_FALSE(machine.start(flow::role_t::NONE));
-	// Выполняем заведение хода рукопожатия клиентом
+	// Заводим ход рукопожатия клиентом
 	ASSERT_TRUE(machine.start(flow::role_t::CLIENT));
 	// Проверяем отвержение приветствия сервера до приветствия клиента
 	ASSERT_EQ(machine.accept(handshake::type_t::SERVER, session::side_t::SERVER), flow::error_t::ORDER);
@@ -237,11 +237,11 @@ TEST(FlowTest, Reject){
 	 * отвергают просьбу всякая в одиночку
 	 */
 	ASSERT_EQ(machine.retry(), flow::error_t::STATE);
-	// Выполняем заведение хода рукопожатия заново
+	// Заводим ход рукопожатия заново
 	ASSERT_TRUE(machine.start(flow::role_t::CLIENT));
 	// Проверяем отвержение приветствия клиента, отправленного сервером
 	ASSERT_EQ(machine.accept(handshake::type_t::CLIENT, session::side_t::SERVER), flow::error_t::SIDE);
-	// Выполняем заведение хода рукопожатия заново
+	// Заводим ход рукопожатия заново
 	ASSERT_TRUE(machine.start(flow::role_t::CLIENT));
 	// Объявляем приветствие клиента
 	machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
@@ -249,7 +249,7 @@ TEST(FlowTest, Reject){
 	machine.accept(handshake::type_t::SERVER, session::side_t::SERVER);
 	// Проверяем отвержение подписи владения ключом до цепочки сертификатов
 	ASSERT_EQ(machine.accept(handshake::type_t::VERIFY, session::side_t::SERVER), flow::error_t::ORDER);
-	// Выполняем заведение хода рукопожатия заново
+	// Заводим ход рукопожатия заново
 	ASSERT_TRUE(machine.start(flow::role_t::SERVER));
 	// Объявляем приветствие клиента
 	machine.accept(handshake::type_t::CLIENT, session::side_t::CLIENT);
@@ -268,7 +268,7 @@ TEST(FlowTest, Reject){
 	 * вправе: ожидается одно лишь завершение рукопожатия
 	 */
 	ASSERT_EQ(machine.accept(handshake::type_t::CERTIFICATE, session::side_t::CLIENT), flow::error_t::ORDER);
-	// Выполняем сброс хода рукопожатия
+	// Сбрасываем ход рукопожатия
 	machine.clear();
 	// Проверяем сброс ступени хода рукопожатия
 	ASSERT_EQ(machine.stage(), flow::stage_t::NONE);

@@ -79,7 +79,7 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Открываем файл на чтение
 		std::ifstream file(path, std::ios::binary);
 		// Читаем содержимое файла в поток
@@ -96,9 +96,9 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string corpus(const std::string & name) {
+	static std::string __nts_corpus__(const std::string & name) {
 		// Выводим содержимое файла набора
-		return slurp(std::string(CORPUS) + "/" + name);
+		return __nts_slurp__(std::string(CORPUS) + "/" + name);
 	}
 	/**
 	 * @brief Функция перевода строки в набор байтов
@@ -118,7 +118,7 @@ namespace {
 	 * @return     просмотр набора байтов
 	 *
 	 */
-	static view_t view(const std::vector <uint8_t> & data) {
+	static view_t __nts_view__(const std::vector <uint8_t> & data) {
 		// Выводим просмотр набора байтов
 		return view_t(data.data(), data.size());
 	}
@@ -130,7 +130,7 @@ namespace {
 	 * @return     признак успешности записи
 	 *
 	 */
-	static bool spill(const std::string & path, const std::vector <uint8_t> & data) {
+	static bool __nts_spill__(const std::string & path, const std::vector <uint8_t> & data) {
 		// Открываем файл на запись
 		std::ofstream file(path, std::ios::binary);
 		// Записываем содержимое
@@ -216,7 +216,7 @@ namespace {
 	 * @return     значение признака CN либо пустая строка
 	 *
 	 */
-	static std::string common(const x509::name_t & name) {
+	static std::string __nts_common__(const x509::name_t & name) {
 		// Признак CN имени
 		const x509::attribute_t * attribute = x509::attribute(name, "2.5.4.3");
 		// Выводим значение признака либо пустую строку
@@ -244,19 +244,19 @@ TEST(RequestTest, Corpus){
 		"1.2.840.113549.1.1.11", "1.2.840.10045.4.3.2", "1.2.840.113549.1.1.11", "1.2.840.10045.4.3.2", "1.2.840.10045.4.3.2"
 	};
 	/**
-	 * Выполняем перебор запросов набора
+	 * Перебираем запросы набора
 	 */
 	for(size_t i = 0; i < 5; i++){
 		// Тело записи запроса в кодировке DER
-		const std::vector <uint8_t> der = body(corpus(std::string(names[i]) + ".csr"));
+		const std::vector <uint8_t> der = body(__nts_corpus__(std::string(names[i]) + ".csr"));
 		// Проверяем наличие записи
 		ASSERT_FALSE(der.empty()) << "Запрос: " << names[i];
 		// Разбираемый запрос
 		x509::request_t request;
 		// Проверяем разбор записи запроса
-		ASSERT_EQ(request.parse(view(der)), x509::error_t::NONE) << "Запрос: " << names[i];
+		ASSERT_EQ(request.parse(__nts_view__(der)), x509::error_t::NONE) << "Запрос: " << names[i];
 		// Проверяем имя владельца запроса
-		ASSERT_EQ(common(request.subjects()), subjects[i]) << "Запрос: " << names[i];
+		ASSERT_EQ(__nts_common__(request.subjects()), subjects[i]) << "Запрос: " << names[i];
 		// Проверяем опознаватель алгоритма ключа запроса
 		ASSERT_EQ(request.key().algorithm, keys[i]) << "Запрос: " << names[i];
 		// Проверяем опознаватель алгоритма подписи запроса
@@ -274,29 +274,29 @@ TEST(RequestTest, Corpus){
  */
 TEST(RequestTest, Refusal){
 	// Тело записи запроса в кодировке DER
-	const std::vector <uint8_t> der = body(corpus("leaf-rsa.csr"));
+	const std::vector <uint8_t> der = body(__nts_corpus__("leaf-rsa.csr"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(der.empty());
 	// Разбираемый запрос
 	x509::request_t request;
 	// Проверяем разбор записи запроса
-	ASSERT_EQ(request.parse(view(der)), x509::error_t::NONE);
+	ASSERT_EQ(request.parse(__nts_view__(der)), x509::error_t::NONE);
 	// Порченая запись: последний байт подписи перевёрнут
 	std::vector <uint8_t> damaged(der);
 	// Переворачиваем все разряды последнего байта подписи
 	damaged[damaged.size() - 1] = static_cast <uint8_t> (damaged[damaged.size() - 1] ^ 0xFF);
 	// Разбор порченой записи проходит: подпись не проверяется разбором
-	ASSERT_EQ(request.parse(view(damaged)), x509::error_t::NONE);
+	ASSERT_EQ(request.parse(__nts_view__(damaged)), x509::error_t::NONE);
 	// Проверяем отказ проверки порченой подписи
 	ASSERT_EQ(x509::verify(request, request.key()), x509::error_t::SIGNATURE);
 	// Обрезанная запись: без последних восьми байтов подписи
 	const std::vector <uint8_t> cut(der.begin(), der.end() - 8);
 	// Проверяем отказ разбора обрезанной записи
-	ASSERT_NE(request.parse(view(cut)), x509::error_t::NONE);
+	ASSERT_NE(request.parse(__nts_view__(cut)), x509::error_t::NONE);
 	// Проверяем отказ разбора пустой записи
 	ASSERT_NE(request.parse(view_t()), x509::error_t::NONE);
 	// Проверяем отказ разбора чужой записи: сертификат не запрос
-	ASSERT_NE(request.parse(view(body(corpus("leaf-rsa.crt")))), x509::error_t::NONE);
+	ASSERT_NE(request.parse(__nts_view__(body(__nts_corpus__("leaf-rsa.crt")))), x509::error_t::NONE);
 }
 
 /**
@@ -305,17 +305,17 @@ TEST(RequestTest, Refusal){
  */
 TEST(RequestTest, Roundtrip){
 	// Тело записи эталонного запроса
-	const std::vector <uint8_t> der = body(corpus("leaf-rsa.csr"));
+	const std::vector <uint8_t> der = body(__nts_corpus__("leaf-rsa.csr"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(der.empty());
 	// Эталонный запрос
 	x509::request_t reference;
 	// Проверяем разбор эталонного запроса
-	ASSERT_EQ(reference.parse(view(der)), x509::error_t::NONE);
+	ASSERT_EQ(reference.parse(__nts_view__(der)), x509::error_t::NONE);
 	// Подготовленный секретный ключ владельца запроса
 	keys::signer_t signer;
 	// Проверяем подготовку ключа из записи набора
-	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-rsa.key")))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__("leaf-rsa.key")))), keys::error_t::NONE);
 	// Запрошенное расширение: основные ограничения, необязательное
 	x509::extension_t extension;
 	// Устанавливаем опознаватель основных ограничений
@@ -333,9 +333,9 @@ TEST(RequestTest, Roundtrip){
 	// Разбираемый записанный запрос
 	x509::request_t request;
 	// Проверяем разбор записанного запроса
-	ASSERT_EQ(request.parse(view(encoded)), x509::error_t::NONE);
+	ASSERT_EQ(request.parse(__nts_view__(encoded)), x509::error_t::NONE);
 	// Проверяем совпадение имени владельца с исходным
-	ASSERT_EQ(common(request.subjects()), "test.anyks.com");
+	ASSERT_EQ(__nts_common__(request.subjects()), "test.anyks.com");
 	// Проверяем опознаватель алгоритма ключа записанного запроса
 	ASSERT_EQ(request.key().algorithm, "1.2.840.113549.1.1.1");
 	// Проверяем опознаватель алгоритма подписи записанного запроса
@@ -357,17 +357,17 @@ TEST(RequestTest, Roundtrip){
  */
 TEST(RequestTest, Starved){
 	// Тело записи эталонного запроса
-	const std::vector <uint8_t> der = body(corpus("leaf-rsa.csr"));
+	const std::vector <uint8_t> der = body(__nts_corpus__("leaf-rsa.csr"));
 	// Проверяем наличие записи
 	ASSERT_FALSE(der.empty());
 	// Эталонный запрос
 	x509::request_t reference;
 	// Проверяем разбор эталонного запроса
-	ASSERT_EQ(reference.parse(view(der)), x509::error_t::NONE);
+	ASSERT_EQ(reference.parse(__nts_view__(der)), x509::error_t::NONE);
 	// Подготовленный секретный ключ владельца запроса
 	keys::signer_t signer;
 	// Проверяем подготовку ключа из записи набора
-	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-rsa.key")))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__("leaf-rsa.key")))), keys::error_t::NONE);
 	// Запрошенное расширение: основные ограничения, необязательное
 	x509::extension_t extension;
 	// Устанавливаем опознаватель основных ограничений
@@ -381,7 +381,7 @@ TEST(RequestTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе запись и разбор обязаны
+	 * Перебираем запасы выделений: на всяком запасе запись и разбор обязаны
 	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -392,7 +392,7 @@ TEST(RequestTest, Starved){
 			starve::ration_t ration(budget);
 			// Записанный запрос
 			std::vector <uint8_t> encoded;
-			// Выполняем запись запроса при отмеренном запасе
+			// Записываем запрос при отмеренном запасе
 			encodedResult = x509::encode(reference.subjects(), reference.key(), extensions, signer, digest::hash_t::SHA256, encoded);
 		}
 		// Проверяем, что запись ответила успехом либо отказом памяти
@@ -406,8 +406,8 @@ TEST(RequestTest, Starved){
 			starve::ration_t ration(budget);
 			// Разбираемый запрос
 			x509::request_t request;
-			// Выполняем разбор эталонной записи при отмеренном запасе
-			parsed = request.parse(view(der));
+			// Разбираем эталонную запись при отмеренном запасе
+			parsed = request.parse(__nts_view__(der));
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти
 		ASSERT_TRUE((parsed == x509::error_t::NONE) || (parsed == x509::error_t::MEMORY)) << "запас " << budget << ", отказ разбора " << static_cast <int> (parsed);
@@ -434,21 +434,21 @@ TEST(RequestTest, Openssl){
 	// Записи запросов набора и их ключи
 	const char * names[] = {"leaf-rsa", "leaf-ec"};
 	/**
-	 * Выполняем перебор запросов набора
+	 * Перебираем запросы набора
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Тело записи эталонного запроса
-		const std::vector <uint8_t> der = body(corpus(std::string(names[i]) + ".csr"));
+		const std::vector <uint8_t> der = body(__nts_corpus__(std::string(names[i]) + ".csr"));
 		// Проверяем наличие записи
 		ASSERT_FALSE(der.empty()) << "Запрос: " << names[i];
 		// Эталонный запрос
 		x509::request_t reference;
 		// Проверяем разбор эталонного запроса
-		ASSERT_EQ(reference.parse(view(der)), x509::error_t::NONE) << "Запрос: " << names[i];
+		ASSERT_EQ(reference.parse(__nts_view__(der)), x509::error_t::NONE) << "Запрос: " << names[i];
 		// Подготовленный секретный ключ владельца запроса
 		keys::signer_t signer;
 		// Проверяем подготовку ключа из записи набора
-		ASSERT_EQ(signer.prepare(view(bytes(corpus(std::string(names[i]) + ".key")))), keys::error_t::NONE) << "Запрос: " << names[i];
+		ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__(std::string(names[i]) + ".key")))), keys::error_t::NONE) << "Запрос: " << names[i];
 		// Записанный запрос
 		std::vector <uint8_t> encoded;
 		// Проверяем запись запроса без расширений
@@ -456,7 +456,7 @@ TEST(RequestTest, Openssl){
 		// Путь к записанному запросу
 		const std::string path = sandbox.file(std::string(names[i]) + ".der");
 		// Проверяем запись файла запроса
-		ASSERT_TRUE(spill(path, encoded)) << "Запрос: " << names[i];
+		ASSERT_TRUE(__nts_spill__(path, encoded)) << "Запрос: " << names[i];
 		// Проверяем, что openssl принимает записанный запрос и подтверждает его подпись
 		ASSERT_EQ(__nts_shell__(std::string("openssl req -in ") + path + " -inform DER -verify -noout >/dev/null 2>&1"), 0) << "Запрос: " << names[i];
 	}
@@ -479,21 +479,21 @@ TEST(RequestTest, Sm2Mldsa){
 		{"mldsa87.crt", "mldsa87.pem", "2.16.840.1.101.3.4.3.19"}
 	};
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Тело записи сертификата в кодировке DER
-		const std::vector <uint8_t> der = body(corpus(CASES[i].crt));
+		const std::vector <uint8_t> der = body(__nts_corpus__(CASES[i].crt));
 		// Проверяем наличие записи
 		ASSERT_FALSE(der.empty()) << "Сертификат: " << CASES[i].crt;
 		// Разбираемый сертификат
 		x509::certificate_t certificate;
 		// Проверяем разбор записи сертификата
-		ASSERT_EQ(certificate.parse(view(der)), x509::error_t::NONE) << "Сертификат: " << CASES[i].crt;
+		ASSERT_EQ(certificate.parse(__nts_view__(der)), x509::error_t::NONE) << "Сертификат: " << CASES[i].crt;
 		// Подготовленный секретный ключ владельца запроса
 		keys::signer_t signer;
 		// Проверяем подготовку ключа из записи набора
-		ASSERT_EQ(signer.prepare(view(bytes(corpus(CASES[i].key)))), keys::error_t::NONE) << "Ключ: " << CASES[i].key;
+		ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__(CASES[i].key)))), keys::error_t::NONE) << "Ключ: " << CASES[i].key;
 		// Записанный запрос
 		std::vector <uint8_t> encoded;
 		// Проверяем запись запроса без расширений
@@ -501,7 +501,7 @@ TEST(RequestTest, Sm2Mldsa){
 		// Разбираемый записанный запрос
 		x509::request_t request;
 		// Проверяем разбор записанного запроса
-		ASSERT_EQ(request.parse(view(encoded)), x509::error_t::NONE) << "Ключ: " << CASES[i].key;
+		ASSERT_EQ(request.parse(__nts_view__(encoded)), x509::error_t::NONE) << "Ключ: " << CASES[i].key;
 		// Проверяем опознаватель алгоритма подписи записанного запроса
 		ASSERT_EQ(request.algorithms(), CASES[i].algorithm) << "Ключ: " << CASES[i].key;
 		// Проверяем подпись записанного запроса сведениями об открытом ключе самого запроса

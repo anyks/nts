@@ -89,7 +89,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool keyfile(const char * name, context::credential_t & result) noexcept {
+	bool __nts_keyfile__(const char * name, context::credential_t & result) noexcept {
 		// Считываем секретный ключ набора
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Считываем сертификат набора
@@ -111,7 +111,7 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Объявляем признак передачи байтов
 		bool moved = false;
 		/**
@@ -161,11 +161,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байты между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			continue;
 	}
 	/**
@@ -176,7 +176,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Объявляем контрольный запрос клиента
 		const string request = "Запрос по связи с выработкой NPN";
 		// Отправляем запрос от клиента серверу
@@ -184,7 +184,7 @@ namespace {
 			// Прерываем обмен с отказом при ошибке отправки
 			return false;
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Объявляем накопитель принятых данных
 		vector <uint8_t> received;
 		// Проверяем приём запроса сервером без искажения
@@ -198,7 +198,7 @@ namespace {
 			// Прерываем обмен с отказом при ошибке отправки
 			return false;
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем приём ответа клиентом без искажения
 		if((client.read(received) != context::error_t::NONE) || (string(received.begin(), received.end()) != answer))
 			// Прерываем обмен с отказом при искажении ответа
@@ -217,7 +217,7 @@ namespace {
 	 * @param legacy     зажать ли обе стороны на издании 1.2
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const context::credential_t & credential, const vector <string> & mine, const vector <string> & theirs, const bool legacy) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const context::credential_t & credential, const vector <string> & mine, const vector <string> & theirs, const bool legacy) noexcept {
 		// Устанавливаем серверу подлинность
 		server.credential(credential);
 		// Задаём клиенту перечень протоколов
@@ -245,7 +245,7 @@ namespace {
 	 * @return         признак присутствия расширения
 	 *
 	 */
-	bool carried(const view_t & data, const uint16_t type, const bool datagram) noexcept {
+	bool __nts_carried__(const view_t & data, const uint16_t type, const bool datagram) noexcept {
 		// Объявляем профиль отпечатка приветствия
 		fingerprint::profile_t profile;
 		// Разбираем снимок приветствия в профиль отпечатка
@@ -270,7 +270,7 @@ namespace {
 	 * @return       признак успешности составления
 	 *
 	 */
-	bool greeting(const vector <uint8_t> & body, vector <uint8_t> & result) noexcept {
+	bool __nts_greeting__(const vector <uint8_t> & body, vector <uint8_t> & result) noexcept {
 		// Объявляем приветствие клиента
 		hello::client_t hello;
 		// Устанавливаем приветствию версию издания 1.2
@@ -326,21 +326,21 @@ TEST(NpnTest, Loopback){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора в подлинность сервера
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	{
 		// Объявляем связь клиента
 		client::context_t client;
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны на издание 1.2 с выработкой
-		arrange(client, server, credential, vector <string> (), vector <string> {"http/1.1", "spdy/3"}, true);
+		__nts_arrange__(client, server, credential, vector <string> (), vector <string> {"http/1.1", "spdy/3"}, true);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проверяем наличие расширения выработки в приветствии клиента
-		EXPECT_TRUE(carried(client.output(), static_cast <uint16_t> (extension::type_t::NEGOTIATION), false));
+		EXPECT_TRUE(__nts_carried__(client.output(), static_cast <uint16_t> (extension::type_t::NEGOTIATION), false));
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи у обеих сторон
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем признак выработки у обеих сторон
@@ -349,7 +349,7 @@ TEST(NpnTest, Loopback){
 		EXPECT_EQ(client.protocol(), "http/1.1");
 		EXPECT_EQ(server.protocol(), "http/1.1");
 		// Проверяем обмен прикладными данными между сторонами
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 	{
 		// Объявляем связь клиента
@@ -357,12 +357,12 @@ TEST(NpnTest, Loopback){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны: у клиента свои протоколы, у сервера перечня нет
-		arrange(client, server, credential, vector <string> {"h2", "http/1.1"}, vector <string> (), true);
+		__nts_arrange__(client, server, credential, vector <string> {"h2", "http/1.1"}, vector <string> (), true);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи у обеих сторон
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " " << static_cast <int> (client.alert().description) << " " << static_cast <int> (server.alert().description);
 		// Проверяем признак выработки у обеих сторон
@@ -371,7 +371,7 @@ TEST(NpnTest, Loopback){
 		EXPECT_EQ(client.protocol(), "h2");
 		EXPECT_EQ(server.protocol(), "h2");
 		// Проверяем обмен прикладными данными между сторонами
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 	{
 		// Без протоколов у обеих сторон выработка идёт с пустым именем (как у BoringSSL): связь установлена, протокол пуст
@@ -379,19 +379,19 @@ TEST(NpnTest, Loopback){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны без перечней протоколов у обеих
-		arrange(client, server, credential, vector <string> (), vector <string> (), true);
+		__nts_arrange__(client, server, credential, vector <string> (), vector <string> (), true);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи у обеих сторон
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем признак выработки у обеих сторон
 		EXPECT_TRUE(client.negotiated() && server.negotiated());
 		EXPECT_TRUE(client.protocol().empty() && server.protocol().empty());
 		// Проверяем обмен прикладными данными между сторонами
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 }
 
@@ -403,19 +403,19 @@ TEST(NpnTest, Alpn){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора в подлинность сервера
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	{
 		// Объявляем связь клиента
 		client::context_t client;
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны с перечнями протоколов у обеих
-		arrange(client, server, credential, vector <string> {"h2", "http/1.1"}, vector <string> {"http/1.1", "h2"}, true);
+		__nts_arrange__(client, server, credential, vector <string> {"h2", "http/1.1"}, vector <string> {"http/1.1", "h2"}, true);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи у обеих сторон
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем отсутствие выработки при выбранном ALPN
@@ -430,14 +430,14 @@ TEST(NpnTest, Alpn){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны без перечня протоколов у клиента
-		arrange(client, server, credential, vector <string> (), vector <string> {"http/1.1"}, true);
+		__nts_arrange__(client, server, credential, vector <string> (), vector <string> {"http/1.1"}, true);
 		// Отключаем выработку у сервера
 		server.negotiation(false);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи у обеих сторон
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем отсутствие выработки у обеих сторон
@@ -454,7 +454,7 @@ TEST(NpnTest, Resumed){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора в подлинность сервера
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем контрольный запас билетов сервера
 	const vector <uint8_t> vault(32, 0x44);
 	// Объявляем связь клиента
@@ -462,14 +462,14 @@ TEST(NpnTest, Resumed){
 	// Объявляем связь сервера
 	server::context_t server;
 	// Настраиваем стороны на издание 1.2 с выработкой
-	arrange(client, server, credential, vector <string> (), vector <string> {"spdy/3"}, true);
+	__nts_arrange__(client, server, credential, vector <string> (), vector <string> {"spdy/3"}, true);
 	// Устанавливаем серверу запас билетов
 	server.vault(vault);
 	// Запускаем сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи у обеих сторон
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем выработанный протокол клиента
@@ -481,7 +481,7 @@ TEST(NpnTest, Resumed){
 	// Объявляем связь возобновляемого сервера
 	server::context_t resumed;
 	// Настраиваем стороны для возобновления связи
-	arrange(resuming, resumed, credential, vector <string> (), vector <string> {"spdy/3"}, true);
+	__nts_arrange__(resuming, resumed, credential, vector <string> (), vector <string> {"spdy/3"}, true);
 	// Устанавливаем возобновляемому серверу запас билетов
 	resumed.vault(vault);
 	// Передаём возобновляющему клиенту билет прежней связи
@@ -492,7 +492,7 @@ TEST(NpnTest, Resumed){
 	ASSERT_EQ(resumed.start(), context::error_t::NONE);
 	ASSERT_EQ(resuming.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(resuming, resumed);
+	__nts_converse__(resuming, resumed);
 	// Проверяем установление возобновлённой связи у обеих сторон
 	ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error());
 	ASSERT_TRUE(resuming.shared() && resumed.shared()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error());
@@ -502,7 +502,7 @@ TEST(NpnTest, Resumed){
 	EXPECT_EQ(resuming.protocol(), "spdy/3");
 	EXPECT_EQ(resumed.protocol(), "spdy/3");
 	// Проверяем обмен прикладными данными по возобновлённой связи
-	ASSERT_TRUE(barter(resuming, resumed));
+	ASSERT_TRUE(__nts_barter__(resuming, resumed));
 }
 
 /**
@@ -513,21 +513,21 @@ TEST(NpnTest, Modern){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора в подлинность сервера
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	{
 		// Объявляем связь клиента
 		client::context_t client;
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны на издание 1.3
-		arrange(client, server, credential, vector <string> (), vector <string> {"http/1.1"}, false);
+		__nts_arrange__(client, server, credential, vector <string> (), vector <string> {"http/1.1"}, false);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проверяем предложение расширения выработки в приветствии клиента
-		EXPECT_TRUE(carried(client.output(), static_cast <uint16_t> (extension::type_t::NEGOTIATION), false));
+		EXPECT_TRUE(__nts_carried__(client.output(), static_cast <uint16_t> (extension::type_t::NEGOTIATION), false));
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи у обеих сторон
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем молчание сервера о выработке
@@ -544,7 +544,7 @@ TEST(NpnTest, Modern){
 		ASSERT_EQ(client.versions(0x0304, 0x0304), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проверяем отсутствие расширения выработки в приветствии клиента
-		EXPECT_FALSE(carried(client.output(), static_cast <uint16_t> (extension::type_t::NEGOTIATION), false));
+		EXPECT_FALSE(__nts_carried__(client.output(), static_cast <uint16_t> (extension::type_t::NEGOTIATION), false));
 	}
 	{
 		// Объявляем связь клиента
@@ -556,7 +556,7 @@ TEST(NpnTest, Modern){
 		// Запускаем клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проверяем отсутствие расширения выработки в дейтаграмме клиента
-		EXPECT_FALSE(carried(client.output(), static_cast <uint16_t> (extension::type_t::NEGOTIATION), true));
+		EXPECT_FALSE(__nts_carried__(client.output(), static_cast <uint16_t> (extension::type_t::NEGOTIATION), true));
 	}
 }
 
@@ -568,7 +568,7 @@ TEST(NpnTest, Profile){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора в подлинность сервера
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем эталонный профиль отпечатка
 	fingerprint::profile_t source;
 	{
@@ -618,7 +618,7 @@ TEST(NpnTest, Profile){
 		// Сравниваем вид расширения снимка с эталонным
 		EXPECT_EQ(made.extensions[i].type, source.extensions[i].type) << i;
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи у обеих сторон
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем признак выработки у обеих сторон
@@ -635,12 +635,12 @@ TEST(NpnTest, Greedy){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора в подлинность сервера
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем накопители контрольного и жадного приветствий
 	vector <uint8_t> control, greedy;
 	// Составляем контрольное приветствие с пустым телом выработки
-	ASSERT_TRUE(greeting(vector <uint8_t> (), control));
-	ASSERT_TRUE(greeting(vector <uint8_t> {0x00}, greedy));
+	ASSERT_TRUE(__nts_greeting__(vector <uint8_t> (), control));
+	ASSERT_TRUE(__nts_greeting__(vector <uint8_t> {0x00}, greedy));
 	{
 		// Объявляем связь сервера
 		server::context_t server;
@@ -749,7 +749,7 @@ TEST(NpnTest, Openssl){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора в подлинность сервера
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем пути к сертификату и ключу набора
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
@@ -764,9 +764,9 @@ TEST(NpnTest, Openssl){
 		// Объявляем стража остановки сервера
 		sentinel_t sentinel(log + ".pid");
 		// Соединяемся с портом внешнего сервера
-		const int fd = __nts_dial__(number);
+		const int connection = __nts_dial__(number);
 		// Проверяем установление соединения
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(connection, 0) << "порт " << number;
 		// Объявляем связь клиента
 		client::context_t client;
 		// Задаём клиенту наборы шифров
@@ -784,7 +784,7 @@ TEST(NpnTest, Openssl){
 		/** Повторяем: передачу байтов, пока связь не установится и не сорвётся */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между клиентом и сервером
-			__nts_relay__(client, fd);
+			__nts_relay__(client, connection);
 		// Фиксируем неудачу со снимком журнала при несостоявшейся связи
 		if(!client.established()){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 		// Проверяем установление связи клиентом
@@ -802,14 +802,14 @@ TEST(NpnTest, Openssl){
 		/** Повторяем: чтение ответа, пока накопитель не получит данные */
 		for(size_t i = 0; (i < 16) && reply.empty(); i++){
 			// Передаём байты между клиентом и сервером
-			__nts_relay__(client, fd);
+			__nts_relay__(client, connection);
 			// Считываем ответ внешнего сервера
 			ASSERT_EQ(client.read(reply), context::error_t::NONE);
 		}
 		// Проверяем успешный ответ сервера
 		ASSERT_NE(string(reply.begin(), reply.end()).find("HTTP/1.0 200"), string::npos);
 		// Закрываем соединение с сервером
-		closing(fd);
+		closing(connection);
 		// Останавливаем внешний сервер
 		sentinel.halt();
 		// Объявляем накопитель журнала сервера
@@ -832,9 +832,9 @@ TEST(NpnTest, Openssl){
 		// Объявляем стража остановки клиента
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем соединение от внешнего клиента
-		const int fd = __nts_greeted__(listener);
+		const int connection = __nts_greeted__(listener);
 		// Проверяем принятие соединения
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(connection, 0);
 		// Объявляем связь сервера
 		server::context_t server;
 		// Задаём серверу наборы шифров
@@ -852,7 +852,7 @@ TEST(NpnTest, Openssl){
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Обслуживаем внешнего клиента до завершения связи
-		const bool complete = __nts_serve__(server, fd);
+		const bool complete = __nts_serve__(server, connection);
 		// Проверяем бесконфликтное обслуживание клиента
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 		// Проверяем отсутствие ошибки у сервера
@@ -862,9 +862,9 @@ TEST(NpnTest, Openssl){
 		// Проверяем протокол, выбранный клиентом эталона
 		EXPECT_EQ(server.protocol(), "http/1.1");
 		// Завершаем связь с внешним клиентом
-		ASSERT_TRUE(__nts_farewell__(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, connection));
 		// Закрываем соединение с клиентом
-		closing(fd);
+		closing(connection);
 		closing(listener);
 		// Объявляем накопитель журнала клиента
 		std::string text;
@@ -884,13 +884,13 @@ TEST(NpnTest, Starved){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора в подлинность сервера
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем признак пойманной нехватки памяти
 	bool starved = false;
 	// Объявляем признак состоявшейся связи
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Объявляем связь клиента
@@ -898,7 +898,7 @@ TEST(NpnTest, Starved){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны на издание 1.2 с выработкой
-		arrange(client, server, credential, vector <string> (), vector <string> {"http/1.1", "spdy/3"}, true);
+		__nts_arrange__(client, server, credential, vector <string> (), vector <string> {"http/1.1", "spdy/3"}, true);
 		// Объявляем коды итогов сторон
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{
@@ -911,7 +911,7 @@ TEST(NpnTest, Starved){
 			// Проверяем бесконфликтный запуск обеих сторон
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 				// Проводим рукопожатие сторон
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Снимаем итог сервера после рукопожатия
 				first = server.error();
 				// Снимаем итог клиента после рукопожатия

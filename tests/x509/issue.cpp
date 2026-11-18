@@ -80,7 +80,7 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Открываем файл на чтение
 		std::ifstream file(path, std::ios::binary);
 		// Читаем содержимое файла в поток
@@ -97,9 +97,9 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string corpus(const std::string & name) {
+	static std::string __nts_corpus__(const std::string & name) {
 		// Выводим содержимое файла набора
-		return slurp(std::string(CORPUS) + "/" + name);
+		return __nts_slurp__(std::string(CORPUS) + "/" + name);
 	}
 	/**
 	 * @brief Функция перевода строки в набор байтов
@@ -119,7 +119,7 @@ namespace {
 	 * @return     просмотр набора байтов
 	 *
 	 */
-	static view_t view(const std::vector <uint8_t> & data) {
+	static view_t __nts_view__(const std::vector <uint8_t> & data) {
 		// Выводим просмотр набора байтов
 		return view_t(data.data(), data.size());
 	}
@@ -131,7 +131,7 @@ namespace {
 	 * @return     признак успешности записи
 	 *
 	 */
-	static bool spill(const std::string & path, const std::vector <uint8_t> & data) {
+	static bool __nts_spill__(const std::string & path, const std::vector <uint8_t> & data) {
 		// Открываем файл на запись
 		std::ofstream file(path, std::ios::binary);
 		// Записываем содержимое
@@ -217,7 +217,7 @@ namespace {
 	 * @return     значение признака CN либо пустая строка
 	 *
 	 */
-	static std::string common(const x509::name_t & name) {
+	static std::string __nts_common__(const x509::name_t & name) {
 		// Признак CN имени
 		const x509::attribute_t * attribute = x509::attribute(name, "2.5.4.3");
 		// Выводим значение признака либо пустую строку
@@ -232,15 +232,15 @@ namespace {
 	 * @return            признак успешности разбора
 	 *
 	 */
-	static bool certificate(const std::string & name, std::vector <uint8_t> & der, x509::certificate_t & certificate) {
+	static bool __nts_certificate__(const std::string & name, std::vector <uint8_t> & der, x509::certificate_t & certificate) {
 		// Тело записи сертификата в кодировке DER
-		der = body(corpus(name));
+		der = body(__nts_corpus__(name));
 		// Если записи нет
 		if(der.empty())
 			// Выводим отрицательный результат - записи нет
 			return false;
 		// Выводим итог разбора сертификата
-		return (certificate.parse(view(der)) == x509::error_t::NONE);
+		return (certificate.parse(__nts_view__(der)) == x509::error_t::NONE);
 	}
 };
 
@@ -254,11 +254,11 @@ TEST(IssueTest, SelfSigned){
 	// Эталонный сертификат владельца
 	x509::certificate_t reference;
 	// Проверяем разбор эталонного сертификата
-	ASSERT_TRUE(certificate("leaf-rsa.crt", der, reference));
+	ASSERT_TRUE(__nts_certificate__("leaf-rsa.crt", der, reference));
 	// Подготовленный секретный ключ владельца
 	keys::signer_t signer;
 	// Проверяем подготовку ключа из записи набора
-	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-rsa.key")))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__("leaf-rsa.key")))), keys::error_t::NONE);
 	// Порядковый номер выдаваемого сертификата
 	const uint8_t serial[] = {0x01, 0x02, 0x03, 0x04};
 	// Расширение основных ограничений: владелец не издатель
@@ -278,16 +278,16 @@ TEST(IssueTest, SelfSigned){
 	// Разбираемый выпущенный сертификат
 	x509::certificate_t certificate;
 	// Проверяем разбор выпущенного сертификата
-	ASSERT_EQ(certificate.parse(view(issued)), x509::error_t::NONE);
+	ASSERT_EQ(certificate.parse(__nts_view__(issued)), x509::error_t::NONE);
 	// Проверяем издание выпущенного сертификата: расширения есть - издание третье
 	ASSERT_EQ(certificate.release(), x509::version_t::V3);
 	// Проверяем порядковый номер выпущенного сертификата
 	ASSERT_EQ(certificate.number().size, sizeof(serial));
 	ASSERT_EQ(::memcmp(certificate.number().data, serial, sizeof(serial)), 0);
 	// Проверяем совпадение имени издателя с именем владельца: сертификат самоподписанный
-	ASSERT_EQ(common(certificate.issuers()), "test.anyks.com");
+	ASSERT_EQ(__nts_common__(certificate.issuers()), "test.anyks.com");
 	// Проверяем имя владельца выпущенного сертификата
-	ASSERT_EQ(common(certificate.subjects()), "test.anyks.com");
+	ASSERT_EQ(__nts_common__(certificate.subjects()), "test.anyks.com");
 	// Срок действия выпущенного сертификата
 	int64_t before = 0, after = 0;
 	// Извлекаем срок действия
@@ -314,11 +314,11 @@ TEST(IssueTest, Starved){
 	// Эталонный сертификат владельца
 	x509::certificate_t reference;
 	// Проверяем разбор эталонного сертификата
-	ASSERT_TRUE(certificate("leaf-rsa.crt", der, reference));
+	ASSERT_TRUE(__nts_certificate__("leaf-rsa.crt", der, reference));
 	// Подготовленный секретный ключ владельца
 	keys::signer_t signer;
 	// Проверяем подготовку ключа из записи набора
-	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-rsa.key")))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__("leaf-rsa.key")))), keys::error_t::NONE);
 	// Порядковый номер выдаваемого сертификата
 	const uint8_t serial[] = {0x01, 0x02, 0x03, 0x04};
 	// Расширение основных ограничений: владелец не издатель
@@ -334,7 +334,7 @@ TEST(IssueTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе выпуск обязан ответить
+	 * Перебираем запасы выделений: на всяком запасе выпуск обязан ответить
 	 * либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -345,7 +345,7 @@ TEST(IssueTest, Starved){
 			starve::ration_t ration(budget);
 			// Выпущенный сертификат
 			std::vector <uint8_t> issued;
-			// Выполняем выпуск самоподписанного сертификата при отмеренном запасе
+			// Выпускаем самоподписанный сертификат при отмеренном запасе
 			outcome = x509::issueSelfSigned(reference.subjects(), reference.key(), signer, digest::hash_t::SHA256, view_t(serial, sizeof(serial)), 1767225600, 1893456000, extensions, issued);
 		}
 		// Проверяем, что выпуск ответил успехом либо отказом памяти
@@ -367,11 +367,11 @@ TEST(IssueTest, FirstRelease){
 	// Эталонный сертификат владельца
 	x509::certificate_t reference;
 	// Проверяем разбор эталонного сертификата
-	ASSERT_TRUE(certificate("leaf-ec.crt", der, reference));
+	ASSERT_TRUE(__nts_certificate__("leaf-ec.crt", der, reference));
 	// Подготовленный секретный ключ владельца
 	keys::signer_t signer;
 	// Проверяем подготовку ключа из записи набора
-	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-ec.key")))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__("leaf-ec.key")))), keys::error_t::NONE);
 	// Порядковый номер выдаваемого сертификата
 	const uint8_t serial[] = {0x2A};
 	// Выпущенный сертификат
@@ -381,7 +381,7 @@ TEST(IssueTest, FirstRelease){
 	// Разбираемый выпущенный сертификат
 	x509::certificate_t certificate;
 	// Проверяем разбор выпущенного сертификата
-	ASSERT_EQ(certificate.parse(view(issued)), x509::error_t::NONE);
+	ASSERT_EQ(certificate.parse(__nts_view__(issued)), x509::error_t::NONE);
 	// Проверяем издание выпущенного сертификата: расширений нет - издание первое
 	ASSERT_EQ(certificate.release(), x509::version_t::V1);
 	// Проверяем опознаватель алгоритма подписи выпущенного сертификата
@@ -397,41 +397,41 @@ TEST(IssueTest, FirstRelease){
  */
 TEST(IssueTest, ByCA){
 	// Тело записи запроса владельца
-	const std::vector <uint8_t> requestDer = body(corpus("leaf-rsa.csr"));
+	const std::vector <uint8_t> requestDer = body(__nts_corpus__("leaf-rsa.csr"));
 	// Проверяем наличие записи запроса
 	ASSERT_FALSE(requestDer.empty());
 	// Разбираемый запрос владельца
 	x509::request_t request;
 	// Проверяем разбор запроса владельца
-	ASSERT_EQ(request.parse(view(requestDer)), x509::error_t::NONE);
+	ASSERT_EQ(request.parse(__nts_view__(requestDer)), x509::error_t::NONE);
 	// Проверяем подпись запроса сведениями об открытом ключе самого запроса
 	ASSERT_EQ(x509::verify(request, request.key()), x509::error_t::NONE);
 	// Тело записи сертификата издателя
 	std::vector <uint8_t> caDer;
 	// Сертификат издателя
-	x509::certificate_t ca;
+	x509::certificate_t authority;
 	// Проверяем разбор сертификата издателя
-	ASSERT_TRUE(certificate("ca-rsa.crt", caDer, ca));
+	ASSERT_TRUE(__nts_certificate__("ca-rsa.crt", caDer, authority));
 	// Подготовленный секретный ключ издателя
 	keys::signer_t signer;
 	// Проверяем подготовку ключа издателя из записи набора
-	ASSERT_EQ(signer.prepare(view(bytes(corpus("ca-rsa.key")))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__("ca-rsa.key")))), keys::error_t::NONE);
 	// Порядковый номер выдаваемого сертификата
 	const uint8_t serial[] = {0x0A, 0x0B};
 	// Выпущенный сертификат
 	std::vector <uint8_t> issued;
 	// Проверяем выпуск сертификата по запросу подписью издателя
-	ASSERT_EQ(x509::issueByCA(request, ca.subjects(), signer, digest::hash_t::SHA256, view_t(serial, sizeof(serial)), 1767225600, 1893456000, std::vector <x509::extension_t> (), issued), x509::error_t::NONE);
+	ASSERT_EQ(x509::issueByCA(request, authority.subjects(), signer, digest::hash_t::SHA256, view_t(serial, sizeof(serial)), 1767225600, 1893456000, std::vector <x509::extension_t> (), issued), x509::error_t::NONE);
 	// Разбираемый выпущенный сертификат
 	x509::certificate_t certificate;
 	// Проверяем разбор выпущенного сертификата
-	ASSERT_EQ(certificate.parse(view(issued)), x509::error_t::NONE);
+	ASSERT_EQ(certificate.parse(__nts_view__(issued)), x509::error_t::NONE);
 	// Проверяем имя издателя выпущенного сертификата
-	ASSERT_EQ(common(certificate.issuers()), "ANYKS Root rsa");
+	ASSERT_EQ(__nts_common__(certificate.issuers()), "ANYKS Root rsa");
 	// Проверяем имя владельца выпущенного сертификата: из запроса
-	ASSERT_EQ(common(certificate.subjects()), "test.anyks.com");
+	ASSERT_EQ(__nts_common__(certificate.subjects()), "test.anyks.com");
 	// Проверяем подпись выпущенного сертификата сведениями об открытом ключе издателя
-	ASSERT_EQ(x509::verify(certificate, ca.key()), x509::error_t::NONE);
+	ASSERT_EQ(x509::verify(certificate, authority.key()), x509::error_t::NONE);
 	// Проверяем отказ проверки подписи чужим ключом: владельца, не издателя
 	ASSERT_EQ(x509::verify(certificate, request.key()), x509::error_t::SIGNATURE);
 	// Проверяем совпадение открытого ключа выпущенного сертификата с ключом запроса байт в байт
@@ -449,11 +449,11 @@ TEST(IssueTest, Refusal){
 	// Эталонный сертификат владельца
 	x509::certificate_t reference;
 	// Проверяем разбор эталонного сертификата
-	ASSERT_TRUE(certificate("leaf-rsa.crt", der, reference));
+	ASSERT_TRUE(__nts_certificate__("leaf-rsa.crt", der, reference));
 	// Подготовленный секретный ключ владельца
 	keys::signer_t signer;
 	// Проверяем подготовку ключа из записи набора
-	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-rsa.key")))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__("leaf-rsa.key")))), keys::error_t::NONE);
 	// Порядковый номер выдаваемого сертификата
 	const uint8_t serial[] = {0x01};
 	// Выпущенный сертификат
@@ -490,11 +490,11 @@ TEST(IssueTest, Openssl){
 	// Эталонный сертификат владельца
 	x509::certificate_t reference;
 	// Проверяем разбор эталонного сертификата
-	ASSERT_TRUE(certificate("leaf-ec.crt", der, reference));
+	ASSERT_TRUE(__nts_certificate__("leaf-ec.crt", der, reference));
 	// Подготовленный секретный ключ владельца
 	keys::signer_t signer;
 	// Проверяем подготовку ключа из записи набора
-	ASSERT_EQ(signer.prepare(view(bytes(corpus("leaf-ec.key")))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__("leaf-ec.key")))), keys::error_t::NONE);
 	// Порядковый номер выдаваемого сертификата
 	const uint8_t serial[] = {0x07};
 	// Выпущенный самоподписанный сертификат
@@ -504,7 +504,7 @@ TEST(IssueTest, Openssl){
 	// Путь к самоподписанному сертификату в кодировке DER
 	const std::string selfDer = sandbox.file("self.der");
 	// Проверяем запись файла сертификата
-	ASSERT_TRUE(spill(selfDer, self));
+	ASSERT_TRUE(__nts_spill__(selfDer, self));
 	// Путь к самоподписанному сертификату в кодировке PEM
 	const std::string selfPem = sandbox.file("self.pem");
 	// Проверяем, что openssl разбирает выпущенный сертификат и переписывает его в PEM
@@ -512,31 +512,31 @@ TEST(IssueTest, Openssl){
 	// Проверяем, что openssl подтверждает самоподписанный сертификат его же записью
 	ASSERT_EQ(__nts_shell__(std::string("openssl verify -CAfile ") + selfPem + " " + selfPem + " >/dev/null 2>&1"), 0);
 	// Тело записи запроса владельца
-	const std::vector <uint8_t> requestDer = body(corpus("leaf-rsa.csr"));
+	const std::vector <uint8_t> requestDer = body(__nts_corpus__("leaf-rsa.csr"));
 	// Проверяем наличие записи запроса
 	ASSERT_FALSE(requestDer.empty());
 	// Разбираемый запрос владельца
 	x509::request_t request;
 	// Проверяем разбор запроса владельца
-	ASSERT_EQ(request.parse(view(requestDer)), x509::error_t::NONE);
+	ASSERT_EQ(request.parse(__nts_view__(requestDer)), x509::error_t::NONE);
 	// Тело записи сертификата издателя
 	std::vector <uint8_t> caDer;
 	// Сертификат издателя
-	x509::certificate_t ca;
+	x509::certificate_t authority;
 	// Проверяем разбор сертификата издателя
-	ASSERT_TRUE(certificate("ca-rsa.crt", caDer, ca));
+	ASSERT_TRUE(__nts_certificate__("ca-rsa.crt", caDer, authority));
 	// Подготовленный секретный ключ издателя
 	keys::signer_t caSigner;
 	// Проверяем подготовку ключа издателя из записи набора
-	ASSERT_EQ(caSigner.prepare(view(bytes(corpus("ca-rsa.key")))), keys::error_t::NONE);
+	ASSERT_EQ(caSigner.prepare(__nts_view__(bytes(__nts_corpus__("ca-rsa.key")))), keys::error_t::NONE);
 	// Выпущенный издателем сертификат
 	std::vector <uint8_t> signed_;
 	// Проверяем выпуск сертификата по запросу подписью издателя
-	ASSERT_EQ(x509::issueByCA(request, ca.subjects(), caSigner, digest::hash_t::SHA256, view_t(serial, sizeof(serial)), 1767225600, 1893456000, std::vector <x509::extension_t> (), signed_), x509::error_t::NONE);
+	ASSERT_EQ(x509::issueByCA(request, authority.subjects(), caSigner, digest::hash_t::SHA256, view_t(serial, sizeof(serial)), 1767225600, 1893456000, std::vector <x509::extension_t> (), signed_), x509::error_t::NONE);
 	// Путь к выданному издателем сертификату в кодировке DER
 	const std::string signedDer = sandbox.file("signed.der");
 	// Проверяем запись файла сертификата
-	ASSERT_TRUE(spill(signedDer, signed_));
+	ASSERT_TRUE(__nts_spill__(signedDer, signed_));
 	// Путь к выданному издателем сертификату в кодировке PEM
 	const std::string signedPem = sandbox.file("signed.pem");
 	// Проверяем, что openssl разбирает выданный сертификат и переписывает его в PEM
@@ -544,7 +544,7 @@ TEST(IssueTest, Openssl){
 	// Путь к сертификату издателя в кодировке PEM
 	const std::string caPem = sandbox.file("ca.pem");
 	// Проверяем запись файла сертификата издателя
-	ASSERT_TRUE(spill(caPem, bytes(corpus("ca-rsa.crt"))));
+	ASSERT_TRUE(__nts_spill__(caPem, bytes(__nts_corpus__("ca-rsa.crt"))));
 	// Проверяем, что openssl подтверждает выданный сертификат цепочкой до издателя
 	ASSERT_EQ(__nts_shell__(std::string("openssl verify -CAfile ") + caPem + " " + signedPem + " >/dev/null 2>&1"), 0);
 }
@@ -566,7 +566,7 @@ TEST(IssueTest, Mldsa){
 		{"mldsa87.crt", "mldsa87.pem", "2.16.840.1.101.3.4.3.19"}
 	};
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(size_t i = 0; i < (sizeof(CASES) / sizeof(CASES[0])); i++){
 		// Тело записи эталонного сертификата владельца
@@ -574,11 +574,11 @@ TEST(IssueTest, Mldsa){
 		// Эталонный сертификат владельца
 		x509::certificate_t reference;
 		// Проверяем разбор эталонного сертификата
-		ASSERT_TRUE(certificate(CASES[i].crt, der, reference));
+		ASSERT_TRUE(__nts_certificate__(CASES[i].crt, der, reference));
 		// Подготовленный секретный ключ владельца
 		keys::signer_t signer;
 		// Проверяем подготовку ключа из записи набора
-		ASSERT_EQ(signer.prepare(view(bytes(corpus(CASES[i].key)))), keys::error_t::NONE);
+		ASSERT_EQ(signer.prepare(__nts_view__(bytes(__nts_corpus__(CASES[i].key)))), keys::error_t::NONE);
 		// Порядковый номер выдаваемого сертификата
 		const uint8_t serial[] = {0x01, 0x02, 0x03, 0x04};
 		// Выпущенный сертификат
@@ -588,7 +588,7 @@ TEST(IssueTest, Mldsa){
 		// Разбираемый выпущенный сертификат
 		x509::certificate_t certificate;
 		// Проверяем разбор выпущенного сертификата
-		ASSERT_EQ(certificate.parse(view(issued)), x509::error_t::NONE);
+		ASSERT_EQ(certificate.parse(__nts_view__(issued)), x509::error_t::NONE);
 		// Проверяем опознаватель алгоритма подписи выпущенного сертификата
 		ASSERT_EQ(certificate.algorithms(), CASES[i].algorithm);
 		// Проверяем подпись выпущенного сертификата сведениями об открытом ключе самого сертификата

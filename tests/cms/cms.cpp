@@ -67,7 +67,7 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Открываем файл на чтение
 		std::ifstream file(path, std::ios::binary);
 		// Читаем содержимое файла в поток
@@ -84,7 +84,7 @@ namespace {
 	 * @return     просмотр строки
 	 *
 	 */
-	static view_t view(const std::string & text) {
+	static view_t __nts_view__(const std::string & text) {
 		// Выводим просмотр строки
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -95,7 +95,7 @@ namespace {
 	 * @return     просмотр набора байтов
 	 *
 	 */
-	static view_t view(const std::vector <uint8_t> & data) {
+	static view_t __nts_view__(const std::vector <uint8_t> & data) {
 		// Выводим просмотр набора байтов
 		return view_t(data.data(), data.size());
 	}
@@ -106,9 +106,9 @@ namespace {
 	 * @param result ключ, в который помещается итог разбора
 	 *
 	 */
-	static void load(const std::string & path, keys::key_t & result) {
+	static void __nts_load__(const std::string & path, keys::key_t & result) {
 		// Читаем запись ключа
-		const std::string text = slurp(path);
+		const std::string text = __nts_slurp__(path);
 		// Разбираем запись ключа
 		ASSERT_EQ(keys::decode(text, view_t(), result), keys::error_t::NONE);
 	}
@@ -121,13 +121,13 @@ namespace {
 	 * @param result сертификат, в который помещается итог разбора
 	 *
 	 */
-	static void load(const std::string & path, std::string & text, std::vector <pem::block_t> & blocks, x509::certificate_t & result) {
+	static void __nts_load__(const std::string & path, std::string & text, std::vector <pem::block_t> & blocks, x509::certificate_t & result) {
 		// Читаем запись сертификата
-		text = slurp(path);
+		text = __nts_slurp__(path);
 		// Разбираем запись PEM
 		ASSERT_EQ(pem::decode(text, blocks), pem::error_t::NONE);
 		// Разбираем сертификат
-		ASSERT_EQ(result.parse(view(blocks[0].data)), x509::error_t::NONE);
+		ASSERT_EQ(result.parse(__nts_view__(blocks[0].data)), x509::error_t::NONE);
 	}
 	/**
 	 * @brief Функция выполнения команды командной строки
@@ -137,7 +137,7 @@ namespace {
 	 *
 	 */
 	static int __nts_shell__(const std::string & command) noexcept {
-		// Выполняем команду без входа
+		// Запускаем команду без входа
 		return std::system((command + " </dev/null").c_str());
 	}
 	/**
@@ -240,25 +240,25 @@ TEST(CmsTest, SignRoundtrip) {
 		// Сертификат подписывающего
 		x509::certificate_t certificate;
 		// Разбираем сертификат
-		load(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
+		__nts_load__(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
 		// Ключ подписывающего
 		keys::key_t key;
 		// Разбираем ключ
-		load(std::string(CORPUS) + "/" + CASES[i].key, key);
+		__nts_load__(std::string(CORPUS) + "/" + CASES[i].key, key);
 		// Подготовленный ключ подписи
 		keys::signer_t signer;
 		// Готовим ключ подписи
-		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
+		ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
 		// Собираем подписанное сообщение
 		std::vector <uint8_t> record;
 		// Сборка обязана удаться
-		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, CASES[i].hash, record), cms::error_t::NONE);
+		ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, CASES[i].hash, record), cms::error_t::NONE);
 		// Вид записи обязан быть id-signedData
-		ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
+		ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::SIGNED);
 		// Объект разбора собранной подписанной записи
 		cms::signed_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Содержимое обязано совпасть
 		ASSERT_EQ(parsed.content().size, std::string(CONTENT).size());
 		ASSERT_EQ(::memcmp(parsed.content().data, CONTENT, parsed.content().size), 0);
@@ -279,14 +279,14 @@ TEST(CmsTest, SignRoundtrip) {
 			// Чужой сертификат
 			x509::certificate_t other;
 			// Разбираем чужой сертификат
-			load(std::string(CORPUS) + "/" + ((i == 1) ? "mid-ec.crt" : "mid-rsa.crt"), otherText, otherBlocks, other);
+			__nts_load__(std::string(CORPUS) + "/" + ((i == 1) ? "mid-ec.crt" : "mid-rsa.crt"), otherText, otherBlocks, other);
 			// Проверка подписи обязана отказать
 			ASSERT_EQ(cms::verify(parsed, parsed.signers()[0], view_t(), other.key()), cms::error_t::SIGNATURE);
 		}
 		// Проверка подписи с отделённым содержимым обязана удаться
-		ASSERT_EQ(cms::verify(parsed, parsed.signers()[0], view(std::string(CONTENT)), certificate.key()), cms::error_t::NONE);
+		ASSERT_EQ(cms::verify(parsed, parsed.signers()[0], __nts_view__(std::string(CONTENT)), certificate.key()), cms::error_t::NONE);
 		// Проверка подписи с чужим содержимым обязана отказать
-		ASSERT_EQ(cms::verify(parsed, parsed.signers()[0], view(std::string("foreign content")), certificate.key()), cms::error_t::SIGNATURE);
+		ASSERT_EQ(cms::verify(parsed, parsed.signers()[0], __nts_view__(std::string("foreign content")), certificate.key()), cms::error_t::SIGNATURE);
 	}
 }
 
@@ -302,19 +302,19 @@ TEST(CmsTest, CertificatesRoundtrip) {
 	// Сертификаты цепочки
 	x509::certificate_t leaf, mid, ca;
 	// Разбираем сертификаты цепочки
-	load(std::string(CORPUS) + "/leaf-rsa.crt", leafText, leafBlocks, leaf);
-	load(std::string(CORPUS) + "/mid-rsa.crt", midText, midBlocks, mid);
-	load(std::string(CORPUS) + "/ca-rsa.crt", caText, caBlocks, ca);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", leafText, leafBlocks, leaf);
+	__nts_load__(std::string(CORPUS) + "/mid-rsa.crt", midText, midBlocks, mid);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", caText, caBlocks, ca);
 	// Собираем цепочку
 	std::vector <uint8_t> record;
 	// Сборка обязана удаться
-	ASSERT_EQ(cms::certificates({view(leafBlocks[0].data), view(midBlocks[0].data), view(caBlocks[0].data)}, record), cms::error_t::NONE);
+	ASSERT_EQ(cms::certificates({__nts_view__(leafBlocks[0].data), __nts_view__(midBlocks[0].data), __nts_view__(caBlocks[0].data)}, record), cms::error_t::NONE);
 	// Вид записи обязан быть id-signedData
-	ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
+	ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::SIGNED);
 	// Объект разбора собранной цепочки сертификатов
 	cms::signed_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Сертификатов обязано быть три
 	ASSERT_EQ(parsed.certificates().size(), 3);
 	// Подписывающих быть не обязано
@@ -356,21 +356,21 @@ TEST(CmsTest, EnvelopRsaRoundtrip) {
 	// Сертификат получателя
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Ключ получателя
 	keys::key_t key;
 	// Разбираем ключ
-	load(std::string(CORPUS) + "/leaf-rsa.key", key);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.key", key);
 	// Собираем зашифрованное сообщение
 	std::vector <uint8_t> record;
 	// Сборка обязана удаться
-	ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), record), cms::error_t::NONE);
+	ASSERT_EQ(cms::envelop(__nts_view__(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), record), cms::error_t::NONE);
 	// Вид записи обязан быть id-envelopedData
-	ASSERT_EQ(cms::content(view(record)), cms::content_t::ENVELOPED);
+	ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::ENVELOPED);
 	// Объект разбора собранной зашифрованной записи
 	cms::enveloped_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Получатель обязан быть один вида RSA
 	ASSERT_EQ(parsed.recipients().size(), 1);
 	ASSERT_EQ(parsed.recipients()[0].kind, cms::recipient_t::kind_t::RSA);
@@ -391,7 +391,7 @@ TEST(CmsTest, EnvelopRsaRoundtrip) {
 		// Чужой ключ
 		keys::key_t other;
 		// Разбираем чужой ключ
-		load(std::string(CORPUS) + "/ca-rsa.key", other);
+		__nts_load__(std::string(CORPUS) + "/ca-rsa.key", other);
 		// Итог расшифрования
 		std::vector <uint8_t> foreign;
 		// Расшифрование обязано отказать
@@ -425,7 +425,7 @@ TEST(CmsTest, EnvelopKemRoundtrip) {
 	// Сертификат для опознавания получателя
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	/**
 	 * Проходим по наборам параметров
 	 */
@@ -437,13 +437,13 @@ TEST(CmsTest, EnvelopKemRoundtrip) {
 		// Собираем зашифрованное сообщение
 		std::vector <uint8_t> record;
 		// Сборка обязана удаться
-		ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), KEMS[i], view(public_), record), cms::error_t::NONE);
+		ASSERT_EQ(cms::envelop(__nts_view__(std::string(CONTENT)), certificate.issuers().element, certificate.number(), KEMS[i], __nts_view__(public_), record), cms::error_t::NONE);
 		// Вид записи обязан быть id-envelopedData
-		ASSERT_EQ(cms::content(view(record)), cms::content_t::ENVELOPED);
+		ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::ENVELOPED);
 		// Объект разбора зашифрованной записи с инкапсуляцией ML-KEM
 		cms::enveloped_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Получатель обязан быть один вида KEM
 		ASSERT_EQ(parsed.recipients().size(), 1);
 		ASSERT_EQ(parsed.recipients()[0].kind, cms::recipient_t::kind_t::KEM);
@@ -458,7 +458,7 @@ TEST(CmsTest, EnvelopKemRoundtrip) {
 		// Расшифрование обязано удаться
 		std::vector <uint8_t> content;
 		// Расшифрование обязано удаться
-		ASSERT_EQ(cms::unenvelop(parsed, KEMS[i], view(secret), content), cms::error_t::NONE);
+		ASSERT_EQ(cms::unenvelop(parsed, KEMS[i], __nts_view__(secret), content), cms::error_t::NONE);
 		// Содержимое обязано совпасть
 		ASSERT_EQ(content.size(), std::string(CONTENT).size());
 		ASSERT_EQ(::memcmp(content.data(), CONTENT, content.size()), 0);
@@ -471,7 +471,7 @@ TEST(CmsTest, EnvelopKemRoundtrip) {
 			// Итог расшифрования
 			std::vector <uint8_t> foreign;
 			// Расшифрование обязано отказать
-			ASSERT_EQ(cms::unenvelop(parsed, KEMS[i], view(other), foreign), cms::error_t::KEY);
+			ASSERT_EQ(cms::unenvelop(parsed, KEMS[i], __nts_view__(other), foreign), cms::error_t::KEY);
 		}
 	}
 }
@@ -497,13 +497,13 @@ TEST(CmsTest, OpensslSign) {
 			GTEST_SKIP() << "openssl cms -sign is unavailable";
 	}
 	// Читаем подписанную запись из файла песочницы
-	const std::string record = slurp(sandbox.file("signed.der"));
+	const std::string record = __nts_slurp__(sandbox.file("signed.der"));
 	// Вид записи обязан быть id-signedData
-	ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
+	ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::SIGNED);
 	// Объект разбора подписанной записи OpenSSL
 	cms::signed_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Подписывающий обязан быть один
 	ASSERT_EQ(parsed.signers().size(), 1);
 	// Сертификат обязан быть записан
@@ -524,11 +524,11 @@ TEST(CmsTest, OpensslSign) {
 		ASSERT_EQ(__nts_shell__(command), 0);
 	}
 	// Читаем запись подписи ключом ECDSA из файла песочницы
-	const std::string recordEc = slurp(sandbox.file("signed-ec.der"));
+	const std::string recordEc = __nts_slurp__(sandbox.file("signed-ec.der"));
 	// Объект разбора записи подписи ECDSA
 	cms::signed_t parsedEc;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsedEc.parse(view(recordEc)), cms::error_t::NONE);
+	ASSERT_EQ(parsedEc.parse(__nts_view__(recordEc)), cms::error_t::NONE);
 	// Разбираем сертификат подписывающего из записи
 	x509::certificate_t certificateEc;
 	// Разбор обязан удаться
@@ -551,15 +551,15 @@ TEST(CmsTest, OpensslVerify) {
 	// Сертификат подписывающего
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Подготовленный ключ подписи
 	keys::signer_t signer;
 	// Готовим ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Собираем подписанное сообщение
 	std::vector <uint8_t> record;
 	// Сборка обязана удаться
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string("CMS our signed content")), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string("CMS our signed content")), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
 	// Записываем запись в файл
 	sandbox.spill("signed.der", record);
 	// Записываем цепочку доверия
@@ -572,10 +572,10 @@ TEST(CmsTest, OpensslVerify) {
 		// Проверка обязана удаться
 		if(__nts_shell__(command) != 0)
 			// Пропускаем проверку без OpenSSL
-			GTEST_SKIP() << "openssl cms -verify is unavailable: " << slurp(sandbox.file("verify.log"));
+			GTEST_SKIP() << "openssl cms -verify is unavailable: " << __nts_slurp__(sandbox.file("verify.log"));
 	}
 	// Содержимое обязано совпасть
-	ASSERT_EQ(slurp(sandbox.file("content.txt")), "CMS our signed content");
+	ASSERT_EQ(__nts_slurp__(sandbox.file("content.txt")), "CMS our signed content");
 }
 
 /**
@@ -598,20 +598,20 @@ TEST(CmsTest, OpensslDecrypt) {
 			GTEST_SKIP() << "openssl cms -encrypt is unavailable";
 	}
 	// Читаем зашифрованную запись из файла песочницы
-	const std::string record = slurp(sandbox.file("enveloped.der"));
+	const std::string record = __nts_slurp__(sandbox.file("enveloped.der"));
 	// Вид записи обязан быть id-envelopedData
-	ASSERT_EQ(cms::content(view(record)), cms::content_t::ENVELOPED);
+	ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::ENVELOPED);
 	// Объект разбора зашифрованной записи OpenSSL
 	cms::enveloped_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Получатель обязан быть один вида RSA
 	ASSERT_EQ(parsed.recipients().size(), 1);
 	ASSERT_EQ(parsed.recipients()[0].kind, cms::recipient_t::kind_t::RSA);
 	// Ключ получателя
 	keys::key_t key;
 	// Разбираем ключ
-	load(std::string(CORPUS) + "/leaf-rsa.key", key);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.key", key);
 	// Расшифрование обязано удаться
 	std::vector <uint8_t> content;
 	// Расшифрование обязано удаться
@@ -634,11 +634,11 @@ TEST(CmsTest, OpensslEncrypt) {
 	// Сертификат получателя
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Собираем зашифрованное сообщение
 	std::vector <uint8_t> record;
 	// Сборка обязана удаться
-	ASSERT_EQ(cms::envelop(view(std::string("CMS our enveloped content")), certificate.issuers().element, certificate.number(), certificate.key(), record), cms::error_t::NONE);
+	ASSERT_EQ(cms::envelop(__nts_view__(std::string("CMS our enveloped content")), certificate.issuers().element, certificate.number(), certificate.key(), record), cms::error_t::NONE);
 	// Записываем запись в файл
 	sandbox.spill("enveloped.der", record);
 	// Расшифровываем запись OpenSSL
@@ -649,10 +649,10 @@ TEST(CmsTest, OpensslEncrypt) {
 		// Расшифрование обязано удаться
 		if(__nts_shell__(command) != 0)
 			// Пропускаем проверку без OpenSSL
-			GTEST_SKIP() << "openssl cms -decrypt is unavailable: " << slurp(sandbox.file("decrypt.log"));
+			GTEST_SKIP() << "openssl cms -decrypt is unavailable: " << __nts_slurp__(sandbox.file("decrypt.log"));
 	}
 	// Содержимое обязано совпасть
-	ASSERT_EQ(slurp(sandbox.file("content.txt")), "CMS our enveloped content");
+	ASSERT_EQ(__nts_slurp__(sandbox.file("content.txt")), "CMS our enveloped content");
 }
 
 /**
@@ -672,13 +672,13 @@ TEST(CmsTest, OpensslP7b) {
 			GTEST_SKIP() << "openssl crl2pkcs7 is unavailable";
 	}
 	// Читаем цепочку сертификатов из файла песочницы
-	const std::string record = slurp(sandbox.file("chain.p7b"));
+	const std::string record = __nts_slurp__(sandbox.file("chain.p7b"));
 	// Вид записи обязан быть id-signedData
-	ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
+	ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::SIGNED);
 	// Объект разбора цепочки сертификатов OpenSSL
 	cms::signed_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Сертификаты обязаны быть записаны
 	ASSERT_FALSE(parsed.certificates().empty());
 	// Подписывающих быть не обязано
@@ -736,19 +736,19 @@ TEST(CmsTest, Refusals) {
 		// Сертификат подписывающего
 		x509::certificate_t certificate;
 		// Разбираем сертификат
-		load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+		__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 		// Подготовленный ключ подписи
 		keys::signer_t signer;
 		// Готовим ключ подписи
-		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+		ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 		// Собираем подписанное сообщение
 		std::vector <uint8_t> record;
 		// Сборка обязана удаться
-		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string("refusal content")), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+		ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string("refusal content")), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
 		// Обрезаем запись посередине
 		record.resize(record.size() / 2);
 		// Разбор обязан отказать
-		ASSERT_EQ(signed_.parse(view(record)), cms::error_t::STRUCTURE);
+		ASSERT_EQ(signed_.parse(__nts_view__(record)), cms::error_t::STRUCTURE);
 	}
 }
 
@@ -768,13 +768,13 @@ TEST(CmsTest, DigestRoundtrip) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем хешированное сообщение
-		ASSERT_EQ(cms::digest(view(std::string(CONTENT)), HASHES[i], record), cms::error_t::NONE);
+		ASSERT_EQ(cms::digest(__nts_view__(std::string(CONTENT)), HASHES[i], record), cms::error_t::NONE);
 		// Вид содержимого обязан быть digested
-		ASSERT_EQ(cms::content(view(record)), cms::content_t::DIGESTED);
+		ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::DIGESTED);
 		// Объект разбора собранной хешированной записи
 		cms::digested_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Содержимое обязано совпасть
 		ASSERT_EQ(parsed.content().size, ::strlen(CONTENT));
 		ASSERT_EQ(::memcmp(parsed.content().data, CONTENT, ::strlen(CONTENT)), 0);
@@ -785,11 +785,11 @@ TEST(CmsTest, DigestRoundtrip) {
 		// Порченое содержимое обязано отказать: собираем запись с чужим содержимым
 		std::vector <uint8_t> foreign;
 		// Собираем запись с чужим содержимым
-		ASSERT_EQ(cms::digest(view(std::string("foreign content")), HASHES[i], foreign), cms::error_t::NONE);
+		ASSERT_EQ(cms::digest(__nts_view__(std::string("foreign content")), HASHES[i], foreign), cms::error_t::NONE);
 		// Разбираем чужую запись
 		cms::digested_t other;
 		// Разбор обязан удаться
-		ASSERT_EQ(other.parse(view(foreign)), cms::error_t::NONE);
+		ASSERT_EQ(other.parse(__nts_view__(foreign)), cms::error_t::NONE);
 		// Проверка хеша чужой записи обязана удаться (свой хеш)
 		ASSERT_EQ(cms::digestVerify(other), cms::error_t::NONE);
 	}
@@ -828,13 +828,13 @@ TEST(CmsTest, EncryptRoundtrip) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем зашифрованное сообщение
-		ASSERT_EQ(cms::encrypt(view(std::string(CONTENT)), key, record), cms::error_t::NONE);
+		ASSERT_EQ(cms::encrypt(__nts_view__(std::string(CONTENT)), key, record), cms::error_t::NONE);
 		// Вид содержимого обязан быть encrypted
-		ASSERT_EQ(cms::content(view(record)), cms::content_t::ENCRYPTED);
+		ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::ENCRYPTED);
 		// Объект разбора собранной зашифрованной записи
 		cms::encrypted_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Опознаватель алгоритма обязан совпасть
 		ASSERT_EQ(parsed.algorithm(), CASES[i].oid);
 		// Зашифрованное содержимое обязано быть записано
@@ -858,7 +858,7 @@ TEST(CmsTest, EncryptRoundtrip) {
 			// Меняем первый байт чужого ключа
 			wrong[0] = static_cast <uint8_t> (attempt);
 			// Запоминаем отказ расшифрования из-за несходства дополнения PKCS #7
-			refused = (cms::decrypt(parsed, view(wrong), plain) == cms::error_t::STRUCTURE);
+			refused = (cms::decrypt(parsed, __nts_view__(wrong), plain) == cms::error_t::STRUCTURE);
 		}
 		// Хотя бы один чужой ключ обязан дать несходство дополнения
 		ASSERT_TRUE(refused);
@@ -892,13 +892,13 @@ TEST(CmsTest, AuthenticateRoundtrip) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем сообщение с имитовставкой
-		ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view(std::string(KEY)), CASES[i].hash, record), cms::error_t::NONE);
+		ASSERT_EQ(cms::authenticate(__nts_view__(std::string(CONTENT)), __nts_view__(std::string(KEY)), CASES[i].hash, record), cms::error_t::NONE);
 		// Вид содержимого обязан быть authenticated
-		ASSERT_EQ(cms::content(view(record)), cms::content_t::AUTHENTICATED);
+		ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::AUTHENTICATED);
 		// Объект разбора собранной записи с имитовставкой
 		cms::authenticated_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Опознаватель алгоритма обязан совпасть
 		ASSERT_EQ(parsed.algorithm(), CASES[i].oid);
 		// Содержимое обязано совпасть
@@ -906,9 +906,9 @@ TEST(CmsTest, AuthenticateRoundtrip) {
 		// Имитовставка обязана быть записана
 		ASSERT_EQ(parsed.mac().size, digest::length(CASES[i].hash));
 		// Проверка имитовставки обязана удаться
-		ASSERT_EQ(cms::authenticateVerify(parsed, view(std::string(KEY))), cms::error_t::NONE);
+		ASSERT_EQ(cms::authenticateVerify(parsed, __nts_view__(std::string(KEY))), cms::error_t::NONE);
 		// Проверка чужим ключом обязана отказать
-		ASSERT_EQ(cms::authenticateVerify(parsed, view(std::string("foreign-key"))), cms::error_t::SIGNATURE);
+		ASSERT_EQ(cms::authenticateVerify(parsed, __nts_view__(std::string("foreign-key"))), cms::error_t::SIGNATURE);
 	}
 }
 
@@ -940,19 +940,19 @@ TEST(CmsTest, SignerInfo) {
 		// Сертификат подписывающего
 		x509::certificate_t certificate;
 		// Разбираем сертификат
-		load(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
+		__nts_load__(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
 		// Подготовленный ключ подписи
 		keys::signer_t signer;
 		// Готовим ключ подписи
-		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
+		ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем подписанное сообщение
-		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+		ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
 		// Объект разбора собранной подписанной записи
 		cms::signed_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Подписывающий обязан быть один
 		ASSERT_EQ(parsed.signers().size(), 1);
 		// Сведения о подписывающем
@@ -990,11 +990,11 @@ TEST(CmsTest, SignRsaHashes) {
 	// Сертификат подписывающего
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Подготовленный ключ подписи
 	keys::signer_t signer;
 	// Готовим ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Алгоритмы хешей
 	const digest::hash_t HASHES[] = {
 		digest::hash_t::SHA1,
@@ -1016,11 +1016,11 @@ TEST(CmsTest, SignRsaHashes) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем подписанное сообщение
-		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, HASHES[i], record), cms::error_t::NONE);
+		ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, HASHES[i], record), cms::error_t::NONE);
 		// Объект разбора собранной подписанной записи
 		cms::signed_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Подписывающий обязан быть один
 		ASSERT_EQ(parsed.signers().size(), 1);
 		// Опознаватель алгоритма подписи обязан совпасть
@@ -1065,19 +1065,19 @@ TEST(CmsTest, SignEcHashes) {
 		// Сертификат подписывающего
 		x509::certificate_t certificate;
 		// Разбираем сертификат
-		load(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
+		__nts_load__(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
 		// Подготовленный ключ подписи
 		keys::signer_t signer;
 		// Готовим ключ подписи
-		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
+		ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем подписанное сообщение
-		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, CASES[i].hash, record), cms::error_t::NONE);
+		ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, CASES[i].hash, record), cms::error_t::NONE);
 		// Объект разбора собранной подписанной записи
 		cms::signed_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Подписывающий обязан быть один
 		ASSERT_EQ(parsed.signers().size(), 1);
 		// Опознаватель алгоритма подписи обязан совпасть
@@ -1103,19 +1103,19 @@ TEST(CmsTest, SignEd25519) {
 	// Сертификат подписывающего
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/ed25519.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ed25519.crt", text, blocks, certificate);
 	// Подготовленный ключ подписи
 	keys::signer_t signer;
 	// Готовим ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ed25519.pem"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ed25519.pem"))), keys::error_t::NONE);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем подписанное сообщение
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
 	// Объект разбора собранной подписанной записи Ed25519
 	cms::signed_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Подписывающий обязан быть один
 	ASSERT_EQ(parsed.signers().size(), 1);
 	// Опознаватель алгоритма подписи обязан быть Ed25519
@@ -1155,19 +1155,19 @@ TEST(CmsTest, SignMldsa) {
 		// Сертификат подписывающего
 		x509::certificate_t certificate;
 		// Разбираем сертификат
-		load(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
+		__nts_load__(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
 		// Подготовленный ключ подписи
 		keys::signer_t signer;
 		// Готовим ключ подписи
-		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
+		ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем подписанное сообщение
-		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+		ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
 		// Объект разбора собранной подписанной записи ML-DSA
 		cms::signed_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Подписывающий обязан быть один
 		ASSERT_EQ(parsed.signers().size(), 1);
 		// Опознаватель алгоритма подписи обязан совпасть
@@ -1193,28 +1193,28 @@ TEST(CmsTest, SignRefusals) {
 	// Сертификат подписывающего
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Подготовленный ключ подписи
 	keys::signer_t signer;
 	// Готовим ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Пустое содержимое отвергается
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view_t(), signer, digest::hash_t::SHA256, record), cms::error_t::EMPTY);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), view_t(), signer, digest::hash_t::SHA256, record), cms::error_t::EMPTY);
 	// Пустое имя издателя отвергается
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, view_t(), certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::EMPTY);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, view_t(), certificate.number(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::EMPTY);
 	// Пустой порядковый номер отвергается
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, view_t(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::EMPTY);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, view_t(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::EMPTY);
 	// Неподготовленный ключ отвергается
 	{
 		// Неподготовленный ключ
 		keys::signer_t unprepared;
 		// Сборка обязана отказать
-		ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), unprepared, digest::hash_t::SHA256, record), cms::error_t::KEY);
+		ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), unprepared, digest::hash_t::SHA256, record), cms::error_t::KEY);
 	}
 	// Неизвестный алгоритм хеша отвергается
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::NONE, record), cms::error_t::ALGORITHM);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::NONE, record), cms::error_t::ALGORITHM);
 }
 
 /**
@@ -1248,19 +1248,19 @@ TEST(CmsTest, VerifyRefusals) {
 	// Сертификат подписывающего
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Подготовленный ключ подписи
 	keys::signer_t signer;
 	// Готовим ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем подписанное сообщение
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
 	// Объект разбора собранной подписанной записи
 	cms::signed_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Проверка без содержимого отвергается
 	ASSERT_EQ(cms::verify(parsed, parsed.signers()[0], view_t(), certificate.key()), cms::error_t::NONE);
 	// Проверка с пустым содержимым отвергается
@@ -1288,13 +1288,13 @@ TEST(CmsTest, DigestMoreHashes) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем хешированное сообщение
-		ASSERT_EQ(cms::digest(view(std::string(CONTENT)), HASHES[i], record), cms::error_t::NONE);
+		ASSERT_EQ(cms::digest(__nts_view__(std::string(CONTENT)), HASHES[i], record), cms::error_t::NONE);
 		// Вид содержимого обязан быть digested
-		ASSERT_EQ(cms::content(view(record)), cms::content_t::DIGESTED);
+		ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::DIGESTED);
 		// Объект разбора собранной хешированной записи
 		cms::digested_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Проверка хеша обязана удаться
 		ASSERT_EQ(cms::digestVerify(parsed), cms::error_t::NONE);
 	}
@@ -1303,7 +1303,7 @@ TEST(CmsTest, DigestMoreHashes) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Сборка обязана отказать
-		ASSERT_EQ(cms::digest(view(std::string(CONTENT)), digest::hash_t::NONE, record), cms::error_t::ALGORITHM);
+		ASSERT_EQ(cms::digest(__nts_view__(std::string(CONTENT)), digest::hash_t::NONE, record), cms::error_t::ALGORITHM);
 	}
 }
 
@@ -1348,38 +1348,38 @@ TEST(CmsTest, AuthenticateMoreHashes) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем сообщение с имитовставкой
-		ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view(std::string(KEY)), CASES[i].hash, record), cms::error_t::NONE);
+		ASSERT_EQ(cms::authenticate(__nts_view__(std::string(CONTENT)), __nts_view__(std::string(KEY)), CASES[i].hash, record), cms::error_t::NONE);
 		// Вид содержимого обязан быть authenticated
-		ASSERT_EQ(cms::content(view(record)), cms::content_t::AUTHENTICATED);
+		ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::AUTHENTICATED);
 		// Объект разбора собранной записи с имитовставкой
 		cms::authenticated_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 		// Опознаватель алгоритма обязан совпасть
 		ASSERT_EQ(parsed.algorithm(), CASES[i].oid);
 		// Проверка имитовставки обязана удаться
-		ASSERT_EQ(cms::authenticateVerify(parsed, view(std::string(KEY))), cms::error_t::NONE);
+		ASSERT_EQ(cms::authenticateVerify(parsed, __nts_view__(std::string(KEY))), cms::error_t::NONE);
 	}
 	// Пустое содержимое отвергается
 	{
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Сборка обязана отказать
-		ASSERT_EQ(cms::authenticate(view_t(), view(std::string(KEY)), digest::hash_t::SHA256, record), cms::error_t::EMPTY);
+		ASSERT_EQ(cms::authenticate(view_t(), __nts_view__(std::string(KEY)), digest::hash_t::SHA256, record), cms::error_t::EMPTY);
 	}
 	// Пустой ключ отвергается
 	{
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Сборка обязана отказать
-		ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view_t(), digest::hash_t::SHA256, record), cms::error_t::EMPTY);
+		ASSERT_EQ(cms::authenticate(__nts_view__(std::string(CONTENT)), view_t(), digest::hash_t::SHA256, record), cms::error_t::EMPTY);
 	}
 	// Неизвестный алгоритм хеша отвергается
 	{
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Сборка обязана отказать
-		ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view(std::string(KEY)), digest::hash_t::NONE, record), cms::error_t::ALGORITHM);
+		ASSERT_EQ(cms::authenticate(__nts_view__(std::string(CONTENT)), __nts_view__(std::string(KEY)), digest::hash_t::NONE, record), cms::error_t::ALGORITHM);
 	}
 }
 
@@ -1424,7 +1424,7 @@ TEST(CmsTest, DeepRefusals) {
 			// Переворачиваем очередной байт
 			damaged[at] ^= 0xFF;
 			// Учитываем отвергнутую порченую форму
-			if(parsed.parse(view(damaged)) != cms::error_t::NONE)
+			if(parsed.parse(__nts_view__(damaged)) != cms::error_t::NONE)
 				// Увеличиваем число отказов
 				rejected++;
 		}
@@ -1434,7 +1434,7 @@ TEST(CmsTest, DeepRefusals) {
 	// Хешированная запись
 	std::vector <uint8_t> digested;
 	// Собираем годную хешированную запись
-	ASSERT_EQ(cms::digest(view(std::string(CONTENT)), digest::hash_t::SHA256, digested), cms::error_t::NONE);
+	ASSERT_EQ(cms::digest(__nts_view__(std::string(CONTENT)), digest::hash_t::SHA256, digested), cms::error_t::NONE);
 	// Разборщик хешированной записи
 	cms::digested_t digest;
 	// Проверяем все обрезки хешированной записи
@@ -1442,7 +1442,7 @@ TEST(CmsTest, DeepRefusals) {
 	// Запись с имитовставкой
 	std::vector <uint8_t> authenticated;
 	// Собираем годную запись с имитовставкой
-	ASSERT_EQ(cms::authenticate(view(std::string(CONTENT)), view(std::string("cms-mac-key")), digest::hash_t::SHA256, authenticated), cms::error_t::NONE);
+	ASSERT_EQ(cms::authenticate(__nts_view__(std::string(CONTENT)), __nts_view__(std::string("cms-mac-key")), digest::hash_t::SHA256, authenticated), cms::error_t::NONE);
 	// Разборщик записи с имитовставкой
 	cms::authenticated_t authenticate;
 	// Проверяем все обрезки записи с имитовставкой
@@ -1452,7 +1452,7 @@ TEST(CmsTest, DeepRefusals) {
 	// Зашифрованная запись
 	std::vector <uint8_t> encrypted;
 	// Собираем годную зашифрованную запись
-	ASSERT_EQ(cms::encrypt(view(std::string(CONTENT)), view(key), encrypted), cms::error_t::NONE);
+	ASSERT_EQ(cms::encrypt(__nts_view__(std::string(CONTENT)), __nts_view__(key), encrypted), cms::error_t::NONE);
 	// Разборщик зашифрованной записи
 	cms::encrypted_t encrypt;
 	// Проверяем все обрезки зашифрованной записи
@@ -1464,15 +1464,15 @@ TEST(CmsTest, DeepRefusals) {
 	// Сертификат подписывающего и получателя
 	x509::certificate_t certificate;
 	// Разбираем сертификат набора
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Подготовленный ключ подписи
 	keys::signer_t signer;
 	// Готовим ключ подписи из записи набора
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Подписанная запись
 	std::vector <uint8_t> signedRecord;
 	// Собираем годную подписанную запись
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, signedRecord), cms::error_t::NONE);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::SHA256, signedRecord), cms::error_t::NONE);
 	// Разборщик подписанной записи
 	cms::signed_t signed_;
 	// Проверяем все обрезки подписанной записи
@@ -1480,7 +1480,7 @@ TEST(CmsTest, DeepRefusals) {
 	// Запись с передачей ключа RSA
 	std::vector <uint8_t> enveloped;
 	// Собираем годную запись с передачей ключа RSA
-	ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), enveloped), cms::error_t::NONE);
+	ASSERT_EQ(cms::envelop(__nts_view__(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), enveloped), cms::error_t::NONE);
 	// Разборщик записи с передачей ключа RSA
 	cms::enveloped_t envelop;
 	// Проверяем все обрезки записи с передачей ключа RSA
@@ -1505,15 +1505,15 @@ TEST(CmsTest, OpensslRefusals) {
 	// Сертификат подписывающего
 	x509::certificate_t certificate;
 	// Разбираем сертификат набора
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Подготовленный ключ подписи
 	keys::signer_t signer;
 	// Готовим ключ подписи из записи набора
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Подписанная запись
 	std::vector <uint8_t> record;
 	// Собираем годную подписанную запись
-	ASSERT_EQ(cms::sign({view(blocks[0].data)}, certificate.issuers().element, certificate.number(), view(std::string("CMS openssl refusal")), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+	ASSERT_EQ(cms::sign({__nts_view__(blocks[0].data)}, certificate.issuers().element, certificate.number(), __nts_view__(std::string("CMS openssl refusal")), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
 	// Обрезанная запись ровно половинной длины
 	const std::vector <uint8_t> truncated(record.begin(), record.begin() + (record.size() / 2));
 	// Путь к обрезанной записи
@@ -1523,7 +1523,7 @@ TEST(CmsTest, OpensslRefusals) {
 	// Разборщик подписанной записи
 	cms::signed_t signed_;
 	// Проверяем отказ нашего разборщика на обрезке
-	ASSERT_NE(signed_.parse(view(truncated)), cms::error_t::NONE);
+	ASSERT_NE(signed_.parse(__nts_view__(truncated)), cms::error_t::NONE);
 	// Проверяем отказ OpenSSL на той же обрезке
 	ASSERT_NE(__nts_shell__("openssl cms -cmsout -inform DER -in " + shorty + " -noout 2>/dev/null"), 0);
 	// Запись с подменённым видом содержимого
@@ -1531,23 +1531,23 @@ TEST(CmsTest, OpensslRefusals) {
 	// Опознаватель подписанного содержимого PKCS #7
 	const uint8_t signedOid[] = {0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x07, 0x02};
 	// Смещение опознавателя в записи
-	size_t at = std::string::npos;
+	size_t place = std::string::npos;
 	/**
-	 * Выполняем поиск опознавателя подписанного содержимого
+	 * Ищем опознаватель подписанного содержимого
 	 */
 	for(size_t i = 0; (i + sizeof(signedOid)) <= foreign.size(); i++){
 		// Если опознаватель найден
 		if(::memcmp(foreign.data() + i, signedOid, sizeof(signedOid)) == 0){
 			// Запоминаем смещение опознавателя
-			at = i;
+			place = i;
 			// Завершаем поиск
 			break;
 		}
 	}
 	// Проверяем наличие опознавателя
-	ASSERT_NE(at, std::string::npos);
+	ASSERT_NE(place, std::string::npos);
 	// Подменяем signedData на envelopedData без замены содержимого
-	foreign[at + sizeof(signedOid) - 1] = 0x03;
+	foreign[place + sizeof(signedOid) - 1] = 0x03;
 	// Путь к записи с чужим видом содержимого
 	const std::string alien = sandbox.file("foreign.der");
 	// Записываем порченую запись
@@ -1555,7 +1555,7 @@ TEST(CmsTest, OpensslRefusals) {
 	// Разборщик записи с чужим видом содержимого
 	cms::signed_t foreignSigned;
 	// Проверяем отказ нашего разборщика на чужом виде содержимого
-	ASSERT_EQ(foreignSigned.parse(view(foreign)), cms::error_t::STRUCTURE);
+	ASSERT_EQ(foreignSigned.parse(__nts_view__(foreign)), cms::error_t::STRUCTURE);
 	// Проверяем отказ OpenSSL на несоответствии вида и содержимого
 	ASSERT_NE(__nts_shell__("openssl cms -cmsout -inform DER -in " + alien + " -noout 2>/dev/null"), 0);
 }
@@ -1581,7 +1581,7 @@ TEST(CmsTest, CertificatesRefusals) {
 		// Сборка обязана удаться: запись переносится как есть, без разбора
 		ASSERT_EQ(cms::certificates({view_t(BROKEN, sizeof(BROKEN))}, record), cms::error_t::NONE);
 		// Вид записи обязан быть id-signedData
-		ASSERT_EQ(cms::content(view(record)), cms::content_t::SIGNED);
+		ASSERT_EQ(cms::content(__nts_view__(record)), cms::content_t::SIGNED);
 	}
 }
 
@@ -1599,25 +1599,25 @@ TEST(CmsTest, UnenvelopRefusals) {
 	// Сертификат получателя
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Ключ получателя
 	keys::key_t key;
 	// Разбираем ключ
-	load(std::string(CORPUS) + "/leaf-rsa.key", key);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.key", key);
 	// Собираем зашифрованное сообщение
 	std::vector <uint8_t> record;
 	// Сборка обязана удаться
-	ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), record), cms::error_t::NONE);
+	ASSERT_EQ(cms::envelop(__nts_view__(std::string(CONTENT)), certificate.issuers().element, certificate.number(), certificate.key(), record), cms::error_t::NONE);
 	// Объект разбора собранной зашифрованной записи
 	cms::enveloped_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Ключ не RSA отвергается
 	{
 		// Ключ EC
 		keys::key_t ecKey;
 		// Разбираем ключ
-		load(std::string(CORPUS) + "/leaf-ec.key", ecKey);
+		__nts_load__(std::string(CORPUS) + "/leaf-ec.key", ecKey);
 		// Итог расшифрования
 		std::vector <uint8_t> content;
 		// Расшифрование обязано отказать
@@ -1628,7 +1628,7 @@ TEST(CmsTest, UnenvelopRefusals) {
 		// Ключ RSA без секретной части
 		keys::key_t publicKey;
 		// Разбираем ключ
-		load(std::string(CORPUS) + "/leaf-rsa.key", publicKey);
+		__nts_load__(std::string(CORPUS) + "/leaf-rsa.key", publicKey);
 		// Обнуляем секретную часть
 		publicKey.d.clear();
 		// Итог расшифрования
@@ -1652,7 +1652,7 @@ TEST(CmsTest, UnenvelopKemRefusals) {
 	// Сертификат для опознавания получателя
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Открытый и секретный ключи ML-KEM
 	std::vector <uint8_t> public_(agreement::encapsulation(agreement::kem_t::MLKEM512)), secret(agreement::decapsulation(agreement::kem_t::MLKEM512));
 	// Вырабатываем пару ключей
@@ -1660,17 +1660,17 @@ TEST(CmsTest, UnenvelopKemRefusals) {
 	// Собираем зашифрованное сообщение
 	std::vector <uint8_t> record;
 	// Сборка обязана удаться
-	ASSERT_EQ(cms::envelop(view(std::string(CONTENT)), certificate.issuers().element, certificate.number(), agreement::kem_t::MLKEM512, view(public_), record), cms::error_t::NONE);
+	ASSERT_EQ(cms::envelop(__nts_view__(std::string(CONTENT)), certificate.issuers().element, certificate.number(), agreement::kem_t::MLKEM512, __nts_view__(public_), record), cms::error_t::NONE);
 	// Объект разбора собранной зашифрованной записи
 	cms::enveloped_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Неизвестный набор параметров отвергается
 	{
 		// Итог расшифрования
 		std::vector <uint8_t> content;
 		// Расшифрование обязано отказать
-		ASSERT_EQ(cms::unenvelop(parsed, static_cast <agreement::kem_t> (0), view(secret), content), cms::error_t::ALGORITHM);
+		ASSERT_EQ(cms::unenvelop(parsed, static_cast <agreement::kem_t> (0), __nts_view__(secret), content), cms::error_t::ALGORITHM);
 	}
 	// Секретный ключ негодной длины отвергается
 	{
@@ -1693,11 +1693,11 @@ TEST(CmsTest, DecryptRefusals) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем зашифрованное сообщение
-	ASSERT_EQ(cms::encrypt(view(std::string(CONTENT)), view_t(KEY256, sizeof(KEY256)), record), cms::error_t::NONE);
+	ASSERT_EQ(cms::encrypt(__nts_view__(std::string(CONTENT)), view_t(KEY256, sizeof(KEY256)), record), cms::error_t::NONE);
 	// Объект разбора собранной зашифрованной записи
 	cms::encrypted_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cms::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cms::error_t::NONE);
 	// Пустой ключ отвергается
 	{
 		// Итог расшифрования
@@ -1741,23 +1741,23 @@ TEST(CmsTest, Starved) {
 	// Сертификат подписывающего
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Подготовленный ключ подписи
 	keys::signer_t signer;
 	// Готовим ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Набор сертификатов подписи: заводится заранее, чтобы его сборка не попала под подмену выделений
-	const std::vector <view_t> certificates = {view(blocks[0].data)};
+	const std::vector <view_t> certificates = {__nts_view__(blocks[0].data)};
 	// Эталонная запись подписанного сообщения
 	std::vector <uint8_t> record;
 	// Собираем подписанное сообщение
-	ASSERT_EQ(cms::sign(certificates, certificate.issuers().element, certificate.number(), view(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
+	ASSERT_EQ(cms::sign(certificates, certificate.issuers().element, certificate.number(), __nts_view__(std::string(CONTENT)), signer, digest::hash_t::SHA256, record), cms::error_t::NONE);
 	// Просмотр содержимого без временной строки: выделения начинаются уже внутри сборки
 	const view_t content(reinterpret_cast <const uint8_t *> (CONTENT), ::strlen(CONTENT));
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе сборка и разбор обязаны
+	 * Перебираем запасы выделений: на всяком запасе сборка и разбор обязаны
 	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -1768,7 +1768,7 @@ TEST(CmsTest, Starved) {
 		{
 			// Отмеряем запас выделений на время сборки
 			starve::ration_t ration(budget);
-			// Выполняем сборку подписанного сообщения при отмеренном запасе
+			// Собираем подписанное сообщение при отмеренном запасе
 			built = cms::sign(certificates, certificate.issuers().element, certificate.number(), content, signer, digest::hash_t::SHA256, made);
 		}
 		// Проверяем, что сборка ответила успехом либо отказом памяти
@@ -1782,8 +1782,8 @@ TEST(CmsTest, Starved) {
 			starve::ration_t ration(budget);
 			// Разборщик подписанного сообщения
 			cms::signed_t message;
-			// Выполняем разбор эталонной записи при отмеренном запасе
-			parsed = message.parse(view(record));
+			// Разбираем эталонную запись при отмеренном запасе
+			parsed = message.parse(__nts_view__(record));
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти
 		ASSERT_TRUE((parsed == cms::error_t::NONE) || (parsed == cms::error_t::MEMORY)) << "запас " << budget << ", отказ разбора " << static_cast <int> (parsed);
