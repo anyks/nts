@@ -760,8 +760,8 @@ target_compile_definitions(${NTS_LIB_NAME} PUBLIC ${NTS_VERSION_DEFINES})
 find_package(Threads REQUIRED)
 target_link_libraries(${NTS_LIB_NAME} PUBLIC Threads::Threads)
 
-# Псевдоним пакета в дереве сборки: потребитель через add_subdirectory зовёт ту же цель nts::nts
-add_library(${PROJECT_NAME}::${NTS_LIB_NAME} ALIAS ${NTS_LIB_NAME})
+# Псевдоним пакета в дереве сборки: потребитель через add_subdirectory зовёт ту же цель anyks::nts
+add_library(anyks::${NTS_LIB_NAME} ALIAS ${NTS_LIB_NAME})
 
 # Версия и имя динамической библиотеки: libnts.so.1 → libnts.so.1.0.0, nts.dll под Windows
 set_target_properties(${NTS_LIB_NAME} PROPERTIES
@@ -1799,7 +1799,7 @@ endif (${CMAKE_BUILD_SAMPLES})
  # автоматически находится поиском find_package без Find-модулей. Потребитель
  # пишет:
  #   find_package(nts CONFIG REQUIRED)
- #   target_link_libraries(app PRIVATE nts::nts)
+ #   target_link_libraries(app PRIVATE anyks::nts)
  # Совместимость версий - в пределах старшего номера
  ##
 include(GNUInstallDirs)
@@ -1839,7 +1839,7 @@ install(TARGETS ${NTS_LIB_NAME}
 # Выполняем установку описания целей пакета
 install(EXPORT ${PROJECT_NAME}Targets
     FILE ${PROJECT_NAME}Targets.cmake
-    NAMESPACE ${PROJECT_NAME}::
+    NAMESPACE anyks::
     DESTINATION ${NTS_CMAKE_DIR}
 )
 
@@ -1883,7 +1883,7 @@ install(CODE "
 # Описание целей доступно и из дерева сборки без установки
 export(EXPORT ${PROJECT_NAME}Targets
     FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake"
-    NAMESPACE ${PROJECT_NAME}::
+    NAMESPACE anyks::
 )
 
 ##

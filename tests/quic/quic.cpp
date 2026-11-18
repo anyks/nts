@@ -78,7 +78,7 @@ namespace {
 		// Разобранная область байтов
 		vector <uint8_t> result;
 		/**
-		 * Выполняем перебор пар символов записи
+		 * Перебираем пары символов записи
 		 */
 		for(size_t i = 0; text[i] != '\0' && text[i + 1] != '\0'; i += 2)
 			// Добавляем очередной разобранный байт
@@ -113,7 +113,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -122,7 +122,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочку сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -141,7 +141,7 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, const context::level_t level) noexcept {
+	bool __nts_carry__(A & from, B & to, const context::level_t level) noexcept {
 		// Получаем сообщения, отправляемые на уровне
 		const view_t data = from.output(level);
 		// Если отправлять на уровне нечего
@@ -152,11 +152,11 @@ namespace {
 		 * Выполняем перехват ошибок
 		 */
 		try {
-			// Выполняем перенос отправляемых сообщений
+			// Переносим отправляемые сообщения
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные сообщения с накопителя уровня
 			from.consume(level, buffer.size());
-			// Выполняем подачу сообщений принимающей стороне на том же уровне
+			// Подаём сообщения принимающей стороне на том же уровне
 			to.push(level, view_t(buffer.data(), buffer.size()));
 		/**
 		 * Выполняем перехват ошибок
@@ -176,21 +176,21 @@ namespace {
 	 * @return       признак того, что сообщения между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что сообщения между сторонами передавались
 		bool moved = false;
 		/**
-		 * Выполняем перебор уровней защиты в порядке их следования
+		 * Перебираем уровни защиты в порядке их следования
 		 */
 		for(size_t i = 0; i < (sizeof(LEVELS) / sizeof(LEVELS[0])); i++)
 			// Переносим сообщения уровня от клиента к серверу
-			moved = (carry(client, server, LEVELS[i]) || moved);
+			moved = (__nts_carry__(client, server, LEVELS[i]) || moved);
 		/**
-		 * Выполняем перебор уровней защиты в порядке их следования
+		 * Перебираем уровни защиты в порядке их следования
 		 */
 		for(size_t i = 0; i < (sizeof(LEVELS) / sizeof(LEVELS[0])); i++)
 			// Переносим сообщения уровня от сервера к клиенту
-			moved = (carry(server, client, LEVELS[i]) || moved);
+			moved = (__nts_carry__(server, client, LEVELS[i]) || moved);
 		// Выводим признак того, что сообщения между сторонами передавались
 		return moved;
 	}
@@ -201,11 +201,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу сообщений между сторонами, пока им есть что сказать
+		 * Передаём сообщения между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу сообщений между сторонами связи
 			continue;
 	}
@@ -228,7 +228,7 @@ namespace {
 	 * @param mutual     запрашивается ли подлинность клиента
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const protect::suite_t suite, const extension::group_t group, const context::credential_t & credential, const bool mutual) noexcept {
 		// Устанавливаем перенос по уровням клиенту
 		client.transport(context::transport_t::LEVELS);
 		// Устанавливаем перенос по уровням серверу
@@ -322,21 +322,21 @@ namespace {
  */
 TEST(QuicTest, Loopback){
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность из ключей набора
-		ASSERT_TRUE(identity(ENTRIES[k], credential)) << "ключ " << ENTRIES[k];
+		ASSERT_TRUE(__nts_identity__(ENTRIES[k], credential)) << "ключ " << ENTRIES[k];
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 			// Длина значений направлений по хешу набора
 			const size_t width = digest::length(protect::hash(SUITES[s]));
 			/**
-			 * Выполняем перебор групп обмена
+			 * Перебираем группы обмена
 			 */
 			for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 				// Связь стороны клиента
@@ -344,7 +344,7 @@ TEST(QuicTest, Loopback){
 				// Связь стороны сервера
 				server::context_t server;
 				// Настраиваем стороны с подлинностью клиента
-				arrange(client, server, SUITES[s], GROUPS[g], credential, true);
+				__nts_arrange__(client, server, SUITES[s], GROUPS[g], credential, true);
 				// Разрешаем упреждающие данные выдаваемым билетом
 				server.advance(true, 4096);
 				// Проверяем способ переноса клиента
@@ -366,7 +366,7 @@ TEST(QuicTest, Loopback){
 				// Проверяем недоступность секретов до приветствия сервера
 				ASSERT_TRUE(traffic(client, context::level_t::HANDSHAKE, context::direction_t::WRITE).empty());
 				// Переносим приветствие клиента серверу
-				ASSERT_TRUE(carry(client, server, context::level_t::INITIAL));
+				ASSERT_TRUE(__nts_carry__(client, server, context::level_t::INITIAL));
 				// Проверяем, что приветствие сервера лежит на начальном уровне
 				ASSERT_EQ(server.output(context::level_t::INITIAL).data[0], static_cast <uint8_t> (handshake::type_t::SERVER));
 				// Проверяем, что выход сервера лежит на уровне рукопожатия
@@ -380,7 +380,7 @@ TEST(QuicTest, Loopback){
 				// Проверяем готовность секретов прикладных данных сервера
 				ASSERT_EQ(traffic(server, context::level_t::APPLICATION, context::direction_t::READ).size(), width);
 				// Проводим рукопожатие до конца
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Проверяем установленность связи клиентом
 				ASSERT_TRUE(client.established()) << ENTRIES[k] << " " << s << " " << g << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 				// Проверяем установленность связи сервером
@@ -412,7 +412,7 @@ TEST(QuicTest, Loopback){
 				// Проверяем уровень чтения сервера
 				ASSERT_EQ(server.level(context::direction_t::READ), context::level_t::APPLICATION);
 				/**
-				 * Выполняем перебор уровней рукопожатия и прикладных данных
+				 * Перебираем уровни рукопожатия и прикладных данных
 				 */
 				for(size_t l = 1; l < (sizeof(LEVELS) / sizeof(LEVELS[0])); l++){
 					// Значение записи клиента
@@ -455,7 +455,7 @@ TEST(QuicTest, Loopback){
 				// Проверяем пустоту уровня рукопожатия сервера
 				ASSERT_EQ(server.output(context::level_t::HANDSHAKE).size, static_cast <size_t> (0));
 				// Доставляем билет
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Проверяем получение билета клиентом
 				ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 				// Проверяем набор билета
@@ -469,7 +469,7 @@ TEST(QuicTest, Loopback){
 				// Связь возобновляющего сервера
 				server::context_t resumed;
 				// Настраиваем стороны без подлинности клиента
-				arrange(resuming, resumed, SUITES[s], GROUPS[g], credential, false);
+				__nts_arrange__(resuming, resumed, SUITES[s], GROUPS[g], credential, false);
 				// Предъявляем билет
 				resuming.resume(client.tickets()[0]);
 				// Признаём билеты
@@ -493,7 +493,7 @@ TEST(QuicTest, Loopback){
 				// Проверяем отсутствие значения упреждения на чтение у клиента
 				ASSERT_TRUE(traffic(resuming, context::level_t::EARLY, context::direction_t::READ).empty());
 				// Переносим приветствие клиента серверу
-				ASSERT_TRUE(carry(resuming, resumed, context::level_t::INITIAL));
+				ASSERT_TRUE(__nts_carry__(resuming, resumed, context::level_t::INITIAL));
 				// Проверяем приём упреждения сервером
 				ASSERT_TRUE(resumed.accepted());
 				// Проверяем ход упреждения у сервера
@@ -505,11 +505,11 @@ TEST(QuicTest, Loopback){
 				// Проверяем отсутствие значения упреждения на запись у сервера
 				ASSERT_TRUE(traffic(resumed, context::level_t::EARLY, context::direction_t::WRITE).empty());
 				// Переносим приветствие сервера клиенту
-				ASSERT_TRUE(carry(resumed, resuming, context::level_t::INITIAL));
+				ASSERT_TRUE(__nts_carry__(resumed, resuming, context::level_t::INITIAL));
 				// Проверяем, что клиент по приветствию сервера упреждение ещё ведёт
 				ASSERT_TRUE(resuming.earlying());
 				// Переносим выход сервера клиенту
-				ASSERT_TRUE(carry(resumed, resuming, context::level_t::HANDSHAKE));
+				ASSERT_TRUE(__nts_carry__(resumed, resuming, context::level_t::HANDSHAKE));
 				// Проверяем приём упреждения клиентом
 				ASSERT_TRUE(resuming.accepted());
 				// Проверяем, что упреждение не отвергнуто
@@ -519,7 +519,7 @@ TEST(QuicTest, Loopback){
 				// Проверяем, что ответ клиента начинается завершением: конца упреждения нет
 				ASSERT_EQ(resuming.output(context::level_t::HANDSHAKE).data[0], static_cast <uint8_t> (handshake::type_t::FINISHED));
 				// Переносим завершение клиента серверу
-				ASSERT_TRUE(carry(resuming, resumed, context::level_t::HANDSHAKE));
+				ASSERT_TRUE(__nts_carry__(resuming, resumed, context::level_t::HANDSHAKE));
 				// Проверяем, что сервер упреждение окончил
 				ASSERT_FALSE(resumed.earlying());
 				// Проверяем установленность связи
@@ -544,13 +544,13 @@ TEST(QuicTest, Retry){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 	// Клиент поддерживает обе группы
 	client.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP256R1});
 	// Доля ключа идёт лишь по X25519
@@ -562,17 +562,17 @@ TEST(QuicTest, Retry){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Переносим приветствие клиента
-	ASSERT_TRUE(carry(client, server, context::level_t::INITIAL));
+	ASSERT_TRUE(__nts_carry__(client, server, context::level_t::INITIAL));
 	// Проверяем, что просьба о повторе лежит на начальном уровне
 	ASSERT_EQ(server.output(context::level_t::INITIAL).data[0], static_cast <uint8_t> (handshake::type_t::SERVER));
 	// Проверяем, что выхода сервера на уровне рукопожатия ещё нет
 	ASSERT_EQ(server.output(context::level_t::HANDSHAKE).size, static_cast <size_t> (0));
 	// Переносим просьбу о повторе клиенту
-	ASSERT_TRUE(carry(server, client, context::level_t::INITIAL));
+	ASSERT_TRUE(__nts_carry__(server, client, context::level_t::INITIAL));
 	// Проверяем, что повторное приветствие лежит на начальном уровне
 	ASSERT_EQ(client.output(context::level_t::INITIAL).data[0], static_cast <uint8_t> (handshake::type_t::CLIENT));
 	// Проводим рукопожатие до конца
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Проверяем параметры переноса после повтора
@@ -608,9 +608,9 @@ TEST(QuicTest, Records){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("rsa2048", credential));
+	ASSERT_TRUE(__nts_identity__("rsa2048", credential));
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборы шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Связь стороны клиента переносом записями
@@ -764,7 +764,7 @@ TEST(QuicTest, Refusals){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Отказ: смена ключей сообщением KeyUpdate по установленной связи
 	{
 		// Связь стороны клиента
@@ -772,13 +772,13 @@ TEST(QuicTest, Refusals){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Тело сообщения смены ключей
@@ -809,15 +809,15 @@ TEST(QuicTest, Refusals){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Переносим приветствие клиента
-		ASSERT_TRUE(carry(client, server, context::level_t::INITIAL));
+		ASSERT_TRUE(__nts_carry__(client, server, context::level_t::INITIAL));
 		// Переносим приветствие сервера
-		ASSERT_TRUE(carry(server, client, context::level_t::INITIAL));
+		ASSERT_TRUE(__nts_carry__(server, client, context::level_t::INITIAL));
 		// Конец упреждающих данных с обвязкой
 		const vector <uint8_t> eoed = compose(handshake::type_t::EARLY, vector <uint8_t> ());
 		// Подаём конец упреждающих данных серверу на уровне рукопожатия
@@ -834,7 +834,7 @@ TEST(QuicTest, Refusals){
 		// Связь стороны сервера переносом по уровням
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Возвращаем клиента к переносу записями: параметров переноса он не шлёт
 		client.transport(context::transport_t::RECORDS);
 		// Заводим сервер
@@ -859,7 +859,7 @@ TEST(QuicTest, Refusals){
 		// Связь стороны сервера переносом записями
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Возвращаем сервер к переносу записями
 		server.transport(context::transport_t::RECORDS);
 		// Заводим сервер
@@ -888,7 +888,7 @@ TEST(QuicTest, Refusals){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Клиент без прикладных протоколов
 		client.protocols(vector <string> ());
 		// Заводим сервер
@@ -900,7 +900,7 @@ TEST(QuicTest, Refusals){
 		// Связь второго сервера
 		server::context_t judge;
 		// Настраиваем стороны
-		arrange(alien, judge, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(alien, judge, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Клиент предлагает чужой протокол
 		alien.protocols(vector <string> {"hq-interop"});
 		// Заводим сервер
@@ -908,7 +908,7 @@ TEST(QuicTest, Refusals){
 		// Заводим клиента
 		ASSERT_EQ(alien.start(), context::error_t::NONE);
 		// Переносим приветствие клиента
-		ASSERT_TRUE(carry(alien, judge, context::level_t::INITIAL));
+		ASSERT_TRUE(__nts_carry__(alien, judge, context::level_t::INITIAL));
 		// Проверяем обрыв связи сервером
 		ASSERT_EQ(judge.state(), context::state_t::FAILED);
 		// Проверяем отказ отсутствия общего протокола
@@ -928,7 +928,7 @@ TEST(QuicTest, Refusals){
 		// Сервер той же связи
 		server::context_t host;
 		// Заводим связь по уровням
-		arrange(bare, host, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(bare, host, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Опустошаем параметры переноса у клиента
 		bare.parameters(vector <uint8_t> ());
 		// Опустошаем параметры переноса у сервера
@@ -945,7 +945,7 @@ TEST(QuicTest, Refusals){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -975,13 +975,13 @@ TEST(QuicTest, Refusals){
 		// Связь второго клиента
 		client::context_t another;
 		// Настраиваем стороны
-		arrange(another, second, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(another, second, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(second.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(another.start(), context::error_t::NONE);
 		// Переносим приветствие клиента
-		ASSERT_TRUE(carry(another, second, context::level_t::INITIAL));
+		ASSERT_TRUE(__nts_carry__(another, second, context::level_t::INITIAL));
 		// Выход сервера на уровне рукопожатия
 		const view_t flight = second.output(context::level_t::HANDSHAKE);
 		// Переносим выход сервера
@@ -995,13 +995,13 @@ TEST(QuicTest, Refusals){
 		// Связь третьего клиента
 		client::context_t once;
 		// Настраиваем стороны
-		arrange(once, third, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(once, third, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(third.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(once.start(), context::error_t::NONE);
 		// Переносим приветствие клиента
-		ASSERT_TRUE(carry(once, third, context::level_t::INITIAL));
+		ASSERT_TRUE(__nts_carry__(once, third, context::level_t::INITIAL));
 		// Приветствие сервера
 		const view_t answer = third.output(context::level_t::INITIAL);
 		// Переносим приветствие сервера
@@ -1023,7 +1023,7 @@ TEST(QuicTest, Refusals){
 		// Связь четвёртого клиента
 		client::context_t split;
 		// Настраиваем стороны
-		arrange(split, fourth, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(split, fourth, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(fourth.start(), context::error_t::NONE);
 		// Заводим клиента
@@ -1046,13 +1046,13 @@ TEST(QuicTest, Refusals){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, false);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Накопитель принятых данных
@@ -1257,13 +1257,13 @@ TEST(QuicTest, Ticket){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity("ed25519", credential));
+		ASSERT_TRUE(__nts_identity__("ed25519", credential));
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны
-		arrange(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false);
 		// Разрешаем упреждающие данные билетом
 		server.advance(true, 2048);
 		// Заводим сервер
@@ -1271,13 +1271,13 @@ TEST(QuicTest, Ticket){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Выдаём билет
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Доставляем билет
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем получение билета
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Запись билета клиента
@@ -1303,7 +1303,7 @@ TEST(QuicTest, Ticket){
 		// Связь возобновляющего сервера
 		server::context_t resumed;
 		// Настраиваем стороны
-		arrange(resuming, resumed, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false);
+		__nts_arrange__(resuming, resumed, protect::suite_t::CHACHA20_POLY1305_SHA256, extension::group_t::X25519, credential, false);
 		// Предъявляем билет из октетов
 		resuming.resume(presented);
 		// Признаём билет из октетов
@@ -1317,7 +1317,7 @@ TEST(QuicTest, Ticket){
 		// Заводим клиента
 		ASSERT_EQ(resuming.start(), context::error_t::NONE);
 		// Проводим рукопожатие
-		converse(resuming, resumed);
+		__nts_converse__(resuming, resumed);
 		// Проверяем установленность связи
 		ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error());
 		// Проверяем возобновление билетом
@@ -1335,13 +1335,13 @@ TEST(QuicTest, Rejected){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec384", credential));
+	ASSERT_TRUE(__nts_identity__("ec384", credential));
 	// Связь стороны клиента
 	client::context_t client;
 	// Связь стороны сервера
 	server::context_t server;
 	// Настраиваем стороны
-	arrange(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::SECP384R1, credential, false);
+	__nts_arrange__(client, server, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::SECP384R1, credential, false);
 	// Разрешаем упреждающие данные билетом
 	server.advance(true, 1024);
 	// Заводим сервер
@@ -1349,11 +1349,11 @@ TEST(QuicTest, Rejected){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Выдаём билет
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
 	// Доставляем билет
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем получение билета
 	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 	// Связь возобновляющего клиента
@@ -1361,7 +1361,7 @@ TEST(QuicTest, Rejected){
 	// Связь возобновляющего сервера
 	server::context_t resumed;
 	// Настраиваем стороны
-	arrange(resuming, resumed, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::SECP384R1, credential, false);
+	__nts_arrange__(resuming, resumed, protect::suite_t::AES_256_GCM_SHA384, extension::group_t::SECP384R1, credential, false);
 	// Предъявляем билет
 	resuming.resume(client.tickets()[0]);
 	// Признаём билеты
@@ -1379,15 +1379,15 @@ TEST(QuicTest, Rejected){
 	// Проверяем, что решения ещё нет
 	ASSERT_FALSE(resuming.rejected());
 	// Переносим приветствие клиента
-	ASSERT_TRUE(carry(resuming, resumed, context::level_t::INITIAL));
+	ASSERT_TRUE(__nts_carry__(resuming, resumed, context::level_t::INITIAL));
 	// Проверяем, что сервер упреждение не принял
 	ASSERT_FALSE(resumed.accepted());
 	// Проверяем, что сервер упреждение не ведёт
 	ASSERT_FALSE(resumed.earlying());
 	// Переносим приветствие сервера
-	ASSERT_TRUE(carry(resumed, resuming, context::level_t::INITIAL));
+	ASSERT_TRUE(__nts_carry__(resumed, resuming, context::level_t::INITIAL));
 	// Переносим выход сервера
-	ASSERT_TRUE(carry(resumed, resuming, context::level_t::HANDSHAKE));
+	ASSERT_TRUE(__nts_carry__(resumed, resuming, context::level_t::HANDSHAKE));
 	// Проверяем отказ сервера у клиента
 	ASSERT_TRUE(resuming.rejected());
 	// Проверяем, что упреждение не принято
@@ -1395,7 +1395,7 @@ TEST(QuicTest, Rejected){
 	// Проверяем, что ход упреждения прекращён
 	ASSERT_FALSE(resuming.earlying());
 	// Проводим рукопожатие до конца
-	converse(resuming, resumed);
+	__nts_converse__(resuming, resumed);
 	// Проверяем установленность связи
 	ASSERT_TRUE(resuming.established() && resumed.established());
 	// Проверяем возобновление билетом
@@ -1410,13 +1410,13 @@ TEST(QuicTest, Starved){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Составляем подлинность
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Признак того, что нехватка памяти встретилась
 	bool starved = false;
 	// Признак того, что связь на щедром запасе установилась
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Связь стороны клиента
@@ -1424,7 +1424,7 @@ TEST(QuicTest, Starved){
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны с подлинностью клиента
-		arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
+		__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, extension::group_t::X25519, credential, true);
 		// Разрешаем упреждающие данные билетом
 		server.advance(true, 1024);
 		// Отказы сторон
@@ -1441,13 +1441,13 @@ TEST(QuicTest, Starved){
 			// Если стороны заведены
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 				// Проводим рукопожатие
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Если связь установлена
 				if(client.established() && server.established()){
 					// Выдаём билет
 					issued = server.issue();
 					// Доставляем билет
-					converse(client, server);
+					__nts_converse__(client, server);
 				}
 				// Отказ сервера после рукопожатия
 				first = server.error();
@@ -1488,7 +1488,7 @@ TEST(QuicTest, Starved){
 	// Признак успешного круга
 	bool rounded = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 64) && !rounded; budget++){
 		// Отказы записи и чтения

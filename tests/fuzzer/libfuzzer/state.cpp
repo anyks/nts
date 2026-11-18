@@ -105,7 +105,7 @@ namespace {
 	 * @param mtu      размер дейтаграммы
 	 *
 	 */
-	void configure(client::context_t & client, server::context_t & server, const bool datagram, const size_t mtu) noexcept {
+	void __nts_configure__(client::context_t & client, server::context_t & server, const bool datagram, const size_t mtu) noexcept {
 		// Объявляем ГОСТ в настройках клиента
 		gosting(client);
 		// Объявляем ГОСТ в настройках сервера
@@ -139,11 +139,11 @@ namespace {
 	 * @return         признак передачи хотя бы одного выходного потока
 	 *
 	 */
-	bool pumpStream(client::context_t & client, server::context_t & server, const settings_t & settings, const size_t round, bool & damaged) noexcept {
+	bool __nts_pump_stream__(client::context_t & client, server::context_t & server, const settings_t & settings, const size_t round, bool & damaged) noexcept {
 		// Признак передачи хотя бы одного выходного потока
 		bool moved = false;
 		/**
-		 * Выполняем перебор направлений передачи
+		 * Перебираем направления передачи
 		 */
 		for(size_t i = 0; i < 2; i++){
 			// Получаем выходной поток очередной стороны
@@ -169,7 +169,7 @@ namespace {
 				damaged = true;
 			}
 			/**
-			 * Выполняем подачу потока кусками заданной длины
+			 * Подаём поток кусками заданной длины
 			 */
 			for(size_t offset = 0; offset < buffer.size(); offset += settings.chunk){
 				// Определяем длину очередного куска
@@ -196,7 +196,7 @@ namespace {
 	 * @param settings настройки переноса сценария
 	 *
 	 */
-	void converseStream(client::context_t & client, server::context_t & server, const settings_t & settings) noexcept {
+	void __nts_converse_stream__(client::context_t & client, server::context_t & server, const settings_t & settings) noexcept {
 		// Сохраняем первое приветствие клиента для повторной подачи
 		const view_t greeting = client.output();
 		// Переносим приветствие до снятия его с накопителя, если оно уже выдано
@@ -204,7 +204,7 @@ namespace {
 		// Признак уже выполненной порчи
 		bool damaged = false;
 		/**
-		 * Выполняем передачу потоков ограниченное число кругов
+		 * Передаём потоки ограниченное число кругов
 		 */
 		for(size_t round = 0; round < 16; round++){
 			// Если связь одной из сторон оборвана
@@ -220,7 +220,7 @@ namespace {
 				// Подаём сохранённое приветствие повторно
 				server.push(view_t(repeated.data(), repeated.size()));
 			// Если потоки на этом круге не переносились
-			if(!pumpStream(client, server, settings, round, damaged))
+			if(!__nts_pump_stream__(client, server, settings, round, damaged))
 				// Прекращаем перенос
 				break;
 		}
@@ -241,11 +241,11 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, const settings_t & settings, const size_t round, const size_t direction, size_t (& counters)[2], bool & damaged) noexcept {
+	bool __nts_carry__(A & from, B & to, const settings_t & settings, const size_t round, const size_t direction, size_t (& counters)[2], bool & damaged) noexcept {
 		// Снятые дейтаграммы направления
 		std::vector <std::vector <uint8_t>> datagrams;
 		/**
-		 * Выполняем снятие всех готовых дейтаграмм стороны
+		 * Снимаем все готовые дейтаграммы стороны
 		 */
 		while(from.output().size > 0){
 			// Получаем очередную дейтаграмму
@@ -264,7 +264,7 @@ namespace {
 			// Переворачиваем порядок переноса
 			std::reverse(datagrams.begin(), datagrams.end());
 		/**
-		 * Выполняем перебор снятых дейтаграмм
+		 * Перебираем снятые дейтаграммы
 		 */
 		for(size_t i = 0; i < datagrams.size(); i++){
 			// Считаем дейтаграмму направления
@@ -298,13 +298,13 @@ namespace {
 	 * @param settings настройки переноса сценария
 	 *
 	 */
-	void converseDatagrams(client::context_t & client, server::context_t & server, const settings_t & settings) noexcept {
+	void __nts_converse_datagrams__(client::context_t & client, server::context_t & server, const settings_t & settings) noexcept {
 		// Счётчики дейтаграмм направлений
 		size_t counters[2] = {0, 0};
 		// Признак уже выполненной порчи
 		bool damaged = false;
 		/**
-		 * Выполняем перенос дейтаграмм и ход часов ограниченное число кругов
+		 * Переносим дейтаграммы и ход часов ограниченное число кругов
 		 */
 		for(size_t round = 0; round < 64; round++){
 			// Если связь одной из сторон оборвана
@@ -316,9 +316,9 @@ namespace {
 				// Прекращаем перенос без завершения рукопожатия
 				break;
 			// Переносим дейтаграммы клиента серверу
-			bool moved = carry(client, server, settings, round, 0, counters, damaged);
+			bool moved = __nts_carry__(client, server, settings, round, 0, counters, damaged);
 			// Переносим дейтаграммы сервера клиенту
-			moved = (carry(server, client, settings, round, 1, counters, damaged) || moved);
+			moved = (__nts_carry__(server, client, settings, round, 1, counters, damaged) || moved);
 			// Если дейтаграммы переносились
 			if(moved)
 				// Переходим к следующему кругу
@@ -354,14 +354,14 @@ namespace {
 	 * @param datagram признак переноса дейтаграммами
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server, const settings_t & settings, const bool datagram) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server, const settings_t & settings, const bool datagram) noexcept {
 		// Если выбран перенос дейтаграммами
 		if(datagram)
 			// Проводим связь поверх дейтаграмм
-			converseDatagrams(client, server, settings);
+			__nts_converse_datagrams__(client, server, settings);
 		else
 			// Проводим связь поверх потока
-			converseStream(client, server, settings);
+			__nts_converse_stream__(client, server, settings);
 	}
 	/**
 	 * @brief Функция прикладного обмена в обе стороны
@@ -374,7 +374,7 @@ namespace {
 	 * @return         признак получения обоих сообщений без искажения
 	 *
 	 */
-	bool exchange(client::context_t & client, server::context_t & server, const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
+	bool __nts_exchange__(client::context_t & client, server::context_t & server, const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
 		// Ответ сервера контрольного обмена
 		static const uint8_t RESPONSE[] = {'p', 'o', 'n', 'g'};
 		// Отправляем данные клиента
@@ -386,7 +386,7 @@ namespace {
 			// Выводим отказ отправки
 			return false;
 		// Переносим прикладные записи
-		converse(client, server, settings, datagram);
+		__nts_converse__(client, server, settings, datagram);
 		// Принятые данные направлений
 		std::vector <uint8_t> request, response;
 		// Если сервер не принял данные клиента без искажения
@@ -411,13 +411,13 @@ namespace {
 	 * @return         признак успешного возобновления и прикладного обмена
 	 *
 	 */
-	bool resumeConnection(client::context_t & client, server::context_t & server, const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
+	bool __nts_resume_connection__(client::context_t & client, server::context_t & server, const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
 		// Выдаём билет возобновления
 		if(server.issue() != context::error_t::NONE)
 			// Выводим отказ выдачи билета
 			return false;
 		// Доставляем билет клиенту
-		converse(client, server, settings, datagram);
+		__nts_converse__(client, server, settings, datagram);
 		// Если клиент билета не получил
 		if(client.tickets().empty())
 			// Выводим отсутствие билета
@@ -427,7 +427,7 @@ namespace {
 		// Связь сервера нового возобновления
 		server::context_t resumed;
 		// Настраиваем новые стороны тем же переносом
-		configure(resuming, resumed, datagram, settings.mtu);
+		__nts_configure__(resuming, resumed, datagram, settings.mtu);
 		// Передаём клиенту билет прежней связи
 		resuming.resume(client.tickets()[0]);
 		// Передаём серверу признаваемые им билеты
@@ -441,13 +441,13 @@ namespace {
 			// Выводим отказ заведения
 			return false;
 		// Проводим возобновление сторон
-		converse(resuming, resumed, settings, datagram);
+		__nts_converse__(resuming, resumed, settings, datagram);
 		// Если возобновление не подтверждено обеими сторонами
 		if(!resuming.established() || !resumed.established() || !resuming.shared() || !resumed.shared())
 			// Выводим отказ возобновления
 			return false;
 		// Проверяем прикладной обмен возобновлённой связи
-		return exchange(resuming, resumed, payload, settings, datagram);
+		return __nts_exchange__(resuming, resumed, payload, settings, datagram);
 	}
 	/**
 	 * @brief Функция выполнения одного сценария машины состояний
@@ -458,13 +458,13 @@ namespace {
 	 * @return         признак успешного завершения всех заказанных стадий
 	 *
 	 */
-	bool run(const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
+	bool __nts_run__(const view_t & payload, const settings_t & settings, const bool datagram) noexcept {
 		// Связь стороны клиента
 		client::context_t client;
 		// Связь стороны сервера
 		server::context_t server;
 		// Настраиваем стороны выбранным переносом
-		configure(client, server, datagram, settings.mtu);
+		__nts_configure__(client, server, datagram, settings.mtu);
 		// Заводим сервер
 		if(server.start() != context::error_t::NONE)
 			// Выводим отказ заведения
@@ -474,7 +474,7 @@ namespace {
 			// Выводим отказ заведения
 			return false;
 		// Проводим начальное рукопожатие
-		converse(client, server, settings, datagram);
+		__nts_converse__(client, server, settings, datagram);
 		// Если рукопожатие не установилось
 		if(!client.established() || !server.established())
 			// Выводим отсутствие установления
@@ -485,8 +485,8 @@ namespace {
 		clean.flags = 0;
 		// Если заказано возобновление
 		if((settings.flags & RESUME) != 0){
-			// Выполняем возобновление и проверяем его итог
-			const bool resumed = resumeConnection(client, server, payload, clean, datagram);
+			// Возобновляем и проверяем его итог
+			const bool resumed = __nts_resume_connection__(client, server, payload, clean, datagram);
 			// Если возобновление не удалось
 			if(!resumed)
 				// Выводим отказ возобновления
@@ -501,7 +501,7 @@ namespace {
 				// Выводим отказ смены ключей
 				return false;
 			// Доставляем первую смену до заказа следующей
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 		}
 		// Если серверу заказана смена ключей
 		if((settings.flags & LOSS) != 0){
@@ -512,7 +512,7 @@ namespace {
 				// Выводим отказ смены ключей
 				return false;
 			// Доставляем смену ключей до следующей стадии
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 		}
 		// Если переносу дейтаграмм заказана смена ключей
 		if(datagram && ((settings.flags & UPDATE) != 0)){
@@ -523,7 +523,7 @@ namespace {
 				// Выводим отказ смены ключей
 				return false;
 			// Доставляем смену клиента до запроса смены сервером
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 			// Запрашиваем смену ключей сервером
 			const context::error_t updatedServer = server.update(true);
 			// Если смена ключей сервера не удалась
@@ -531,12 +531,12 @@ namespace {
 				// Выводим отказ смены ключей
 				return false;
 			// Доставляем смену сервера до прикладного обмена
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 		}
 		// Доставляем сообщения смены ключей
-		converse(client, server, clean, datagram);
+		__nts_converse__(client, server, clean, datagram);
 		// Проверяем прикладной обмен после всех смен ключей
-		const bool exchanged = exchange(client, server, payload, clean, datagram);
+		const bool exchanged = __nts_exchange__(client, server, payload, clean, datagram);
 		// Если прикладной обмен не удался
 		if(!exchanged)
 			// Выводим нарушение прикладного обмена
@@ -548,7 +548,7 @@ namespace {
 				// Выводим отказ закрытия
 				return false;
 			// Доставляем извещение о закрытии
-			converse(client, server, clean, datagram);
+			__nts_converse__(client, server, clean, datagram);
 			// Если сервер не подтвердил закрытие
 			if(server.state() != context::state_t::CLOSED)
 				// Выводим отсутствие закрытия
@@ -607,8 +607,8 @@ extern "C" {
 		static const uint8_t FALLBACK = 0x42;
 		// Определяем данные прикладного обмена
 		const view_t payload = ((size > 8) ? view_t(data + 8, std::min(size - 8, static_cast <size_t> (256))) : view_t(&FALLBACK, 1));
-		// Выполняем сценарий машины состояний
-		const bool result = run(payload, settings, datagram);
+		// Прогоняем сценарий машины состояний
+		const bool result = __nts_run__(payload, settings, datagram);
 		// Признак сценария с транспортными помехами, которым установление не обещано
 		const bool disturbed = (datagram && ((settings.flags & (REORDER | DUPLICATE | LOSS)) != 0));
 		// Признак сценария, которому отказ разрешён самим замыслом

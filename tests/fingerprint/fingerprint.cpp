@@ -987,7 +987,7 @@ TEST(FingerprintTest, Snapshot){
 	// Составляем снимок
 	ASSERT_EQ(fingerprint::dump(fox, snapshot), fingerprint::error_t::NONE);
 	// Проверяем метку снимка
-	EXPECT_EQ(::memcmp(snapshot.data(), "NTSFP", 6), 0);
+	EXPECT_EQ(::memcmp(snapshot.data(), "NTSFP", 5), 0);
 	// Читаем снимок
 	ASSERT_EQ(fingerprint::load(view_t(snapshot.data(), snapshot.size()), loaded), fingerprint::error_t::NONE);
 	// Отпечатки исходного и прочитанного профилей
@@ -1026,7 +1026,7 @@ TEST(FingerprintTest, Snapshot){
 	// Снимок чужого издания
 	vector <uint8_t> edition = snapshot;
 	// Портим издание
-	edition[6] = 0x7F;
+	edition[5] = 0x7F;
 	// Снимок чужого издания отвергается
 	EXPECT_EQ(fingerprint::load(view_t(edition.data(), edition.size()), loaded), fingerprint::error_t::VERSION);
 	// Снимок с чужой меткой

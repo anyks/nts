@@ -48,7 +48,7 @@ using namespace nts;
  *
  */
 static bool run(const std::string & cmd) {
-	// Выполняем команду и проверяем код её завершения
+	// Запускаем команду и сверяем код её завершения
 	return ::system(cmd.c_str()) == 0;
 }
 
@@ -63,22 +63,22 @@ static std::vector <uint8_t> slurp(const std::string & path) {
 	// Объявляем буфер результата
 	std::vector <uint8_t> result;
 	// Открываем файл на чтение
-	FILE * f = ::fopen(path.c_str(), "rb");
+	FILE * file = ::fopen(path.c_str(), "rb");
 	// Проверяем успех открытия файла
-	if(f == nullptr)
+	if(file == nullptr)
 		// Возвращаем пустой буфер при ошибке открытия
 		return result;
-	::fseek(f, 0, SEEK_END);
+	::fseek(file, 0, SEEK_END);
 	// Определяем размер файла
-	const long size = ::ftell(f);
-	::fseek(f, 0, SEEK_SET);
+	const long size = ::ftell(file);
+	::fseek(file, 0, SEEK_SET);
 	// Проверяем непустоту файла
 	if(size > 0){
 		// Выделяем буфер под размер файла
 		result.resize(static_cast <size_t> (size));
-		::fread(result.data(), 1, result.size(), f);
+		::fread(result.data(), 1, result.size(), file);
 	}
-	::fclose(f);
+	::fclose(file);
 	// Возвращаем содержимое файла
 	return result;
 }
@@ -122,7 +122,7 @@ static bool pem2der(const std::vector <uint8_t> & pem, std::vector <uint8_t> & d
 			// Добавляем очередной символ в буфер
 			b64.push_back(*p);
 	}
-	// Декодируем
+	// Таблица значений символов base64
 	static const int8_t TABLE[256] = {
 		-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
 		-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
@@ -146,22 +146,22 @@ static bool pem2der(const std::vector <uint8_t> & pem, std::vector <uint8_t> & d
 	// Резервируем место под декодированные данные
 	der.reserve(b64.size() * 3 / 4);
 	// Объявляем накопитель бит
-	uint32_t v = 0;
+	uint32_t accum = 0;
 	// Объявляем счётчик накопленных бит
 	int bits = 0;
 	/** Перебираем: символы base64, накапливая биты в байты результата */
 	for(const char c : b64){
 		// Получаем значение символа из таблицы
-		const int8_t d = TABLE[static_cast <uint8_t> (c)];
+		const int8_t digit = TABLE[static_cast <uint8_t> (c)];
 		// Проверяем маркер конца данных
-		if(d == -2)
+		if(digit == -2)
 			break;
 		// Проверяем недопустимый символ
-		if(d < 0)
+		if(digit < 0)
 			// Возвращаем отказ при недопустимом символе
 			return false;
 		// Добавляем шесть бит в накопитель
-		v = (v << 6) | static_cast <uint32_t> (d);
+		accum = (accum << 6) | static_cast <uint32_t> (digit);
 		// Увеличиваем счётчик накопленных бит
 		bits += 6;
 		// Проверяем накопление полного байта
@@ -169,7 +169,7 @@ static bool pem2der(const std::vector <uint8_t> & pem, std::vector <uint8_t> & d
 			// Уменьшаем счётчик на размер байта
 			bits -= 8;
 			// Записываем готовый байт в результат
-			der.push_back(static_cast <uint8_t> (v >> bits));
+			der.push_back(static_cast <uint8_t> (accum >> bits));
 		}
 	}
 	// Возвращаем признак успеха
@@ -208,7 +208,7 @@ TEST(SshTest, DecodePlain) {
 	std::vector <uint8_t> der;
 	// Проверяем извлечение DER из PEM
 	ASSERT_TRUE(pem2der(pem, der));
-	// Разбираем
+	// Разбираем DER в ключ без пароля
 	keys::key_t key;
 	// Объявляем буфер комментария ключа
 	std::string comment;
@@ -220,22 +220,22 @@ TEST(SshTest, DecodePlain) {
 	EXPECT_EQ(key.key.size(), 32u);
 	EXPECT_EQ(comment, "test@ants");
 	// Проверяем подпись разобранным ключом
-	sign::ed25519_t ed;
+	sign::ed25519_t edSigner;
 	// Загружаем секретный ключ подписи
-	ASSERT_TRUE(ed.secret(view_t(key.d.data(), key.d.size())));
+	ASSERT_TRUE(edSigner.secret(view_t(key.d.data(), key.d.size())));
 	// Задаём проверяемое сообщение
 	const char * message = "test message";
 	// Объявляем буфер подписи
 	uint8_t signature[64];
 	// Формируем подпись сообщения
-	ASSERT_TRUE(ed.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), signature));
+	ASSERT_TRUE(edSigner.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), signature));
 	// Объявляем проверяющий объект подписи
 	sign::ed25519_t edpub;
 	// Загружаем открытый ключ проверки
 	ASSERT_TRUE(edpub.key(view_t(key.key.data(), key.key.size())));
 	// Проверяем подпись открытым ключом
 	EXPECT_TRUE(edpub.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(signature, sizeof(signature))));
-	// Убираем
+	// Убираем песочницу проверки
 	run("rm -rf " + dir);
 }
 
@@ -285,22 +285,22 @@ TEST(SshTest, DecodeEncrypted) {
 	EXPECT_EQ(key.key.size(), 32u);
 	EXPECT_EQ(comment, "enc@ants");
 	// Проверяем подпись
-	sign::ed25519_t ed;
+	sign::ed25519_t edSigner;
 	// Загружаем секретный ключ подписи
-	ASSERT_TRUE(ed.secret(view_t(key.d.data(), key.d.size())));
+	ASSERT_TRUE(edSigner.secret(view_t(key.d.data(), key.d.size())));
 	// Задаём проверяемое сообщение
 	const char * message = "encrypted test";
 	// Объявляем буфер подписи
 	uint8_t signature[64];
 	// Формируем подпись сообщения
-	ASSERT_TRUE(ed.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), signature));
+	ASSERT_TRUE(edSigner.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), signature));
 	// Объявляем проверяющий объект подписи
 	sign::ed25519_t edpub;
 	// Загружаем открытый ключ проверки
 	ASSERT_TRUE(edpub.key(view_t(key.key.data(), key.key.size())));
 	// Проверяем подпись открытым ключом
 	EXPECT_TRUE(edpub.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(signature, sizeof(signature))));
-	// Убираем
+	// Убираем песочницу проверки
 	run("rm -rf " + dir);
 }
 
@@ -315,18 +315,18 @@ TEST(SshTest, Roundtrip) {
 	// Выделяем буфер секретного ключа
 	key.d.assign(32, 0);
 	// Объявляем объект подписи
-	sign::ed25519_t ed;
+	sign::ed25519_t edSigner;
 	// Вырабатываем секретный ключ
-	ASSERT_TRUE(ed.generate(key.d.data(), key.d.size()));
+	ASSERT_TRUE(edSigner.generate(key.d.data(), key.d.size()));
 	// Выделяем буфер открытого ключа
 	key.key.assign(32, 0);
 	// Получаем открытый ключ
-	ASSERT_TRUE(ed.key(key.key.data(), key.key.size()));
+	ASSERT_TRUE(edSigner.key(key.key.data(), key.key.size()));
 	// Записываем без пароля
 	std::vector <uint8_t> der;
 	// Проверяем запись ключа без пароля
 	ASSERT_TRUE(keys::ssh::encode(key, "roundtrip@test", view_t(), der));
-	// Разбираем
+	// Разбираем записанный ключ
 	keys::key_t parsed;
 	// Объявляем буфер разобранного ключа
 	std::string comment;
@@ -374,23 +374,23 @@ TEST(SshTest, Publish) {
 	// Выделяем буфер секретного ключа
 	key.d.assign(32, 0);
 	// Объявляем объект подписи
-	sign::ed25519_t ed;
+	sign::ed25519_t edSigner;
 	// Вырабатываем секретный ключ
-	ASSERT_TRUE(ed.generate(key.d.data(), key.d.size()));
+	ASSERT_TRUE(edSigner.generate(key.d.data(), key.d.size()));
 	// Выделяем буфер открытого ключа
 	key.key.assign(32, 0);
 	// Получаем открытый ключ
-	ASSERT_TRUE(ed.key(key.key.data(), key.key.size()));
+	ASSERT_TRUE(edSigner.key(key.key.data(), key.key.size()));
 	// Строка authorized_keys
 	const std::string line = keys::ssh::publish(key, "pub@test");
 	// Проверяем тип ключа в начале строки
 	EXPECT_TRUE(line.find("ssh-ed25519 ") == 0);
 	EXPECT_TRUE(line.find(" pub@test") != std::string::npos);
-	// Отпечаток
-	const std::string fp = keys::ssh::fingerprint(key);
+	// Отпечаток открытого ключа
+	const std::string fingerprint = keys::ssh::fingerprint(key);
 	// Проверяем алгоритм отпечатка
-	EXPECT_TRUE(fp.find("SHA256:") == 0);
-	EXPECT_EQ(fp.size(), 7 + 43); // "SHA256:" + 43 символа base64 без padding
+	EXPECT_TRUE(fingerprint.find("SHA256:") == 0);
+	EXPECT_EQ(fingerprint.size(), 7 + 43); // "SHA256:" + 43 символа base64 без padding
 }
 
 /**
@@ -420,14 +420,14 @@ TEST(SshTest, InteropWrite) {
 	// Выделяем буфер секретного ключа
 	key.d.assign(32, 0);
 	// Объявляем объект подписи
-	sign::ed25519_t ed;
+	sign::ed25519_t edSigner;
 	// Вырабатываем секретный ключ
-	ASSERT_TRUE(ed.generate(key.d.data(), key.d.size()));
+	ASSERT_TRUE(edSigner.generate(key.d.data(), key.d.size()));
 	// Выделяем буфер открытого ключа
 	key.key.assign(32, 0);
 	// Получаем открытый ключ
-	ASSERT_TRUE(ed.key(key.key.data(), key.key.size()));
-	// Записываем
+	ASSERT_TRUE(edSigner.key(key.key.data(), key.key.size()));
+	// Записываем ключ без пароля
 	std::vector <uint8_t> der;
 	// Проверяем запись ключа без пароля
 	ASSERT_TRUE(keys::ssh::encode(key, "interop@test", view_t(), der));
@@ -438,20 +438,20 @@ TEST(SshTest, InteropWrite) {
 	/** Перебираем: байты DER, кодируя их в base64 */
 	for(size_t i = 0; i < der.size(); i += 3){
 		// Загружаем первый байт триады
-		uint32_t v = static_cast <uint32_t> (der[i]) << 16;
+		uint32_t triple = static_cast <uint32_t> (der[i]) << 16;
 		// Проверяем наличие второго байта
 		if(i + 1 < der.size())
 			// Добавляем второй байт триады
-			v |= static_cast <uint32_t> (der[i + 1]) << 8;
+			triple |= static_cast <uint32_t> (der[i + 1]) << 8;
 		// Проверяем наличие третьего байта
 		if(i + 2 < der.size())
 			// Добавляем третий байт триады
-			v |= static_cast <uint32_t> (der[i + 2]);
+			triple |= static_cast <uint32_t> (der[i + 2]);
 		// Записываем первый символ четвёрки
-		pem.push_back(ALPHABET[(v >> 18) & 63]);
-		pem.push_back(ALPHABET[(v >> 12) & 63]);
-		pem.push_back((i + 1 < der.size()) ? ALPHABET[(v >> 6) & 63] : '=');
-		pem.push_back((i + 2 < der.size()) ? ALPHABET[v & 63] : '=');
+		pem.push_back(ALPHABET[(triple >> 18) & 63]);
+		pem.push_back(ALPHABET[(triple >> 12) & 63]);
+		pem.push_back((i + 1 < der.size()) ? ALPHABET[(triple >> 6) & 63] : '=');
+		pem.push_back((i + 2 < der.size()) ? ALPHABET[triple & 63] : '=');
 		// Проверяем конец очередной строки PEM
 		if((i / 3 + 1) % 18 == 0)
 			// Добавляем перенос строки
@@ -466,11 +466,11 @@ TEST(SshTest, InteropWrite) {
 	// Записываем файл
 	const std::string keyfile = dir + "/key";
 	// Создаём файл ключа
-	FILE * f = ::fopen(keyfile.c_str(), "w");
+	FILE * file = ::fopen(keyfile.c_str(), "w");
 	// Проверяем успех создания файла
-	ASSERT_NE(f, nullptr);
-	::fwrite(pem.data(), 1, pem.size(), f);
-	::fclose(f);
+	ASSERT_NE(file, nullptr);
+	::fwrite(pem.data(), 1, pem.size(), file);
+	::fclose(file);
 	::chmod(keyfile.c_str(), 0600);
 	// Проверяем ssh-keygen
 	ASSERT_TRUE(run("ssh-keygen -y -f " + keyfile + " > " + dir + "/pub.txt 2>/dev/null"));
@@ -490,7 +490,7 @@ TEST(SshTest, InteropWrite) {
 		theirline.pop_back();
 	// Сравниваем строки ключей
 	EXPECT_EQ(ourline, theirline);
-	// Убираем
+	// Убираем песочницу проверки
 	run("rm -rf " + dir);
 }
 
@@ -505,13 +505,13 @@ TEST(SshTest, KnownHosts) {
 	// Выделяем буфер секретного ключа
 	key.d.assign(32, 0);
 	// Объявляем объект подписи
-	sign::ed25519_t ed;
+	sign::ed25519_t edSigner;
 	// Вырабатываем секретный ключ
-	ASSERT_TRUE(ed.generate(key.d.data(), key.d.size()));
+	ASSERT_TRUE(edSigner.generate(key.d.data(), key.d.size()));
 	// Выделяем буфер открытого ключа
 	key.key.assign(32, 0);
 	// Получаем открытый ключ
-	ASSERT_TRUE(ed.key(key.key.data(), key.key.size()));
+	ASSERT_TRUE(edSigner.key(key.key.data(), key.key.size()));
 	// Открытая запись: сборка
 	std::string plain;
 	// Объявляем буфер открытой записи
@@ -581,13 +581,13 @@ TEST(SshTest, KnownHostsRefusals) {
 	// Выделяем буфер секретного ключа
 	key.d.assign(32, 0);
 	// Объявляем объект подписи
-	sign::ed25519_t ed;
+	sign::ed25519_t edSigner;
 	// Вырабатываем секретный ключ
-	ASSERT_TRUE(ed.generate(key.d.data(), key.d.size()));
+	ASSERT_TRUE(edSigner.generate(key.d.data(), key.d.size()));
 	// Выделяем буфер открытого ключа
 	key.key.assign(32, 0);
 	// Получаем открытый ключ
-	ASSERT_TRUE(ed.key(key.key.data(), key.key.size()));
+	ASSERT_TRUE(edSigner.key(key.key.data(), key.key.size()));
 	// Пустая строка отвергается
 	keys::ssh::known_host_t record;
 	// Проверяем отказ разбора пустой строки

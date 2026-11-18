@@ -49,7 +49,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков
+	 * Перебираем пары знаков
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2)
 		// Добавляем очередной байт
@@ -101,22 +101,22 @@ TEST(BlowfishTest, Vectors) {
 		{"0123456789ABCDEFF0E1D2C3B4A59687", "FEDCBA9876543210", "d0042196b11308ea"}
 	};
 	/**
-	 * Выполняем перебор контрольных примеров
+	 * Перебираем контрольные примеры
 	 */
 	for(const auto & item : VECTORS){
 		// Контекст шифра
 		cipher::blowfish_t context;
-		// Выполняем инициализацию контекста константами числа π
+		// Инициализируем контекст константами числа π
 		cipher::init(&context);
 		// Разбираем ключ контрольного примера
 		const std::vector <uint8_t> key = bytes(item.key);
-		// Выполняем расширение ключа без соли
+		// Расширяем ключ без соли
 		cipher::expand0(&context, key.data(), key.size());
 		// Разбираем открытый текст контрольного примера
 		const std::vector <uint8_t> plain = bytes(item.plain);
 		// Преобразуемый блок: две половины словами от старшего байта
 		uint32_t block[2] = {::fetch(plain.data()), ::fetch(plain.data() + 4)};
-		// Выполняем зашифрование блока
+		// Зашифровываем блок
 		cipher::encrypt(&context, block, 1);
 		// Место шифртекста байтами
 		uint8_t result[8];
@@ -160,9 +160,9 @@ TEST(BlowfishTest, Block) {
 	const std::vector <uint8_t> key = bytes("0123456789ABCDEFF0E1D2C3B4A59687");
 	// Контекст шифра
 	cipher::blowfish_t context;
-	// Выполняем инициализацию контекста константами числа π
+	// Инициализируем контекст константами числа π
 	cipher::init(&context);
-	// Выполняем расширение ключа без соли
+	// Расширяем ключ без соли
 	cipher::expand0(&context, key.data(), key.size());
 	// Описатель базового алгоритма блочного шифрования
 	const cipher::block_t block(context);
@@ -176,11 +176,11 @@ TEST(BlowfishTest, Block) {
 	const std::vector <uint8_t> plain = bytes("FEDCBA9876543210");
 	// Место шифртекста и место расшифрованного блока
 	uint8_t sealed[8], back[8];
-	// Выполняем зашифрование блока через описатель
+	// Зашифровываем блок через описатель
 	ASSERT_TRUE(block.encrypt(block.cipher, plain.data(), sealed));
 	// Сверяем шифртекст с контрольным примером Шнайера
 	EXPECT_EQ(std::vector <uint8_t> (sealed, sealed + sizeof(sealed)), bytes("d0042196b11308ea"));
-	// Выполняем расшифрование блока через описатель
+	// Расшифровываем блок через описатель
 	ASSERT_TRUE(block.decrypt(block.cipher, sealed, back));
 	// Сверяем расшифрованный блок с исходным
 	EXPECT_EQ(::memcmp(back, plain.data(), sizeof(back)), 0);
@@ -191,7 +191,7 @@ TEST(BlowfishTest, Block) {
 	// Массив слов из четырёх блоков и его нетронутая копия
 	uint32_t direct[8], sample[8];
 	/**
-	 * Выполняем заполнение обеих копий массива слов
+	 * Заполняем обе копии массива слов
 	 */
 	for(size_t i = 0; i < 8; i++){
 		// Записываем очередное слово массива
@@ -199,22 +199,22 @@ TEST(BlowfishTest, Block) {
 		// Записываем очередное слово нетронутой копии
 		sample[i] = direct[i];
 	}
-	// Выполняем зашифрование четырёх блоков
+	// Зашифровываем четыре блока
 	cipher::encrypt(&context, direct, 4);
 	// Проверяем, что зашифрованные блоки разошлись с исходными
 	EXPECT_NE(::memcmp(direct, sample, sizeof(direct)), 0);
-	// Выполняем расшифрование четырёх зашифрованных блоков
+	// Расшифровываем четыре зашифрованных блока
 	cipher::decrypt(&context, direct, 4);
 	// Сверяем расшифрованные блоки с исходными
 	EXPECT_EQ(::memcmp(direct, sample, sizeof(direct)), 0);
 	// Начальное заполнение счётчика режимов работы
 	uint8_t iv[cipher::BLOWFISH_BLOCK];
-	// Выполняем заполнение начального значения счётчика
+	// Заполняем начальное значение счётчика
 	::memset(iv, 0x5A, sizeof(iv));
 	// Сообщение, шифртекст и расшифрованный текст
 	uint8_t source[37], gamma[37], opened[37];
 	/**
-	 * Выполняем заполнение сообщения
+	 * Заполняем сообщение
 	 */
 	for(size_t i = 0; i < sizeof(source); i++)
 		// Записываем очередной байт сообщения
@@ -226,15 +226,15 @@ TEST(BlowfishTest, Block) {
 	const view_t sync(iv, cipher::BLOWFISH_BLOCK / 2);
 	// Объект режима счётчика
 	cipher::counter_t counter;
-	// Выполняем запуск режима счётчика на описателе Blowfish
+	// Запускаем режим счётчика на описателе Blowfish
 	ASSERT_TRUE(counter.start(block, sync));
-	// Выполняем зашифрование сообщения режимом счётчика
+	// Зашифровываем сообщение режимом счётчика
 	ASSERT_TRUE(counter.encrypt(view_t(source, sizeof(source)), gamma));
 	// Проверяем, что шифртекст разошёлся с открытым текстом
 	EXPECT_NE(::memcmp(gamma, source, sizeof(source)), 0);
-	// Выполняем повторный запуск режима счётчика на той же синхропосылке
+	// Запускаем повторно режим счётчика на той же синхропосылке
 	ASSERT_TRUE(counter.start(block, sync));
-	// Выполняем расшифрование сообщения режимом счётчика
+	// Расшифровываем сообщение режимом счётчика
 	ASSERT_TRUE(counter.decrypt(view_t(gamma, sizeof(gamma)), opened));
 	// Сверяем расшифрованное сообщение с исходным
 	EXPECT_EQ(::memcmp(opened, source, sizeof(source)), 0);
@@ -242,19 +242,19 @@ TEST(BlowfishTest, Block) {
 	cipher::galois_t galois;
 	// Метка целостности длиной в блок шифра
 	uint8_t tag[cipher::BLOWFISH_BLOCK];
-	// Выполняем запуск режима MGM на описателе Blowfish
+	// Запускаем режим MGM на описателе Blowfish
 	ASSERT_TRUE(galois.start(block, view_t(iv, sizeof(iv))));
-	// Выполняем зашифрование сообщения режимом MGM с выработкой метки целостности
+	// Зашифровываем сообщение режимом MGM с выработкой метки целостности
 	ASSERT_TRUE(galois.encrypt(view_t(source, 16), view_t(source + 16, sizeof(source) - 16), gamma, tag));
-	// Выполняем запуск режима MGM на стороне расшифрования
+	// Запускаем режим MGM на стороне расшифрования
 	ASSERT_TRUE(galois.start(block, view_t(iv, sizeof(iv))));
-	// Выполняем расшифрование сообщения режимом MGM с проверкой метки целостности
+	// Расшифровываем сообщение режимом MGM с проверкой метки целостности
 	ASSERT_TRUE(galois.decrypt(view_t(source, 16), view_t(gamma, sizeof(source) - 16), opened, view_t(tag, sizeof(tag))));
 	// Сверяем расшифрованное сообщение с исходным
 	EXPECT_EQ(::memcmp(opened, source + 16, sizeof(source) - 16), 0);
-	// Выполняем порчу младшего байта метки целостности
+	// Портим младший байт метки целостности
 	tag[sizeof(tag) - 1] = static_cast <uint8_t> (tag[sizeof(tag) - 1] ^ 0x01);
-	// Выполняем запуск режима MGM на стороне проверки порченой метки
+	// Запускаем режим MGM на стороне проверки порченой метки
 	ASSERT_TRUE(galois.start(block, view_t(iv, sizeof(iv))));
 	// Проверяем отказ расшифрования при порченой метке целостности
 	EXPECT_FALSE(galois.decrypt(view_t(source, 16), view_t(gamma, sizeof(source) - 16), opened, view_t(tag, sizeof(tag))));

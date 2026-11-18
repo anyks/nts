@@ -213,17 +213,17 @@ Build options:
 ### For the consumer: find_package, add_subdirectory, shared library
 
 The library is installed as a CMake package and is taken by the consumer in three ways; in all
-three the target is one — `nts::nts`, and it carries along the header paths, the language standard,
+three the target is one — `anyks::nts`, and it carries along the header paths, the language standard,
 the static build flag and the system libraries (threads, under Windows `bcrypt`):
 
 ```cmake
 # 1. Installed package: cmake --install build --prefix /opt/nts
 find_package(nts 1.0 CONFIG REQUIRED)      # -DCMAKE_PREFIX_PATH=/opt/nts
-target_link_libraries(app PRIVATE nts::nts)
+target_link_libraries(app PRIVATE anyks::nts)
 
 # 2. Submodule in the tree of the consumer: without installation
 add_subdirectory(submodules/anyks-tls nts)
-target_link_libraries(app PRIVATE nts::nts)
+target_link_libraries(app PRIVATE anyks::nts)
 ```
 
 The installation follows the ecosystem layout of ANYKS: the headers go into `include/anyks/nts`, the

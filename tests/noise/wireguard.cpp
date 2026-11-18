@@ -71,34 +71,34 @@ namespace {
 	 */
 	static constexpr size_t INITIATION = 148, RESPONSE = 92, MAC = 16, TAI64N = 12;
 	/**
-	 * @brief Область байтов строки
+	 * @brief Функция получения области байтов строки
 	 *
 	 */
-	static view_t span(const char * text) {
+	static view_t __nts_span__(const char * text) {
 		// Возвращаем область байтов строки
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
 	/**
-	 * @brief Запись 32-разрядного числа от младшего
+	 * @brief Функция записи 32-разрядного числа от младшего
 	 *
 	 */
-	static void put32(uint8_t * place, const uint32_t value) {
+	static void __nts_put32__(uint8_t * place, const uint32_t value) {
 		/** Перебираем байты числа от младшего */
 		for(size_t i = 0; i < 4; i++) place[i] = static_cast <uint8_t> (value >> (8 * i));
 	}
 	/**
-	 * @brief Запись 64-разрядного числа от младшего
+	 * @brief Функция записи 64-разрядного числа от младшего
 	 *
 	 */
-	static void put64(uint8_t * place, const uint64_t value) {
+	static void __nts_put64__(uint8_t * place, const uint64_t value) {
 		/** Перебираем байты числа от младшего */
 		for(size_t i = 0; i < 8; i++) place[i] = static_cast <uint8_t> (value >> (8 * i));
 	}
 	/**
-	 * @brief Чтение 64-разрядного числа от младшего
+	 * @brief Функция чтения 64-разрядного числа от младшего
 	 *
 	 */
-	static uint64_t get64(const uint8_t * place) {
+	static uint64_t __nts_get64__(const uint8_t * place) {
 		// Начинаем сборку с нуля
 		uint64_t value = 0;
 		/** Перебираем байты числа от младшего */
@@ -107,7 +107,7 @@ namespace {
 		return value;
 	}
 	/**
-	 * @brief Метка mac1: BLAKE2s с ключом HASH(LABEL_MAC1 ‖ Spub) по кадру до метки
+	 * @brief Функция вычисления метки mac1: BLAKE2s с ключом HASH(LABEL_MAC1 ‖ Spub) по кадру до метки
 	 *
 	 * @param statics открытый постоянный ключ получателя
 	 * @param frame   кадр
@@ -115,7 +115,7 @@ namespace {
 	 * @param result  место метки в 16 октетов
 	 *
 	 */
-	static bool mac1(const uint8_t * statics, const uint8_t * frame, const size_t size, uint8_t * result) {
+	static bool __nts_mac1__(const uint8_t * statics, const uint8_t * frame, const size_t size, uint8_t * result) {
 		// Собираем ввод метки mac1: метку и открытый ключ получателя
 		std::vector <uint8_t> input(reinterpret_cast <const uint8_t *> (LABEL_MAC1), reinterpret_cast <const uint8_t *> (LABEL_MAC1) + 8);
 		// Дописываем открытый постоянный ключ получателя
@@ -128,10 +128,10 @@ namespace {
 		return digest::blake2(digest::blake_t::BLAKE2S, view_t(key, 32), view_t(frame, size), result, MAC);
 	}
 	/**
-	 * @brief TAI64N: секунды от старшего со сдвигом 2^62, наносекунды от старшего
+	 * @brief Функция составления метки времени TAI64N: секунды от старшего со сдвигом 2^62, наносекунды от старшего
 	 *
 	 */
-	static void tai64n(const uint64_t seconds, const uint32_t nanos, uint8_t * result) {
+	static void __nts_tai64n__(const uint64_t seconds, const uint32_t nanos, uint8_t * result) {
 		// Сдвигаем секунды на 2^62
 		const uint64_t value = (0x4000000000000000ULL + seconds);
 		/** Перебираем байты секунд от старшего */
@@ -167,23 +167,25 @@ namespace {
 			// Пропускаем пустые строки и строки шапки
 			if(line.empty() || (line[0] == '#')) continue;
 			// Ищем знак равенства
-			const size_t eq = line.find('=');
+			const size_t equals = line.find('=');
 			// Пропускаем строки без знака равенства
-			if(eq == std::string::npos) continue;
+			if(equals == std::string::npos) continue;
 			// Запоминаем байты под именем ключа
-			result[line.substr(0, eq)] = unhex(line.substr(eq + 1));
+			result[line.substr(0, equals)] = unhex(line.substr(equals + 1));
 		}
 		// Возвращаем таблицу эталона
 		return result;
 	}
 	/**
-	 * @brief Заведение стороны WireGuard: узор именем, пролог IDENTIFIER, ключи, psk (нули, если нет)
+	 * @brief Функция заведения стороны WireGuard: узор именем, пролог IDENTIFIER, ключи, psk (нули, если нет)
 	 *
 	 */
-	static bool arm(noise::handshake_t & side, const noise::role_t role, const uint8_t * secret, const uint8_t * remote, const uint8_t * psk) {
+	static bool __nts_arm__(noise::handshake_t & side, const noise::role_t role, const uint8_t * secret, const uint8_t * remote, const uint8_t * psk) {
 		// Запускаем рукопожатие узором и прологом
-		if(!side.start(span(CONSTRUCTION), role, span(IDENTIFIER))) return false;
+		if(!side.start(__nts_span__(CONSTRUCTION), role, __nts_span__(IDENTIFIER))) return false;
+		// Вводим свой постоянный ключ
 		if(!side.statics(view_t(secret, 32))) return false;
+		// Вводим постоянный ключ удалённой стороны, если он дан
 		if((remote != nullptr) && !side.remote(view_t(remote, 32))) return false;
 		// Оборачиваем общий ключ в область байтов
 		view_t key(psk, 32);
@@ -207,19 +209,19 @@ TEST(WireguardTest, Handshake){
 	// Объявляем стороны рукопожатия
 	noise::handshake_t initiator, responder;
 	// Заводим инициатора своим секретным и чужим открытым ключом
-	ASSERT_TRUE(arm(initiator, noise::role_t::INITIATOR, si, pr, psk));
-	ASSERT_TRUE(arm(responder, noise::role_t::RESPONDER, sr, nullptr, psk));
+	ASSERT_TRUE(__nts_arm__(initiator, noise::role_t::INITIATOR, si, pr, psk));
+	ASSERT_TRUE(__nts_arm__(responder, noise::role_t::RESPONDER, sr, nullptr, psk));
 	// Кадр 1: вид 1, три нуля, номер отправителя, сообщение Noise (32 + 48 + 28), mac1, mac2 (нули без печенья)
 	uint8_t frame[INITIATION];
 	::memset(frame, 0, sizeof(frame));
 	// Помечаем кадр видом 1
 	frame[0] = 1;
 	// Записываем номер отправителя
-	put32(frame + 4, 0x11223344);
+	__nts_put32__(frame + 4, 0x11223344);
 	// Объявляем буфер метки времени
 	uint8_t stamp[TAI64N];
 	// Формируем метку времени
-	tai64n(1788825600ULL, 123456789u, stamp);
+	__nts_tai64n__(1788825600ULL, 123456789u, stamp);
 	// Оставляем место заголовку и меткам
 	size_t size = (sizeof(frame) - 8);
 	// Пишем сообщение Noise в кадр
@@ -227,11 +229,11 @@ TEST(WireguardTest, Handshake){
 	// Проверяем длину сообщения
 	ASSERT_EQ(size, 108u);
 	// Ставим метку mac1 в кадр
-	ASSERT_TRUE(mac1(pr, frame, 116, frame + 116));
+	ASSERT_TRUE(__nts_mac1__(pr, frame, 116, frame + 116));
 	// Отвечающий: сперва mac1 по своему открытому ключу, затем Noise
 	uint8_t expected[MAC];
 	// Считаем эталонную метку mac1
-	ASSERT_TRUE(mac1(pr, frame, 116, expected));
+	ASSERT_TRUE(__nts_mac1__(pr, frame, 116, expected));
 	// Проверяем метку mac1 в кадре
 	EXPECT_EQ(::memcmp(expected, frame + 116, MAC), 0);
 	// Объявляем буфер метки времени
@@ -256,8 +258,8 @@ TEST(WireguardTest, Handshake){
 	// Помечаем кадр видом 2
 	reply[0] = 2;
 	// Записываем номер отправителя
-	put32(reply + 4, 0x55667788);
-	put32(reply + 8, 0x11223344);
+	__nts_put32__(reply + 4, 0x55667788);
+	__nts_put32__(reply + 8, 0x11223344);
 	// Оставляем место заголовку и меткам
 	size = (sizeof(reply) - 12);
 	// Пишем сообщение Noise в кадр
@@ -265,8 +267,8 @@ TEST(WireguardTest, Handshake){
 	// Проверяем длину сообщения
 	ASSERT_EQ(size, 48u);
 	// Ставим метку mac1 в кадр
-	ASSERT_TRUE(mac1(pi, reply, 60, reply + 60));
-	ASSERT_TRUE(mac1(pi, reply, 60, expected));
+	ASSERT_TRUE(__nts_mac1__(pi, reply, 60, reply + 60));
+	ASSERT_TRUE(__nts_mac1__(pi, reply, 60, expected));
 	// Проверяем метку mac1 в кадре
 	EXPECT_EQ(::memcmp(expected, reply + 60, MAC), 0);
 	// Задаём ёмкость буфера
@@ -301,11 +303,11 @@ TEST(WireguardTest, Handshake){
 	// Помечаем пакет видом 4
 	packet[0] = 4;
 	// Записываем номер получателя
-	put32(packet.data() + 4, 0x55667788);
+	__nts_put32__(packet.data() + 4, 0x55667788);
 	// Задаём счётчик пакета
 	const uint64_t counter = 7;
 	// Записываем счётчик в заголовок
-	put64(packet.data() + 8, counter);
+	__nts_put64__(packet.data() + 8, counter);
 	// Шифруем текст в пакет
 	ASSERT_TRUE(isend.encrypt(counter, view_t(), view_t(reinterpret_cast <const uint8_t *> (text), plain), packet.data() + 16, packet.data() + 16 + plain));
 	// Проверяем, что счётчик шифра не сдвинулся
@@ -313,7 +315,7 @@ TEST(WireguardTest, Handshake){
 	// Объявляем буфер расшифровки
 	std::vector <uint8_t> back(plain);
 	// Расшифровываем пакет счётчиком из заголовка
-	ASSERT_TRUE(rrecv.decrypt(get64(packet.data() + 8), view_t(), view_t(packet.data() + 16, plain), view_t(packet.data() + 16 + plain, noise::TAG), back.data()));
+	ASSERT_TRUE(rrecv.decrypt(__nts_get64__(packet.data() + 8), view_t(), view_t(packet.data() + 16, plain), view_t(packet.data() + 16 + plain, noise::TAG), back.data()));
 	// Проверяем расшифрованный текст
 	EXPECT_EQ(::memcmp(back.data(), text, plain), 0);
 	// Чужой счётчик - отказ; повтор того же счётчика расшифровывается вновь: окно повтора ведёт потребитель
@@ -351,14 +353,14 @@ TEST(WireguardTest, Refusals){
 	// Объявляем буферы кадра и метки времени
 	uint8_t frame[INITIATION], stamp[TAI64N], got[TAI64N];
 	// Формируем метку времени
-	tai64n(1788825600ULL, 0, stamp);
+	__nts_tai64n__(1788825600ULL, 0, stamp);
 	// Чужой psk у отвечающего: кадр 1 проходит (psk примешивается лишь в кадре 2), кадр 2 не читается инициатором
 	{
 		// Объявляем стороны рукопожатия
 		noise::handshake_t initiator, responder;
 		// Заводим инициатора с общим ключом
-		ASSERT_TRUE(arm(initiator, noise::role_t::INITIATOR, si, pr, psk));
-		ASSERT_TRUE(arm(responder, noise::role_t::RESPONDER, sr, nullptr, other));
+		ASSERT_TRUE(__nts_arm__(initiator, noise::role_t::INITIATOR, si, pr, psk));
+		ASSERT_TRUE(__nts_arm__(responder, noise::role_t::RESPONDER, sr, nullptr, other));
 		::memset(frame, 0, sizeof(frame));
 		// Задаём длину сообщения и ёмкость буфера
 		size_t size = 108, length = sizeof(got);
@@ -383,8 +385,8 @@ TEST(WireguardTest, Refusals){
 		// Объявляем стороны рукопожатия
 		noise::handshake_t initiator, responder;
 		// Заводим инициатора с чужим ключом отвечающего
-		ASSERT_TRUE(arm(initiator, noise::role_t::INITIATOR, si, pi, zeros));
-		ASSERT_TRUE(arm(responder, noise::role_t::RESPONDER, sr, nullptr, zeros));
+		ASSERT_TRUE(__nts_arm__(initiator, noise::role_t::INITIATOR, si, pi, zeros));
+		ASSERT_TRUE(__nts_arm__(responder, noise::role_t::RESPONDER, sr, nullptr, zeros));
 		::memset(frame, 0, sizeof(frame));
 		// Задаём длину сообщения и ёмкость буфера
 		size_t size = 108, length = sizeof(got);
@@ -400,7 +402,7 @@ TEST(WireguardTest, Refusals){
 		// Объявляем сторону рукопожатия
 		noise::handshake_t initiator;
 		// Заводим инициатора
-		ASSERT_TRUE(arm(initiator, noise::role_t::INITIATOR, si, pr, zeros));
+		ASSERT_TRUE(__nts_arm__(initiator, noise::role_t::INITIATOR, si, pr, zeros));
 		::memset(frame, 0, sizeof(frame));
 		// Помечаем кадр видом 1
 		frame[0] = 1;
@@ -408,19 +410,19 @@ TEST(WireguardTest, Refusals){
 		size_t size = 108;
 		// Пишем сообщение Noise в кадр
 		ASSERT_TRUE(initiator.write(view_t(stamp, TAI64N), frame + 8, size));
-		ASSERT_TRUE(mac1(pr, frame, 116, frame + 116));
+		ASSERT_TRUE(__nts_mac1__(pr, frame, 116, frame + 116));
 		// Портим байт шифротекста кадра
 		frame[40] ^= 1;
 		// Объявляем буфер метки
 		uint8_t expected[MAC];
 		// Считаем метку mac1 по порченому кадру
-		ASSERT_TRUE(mac1(pr, frame, 116, expected));
+		ASSERT_TRUE(__nts_mac1__(pr, frame, 116, expected));
 		// Проверяем расхождение метки mac1
 		EXPECT_NE(::memcmp(expected, frame + 116, MAC), 0);
 		// mac1 по чужому ключу получателя тоже не сходится
 		frame[40] ^= 1;
 		// Считаем метку mac1 по чужому ключу получателя
-		ASSERT_TRUE(mac1(pi, frame, 116, expected));
+		ASSERT_TRUE(__nts_mac1__(pi, frame, 116, expected));
 		// Проверяем расхождение метки mac1
 		EXPECT_NE(::memcmp(expected, frame + 116, MAC), 0);
 	}
@@ -431,17 +433,17 @@ TEST(WireguardTest, Refusals){
  */
 TEST(WireguardTest, Vector){
 	// Читаем эталонный вектор из файла
-	const auto v = reference(std::string(NTS_CORPUS) + "/noise/wireguard.txt");
+	const auto table = reference(std::string(NTS_CORPUS) + "/noise/wireguard.txt");
 	// Проверяем число ключей эталона
-	ASSERT_EQ(v.size(), 10u);
+	ASSERT_EQ(table.size(), 10u);
 	// Достаём постоянные ключи и общий ключ
-	const std::vector <uint8_t> & si = v.at("init_static"), & sr = v.at("resp_static"), & psk = v.at("psk");
+	const std::vector <uint8_t> & si = table.at("init_static"), & sr = table.at("resp_static"), & psk = table.at("psk");
 	// Достаём эфемерные ключи и метку времени
-	const std::vector <uint8_t> & ei = v.at("init_ephemeral"), & er = v.at("resp_ephemeral"), & stamp = v.at("timestamp");
+	const std::vector <uint8_t> & ei = table.at("init_ephemeral"), & er = table.at("resp_ephemeral"), & stamp = table.at("timestamp");
 	// Достаём опознаватели отправителя и получателя
-	const std::vector <uint8_t> & sender = v.at("sender_index"), & receiver = v.at("receiver_index");
+	const std::vector <uint8_t> & sender = table.at("sender_index"), & receiver = table.at("receiver_index");
 	// Достаём эталонные кадры
-	const std::vector <uint8_t> & message1 = v.at("message1"), & message2 = v.at("message2");
+	const std::vector <uint8_t> & message1 = table.at("message1"), & message2 = table.at("message2");
 	// Проверяем длину кадра 1
 	ASSERT_EQ(message1.size(), INITIATION);
 	ASSERT_EQ(message2.size(), RESPONSE);
@@ -454,8 +456,8 @@ TEST(WireguardTest, Vector){
 	// Объявляем стороны рукопожатия
 	noise::handshake_t initiator, responder;
 	// Заводим инициатора закреплёнными ключами
-	ASSERT_TRUE(arm(initiator, noise::role_t::INITIATOR, si.data(), pr, psk.data()));
-	ASSERT_TRUE(arm(responder, noise::role_t::RESPONDER, sr.data(), nullptr, psk.data()));
+	ASSERT_TRUE(__nts_arm__(initiator, noise::role_t::INITIATOR, si.data(), pr, psk.data()));
+	ASSERT_TRUE(__nts_arm__(responder, noise::role_t::RESPONDER, sr.data(), nullptr, psk.data()));
 	ASSERT_TRUE(initiator.ephemeral(view_t(ei.data(), 32)));
 	ASSERT_TRUE(responder.ephemeral(view_t(er.data(), 32)));
 	// Кадр 1
@@ -475,7 +477,7 @@ TEST(WireguardTest, Vector){
 	// Проверяем длину сообщения
 	ASSERT_EQ(size, 108u);
 	// Ставим метку mac1 в кадр
-	ASSERT_TRUE(mac1(pr, frame, 116, frame + 116));
+	ASSERT_TRUE(__nts_mac1__(pr, frame, 116, frame + 116));
 	// Проверяем кадр 1 эталоном
 	EXPECT_EQ(::memcmp(frame, message1.data(), INITIATION), 0) << "кадр 1 расходится с wireguard-go";
 	// Объявляем буфер метки времени
@@ -502,7 +504,7 @@ TEST(WireguardTest, Vector){
 	// Проверяем длину сообщения
 	ASSERT_EQ(size, 48u);
 	// Ставим метку mac1 в кадр
-	ASSERT_TRUE(mac1(pi, reply, 60, reply + 60));
+	ASSERT_TRUE(__nts_mac1__(pi, reply, 60, reply + 60));
 	// Проверяем кадр 2 эталоном
 	EXPECT_EQ(::memcmp(reply, message2.data(), RESPONSE), 0) << "кадр 2 расходится с wireguard-go";
 	// Объявляем буфер пустого сообщения

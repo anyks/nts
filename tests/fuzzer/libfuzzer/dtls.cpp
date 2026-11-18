@@ -52,55 +52,55 @@ namespace {
 	 * @param payload  тело куска сообщения рукопожатия
 	 *
 	 */
-	void parseFragment(const datagram::fragment_t & fragment, const view_t & payload) noexcept {
+	void __nts_parse_fragment__(const datagram::fragment_t & fragment, const view_t & payload) noexcept {
 		// Если кусок не несёт целое сообщение с нулевого смещения
 		if((fragment.offset != 0) || (fragment.length != fragment.size))
 			// Сборка разрозненных кусков относится к состоянию связи, а не к этому разбору
 			return;
 		/**
-		 * Выполняем разбор целого тела его собственным разборщиком
+		 * Разбираем целого тела его собственным разборщиком
 		 */
 		switch(static_cast <uint8_t> (fragment.type)){
 			// Если получено приветствие клиента
 			case static_cast <uint8_t> (handshake::type_t::CLIENT): {
 				// Разбираемое приветствие клиента
 				hello::client_t greeting;
-				// Выполняем разбор приветствия с меткой возврата состояния
+				// Разбираем приветствия с меткой возврата состояния
 				hello::parse(payload, greeting, true);
 			} break;
 			// Если получено приветствие сервера
 			case static_cast <uint8_t> (handshake::type_t::SERVER): {
 				// Разбираемое приветствие сервера
 				hello::server_t greeting;
-				// Выполняем разбор приветствия сервера
+				// Разбираем приветствия сервера
 				hello::parse(payload, greeting);
 			} break;
 			// Если получена цепочка сертификатов
 			case static_cast <uint8_t> (handshake::type_t::CERTIFICATE): {
 				// Разбираемая цепочка сертификатов
 				message::certificate_t certificate;
-				// Выполняем разбор цепочки сертификатов
+				// Разбираем цепочки сертификатов
 				message::parse(payload, certificate);
 			} break;
 			// Если получена подпись владения ключом
 			case static_cast <uint8_t> (handshake::type_t::VERIFY): {
 				// Разбираемая подпись владения ключом
 				message::verify_t verify;
-				// Выполняем разбор подписи владения ключом
+				// Разбираем подписи владения ключом
 				message::parse(payload, verify);
 			} break;
 			// Если получен билет возобновления связи
 			case static_cast <uint8_t> (handshake::type_t::TICKET): {
 				// Разбираемый билет возобновления связи
 				message::ticket_t ticket;
-				// Выполняем разбор билета возобновления связи
+				// Разбираем билета возобновления связи
 				message::parse(payload, ticket);
 			} break;
 			// Если получено требование смены ключевого материала
 			case static_cast <uint8_t> (handshake::type_t::UPDATE): {
 				// Разбираемое требование смены ключевого материала
 				message::update_t update;
-				// Выполняем разбор требования смены ключевого материала
+				// Разбираем требования смены ключевого материала
 				message::parse(payload, update);
 			} break;
 		}
@@ -114,11 +114,11 @@ namespace {
 	 * @param ancient признак переноса изданием DTLS 1.0
 	 *
 	 */
-	void parseDatagram(const uint8_t * data, const size_t size, const bool legacy, const bool ancient) noexcept {
+	void __nts_parse_datagram__(const uint8_t * data, const size_t size, const bool legacy, const bool ancient) noexcept {
 		// Смещение очередной записи в дейтаграмме
 		size_t offset = 0;
 		/**
-		 * Выполняем перебор записей, упакованных в одну дейтаграмму
+		 * Перебираем записи, упакованных в одну дейтаграмму
 		 */
 		while(offset < size){
 			// Заголовок очередной записи поверх дейтаграммы
@@ -135,19 +135,19 @@ namespace {
 				datagram::fragment_t fragment;
 				// Если обвязка куска разобрана вместе с его телом
 				if(datagram::parse(payload, fragment) == datagram::error_t::NONE)
-					// Выполняем разбор целого сообщения, если кусок его несёт
-					parseFragment(fragment, view_t(payload.data + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length));
+					// Разбираем целого сообщения, если кусок его несёт
+					__nts_parse_fragment__(fragment, view_t(payload.data + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length));
 			// Если запись несёт извещение связи
 			} else if(header.type == record::type_t::ALERT){
 				// Разбираемое извещение связи
 				alert::alert_t notice;
-				// Выполняем разбор извещения связи
+				// Разбираем извещения связи
 				alert::parse(payload, notice);
 			// Если запись несёт подтверждение принятых номеров
 			} else if(header.type == record::type_t::ACK){
 				// Перечень подтверждённых номеров записей
 				std::vector <datagram::number_t> numbers;
-				// Выполняем разбор тела подтверждения
+				// Разбираем тела подтверждения
 				datagram::parse(payload, numbers);
 			}
 			// Переходим к следующей записи дейтаграммы
@@ -173,18 +173,18 @@ extern "C" {
 		const view_t input(data, size);
 		// Обвязка куска, разбираемого без внешней записи
 		datagram::fragment_t fragment;
-		// Выполняем разбор куска сообщения напрямую
+		// Разбираем куска сообщения напрямую
 		datagram::parse(input, fragment);
 		// Перечень номеров из тела подтверждения без внешней записи
 		std::vector <datagram::number_t> numbers;
-		// Выполняем разбор тела подтверждения напрямую
+		// Разбираем тела подтверждения напрямую
 		datagram::parse(input, numbers);
-		// Выполняем разбор дейтаграммы правилами DTLS 1.3
-		parseDatagram(data, size, false, false);
-		// Выполняем разбор дейтаграммы правилами DTLS 1.2
-		parseDatagram(data, size, true, false);
-		// Выполняем разбор дейтаграммы правилами DTLS 1.0
-		parseDatagram(data, size, true, true);
+		// Разбираем дейтаграммы правилами DTLS 1.3
+		__nts_parse_datagram__(data, size, false, false);
+		// Разбираем дейтаграммы правилами DTLS 1.2
+		__nts_parse_datagram__(data, size, true, false);
+		// Разбираем дейтаграммы правилами DTLS 1.0
+		__nts_parse_datagram__(data, size, true, true);
 		// Выводим код продолжения ворошения
 		return 0;
 	}

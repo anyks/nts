@@ -99,7 +99,7 @@ static vector <uint8_t> decode(const char * text) noexcept {
 	// Получаем длину разбираемой строки
 	const size_t length = ::strlen(text);
 	/**
-	 * Выполняем перебор пар знаков шестнадцатеричной записи
+	 * Перебираем пары знаков шестнадцатеричной записи
 	 */
 	for(size_t i = 0; (i + 1) < length; i += 2)
 		// Добавляем очередной разобранный байт
@@ -116,7 +116,7 @@ TEST(ScheduleTest, Extract){
 	const uint8_t zeroes[schedule::SCHEDULE_SECRET] = {0};
 	// Место, в которое помещается извлечённое значение
 	uint8_t result[schedule::SCHEDULE_SECRET];
-	// Выполняем извлечение начального значения расписания ключей
+	// Извлекаем начальное значение расписания ключей
 	ASSERT_TRUE(schedule::extract(view_t(zeroes, sizeof(zeroes)), view_t(zeroes, sizeof(zeroes)), result));
 	// Получаем начальное значение расписания ключей контрольного примера
 	const vector <uint8_t> early = decode(EARLY);
@@ -124,9 +124,9 @@ TEST(ScheduleTest, Extract){
 	ASSERT_EQ(::memcmp(result, early.data(), early.size()), 0);
 	// Заранее разделённый ключ второго контрольного примера
 	uint8_t external[schedule::SCHEDULE_SECRET];
-	// Выполняем заполнение заранее разделённого ключа
+	// Заполняем заранее разделённого ключа
 	::memset(external, 0x80, sizeof(external));
-	// Выполняем извлечение начального значения на заранее разделённом ключе
+	// Извлекаем начальное значение на заранее разделённом ключе
 	ASSERT_TRUE(schedule::extract(view_t(zeroes, sizeof(zeroes)), view_t(external, sizeof(external)), result));
 	// Получаем начальное значение второго контрольного примера
 	const vector <uint8_t> sample = decode(EXTERNAL);
@@ -142,13 +142,13 @@ TEST(ScheduleTest, Derive){
 	const vector <uint8_t> early = decode(EARLY);
 	// Место, в которое помещается хеш пустой переписки рукопожатия
 	uint8_t empty[schedule::SCHEDULE_SECRET];
-	// Выполняем выработку хеша пустой переписки рукопожатия
+	// Вырабатываем хеш пустой переписки рукопожатия
 	ASSERT_TRUE(digest::streebog(digest::type_t::SHORT, view_t(nullptr, 0), empty, sizeof(empty)));
 	// Метка назначения перехода к значению рукопожатия
 	const char * label = "derived";
 	// Место, в которое помещается выведенное значение
 	uint8_t result[schedule::SCHEDULE_SECRET];
-	// Выполняем вывод значения перехода к значению рукопожатия
+	// Выводим значения перехода к значению рукопожатия
 	ASSERT_TRUE(schedule::secret(view_t(early.data(), early.size()), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(empty, sizeof(empty)), result));
 	// Получаем значение перехода контрольного примера
 	const vector <uint8_t> derived = decode(DERIVED);
@@ -160,7 +160,7 @@ TEST(ScheduleTest, Derive){
 	const vector <uint8_t> transcript = decode(TRANSCRIPT);
 	// Метка назначения значения рукопожатия направления связи от сервера
 	const char * traffic = "s hs traffic";
-	// Выполняем вывод значения рукопожатия направления связи от сервера
+	// Выводим значения рукопожатия направления связи от сервера
 	ASSERT_TRUE(schedule::secret(view_t(handshake.data(), handshake.size()), view_t(reinterpret_cast <const uint8_t *> (traffic), ::strlen(traffic)), view_t(transcript.data(), transcript.size()), result));
 	// Получаем значение рукопожатия направления связи контрольного примера
 	const vector <uint8_t> sample = decode(TRAFFIC);
@@ -178,7 +178,7 @@ TEST(ScheduleTest, Material){
 	const char * key = "key";
 	// Место, в которое помещается выведенный ключ направления связи
 	uint8_t result[schedule::SCHEDULE_SECRET];
-	// Выполняем вывод ключа направления связи
+	// Выводим ключа направления связи
 	ASSERT_TRUE(schedule::derive(view_t(traffic.data(), traffic.size()), view_t(reinterpret_cast <const uint8_t *> (key), ::strlen(key)), view_t(nullptr, 0), result, sizeof(result)));
 	// Получаем ключ направления связи контрольного примера
 	const vector <uint8_t> sample = decode(KEY);
@@ -188,13 +188,13 @@ TEST(ScheduleTest, Material){
 	const char * vector = "iv";
 	// Получаем вектор замены направления связи контрольного примера
 	const std::vector <uint8_t> replacement = decode(VECTOR);
-	// Выполняем вывод вектора замены направления связи
+	// Выводим вектора замены направления связи
 	ASSERT_TRUE(schedule::derive(view_t(traffic.data(), traffic.size()), view_t(reinterpret_cast <const uint8_t *> (vector), ::strlen(vector)), view_t(nullptr, 0), result, replacement.size()));
 	// Проверяем схождение выведенного вектора замены с контрольным примером
 	ASSERT_EQ(::memcmp(result, replacement.data(), replacement.size()), 0);
 	// Метка назначения ключа выработки завершения рукопожатия
 	const char * finished = "finished";
-	// Выполняем вывод ключа выработки завершения рукопожатия
+	// Выводим ключа выработки завершения рукопожатия
 	ASSERT_TRUE(schedule::derive(view_t(traffic.data(), traffic.size()), view_t(reinterpret_cast <const uint8_t *> (finished), ::strlen(finished)), view_t(nullptr, 0), result, sizeof(result)));
 	// Получаем ключ выработки завершения рукопожатия контрольного примера
 	const std::vector <uint8_t> sample2 = decode(FINISHED);
@@ -212,11 +212,11 @@ TEST(ScheduleTest, Expand){
 	const char * label = "key";
 	// Место, в которое помещается растянутое значение
 	uint8_t result[schedule::SCHEDULE_SECRET * 3];
-	// Выполняем вывод значения длиной в три хеша
+	// Выводим значения длиной в три хеша
 	ASSERT_TRUE(schedule::derive(view_t(traffic.data(), traffic.size()), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(nullptr, 0), result, sizeof(result)));
 	// Место, в которое помещается укороченный вывод того же значения
 	uint8_t sample[schedule::SCHEDULE_SECRET];
-	// Выполняем вывод того же значения длиной в один хеш
+	// Выводим того же значения длиной в один хеш
 	ASSERT_TRUE(schedule::derive(view_t(traffic.data(), traffic.size()), view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label)), view_t(nullptr, 0), sample, sizeof(sample)));
 	/**
 	 * Требуемая длина входит в описание назначения, оттого выводы разной длины
@@ -256,7 +256,7 @@ TEST(ScheduleTest, Refusals){
 	 * условия, и всякая одна обращает описание в отсутствующее
 	 */
 	ASSERT_TRUE(schedule::expand(view_t(secret.data(), secret.size()), view_t(nullptr, 0), hollow, sizeof(hollow)));
-	// Выполняем растяжение с описанием назначения нулевой длины
+	// Растягиваем с описанием назначения нулевой длины
 	ASSERT_TRUE(schedule::expand(view_t(secret.data(), secret.size()), view_t(label.data(), 0), sparse, sizeof(sparse)));
 	// Проверяем схождение растяжения с описанием нулевой длины с растяжением без него
 	ASSERT_EQ(::memcmp(hollow, sparse, sizeof(hollow)), 0);
@@ -292,11 +292,11 @@ TEST(ScheduleTest, Unbound){
 	const std::vector <uint8_t> label = {0x6B, 0x65, 0x79};
 	// Значения, выведенные при разных заявленных длинах непереданной привязки
 	uint8_t empty[32] = {0}, five[32] = {0}, seven[32] = {0};
-	// Выполняем вывод значения с привязкой, переданной пустой
+	// Выводим значения с привязкой, переданной пустой
 	ASSERT_TRUE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 0), empty, sizeof(empty)));
-	// Выполняем вывод значения с непереданной привязкой, заявленной длиною в пять
+	// Выводим значения с непереданной привязкой, заявленной длиною в пять
 	ASSERT_TRUE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 5), five, sizeof(five)));
-	// Выполняем вывод значения с непереданной привязкой, заявленной длиною в семь
+	// Выводим значения с непереданной привязкой, заявленной длиною в семь
 	ASSERT_TRUE(schedule::derive(view_t(secret.data(), secret.size()), view_t(label.data(), label.size()), view_t(nullptr, 7), seven, sizeof(seven)));
 	/**
 	 * Все три вызова означают одно: привязки нет. Прежде длина привязки попадала в
@@ -327,7 +327,7 @@ TEST(ScheduleTest, Salted){
 	 * расхождение всплывёт тут, а не посреди рукопожатия
 	 */
 	ASSERT_TRUE(schedule::extract(view_t(), view_t(key.data(), key.size()), hollow));
-	// Выполняем извлечение значения по присолу из строки нулей
+	// Извлекаем значение по присолу из строки нулей
 	ASSERT_TRUE(schedule::extract(view_t(zeroes.data(), zeroes.size()), view_t(key.data(), key.size()), salted));
 	// Проверяем схождение извлечения с непереданным присолом с извлечением по нулям
 	ASSERT_EQ(::memcmp(hollow, salted, sizeof(hollow)), 0);
@@ -335,7 +335,7 @@ TEST(ScheduleTest, Salted){
 	ASSERT_NE(hollow[0] | hollow[16] | hollow[31], 0);
 	// Место, в которое помещается извлечение по присолу нулевой длины
 	uint8_t sparse[schedule::SCHEDULE_SECRET] = {0};
-	// Выполняем извлечение значения по переданному присолу нулевой длины
+	// Извлекаем значение по переданному присолу нулевой длины
 	ASSERT_TRUE(schedule::extract(view_t(zeroes.data(), 0), view_t(key.data(), key.size()), sparse));
 	// Проверяем схождение извлечения по присолу нулевой длины с извлечением по нулям
 	ASSERT_EQ(::memcmp(sparse, salted, sizeof(sparse)), 0);

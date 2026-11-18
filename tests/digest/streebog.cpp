@@ -69,7 +69,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов выработанного хеша
+	 * Перебираем байты выработанного хеша
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -145,7 +145,7 @@ TEST(StreebogTest, Chunks) {
 	// Собираемое сообщение произвольной длины
 	std::vector <uint8_t> message;
 	/**
-	 * Выполняем сборку сообщения, покрывающего несколько блоков хеширования
+	 * Собираем сообщение, покрывающего несколько блоков хеширования
 	 */
 	for(size_t i = 0; i < 1000; i++)
 		// Дополняем сообщение очередным байтом
@@ -153,7 +153,7 @@ TEST(StreebogTest, Chunks) {
 	// Набор длин вырабатываемого хеша
 	const digest::type_t types[] = {digest::type_t::SHORT, digest::type_t::LONG};
 	/**
-	 * Выполняем перебор длин вырабатываемого хеша
+	 * Перебираем длины вырабатываемого хеша
 	 */
 	for(size_t t = 0; t < 2; t++){
 		// Вырабатываем хеш сообщения, поданного целиком
@@ -161,18 +161,18 @@ TEST(StreebogTest, Chunks) {
 		// Проверяем успешность выработки хеша
 		ASSERT_FALSE(expected.empty());
 		/**
-		 * Выполняем перебор размеров куска подачи сообщения
+		 * Перебираем размеры куска подачи сообщения
 		 */
 		for(size_t size = 1; size <= 130; size++){
 			// Создаём объект хеширования
 			digest::streebog_t hash(types[t]);
 			/**
-			 * Выполняем подачу сообщения кусками выбранного размера
+			 * Подаём сообщение кусками выбранного размера
 			 */
 			for(size_t offset = 0; offset < message.size(); offset += size){
 				// Определяем размер очередного куска сообщения
 				const size_t count = (((message.size() - offset) < size) ? (message.size() - offset) : size);
-				// Выполняем подачу очередного куска сообщения
+				// Подаём очередной кусок сообщения
 				hash.update(view_t(message.data() + offset, count));
 			}
 			// Место под выработанный хеш
@@ -194,7 +194,7 @@ TEST(StreebogTest, Boundary) {
 	// Запись хеша предыдущего сообщения
 	std::string previous;
 	/**
-	 * Выполняем перебор длин сообщения вокруг размера блока хеширования
+	 * Перебираем длины сообщения вокруг размера блока хеширования
 	 */
 	for(size_t size = 0; size <= 130; size++){
 		// Вырабатываем хеш сообщения выбранной длины
@@ -236,15 +236,15 @@ TEST(StreebogTest, Refusal) {
 	ASSERT_FALSE(hash.finish(empty, sizeof(empty), digest::order_t::VECTOR));
 	// Приводим объект к началу хеширования
 	hash.reset(digest::type_t::LONG);
-	// Выполняем подачу куска сообщения нулевой длины: подать нечего, отказывать не за что
+	// Подаём кусок сообщения нулевой длины: подать нечего, отказывать не за что
 	hash.update(view_t(message, 0));
-	// Выполняем снятие хеша после пустой подачи
+	// Снимаем хеш после пустой подачи
 	ASSERT_TRUE(hash.finish(empty, sizeof(empty), digest::order_t::VECTOR));
 	// Приводим объект к началу хеширования
 	hash.reset(digest::type_t::LONG);
 	// Место, в которое помещается хеш, снятый вовсе без подач
 	uint8_t bare[64] = {0};
-	// Выполняем снятие хеша вовсе без подач
+	// Снимаем хеш вовсе без подач
 	ASSERT_TRUE(hash.finish(bare, sizeof(bare), digest::order_t::VECTOR));
 	// Проверяем схождение хеша после пропущенных подач с хешем без подач
 	ASSERT_EQ(::memcmp(empty, bare, sizeof(empty)), 0);
@@ -268,7 +268,7 @@ TEST(StreebogTest, Refusal) {
 	ASSERT_FALSE(hash.finish(result, sizeof(result)));
 	// Приводим объект к началу хеширования
 	hash.reset(digest::type_t::NONE);
-	// Выполняем подачу куска сообщения при неустановленной длине хеша
+	// Подаём кусок сообщения при неустановленной длине хеша
 	hash.update(view_t(message, sizeof(message)));
 	// Проверяем отказ снятия хеша с неустановленной длиной после подачи
 	ASSERT_FALSE(hash.finish(result, sizeof(result)));
@@ -288,13 +288,13 @@ TEST(StreebogTest, Reset) {
 	uint8_t result[64];
 	// Создаём объект хеширования
 	digest::streebog_t hash(digest::type_t::SHORT);
-	// Выполняем подачу второго сообщения контрольного примера
+	// Подаём второе сообщение контрольного примера
 	hash.update(view_t(MESSAGE_SECOND, sizeof(MESSAGE_SECOND)));
 	// Проверяем успешность снятия хеша
 	ASSERT_TRUE(hash.finish(result, sizeof(result), digest::order_t::VECTOR));
 	// Приводим объект к началу хеширования с иной длиной хеша
 	hash.reset(digest::type_t::LONG);
-	// Выполняем подачу первого сообщения контрольного примера
+	// Подаём первое сообщение контрольного примера
 	hash.update(view_t(data, 63));
 	// Проверяем успешность снятия хеша
 	ASSERT_TRUE(hash.finish(result, sizeof(result), digest::order_t::VECTOR));
@@ -317,21 +317,21 @@ TEST(StreebogTest, Order) {
 	// Места под хеши, выработанные в обеих записях
 	uint8_t stream[64], vector[64];
 	/**
-	 * Выполняем перебор обеих длин вырабатываемого хеша
+	 * Перебираем обе длины вырабатываемого хеша
 	 */
 	const digest::type_t types[2] = {digest::type_t::SHORT, digest::type_t::LONG};
 	/**
-	 * Выполняем перебор длин вырабатываемого хеша
+	 * Перебираем длины вырабатываемого хеша
 	 */
 	for(size_t t = 0; t < 2; t++){
 		// Определяем длину вырабатываемого хеша
 		const size_t size = static_cast <size_t> (types[t]);
-		// Выполняем выработку хеша пустого сообщения строкой байтов
+		// Вырабатываем хеш пустого сообщения строкой байтов
 		ASSERT_TRUE(digest::streebog(types[t], view_t(), stream, size));
-		// Выполняем выработку хеша пустого сообщения записью вектором
+		// Вырабатываем хеш пустого сообщения записью вектором
 		ASSERT_TRUE(digest::streebog(types[t], view_t(), vector, size, digest::order_t::VECTOR));
 		/**
-		 * Выполняем перебор байтов выработанных хешей
+		 * Перебираем байты выработанных хешей
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Проверяем, что записи отличаются одним лишь порядком байтов
@@ -344,7 +344,7 @@ TEST(StreebogTest, Order) {
 	ASSERT_TRUE(digest::streebog(digest::type_t::SHORT, view_t(), stream, 32));
 	// Сличаем хеш пустого сообщения с общеизвестным значением
 	ASSERT_EQ(text(stream, 32), std::string("3f539a213e97c802cc229d474c6aa32a825a360b2a933a949fd925208d9ce1bb"));
-	// Выполняем выработку хеша пустого сообщения длиной 512 разрядов
+	// Вырабатываем хеш пустого сообщения длиной 512 разрядов
 	ASSERT_TRUE(digest::streebog(digest::type_t::LONG, view_t(), stream, 64));
 	// Сличаем хеш пустого сообщения с общеизвестным значением
 	ASSERT_EQ(text(stream, 64), std::string(

@@ -111,7 +111,7 @@ namespace {
 	/**
 	 * Метка и издание снимка профиля
 	 */
-	static constexpr uint8_t STAMP[] = {'A', 'N', 'T', 'S', 'F', 'P'};
+	static constexpr uint8_t STAMP[] = {'N', 'T', 'S', 'F', 'P'};
 	/**
 	 * Предисловие потока HTTP/2
 	 */

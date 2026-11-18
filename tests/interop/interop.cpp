@@ -88,7 +88,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -97,7 +97,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочку сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(std::string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -113,7 +113,7 @@ namespace {
 	 * @return      имя набора у openssl
 	 *
 	 */
-	const char * title(const protect::suite_t suite) noexcept {
+	const char * __nts_title__(const protect::suite_t suite) noexcept {
 		/**
 		 * Определяем набор шифрования
 		 */
@@ -159,9 +159,9 @@ namespace {
 	 * @return      признак того, что openssl умеет набор (проба возможности)
 	 *
 	 */
-	bool capable(const protect::suite_t suite) noexcept {
+	bool __nts_capable__(const protect::suite_t suite) noexcept {
 		// Пробуем набор у openssl
-		return (__nts_shell__(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + title(suite) + " >/dev/null 2>&1") == 0);
+		return (__nts_shell__(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + __nts_title__(suite) + " >/dev/null 2>&1") == 0);
 	}
 	/**
 	 * @brief Функция оглашения пропусков частей сличения
@@ -170,7 +170,7 @@ namespace {
 	 * @param chacha  признак того, что openssl умеет TLS_CHACHA20_POLY1305_SHA256
 	 *
 	 */
-	void announce(const toolkit_t & toolkit, const bool chacha) noexcept {
+	void __nts_announce__(const toolkit_t & toolkit, const bool chacha) noexcept {
 		// Если openssl без Ed25519
 		if(!toolkit.edwards)
 			// Сообщаем о пропуске части вслух
@@ -200,11 +200,11 @@ TEST(InteropTest, Server){
 		GTEST_SKIP() << "openssl без TLS 1.3";
 	}
 	// Признак того, что openssl умеет TLS_CHACHA20_POLY1305_SHA256 (проба возможности)
-	const bool chacha = capable(protect::suite_t::CHACHA20_POLY1305_SHA256);
+	const bool chacha = __nts_capable__(protect::suite_t::CHACHA20_POLY1305_SHA256);
 	// Оглашаем пропуски частей
-	announce(toolkit, chacha);
+	__nts_announce__(toolkit, chacha);
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
 		// Если ключ Ed25519 недоступен openssl
@@ -214,11 +214,11 @@ TEST(InteropTest, Server){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(ENTRIES[k].name, credential));
+		ASSERT_TRUE(__nts_identity__(ENTRIES[k].name, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + ENTRIES[k].name + ".crt", key = std::string(CORPUS) + "/" + ENTRIES[k].name + ".pem";
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 			// Если набор ChaCha20-Poly1305 недоступен openssl
@@ -226,9 +226,9 @@ TEST(InteropTest, Server){
 				// Переходим к следующему набору
 				continue;
 			// Имя набора у openssl
-			const char * name = title(SUITES[s]);
+			const char * name = __nts_title__(SUITES[s]);
 			/**
-			 * Выполняем перебор групп обмена
+			 * Перебираем группы обмена
 			 */
 			for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 				// Имя группы у openssl
@@ -244,9 +244,9 @@ TEST(InteropTest, Server){
 				// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 				sentinel_t sentinel(log + ".pid");
 				// Подключаемся к серверу openssl
-				const int fd = __nts_dial__(number);
+				const int connection = __nts_dial__(number);
 				// Проверяем подключение
-				ASSERT_GE(fd, 0) << "порт " << number;
+				ASSERT_GE(connection, 0) << "порт " << number;
 				// Связь стороны клиента
 				client::context_t client;
 				// Наборы клиента
@@ -260,11 +260,11 @@ TEST(InteropTest, Server){
 				// Заводим клиента
 				ASSERT_EQ(client.start(), context::error_t::NONE);
 				/**
-				 * Выполняем передачу байтов до установления связи
+				 * Передаём байты до установления связи
 				 */
 				for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 					// Передаём байты
-					__nts_relay__(client, fd);
+					__nts_relay__(client, connection);
 				// Проверяем установленность связи
 				ASSERT_TRUE(client.established()) << ENTRIES[k].name << " " << name << " " << curve << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 				// Проверяем набор
@@ -278,18 +278,18 @@ TEST(InteropTest, Server){
 				// Накопитель ответа
 				vector <uint8_t> answer;
 				/**
-				 * Выполняем передачу байтов до получения ответа
+				 * Передаём байты до получения ответа
 				 */
 				for(size_t i = 0; (i < 16) && answer.empty(); i++){
 					// Передаём байты
-					__nts_relay__(client, fd);
+					__nts_relay__(client, connection);
 					// Читаем принятые данные
 					ASSERT_EQ(client.read(answer), context::error_t::NONE);
 				}
 				// Проверяем, что ответ HTTP получен
 				ASSERT_NE(string(answer.begin(), answer.end()).find("HTTP/1.0 200"), string::npos) << ENTRIES[k].name << " " << name << " " << curve;
 				// Закрываем сокет
-				closing(fd);
+				closing(connection);
 				// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 				sentinel.halt();
 				// Журнал сервера
@@ -322,11 +322,11 @@ TEST(InteropTest, Client){
 		GTEST_SKIP() << "openssl без TLS 1.3";
 	}
 	// Признак того, что openssl умеет TLS_CHACHA20_POLY1305_SHA256 (проба возможности)
-	const bool chacha = capable(protect::suite_t::CHACHA20_POLY1305_SHA256);
+	const bool chacha = __nts_capable__(protect::suite_t::CHACHA20_POLY1305_SHA256);
 	// Оглашаем пропуски частей
-	announce(toolkit, chacha);
+	__nts_announce__(toolkit, chacha);
 	/**
-	 * Выполняем перебор ключей набора
+	 * Перебираем ключи набора
 	 */
 	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
 		// Если ключ Ed25519 недоступен openssl
@@ -336,11 +336,11 @@ TEST(InteropTest, Client){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(ENTRIES[k].name, credential));
+		ASSERT_TRUE(__nts_identity__(ENTRIES[k].name, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + ENTRIES[k].name + ".crt", key = std::string(CORPUS) + "/" + ENTRIES[k].name + ".pem";
 		/**
-		 * Выполняем перебор наборов шифрования
+		 * Перебираем наборы шифрования
 		 */
 		for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 			// Если набор ChaCha20-Poly1305 недоступен openssl
@@ -348,9 +348,9 @@ TEST(InteropTest, Client){
 				// Переходим к следующему набору
 				continue;
 			// Имя набора у openssl
-			const char * name = title(SUITES[s]);
+			const char * name = __nts_title__(SUITES[s]);
 			/**
-			 * Выполняем перебор групп обмена
+			 * Перебираем группы обмена
 			 */
 			for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 				// Имя группы у openssl
@@ -368,9 +368,9 @@ TEST(InteropTest, Client){
 				// Сторож клиента openssl
 				sentinel_t sentinel(log + ".pid");
 				// Принимаем подключение
-				const int fd = __nts_greeted__(listener);
+				const int connection = __nts_greeted__(listener);
 				// Проверяем подключение
-				ASSERT_GE(fd, 0);
+				ASSERT_GE(connection, 0);
 				// Связь стороны сервера
 				server::context_t server;
 				// Наборы сервера
@@ -384,7 +384,7 @@ TEST(InteropTest, Client){
 				// Заводим сервер
 				ASSERT_EQ(server.start(), context::error_t::NONE);
 				// Ведём связь до конца рукопожатия
-				const bool complete = __nts_serve__(server, fd);
+				const bool complete = __nts_serve__(server, connection);
 				// Проверяем, что рукопожатие дошло до конца
 				ASSERT_TRUE(complete) << ENTRIES[k].name << " " << name << " " << curve << " отказ " << static_cast <int> (server.error());
 				// Проверяем, что отказа не было
@@ -394,9 +394,9 @@ TEST(InteropTest, Client){
 				// Проверяем подлинность клиента
 				ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 				// Закрываем связь, коли она ещё открыта
-				ASSERT_TRUE(__nts_farewell__(server, fd));
+				ASSERT_TRUE(__nts_farewell__(server, connection));
 				// Закрываем сокет
-				closing(fd);
+				closing(connection);
 				// Закрываем слушающий сокет
 				closing(listener);
 				// Текст журнала клиента
@@ -459,13 +459,13 @@ TEST(InteropTest, MldsaServer){
 		{"mldsa87", extension::scheme_t::MLDSA87, "ML-DSA-87"}
 	};
 	/**
-	 * Выполняем перебор ключей ML-DSA набора
+	 * Перебираем ключи ML-DSA набора
 	 */
 	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(ENTRIES[k].name, credential));
+		ASSERT_TRUE(__nts_identity__(ENTRIES[k].name, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + ENTRIES[k].name + ".crt", key = std::string(CORPUS) + "/" + ENTRIES[k].name + ".pem";
 		// Свободный порт
@@ -479,9 +479,9 @@ TEST(InteropTest, MldsaServer){
 		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = __nts_dial__(number);
+		const int connection = __nts_dial__(number);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(connection, 0) << "порт " << number;
 		// Связь стороны клиента
 		client::context_t client;
 		// Наборы клиента
@@ -497,11 +497,11 @@ TEST(InteropTest, MldsaServer){
 		// Заводим клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		/**
-		 * Выполняем передачу байтов до установления связи
+		 * Передаём байты до установления связи
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			__nts_relay__(client, fd);
+			__nts_relay__(client, connection);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established()) << ENTRIES[k].name << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем цепочку сервера
@@ -513,18 +513,18 @@ TEST(InteropTest, MldsaServer){
 		// Накопитель ответа
 		vector <uint8_t> answer;
 		/**
-		 * Выполняем передачу байтов до получения ответа
+		 * Передаём байты до получения ответа
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты
-			__nts_relay__(client, fd);
+			__nts_relay__(client, connection);
 			// Читаем принятые данные
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
 		// Проверяем, что ответ HTTP получен
 		ASSERT_NE(string(answer.begin(), answer.end()).find("HTTP/1.0 200"), string::npos) << ENTRIES[k].name;
 		// Закрываем сокет
-		closing(fd);
+		closing(connection);
 		// Снимаем сервер до удаления журнала: иначе отметка завершения воссоздаст файл
 		sentinel.halt();
 		// Журнал сервера
@@ -572,13 +572,13 @@ TEST(InteropTest, MldsaClient){
 		{"mldsa87", extension::scheme_t::MLDSA87, "ML-DSA-87"}
 	};
 	/**
-	 * Выполняем перебор ключей ML-DSA набора
+	 * Перебираем ключи ML-DSA набора
 	 */
 	for(size_t k = 0; k < (sizeof(ENTRIES) / sizeof(ENTRIES[0])); k++){
 		// Подлинность стороны
 		context::credential_t credential;
 		// Составляем подлинность
-		ASSERT_TRUE(identity(ENTRIES[k].name, credential));
+		ASSERT_TRUE(__nts_identity__(ENTRIES[k].name, credential));
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + ENTRIES[k].name + ".crt", key = std::string(CORPUS) + "/" + ENTRIES[k].name + ".pem";
 		// Порт сервера
@@ -594,9 +594,9 @@ TEST(InteropTest, MldsaClient){
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = __nts_greeted__(listener);
+		const int connection = __nts_greeted__(listener);
 		// Проверяем подключение
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(connection, 0);
 		// Связь стороны сервера
 		server::context_t server;
 		// Наборы сервера
@@ -612,7 +612,7 @@ TEST(InteropTest, MldsaClient){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		const bool complete = __nts_serve__(server, fd);
+		const bool complete = __nts_serve__(server, connection);
 		// Проверяем, что рукопожатие дошло до конца
 		ASSERT_TRUE(complete) << ENTRIES[k].name << " отказ " << static_cast <int> (server.error());
 		// Проверяем, что отказа не было
@@ -620,9 +620,9 @@ TEST(InteropTest, MldsaClient){
 		// Проверяем подлинность клиента
 		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 		// Закрываем связь, коли она ещё открыта
-		ASSERT_TRUE(__nts_farewell__(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, connection));
 		// Закрываем сокет
-		closing(fd);
+		closing(connection);
 		// Закрываем слушающий сокет
 		closing(listener);
 		// Текст журнала клиента

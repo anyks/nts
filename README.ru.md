@@ -215,17 +215,17 @@ cmake --build. -j
 ### Потребителю: find_package, add_subdirectory, динамическая библиотека
 
 Библиотека ставится пакетом CMake и берётся потребителем тремя способами, во всех трёх
-цель одна - `nts::nts`, и она несёт с собой пути заголовков, стандарт языка, признак
+цель одна - `anyks::nts`, и она несёт с собой пути заголовков, стандарт языка, признак
 статической сборки и системные библиотеки (потоки, под Windows `bcrypt`):
 
 ```cmake
 # 1. Установленный пакет: cmake --install build --prefix /opt/nts
 find_package(nts 1.0 CONFIG REQUIRED)      # -DCMAKE_PREFIX_PATH=/opt/nts
-target_link_libraries(app PRIVATE nts::nts)
+target_link_libraries(app PRIVATE anyks::nts)
 
 # 2. Подмодуль в дереве потребителя: без установки
 add_subdirectory(submodules/anyks-tls nts)
-target_link_libraries(app PRIVATE nts::nts)
+target_link_libraries(app PRIVATE anyks::nts)
 ```
 
 Установка следует экосистемной раскладке ANYKS: заголовки кладутся в `include/anyks/nts`,

@@ -75,7 +75,7 @@ static std::vector <uint8_t> unhex(const std::string & text) noexcept {
 		return 0;
 	};
 	/**
-	 * Выполняем перебор пар полубайтов записи
+	 * Перебираем пары полубайтов записи
 	 */
 	for(size_t i = 0; i + 1 < text.size(); i += 2)
 		// Собираем байт записи из пары полубайтов
@@ -97,7 +97,7 @@ static std::vector <std::string> fields(const std::string & line) noexcept {
 	// Текущее поле разбора
 	std::string field;
 	/**
-	 * Выполняем перебор знаков строки набора
+	 * Перебираем знаки строки набора
 	 */
 	for(const char c : line){
 		// Если знак разделяет поля
@@ -216,7 +216,7 @@ TEST(SlhdsaTest, Keygen) {
 	// Число сценариев набора
 	size_t done = 0;
 	/**
-	 * Выполняем перебор строк набора примеров
+	 * Перебираем строки набора примеров
 	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
@@ -235,7 +235,7 @@ TEST(SlhdsaTest, Keygen) {
 		std::vector <uint8_t> key(pub.size()), secret(priv.size());
 		// Модуль подписи
 		sign::SLH_DSA slhdsa;
-		// Выполняем выработку ключа из зерна примера
+		// Вырабатываем ключ из зерна примера
 		ASSERT_TRUE(slhdsa.generate(set, view_t(seed.data(), seed.size()), key.data(), secret.data()));
 		// Сверяем ключи с примером побайтно
 		EXPECT_EQ(key, pub);
@@ -259,7 +259,7 @@ TEST(SlhdsaTest, Siggen) {
 	// Число сценариев набора
 	size_t done = 0;
 	/**
-	 * Выполняем перебор строк набора примеров
+	 * Перебираем строки набора примеров
 	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
@@ -276,11 +276,11 @@ TEST(SlhdsaTest, Siggen) {
 		const std::vector <uint8_t> priv = bytes(parts[2]), msg = bytes(parts[3]), ctx = bytes(parts[4]), want = bytes(parts[5]);
 		// Модули подписи и проверки
 		sign::SLH_DSA signer, verifier;
-		// Выполняем установку ключа подписи примера
+		// Устанавливаем ключ подписи примера
 		ASSERT_TRUE(signer.secret(set, view_t(priv.data(), priv.size())));
 		// Ключ проверки из установленного ключа подписи
 		std::vector <uint8_t> pub(sign::SLH_DSA::publicSize(set));
-		// Выполняем получение и установку ключа проверки
+		// Получаем и устанавливаем ключ проверки
 		ASSERT_TRUE(signer.key(pub.data(), pub.size()));
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
 		// Место выработанной подписи
@@ -294,11 +294,11 @@ TEST(SlhdsaTest, Siggen) {
 			// Переносим энтропию в случайность
 			::memcpy(rnd, entropy.data(), ((entropy.size() < sizeof(rnd)) ? entropy.size() : sizeof(rnd)));
 		}
-		// Выполняем выработку подписи и сверяем с примером побайтно
+		// Вырабатываем подпись и сверяем с примером побайтно
 		ASSERT_TRUE(signer.make(view_t(rnd, sizeof(rnd)), view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), signature.data()));
 		// Выработанная подпись обязана совпасть с примером побайтно
 		EXPECT_EQ(signature, want);
-		// Выполняем сличение выработанной подписи
+		// Сличаем выработанную подпись
 		EXPECT_TRUE(verifier.check(view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), view_t(signature.data(), signature.size())));
 		// Считаем сценарий набора
 		done++;
@@ -319,7 +319,7 @@ TEST(SlhdsaTest, Sigver) {
 	// Число сценариев набора
 	size_t done = 0;
 	/**
-	 * Выполняем перебор строк набора примеров
+	 * Перебираем строки набора примеров
 	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
@@ -336,9 +336,9 @@ TEST(SlhdsaTest, Sigver) {
 		const std::vector <uint8_t> pub = bytes(parts[2]), msg = bytes(parts[3]), ctx = bytes(parts[4]), sig = bytes(parts[5]);
 		// Модуль проверки
 		sign::SLH_DSA verifier;
-		// Выполняем установку ключа проверки примера
+		// Устанавливаем ключ проверки примера
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
-		// Выполняем сличение подписи примера с ожидаемым ответом
+		// Сличаем подпись примера с ожидаемым ответом
 		EXPECT_EQ(verifier.check(view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), view_t(sig.data(), sig.size())), (parts[1] == "ok"));
 		// Считаем сценарий набора
 		done++;
@@ -364,16 +364,16 @@ TEST(SlhdsaTest, Round) {
 		sign::SLH_DSA::set_t::SHA2_256F, sign::SLH_DSA::set_t::SHAKE_256F
 	};
 	/**
-	 * Выполняем перебор наборов параметров
+	 * Перебираем наборы параметров
 	 */
 	for(auto set : SUITS){
 		// Модули подписи и проверки
 		sign::SLH_DSA signer, verifier;
 		// Места записей ключей
 		std::vector <uint8_t> pub(sign::SLH_DSA::publicSize(set)), priv(sign::SLH_DSA::secretSize(set));
-		// Выполняем порождение ключа из источника случайности
+		// Порождаем ключ из источника случайности
 		ASSERT_TRUE(signer.generate(set, pub.data(), priv.data()));
-		// Выполняем установку ключа подписи и ключа проверки
+		// Устанавливаем ключ подписи и ключ проверки
 		ASSERT_TRUE(signer.secret(set, view_t(priv.data(), priv.size())));
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
 		// Набор, размер и предел подписи после установки
@@ -382,9 +382,9 @@ TEST(SlhdsaTest, Round) {
 		EXPECT_EQ(signer.limit(), sign::SLH_DSA::signatureSize(set));
 		// Место подписи
 		std::vector <uint8_t> signature(sign::SLH_DSA::signatureSize(set));
-		// Выполняем выработку подписи от источника случайности
+		// Вырабатываем подпись от источника случайности
 		ASSERT_TRUE(signer.make(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), view_t(nullptr, 0), signature.data()));
-		// Выполняем сличение подписи
+		// Сличаем подпись
 		EXPECT_TRUE(verifier.check(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), view_t(nullptr, 0), view_t(signature.data(), signature.size())));
 		// Порченый байт подписи отвергается
 		signature[100] ^= 1;

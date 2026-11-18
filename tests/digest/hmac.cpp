@@ -70,13 +70,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -104,7 +104,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -123,15 +123,15 @@ static std::string text(const uint8_t * data, const size_t size) {
 TEST(HmacTest, Samples) {
 	// Места, в которые помещаются разбираемые записи
 	uint8_t secret[32], message[16], result[64];
-	// Выполняем разбор ключа контрольных примеров
+	// Разбираем ключ контрольных примеров
 	ASSERT_EQ(bytes(SECRET, secret), static_cast <size_t> (32));
-	// Выполняем разбор сообщения выработки имитовставки
+	// Разбираем сообщение выработки имитовставки
 	ASSERT_EQ(bytes(MESSAGE, message), static_cast <size_t> (16));
-	// Выполняем выработку имитовставки длиной 256 разрядов
+	// Вырабатываем имитовставку длиной 256 разрядов
 	ASSERT_TRUE(digest::hmac(digest::type_t::SHORT, view_t(secret, 32), view_t(message, 16), result, 32));
 	// Сличаем выработанную имитовставку с контрольным примером
 	ASSERT_EQ(text(result, 32), std::string("a1aa5f7de402d7b3d323f2991c8d4534013137010a83754fd0af6d7cd4922ed9"));
-	// Выполняем выработку имитовставки длиной 512 разрядов
+	// Вырабатываем имитовставку длиной 512 разрядов
 	ASSERT_TRUE(digest::hmac(digest::type_t::LONG, view_t(secret, 32), view_t(message, 16), result, 64));
 	// Сличаем выработанную имитовставку с контрольным примером
 	ASSERT_EQ(text(result, 64), std::string(
@@ -140,7 +140,7 @@ TEST(HmacTest, Samples) {
 	));
 	// Проверяем усечение имитовставки до требуемой длины
 	uint8_t item[64];
-	// Выполняем выработку усечённой имитовставки
+	// Вырабатываем усечённую имитовставку
 	ASSERT_TRUE(digest::hmac(digest::type_t::SHORT, view_t(secret, 32), view_t(message, 16), item, 8));
 	// Сличаем усечённую имитовставку с началом полной
 	ASSERT_EQ(text(item, 8), std::string("a1aa5f7de402d7b3"));
@@ -152,19 +152,19 @@ TEST(HmacTest, Samples) {
 TEST(HmacTest, Sequence) {
 	// Места, в которые помещаются разбираемые записи
 	uint8_t secret[32], seed[32], label[8], result[128];
-	// Выполняем разбор ключа контрольных примеров
+	// Разбираем ключ контрольных примеров
 	bytes(SECRET, secret);
-	// Выполняем разбор затравки выработки последовательности
+	// Разбираем затравку выработки последовательности
 	bytes(SEED, seed);
-	// Выполняем разбор метки назначения последовательности
+	// Разбираем метку назначения последовательности
 	ASSERT_EQ(bytes(LABEL, label), static_cast <size_t> (5));
-	// Выполняем выработку последовательности длиной 256 разрядов
+	// Вырабатываем последовательность длиной 256 разрядов
 	ASSERT_TRUE(digest::prf(digest::type_t::SHORT, view_t(secret, 32), view_t(label, 5), view_t(seed, 32), result, 64));
 	// Сличаем первую часть последовательности с контрольным примером
 	ASSERT_EQ(text(result, 32), std::string("ff09664a44745865944f839ebb48965f1544ff1cc8e8f16f247ee5f8a9ebe97f"));
 	// Сличаем вторую часть последовательности с контрольным примером
 	ASSERT_EQ(text(result + 32, 32), std::string("c4e3c7900e46cad3db6a01643063040ec67fc0fd5cd9f90465235237bdff2c02"));
-	// Выполняем выработку последовательности длиной 512 разрядов
+	// Вырабатываем последовательность длиной 512 разрядов
 	ASSERT_TRUE(digest::prf(digest::type_t::LONG, view_t(secret, 32), view_t(label, 5), view_t(seed, 32), result, 128));
 	// Сличаем первую часть последовательности с контрольным примером
 	ASSERT_EQ(text(result, 64), std::string(
@@ -178,7 +178,7 @@ TEST(HmacTest, Sequence) {
 	));
 	// Место, в которое помещается последовательность неполной длины
 	uint8_t item[100];
-	// Выполняем выработку последовательности длины, не кратной длине хеша
+	// Вырабатываем последовательность длины, не кратной длине хеша
 	ASSERT_TRUE(digest::prf(digest::type_t::SHORT, view_t(secret, 32), view_t(label, 5), view_t(seed, 32), item, sizeof(item)));
 	// Сличаем начало полученной последовательности с выработанной прежде
 	ASSERT_EQ(text(item, 32), std::string("ff09664a44745865944f839ebb48965f1544ff1cc8e8f16f247ee5f8a9ebe97f"));
@@ -188,7 +188,7 @@ TEST(HmacTest, Sequence) {
 	::memcpy(merged, label, 5);
 	// Записываем затравку выработки последовательности
 	::memcpy(merged + 5, seed, 32);
-	// Выполняем выработку последовательности со слитной строкой в качестве затравки
+	// Вырабатываем последовательность со слитной строкой в качестве затравки
 	ASSERT_TRUE(digest::prf(digest::type_t::SHORT, view_t(secret, 32), view_t(), view_t(merged, sizeof(merged)), result, 32));
 	// Сличаем полученную последовательность с выработанной с меткой
 	ASSERT_EQ(text(result, 32), std::string("ff09664a44745865944f839ebb48965f1544ff1cc8e8f16f247ee5f8a9ebe97f"));
@@ -200,9 +200,9 @@ TEST(HmacTest, Sequence) {
 TEST(HmacTest, Failures) {
 	// Места, в которые помещаются разбираемые записи
 	uint8_t secret[32], message[16], result[64];
-	// Выполняем разбор ключа контрольных примеров
+	// Разбираем ключ контрольных примеров
 	bytes(SECRET, secret);
-	// Выполняем разбор сообщения выработки имитовставки
+	// Разбираем сообщение выработки имитовставки
 	bytes(MESSAGE, message);
 	// Проверяем отказ выработки имитовставки без длины хеша
 	ASSERT_FALSE(digest::hmac(digest::type_t::NONE, view_t(secret, 32), view_t(message, 16), result, 32));
@@ -227,7 +227,7 @@ TEST(HmacTest, Failures) {
 	// Место, в которое помещается длинный ключ выработки имитовставки
 	uint8_t buffer[128];
 	/**
-	 * Выполняем перебор байтов длинного ключа
+	 * Перебираем байты длинного ключа
 	 */
 	for(size_t i = 0; i < sizeof(buffer); i++)
 		// Записываем очередной байт длинного ключа

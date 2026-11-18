@@ -66,7 +66,7 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Открываем файл на чтение
 		std::ifstream file(path, std::ios::binary);
 		// Читаем содержимое файла в поток
@@ -83,7 +83,7 @@ namespace {
 	 * @return     просмотр строки
 	 *
 	 */
-	static view_t view(const std::string & text) {
+	static view_t __nts_view__(const std::string & text) {
 		// Выводим просмотр строки
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -94,7 +94,7 @@ namespace {
 	 * @return     просмотр набора байтов
 	 *
 	 */
-	static view_t view(const std::vector <uint8_t> & data) {
+	static view_t __nts_view__(const std::vector <uint8_t> & data) {
 		// Выводим просмотр набора байтов
 		return view_t(data.data(), data.size());
 	}
@@ -107,13 +107,13 @@ namespace {
 	 * @param result сертификат, в который помещается итог разбора
 	 *
 	 */
-	static void load(const std::string & path, std::string & text, std::vector <pem::block_t> & blocks, x509::certificate_t & result) {
+	static void __nts_load__(const std::string & path, std::string & text, std::vector <pem::block_t> & blocks, x509::certificate_t & result) {
 		// Читаем запись сертификата
-		text = slurp(path);
+		text = __nts_slurp__(path);
 		// Разбираем запись PEM
 		ASSERT_EQ(pem::decode(text, blocks), pem::error_t::NONE);
 		// Разбираем сертификат
-		ASSERT_EQ(result.parse(view(blocks[0].data)), x509::error_t::NONE);
+		ASSERT_EQ(result.parse(__nts_view__(blocks[0].data)), x509::error_t::NONE);
 	}
 	/**
 	 * @brief Функция выполнения команды командной строки
@@ -123,7 +123,7 @@ namespace {
 	 *
 	 */
 	static int __nts_shell__(const std::string & command) noexcept {
-		// Выполняем команду без входа
+		// Запускаем команду с закрытым входом
 		return std::system((command + " </dev/null").c_str());
 	}
 	/**
@@ -200,7 +200,7 @@ namespace {
 	 * @param result место, в которое помещается запись GeneralName
 	 *
 	 */
-	static void nameOf(const std::string & common, std::vector <uint8_t> & result) {
+	static void __nts_name_of__(const std::string & common, std::vector <uint8_t> & result) {
 		// Записчик записи имени
 		asn1::writer_t name;
 		// Открываем запись имени
@@ -251,16 +251,16 @@ TEST(CmpTest, RequestSignRoundtrip) {
 		// Сертификат владельца
 		x509::certificate_t certificate;
 		// Разбираем сертификат
-		load(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
+		__nts_load__(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
 		// Секретный ключ подписи
 		keys::signer_t signer;
 		// Подготавливаем ключ подписи
-		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
+		ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
 		// Записи имён отправителя и получателя
 		std::vector <uint8_t> sender, recipient;
 		// Собираем имена отправителя и получателя
-		nameOf("cmp-client", sender);
-		nameOf("cmp-ca", recipient);
+		__nts_name_of__("cmp-client", sender);
+		__nts_name_of__("cmp-ca", recipient);
 		// Запись шаблона сертификата
 		std::vector <uint8_t> certTemplate;
 		// Собираем шаблон сертификата: имя владельца и открытый ключ из сертификата
@@ -268,11 +268,11 @@ TEST(CmpTest, RequestSignRoundtrip) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем запрос ir с защитой подписью
-		ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, CASES[i].hash, record), cmp::error_t::NONE);
+		ASSERT_EQ(cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, signer, CASES[i].hash, record), cmp::error_t::NONE);
 		// Разбираем запись сообщения
 		cmp::message_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 		// Вид тела обязан быть ir
 		ASSERT_EQ(parsed.kind(), cmp::body_t::IR);
 		// Издание протокола обязано быть cmp2000
@@ -308,7 +308,7 @@ TEST(CmpTest, RequestSignRoundtrip) {
 		// Чужой сертификат
 		x509::certificate_t other;
 		// Разбираем чужой сертификат
-		load(std::string(CORPUS) + ((CASES[i].key[5] == 'r') ? "/mid-rsa.crt" : "/mid-ec.crt"), otherText, otherBlocks, other);
+		__nts_load__(std::string(CORPUS) + ((CASES[i].key[5] == 'r') ? "/mid-rsa.crt" : "/mid-ec.crt"), otherText, otherBlocks, other);
 		// Проверка чужим ключом обязана отказать
 		ASSERT_EQ(cmp::verify(parsed, other.key()), cmp::error_t::PROTECTION);
 	}
@@ -332,12 +332,12 @@ TEST(CmpTest, RequestPbmRoundtrip) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись шаблона сертификата
 	std::vector <uint8_t> certTemplate;
 	// Собираем шаблон сертификата
@@ -345,11 +345,11 @@ TEST(CmpTest, RequestPbmRoundtrip) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем запрос cr с защитой PBM
-	ASSERT_EQ(cmp::request(cmp::body_t::CR, view(sender), view(recipient), {view(certTemplate)}, view(std::string(KID)), view(std::string(PASSWORD)), digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::request(cmp::body_t::CR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, __nts_view__(std::string(KID)), __nts_view__(std::string(PASSWORD)), digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть cr
 	ASSERT_EQ(parsed.kind(), cmp::body_t::CR);
 	// Алгоритм защиты обязан быть PBM
@@ -364,9 +364,9 @@ TEST(CmpTest, RequestPbmRoundtrip) {
 	// Запрос обязан быть один
 	ASSERT_EQ(requests.size(), 1);
 	// Проверка защиты паролем обязана удаться
-	ASSERT_EQ(cmp::verify(parsed, view(std::string(PASSWORD))), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::verify(parsed, __nts_view__(std::string(PASSWORD))), cmp::error_t::NONE);
 	// Проверка чужим паролем обязана отказать
-	ASSERT_EQ(cmp::verify(parsed, view(std::string("foreign-secret"))), cmp::error_t::PROTECTION);
+	ASSERT_EQ(cmp::verify(parsed, __nts_view__(std::string("foreign-secret"))), cmp::error_t::PROTECTION);
 }
 
 /**
@@ -383,16 +383,16 @@ TEST(CmpTest, ResponseRoundtrip) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Ответ о сертификате
 	cmp::response_t response;
 	// Опознаватель запроса
@@ -400,15 +400,15 @@ TEST(CmpTest, ResponseRoundtrip) {
 	// Статус принятия
 	response.status.status = cmp::status_t::ACCEPTED;
 	// Запись выданного сертификата
-	response.certificate = view(blocks[0].data);
+	response.certificate = __nts_view__(blocks[0].data);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем ответ ip с защитой подписью
-	ASSERT_EQ(cmp::respond(cmp::body_t::IP, view(sender), view(recipient), {response}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::respond(cmp::body_t::IP, __nts_view__(sender), __nts_view__(recipient), {response}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть ip
 	ASSERT_EQ(parsed.kind(), cmp::body_t::IP);
 	// Разбираем ответ тела
@@ -446,28 +446,28 @@ TEST(CmpTest, ConfirmRoundtrip) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Хеш принимаемого сертификата
 	uint8_t hash[32];
 	// Вырабатываем хеш записи сертификата
-	ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, view(blocks[0].data), hash, sizeof(hash)));
+	ASSERT_TRUE(digest::hash(digest::hash_t::SHA256, __nts_view__(blocks[0].data), hash, sizeof(hash)));
 	// Запись сообщения certConf
 	std::vector <uint8_t> record;
 	// Собираем подтверждение сертификата
-	ASSERT_EQ(cmp::certConfirm(view(sender), view(recipient), {view_t(hash, sizeof(hash))}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::certConfirm(__nts_view__(sender), __nts_view__(recipient), {view_t(hash, sizeof(hash))}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть certConf
 	ASSERT_EQ(parsed.kind(), cmp::body_t::CERTCONF);
 	// Проверка защиты ключом владельца обязана удаться
@@ -475,11 +475,11 @@ TEST(CmpTest, ConfirmRoundtrip) {
 	// Запись сообщения pkiConf
 	std::vector <uint8_t> pkiConf;
 	// Собираем подтверждение
-	ASSERT_EQ(cmp::confirm(view(sender), view(recipient), signer, digest::hash_t::SHA256, pkiConf), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::confirm(__nts_view__(sender), __nts_view__(recipient), signer, digest::hash_t::SHA256, pkiConf), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsedConf;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsedConf.parse(view(pkiConf)), cmp::error_t::NONE);
+	ASSERT_EQ(parsedConf.parse(__nts_view__(pkiConf)), cmp::error_t::NONE);
 	// Вид тела обязан быть pkiconf
 	ASSERT_EQ(parsedConf.kind(), cmp::body_t::PKICONF);
 	// Проверка защиты ключом владельца обязана удаться
@@ -500,24 +500,24 @@ TEST(CmpTest, RevokeRoundtrip) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем запрос отзыва
-	ASSERT_EQ(cmp::revoke(view(sender), view(recipient), certificate.issuers().element, certificate.number(), signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::revoke(__nts_view__(sender), __nts_view__(recipient), certificate.issuers().element, certificate.number(), signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть rr
 	ASSERT_EQ(parsed.kind(), cmp::body_t::RR);
 	// Проверка защиты ключом владельца обязана удаться
@@ -538,16 +538,16 @@ TEST(CmpTest, GeneralRoundtrip) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Сведения общего сообщения: id-it-caCerts {1.3.6.1.5.5.7.4.17} без значения
 	cmp::info_t info;
 	// Опознаватель вида сведений
@@ -555,11 +555,11 @@ TEST(CmpTest, GeneralRoundtrip) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем общее сообщение
-	ASSERT_EQ(cmp::general(view(sender), view(recipient), {info}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::general(__nts_view__(sender), __nts_view__(recipient), {info}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть genm
 	ASSERT_EQ(parsed.kind(), cmp::body_t::GENM);
 	// Разбираем сведения тела
@@ -590,16 +590,16 @@ TEST(CmpTest, FailureRoundtrip) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Сведения о статусе отказа
 	cmp::status_info_t status;
 	// Статус отклонения
@@ -611,11 +611,11 @@ TEST(CmpTest, FailureRoundtrip) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем сообщение об отказе
-	ASSERT_EQ(cmp::failure(view(sender), view(recipient), status, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::failure(__nts_view__(sender), __nts_view__(recipient), status, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть error
 	ASSERT_EQ(parsed.kind(), cmp::body_t::ERROR);
 	// Проверка защиты ключом ЦС обязана удаться
@@ -638,7 +638,7 @@ TEST(CmpTest, OpensslPbmRequest) {
 		// Пропускаем проверку, если OpenSSL недоступен
 		GTEST_SKIP() << "openssl cmp is not available";
 	// Читаем запись запроса
-	const std::string record = slurp(sandbox.file("ir.der"));
+	const std::string record = __nts_slurp__(sandbox.file("ir.der"));
 	// Если записи нет
 	if(record.empty())
 		// Пропускаем: запрос OpenSSL с защитой PBM не выработан
@@ -646,7 +646,7 @@ TEST(CmpTest, OpensslPbmRequest) {
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть ir
 	ASSERT_EQ(parsed.kind(), cmp::body_t::IR);
 	// Издание протокола обязано быть cmp2000
@@ -667,9 +667,9 @@ TEST(CmpTest, OpensslPbmRequest) {
 	// Запрос обязан быть один
 	ASSERT_EQ(requests.size(), 1);
 	// Проверка защиты паролем обязана удаться
-	ASSERT_EQ(cmp::verify(parsed, view(std::string(PASSWORD))), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::verify(parsed, __nts_view__(std::string(PASSWORD))), cmp::error_t::NONE);
 	// Проверка чужим паролем обязана отказать
-	ASSERT_EQ(cmp::verify(parsed, view(std::string("foreign"))), cmp::error_t::PROTECTION);
+	ASSERT_EQ(cmp::verify(parsed, __nts_view__(std::string("foreign"))), cmp::error_t::PROTECTION);
 }
 
 /**
@@ -687,7 +687,7 @@ TEST(CmpTest, OpensslSignRequest) {
 		// Пропускаем проверку, если OpenSSL недоступен
 		GTEST_SKIP() << "openssl cmp is not available";
 	// Читаем запись запроса
-	const std::string record = slurp(sandbox.file("ir-sig.der"));
+	const std::string record = __nts_slurp__(sandbox.file("ir-sig.der"));
 	// Если записи нет
 	if(record.empty())
 		// Пропускаем: подписанный запрос OpenSSL не выработан
@@ -695,7 +695,7 @@ TEST(CmpTest, OpensslSignRequest) {
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть ir
 	ASSERT_EQ(parsed.kind(), cmp::body_t::IR);
 	// Алгоритм защиты обязан быть подписью RSA с SHA-256
@@ -707,7 +707,7 @@ TEST(CmpTest, OpensslSignRequest) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Проверка защиты ключом владельца обязана удаться
 	ASSERT_EQ(cmp::verify(parsed, certificate.key()), cmp::error_t::NONE);
 	// Разбираем запросы тела
@@ -737,7 +737,7 @@ TEST(CmpTest, OpensslMockResponse) {
 		" -expect_sender \"/CN=ANYKS Root rsa\" -certout " + sandbox.file("cert.pem") +
 		" -rspout " + sandbox.file("rsp.der") + " -batch 2>/dev/null");
 	// Читаем запись ответа
-	const std::string record = slurp(sandbox.file("rsp.der"));
+	const std::string record = __nts_slurp__(sandbox.file("rsp.der"));
 	// Если записи нет
 	if(record.empty())
 		// Пропускаем: ответ мок-сервера OpenSSL не выработан
@@ -745,13 +745,13 @@ TEST(CmpTest, OpensslMockResponse) {
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть ip
 	ASSERT_EQ(parsed.kind(), cmp::body_t::IP);
 	// Алгоритм защиты обязан быть PBM
 	ASSERT_EQ(parsed.header().protection, "1.2.840.113533.7.66.13");
 	// Проверка защиты паролем обязана удаться
-	ASSERT_EQ(cmp::verify(parsed, view(std::string(PASSWORD))), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::verify(parsed, __nts_view__(std::string(PASSWORD))), cmp::error_t::NONE);
 	// Разбираем ответ тела
 	std::vector <view_t> caPubs;
 	// Ответы о сертификатах
@@ -785,7 +785,7 @@ TEST(CmpTest, OpensslAcceptsOurs) {
 		// Пропускаем интероп без эталона OpenSSL
 		GTEST_SKIP() << "openssl отсутствует в среде исполнения";
 	// LibreSSL не несёт подкоманду cmp - интероп без эталона
-	if(slurp(edition).find("LibreSSL") != std::string::npos)
+	if(__nts_slurp__(edition).find("LibreSSL") != std::string::npos)
 		// Пропускаем интероп без подкоманды cmp у эталона
 		GTEST_SKIP() << "LibreSSL без подкоманды cmp";
 	// Пароль общего секрета
@@ -797,12 +797,12 @@ TEST(CmpTest, OpensslAcceptsOurs) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-test", sender);
-	nameOf("ca-rsa", recipient);
+	__nts_name_of__("cmp-test", sender);
+	__nts_name_of__("ca-rsa", recipient);
 	// Запись шаблона сертификата
 	std::vector <uint8_t> certTemplate;
 	// Собираем шаблон сертификата
@@ -810,18 +810,18 @@ TEST(CmpTest, OpensslAcceptsOurs) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем запрос ir с защитой PBM
-	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, view(std::string("client1")), view(std::string(PASSWORD)), digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, __nts_view__(std::string("client1")), __nts_view__(std::string(PASSWORD)), digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Записываем запрос в файл песочницы
 	sandbox.spill("ours.der", record);
 	// Отдаём запрос мок-серверу OpenSSL: разбор обязан дойти до проверки полномочий
-	const int rc = __nts_shell__(std::string("openssl cmp -use_mock_srv -reqin ") + sandbox.file("ours.der") +
+	const int exitCode = __nts_shell__(std::string("openssl cmp -use_mock_srv -reqin ") + sandbox.file("ours.der") +
 		" -cmd ir -secret pass:" + PASSWORD + " -ref client1" +
 		" -srv_ref MockSrv -srv_secret pass:" + PASSWORD +
 		" -srvcert " + CORPUS + "/ca-rsa.crt -batch 2>" + sandbox.file("log.txt"));
 	// Читаем журнал
-	const std::string log = slurp(sandbox.file("log.txt"));
+	const std::string log = __nts_slurp__(sandbox.file("log.txt"));
 	// Если OpenSSL недоступен
-	if(log.empty() && (rc != 0))
+	if(log.empty() && (exitCode != 0))
 		// Пропускаем: журнал пуст, OpenSSL недоступен
 		GTEST_SKIP() << "openssl cmp is not available";
 	// В журнале не обязано быть отказа разбора записи (DER parse errors)
@@ -881,7 +881,7 @@ TEST(CmpTest, DeepRefusals) {
 			// Переворачиваем очередной байт
 			damaged[at] ^= 0xFF;
 			// Если сообщение отвергнуто
-			if(parsed.parse(view(damaged)) != cmp::error_t::NONE)
+			if(parsed.parse(__nts_view__(damaged)) != cmp::error_t::NONE)
 				// Увеличиваем число отказов
 				rejected++;
 			// Если сообщение с запросами принято, разбираем их тело
@@ -910,16 +910,16 @@ TEST(CmpTest, DeepRefusals) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись шаблона сертификата
 	std::vector <uint8_t> certTemplate;
 	// Собираем шаблон сертификата
@@ -927,7 +927,7 @@ TEST(CmpTest, DeepRefusals) {
 	// Запрос ir с защитой подписью
 	std::vector <uint8_t> request;
 	// Собираем годный запрос ir
-	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, digest::hash_t::SHA256, request), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, signer, digest::hash_t::SHA256, request), cmp::error_t::NONE);
 	// Проверяем обрезки и мутации запроса
 	refuse(request, cmp::body_t::IR);
 	// Ответ о выданном сертификате
@@ -937,11 +937,11 @@ TEST(CmpTest, DeepRefusals) {
 	// Устанавливаем статус принятия
 	response.status.status = cmp::status_t::ACCEPTED;
 	// Устанавливаем выданный сертификат
-	response.certificate = view(blocks[0].data);
+	response.certificate = __nts_view__(blocks[0].data);
 	// Ответ ip с защитой подписью
 	std::vector <uint8_t> answer;
 	// Собираем годный ответ ip
-	ASSERT_EQ(cmp::respond(cmp::body_t::IP, view(recipient), view(sender), {response}, signer, digest::hash_t::SHA256, answer), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::respond(cmp::body_t::IP, __nts_view__(recipient), __nts_view__(sender), {response}, signer, digest::hash_t::SHA256, answer), cmp::error_t::NONE);
 	// Проверяем обрезки и мутации ответа
 	refuse(answer, cmp::body_t::IP);
 }
@@ -961,7 +961,7 @@ TEST(CmpTest, OpensslRefusals) {
 		// Пропускаем интероп без эталона OpenSSL
 		GTEST_SKIP() << "openssl отсутствует в среде исполнения";
 	// LibreSSL не несёт подкоманду cmp - интероп без эталона
-	if(slurp(edition).find("LibreSSL") != std::string::npos)
+	if(__nts_slurp__(edition).find("LibreSSL") != std::string::npos)
 		// Пропускаем интероп без подкоманды cmp у эталона
 		GTEST_SKIP() << "LibreSSL без подкоманды cmp";
 	// Если эталон с поддержкой CMP недоступен
@@ -977,12 +977,12 @@ TEST(CmpTest, OpensslRefusals) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат набора
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-test", sender);
-	nameOf("ca-rsa", recipient);
+	__nts_name_of__("cmp-test", sender);
+	__nts_name_of__("ca-rsa", recipient);
 	// Запись шаблона сертификата
 	std::vector <uint8_t> certTemplate;
 	// Собираем шаблон сертификата
@@ -990,7 +990,7 @@ TEST(CmpTest, OpensslRefusals) {
 	// Запись запроса инициализации
 	std::vector <uint8_t> record;
 	// Собираем годный запрос ir с защитой PBM
-	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, view(std::string("client1")), view(std::string(PASSWORD)), digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, __nts_view__(std::string("client1")), __nts_view__(std::string(PASSWORD)), digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Обрезанная запись ровно половинной длины
 	const std::vector <uint8_t> truncated(record.begin(), record.begin() + (record.size() / 2));
 	// Путь к обрезанной записи
@@ -1000,18 +1000,18 @@ TEST(CmpTest, OpensslRefusals) {
 	// Разборщик сообщения
 	cmp::message_t parsed;
 	// Проверяем отказ нашего разборщика на обрезке
-	ASSERT_NE(parsed.parse(view(truncated)), cmp::error_t::NONE);
+	ASSERT_NE(parsed.parse(__nts_view__(truncated)), cmp::error_t::NONE);
 	// Путь к журналу эталона
 	const std::string log = sandbox.file("log.txt");
 	// Передаём обрезанный запрос мок-серверу OpenSSL
-	const int rc = __nts_shell__("openssl cmp -use_mock_srv -reqin " + shorty +
+	const int exitCode = __nts_shell__("openssl cmp -use_mock_srv -reqin " + shorty +
 		" -cmd ir -newkey " + CORPUS + "/leaf-rsa.key -subject \"/CN=cmp-test\"" +
 		" -secret pass:" + PASSWORD + " -ref client1 -srv_ref MockSrv -srv_secret pass:" + PASSWORD +
 		" -srvcert " + CORPUS + "/ca-rsa.crt -certout " + sandbox.file("cert.pem") + " -batch 2>" + log);
 	// Проверяем отказ OpenSSL на обрезанной записи
-	ASSERT_NE(rc, 0);
+	ASSERT_NE(exitCode, 0);
 	// Читаем журнал эталона
-	const std::string report = slurp(log);
+	const std::string report = __nts_slurp__(log);
 	// Отказ обязан относиться к разбору PKIMessage, а не к проверке защиты
 	ASSERT_NE(report.find("cannot read PKIMessage"), std::string::npos) << report;
 }
@@ -1030,17 +1030,17 @@ TEST(CmpTest, Pkcs10Roundtrip) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Вырабатываем запрос PKCS #10 эталоном
 	if(__nts_shell__(std::string("openssl req -new -key ") + CORPUS + "/leaf-rsa.key -out " + sandbox.file("csr.der") + " -outform DER -subj \"/CN=cmp-test\" 2>/dev/null") != 0)
 		// Пропускаем проверку, если OpenSSL недоступен
 		GTEST_SKIP() << "openssl req is not available";
 	// Читаем запись запроса
-	const std::string csr = slurp(sandbox.file("csr.der"));
+	const std::string csr = __nts_slurp__(sandbox.file("csr.der"));
 	// Если записи нет
 	if(csr.empty())
 		// Пропускаем: запрос PKCS #10 OpenSSL не выработан
@@ -1048,16 +1048,16 @@ TEST(CmpTest, Pkcs10Roundtrip) {
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем запрос p10cr с защитой подписью
-	ASSERT_EQ(cmp::requestPkcs10(view(sender), view(recipient), view(csr), signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::requestPkcs10(__nts_view__(sender), __nts_view__(recipient), __nts_view__(csr), signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть p10cr
 	ASSERT_EQ(parsed.kind(), cmp::body_t::P10CR);
 	// Запись запроса обязана совпасть
@@ -1081,16 +1081,16 @@ TEST(CmpTest, ChallengeRoundtrip) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Вызов подтверждения владения
 	cmp::challenge_t challenge;
 	// Свидетель и вызов
@@ -1104,11 +1104,11 @@ TEST(CmpTest, ChallengeRoundtrip) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем вызовы popdecc
-	ASSERT_EQ(cmp::challenge(view(sender), view(recipient), {challenge}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::challenge(__nts_view__(sender), __nts_view__(recipient), {challenge}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть popdecc
 	ASSERT_EQ(parsed.kind(), cmp::body_t::POPDECC);
 	// Разбираем вызовы тела
@@ -1127,11 +1127,11 @@ TEST(CmpTest, ChallengeRoundtrip) {
 	// Запись ответа popdecr
 	std::vector <uint8_t> reply;
 	// Собираем ответы popdecr
-	ASSERT_EQ(cmp::challengeReply(view(recipient), view(sender), {42, 7}, signer, digest::hash_t::SHA256, reply), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::challengeReply(__nts_view__(recipient), __nts_view__(sender), {42, 7}, signer, digest::hash_t::SHA256, reply), cmp::error_t::NONE);
 	// Разбираем запись ответа
 	cmp::message_t parsedReply;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsedReply.parse(view(reply)), cmp::error_t::NONE);
+	ASSERT_EQ(parsedReply.parse(__nts_view__(reply)), cmp::error_t::NONE);
 	// Вид тела обязан быть popdecr
 	ASSERT_EQ(parsedReply.kind(), cmp::body_t::POPDECR);
 	// Разбираем ответы тела
@@ -1159,32 +1159,32 @@ TEST(CmpTest, RecoveryRoundtrip) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Ответ восстановления ключа
 	cmp::recovery_t recovery;
 	// Статус принятия
 	recovery.status.status = cmp::status_t::ACCEPTED;
 	// Запись нового сертификата подписи
-	recovery.certificate = view(blocks[0].data);
+	recovery.certificate = __nts_view__(blocks[0].data);
 	// Записи сертификатов ЦС
-	recovery.caCertificates.push_back(view(blocks[0].data));
+	recovery.caCertificates.push_back(__nts_view__(blocks[0].data));
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем ответ krp
-	ASSERT_EQ(cmp::recovered(view(sender), view(recipient), recovery, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::recovered(__nts_view__(sender), __nts_view__(recipient), recovery, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть krp
 	ASSERT_EQ(parsed.kind(), cmp::body_t::KRP);
 	// Разбираем ответ тела
@@ -1215,16 +1215,16 @@ TEST(CmpTest, RevokedRoundtrip) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Сведения о статусе отзыва
 	cmp::status_info_t status;
 	// Статус принятия
@@ -1232,11 +1232,11 @@ TEST(CmpTest, RevokedRoundtrip) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем ответ rp
-	ASSERT_EQ(cmp::revoked(view(sender), view(recipient), {status}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::revoked(__nts_view__(sender), __nts_view__(recipient), {status}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть rp
 	ASSERT_EQ(parsed.kind(), cmp::body_t::RP);
 	// Разбираем ответ тела
@@ -1265,24 +1265,24 @@ TEST(CmpTest, AnnouncementsRoundtrip) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Запись сообщения ckuann
 	std::vector <uint8_t> ckuann;
 	// Собираем объявление обновления ключа ЦС
-	ASSERT_EQ(cmp::caKeyUpdate(view(sender), view(recipient), view(blocks[0].data), view(blocks[0].data), view(blocks[0].data), signer, digest::hash_t::SHA256, ckuann), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::caKeyUpdate(__nts_view__(sender), __nts_view__(recipient), __nts_view__(blocks[0].data), __nts_view__(blocks[0].data), __nts_view__(blocks[0].data), signer, digest::hash_t::SHA256, ckuann), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsedCkuann;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsedCkuann.parse(view(ckuann)), cmp::error_t::NONE);
+	ASSERT_EQ(parsedCkuann.parse(__nts_view__(ckuann)), cmp::error_t::NONE);
 	// Вид тела обязан быть ckuann
 	ASSERT_EQ(parsedCkuann.kind(), cmp::body_t::CKUANN);
 	// Разбираем объявление тела
@@ -1298,11 +1298,11 @@ TEST(CmpTest, AnnouncementsRoundtrip) {
 	// Запись сообщения cann
 	std::vector <uint8_t> cann;
 	// Собираем объявление сертификата
-	ASSERT_EQ(cmp::announce(view(sender), view(recipient), view(blocks[0].data), signer, digest::hash_t::SHA256, cann), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::announce(__nts_view__(sender), __nts_view__(recipient), __nts_view__(blocks[0].data), signer, digest::hash_t::SHA256, cann), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsedCann;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsedCann.parse(view(cann)), cmp::error_t::NONE);
+	ASSERT_EQ(parsedCann.parse(__nts_view__(cann)), cmp::error_t::NONE);
 	// Вид тела обязан быть cann
 	ASSERT_EQ(parsedCann.kind(), cmp::body_t::CANN);
 	// Запись сертификата обязана совпасть
@@ -1312,7 +1312,7 @@ TEST(CmpTest, AnnouncementsRoundtrip) {
 	// Запись сообщения crlann
 	std::vector <uint8_t> crlann;
 	// Читаем запись списка отзыва набора
-	const std::string crlText = slurp(std::string(CORPUS) + "/ca-rsa.crl");
+	const std::string crlText = __nts_slurp__(std::string(CORPUS) + "/ca-rsa.crl");
 	// Если записи нет
 	ASSERT_FALSE(crlText.empty());
 	// Набор блоков PEM списка отзыва
@@ -1320,11 +1320,11 @@ TEST(CmpTest, AnnouncementsRoundtrip) {
 	// Разбираем запись PEM списка отзыва
 	ASSERT_EQ(pem::decode(crlText, crlBlocks), pem::error_t::NONE);
 	// Собираем объявление списков отзыва
-	ASSERT_EQ(cmp::announceCrls(view(sender), view(recipient), {view(crlBlocks[0].data)}, signer, digest::hash_t::SHA256, crlann), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::announceCrls(__nts_view__(sender), __nts_view__(recipient), {__nts_view__(crlBlocks[0].data)}, signer, digest::hash_t::SHA256, crlann), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsedCrlann;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsedCrlann.parse(view(crlann)), cmp::error_t::NONE);
+	ASSERT_EQ(parsedCrlann.parse(__nts_view__(crlann)), cmp::error_t::NONE);
 	// Вид тела обязан быть crlann
 	ASSERT_EQ(parsedCrlann.kind(), cmp::body_t::CRLANN);
 	// Разбираем объявление тела
@@ -1353,16 +1353,16 @@ TEST(CmpTest, RevAnnouncementRoundtrip) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Объявление отзыва
 	cmp::announcement_t announcement;
 	// Статус извещения об отзыве
@@ -1399,15 +1399,15 @@ TEST(CmpTest, RevAnnouncementRoundtrip) {
 		certIdRecord.assign(certId.data().data, certId.data().data + certId.data().size);
 	}
 	// Запоминаем запись опознавателя
-	announcement.certificate = view(certIdRecord);
+	announcement.certificate = __nts_view__(certIdRecord);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем объявление отзыва
-	ASSERT_EQ(cmp::announceRevocation(view(sender), view(recipient), announcement, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::announceRevocation(__nts_view__(sender), __nts_view__(recipient), announcement, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть rann
 	ASSERT_EQ(parsed.kind(), cmp::body_t::RANN);
 	// Разбираем объявление тела
@@ -1437,16 +1437,16 @@ TEST(CmpTest, NestedRoundtrip) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись шаблона сертификата
 	std::vector <uint8_t> certTemplate;
 	// Собираем шаблон сертификата
@@ -1454,15 +1454,15 @@ TEST(CmpTest, NestedRoundtrip) {
 	// Запись вложенного сообщения ir
 	std::vector <uint8_t> inner;
 	// Собираем запрос ir
-	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, digest::hash_t::SHA256, inner), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, signer, digest::hash_t::SHA256, inner), cmp::error_t::NONE);
 	// Запись сообщения nested
 	std::vector <uint8_t> record;
 	// Собираем вложенное сообщение
-	ASSERT_EQ(cmp::nest(view(sender), view(recipient), {view(inner)}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::nest(__nts_view__(sender), __nts_view__(recipient), {__nts_view__(inner)}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Вид тела обязан быть nested
 	ASSERT_EQ(parsed.kind(), cmp::body_t::NESTED);
 	// Разбираем вложенные сообщения
@@ -1497,24 +1497,24 @@ TEST(CmpTest, PollRoundtrip) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись сообщения pollReq
 	std::vector <uint8_t> pollReq;
 	// Собираем запрос опроса
-	ASSERT_EQ(cmp::pollRequest(view(sender), view(recipient), {0, 1}, signer, digest::hash_t::SHA256, pollReq), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::pollRequest(__nts_view__(sender), __nts_view__(recipient), {0, 1}, signer, digest::hash_t::SHA256, pollReq), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsedReq;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsedReq.parse(view(pollReq)), cmp::error_t::NONE);
+	ASSERT_EQ(parsedReq.parse(__nts_view__(pollReq)), cmp::error_t::NONE);
 	// Вид тела обязан быть pollReq
 	ASSERT_EQ(parsedReq.kind(), cmp::body_t::POLLREQ);
 	// Разбираем опрос тела
@@ -1537,11 +1537,11 @@ TEST(CmpTest, PollRoundtrip) {
 	// Строка причины
 	poll.reason.push_back("waiting");
 	// Собираем ответ опроса
-	ASSERT_EQ(cmp::pollReply(view(recipient), view(sender), {poll}, signer, digest::hash_t::SHA256, pollRep), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::pollReply(__nts_view__(recipient), __nts_view__(sender), {poll}, signer, digest::hash_t::SHA256, pollRep), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsedRep;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsedRep.parse(view(pollRep)), cmp::error_t::NONE);
+	ASSERT_EQ(parsedRep.parse(__nts_view__(pollRep)), cmp::error_t::NONE);
 	// Вид тела обязан быть pollRep
 	ASSERT_EQ(parsedRep.kind(), cmp::body_t::POLLREP);
 	// Разбираем опрос тела
@@ -1664,16 +1664,16 @@ TEST(CmpTest, RequestSignHashes) {
 		// Сертификат владельца
 		x509::certificate_t certificate;
 		// Разбираем сертификат
-		load(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
+		__nts_load__(std::string(CORPUS) + "/" + CASES[i].certificate, text, blocks, certificate);
 		// Секретный ключ подписи
 		keys::signer_t signer;
 		// Подготавливаем ключ подписи
-		ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
+		ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/" + CASES[i].key))), keys::error_t::NONE);
 		// Записи имён отправителя и получателя
 		std::vector <uint8_t> sender, recipient;
 		// Собираем имена отправителя и получателя
-		nameOf("cmp-client", sender);
-		nameOf("cmp-ca", recipient);
+		__nts_name_of__("cmp-client", sender);
+		__nts_name_of__("cmp-ca", recipient);
 		// Запись шаблона сертификата
 		std::vector <uint8_t> certTemplate;
 		// Собираем шаблон сертификата
@@ -1681,11 +1681,11 @@ TEST(CmpTest, RequestSignHashes) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем запрос ir с защитой подписью
-		ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, CASES[i].hash, record), cmp::error_t::NONE);
+		ASSERT_EQ(cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, signer, CASES[i].hash, record), cmp::error_t::NONE);
 		// Разбираем запись сообщения
 		cmp::message_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 		// Проверка защиты ключом владельца обязана удаться
 		ASSERT_EQ(cmp::verify(parsed, certificate.key()), cmp::error_t::NONE);
 	}
@@ -1709,12 +1709,12 @@ TEST(CmpTest, RequestPbmHashes) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись шаблона сертификата
 	std::vector <uint8_t> certTemplate;
 	// Собираем шаблон сертификата
@@ -1733,13 +1733,13 @@ TEST(CmpTest, RequestPbmHashes) {
 		// Запись сообщения
 		std::vector <uint8_t> record;
 		// Собираем запрос cr с защитой PBM
-		ASSERT_EQ(cmp::request(cmp::body_t::CR, view(sender), view(recipient), {view(certTemplate)}, view(std::string(KID)), view(std::string(PASSWORD)), HASHES[i], record), cmp::error_t::NONE);
+		ASSERT_EQ(cmp::request(cmp::body_t::CR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, __nts_view__(std::string(KID)), __nts_view__(std::string(PASSWORD)), HASHES[i], record), cmp::error_t::NONE);
 		// Разбираем запись сообщения
 		cmp::message_t parsed;
 		// Разбор обязан удаться
-		ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+		ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 		// Проверка защиты паролем обязана удаться
-		ASSERT_EQ(cmp::verify(parsed, view(std::string(PASSWORD))), cmp::error_t::NONE);
+		ASSERT_EQ(cmp::verify(parsed, __nts_view__(std::string(PASSWORD))), cmp::error_t::NONE);
 	}
 }
 
@@ -1757,16 +1757,16 @@ TEST(CmpTest, ResponseRefusals) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Ответ о сертификате
 	cmp::response_t response;
 	// Опознаватель запроса
@@ -1774,20 +1774,20 @@ TEST(CmpTest, ResponseRefusals) {
 	// Статус принятия
 	response.status.status = cmp::status_t::ACCEPTED;
 	// Запись выданного сертификата
-	response.certificate = view(blocks[0].data);
+	response.certificate = __nts_view__(blocks[0].data);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем ответ ip с защитой подписью
-	ASSERT_EQ(cmp::respond(cmp::body_t::IP, view(sender), view(recipient), {response}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::respond(cmp::body_t::IP, __nts_view__(sender), __nts_view__(recipient), {response}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Пустое тело отвергается
 	{
 		// Ответы о сертификатах
 		std::vector <view_t> caPubs;
-		// Ответы
+		// Ответы, собираемые из тела
 		std::vector <cmp::response_t> responses;
 		// Разбор обязан отказать пустой записью
 		ASSERT_EQ(cmp::response(view_t(), caPubs, responses), cmp::error_t::EMPTY);
@@ -1796,7 +1796,7 @@ TEST(CmpTest, ResponseRefusals) {
 	{
 		// Ответы о сертификатах
 		std::vector <view_t> caPubs;
-		// Ответы
+		// Ответы, собираемые из тела
 		std::vector <cmp::response_t> responses;
 		// Обрезанная запись тела
 		view_t truncated(parsed.body().data, parsed.body().size / 2);
@@ -1807,7 +1807,7 @@ TEST(CmpTest, ResponseRefusals) {
 	{
 		// Ответы о сертификатах
 		std::vector <view_t> caPubs;
-		// Ответы
+		// Ответы, собираемые из тела
 		std::vector <cmp::response_t> responses;
 		// Запись не SEQUENCE
 		static const uint8_t INTEGER_BODY[] = {0x02, 0x01, 0x00};
@@ -1830,16 +1830,16 @@ TEST(CmpTest, RequestsRefusals) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись шаблона сертификата
 	std::vector <uint8_t> certTemplate;
 	// Собираем шаблон сертификата
@@ -1847,21 +1847,21 @@ TEST(CmpTest, RequestsRefusals) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем запрос ir с защитой подписью
-	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Пустое тело отвергается
 	{
-		// Запросы
+		// Запросы, собираемые из тела
 		std::vector <cmp::request_t> requests;
 		// Разбор обязан отказать пустой записью
 		ASSERT_EQ(cmp::requests(view_t(), requests), cmp::error_t::EMPTY);
 	}
 	// Обрезанное тело отвергается
 	{
-		// Запросы
+		// Запросы, собираемые из тела
 		std::vector <cmp::request_t> requests;
 		// Обрезанная запись тела
 		view_t truncated(parsed.body().data, parsed.body().size / 2);
@@ -1870,7 +1870,7 @@ TEST(CmpTest, RequestsRefusals) {
 	}
 	// Тело не SEQUENCE отвергается
 	{
-		// Запросы
+		// Запросы, собираемые из тела
 		std::vector <cmp::request_t> requests;
 		// Запись не SEQUENCE
 		static const uint8_t INTEGER_BODY[] = {0x02, 0x01, 0x00};
@@ -1893,16 +1893,16 @@ TEST(CmpTest, RevokedRefusals) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Сведения о статусе отзыва
 	cmp::status_info_t status;
 	// Статус принятия
@@ -1910,11 +1910,11 @@ TEST(CmpTest, RevokedRefusals) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем ответ rp
-	ASSERT_EQ(cmp::revoked(view(sender), view(recipient), {status}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::revoked(__nts_view__(sender), __nts_view__(recipient), {status}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Пустое тело отвергается
 	{
 		// Ответ отзыва
@@ -1956,30 +1956,30 @@ TEST(CmpTest, RecoveryRefusals) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Ответ восстановления ключа
 	cmp::recovery_t recovery;
 	// Статус принятия
 	recovery.status.status = cmp::status_t::ACCEPTED;
 	// Запись нового сертификата подписи
-	recovery.certificate = view(blocks[0].data);
+	recovery.certificate = __nts_view__(blocks[0].data);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем ответ krp
-	ASSERT_EQ(cmp::recovered(view(sender), view(recipient), recovery, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::recovered(__nts_view__(sender), __nts_view__(recipient), recovery, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Пустое тело отвергается
 	{
 		// Ответ восстановления
@@ -2021,16 +2021,16 @@ TEST(CmpTest, InfosRefusals) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Сведения общего сообщения: id-it-caCerts {1.3.6.1.5.5.7.4.17} без значения
 	cmp::info_t info;
 	// Опознаватель вида сведений
@@ -2038,21 +2038,21 @@ TEST(CmpTest, InfosRefusals) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем общее сообщение
-	ASSERT_EQ(cmp::general(view(sender), view(recipient), {info}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::general(__nts_view__(sender), __nts_view__(recipient), {info}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Пустое тело отвергается
 	{
-		// Сведения
+		// Сведения, собираемые из тела
 		std::vector <cmp::info_t> infos;
 		// Разбор обязан отказать пустой записью
 		ASSERT_EQ(cmp::infos(view_t(), infos), cmp::error_t::EMPTY);
 	}
 	// Обрезанное тело отвергается
 	{
-		// Сведения
+		// Сведения, собираемые из тела
 		std::vector <cmp::info_t> infos;
 		// Обрезанная запись тела
 		view_t truncated(parsed.body().data, parsed.body().size / 2);
@@ -2061,7 +2061,7 @@ TEST(CmpTest, InfosRefusals) {
 	}
 	// Тело не SEQUENCE отвергается
 	{
-		// Сведения
+		// Сведения, собираемые из тела
 		std::vector <cmp::info_t> infos;
 		// Запись не SEQUENCE
 		static const uint8_t INTEGER_BODY[] = {0x02, 0x01, 0x00};
@@ -2084,16 +2084,16 @@ TEST(CmpTest, ChallengesRefusals) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Вызов подтверждения владения
 	cmp::challenge_t challenge;
 	// Свидетель и вызов
@@ -2107,21 +2107,21 @@ TEST(CmpTest, ChallengesRefusals) {
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем вызовы popdecc
-	ASSERT_EQ(cmp::challenge(view(sender), view(recipient), {challenge}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::challenge(__nts_view__(sender), __nts_view__(recipient), {challenge}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Пустое тело отвергается
 	{
-		// Вызовы
+		// Вызовы, собираемые из тела
 		std::vector <cmp::challenge_t> challenges;
 		// Разбор обязан отказать пустой записью
 		ASSERT_EQ(cmp::challenges(view_t(), challenges), cmp::error_t::EMPTY);
 	}
 	// Обрезанное тело отвергается
 	{
-		// Вызовы
+		// Вызовы, собираемые из тела
 		std::vector <cmp::challenge_t> challenges;
 		// Обрезанная запись тела
 		view_t truncated(parsed.body().data, parsed.body().size / 2);
@@ -2130,7 +2130,7 @@ TEST(CmpTest, ChallengesRefusals) {
 	}
 	// Тело не SEQUENCE отвергается
 	{
-		// Вызовы
+		// Вызовы, собираемые из тела
 		std::vector <cmp::challenge_t> challenges;
 		// Запись не SEQUENCE
 		static const uint8_t INTEGER_BODY[] = {0x02, 0x01, 0x00};
@@ -2153,16 +2153,16 @@ TEST(CmpTest, AnnouncementRefusals) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Объявление отзыва
 	cmp::announcement_t announcement;
 	// Статус извещения об отзыве
@@ -2198,25 +2198,25 @@ TEST(CmpTest, AnnouncementRefusals) {
 		certIdRecord.assign(certId.data().data, certId.data().data + certId.data().size);
 	}
 	// Запоминаем запись опознавателя
-	announcement.certificate = view(certIdRecord);
+	announcement.certificate = __nts_view__(certIdRecord);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Собираем объявление отзыва
-	ASSERT_EQ(cmp::announceRevocation(view(sender), view(recipient), announcement, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::announceRevocation(__nts_view__(sender), __nts_view__(recipient), announcement, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(record)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(record)), cmp::error_t::NONE);
 	// Пустое тело отвергается
 	{
-		// Объявление
+		// Объявление, разбираемое из тела
 		cmp::announcement_t parsedAnnouncement;
 		// Разбор обязан отказать пустой записью
 		ASSERT_EQ(cmp::announcement(view_t(), parsedAnnouncement), cmp::error_t::EMPTY);
 	}
 	// Обрезанное тело отвергается
 	{
-		// Объявление
+		// Объявление, разбираемое из тела
 		cmp::announcement_t parsedAnnouncement;
 		// Обрезанная запись тела
 		view_t truncated(parsed.body().data, parsed.body().size / 2);
@@ -2225,7 +2225,7 @@ TEST(CmpTest, AnnouncementRefusals) {
 	}
 	// Тело не SEQUENCE отвергается
 	{
-		// Объявление
+		// Объявление, разбираемое из тела
 		cmp::announcement_t parsedAnnouncement;
 		// Запись не SEQUENCE
 		static const uint8_t INTEGER_BODY[] = {0x02, 0x01, 0x00};
@@ -2248,24 +2248,24 @@ TEST(CmpTest, PollRefusals) {
 	// Сертификат владельца
 	x509::certificate_t certificate;
 	// Разбираем сертификат
-	load(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/leaf-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-client", sender);
-	nameOf("cmp-ca", recipient);
+	__nts_name_of__("cmp-client", sender);
+	__nts_name_of__("cmp-ca", recipient);
 	// Запись сообщения pollReq
 	std::vector <uint8_t> pollReq;
 	// Собираем запрос опроса
-	ASSERT_EQ(cmp::pollRequest(view(sender), view(recipient), {0, 1}, signer, digest::hash_t::SHA256, pollReq), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::pollRequest(__nts_view__(sender), __nts_view__(recipient), {0, 1}, signer, digest::hash_t::SHA256, pollReq), cmp::error_t::NONE);
 	// Разбираем запись сообщения
 	cmp::message_t parsed;
 	// Разбор обязан удаться
-	ASSERT_EQ(parsed.parse(view(pollReq)), cmp::error_t::NONE);
+	ASSERT_EQ(parsed.parse(__nts_view__(pollReq)), cmp::error_t::NONE);
 	// Пустое тело отвергается
 	{
 		// Записи опроса
@@ -2307,16 +2307,16 @@ TEST(CmpTest, RespondRefusals) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Ответ о сертификате
 	cmp::response_t response;
 	// Опознаватель запроса
@@ -2324,13 +2324,13 @@ TEST(CmpTest, RespondRefusals) {
 	// Статус принятия
 	response.status.status = cmp::status_t::ACCEPTED;
 	// Запись выданного сертификата
-	response.certificate = view(blocks[0].data);
+	response.certificate = __nts_view__(blocks[0].data);
 	// Запись сообщения
 	std::vector <uint8_t> record;
 	// Вид тела не из ответов отвергается
-	ASSERT_EQ(cmp::respond(cmp::body_t::IR, view(sender), view(recipient), {response}, signer, digest::hash_t::SHA256, record), cmp::error_t::EMPTY);
+	ASSERT_EQ(cmp::respond(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {response}, signer, digest::hash_t::SHA256, record), cmp::error_t::EMPTY);
 	// Пустой набор ответов отвергается
-	ASSERT_EQ(cmp::respond(cmp::body_t::IP, view(sender), view(recipient), {}, signer, digest::hash_t::SHA256, record), cmp::error_t::EMPTY);
+	ASSERT_EQ(cmp::respond(cmp::body_t::IP, __nts_view__(sender), __nts_view__(recipient), {}, signer, digest::hash_t::SHA256, record), cmp::error_t::EMPTY);
 }
 
 /**
@@ -2347,16 +2347,16 @@ TEST(CmpTest, Starved) {
 	// Сертификат ЦС
 	x509::certificate_t certificate;
 	// Разбираем сертификат ЦС
-	load(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
+	__nts_load__(std::string(CORPUS) + "/ca-rsa.crt", text, blocks, certificate);
 	// Секретный ключ подписи ЦС
 	keys::signer_t signer;
 	// Подготавливаем ключ подписи ЦС
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-rsa.key"))), keys::error_t::NONE);
 	// Записи имён отправителя и получателя
 	std::vector <uint8_t> sender, recipient;
 	// Собираем имена отправителя и получателя
-	nameOf("cmp-ca", sender);
-	nameOf("cmp-client", recipient);
+	__nts_name_of__("cmp-ca", sender);
+	__nts_name_of__("cmp-client", recipient);
 	// Запись шаблона сертификата
 	std::vector <uint8_t> certTemplate;
 	// Собираем шаблон сертификата: имя владельца и открытый ключ из сертификата
@@ -2364,13 +2364,13 @@ TEST(CmpTest, Starved) {
 	// Эталонная запись запроса ir с защитой подписью
 	std::vector <uint8_t> record;
 	// Собираем запрос ir с защитой подписью
-	ASSERT_EQ(cmp::request(cmp::body_t::IR, view(sender), view(recipient), {view(certTemplate)}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
+	ASSERT_EQ(cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), {__nts_view__(certTemplate)}, signer, digest::hash_t::SHA256, record), cmp::error_t::NONE);
 	// Набор шаблонов запроса: заводится заранее, чтобы его сборка не попала под подмену выделений
-	const std::vector <view_t> templates = {view(certTemplate)};
+	const std::vector <view_t> templates = {__nts_view__(certTemplate)};
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе сборка и разбор обязаны
+	 * Перебираем запасы выделений: на всяком запасе сборка и разбор обязаны
 	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -2381,8 +2381,8 @@ TEST(CmpTest, Starved) {
 		{
 			// Отмеряем запас выделений на время сборки
 			starve::ration_t ration(budget);
-			// Выполняем сборку запроса при отмеренном запасе
-			built = cmp::request(cmp::body_t::IR, view(sender), view(recipient), templates, signer, digest::hash_t::SHA256, made);
+			// Собираем запрос при отмеренном запасе
+			built = cmp::request(cmp::body_t::IR, __nts_view__(sender), __nts_view__(recipient), templates, signer, digest::hash_t::SHA256, made);
 		}
 		// Проверяем, что сборка ответила успехом либо отказом памяти
 		ASSERT_TRUE((built == cmp::error_t::NONE) || (built == cmp::error_t::MEMORY)) << "запас " << budget << ", отказ сборки " << static_cast <int> (built);
@@ -2395,8 +2395,8 @@ TEST(CmpTest, Starved) {
 			starve::ration_t ration(budget);
 			// Разборщик сообщения
 			cmp::message_t message;
-			// Выполняем разбор эталонной записи при отмеренном запасе
-			parsed = message.parse(view(record));
+			// Разбираем эталонную запись при отмеренном запасе
+			parsed = message.parse(__nts_view__(record));
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти
 		ASSERT_TRUE((parsed == cmp::error_t::NONE) || (parsed == cmp::error_t::MEMORY)) << "запас " << budget << ", отказ разбора " << static_cast <int> (parsed);

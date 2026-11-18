@@ -79,13 +79,13 @@ static std::vector <uint8_t> bytes(const char * text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -113,7 +113,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор собираемых байтов
+	 * Перебираем собираемые байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -151,27 +151,27 @@ static void example(const char * secret, const char * pub, const char * message,
 	ASSERT_EQ(ed448.size(), static_cast <size_t> (114));
 	// Разобранные записи примера
 	const std::vector <uint8_t> seed = bytes(secret), data = bytes(message), expected = bytes(signature);
-	// Выполняем установку ключа подписи
+	// Устанавливаем ключ подписи
 	ASSERT_TRUE(ed448.secret(view(seed)));
 	// Место ключа проверки подписи
 	uint8_t key[57];
-	// Выполняем получение ключа проверки подписи
+	// Получаем ключ проверки подписи
 	ASSERT_TRUE(ed448.key(key, sizeof(key)));
 	// Сличаем ключ проверки с контрольным примером
 	ASSERT_EQ(text(key, sizeof(key)), std::string(pub));
 	// Место выработанной подписи
 	uint8_t result[114];
-	// Выполняем выработку подписи
+	// Вырабатываем подпись
 	ASSERT_TRUE(ed448.make(view(data), result));
 	// Сличаем выработанную подпись с контрольным примером
 	ASSERT_EQ(text(result, sizeof(result)), std::string(signature));
-	// Выполняем проверку выработанной подписи тем же объектом
+	// Проверяем выработанную подпись тем же объектом
 	ASSERT_TRUE(ed448.check(view(data), view_t(result, sizeof(result))));
 	// Объект проверки подписи одним ключом проверки
 	sign::ed448_t verifier;
-	// Выполняем установку ключа проверки подписи
+	// Устанавливаем ключ проверки подписи
 	ASSERT_TRUE(verifier.key(view_t(key, sizeof(key))));
-	// Выполняем проверку подписи контрольного примера
+	// Проверяем подпись контрольного примера
 	ASSERT_TRUE(verifier.check(view(data), view(expected)));
 	// Проверяем отказ выработки подписи без ключа подписи
 	ASSERT_FALSE(verifier.make(view(data), result));
@@ -181,14 +181,14 @@ static void example(const char * secret, const char * pub, const char * message,
  * Проверка контрольного примера TEST 1 с пустым сообщением
  */
 TEST(Ed448Test, One) {
-	// Выполняем проверку контрольного примера
+	// Проверяем контрольный пример
 	example(ONE_SECRET, ONE_PUBLIC, ONE_MESSAGE, ONE_SIGNATURE);
 }
 /**
  * Проверка контрольного примера TEST 2 с сообщением из одного байта
  */
 TEST(Ed448Test, Two) {
-	// Выполняем проверку контрольного примера
+	// Проверяем контрольный пример
 	example(ONE_SECRET, ONE_PUBLIC, TWO_MESSAGE, TWO_SIGNATURE);
 }
 /**
@@ -200,29 +200,29 @@ TEST(Ed448Test, Roundtrip) {
 	sign::ed448_t first, second;
 	// Зерна ключей подписи сторон
 	uint8_t seedFirst[57], seedSecond[57];
-	// Выполняем порождение ключей подписи сторон
+	// Порождаем ключи подписи сторон
 	ASSERT_TRUE(first.generate(seedFirst, sizeof(seedFirst)));
 	ASSERT_TRUE(second.generate(seedSecond, sizeof(seedSecond)));
 	// Ключи проверки подписи сторон
 	uint8_t pubFirst[57], pubSecond[57];
-	// Выполняем получение ключей проверки подписи сторон
+	// Получаем ключи проверки подписи сторон
 	ASSERT_TRUE(first.key(pubFirst, sizeof(pubFirst)));
 	ASSERT_TRUE(second.key(pubSecond, sizeof(pubSecond)));
 	// Подписываемое сообщение
 	const uint8_t message[] = {'S', 'i', 'g', 'n', 'a', 't', 'u', 'r', 'e'};
 	// Место выработанной подписи
 	uint8_t result[114];
-	// Выполняем выработку подписи первой стороной
+	// Вырабатываем подпись первой стороной
 	ASSERT_TRUE(first.make(view_t(message, sizeof(message)), result));
 	// Объект проверки подписи ключом первой стороны
 	sign::ed448_t verifierFirst;
-	// Выполняем установку ключа проверки первой стороны
+	// Устанавливаем ключ проверки первой стороны
 	ASSERT_TRUE(verifierFirst.key(view_t(pubFirst, sizeof(pubFirst))));
 	// Проверяем схождение подписи ключом первой стороны
 	ASSERT_TRUE(verifierFirst.check(view_t(message, sizeof(message)), view_t(result, sizeof(result))));
 	// Объект проверки подписи ключом второй стороны
 	sign::ed448_t verifierSecond;
-	// Выполняем установку ключа проверки второй стороны
+	// Устанавливаем ключ проверки второй стороны
 	ASSERT_TRUE(verifierSecond.key(view_t(pubSecond, sizeof(pubSecond))));
 	// Проверяем несхождение подписи первой стороны ключом второй стороны
 	ASSERT_FALSE(verifierSecond.check(view_t(message, sizeof(message)), view_t(result, sizeof(result))));
@@ -236,7 +236,7 @@ TEST(Ed448Test, Reject) {
 	sign::ed448_t ed448;
 	// Разобранные записи примера
 	const std::vector <uint8_t> seed = bytes(ONE_SECRET), data = bytes(TWO_MESSAGE), expected = bytes(TWO_SIGNATURE);
-	// Выполняем установку ключа подписи
+	// Устанавливаем ключ подписи
 	ASSERT_TRUE(ed448.secret(view(seed)));
 	// Проверяем схождение годной подписи
 	ASSERT_TRUE(ed448.check(view(data), view(expected)));
@@ -266,7 +266,7 @@ TEST(Ed448Test, Reject) {
 	sign::ed448_t alien;
 	// Зерно чужого ключа
 	uint8_t seedAlien[57];
-	// Выполняем порождение чужого ключа
+	// Порождаем чужой ключ
 	ASSERT_TRUE(alien.generate(seedAlien, sizeof(seedAlien)));
 	// Проверяем отказ годной подписи чужим ключом проверки
 	ASSERT_FALSE(alien.check(view(data), view(expected)));

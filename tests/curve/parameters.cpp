@@ -70,12 +70,12 @@ static const char * IDENTIFIERS[] = {
  */
 TEST(ParametersTest, Setup) {
 	/**
-	 * Выполняем перебор известных опознавателей наборов параметров
+	 * Перебираем известные опознаватели наборов параметров
 	 */
 	for(size_t i = 0; i < (sizeof(IDENTIFIERS) / sizeof(const char *)); i++){
 		// Объект эллиптической кривой
 		curve::curve_t curve;
-		// Выполняем установку кривой по опознавателю набора параметров
+		// Устанавливаем кривую по опознавателю набора параметров
 		ASSERT_TRUE(curve::parameters(std::string(IDENTIFIERS[i]), curve)) << "Набор: " << IDENTIFIERS[i];
 		// Проверяем готовность установленной кривой к работе
 		ASSERT_TRUE(curve.ready()) << "Набор: " << IDENTIFIERS[i];
@@ -109,9 +109,9 @@ TEST(ParametersTest, Setup) {
 		curve.order().subtract(zero, unit, factor);
 		// Место, в которое помещается кратная образующей точка
 		curve::point_t point;
-		// Выполняем умножение образующей точки на полученный множитель
+		// Умножаем образующую точку на полученный множитель
 		curve.multiply(base, factor, point);
-		// Выполняем сложение полученной кратной точки с образующей
+		// Складываем полученную кратную точку с образующей
 		curve.add(point, base, point);
 		/**
 		 * Умножение образующей точки на порядок подгруппы обязано давать бесконечно
@@ -128,55 +128,55 @@ TEST(ParametersTest, Setup) {
  */
 TEST(ParametersTest, Signature) {
 	/**
-	 * Выполняем перебор известных опознавателей наборов параметров
+	 * Перебираем известные опознаватели наборов параметров
 	 */
 	for(size_t i = 0; i < (sizeof(IDENTIFIERS) / sizeof(const char *)); i++){
 		// Объект эллиптической кривой
 		curve::curve_t curve;
-		// Выполняем установку кривой по опознавателю набора параметров
+		// Устанавливаем кривую по опознавателю набора параметров
 		ASSERT_TRUE(curve::parameters(std::string(IDENTIFIERS[i]), curve)) << "Набор: " << IDENTIFIERS[i];
 		// Объект модуля электронной подписи
 		sign::gost_t gost;
-		// Выполняем установку эллиптической кривой
+		// Устанавливаем эллиптическую кривую
 		ASSERT_TRUE(gost.start(curve)) << "Набор: " << IDENTIFIERS[i];
 		// Вырабатываемый ключ подписи
 		math::number_t key;
-		// Выполняем выработку случайного ключа подписи
+		// Вырабатываем случайный ключ подписи
 		ASSERT_TRUE(entropy::number(curve.order(), key)) << "Набор: " << IDENTIFIERS[i];
 		// Место, в которое записывается ключ подписи
 		uint8_t secret[math::NUMBER_SIZE];
-		// Выполняем запись выработанного ключа подписи
+		// Записываем выработанный ключ подписи
 		ASSERT_TRUE(curve.order().store(key, secret, curve.order().size())) << "Набор: " << IDENTIFIERS[i];
-		// Выполняем установку выработанного ключа подписи
+		// Устанавливаем выработанный ключ подписи
 		ASSERT_TRUE(gost.secret(view_t(secret, curve.order().size()))) << "Набор: " << IDENTIFIERS[i];
 		// Место, в которое помещается хеш подписываемого сообщения
 		uint8_t digest[64];
-		// Выполняем выработку случайного хеша подписываемого сообщения
+		// Вырабатываем случайный хеш подписываемого сообщения
 		ASSERT_TRUE(entropy::bytes(digest, curve.order().size())) << "Набор: " << IDENTIFIERS[i];
 		// Место, в которое помещается выработанная подпись
 		uint8_t signature[math::NUMBER_SIZE * 2];
-		// Выполняем выработку подписи со своим случайным числом
+		// Вырабатываем подпись со своим случайным числом
 		ASSERT_TRUE(gost.make(view_t(digest, curve.order().size()), signature)) << "Набор: " << IDENTIFIERS[i];
 		// Проверяем схождение выработанной подписи
 		ASSERT_TRUE(gost.check(view_t(digest, curve.order().size()), view_t(signature, gost.size()))) << "Набор: " << IDENTIFIERS[i];
-		// Выполняем порчу первого байта подписи
+		// Портим первый байт подписи
 		signature[0] = static_cast <uint8_t> (signature[0] ^ 0x01);
 		// Проверяем отказ проверки испорченной подписи
 		ASSERT_FALSE(gost.check(view_t(digest, curve.order().size()), view_t(signature, gost.size()))) << "Набор: " << IDENTIFIERS[i];
 		// Место, в которое записывается ключ проверки подписи
 		uint8_t x[math::NUMBER_SIZE], y[math::NUMBER_SIZE];
-		// Выполняем получение ключа проверки подписи
+		// Получаем ключ проверки подписи
 		ASSERT_TRUE(gost.key(x, y, curve.size())) << "Набор: " << IDENTIFIERS[i];
 		// Объект модуля проверки подписи одним лишь ключом проверки
 		sign::gost_t other;
-		// Выполняем установку эллиптической кривой
+		// Устанавливаем эллиптическую кривую
 		ASSERT_TRUE(other.start(curve)) << "Набор: " << IDENTIFIERS[i];
 		/**
 		 * Установка ключа проверки подписи разбирает точку с проверкой принадлежности
 		 * кривой: тем и подтверждается, что выработанный ключ проверки ей принадлежит
 		 */
 		ASSERT_TRUE(other.key(view_t(x, curve.size()), view_t(y, curve.size()))) << "Набор: " << IDENTIFIERS[i];
-		// Выполняем восстановление первого байта подписи
+		// Восстанавливаем первый байт подписи
 		signature[0] = static_cast <uint8_t> (signature[0] ^ 0x01);
 		// Проверяем схождение подписи одним лишь ключом проверки
 		ASSERT_TRUE(other.check(view_t(digest, curve.order().size()), view_t(signature, gost.size()))) << "Набор: " << IDENTIFIERS[i];
@@ -209,7 +209,7 @@ TEST(ParametersTest, Deferred) {
 	// Размеры полей кривых набора
 	static const size_t SIZES[] = {66, 32};
 	/**
-	 * Выполняем перебор кривых набора
+	 * Перебираем кривые набора
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Устанавливаемая кривая
@@ -325,13 +325,13 @@ TEST(ParametersTest, Prepared) {
 	// Пятьдесят установок по опознавателю: лучшее из трёх повторов
 	double copies = 1e300;
 	/**
-	 * Выполняем повторы замера
+	 * Повторяем замер
 	 */
 	for(size_t r = 0; r < 3; r++){
 		// Фиксируем момент начала повтора
 		const auto start = std::chrono::steady_clock::now();
 		/**
-		 * Выполняем пятьдесят установок по опознавателю
+		 * Устанавливаем по опознавателю пятьдесят раз
 		 */
 		for(size_t i = 0; i < 50; i++){
 			// Копия заведённой кривой

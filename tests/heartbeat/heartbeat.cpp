@@ -92,7 +92,7 @@ namespace {
 	 * @return       признак успешной загрузки
 	 *
 	 */
-	bool keyfile(const char * name, context::credential_t & result) noexcept {
+	bool __nts_keyfile__(const char * name, context::credential_t & result) noexcept {
 		// Читаем закрытый ключ
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем цепочку
@@ -115,7 +115,7 @@ namespace {
 	 * @return       признак готовности профиля
 	 *
 	 */
-	bool profiling(fingerprint::profile_t & result, const vector <uint16_t> & types, const vector <vector <uint8_t>> & bodies) noexcept {
+	bool __nts_profiling__(fingerprint::profile_t & result, const vector <uint16_t> & types, const vector <vector <uint8_t>> & bodies) noexcept {
 		// Клиент-донор
 		client::context_t donor;
 		// Имя узла донора
@@ -129,7 +129,7 @@ namespace {
 			// Выводим отрицательный результат - приветствие не разобрано
 			return false;
 		/**
-		 * Выполняем дописывание расширений
+		 * Дописываем расширения
 		 */
 		for(size_t i = 0; i < types.size(); i++){
 			// Расширение предела
@@ -163,12 +163,12 @@ static void hostile(const vector <uint16_t> & types, const vector <vector <uint8
 	// Полномочия и профиль
 	context::credential_t credential;
 	// Заполняем полномочия ключом
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Профиль клиента
 	fingerprint::profile_t profile;
 	// Составляем профиль предела
-	ASSERT_TRUE(profiling(profile, types, bodies));
-	// Сервер
+	ASSERT_TRUE(__nts_profiling__(profile, types, bodies));
+	// Серверная сторона связи
 	server::context_t server;
 	// Имя узла клиента
 	client.name("example.com");
@@ -183,7 +183,7 @@ static void hostile(const vector <uint16_t> & types, const vector <vector <uint8
 	// Номер вывода сервера
 	size_t flight = 0;
 	/**
-	 * Выполняем обмен, искажая каждый вывод сервера по дороге
+	 * Обмениваемся, искажая каждый вывод сервера по дороге
 	 */
 	for(size_t i = 0; i < 16; i++){
 		// Признак переноса
@@ -295,20 +295,20 @@ TEST(HeartbeatTest, Server){
 	// Наличие предложения
 	static const bool OFFERED[] = {true, false};
 	/**
-	 * Выполняем перебор
+	 * Перебираем признаки предложения расширения
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Полномочия и профиль
 		context::credential_t credential;
 		// Заполняем полномочия ключом
-		ASSERT_TRUE(keyfile("ec256", credential));
+		ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 		// Профиль стороны
 		fingerprint::profile_t profile;
 		// Составляем профиль предела
-		ASSERT_TRUE(profiling(profile, (OFFERED[i] ? vector <uint16_t> {HEARTBEAT} : vector <uint16_t> {}), (OFFERED[i] ? vector <vector <uint8_t>> {{0x01}} : vector <vector <uint8_t>> {})));
-		// Стороны
+		ASSERT_TRUE(__nts_profiling__(profile, (OFFERED[i] ? vector <uint16_t> {HEARTBEAT} : vector <uint16_t> {}), (OFFERED[i] ? vector <vector <uint8_t>> {{0x01}} : vector <vector <uint8_t>> {})));
+		// Стороны связи проверки
 		client::context_t client;
-		// Сервер
+		// Серверная сторона связи
 		server::context_t server;
 		// Имя узла клиента
 		client.name("example.com");
@@ -339,7 +339,7 @@ TEST(HeartbeatTest, Server){
 			// Отправляем вывод серверу
 			server.push(view_t(ordered.data(), ordered.size()));
 		}
-		// Итог
+		// Итог предложения расширения
 		if(OFFERED[i]){
 			// Сервер держит связь
 			EXPECT_NE(server.state(), context::state_t::FAILED) << i;
@@ -363,7 +363,7 @@ TEST(HeartbeatTest, Gnutls){
 		// Пропускаем проверку без сервера-эталона
 		GTEST_SKIP() << "gnutls-serv недоступен";
 	}
-	// Полномочия
+	// Полномочия серверной стороны
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Порт и журнал
 	const uint16_t number = __nts_vacant__(false);
@@ -375,15 +375,15 @@ TEST(HeartbeatTest, Gnutls){
 	ASSERT_TRUE(__nts_launch__("gnutls-serv --port " + std::to_string(number) + " --x509certfile " + crt + " --x509keyfile " + key + " --echo --heartbeat --disable-client-cert --priority NORMAL:+VERS-TLS1.2 > " + log + " 2>&1", log, log + ".pid"));
 	// Страж остановки сервера
 	sentinel_t sentinel(log + ".pid");
-	// Подключаемся
-	const int fd = __nts_dial__(number);
+	// Подключаемся к серверу проверки
+	const int connection = __nts_dial__(number);
 	// Связь с сервером есть
-	ASSERT_GE(fd, 0) << "порт " << number;
+	ASSERT_GE(connection, 0) << "порт " << number;
 	// Профиль с heartbeat
 	fingerprint::profile_t profile;
 	// Профиль с сердцебиением
-	ASSERT_TRUE(profiling(profile, {HEARTBEAT}, {vector <uint8_t> {0x01}}));
-	// Клиент
+	ASSERT_TRUE(__nts_profiling__(profile, {HEARTBEAT}, {vector <uint8_t> {0x01}}));
+	// Клиентская сторона связи
 	client::context_t client;
 	// Имя узла клиента
 	client.name("localhost");
@@ -396,12 +396,12 @@ TEST(HeartbeatTest, Gnutls){
 	 */
 	for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 		// Гоняем выводы сторон
-		__nts_relay__(client, fd);
+		__nts_relay__(client, connection);
 	// Фиксируем отказ
 	if(!client.established()){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 	// Связь установлена
 	ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
-	// Эхо
+	// Эхо-сообщение проверки
 	const std::string message = "сердцебиение роняется, эхо идёт\n";
 	// Шлём прикладное сообщение
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size())), context::error_t::NONE);
@@ -412,7 +412,7 @@ TEST(HeartbeatTest, Gnutls){
 	 */
 	for(size_t i = 0; (i < 16) && (echo.size() < message.size()); i++){
 		// Гоняем выводы сторон
-		__nts_relay__(client, fd);
+		__nts_relay__(client, connection);
 		// Кусок эха
 		vector <uint8_t> piece;
 		// Читаем кусок эха
@@ -423,7 +423,7 @@ TEST(HeartbeatTest, Gnutls){
 	// Эхо совпадает с сообщением
 	EXPECT_EQ(string(echo.begin(), echo.end()), message);
 	// Закрываем соединение
-	closing(fd);
+	closing(connection);
 	// Останавливаем сервер
 	sentinel.halt();
 	// Журнал сервера
@@ -439,17 +439,17 @@ TEST(HeartbeatTest, Gnutls){
  * ответ считается, второй запрос до ответа отвергается, без расширения запрос отвергается
  */
 TEST(HeartbeatTest, Ping){
-	// Полномочия
+	// Полномочия клиента сличения
 	context::credential_t credential;
 	// Заполняем полномочия ключом
-	ASSERT_TRUE(keyfile("ec256", credential));
-	// Профиль
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
+	// Профиль сличения
 	fingerprint::profile_t profile;
 	// Профиль с сердцебиением
-	ASSERT_TRUE(profiling(profile, {HEARTBEAT}, {vector <uint8_t> {0x01}}));
-	// Клиент
+	ASSERT_TRUE(__nts_profiling__(profile, {HEARTBEAT}, {vector <uint8_t> {0x01}}));
+	// Клиентская сторона связи
 	client::context_t client;
-	// Сервер
+	// Серверная сторона связи
 	server::context_t server;
 	// Имя узла клиента
 	client.name("example.com");
@@ -573,7 +573,7 @@ TEST(HeartbeatTest, Ping){
 	{
 		// Клиент без расширения
 		client::context_t plain;
-		// Сервер
+		// Серверная сторона связи
 		server::context_t host;
 		// Имя узла клиента
 		plain.name("example.com");

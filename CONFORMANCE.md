@@ -4569,7 +4569,7 @@ bytes_t, embed::key/secret, RLIMIT_MEMLOCK, assign) записаны у него
 
 **Пункт 8 сделан.** `install(TARGETS … EXPORT ntsTargets)`, `install(EXPORT … NAMESPACE nts::)`,
 `cmake/ntsConfig.cmake.in` (`find_dependency(Threads)`), `ntsConfigVersion.cmake`
-(SameMajorVersion), `export(EXPORT)` для дерева сборки, псевдоним `nts::nts`,
+(SameMajorVersion), `export(EXPORT)` для дерева сборки, псевдоним `anyks::nts`,
 `target_include_directories` с BUILD/INSTALL_INTERFACE, `target_compile_features(cxx_std_17)`,
 `Threads::Threads` PUBLIC (замок хранилища, atfork), `bcrypt` PUBLIC под Windows, VERSION/SOVERSION
 у цели, GNUInstallDirs. Найден и закрыт дефект: все 51 список сборки шли от `CMAKE_SOURCE_DIR`/
@@ -4578,7 +4578,7 @@ bytes_t, embed::key/secret, RLIMIT_MEMLOCK, assign) записаны у него
 на `CMAKE_CURRENT_*` в корне и `NTS_ROOT` во вложенных. Проверка тремя потребителями на macOS:
 установленный статический пакет (find_package, `ok`), установленный динамический
 (`libnts.1.0.0.dylib`, `@rpath/libnts.1.dylib`, сток журнала работает через DLL-границу),
-подмодуль `add_subdirectory` (`nts::nts`, embed::key) — все собраны и запущены с кодом 0.
+подмодуль `add_subdirectory` (`anyks::nts`, embed::key) — все собраны и запущены с кодом 0.
 Полный ctest после переделки списков — ниже.
 Полный ctest после переделки списков сборки: 90/90 (372 с), образцы пересобраны.
 

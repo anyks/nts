@@ -99,26 +99,26 @@ namespace {
 	/**
 	 * Ячейка по адресу
 	 */
-	size_t slot(const void * ptr) noexcept {
+	size_t __nts_slot__(const void * ptr) noexcept {
 		// Смешиваем адрес
-		uintptr_t h = reinterpret_cast <uintptr_t> (ptr);
+		uintptr_t mixed = reinterpret_cast <uintptr_t> (ptr);
 		// Домешиваем адрес сдвигами и умножением
-		h ^= (h >> 33); h *= 0xff51afd7ed558ccdULL; h ^= (h >> 33);
+		mixed ^= (mixed >> 33); mixed *= 0xff51afd7ed558ccdULL; mixed ^= (mixed >> 33);
 		// Возвращаем номер ячейки
-		return static_cast <size_t> (h & (CELLS - 1));
+		return static_cast <size_t> (mixed & (CELLS - 1));
 	}
 	/**
 	 * Учёт выдачи блока
 	 */
-	void track(void * ptr, const size_t size) noexcept {
+	void __nts_track__(void * ptr, const size_t size) noexcept {
 		// Пропускаем запись без учёта и нулевые адреса
 		if(!recording || (ptr == nullptr)) return;
 		// Вычисляем начальную ячейку
-		size_t i = slot(ptr);
+		size_t cellIndex = __nts_slot__(ptr);
 		/** Перебираем ячейки открытой адресации, пока не найдём пустую */
-		for(size_t n = 0; n < CELLS; n++, i = ((i + 1) & (CELLS - 1))){
+		for(size_t n = 0; n < CELLS; n++, cellIndex = ((cellIndex + 1) & (CELLS - 1))){
 			// Вписываем блок в пустую ячейку
-			if(cells[i].ptr == nullptr){ cells[i].ptr = ptr; cells[i].size = size; return; }
+			if(cells[cellIndex].ptr == nullptr){ cells[cellIndex].ptr = ptr; cells[cellIndex].size = size; return; }
 		}
 	}
 	/**
@@ -149,7 +149,10 @@ namespace {
 			#endif
 		#endif
 		// Читаем байт напрямую
-		static inline uint8_t peek(const uint8_t * data) noexcept { return *data; }
+		static inline uint8_t peek(const uint8_t * data) noexcept {
+			// Возвращаем байт напрямую
+			return *data;
+		}
 	#endif
 	/**
 	 * Сличение байтов без перехватчиков санитайзера: мера читает блоки целиком, включая
@@ -164,7 +167,7 @@ namespace {
 		#endif
 	#endif
 	// Сличаем блоки байт в байт
-	static bool same(const uint8_t * data, const uint8_t * key, const size_t size) noexcept {
+	static bool __nts_same__(const uint8_t * data, const uint8_t * key, const size_t size) noexcept {
 		// Накапливаем различия байтов
 		uint8_t diff = 0;
 		/** Перебираем байты блока, накапливая различия с образцом */
@@ -183,7 +186,7 @@ namespace {
 		#endif
 	#endif
 	// Копируем блок байт в байт
-	static void copy(uint8_t * to, const void * from, const size_t size) noexcept {
+	static void __nts_copy__(uint8_t * to, const void * from, const size_t size) noexcept {
 		// Приводим источник к массиву байтов
 		const uint8_t * data = static_cast <const uint8_t *> (from);
 		/** Перебираем байты блока, переписывая их в журнал */
@@ -192,25 +195,26 @@ namespace {
 	/**
 	 * Снятие блока с учёта с переписыванием содержимого в журнал
 	 */
-	void untrack(void * ptr) noexcept {
+	void __nts_untrack__(void * ptr) noexcept {
 		// Пропускаем запись без учёта и нулевые адреса
 		if(!recording || (ptr == nullptr)) return;
 		// Вычисляем начальную ячейку
-		size_t i = slot(ptr);
+		size_t cellIndex = __nts_slot__(ptr);
 		/** Перебираем ячейки открытой адресации, пока не найдём блок */
-		for(size_t n = 0; n < CELLS; n++, i = ((i + 1) & (CELLS - 1))){
+		for(size_t n = 0; n < CELLS; n++, cellIndex = ((cellIndex + 1) & (CELLS - 1))){
 			// Дошли до пустой ячейки: блок не учтён
-			if(cells[i].ptr == nullptr) return;
-			if(cells[i].ptr == ptr){
+			if(cells[cellIndex].ptr == nullptr) return;
+			// Ячейка принадлежит снимаемому блоку
+			if(cells[cellIndex].ptr == ptr){
 				// Ограничиваем длину снимаемого содержимого
-				const size_t size = ((cells[i].size > LARGEST) ? LARGEST : cells[i].size);
+				const size_t size = ((cells[cellIndex].size > LARGEST) ? LARGEST : cells[cellIndex].size);
 				// Переписываем содержимое блока в журнал
-				if((filled + size) <= JOURNAL){ copy(journal + filled, ptr, size); filled += size; }
+				if((filled + size) <= JOURNAL){ __nts_copy__(journal + filled, ptr, size); filled += size; }
 				else overflowed = true;
 				// Удаление из открытой адресации: помечаем надгробием (адрес 1), поиск его пропускает
-				cells[i].ptr = reinterpret_cast <void *> (1);
+				cells[cellIndex].ptr = reinterpret_cast <void *> (1);
 				// Обнуляем длину ячейки
-				cells[i].size = 0;
+				cells[cellIndex].size = 0;
 				// Блок снят с учёта
 				return;
 			}
@@ -219,7 +223,7 @@ namespace {
 	/**
 	 * Поиск образца среди живых блоков: число вхождений
 	 */
-	size_t alive(const uint8_t * key, const size_t size, size_t * where) noexcept {
+	size_t __nts_alive__(const uint8_t * key, const size_t size, size_t * where) noexcept {
 		// Инициализируем счётчик вхождений
 		size_t count = 0;
 		/** Перебираем ячейки таблицы живых блоков */
@@ -231,7 +235,7 @@ namespace {
 			/** Перебираем смещения в блоке, пока образец помещается */
 			for(size_t j = 0; (j + size) <= cells[i].size; j++){
 				// Считаем вхождение и запоминаем длину блока
-				if(same(data + j, key, size)){ if(where != nullptr) *where = cells[i].size; count++; break; }
+				if(__nts_same__(data + j, key, size)){ if(where != nullptr) *where = cells[i].size; count++; break; }
 			}
 		}
 		// Возвращаем число вхождений среди живых блоков
@@ -240,20 +244,20 @@ namespace {
 	/**
 	 * Поиск образца в журнале освобождённых: число вхождений
 	 */
-	size_t buried(const uint8_t * key, const size_t size) noexcept {
+	size_t __nts_buried__(const uint8_t * key, const size_t size) noexcept {
 		// Инициализируем счётчик вхождений
 		size_t count = 0;
 		/** Перебираем смещения в журнале, пока образец помещается */
 		for(size_t j = 0; (j + size) <= filled; j++)
 			// Считаем вхождение в журнале
-			if(same(journal + j, key, size)) count++;
+			if(__nts_same__(journal + j, key, size)) count++;
 		// Возвращаем число вхождений в журнале
 		return count;
 	}
 	/**
 	 * Поиск образца на стеке ниже текущего кадра до основания стека: число вхождений
 	 */
-	size_t stacked(const uint8_t * key, const size_t size, const uint8_t * skip, const size_t span) noexcept {
+	size_t __nts_stacked__(const uint8_t * key, const size_t size, const uint8_t * skip, const size_t span) noexcept {
 		/**
 		 * Стек сканируется НИЖЕ текущего кадра, до предела стека: там лежат отработавшие
 		 * кадры, чьи местные буферы с ключом должны были быть затёрты; живые кадры выше
@@ -329,7 +333,7 @@ namespace {
 			// Пропускаем живую область с собственным образцом
 			if((p >= skip) && (p < (skip + span))) continue;
 			// Считаем вхождение и печатаем смещение ниже кадра
-			if(same(p, key, size)){ count++; ::printf("след ключа на стеке: %td байтов ниже кадра\n", high - p); }
+			if(__nts_same__(p, key, size)){ count++; ::printf("след ключа на стеке: %td байтов ниже кадра\n", high - p); }
 		}
 		// Возвращаем число вхождений на стеке
 		return count;
@@ -337,7 +341,7 @@ namespace {
 	/**
 	 * Помощники связи: как в проверках контекста
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак передачи данных между сторонами
 		bool moved = false;
 		/**
@@ -378,30 +382,30 @@ namespace {
 		return moved;
 	}
 	// Прокачиваем данные между сторонами до установления связи
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/** Прокачиваем данные между сторонами, пока связь двигается */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++) continue;
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++) continue;
 	}
 };
 
 /**
  * Перехват выдачи и освобождения кучи
  */
-void * operator new(size_t size){ void * p = ::malloc(size ? size : 1); if(p == nullptr) throw bad_alloc(); track(p, size); return p; }
+void * operator new(size_t size){ void * pointer = ::malloc(size ? size : 1); if(pointer == nullptr) throw bad_alloc(); __nts_track__(pointer, size); return pointer; }
 // Перехватываем выдачу массива кучи: выделяем, учитываем, возвращаем
-void * operator new[](size_t size){ void * p = ::malloc(size ? size : 1); if(p == nullptr) throw bad_alloc(); track(p, size); return p; }
+void * operator new[](size_t size){ void * pointer = ::malloc(size ? size : 1); if(pointer == nullptr) throw bad_alloc(); __nts_track__(pointer, size); return pointer; }
 // Перехватываем выдачу кучи без исключений: выделяем и учитываем
-void * operator new(size_t size, const nothrow_t &) noexcept { void * p = ::malloc(size ? size : 1); track(p, size); return p; }
+void * operator new(size_t size, const nothrow_t &) noexcept { void * pointer = ::malloc(size ? size : 1); __nts_track__(pointer, size); return pointer; }
 // Перехватываем выдачу массива кучи без исключений: выделяем и учитываем
-void * operator new[](size_t size, const nothrow_t &) noexcept { void * p = ::malloc(size ? size : 1); track(p, size); return p; }
+void * operator new[](size_t size, const nothrow_t &) noexcept { void * pointer = ::malloc(size ? size : 1); __nts_track__(pointer, size); return pointer; }
 // Перехватываем освобождение кучи: снимаем с учёта и отдаём
-void operator delete(void * p) noexcept { untrack(p); ::free(p); }
+void operator delete(void * pointer) noexcept { __nts_untrack__(pointer); ::free(pointer); }
 // Перехватываем освобождение массива кучи: снимаем с учёта и отдаём
-void operator delete[](void * p) noexcept { untrack(p); ::free(p); }
+void operator delete[](void * pointer) noexcept { __nts_untrack__(pointer); ::free(pointer); }
 // Перехватываем освобождение кучи с размером: снимаем с учёта и отдаём
-void operator delete(void * p, size_t) noexcept { untrack(p); ::free(p); }
+void operator delete(void * pointer, size_t) noexcept { __nts_untrack__(pointer); ::free(pointer); }
 // Перехватываем освобождение массива кучи с размером: снимаем с учёта и отдаём
-void operator delete[](void * p, size_t) noexcept { untrack(p); ::free(p); }
+void operator delete[](void * pointer, size_t) noexcept { __nts_untrack__(pointer); ::free(pointer); }
 
 /**
  * Проверка: ключ билета не проходит через обычную кучу ни живым, ни освобождённым
@@ -432,14 +436,14 @@ TEST(TraceTest, TicketKey) {
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Прокачиваем рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Выдаём первый билет
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Доставляем билет клиенту
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Проверяем число полученных билетов
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (2));
 		// Берём длину ключа билета
@@ -457,9 +461,9 @@ TEST(TraceTest, TicketKey) {
 			// Объявляем длину блока с найденным ключом
 			size_t where = 0;
 			// Проверяем отсутствие ключа в живых блоках кучи
-			EXPECT_EQ(alive(keys[i], width, &where), 0u) << "ключ " << i << " живёт в блоке кучи длиной " << where;
-			EXPECT_EQ(buried(keys[i], width), 0u) << "ключ " << i << " лежит в освобождённом блоке кучи";
-			EXPECT_EQ(stacked(keys[i], width, &keys[0][0], sizeof(keys)), 0u) << "ключ " << i << " остался на стеке";
+			EXPECT_EQ(__nts_alive__(keys[i], width, &where), 0u) << "ключ " << i << " живёт в блоке кучи длиной " << where;
+			EXPECT_EQ(__nts_buried__(keys[i], width), 0u) << "ключ " << i << " лежит в освобождённом блоке кучи";
+			EXPECT_EQ(__nts_stacked__(keys[i], width, &keys[0][0], sizeof(keys)), 0u) << "ключ " << i << " остался на стеке";
 		}
 		// Возобновление: билет проходит resume() у обеих сторон
 		client::context_t again;
@@ -479,7 +483,7 @@ TEST(TraceTest, TicketKey) {
 		ASSERT_EQ(peer.start(), context::error_t::NONE);
 		ASSERT_EQ(again.start(), context::error_t::NONE);
 		// Прокачиваем возобновление
-		converse(again, peer);
+		__nts_converse__(again, peer);
 		// Проверяем установление связи
 		ASSERT_TRUE(again.established() && peer.established());
 		/** Перебираем ключи билетов после возобновления */
@@ -487,9 +491,9 @@ TEST(TraceTest, TicketKey) {
 			// Объявляем длину блока с найденным ключом
 			size_t where = 0;
 			// Проверяем отсутствие ключа в живых блоках кучи
-			EXPECT_EQ(alive(keys[i], width, &where), 0u) << "после возобновления ключ " << i << " живёт в блоке кучи длиной " << where;
-			EXPECT_EQ(buried(keys[i], width), 0u) << "после возобновления ключ " << i << " лежит в освобождённом блоке кучи";
-			EXPECT_EQ(stacked(keys[i], width, &keys[0][0], sizeof(keys)), 0u) << "после возобновления ключ " << i << " остался на стеке";
+			EXPECT_EQ(__nts_alive__(keys[i], width, &where), 0u) << "после возобновления ключ " << i << " живёт в блоке кучи длиной " << where;
+			EXPECT_EQ(__nts_buried__(keys[i], width), 0u) << "после возобновления ключ " << i << " лежит в освобождённом блоке кучи";
+			EXPECT_EQ(__nts_stacked__(keys[i], width, &keys[0][0], sizeof(keys)), 0u) << "после возобновления ключ " << i << " остался на стеке";
 		}
 	}
 	/**
@@ -499,9 +503,9 @@ TEST(TraceTest, TicketKey) {
 		// Объявляем длину блока с найденным ключом
 		size_t where = 0;
 		// Проверяем отсутствие ключа в живых блоках кучи
-		EXPECT_EQ(alive(keys[i], width, &where), 0u) << "после разрушения ключ " << i << " живёт в блоке кучи длиной " << where;
-		EXPECT_EQ(buried(keys[i], width), 0u) << "после разрушения ключ " << i << " лежит в освобождённом блоке кучи";
-		EXPECT_EQ(stacked(keys[i], width, &keys[0][0], sizeof(keys)), 0u) << "после разрушения ключ " << i << " остался на стеке";
+		EXPECT_EQ(__nts_alive__(keys[i], width, &where), 0u) << "после разрушения ключ " << i << " живёт в блоке кучи длиной " << where;
+		EXPECT_EQ(__nts_buried__(keys[i], width), 0u) << "после разрушения ключ " << i << " лежит в освобождённом блоке кучи";
+		EXPECT_EQ(__nts_stacked__(keys[i], width, &keys[0][0], sizeof(keys)), 0u) << "после разрушения ключ " << i << " остался на стеке";
 	}
 	// Проверяем, что журнал освобождённых не переполнен
 	EXPECT_FALSE(overflowed) << "журнал освобождённых переполнен: проверка слепа";

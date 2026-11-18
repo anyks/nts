@@ -57,7 +57,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	std::vector <uint8_t> result;
 	// Значение полубайта
 	auto nibble = [](const char c) -> int {
-		// Цифры
+		// Цифра отдаёт свой номер
 		if((c >= '0') && (c <= '9')) return (c - '0');
 		// Строчные буквы
 		if((c >= 'a') && (c <= 'f')) return (c - 'a' + 10);
@@ -70,7 +70,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	 * Перебираем знаки по два: каждая пара шестнадцатеричных знаков даёт один байт
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2){
-		// Полубайты
+		// Пара полубайтов даёт байт
 		const int high = nibble(text[i]), low = nibble(text[i + 1]);
 		// Если знаки негодны
 		if((high < 0) || (low < 0))
@@ -122,15 +122,15 @@ static std::vector <std::map <std::string, std::string>> blocks(const std::strin
 			// Оставляем содержимое скобок
 			line = line.substr(1, line.size() - 2);
 		// Место разделителя
-		const size_t at = line.find_first_of(":=");
+		const size_t place = line.find_first_of(":=");
 		// Если разделителя нет
-		if(at == std::string::npos)
+		if(place == std::string::npos)
 			// Переходим к следующей строке
 			continue;
-		// Имя
-		std::string key = line.substr(0, at);
-		// Значение
-		std::string value = line.substr(at + 1);
+		// Имя поля строки
+		std::string key = line.substr(0, place);
+		// Значение поля строки
+		std::string value = line.substr(place + 1);
 		/**
 		 * Снимаем пробелы
 		 */
@@ -161,8 +161,8 @@ static std::vector <std::map <std::string, std::string>> blocks(const std::strin
  *
  */
 static void vectors(const agreement::kem_t kem, const std::string & prefix) {
-	// Длины
-	const size_t ek = agreement::encapsulation(kem), dk = agreement::decapsulation(kem), ct = agreement::ciphertext(kem);
+	// Длины ключей и шифртекста набора
+	const size_t publicSize = agreement::encapsulation(kem), secretSize = agreement::decapsulation(kem), cipherSize = agreement::ciphertext(kem);
 	// Векторы выработки
 	const auto keygen = blocks(prefix + "_keygen.txt");
 	// Проверяем, что векторы прочитаны
@@ -171,10 +171,10 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 	 * Прогоняем векторы выработки: зерно даёт пару ключей, которую сличаем с вектором
 	 */
 	for(size_t i = 0; i < keygen.size(); i++){
-		// Зерно
+		// Зерно порождения пары ключей
 		const std::vector <uint8_t> seed = bytes(keygen[i].at("seed"));
-		// Ключи
-		std::vector <uint8_t> key(ek, 0), secret(dk, 0);
+		// Ключи: открытый и секретный
+		std::vector <uint8_t> key(publicSize, 0), secret(secretSize, 0);
 		// Вырабатываем пару
 		ASSERT_TRUE(agreement::generate(kem, view_t(seed.data(), seed.size()), key.data(), secret.data())) << "вектор " << i;
 		// Сличаем ключ инкапсуляции
@@ -195,7 +195,7 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 		// Ключ и сообщение
 		const std::vector <uint8_t> key = bytes(encap[i].at("public_key")), message = bytes(encap[i].at("entropy"));
 		// Шифртекст и секрет
-		std::vector <uint8_t> cipher(ct, 0), shared(agreement::MLKEM_SHARED, 0);
+		std::vector <uint8_t> cipher(cipherSize, 0), shared(agreement::MLKEM_SHARED, 0);
 		// Итог инкапсуляции
 		const bool ok = agreement::encapsulate(kem, view_t(key.data(), key.size()), view_t(message.data(), message.size()), cipher.data(), shared.data());
 		// Ожидаемый итог
@@ -225,7 +225,7 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 	for(size_t i = 0; i < decap.size(); i++){
 		// Ключ и шифртекст
 		const std::vector <uint8_t> secret = bytes(decap[i].at("private_key")), cipher = bytes(decap[i].at("ciphertext"));
-		// Секрет
+		// Общий секрет декапсуляции
 		std::vector <uint8_t> shared(agreement::MLKEM_SHARED, 0);
 		// Итог декапсуляции
 		const bool ok = agreement::decapsulate(kem, view_t(secret.data(), secret.size()), view_t(cipher.data(), cipher.size()), shared.data());
@@ -256,8 +256,8 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 		const std::vector <uint8_t> z = bytes(nist[i].at("z"));
 		// Дописываем z
 		seed.insert(seed.end(), z.begin(), z.end());
-		// Ключи
-		std::vector <uint8_t> key(ek, 0), secret(dk, 0);
+		// Ключи: открытый и секретный
+		std::vector <uint8_t> key(publicSize, 0), secret(secretSize, 0);
 		// Вырабатываем пару
 		ASSERT_TRUE(agreement::generate(kem, view_t(seed.data(), seed.size()), key.data(), secret.data())) << "вектор NIST " << i;
 		// Сличаем ключи
@@ -271,16 +271,16 @@ static void vectors(const agreement::kem_t kem, const std::string & prefix) {
 	// Ключ декапсуляции
 	const std::vector <uint8_t> secret = bytes(rejection[0].at("dk"));
 	// Проверяем длину ключа
-	ASSERT_EQ(secret.size(), dk);
+	ASSERT_EQ(secret.size(), secretSize);
 	/**
 	 * Прогоняем пары шифртекстов: у негодных секрет есть J(z || c), у годных - настоящий
 	 */
 	for(size_t i = 1; i < rejection.size(); i++){
-		// Шифртекст
+		// Шифртекст контрольного примера
 		const std::vector <uint8_t> cipher = bytes(rejection[i].at("c"));
-		// Секрет
+		// Общий секрет декапсуляции
 		std::vector <uint8_t> shared(agreement::MLKEM_SHARED, 0);
-		// Выполняем декапсуляцию
+		// Декапсулируем шифртекст контрольного примера
 		ASSERT_TRUE(agreement::decapsulate(kem, view_t(secret.data(), secret.size()), view_t(cipher.data(), cipher.size()), shared.data())) << "вектор NIST " << i;
 		// Сличаем секрет: у негодных шифртекстов это J(z || c)
 		ASSERT_EQ(shared, bytes(rejection[i].at("k"))) << "вектор NIST " << i;
@@ -326,14 +326,14 @@ TEST(MlkemTest, Lengths){
  * Круг на случайных ключах у всех трёх наборов и неявный отказ на порченом шифртексте
  */
 TEST(MlkemTest, Roundtrip){
-	// Наборы
+	// Наборы ML-KEM перебора
 	const agreement::kem_t kinds[] = {agreement::kem_t::MLKEM512, agreement::kem_t::MLKEM768, agreement::kem_t::MLKEM1024};
 	/**
 	 * Прогоняем все три набора: круг на случайной паре ключей и неявный отказ
 	 * на порченом шифртексте
 	 */
 	for(size_t k = 0; k < (sizeof(kinds) / sizeof(kinds[0])); k++){
-		// Ключи
+		// Ключи: открытый и секретный
 		std::vector <uint8_t> key(agreement::encapsulation(kinds[k]), 0), secret(agreement::decapsulation(kinds[k]), 0);
 		// Вырабатываем пару
 		ASSERT_TRUE(agreement::generate(kinds[k], key.data(), secret.data()));
@@ -341,9 +341,9 @@ TEST(MlkemTest, Roundtrip){
 		ASSERT_TRUE(agreement::validate(kinds[k], view_t(key.data(), key.size())));
 		// Шифртекст и секреты
 		std::vector <uint8_t> cipher(agreement::ciphertext(kinds[k]), 0), first(32, 0), second(32, 0);
-		// Инкапсулируем
+		// Инкапсулируем открытым ключом
 		ASSERT_TRUE(agreement::encapsulate(kinds[k], view_t(key.data(), key.size()), cipher.data(), first.data()));
-		// Декапсулируем
+		// Декапсулируем секретным ключом
 		ASSERT_TRUE(agreement::decapsulate(kinds[k], view_t(secret.data(), secret.size()), view_t(cipher.data(), cipher.size()), second.data()));
 		// Сличаем секреты
 		ASSERT_EQ(first, second) << "набор " << static_cast <int> (kinds[k]);
@@ -366,11 +366,11 @@ TEST(MlkemTest, Roundtrip){
  * Отказы на негодных входах
  */
 TEST(MlkemTest, Refusals){
-	// Набор
+	// Набор ML-KEM проверки отказов
 	const agreement::kem_t kem = agreement::kem_t::MLKEM768;
-	// Ключи
+	// Ключи: открытый и секретный
 	std::vector <uint8_t> key(agreement::encapsulation(kem), 0), secret(agreement::decapsulation(kem), 0);
-	// Зерно
+	// Зерно, заполненное образцом
 	const std::vector <uint8_t> seed(agreement::MLKEM_SEED, 0x42);
 	// Отказ набора NONE
 	ASSERT_FALSE(agreement::generate(agreement::kem_t::NONE, view_t(seed.data(), seed.size()), key.data(), secret.data()));
@@ -391,7 +391,7 @@ TEST(MlkemTest, Refusals){
 	ASSERT_EQ(secret, secret2);
 	// Шифртекст и секрет
 	std::vector <uint8_t> cipher(agreement::ciphertext(kem), 0), shared(32, 0);
-	// Сообщение
+	// Сообщение, заполненное образцом
 	const std::vector <uint8_t> message(32, 0x11);
 	// Отказ ключа не той длины
 	ASSERT_FALSE(agreement::encapsulate(kem, view_t(key.data(), key.size() - 1), view_t(message.data(), 32), cipher.data(), shared.data()));
@@ -432,7 +432,7 @@ TEST(MlkemTest, Openssl){
 		// Пропускаем круг: в системе нет openssl с ML-KEM-768
 		GTEST_SKIP() << "openssl без ML-KEM-768 (нужен openssl 3.5+)";
 	}
-	// Набор
+	// Набор ML-KEM сверки с openssl
 	const agreement::kem_t kem = agreement::kem_t::MLKEM768;
 	// Заголовок SubjectPublicKeyInfo ML-KEM-768: SEQUENCE, AlgorithmIdentifier 2.16.840.1.101.3.4.4.2, BIT STRING в 1184 байта
 	static const uint8_t HEADER[] = {0x30, 0x82, 0x04, 0xB2, 0x30, 0x0B, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x04, 0x02, 0x03, 0x82, 0x04, 0xA1, 0x00};

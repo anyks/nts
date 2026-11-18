@@ -22,21 +22,21 @@ QUIC переносом по уровням, ECH и отпечатки.
 ## Как линковать
 
 Проверено скриптом приёмки `sh/awh-pilot.sh` на mac (M4); оба пути дают одну
-цель `nts::nts`, стандарт C++17 доезжает от цели, внешних зависимостей нет,
+цель `anyks::nts`, стандарт C++17 доезжает от цели, внешних зависимостей нет,
 кроме потоков (Threads::Threads, тянется целью).
 
 Пакет с установкой:
 
 ```cmake
 find_package(nts 1.0 CONFIG REQUIRED)   # -DCMAKE_PREFIX_PATH=<префикс установки>
-target_link_libraries(app PRIVATE nts::nts)
+target_link_libraries(app PRIVATE anyks::nts)
 ```
 
 Подмодуль без установки:
 
 ```cmake
 add_subdirectory(submodules/anyks-tls nts)
-target_link_libraries(app PRIVATE nts::nts)
+target_link_libraries(app PRIVATE anyks::nts)
 ```
 
 - Установка кладёт заголовки в `include/nts`, библиотеку в `lib` (динамическую
