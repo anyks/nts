@@ -880,14 +880,14 @@ TEST(LimitTest, Doubled){
  */
 TEST(LimitTest, Openssl){
 	// Оснастка openssl
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl нет
 	if(!toolkit.present){
 		// Пропускаем проверку без системного эталона
 		GTEST_SKIP() << "openssl недоступен";
 	}
 	// Если s_client не знает -maxfraglen (старше 1.1.1)
-	if(!listed("s_client", "maxfraglen")){
+	if(!__nts_listed__("s_client", "maxfraglen")){
 		// Пропускаем проверку без поддержки предела длины фрагмента
 		GTEST_SKIP() << "openssl s_client без -maxfraglen";
 	}
@@ -912,17 +912,17 @@ TEST(LimitTest, Openssl){
 		// Номер свободного порта
 		uint16_t number = 0;
 		// Занимаем порт
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Порт занят
 		ASSERT_GE(listener, 0);
 		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-limit-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента с пределом 512 и запросом
-		ASSERT_TRUE(launch("(printf 'GET / HTTP/1.0\\r\\n\\r\\n'; sleep 2) | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " " + FLAGS[i] + " -maxfraglen 512 -CAfile " + crt + " -servername localhost -ign_eof > " + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("(printf 'GET / HTTP/1.0\\r\\n\\r\\n'; sleep 2) | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " " + FLAGS[i] + " -maxfraglen 512 -CAfile " + crt + " -servername localhost -ign_eof > " + log + " 2>&1", log, log + ".pid"));
 		// Страж процесса
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int own = greeted(listener);
+		const int own = __nts_greeted__(listener);
 		// Подключение принято
 		ASSERT_GE(own, 0);
 		// Серверная сторона связи
@@ -941,7 +941,7 @@ TEST(LimitTest, Openssl){
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Рукопожатие с клиентом openssl
-		const bool complete = serve(server, own);
+		const bool complete = __nts_serve__(server, own);
 		// Рукопожатие завершилось
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 		// Без отказа
@@ -1020,14 +1020,14 @@ TEST(LimitTest, Openssl){
 			server.consume(data.size);
 		}
 		// Прощаемся с клиентом openssl
-		ASSERT_TRUE(farewell(server, own));
+		ASSERT_TRUE(__nts_farewell__(server, own));
 		// Закрываем подключение
 		closing(own);
 		closing(listener);
 		// Клиент принял тело целиком
 		std::string text;
 		// Дожидаемся выхода клиента
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Тело принято целиком
 		EXPECT_NE(text.find(body), std::string::npos) << FLAGS[i] << " " << text.substr(0, 400);
 		// Без ошибок нарезки
@@ -1050,17 +1050,17 @@ TEST(LimitTest, Gnutls){
 	// Полномочия сервера gnutls
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Номер порта сервера
-	const uint16_t number = vacant(false);
+	const uint16_t number = __nts_vacant__(false);
 	// Порт занят
 	ASSERT_NE(number, 0);
 	// Журнал сервера gnutls
 	const std::string log = "/tmp/ants-limit-gnutls-" + std::to_string(number) + ".log";
 	// Запускаем сервер с пределом 512 в режиме эха
-	ASSERT_TRUE(launch("gnutls-serv --port " + std::to_string(number) + " --x509certfile " + crt + " --x509keyfile " + key + " --echo --recordsize 512 --priority NORMAL:+VERS-TLS1.3:+VERS-TLS1.2 > " + log + " 2>&1", log, log + ".pid"));
+	ASSERT_TRUE(__nts_launch__("gnutls-serv --port " + std::to_string(number) + " --x509certfile " + crt + " --x509keyfile " + key + " --echo --recordsize 512 --priority NORMAL:+VERS-TLS1.3:+VERS-TLS1.2 > " + log + " 2>&1", log, log + ".pid"));
 	// Страж процесса
 	sentinel_t sentinel(log + ".pid");
 	// Подключаемся к серверу gnutls
-	const int own = dial(number);
+	const int own = __nts_dial__(number);
 	// Подключение установлено
 	ASSERT_GE(own, 0) << "порт " << number;
 	// Профиль с record_size_limit 16385
@@ -1079,9 +1079,9 @@ TEST(LimitTest, Gnutls){
 	 */
 	for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 		// Гоняем обмен
-		relay(client, own);
+		__nts_relay__(client, own);
 	// При отказе выводим журнал
-	if(!client.established()){ std::string journal; (void) settle(log, journal); ADD_FAILURE() << journal; }
+	if(!client.established()){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 	// Рукопожатие установлено
 	ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 	// Шлём 3000 байтов: без нарезки под 512 gnutls ответил бы record_overflow
@@ -1119,7 +1119,7 @@ TEST(LimitTest, Gnutls){
 	 */
 	for(size_t i = 0; (i < 32) && (echo.size() < message.size()); i++){
 		// Гоняем обмен
-		relay(client, own);
+		__nts_relay__(client, own);
 		// Расшифрованная порция
 		vector <uint8_t> piece;
 		// Читаем порцию
@@ -1138,6 +1138,6 @@ TEST(LimitTest, Gnutls){
 	// Буфер журнала
 	std::string journal;
 	// Собираем журнал
-	(void) settle(log, journal);
+	(void) __nts_settle__(log, journal);
 	::remove(log.c_str());
 }

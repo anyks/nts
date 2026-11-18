@@ -1288,7 +1288,7 @@ TEST(OcspTest, Request){
 	// Проверяем отказ порченого сертификата
 	ASSERT_EQ(ocsp::request(view_t(subject.data(), 30), view_t(authority.data(), authority.size()), digest::hash_t::SHA1, view_t(nullptr, 0), request), ocsp::error_t::KEY);
 	// Если openssl недоступен
-	if(shell("openssl version >/dev/null 2>&1") != 0){
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0){
 		// Пропускаем живое сличение вслух
 		GTEST_SKIP() << "openssl недоступен: запросы сличены лишь с записанными";
 	}
@@ -1297,7 +1297,7 @@ TEST(OcspTest, Request){
 	// Пути к сертификатам
 	const std::string crt = std::string(CORPUS) + "/leaf-ec.crt", issuer = std::string(CORPUS) + "/mid-ec.crt", key = std::string(CORPUS) + "/mid-ec.key";
 	// Составляем запрос openssl живьём
-	ASSERT_EQ(shell("openssl ocsp -issuer " + issuer + " -cert " + crt + " -no_nonce -reqout " + base + ".req >/dev/null 2>&1"), 0);
+	ASSERT_EQ(__nts_shell__("openssl ocsp -issuer " + issuer + " -cert " + crt + " -no_nonce -reqout " + base + ".req >/dev/null 2>&1"), 0);
 	// Проверяем составление нашего запроса
 	ASSERT_EQ(ocsp::request(view_t(subject.data(), subject.size()), view_t(authority.data(), authority.size()), digest::hash_t::SHA1, view_t(nullptr, 0), request), ocsp::error_t::NONE);
 	// Проверяем совпадение с живым запросом openssl
@@ -1307,15 +1307,15 @@ TEST(OcspTest, Request){
 	// Сохраняем наш запрос
 	ASSERT_TRUE(__nts_spill__(base + ".ours", request));
 	// Проверяем, что openssl разбирает наш запрос и видит порядковый номер
-	ASSERT_EQ(shell("(openssl ocsp -reqin " + base + ".ours -req_text -noverify 2>/dev/null | grep -q 'Serial Number: 03')"), 0);
+	ASSERT_EQ(__nts_shell__("(openssl ocsp -reqin " + base + ".ours -req_text -noverify 2>/dev/null | grep -q 'Serial Number: 03')"), 0);
 	// Проверяем, что openssl видит наше неповторимое значение
-	ASSERT_EQ(shell("(openssl ocsp -reqin " + base + ".ours -req_text -noverify 2>/dev/null | grep -qi 'nonce')"), 0);
+	ASSERT_EQ(__nts_shell__("(openssl ocsp -reqin " + base + ".ours -req_text -noverify 2>/dev/null | grep -qi 'nonce')"), 0);
 	// Если ответчик openssl не умеет задавать хеш подписи (LibreSSL без -rmd), ответ уйдёт под SHA-1, который библиотека отвергает по замыслу
-	if(shell("openssl ocsp -help 2>&1 | grep -q rmd") != 0)
+	if(__nts_shell__("openssl ocsp -help 2>&1 | grep -q rmd") != 0)
 		// Пропускаем обмен ответом: чужой ответчик негоден, а не наш разбор
 		GTEST_SKIP() << "openssl ocsp без -rmd подписывает ответ SHA-1";
 	// Вырабатываем ответ openssl на наш запрос
-	ASSERT_EQ(shell("openssl ocsp -index " + std::string(CORPUS) + "/ocsp/index-good.txt -rmd sha256 -rsigner " + issuer + " -rkey " + key + " -CA " + issuer + " -reqin " + base + ".ours -respout " + base + ".resp -ndays 30 >/dev/null 2>&1"), 0);
+	ASSERT_EQ(__nts_shell__("openssl ocsp -index " + std::string(CORPUS) + "/ocsp/index-good.txt -rmd sha256 -rsigner " + issuer + " -rkey " + key + " -CA " + issuer + " -reqin " + base + ".ours -respout " + base + ".resp -ndays 30 >/dev/null 2>&1"), 0);
 	// Читаем ответ openssl
 	const vector <uint8_t> answer = slurp(base + ".resp");
 	// Проверяем чтение ответа
@@ -2241,7 +2241,7 @@ TEST(OcspTest, Refusals){
  */
 TEST(OcspTest, Openssl){
 	// Способности системного openssl, снятые щупами
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -2253,7 +2253,7 @@ TEST(OcspTest, Openssl){
 		GTEST_SKIP() << "openssl без TLS 1.3";
 	}
 	// Если openssl собран без OCSP
-	if(shell("(openssl list -disabled 2>/dev/null | grep -qi '^OCSP$')") == 0){
+	if(__nts_shell__("(openssl list -disabled 2>/dev/null | grep -qi '^OCSP$')") == 0){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl собран без OCSP";
 	}
@@ -2274,20 +2274,20 @@ TEST(OcspTest, Openssl){
 	 * Ключ сшивки у s_server: с 3.2 ответы из файлов сличаются с цепочкой ключом -status_all,
 	 * а -status у него шлёт ответ лишь по своему устройству; у старых сборок есть один -status
 	 */
-	const std::string stapling = (listed("s_server", "status_all") ? "-status_all" : "-status");
+	const std::string stapling = (__nts_listed__("s_server", "status_all") ? "-status_all" : "-status");
 	{
 		// Свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем наличие порта
 		ASSERT_NE(number, 0);
 		// Журнал сервера openssl
 		const std::string log = "/tmp/ants-ocsp-server-" + std::to_string(number) + ".log";
 		// Запускаем сервер openssl со сшивкой ответа из файла
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -cert_chain " + chain + " " + stapling + " -status_file " + resp + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -cert_chain " + chain + " " + stapling + " -status_file " + resp + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int own = dial(number);
+		const int own = __nts_dial__(number);
 		// Проверяем подключение
 		ASSERT_GE(own, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -2313,7 +2313,7 @@ TEST(OcspTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, own);
+			__nts_relay__(client, own);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем цепочку сервера у клиента: s_server шлёт лист и следом цепочку с листом ещё раз
@@ -2333,7 +2333,7 @@ TEST(OcspTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 16) && reply.empty(); i++){
 			// Передаём байты
-			relay(client, own);
+			__nts_relay__(client, own);
 			// Читаем принятые данные
 			ASSERT_EQ(client.read(reply), context::error_t::NONE);
 		}
@@ -2346,7 +2346,7 @@ TEST(OcspTest, Openssl){
 		// Журнал сервера
 		std::string journal;
 		// Дожидаемся отметки завершения снятого сервера
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
@@ -2354,17 +2354,17 @@ TEST(OcspTest, Openssl){
 		// Порт сервера
 		uint16_t number = 0;
 		// Слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем сокет
 		ASSERT_GE(listener, 0);
 		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-ocsp-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента openssl с запросом состояния
-		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -status -CAfile " + root + " -servername test.anyks.com </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -status -CAfile " + root + " -servername test.anyks.com </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int own = greeted(listener);
+		const int own = __nts_greeted__(listener);
 		// Проверяем подключение
 		ASSERT_GE(own, 0);
 		// Связь стороны сервера
@@ -2382,13 +2382,13 @@ TEST(OcspTest, Openssl){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		const bool complete = serve(server, own);
+		const bool complete = __nts_serve__(server, own);
 		// Проверяем, что рукопожатие дошло до конца
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем, что отказа не было
 		ASSERT_EQ(server.error(), context::error_t::NONE);
 		// Закрываем связь, коли она ещё открыта
-		ASSERT_TRUE(farewell(server, own));
+		ASSERT_TRUE(__nts_farewell__(server, own));
 		// Закрываем сокет
 		closing(own);
 		// Закрываем слушающий сокет
@@ -2396,7 +2396,7 @@ TEST(OcspTest, Openssl){
 		// Содержимое журнала
 		std::string text;
 		// Клиент обязан завершиться
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Проверяем, что клиент openssl получил сшитый ответ
 		ASSERT_NE(text.find("OCSP Response Data"), std::string::npos) << text;
 		// Проверяем состояние в выводе клиента openssl

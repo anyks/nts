@@ -102,7 +102,7 @@ namespace {
 	 * @return        код ответа команды
 	 *
 	 */
-	static int shell(const std::string & command) noexcept {
+	static int __nts_shell__(const std::string & command) noexcept {
 		// Запускаем команды с пустым входом
 		return ::system((command + " </dev/null").c_str());
 	}
@@ -163,7 +163,7 @@ namespace {
 			// Если песочница заведена
 			if(!this->_path.empty())
 				// Убираем песочницу
-				(void) shell((std::string("rm -rf ") + this->_path).c_str());
+				(void) __nts_shell__((std::string("rm -rf ") + this->_path).c_str());
 		}
 	} sandbox_t;
 	/**
@@ -208,7 +208,7 @@ namespace {
 		// Дописываем адрес запроса
 		command += " " + url;
 		// Выполняем запрос
-		if(shell(command + " >/dev/null 2>&1") != 0)
+		if(__nts_shell__(command + " >/dev/null 2>&1") != 0)
 			// Выводим отказ запроса
 			return false;
 		// Читаем заголовки ответа
@@ -335,7 +335,7 @@ namespace {
  */
 TEST(AcmeInteropTest, Pebble) {
 	// Если эталонный сервер недоступен: проверка пропускается
-	if(shell(std::string("curl -sk --max-time 3 ") + PEBBLE + " >/dev/null 2>&1") != 0)
+	if(__nts_shell__(std::string("curl -sk --max-time 3 ") + PEBBLE + " >/dev/null 2>&1") != 0)
 		// Пропускаем: эталонный сервер Pebble недоступен
 		GTEST_SKIP() << "Сервер Pebble недоступен по адресу " << PEBBLE;
 	// Заводим песочницу файлов проверки

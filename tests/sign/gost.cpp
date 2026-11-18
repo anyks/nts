@@ -363,7 +363,7 @@ TEST(GostTest, Failures) {
  * @return        код возврата команды
  *
  */
-static int shell(const std::string & command) {
+static int __nts_shell__(const std::string & command) {
 	// Запускаем команду с пустым входом
 	return ::system((command + " </dev/null").c_str());
 }
@@ -855,11 +855,11 @@ TEST(GostTest, GenerateKeys) {
  */
 TEST(GostTest, GenerateOpenssl) {
 	// Если системного openssl нет, сличать не с чем
-	if(shell("openssl version >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 		// Объявляем пропуск проверки вслух
 		GTEST_SKIP() << "Системный openssl не найден";
 	// Если системный openssl не умеет ключей ГОСТ, читать записи некому
-	if(shell("openssl list -public-key-algorithms 2>/dev/null | grep -qi gost") != 0)
+	if(__nts_shell__("openssl list -public-key-algorithms 2>/dev/null | grep -qi gost") != 0)
 		// Объявляем пропуск проверки вслух
 		GTEST_SKIP() << "Системный openssl без ГОСТ: движок gost не подключён";
 	// Заготовка имени каталога временных файлов
@@ -897,11 +897,11 @@ TEST(GostTest, GenerateOpenssl) {
 		ASSERT_TRUE(std::ofstream(priv) << secret) << "Кривая: " << set[0];
 		ASSERT_TRUE(std::ofstream(opened) << pub) << "Кривая: " << set[0];
 		// Системный openssl читает секретный ключ
-		ASSERT_EQ(shell((std::string("openssl pkey -in ") + priv + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << set[0];
+		ASSERT_EQ(__nts_shell__((std::string("openssl pkey -in ") + priv + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << set[0];
 		// Системный openssl читает открытый ключ
-		ASSERT_EQ(shell((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << set[0];
+		ASSERT_EQ(__nts_shell__((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << set[0];
 		// Системный openssl выводит открытый ключ из секретного
-		ASSERT_EQ(shell((std::string("openssl pkey -in ") + priv + " -pubout -out " + derived + " 2>/dev/null").c_str()), 0) << "Кривая: " << set[0];
+		ASSERT_EQ(__nts_shell__((std::string("openssl pkey -in ") + priv + " -pubout -out " + derived + " 2>/dev/null").c_str()), 0) << "Кривая: " << set[0];
 		// Разобранный выведенный openssl открытый ключ
 		keys::key_t foreign;
 		// Разбираем выведенный openssl открытый ключ
@@ -910,5 +910,5 @@ TEST(GostTest, GenerateOpenssl) {
 		ASSERT_TRUE((foreign.x == key.x) && (foreign.y == key.y)) << "Кривая: " << set[0];
 	}
 	// Убираем каталог временных файлов
-	ASSERT_EQ(shell((std::string("rm -rf ") + directory).c_str()), 0);
+	ASSERT_EQ(__nts_shell__((std::string("rm -rf ") + directory).c_str()), 0);
 }

@@ -730,14 +730,14 @@ TEST(NpnTest, Refusals){
  */
 TEST(NpnTest, Openssl){
 	// Запрашиваем сведения о внешнем эталоне
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем наличие внешнего эталона
 	if(!toolkit.present){
 		// Пропускаем проверку при недоступности эталона
 		GTEST_SKIP() << "openssl недоступен";
 	}
 	// Проверяем наличие выработки у команд эталона
-	if(!listed("s_server", "nextprotoneg") || !listed("s_client", "nextprotoneg")){
+	if(!__nts_listed__("s_server", "nextprotoneg") || !__nts_listed__("s_client", "nextprotoneg")){
 		// Пропускаем проверку при отсутствии выработки у эталона
 		GTEST_SKIP() << "openssl собран без NPN";
 	}
@@ -754,17 +754,17 @@ TEST(NpnTest, Openssl){
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
 		// Занимаем свободный порт проверки
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем, что порт занят
 		ASSERT_NE(number, 0);
 		// Объявляем путь к журналу сервера эталона
 		const std::string log = "/tmp/ants-npn-server-" + std::to_string(number) + ".log";
 		// Запускаем внешний сервер с выработкой протоколов
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_2 -cert " + crt + " -key " + key + " -nextprotoneg spdy/3,http/1.1 -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_2 -cert " + crt + " -key " + key + " -nextprotoneg spdy/3,http/1.1 -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Объявляем стража остановки сервера
 		sentinel_t sentinel(log + ".pid");
 		// Соединяемся с портом внешнего сервера
-		const int fd = dial(number);
+		const int fd = __nts_dial__(number);
 		// Проверяем установление соединения
 		ASSERT_GE(fd, 0) << "порт " << number;
 		// Объявляем связь клиента
@@ -784,9 +784,9 @@ TEST(NpnTest, Openssl){
 		/** Повторяем: передачу байтов, пока связь не установится и не сорвётся */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между клиентом и сервером
-			relay(client, fd);
+			__nts_relay__(client, fd);
 		// Фиксируем неудачу со снимком журнала при несостоявшейся связи
-		if(!client.established()){ std::string journal; (void) settle(log, journal); ADD_FAILURE() << journal; }
+		if(!client.established()){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 		// Проверяем установление связи клиентом
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// s_server без -alpn ведёт лишь NPN: выбор своим порядком среди объявленных - http/1.1 раньше spdy/3
@@ -802,7 +802,7 @@ TEST(NpnTest, Openssl){
 		/** Повторяем: чтение ответа, пока накопитель не получит данные */
 		for(size_t i = 0; (i < 16) && reply.empty(); i++){
 			// Передаём байты между клиентом и сервером
-			relay(client, fd);
+			__nts_relay__(client, fd);
 			// Считываем ответ внешнего сервера
 			ASSERT_EQ(client.read(reply), context::error_t::NONE);
 		}
@@ -815,24 +815,24 @@ TEST(NpnTest, Openssl){
 		// Объявляем накопитель журнала сервера
 		std::string journal;
 		// Дожидаемся остановки сервера и снимаем журнал
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		::remove(log.c_str());
 	}
 	{
 		// Объявляем номер порта проверки
 		uint16_t number = 0;
 		// Открываем ловца соединений на свободном порту
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем открытие ловца соединений
 		ASSERT_GE(listener, 0);
 		// Объявляем путь к журналу клиента эталона
 		const std::string log = "/tmp/ants-npn-client-" + std::to_string(number) + ".log";
 		// Запускаем внешнего клиента с выработкой протоколов
-		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2 -nextprotoneg spdy/3,http/1.1 -CAfile " + crt + " -servername localhost </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2 -nextprotoneg spdy/3,http/1.1 -CAfile " + crt + " -servername localhost </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Объявляем стража остановки клиента
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем соединение от внешнего клиента
-		const int fd = greeted(listener);
+		const int fd = __nts_greeted__(listener);
 		// Проверяем принятие соединения
 		ASSERT_GE(fd, 0);
 		// Объявляем связь сервера
@@ -852,7 +852,7 @@ TEST(NpnTest, Openssl){
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Обслуживаем внешнего клиента до завершения связи
-		const bool complete = serve(server, fd);
+		const bool complete = __nts_serve__(server, fd);
 		// Проверяем бесконфликтное обслуживание клиента
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 		// Проверяем отсутствие ошибки у сервера
@@ -862,14 +862,14 @@ TEST(NpnTest, Openssl){
 		// Проверяем протокол, выбранный клиентом эталона
 		EXPECT_EQ(server.protocol(), "http/1.1");
 		// Завершаем связь с внешним клиентом
-		ASSERT_TRUE(farewell(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, fd));
 		// Закрываем соединение с клиентом
 		closing(fd);
 		closing(listener);
 		// Объявляем накопитель журнала клиента
 		std::string text;
 		// Дожидаемся остановки клиента и снимаем журнал
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Проверяем выбранный протокол в журнале эталона
 		EXPECT_NE(text.find("Next protocol: (1) http/1.1"), std::string::npos) << text;
 		::remove(log.c_str());

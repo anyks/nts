@@ -358,7 +358,7 @@ namespace {
 			// Выводим путь
 			return std::string(given);
 		// Если инструмент в пути поиска
-		if(shell("command -v bssl >/dev/null 2>&1") == 0)
+		if(__nts_shell__("command -v bssl >/dev/null 2>&1") == 0)
 			// Выводим имя
 			return std::string("bssl");
 		// Выводим отсутствие
@@ -1381,17 +1381,17 @@ TEST(EchTest, Boringssl2){
 	const std::string echkey = std::string(CORPUS) + "/ech/bssl.key", echconfig = std::string(CORPUS) + "/ech/bssl.config", echlist = std::string(CORPUS) + "/ech/bssl.list";
 	{
 		// Свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем порт
 		ASSERT_NE(number, 0);
 		// Журнал сервера bssl
 		const std::string log = "/tmp/ants-ech-bssl-server-" + std::to_string(number) + ".log";
 		// Запускаем сервер bssl с ключом ECH и ответом HTTP
-		ASSERT_TRUE(launch(tool + " server -accept " + std::to_string(number) + " -cert " + crt + " -key " + key + " -ech-key " + echkey + " -ech-config " + echconfig + " -www </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__(tool + " server -accept " + std::to_string(number) + " -cert " + crt + " -key " + key + " -ech-key " + echkey + " -ech-config " + echconfig + " -www </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож сервера
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int own = dial(number);
+		const int own = __nts_dial__(number);
 		// Проверяем подключение
 		ASSERT_GE(own, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -1407,7 +1407,7 @@ TEST(EchTest, Boringssl2){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём поток серверу openssl
-			relay(client, own);
+			__nts_relay__(client, own);
 		// Связь установлена с принятым ECH
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем сокрытие приветствия
@@ -1423,7 +1423,7 @@ TEST(EchTest, Boringssl2){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём поток серверу openssl
-			relay(client, own);
+			__nts_relay__(client, own);
 			// Читаем прикладной ответ клиентом
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1440,7 +1440,7 @@ TEST(EchTest, Boringssl2){
 		// Журнал завершившегося сервера
 		std::string journal;
 		// Дожидаемся завершения
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
@@ -1448,17 +1448,17 @@ TEST(EchTest, Boringssl2){
 		// Порт своего сервера
 		uint16_t number = 0;
 		// Слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем сокет
 		ASSERT_GE(listener, 0);
 		// Журнал клиента bssl
 		const std::string log = "/tmp/ants-ech-bssl-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента bssl с перечнем конфигураций и тайным именем
-		ASSERT_TRUE(launch("printf 'GET / HTTP/1.0\\r\\n\\r\\n' | " + tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -ech-config-list " + echlist + " -server-name secret.example >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("printf 'GET / HTTP/1.0\\r\\n\\r\\n' | " + tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -ech-config-list " + echlist + " -server-name secret.example >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож клиента
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int own = greeted(listener);
+		const int own = __nts_greeted__(listener);
 		// Проверяем подключение
 		ASSERT_GE(own, 0);
 		// Связь стороны сервера
@@ -1476,7 +1476,7 @@ TEST(EchTest, Boringssl2){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		const bool complete = serve(server, own);
+		const bool complete = __nts_serve__(server, own);
 		// Рукопожатие сошлось с принятым ECH
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем сокрытие приветствия
@@ -1484,14 +1484,14 @@ TEST(EchTest, Boringssl2){
 		// Проверяем составление имени
 		EXPECT_EQ(server.name(), "secret.example");
 		// Закрываем связь
-		ASSERT_TRUE(farewell(server, own));
+		ASSERT_TRUE(__nts_farewell__(server, own));
 		// Закрываем сокеты
 		closing(own);
 		closing(listener);
 		// Текст журнала клиента
 		std::string text;
 		// Клиент обязан завершиться
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Клиент BoringSSL подтверждает принятие ECH
 		EXPECT_NE(text.find("Encrypted ClientHello: yes"), std::string::npos) << text;
 		// Удаляем журнал
@@ -1515,7 +1515,7 @@ TEST(EchTest, Openssl){
 	// Имя двоичного файла openssl 4.0
 	const std::string tool(given);
 	// Если ключи ECH у подкоманд не найдены
-	if((shell("(" + tool + " s_server -help 2>&1 | grep -q '[-]ech_key') >/dev/null 2>&1") != 0) || (shell("(" + tool + " s_client -help 2>&1 | grep -q '[-]ech_config_list') >/dev/null 2>&1") != 0)){
+	if((__nts_shell__("(" + tool + " s_server -help 2>&1 | grep -q '[-]ech_key') >/dev/null 2>&1") != 0) || (__nts_shell__("(" + tool + " s_client -help 2>&1 | grep -q '[-]ech_config_list') >/dev/null 2>&1") != 0)){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl без ECH (ключи -ech_key и -ech_config_list)";
 	}
@@ -1559,17 +1559,17 @@ TEST(EchTest, Openssl){
 	const std::string echpem = std::string(CORPUS) + "/ech/ossl.pem";
 	{
 		// Свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем порт
 		ASSERT_NE(number, 0);
 		// Журнал сервера openssl
 		const std::string log = "/tmp/ants-ech-ossl-server-" + std::to_string(number) + ".log";
 		// Запускаем сервер openssl с ключом ECH и ответом HTTP
-		ASSERT_TRUE(launch(tool + " s_server -accept 127.0.0.1:" + std::to_string(number) + " -cert " + crt + " -key " + pem + " -ech_key " + echpem + " -www -naccept 1 </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__(tool + " s_server -accept 127.0.0.1:" + std::to_string(number) + " -cert " + crt + " -key " + pem + " -ech_key " + echpem + " -www -naccept 1 </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож сервера
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int own = dial(number);
+		const int own = __nts_dial__(number);
 		// Проверяем подключение
 		ASSERT_GE(own, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -1585,7 +1585,7 @@ TEST(EchTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём поток серверу openssl
-			relay(client, own);
+			__nts_relay__(client, own);
 		// Связь установлена с принятым ECH
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем сокрытие приветствия
@@ -1601,7 +1601,7 @@ TEST(EchTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём поток серверу openssl
-			relay(client, own);
+			__nts_relay__(client, own);
 			// Читаем прикладной ответ клиентом
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1616,7 +1616,7 @@ TEST(EchTest, Openssl){
 		// Журнал завершившегося сервера
 		std::string journal;
 		// Дожидаемся завершения
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
@@ -1639,24 +1639,24 @@ TEST(EchTest, Openssl){
 		// Порт своего сервера
 		uint16_t number = 0;
 		// Слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем сокет
 		ASSERT_GE(listener, 0);
 		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-ech-ossl-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента openssl с перечнем конфигураций и тайным именем: издание ограничено 1.3,
 		// иначе клиент предлагает во внутреннем приветствии и 1.2, что раздел 6.1 RFC 9849 запрещает
-		ASSERT_TRUE(launch("printf 'GET / HTTP/1.0\\r\\n\\r\\n' | " + tool + " s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -ech_config_list " + echlist + " -servername secret.example -CAfile " + crt + " >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("printf 'GET / HTTP/1.0\\r\\n\\r\\n' | " + tool + " s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -ech_config_list " + echlist + " -servername secret.example -CAfile " + crt + " >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож клиента
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int own = greeted(listener);
+		const int own = __nts_greeted__(listener);
 		// Проверяем подключение
 		ASSERT_GE(own, 0);
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		const bool complete = serve(server, own);
+		const bool complete = __nts_serve__(server, own);
 		// Рукопожатие сошлось с принятым ECH
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем сокрытие приветствия
@@ -1664,14 +1664,14 @@ TEST(EchTest, Openssl){
 		// Проверяем составление имени
 		EXPECT_EQ(server.name(), "secret.example");
 		// Закрываем связь
-		ASSERT_TRUE(farewell(server, own));
+		ASSERT_TRUE(__nts_farewell__(server, own));
 		// Закрываем сокеты
 		closing(own);
 		closing(listener);
 		// Текст журнала клиента
 		std::string text;
 		// Клиент обязан завершиться
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Клиент openssl подтверждает принятие ECH и тайное имя
 		EXPECT_NE(text.find("ECH: success: 1"), std::string::npos) << text;
 		EXPECT_NE(text.find("ECH: inner: secret.example"), std::string::npos) << text;
@@ -2062,13 +2062,13 @@ TEST(EchTest, Boringssl3){
 	// Заводим номер порта
 	uint16_t number = 0;
 	// Заводим слушающий сокет
-	const int listener = harbour(number);
+	const int listener = __nts_harbour__(number);
 	// Проверяем, что полученное значение не меньше ожидаемого
 	ASSERT_GE(listener, 0);
 	// Задаём путь журнала прогона
 	const std::string log = "/tmp/ants-ech-bssl-resume-" + std::to_string(number) + ".log";
 	// Проверяем составление имени
-	ASSERT_TRUE(launch(tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -ech-config-list " + echlist + " -server-name secret.example -test-resumption </dev/null >" + log + " 2>&1", log, log + ".pid"));
+	ASSERT_TRUE(__nts_launch__(tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -ech-config-list " + echlist + " -server-name secret.example -test-resumption </dev/null >" + log + " 2>&1", log, log + ".pid"));
 	// Запускаем страж внешнего процесса
 	sentinel_t sentinel(log + ".pid");
 	// Объявляем подлинность стороны
@@ -2082,7 +2082,7 @@ TEST(EchTest, Boringssl3){
 	 */
 	for(size_t round = 0; round < 2; round++){
 		// Принимаем подключение инструмента
-		const int own = greeted(listener);
+		const int own = __nts_greeted__(listener);
 		// Проверяем, что полученное значение не меньше ожидаемого
 		ASSERT_GE(own, 0) << "связь " << round;
 		// Создаём контекст сервера
@@ -2098,7 +2098,7 @@ TEST(EchTest, Boringssl3){
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Проверяем итоговую ошибку
-		ASSERT_TRUE(serve(server, own)) << "связь " << round << " отказ " << static_cast <int> (server.error());
+		ASSERT_TRUE(__nts_serve__(server, own)) << "связь " << round << " отказ " << static_cast <int> (server.error());
 		// Проверяем сокрытие приветствия
 		EXPECT_TRUE(server.shrouded()) << "связь " << round;
 		// Проверяем составление имени
@@ -2128,7 +2128,7 @@ TEST(EchTest, Boringssl3){
 			// Проверяем получение общего секрета
 			EXPECT_TRUE(server.shared());
 			// Проверяем обслуживание подключения
-			ASSERT_TRUE(farewell(server, own));
+			ASSERT_TRUE(__nts_farewell__(server, own));
 		}
 		// Закрываем соединение
 		closing(own);
@@ -2138,7 +2138,7 @@ TEST(EchTest, Boringssl3){
 	// Объявляем строку
 	std::string text;
 	// Проверяем снятие журнала процесса
-	ASSERT_TRUE(settle(log, text)) << text;
+	ASSERT_TRUE(__nts_settle__(log, text)) << text;
 	// Проверяем несовпадение полученного значения с ожидаемым
 	EXPECT_NE(text.find("Encrypted ClientHello: yes"), std::string::npos) << text;
 	EXPECT_NE(text.find("Resumed session: yes"), std::string::npos) << text;

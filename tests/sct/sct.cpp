@@ -718,7 +718,7 @@ TEST(SctTest, Refusals){
  */
 TEST(SctTest, Openssl){
 	// Сводка о системном openssl
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем доступность openssl
 	if(!toolkit.present){
 		// Пропускаем проверку без openssl
@@ -730,7 +730,7 @@ TEST(SctTest, Openssl){
 		GTEST_SKIP() << "openssl без TLS 1.3";
 	}
 	// Проверяем наличие ключа ct у s_client
-	if(!listed("s_client", "ct")){
+	if(!__nts_listed__("s_client", "ct")){
 		// Пропускаем проверку без ключа ct
 		GTEST_SKIP() << "openssl без ключа -ct (собран без CT)";
 	}
@@ -743,7 +743,7 @@ TEST(SctTest, Openssl){
 	// Номер порта прослушки
 	uint16_t number = 0;
 	// Открываем прослушку на местном адресе
-	const int listener = harbour(number);
+	const int listener = __nts_harbour__(number);
 	// Проверяем успех открытия
 	ASSERT_GE(listener, 0);
 	// Путь к журналу вывода s_client
@@ -754,8 +754,8 @@ TEST(SctTest, Openssl){
 	 * отчитывается о них как о непроверенных
 	 */
 	const std::string logs = "/tmp/ants-sct-ctlog-" + std::to_string(number) + ".conf", pubkey = logs + ".key";
-	// Конвейер целиком в подоболочке: shell() перенаправляет ввод последнего звена из /dev/null
-	ASSERT_EQ(shell("(openssl ecparam -name prime256v1 -genkey -noout 2>/dev/null | openssl ec -pubout -outform DER 2>/dev/null | openssl base64 -A) > " + pubkey), 0);
+	// Конвейер целиком в подоболочке: __nts_shell__() перенаправляет ввод последнего звена из /dev/null
+	ASSERT_EQ(__nts_shell__("(openssl ecparam -name prime256v1 -genkey -noout 2>/dev/null | openssl ec -pubout -outform DER 2>/dev/null | openssl base64 -A) > " + pubkey), 0);
 	{
 		// Поток чтения ключа журнала
 		std::ifstream reader(pubkey);
@@ -769,11 +769,11 @@ TEST(SctTest, Openssl){
 		writer << "enabled_logs = ants\n[ants]\ndescription = A-NTS test log\nkey = " << encoded << "\n";
 	}
 	// Порождаем ключ журнала и запускаем s_client
-	ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -ct -ctlogfile " + logs + " -CAfile " + root + " -servername test.anyks.com </dev/null >" + log + " 2>&1", log, log + ".pid"));
+	ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -ct -ctlogfile " + logs + " -CAfile " + root + " -servername test.anyks.com </dev/null >" + log + " 2>&1", log, log + ".pid"));
 	// Страж завершения s_client
 	sentinel_t sentinel(log + ".pid");
 	// Принимаем подключение на прослушке
-	const int fd = greeted(listener);
+	const int fd = __nts_greeted__(listener);
 	// Проверяем успех принятия
 	ASSERT_GE(fd, 0);
 	// Связь стороны сервера
@@ -791,20 +791,20 @@ TEST(SctTest, Openssl){
 	// Запускаем сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Обслуживаем подключение
-	const bool complete = serve(server, fd);
+	const bool complete = __nts_serve__(server, fd);
 	// Проверяем полноту обслуживания
 	ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 	// Проверяем чистоту завершения сервера
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	// Проверяем корректное завершение сервером
-	ASSERT_TRUE(farewell(server, fd));
+	ASSERT_TRUE(__nts_farewell__(server, fd));
 	// Закрываем подключение
 	closing(fd);
 	closing(listener);
 	// Текст журнала вывода
 	std::string text;
 	// Дожидаемся вывода s_client
-	ASSERT_TRUE(settle(log, text)) << text;
+	ASSERT_TRUE(__nts_settle__(log, text)) << text;
 	// s_client -ct печатает принятые метки: заголовок SCT validation и по записи на метку
 	EXPECT_NE(text.find("SCT validation status"), std::string::npos) << text;
 	EXPECT_NE(text.find("Signed Certificate Timestamp"), std::string::npos) << text;

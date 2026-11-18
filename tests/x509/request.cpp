@@ -68,7 +68,7 @@ namespace {
 	 * @return        код возврата команды
 	 *
 	 */
-	static int shell(const std::string & command) noexcept {
+	static int __nts_shell__(const std::string & command) noexcept {
 		// Запускаем команды с пустым входом
 		return ::system((command + " </dev/null").c_str());
 	}
@@ -206,7 +206,7 @@ namespace {
 				// Если каталог создан
 				if(!this->_path.empty())
 					// Удаляем каталог со всем содержимым
-					(void) shell((std::string("rm -rf ") + this->_path).c_str());
+					(void) __nts_shell__((std::string("rm -rf ") + this->_path).c_str());
 			}
 	} sandbox_t;
 	/**
@@ -424,7 +424,7 @@ TEST(RequestTest, Starved){
  */
 TEST(RequestTest, Openssl){
 	// Если openssl недоступен
-	if(shell("openssl version >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 		// Пропускаем проверку без системного эталона
 		GTEST_SKIP() << "openssl недоступен";
 	// Временный каталог
@@ -458,7 +458,7 @@ TEST(RequestTest, Openssl){
 		// Проверяем запись файла запроса
 		ASSERT_TRUE(spill(path, encoded)) << "Запрос: " << names[i];
 		// Проверяем, что openssl принимает записанный запрос и подтверждает его подпись
-		ASSERT_EQ(shell(std::string("openssl req -in ") + path + " -inform DER -verify -noout >/dev/null 2>&1"), 0) << "Запрос: " << names[i];
+		ASSERT_EQ(__nts_shell__(std::string("openssl req -in ") + path + " -inform DER -verify -noout >/dev/null 2>&1"), 0) << "Запрос: " << names[i];
 	}
 }
 

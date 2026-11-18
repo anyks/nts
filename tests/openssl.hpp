@@ -91,7 +91,7 @@ namespace {
 	 * @return        код возврата команды
 	 *
 	 */
-	inline int shell(const std::string & command) noexcept {
+	inline int __nts_shell__(const std::string & command) noexcept {
 		// Запускаем команду с пустым входом
 		return ::system((command + " </dev/null").c_str());
 	}
@@ -167,7 +167,7 @@ namespace {
 	 * @return        признак успешности запуска
 	 *
 	 */
-	inline bool launch(const std::string & command, const std::string & log, const std::string & path, const std::string & holder) noexcept {
+	inline bool __nts_launch__(const std::string & command, const std::string & log, const std::string & path, const std::string & holder) noexcept {
 		/**
 		 * Держатель входа: подоболочка открывает именованный канал на запись и держит его до
 		 * конца команды - вход команды не кончается, пока она жива, и никаких пауз по времени
@@ -190,9 +190,9 @@ namespace {
 	 * @return        признак успешности запуска
 	 *
 	 */
-	inline bool launch(const std::string & command, const std::string & log, const std::string & path) noexcept {
+	inline bool __nts_launch__(const std::string & command, const std::string & log, const std::string & path) noexcept {
 		// Запускаем команду без держателя входа
-		return launch(command, log, path, std::string());
+		return __nts_launch__(command, log, path, std::string());
 	}
 	/**
 	 * @brief Функция ожидания строки в журнале openssl
@@ -204,7 +204,7 @@ namespace {
 	 * @return      признак того, что строка дождалась
 	 *
 	 */
-	inline bool awaited(const std::string & log, const std::string & mark, std::string & text, const size_t limit) noexcept {
+	inline bool __nts_awaited__(const std::string & log, const std::string & mark, std::string & text, const size_t limit) noexcept {
 		// Признак того, что строка найдена
 		bool found = false;
 		/**
@@ -235,9 +235,9 @@ namespace {
 	 * @return     признак того, что строка дождалась
 	 *
 	 */
-	inline bool awaited(const std::string & log, const std::string & mark, std::string & text) noexcept {
+	inline bool __nts_awaited__(const std::string & log, const std::string & mark, std::string & text) noexcept {
 		// Ждём строку сроком в тридцать секунд
-		return awaited(log, mark, text, 300);
+		return __nts_awaited__(log, mark, text, 300);
 	}
 	/**
 	 * @brief Функция ожидания отметки завершения в журнале openssl
@@ -247,9 +247,9 @@ namespace {
 	 * @return     признак того, что отметка дождалась
 	 *
 	 */
-	inline bool settle(const std::string & log, std::string & text) noexcept {
+	inline bool __nts_settle__(const std::string & log, std::string & text) noexcept {
 		// Ждём отметку завершения сроком в шестьдесят секунд
-		return awaited(log, "ANTS-DONE", text, 600);
+		return __nts_awaited__(log, "ANTS-DONE", text, 600);
 	}
 	/**
 	 * @brief Функция получения свободного порта на петлевом устройстве
@@ -263,7 +263,7 @@ namespace {
 	 * @return         свободный порт либо ноль
 	 *
 	 */
-	inline uint16_t vacant(const bool datagram) noexcept {
+	inline uint16_t __nts_vacant__(const bool datagram) noexcept {
 		// Порты, выданные за жизнь процесса
 		static std::vector <uint16_t> issued;
 		/**
@@ -271,9 +271,9 @@ namespace {
 		 */
 		for(size_t attempt = 0; attempt < 16; attempt++){
 			// Заводим сокет для розыска свободного порта
-			const int fd = ::socket(AF_INET, (datagram ? SOCK_DGRAM : SOCK_STREAM), 0);
+			const int own = ::socket(AF_INET, (datagram ? SOCK_DGRAM : SOCK_STREAM), 0);
 			// Если сокет завести не удалось
-			if(fd < 0)
+			if(own < 0)
 				// Выводим отсутствие порта
 				return 0;
 			// Адрес привязки на петлевом устройстве
@@ -291,11 +291,11 @@ namespace {
 			// Длина адреса привязки
 			socklen_t length = sizeof(address);
 			// Если привязка и чтение адреса удались
-			if((::bind(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) == 0) && (::getsockname(fd, reinterpret_cast <struct sockaddr *> (&address), &length) == 0))
+			if((::bind(own, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) == 0) && (::getsockname(own, reinterpret_cast <struct sockaddr *> (&address), &length) == 0))
 				// Запоминаем назначенный системой порт
 				result = ntohs(address.sin_port);
 			// Закрываем сокет розыска порта
-			closing(fd);
+			closing(own);
 			// Если порта нет
 			if(result == 0)
 				// Выводим отсутствие порта
@@ -326,7 +326,7 @@ namespace {
 	 * @return       описатель подключённого сокета либо отрицательное число
 	 *
 	 */
-	inline int dial(const uint16_t number) noexcept {
+	inline int __nts_dial__(const uint16_t number) noexcept {
 		/**
 		 * Выполняем попытки подключения, пока сервер поднимается
 		 */
@@ -337,9 +337,9 @@ namespace {
 			 */
 			for(size_t family = 0; family < 2; family++){
 				// Заводим сокет подключения
-				const int fd = ::socket(((family == 0) ? AF_INET : AF_INET6), SOCK_STREAM, 0);
+				const int own = ::socket(((family == 0) ? AF_INET : AF_INET6), SOCK_STREAM, 0);
 				// Если сокет завести не удалось
-				if(fd < 0)
+				if(own < 0)
 					// Переходим к следующему семейству
 					continue;
 				// Адрес подключения на петлевом устройстве IPv4
@@ -367,14 +367,14 @@ namespace {
 				// Длина адреса подключения выбранного семейства
 				const socklen_t length = ((family == 0) ? static_cast <socklen_t> (sizeof(address4)) : static_cast <socklen_t> (sizeof(address6)));
 				// Если подключение удалось
-				if(::connect(fd, address, length) == 0){
+				if(::connect(own, address, length) == 0){
 					// Предел ожидания приёма: зависание собеседника не должно вешать проверку
-					patience(fd, 60, 0);
+					patience(own, 60, 0);
 					// Выводим описатель подключённого сокета
-					return fd;
+					return own;
 				}
 				// Закрываем сокет неудавшегося подключения
-				closing(fd);
+				closing(own);
 			}
 			// Ждём подъёма сервера
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -386,11 +386,11 @@ namespace {
 	 * @brief Функция передачи байтов между связью клиента и сокетом
 	 *
 	 * @param client связь стороны клиента
-	 * @param fd     описатель сокета
+	 * @param own     описатель сокета
 	 * @return       признак того, что байты передавались
 	 *
 	 */
-	inline bool relay(client::context_t & client, const int fd) noexcept {
+	inline bool __nts_relay__(client::context_t & client, const int own) noexcept {
 		// Признак того, что байты передавались
 		bool moved = false;
 		// Получаем байты, отправляемые клиентом
@@ -398,7 +398,7 @@ namespace {
 		// Если клиенту есть что отправить
 		if(data.size > 0){
 			// Отправляем байты в сокет
-			const ssize_t sent = sending(fd, data.data, data.size);
+			const ssize_t sent = sending(own, data.data, data.size);
 			// Если отправка не удалась
 			if(sent <= 0)
 				// Выводим отсутствие передачи
@@ -411,7 +411,7 @@ namespace {
 		// Место, в которое помещаются принятые байты
 		uint8_t buffer[16384];
 		// Принимаем байты из сокета с ожиданием
-		const ssize_t received = receiving(fd, buffer, sizeof(buffer));
+		const ssize_t received = receiving(own, buffer, sizeof(buffer));
 		// Если байты приняты
 		if(received > 0){
 			// Подаём принятые байты связи клиента
@@ -429,7 +429,7 @@ namespace {
 	 * @return       описатель слушающего сокета либо отрицательное число
 	 *
 	 */
-	inline int harbour(uint16_t & number) noexcept {
+	inline int __nts_harbour__(uint16_t & number) noexcept {
 		// Слушающий сокет
 		const int listener = ::socket(AF_INET, SOCK_STREAM, 0);
 		// Если сокет завести не удалось
@@ -467,7 +467,7 @@ namespace {
 	 * @return         описатель принятого подключения либо отрицательное число
 	 *
 	 */
-	inline int greeted(const int listener) noexcept {
+	inline int __nts_greeted__(const int listener) noexcept {
 		/**
 		 * Ожидание подключения с пределом: клиент openssl, умерший на разборе доводов
 		 * (LibreSSL не знает иных имён групп), иначе оставил бы accept() навсегда
@@ -484,14 +484,14 @@ namespace {
 			// Выводим отрицательный результат - подключения не дождались
 			return -1;
 		// Принимаем подключение
-		const int fd = ::accept(listener, nullptr, nullptr);
+		const int own = ::accept(listener, nullptr, nullptr);
 		// Если подключение принято
-		if(fd >= 0){
+		if(own >= 0){
 			// Предел ожидания приёма
-			patience(fd, 60, 0);
+			patience(own, 60, 0);
 		}
 		// Выводим описатель
-		return fd;
+		return own;
 	}
 	/**
 	 * @brief Функция ведения связи сервера с сокетом до конца рукопожатия
@@ -501,11 +501,11 @@ namespace {
 	 *          закрыта, а не установлена, и это тоже конец рукопожатия
 	 *
 	 * @param server связь стороны сервера
-	 * @param fd     описатель сокета
+	 * @param own     описатель сокета
 	 * @return       признак того, что рукопожатие дошло до конца
 	 *
 	 */
-	inline bool serve(server::context_t & server, const int fd) noexcept {
+	inline bool __nts_serve__(server::context_t & server, const int own) noexcept {
 		// Признак того, что рукопожатие дошло до конца
 		bool complete = false;
 		/**
@@ -515,7 +515,7 @@ namespace {
 			// Место принятых байтов
 			uint8_t buffer[16384];
 			// Принимаем байты клиента
-			const ssize_t received = receiving(fd, buffer, sizeof(buffer));
+			const ssize_t received = receiving(own, buffer, sizeof(buffer));
 			// Если байты приняты
 			if(received > 0)
 				// Подаём байты серверу
@@ -525,7 +525,7 @@ namespace {
 			// Если серверу есть что отправить
 			if(data.size > 0){
 				// Отправляем байты
-				const ssize_t sent = sending(fd, data.data, data.size);
+				const ssize_t sent = sending(own, data.data, data.size);
 				// Если отправлено
 				if(sent > 0)
 					// Снимаем байты
@@ -541,11 +541,11 @@ namespace {
 	 * @brief Функция закрытия связи сервера с отправкой извещения о закрытии
 	 *
 	 * @param server связь стороны сервера
-	 * @param fd     описатель сокета
+	 * @param own     описатель сокета
 	 * @return       признак того, что закрытие прошло без отказа
 	 *
 	 */
-	inline bool farewell(server::context_t & server, const int fd) noexcept {
+	inline bool __nts_farewell__(server::context_t & server, const int own) noexcept {
 		// Если связь уже не открыта
 		if(!server.established())
 			// Закрывать нечего
@@ -557,7 +557,7 @@ namespace {
 		// Байты закрытия
 		const view_t closing = server.output();
 		// Отправляем закрытие
-		(void) sending(fd, closing.data, closing.size);
+		(void) sending(own, closing.data, closing.size);
 		// Снимаем байты закрытия
 		server.consume(closing.size);
 		// Выводим успешность закрытия
@@ -571,11 +571,11 @@ namespace {
 	 * @return       описатель сокета либо отрицательное число
 	 *
 	 */
-	inline int socketing(const uint16_t number, uint16_t & bound) noexcept {
+	inline int __nts_socketing__(const uint16_t number, uint16_t & bound) noexcept {
 		// Заводим сокет
-		const int fd = ::socket(AF_INET, SOCK_DGRAM, 0);
+		const int own = ::socket(AF_INET, SOCK_DGRAM, 0);
 		// Если сокет завести не удалось
-		if(fd < 0)
+		if(own < 0)
 			// Выводим отрицательный результат - сокет завести не удалось
 			return -1;
 		// Адрес привязки
@@ -591,30 +591,30 @@ namespace {
 		// Длина адреса
 		socklen_t length = sizeof(address);
 		// Если привязка либо чтение адреса не удались
-		if((::bind(fd, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) != 0) || (::getsockname(fd, reinterpret_cast <struct sockaddr *> (&address), &length) != 0)){
+		if((::bind(own, reinterpret_cast <struct sockaddr *> (&address), sizeof(address)) != 0) || (::getsockname(own, reinterpret_cast <struct sockaddr *> (&address), &length) != 0)){
 			// Закрываем сокет
-			closing(fd);
+			closing(own);
 			// Выводим отрицательный результат - сокет не привязан
 			return -1;
 		}
 		// Запоминаем назначенный порт
 		bound = ntohs(address.sin_port);
 		// Предел ожидания приёма: доля секунды, ибо часы связи ведёт проверка
-		patience(fd, 0, 200000);
+		patience(own, 0, 200000);
 		// Выводим сокет
-		return fd;
+		return own;
 	}
 	/**
 	 * @brief Функция ведения связи клиента с сокетом UDP до конца рукопожатия либо приёма данных
 	 *
 	 * @param client связь стороны клиента
-	 * @param fd     описатель сокета, подключённого к серверу
+	 * @param own     описатель сокета, подключённого к серверу
 	 * @param peer   адрес сервера
 	 * @param rounds предел кругов переноса
 	 * @return       признак того, что связь установлена
 	 *
 	 */
-	inline bool relay(client::context_t & client, const int fd, const struct sockaddr_in & peer, const size_t rounds) noexcept {
+	inline bool __nts_relay__(client::context_t & client, const int own, const struct sockaddr_in & peer, const size_t rounds) noexcept {
 		/**
 		 * Выполняем перенос дейтаграмм до установления, обрыва либо исчерпания кругов
 		 */
@@ -626,7 +626,7 @@ namespace {
 				// Очередная дейтаграмма
 				const view_t data = client.output();
 				// Отправляем дейтаграмму серверу
-				(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
+				(void) sendingto(own, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), sizeof(peer));
 				// Снимаем дейтаграмму
 				client.consume(data.size);
 			}
@@ -637,7 +637,7 @@ namespace {
 			// Место принятой дейтаграммы
 			uint8_t buffer[65536];
 			// Принимаем дейтаграмму с ожиданием
-			const ssize_t received = receiving(fd, buffer, sizeof(buffer));
+			const ssize_t received = receiving(own, buffer, sizeof(buffer));
 			// Если дейтаграмма принята
 			if(received > 0)
 				// Подаём дейтаграмму связи
@@ -657,7 +657,7 @@ namespace {
 	 * @return      имя группы у openssl
 	 *
 	 */
-	inline const char * naming(const extension::group_t group) noexcept {
+	inline const char * __nts_naming__(const extension::group_t group) noexcept {
 		// Выводим имя группы у openssl
 		return ((group == extension::group_t::X25519) ? "X25519" : ((group == extension::group_t::SECP256R1) ? "P-256" : "P-384"));
 	}
@@ -668,7 +668,7 @@ namespace {
 	 * @return      имя кривой для ключа -named_curve
 	 *
 	 */
-	inline const char * formal(const extension::group_t group) noexcept {
+	inline const char * __nts_formal__(const extension::group_t group) noexcept {
 		// Выводим имя кривой
 		return ((group == extension::group_t::X25519) ? "X25519" : ((group == extension::group_t::SECP256R1) ? "prime256v1" : "secp384r1"));
 	}
@@ -679,12 +679,12 @@ namespace {
 	 * @return      перечень групп через двоеточие
 	 *
 	 */
-	inline std::string roster(const extension::group_t group) noexcept {
+	inline std::string __nts_roster__(const extension::group_t group) noexcept {
 		/**
 		 * OpenSSL 3.0 отвергает перечень с повтором («Call to SSL_CONF_cmd(-groups,
 		 * P-256:P-256:P-384) failed»), потому запасные группы дописываются лишь отличные
 		 */
-		std::string result = naming(group);
+		std::string result = __nts_naming__(group);
 		// Если предпочитаемая группа не P-256
 		if(group != extension::group_t::SECP256R1)
 			// Дописываем запасную группу P-256
@@ -752,13 +752,13 @@ namespace {
 	 * @return        признак наличия ключа в справке
 	 *
 	 */
-	inline bool listed(const char * program, const char * key) noexcept {
+	inline bool __nts_listed__(const char * program, const char * key) noexcept {
 		/**
 		 * Чёрточка ключа спрятана в скобки, чтобы grep всякой системы не принял её за свой
-		 * ключ; конвейер обёрнут в скобки, иначе перенаправление входа помощника shell()
+		 * ключ; конвейер обёрнут в скобки, иначе перенаправление входа помощника __nts_shell__()
 		 * достаётся grep и подменяет ему трубу пустым входом
 		 */
-		return (shell(std::string("(openssl ") + program + " -help 2>&1 | grep -q '[-]" + key + "') >/dev/null 2>&1") == 0);
+		return (__nts_shell__(std::string("(openssl ") + program + " -help 2>&1 | grep -q '[-]" + key + "') >/dev/null 2>&1") == 0);
 	}
 	/**
 	 * @brief Функция щупа расширенного главного секрета у s_client
@@ -770,11 +770,11 @@ namespace {
 	 * @return признак того, что s_client предлагает extended_master_secret
 	 *
 	 */
-	inline bool offered() noexcept {
+	inline bool __nts_offered__() noexcept {
 		// Порт слушающего сокета
 		uint16_t number = 0;
 		// Заводим слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Если сокет не завёлся
 		if(listener < 0)
 			// Выводим отсутствие расширения
@@ -782,7 +782,7 @@ namespace {
 		// Журнал s_client
 		const std::string log = "/tmp/ants-openssl-probe-" + std::to_string(number) + ".log";
 		// Если s_client не запустился
-		if(!launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2 </dev/null >" + log + " 2>&1", log, log + ".pid")){
+		if(!__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_2 </dev/null >" + log + " 2>&1", log, log + ".pid")){
 			// Закрываем слушающий сокет
 			closing(listener);
 			// Выводим отсутствие расширения
@@ -803,15 +803,15 @@ namespace {
 		// Если подключение пришло в срок
 		if(::select(listener + 1, &waiting, nullptr, nullptr, &limit) > 0){
 			// Принимаем подключение
-			const int fd = ::accept(listener, nullptr, nullptr);
+			const int own = ::accept(listener, nullptr, nullptr);
 			// Если подключение принято
-			if(fd >= 0){
+			if(own >= 0){
 				// Предел ожидания приёма
-				patience(fd, 30, 0);
+				patience(own, 30, 0);
 				// Накопитель приветствия
 				uint8_t buffer[16384];
 				// Принимаем приветствие клиента
-				const ssize_t received = receiving(fd, buffer, sizeof(buffer));
+				const ssize_t received = receiving(own, buffer, sizeof(buffer));
 				// Заголовок записи
 				record::header_t header;
 				// Заголовок сообщения
@@ -823,7 +823,7 @@ namespace {
 					// Ищем расширение extended_master_secret
 					result = (hello::extension(hello.extensions, static_cast <uint16_t> (extension::type_t::MASTER)) != nullptr);
 				// Закрываем подключение: s_client завершится сам
-				closing(fd);
+				closing(own);
 			}
 		}
 		// Закрываем слушающий сокет
@@ -831,7 +831,7 @@ namespace {
 		// Журнал s_client
 		std::string text;
 		// Дожидаемся завершения s_client
-		(void) settle(log, text);
+		(void) __nts_settle__(log, text);
 		// Удаляем журнал
 		::remove(log.c_str());
 		// Выводим признак предложенного расширения
@@ -843,11 +843,11 @@ namespace {
 	 * @return способности системного openssl
 	 *
 	 */
-	inline toolkit_t inspect() noexcept {
+	inline toolkit_t __nts_inspect__() noexcept {
 		// Способности системного openssl
 		toolkit_t result;
 		// Если openssl недоступен
-		if(shell("openssl version >/dev/null 2>&1") != 0)
+		if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 			// Выводим пустые способности
 			return result;
 		// Запоминаем наличие openssl
@@ -855,7 +855,7 @@ namespace {
 		// Путь к файлу с изданием openssl
 		const std::string path = "/tmp/ants-openssl-edition-" + std::to_string(static_cast <long> (::getpid())) + ".txt";
 		// Снимаем издание openssl в файл
-		(void) shell("openssl version >" + path + " 2>&1");
+		(void) __nts_shell__("openssl version >" + path + " 2>&1");
 		// Открываем файл с изданием
 		std::ifstream file(path);
 		// Ветвь и издание openssl
@@ -875,33 +875,33 @@ namespace {
 			// Складываем число издания
 			result.edition = ((major << 16) | (minor << 8) | patch);
 		// Признак поддержки TLS 1.2 набором ECDHE
-		result.tls12 = (shell("openssl ciphers -s -tls1_2 ECDHE-ECDSA-AES128-GCM-SHA256 >/dev/null 2>&1") == 0);
+		result.tls12 = (__nts_shell__("openssl ciphers -s -tls1_2 ECDHE-ECDSA-AES128-GCM-SHA256 >/dev/null 2>&1") == 0);
 		// Признак поддержки TLS 1.3 (проба возможности, не по номеру издания)
-		result.tls13 = (shell("openssl ciphers -s -tls1_3 -ciphersuites TLS_AES_128_GCM_SHA256 >/dev/null 2>&1") == 0);
+		result.tls13 = (__nts_shell__("openssl ciphers -s -tls1_3 -ciphersuites TLS_AES_128_GCM_SHA256 >/dev/null 2>&1") == 0);
 		// Расширенный главный секрет снимается с живого приветствия s_client (OpenSSL 1.0.2 и LibreSSL его не несут)
-		result.master = (result.tls12 && offered());
+		result.master = (result.tls12 && __nts_offered__());
 		// Снимаем поддержку DTLS 1.2 у обеих подкоманд
-		result.dtls12 = (listed("s_server", "dtls1_2") && listed("s_client", "dtls1_2"));
+		result.dtls12 = (__nts_listed__("s_server", "dtls1_2") && __nts_listed__("s_client", "dtls1_2"));
 		// Снимаем поддержку DTLS 1.3 у обеих подкоманд
-		result.dtls13 = (listed("s_server", "dtls1_3") && listed("s_client", "dtls1_3"));
+		result.dtls13 = (__nts_listed__("s_server", "dtls1_3") && __nts_listed__("s_client", "dtls1_3"));
 		// Снимаем ключ приёма приветствия с меткой
-		result.listening = listed("s_server", "listen");
+		result.listening = __nts_listed__("s_server", "listen");
 		// Снимаем ключи s_server
-		result.serverGroups = listed("s_server", "groups");
+		result.serverGroups = __nts_listed__("s_server", "groups");
 		// Снимаем ключ одиночной кривой s_server
-		result.namedCurve = listed("s_server", "named_curve");
+		result.namedCurve = __nts_listed__("s_server", "named_curve");
 		// Снимаем ключи s_client
-		result.clientGroups = listed("s_client", "groups");
+		result.clientGroups = __nts_listed__("s_client", "groups");
 		// Снимаем ключ старого вида s_client
-		result.clientCurves = listed("s_client", "curves");
+		result.clientCurves = __nts_listed__("s_client", "curves");
 		// Снимаем предел числа приёмов s_server
-		result.naccept = listed("s_server", "naccept");
+		result.naccept = __nts_listed__("s_server", "naccept");
 		// Приём в виде host:port есть у OpenSSL с 1.1.0: справка так и говорит «host and port»
-		result.addressed = (shell("(openssl s_server -help 2>&1 | grep -q 'host and port') >/dev/null 2>&1") == 0);
+		result.addressed = (__nts_shell__("(openssl s_server -help 2>&1 | grep -q 'host and port') >/dev/null 2>&1") == 0);
 		// Кривая X25519 появилась в 1.1.0: щупом служит порождение ключа
-		result.x25519 = (shell("openssl genpkey -algorithm X25519 -out /dev/null >/dev/null 2>&1") == 0);
+		result.x25519 = (__nts_shell__("openssl genpkey -algorithm X25519 -out /dev/null >/dev/null 2>&1") == 0);
 		// Ключ Ed25519: щупом служит порождение ключа
-		result.edwards = (shell("openssl genpkey -algorithm ed25519 -out /dev/null >/dev/null 2>&1") == 0);
+		result.edwards = (__nts_shell__("openssl genpkey -algorithm ed25519 -out /dev/null >/dev/null 2>&1") == 0);
 		// Выводим способности
 		return result;
 	}
@@ -913,7 +913,7 @@ namespace {
 	 * @return        ключ приёма с портом
 	 *
 	 */
-	inline std::string accepting(const toolkit_t & toolkit, const uint16_t number) noexcept {
+	inline std::string __nts_accepting__(const toolkit_t & toolkit, const uint16_t number) noexcept {
 		/**
 		 * Без явного адреса s_server слушает «*», а на DragonFly BSD это лишь tcp6 - потому
 		 * адрес петлевого устройства задаётся всюду, где ключ принимает вид host:port
@@ -928,7 +928,7 @@ namespace {
 	 * @return        ключ предела приёмов либо пустая строка
 	 *
 	 */
-	inline std::string once(const toolkit_t & toolkit, const size_t count) noexcept {
+	inline std::string __nts_once__(const toolkit_t & toolkit, const size_t count) noexcept {
 		// Без ключа сервер живёт до снятия сторожем
 		return (toolkit.naccept ? (" -naccept " + std::to_string(count)) : "");
 	}
@@ -939,9 +939,9 @@ namespace {
 	 * @return        ключ единственного приёма либо пустая строка
 	 *
 	 */
-	inline std::string once(const toolkit_t & toolkit) noexcept {
+	inline std::string __nts_once__(const toolkit_t & toolkit) noexcept {
 		// Выводим ключ единственного приёма
-		return once(toolkit, 1);
+		return __nts_once__(toolkit, 1);
 	}
 	/**
 	 * @brief Функция составления ключа групп для s_server либо s_client
@@ -952,27 +952,27 @@ namespace {
 	 * @return        ключ групп либо пустая строка, коли ключа у openssl нет
 	 *
 	 */
-	inline std::string grouping(const toolkit_t & toolkit, const bool server, const extension::group_t group) noexcept {
+	inline std::string __nts_grouping__(const toolkit_t & toolkit, const bool server, const extension::group_t group) noexcept {
 		// Если составляется ключ сервера
 		if(server){
 			// Если есть ключ -groups
 			if(toolkit.serverGroups)
 				// Выводим перечень групп
-				return (" -groups " + roster(group));
+				return (" -groups " + __nts_roster__(group));
 			// Если есть лишь одиночная кривая старого вида
 			if(toolkit.namedCurve)
 				// Выводим одиночную кривую
-				return (std::string(" -named_curve ") + formal(group));
+				return (std::string(" -named_curve ") + __nts_formal__(group));
 		// Если составляется ключ клиента
 		} else {
 			// Если есть ключ -groups
 			if(toolkit.clientGroups)
 				// Выводим перечень групп
-				return (" -groups " + roster(group));
+				return (" -groups " + __nts_roster__(group));
 			// Если есть ключ старого вида -curves (тот же перечень)
 			if(toolkit.clientCurves)
 				// Выводим перечень групп старым ключом
-				return (" -curves " + roster(group));
+				return (" -curves " + __nts_roster__(group));
 		}
 		// Ключа групп у openssl нет
 		return "";

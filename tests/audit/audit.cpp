@@ -3825,16 +3825,16 @@ TEST(AuditTest, LimitCarve){
  * чужая открытая запись шире предела роняется молча (связь жива), а свои записи не шире предела
  */
 TEST(AuditTest, PlainOversizeLimit){
-	// Объявляем toolkit и инициализируем результат вызова inspect()
-	const toolkit_t toolkit = inspect();
+	// Объявляем toolkit и инициализируем результат вызова __nts_inspect__()
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем, что «!toolkit.present || !toolkit.dtls12 || !toolkit.listening»
 	if(!toolkit.present || !toolkit.dtls12 || !toolkit.listening)
 		// Пропускаем проверку: openssl без DTLS 1.2
 		GTEST_SKIP() << "openssl без DTLS 1.2";
 	// Объявляем crt и инициализируем результат вызова string()
 	const string crt = string(CORPUS) + "/ec256.crt", key = string(CORPUS) + "/ec256.pem";
-	// Объявляем number и инициализируем результат вызова vacant()
-	const uint16_t number = vacant(true);
+	// Объявляем number и инициализируем результат вызова __nts_vacant__()
+	const uint16_t number = __nts_vacant__(true);
 	// Объявляем log и инициализируем значение «"/tmp/ants-audit-limit-" + to_string(number) + ".log"»
 	const string log = "/tmp/ants-audit-limit-" + to_string(number) + ".log";
 	// Объявляем holder и инициализируем значение «"/tmp/ants-audit-limit-" + to_string(number) + ".fifo"»
@@ -3845,17 +3845,17 @@ TEST(AuditTest, PlainOversizeLimit){
 	// Требуем равенство fifo(holder.c_str()) и 0
 	ASSERT_EQ(fifo(holder.c_str()), 0);
 	// Сервер инструмента запущен
-	ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256 -mtu 1400" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+	ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256 -mtu 1400" + __nts_once__(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 	// Объявляем sentinel и конструируем (log + ".pid")
 	sentinel_t sentinel(log + ".pid");
 	// Объявляем text
 	string text;
 	// Метка приёма в журнале сервера
-	ASSERT_TRUE(awaited(log, "ACCEPT", text)) << text;
+	ASSERT_TRUE(__nts_awaited__(log, "ACCEPT", text)) << text;
 	// Объявляем bound и инициализируем значение «0»
 	uint16_t bound = 0;
-	// Объявляем fd и инициализируем результат вызова socketing()
-	const int fd = socketing(0, bound);
+	// Объявляем fd и инициализируем результат вызова __nts_socketing__()
+	const int fd = __nts_socketing__(0, bound);
 	// Требуем: fd не меньше 0
 	ASSERT_GE(fd, 0);
 	// Объявляем sockaddr_in размером peer
@@ -3911,7 +3911,7 @@ TEST(AuditTest, PlainOversizeLimit){
 	ASSERT_EQ(client.profile(profile), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Перекачка дейтаграмм через сокет
-	ASSERT_TRUE(relay(client, fd, peer, 400));
+	ASSERT_TRUE(__nts_relay__(client, fd, peer, 400));
 	ASSERT_TRUE(client.established());
 	// Чужая открытая запись рукопожатия в 700 байтов содержимого номером далеко впереди окна
 	datagram::fragment_t fragment;
@@ -3975,14 +3975,14 @@ TEST(AuditTest, PlainOversizeLimit){
 	EXPECT_GE(datagrams, static_cast <size_t> (2));
 	// Сервер данные принял и связи не рвал
 	(void) client.close();
-	// Вызываем relay(client, fd, peer, 2)
-	relay(client, fd, peer, 2);
+	// Вызываем __nts_relay__(client, fd, peer, 2)
+	__nts_relay__(client, fd, peer, 2);
 	// Вызываем closing(fd)
 	closing(fd);
 	// Вызываем sentinel.halt()
 	sentinel.halt();
 	// Даём обмену стихнуть
-	(void) settle(log, text);
+	(void) __nts_settle__(log, text);
 	// Журнал сервера: данные приняты, извещения record_overflow нет
 	bool delivered = false, overflowed = false;
 	// Объявляем culprit

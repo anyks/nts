@@ -69,7 +69,7 @@ namespace {
 	 * @return        код возврата команды
 	 *
 	 */
-	static int shell(const std::string & command) noexcept {
+	static int __nts_shell__(const std::string & command) noexcept {
 		// Запускаем команды с пустым входом
 		return ::system((command + " </dev/null").c_str());
 	}
@@ -207,7 +207,7 @@ namespace {
 				// Если каталог создан
 				if(!this->_path.empty())
 					// Удаляем каталог со всем содержимым
-					(void) shell((std::string("rm -rf ") + this->_path).c_str());
+					(void) __nts_shell__((std::string("rm -rf ") + this->_path).c_str());
 			}
 	} sandbox_t;
 	/**
@@ -478,7 +478,7 @@ TEST(IssueTest, Refusal){
  */
 TEST(IssueTest, Openssl){
 	// Если openssl недоступен
-	if(shell("openssl version >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 		// Пропускаем проверку без системного эталона
 		GTEST_SKIP() << "openssl недоступен";
 	// Временный каталог
@@ -508,9 +508,9 @@ TEST(IssueTest, Openssl){
 	// Путь к самоподписанному сертификату в кодировке PEM
 	const std::string selfPem = sandbox.file("self.pem");
 	// Проверяем, что openssl разбирает выпущенный сертификат и переписывает его в PEM
-	ASSERT_EQ(shell(std::string("openssl x509 -in ") + selfDer + " -inform DER -outform PEM -out " + selfPem + " >/dev/null 2>&1"), 0);
+	ASSERT_EQ(__nts_shell__(std::string("openssl x509 -in ") + selfDer + " -inform DER -outform PEM -out " + selfPem + " >/dev/null 2>&1"), 0);
 	// Проверяем, что openssl подтверждает самоподписанный сертификат его же записью
-	ASSERT_EQ(shell(std::string("openssl verify -CAfile ") + selfPem + " " + selfPem + " >/dev/null 2>&1"), 0);
+	ASSERT_EQ(__nts_shell__(std::string("openssl verify -CAfile ") + selfPem + " " + selfPem + " >/dev/null 2>&1"), 0);
 	// Тело записи запроса владельца
 	const std::vector <uint8_t> requestDer = body(corpus("leaf-rsa.csr"));
 	// Проверяем наличие записи запроса
@@ -540,13 +540,13 @@ TEST(IssueTest, Openssl){
 	// Путь к выданному издателем сертификату в кодировке PEM
 	const std::string signedPem = sandbox.file("signed.pem");
 	// Проверяем, что openssl разбирает выданный сертификат и переписывает его в PEM
-	ASSERT_EQ(shell(std::string("openssl x509 -in ") + signedDer + " -inform DER -outform PEM -out " + signedPem + " >/dev/null 2>&1"), 0);
+	ASSERT_EQ(__nts_shell__(std::string("openssl x509 -in ") + signedDer + " -inform DER -outform PEM -out " + signedPem + " >/dev/null 2>&1"), 0);
 	// Путь к сертификату издателя в кодировке PEM
 	const std::string caPem = sandbox.file("ca.pem");
 	// Проверяем запись файла сертификата издателя
 	ASSERT_TRUE(spill(caPem, bytes(corpus("ca-rsa.crt"))));
 	// Проверяем, что openssl подтверждает выданный сертификат цепочкой до издателя
-	ASSERT_EQ(shell(std::string("openssl verify -CAfile ") + caPem + " " + signedPem + " >/dev/null 2>&1"), 0);
+	ASSERT_EQ(__nts_shell__(std::string("openssl verify -CAfile ") + caPem + " " + signedPem + " >/dev/null 2>&1"), 0);
 }
 
 /**

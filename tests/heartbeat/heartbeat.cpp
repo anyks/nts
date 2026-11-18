@@ -366,17 +366,17 @@ TEST(HeartbeatTest, Gnutls){
 	// Полномочия
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Порт и журнал
-	const uint16_t number = vacant(false);
+	const uint16_t number = __nts_vacant__(false);
 	// Порт найден
 	ASSERT_NE(number, 0);
 	// Журнал сервера
 	const std::string log = "/tmp/ants-heartbeat-gnutls-" + std::to_string(number) + ".log";
 	// Запускаем сервер с сердцебиением в режиме эха
-	ASSERT_TRUE(launch("gnutls-serv --port " + std::to_string(number) + " --x509certfile " + crt + " --x509keyfile " + key + " --echo --heartbeat --disable-client-cert --priority NORMAL:+VERS-TLS1.2 > " + log + " 2>&1", log, log + ".pid"));
+	ASSERT_TRUE(__nts_launch__("gnutls-serv --port " + std::to_string(number) + " --x509certfile " + crt + " --x509keyfile " + key + " --echo --heartbeat --disable-client-cert --priority NORMAL:+VERS-TLS1.2 > " + log + " 2>&1", log, log + ".pid"));
 	// Страж остановки сервера
 	sentinel_t sentinel(log + ".pid");
 	// Подключаемся
-	const int fd = dial(number);
+	const int fd = __nts_dial__(number);
 	// Связь с сервером есть
 	ASSERT_GE(fd, 0) << "порт " << number;
 	// Профиль с heartbeat
@@ -396,9 +396,9 @@ TEST(HeartbeatTest, Gnutls){
 	 */
 	for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 		// Гоняем выводы сторон
-		relay(client, fd);
+		__nts_relay__(client, fd);
 	// Фиксируем отказ
-	if(!client.established()){ std::string journal; (void) settle(log, journal); ADD_FAILURE() << journal; }
+	if(!client.established()){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 	// Связь установлена
 	ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 	// Эхо
@@ -412,7 +412,7 @@ TEST(HeartbeatTest, Gnutls){
 	 */
 	for(size_t i = 0; (i < 16) && (echo.size() < message.size()); i++){
 		// Гоняем выводы сторон
-		relay(client, fd);
+		__nts_relay__(client, fd);
 		// Кусок эха
 		vector <uint8_t> piece;
 		// Читаем кусок эха
@@ -429,7 +429,7 @@ TEST(HeartbeatTest, Gnutls){
 	// Журнал сервера
 	std::string journal;
 	// Снимаем журнал
-	(void) settle(log, journal);
+	(void) __nts_settle__(log, journal);
 	// Убираем журнал
 	::remove(log.c_str());
 }

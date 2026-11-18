@@ -633,17 +633,17 @@ TEST(FuzzerTest, OpensslRefusals){
 		// Порт локального повтора порченого потока
 		uint16_t port = 0;
 		// Заводим слушающий сокет повтора
-		const int listener = harbour(port);
+		const int listener = __nts_harbour__(port);
 		// Проверяем заведение слушающего сокета
 		ASSERT_GE(listener, 0);
 		// Журнал OpenSSL с уникальным именем по порту
 		const string log = "/tmp/ants-fuzzer-openssl-" + std::to_string(port) + ".log";
 		// Запускаем клиента OpenSSL на порченый поток
-		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(port) + " -tls1_3 </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(port) + " -tls1_3 </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож процесса OpenSSL
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение OpenSSL
-		const int own = greeted(listener);
+		const int own = __nts_greeted__(listener);
 		// Проверяем принятие подключения
 		ASSERT_GE(own, 0);
 		// Отправляем ровно тот же порченый поток, который отвергнут A-NTS
@@ -655,7 +655,7 @@ TEST(FuzzerTest, OpensslRefusals){
 		// Журнал завершившегося OpenSSL
 		string report;
 		// Дожидаемся завершения OpenSSL
-		ASSERT_TRUE(settle(log, report)) << report;
+		ASSERT_TRUE(__nts_settle__(log, report)) << report;
 		// Признак LibreSSL: его клиент рвёт связь без формулировки OpenSSL
 		const bool libressl = (std::system("openssl version 2>/dev/null | grep -q LibreSSL") == 0);
 		// Проверяем отказ разбора неизвестного вида содержимого, а не конфигурационную ошибку

@@ -70,7 +70,7 @@ static vector <uint8_t> decode(const char * text) noexcept {
 	// Получаем длину разбираемой строки
 	const size_t length = ::strlen(text);
 	/**
-	 * Выполняем перебор пар знаков шестнадцатеричной записи
+	 * Перебираем пары знаков шестнадцатеричной записи
 	 */
 	for(size_t i = 0; (i + 1) < length; i += 2)
 		// Добавляем очередной разобранный байт
@@ -84,14 +84,14 @@ static vector <uint8_t> decode(const char * text) noexcept {
  */
 TEST(HelloTest, Parse){
 	/**
-	 * Выполняем перебор приветствий контрольного примера
+	 * Перебираем приветствия контрольного примера
 	 */
 	for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
 		// Получаем сообщение приветствия вместе с обвязкой
 		const vector <uint8_t> message = decode(SAMPLES[i].message);
 		// Обвязка сообщения приветствия
 		handshake::header_t header;
-		// Выполняем разбор обвязки сообщения приветствия
+		// Разбираем обвязку сообщения приветствия
 		ASSERT_EQ(handshake::parse(view_t(message.data(), message.size()), header), handshake::error_t::NONE) << "приветствие " << i;
 		// Проверяем схождение вида сообщения с контрольным примером
 		ASSERT_EQ(static_cast <uint8_t> (header.type), SAMPLES[i].type) << "приветствие " << i;
@@ -103,7 +103,7 @@ TEST(HelloTest, Parse){
 		if(header.type == handshake::type_t::CLIENT){
 			// Разобранное приветствие клиента
 			hello::client_t hello;
-			// Выполняем разбор тела приветствия клиента
+			// Разбираем тело приветствия клиента
 			ASSERT_EQ(hello::parse(body, hello), hello::error_t::NONE) << "приветствие " << i;
 			// Проверяем версию протокола, доставшуюся от предыдущих изданий
 			ASSERT_EQ(hello.version, static_cast <uint16_t> (0x0303)) << "приветствие " << i;
@@ -121,7 +121,7 @@ TEST(HelloTest, Parse){
 		} else {
 			// Разобранное приветствие сервера
 			hello::server_t hello;
-			// Выполняем разбор тела приветствия сервера
+			// Разбираем тело приветствия сервера
 			ASSERT_EQ(hello::parse(body, hello), hello::error_t::NONE) << "приветствие " << i;
 			// Проверяем версию протокола, доставшуюся от предыдущих изданий
 			ASSERT_EQ(hello.version, static_cast <uint16_t> (0x0303)) << "приветствие " << i;
@@ -140,7 +140,7 @@ TEST(HelloTest, Parse){
  */
 TEST(HelloTest, Build){
 	/**
-	 * Выполняем перебор приветствий контрольного примера
+	 * Перебираем приветствия контрольного примера
 	 */
 	for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
 		// Получаем сообщение приветствия вместе с обвязкой
@@ -153,17 +153,17 @@ TEST(HelloTest, Build){
 		if(SAMPLES[i].type == 0x01){
 			// Разобранное приветствие клиента
 			hello::client_t hello;
-			// Выполняем разбор тела приветствия клиента
+			// Разбираем тело приветствия клиента
 			ASSERT_EQ(hello::parse(body, hello), hello::error_t::NONE) << "приветствие " << i;
-			// Выполняем составление тела приветствия клиента заново
+			// Составляем тело приветствия клиента заново
 			ASSERT_EQ(hello::build(hello, result), hello::error_t::NONE) << "приветствие " << i;
 		// Если составляется приветствие сервера
 		} else {
 			// Разобранное приветствие сервера
 			hello::server_t hello;
-			// Выполняем разбор тела приветствия сервера
+			// Разбираем тело приветствия сервера
 			ASSERT_EQ(hello::parse(body, hello), hello::error_t::NONE) << "приветствие " << i;
-			// Выполняем составление тела приветствия сервера заново
+			// Составляем тело приветствия сервера заново
 			ASSERT_EQ(hello::build(hello, result), hello::error_t::NONE) << "приветствие " << i;
 		}
 		// Проверяем схождение длины составленного тела с исходным
@@ -180,7 +180,7 @@ TEST(HelloTest, Retry){
 	// Число просьб о повторе приветствия среди контрольных примеров
 	size_t count = 0;
 	/**
-	 * Выполняем перебор приветствий контрольного примера
+	 * Перебираем приветствия контрольного примера
 	 */
 	for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(SAMPLES[0])); i++){
 		// Если это приветствие клиента
@@ -191,7 +191,7 @@ TEST(HelloTest, Retry){
 		const vector <uint8_t> message = decode(SAMPLES[i].message);
 		// Разобранное приветствие сервера
 		hello::server_t hello;
-		// Выполняем разбор тела приветствия сервера
+		// Разбираем тело приветствия сервера
 		ASSERT_EQ(hello::parse(view_t(message.data() + handshake::HANDSHAKE_HEADER, message.size() - handshake::HANDSHAKE_HEADER), hello), hello::error_t::NONE) << "приветствие " << i;
 		// Если приветствие сервера есть просьба о повторе приветствия клиента
 		if(hello::retry(hello))
@@ -213,7 +213,7 @@ TEST(HelloTest, Reject){
 	// Разобранное приветствие клиента
 	hello::client_t hello;
 	/**
-	 * Выполняем перебор длин обрезанного тела приветствия
+	 * Перебираем длины обрезанного тела приветствия
 	 */
 	/**
 	 * Раздел 4.1.2 RFC 8446: обрез ровно за способами сжатия - годное приветствие
@@ -228,7 +228,7 @@ TEST(HelloTest, Reject){
 	// Пропускаем способы сжатия: длина списка и сами способы
 	cut += (1 + static_cast <size_t> (body[cut]));
 	/**
-	 * Выполняем перебор обрезов от пустого тела до полного
+	 * Перебираем обрезы от пустого тела до полного
 	 */
 	for(size_t i = 0; i < body.size(); i++){
 		// Разобранное обрезанное приветствие клиента
@@ -251,7 +251,7 @@ TEST(HelloTest, Reject){
 	trailing.push_back(0x00);
 	// Проверяем отказ разбора приветствия с лишними байтами на конце
 	ASSERT_EQ(hello::parse(view_t(trailing.data(), trailing.size()), hello), hello::error_t::TRAILING);
-	// Выполняем разбор тела приветствия клиента
+	// Разбираем тело приветствия клиента
 	ASSERT_EQ(hello::parse(view_t(body.data(), body.size()), hello), hello::error_t::NONE);
 	// Получаем расширение поддерживаемых изданий протокола
 	const hello::extension_t * extension = hello::extension(hello.extensions, 0x002B);
@@ -263,7 +263,7 @@ TEST(HelloTest, Reject){
 	repeated.extensions.push_back(*extension);
 	// Накопитель, в который складывается тело приветствия с повтором
 	vector <uint8_t> composed;
-	// Выполняем составление тела приветствия с повторённым расширением
+	// Составляем тело приветствия с повторённым расширением
 	ASSERT_EQ(hello::build(repeated, composed), hello::error_t::NONE);
 	// Разобранное приветствие с повторённым расширением
 	hello::client_t sample;
@@ -273,7 +273,7 @@ TEST(HelloTest, Reject){
 	hello::client_t empty = hello;
 	// Опустошаем перечень предлагаемых наборов шифрования
 	empty.suites.clear();
-	// Выполняем сброс накопителя составленного тела приветствия
+	// Сбрасываем накопитель составленного тела приветствия
 	composed.clear();
 	// Проверяем отказ составления приветствия без наборов шифрования
 	ASSERT_EQ(hello::build(empty, composed), hello::error_t::SUITE);
@@ -331,7 +331,7 @@ TEST(HelloTest, Deformed){
 	const vector <uint8_t> body(message.begin() + handshake::HANDSHAKE_HEADER, message.end());
 	// Разобранное приветствие клиента
 	hello::client_t hello;
-	// Выполняем разбор годного тела приветствия клиента
+	// Разбираем годное тело приветствия клиента
 	ASSERT_EQ(hello::parse(view_t(body.data(), body.size()), hello), hello::error_t::NONE);
 	/**
 	 * Раздел 4.1.2 RFC 8446 велит клиенту объявлять единственный способ сжатия,
@@ -405,7 +405,7 @@ TEST(HelloTest, Deformed){
 	answer.session = hello.session;
 	// Накопитель, в который складывается тело ответного приветствия
 	vector <uint8_t> answered;
-	// Выполняем составление тела ответного приветствия сервера
+	// Составляем тело ответного приветствия сервера
 	ASSERT_EQ(hello::build(answer, answered), hello::error_t::NONE);
 	// Разобранное ответное приветствие сервера
 	hello::server_t taken;
@@ -488,7 +488,7 @@ static hello::error_t exhaust(const view_t & client, const view_t & server, bool
 	if(outcome != hello::error_t::NONE)
 		// Выводим отказ разбора
 		return outcome;
-	// Выполняем составление тела приветствия клиента заново
+	// Составляем тело приветствия клиента заново
 	outcome = hello::build(first, result);
 	// Если составление приветствия клиента не состоялось
 	if(outcome != hello::error_t::NONE)
@@ -496,15 +496,15 @@ static hello::error_t exhaust(const view_t & client, const view_t & server, bool
 		return outcome;
 	// Запоминаем схождение составленного тела приветствия клиента с исходным
 	intact = ((result.size() == client.size) && (::memcmp(result.data(), client.data, client.size) == 0));
-	// Выполняем разбор тела приветствия сервера
+	// Разбираем тело приветствия сервера
 	outcome = hello::parse(server, second);
 	// Если разбор приветствия сервера не состоялся
 	if(outcome != hello::error_t::NONE)
 		// Выводим отказ разбора
 		return outcome;
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	result.clear();
-	// Выполняем составление тела приветствия сервера заново
+	// Составляем тело приветствия сервера заново
 	outcome = hello::build(second, result);
 	// Если составление приветствия сервера не состоялось
 	if(outcome != hello::error_t::NONE)
@@ -531,7 +531,7 @@ TEST(HelloTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе разбор и составление
+	 * Перебираем запасы выделений: на всяком запасе разбор и составление
 	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -542,7 +542,7 @@ TEST(HelloTest, Starved){
 		{
 			// Отмеряем запас выделений на время разбора и составления
 			starve::ration_t ration(budget);
-			// Выполняем разбор и составление при отмеренном запасе
+			// Разбираем и составляем при отмеренном запасе
 			outcome = exhaust(first, second, intact);
 		}
 		// Проверяем, что разбор и составление ответили успехом либо отказом памяти
@@ -567,17 +567,17 @@ TEST(HelloTest, Datagram){
 	const vector <uint8_t> message = decode(SAMPLES[0].message);
 	// Разобранное приветствие клиента
 	hello::client_t hello;
-	// Выполняем разбор тела приветствия записями
+	// Разбираем тело приветствия записями
 	ASSERT_EQ(hello::parse(view_t(message.data() + handshake::HANDSHAKE_HEADER, message.size() - handshake::HANDSHAKE_HEADER), hello), hello::error_t::NONE);
 	// Метки у приветствия записями нет
 	ASSERT_TRUE(hello.cookie.empty());
 	// Накопитель тела поверх дейтаграмм
 	vector <uint8_t> datagram;
-	// Выполняем составление тела поверх дейтаграмм с пустой меткой
+	// Составляем тело поверх дейтаграмм с пустой меткой
 	ASSERT_EQ(hello::build(hello, datagram, true), hello::error_t::NONE);
 	// Накопитель тела записями
 	vector <uint8_t> stream;
-	// Выполняем составление тела записями
+	// Составляем тело записями
 	ASSERT_EQ(hello::build(hello, stream), hello::error_t::NONE);
 	// Тело поверх дейтаграмм длиннее на байт длины пустой метки
 	ASSERT_EQ(datagram.size(), stream.size() + 1);
@@ -585,7 +585,7 @@ TEST(HelloTest, Datagram){
 	ASSERT_EQ(datagram[2 + hello::HELLO_RANDOM + 1 + hello.session.size()], 0);
 	// Разобранное приветствие поверх дейтаграмм
 	hello::client_t parsed;
-	// Выполняем разбор тела поверх дейтаграмм
+	// Разбираем тело поверх дейтаграмм
 	ASSERT_EQ(hello::parse(view_t(datagram.data(), datagram.size()), parsed, true), hello::error_t::NONE);
 	// Метка пуста
 	ASSERT_TRUE(parsed.cookie.empty());
@@ -597,11 +597,11 @@ TEST(HelloTest, Datagram){
 	ASSERT_NE(hello::parse(view_t(datagram.data(), datagram.size()), parsed), hello::error_t::NONE);
 	// Метка наибольшей длины
 	hello.cookie.assign(hello::HELLO_COOKIE, 0xA5);
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	datagram.clear();
-	// Выполняем составление тела с меткой наибольшей длины
+	// Составляем тело с меткой наибольшей длины
 	ASSERT_EQ(hello::build(hello, datagram, true), hello::error_t::NONE);
-	// Выполняем разбор тела с меткой
+	// Разбираем тело с меткой
 	ASSERT_EQ(hello::parse(view_t(datagram.data(), datagram.size()), parsed, true), hello::error_t::NONE);
 	// Метка повторена дословно
 	ASSERT_EQ(parsed.cookie, hello.cookie);

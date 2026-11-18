@@ -65,7 +65,7 @@ using namespace nts;
  * @return        код возврата команды
  *
  */
-static int shell(const std::string & command) {
+static int __nts_shell__(const std::string & command) {
 	// Запускаем команду с пустым входом
 	return ::system((command + " </dev/null").c_str());
 }
@@ -809,11 +809,11 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 	// Путь файла собственной подписи
 	const std::string own = (directory + "/" + name + ".own");
 	// Порождаем ключ у openssl
-	ASSERT_EQ(shell((std::string("openssl ecparam -genkey -noout -name ") + name + " -out " + key + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl ecparam -genkey -noout -name ") + name + " -out " + key + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Извлекаем ключ проверки у openssl
-	ASSERT_EQ(shell((std::string("openssl ec -in ") + key + " -pubout -out " + pub + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl ec -in ") + key + " -pubout -out " + pub + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Выводим ключ текстом у openssl
-	ASSERT_EQ(shell((std::string("openssl ec -in ") + key + " -text -noout 2>/dev/null > " + txt).c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl ec -in ") + key + " -text -noout 2>/dev/null > " + txt).c_str()), 0) << "Кривая: " << name;
 	// Читаем текстовую выдачу ключа
 	const std::string output = slurp(txt);
 	// Извлекаем ключ подписи и ключ проверки
@@ -862,7 +862,7 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 		file << message;
 	}
 	// Подписываем сообщение у openssl
-	ASSERT_EQ(shell((std::string("openssl dgst -") + option + " -sign " + key + " -out " + sig + " " + msg + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl dgst -") + option + " -sign " + key + " -out " + sig + " " + msg + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Читаем подпись openssl
 	const std::string der = slurp(sig);
 	// Место, в которое помещается разобранная подпись
@@ -896,13 +896,13 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 		file.write(reinterpret_cast <const char *> (encoded.data()), static_cast <std::streamsize> (encoded.size()));
 	}
 	// Проверяем признание своей подписи у openssl
-	ASSERT_EQ(shell((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
 	/**
 	 * Детерминированное число у openssl появилось в издании 3.2 (nonce-type): на
 	 * старших изданиях эта часть сличения пропускается с объявлением, остальное
 	 * сличение остаётся
 	 */
-	if(shell((std::string("openssl pkeyutl -sign -inkey ") + key + " -in " + msg + " -rawin -digest " + option + " -pkeyopt nonce-type:1 -out " + sig + " 2>/dev/null").c_str()) == 0){
+	if(__nts_shell__((std::string("openssl pkeyutl -sign -inkey ") + key + " -in " + msg + " -rawin -digest " + option + " -pkeyopt nonce-type:1 -out " + sig + " 2>/dev/null").c_str()) == 0){
 		// Читаем подпись openssl
 		const std::string deterministic = slurp(sig);
 		/**
@@ -921,7 +921,7 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
 		file.write(reinterpret_cast <const char *> (encoded.data()), static_cast <std::streamsize> (encoded.size()));
 	}
 	// Проверяем отказ признания испорченной подписи у openssl
-	ASSERT_NE(shell((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
+	ASSERT_NE(__nts_shell__((std::string("openssl dgst -") + option + " -verify " + pub + " -signature " + own + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
 }
 /**
  * @brief Проверка сличения с openssl в обе стороны
@@ -929,7 +929,7 @@ static void openssl(const char * name, const char * oid, const digest::hash_t al
  */
 TEST(EcdsaTest, Openssl) {
 	// Если системного openssl нет, сличать не с чем
-	if(shell("openssl version >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 		// Объявляем пропуск проверки вслух
 		GTEST_SKIP() << "Системный openssl не найден";
 	// Заготовка имени каталога временных файлов
@@ -945,7 +945,7 @@ TEST(EcdsaTest, Openssl) {
 	// Сличаем на кривой P-256 с SHA-512: хеш длиннее порядка усекается
 	openssl("prime256v1", P256, digest::hash_t::SHA512, "sha512", directory);
 	// Убираем каталог временных файлов
-	ASSERT_EQ(shell((std::string("rm -rf ") + directory).c_str()), 0);
+	ASSERT_EQ(__nts_shell__((std::string("rm -rf ") + directory).c_str()), 0);
 }
 
 /**
@@ -1409,11 +1409,11 @@ static void exported(const char * name, const char * oid, const std::string & di
 	ASSERT_TRUE(std::ofstream(priv) << secret) << "Кривая: " << name;
 	ASSERT_TRUE(std::ofstream(opened) << pub) << "Кривая: " << name;
 	// Системный openssl читает секретный ключ
-	ASSERT_EQ(shell((std::string("openssl pkey -in ") + priv + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl pkey -in ") + priv + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Системный openssl читает открытый ключ
-	ASSERT_EQ(shell((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Системный openssl выводит открытый ключ из секретного
-	ASSERT_EQ(shell((std::string("openssl pkey -in ") + priv + " -pubout -out " + derived + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl pkey -in ") + priv + " -pubout -out " + derived + " 2>/dev/null").c_str()), 0) << "Кривая: " << name;
 	// Выведенный openssl открытый ключ совпадает с нашим байт в байт
 	ASSERT_EQ(slurp(derived), pub) << "Кривая: " << name;
 	// Сообщение прикладного круга
@@ -1437,7 +1437,7 @@ static void exported(const char * name, const char * oid, const std::string & di
 	// Записываем подпись в файл
 	ASSERT_TRUE(std::ofstream(sig, std::ios::binary).write(reinterpret_cast <const char *> (der.data()), static_cast <std::streamsize> (der.size()))) << "Кривая: " << name;
 	// Системный openssl принимает подпись порождённым ключом
-	ASSERT_EQ(shell((std::string("openssl dgst -sha256 -verify ") + opened + " -signature " + sig + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
+	ASSERT_EQ(__nts_shell__((std::string("openssl dgst -sha256 -verify ") + opened + " -signature " + sig + " " + msg + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << name;
 	// Разобранный ключ
 	keys::key_t parsed;
 	// Разбираем свою запись секретного ключа
@@ -1451,7 +1451,7 @@ static void exported(const char * name, const char * oid, const std::string & di
  */
 TEST(EcdsaTest, GenerateOpenssl) {
 	// Если системного openssl нет, сличать не с чем
-	if(shell("openssl version >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 		// Объявляем пропуск проверки вслух
 		GTEST_SKIP() << "Системный openssl не найден";
 	// Заготовка имени каталога временных файлов
@@ -1465,7 +1465,7 @@ TEST(EcdsaTest, GenerateOpenssl) {
 	// Проверяем на кривой P-384
 	exported("secp384r1", P384, directory);
 	// Убираем каталог временных файлов
-	ASSERT_EQ(shell((std::string("rm -rf ") + directory).c_str()), 0);
+	ASSERT_EQ(__nts_shell__((std::string("rm -rf ") + directory).c_str()), 0);
 }
 /**
  * Проверка записи DER в готовое место: совпадает с записью в набор байтов, без выделений,

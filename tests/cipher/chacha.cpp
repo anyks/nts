@@ -54,7 +54,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков
+	 * Перебираем пары знаков
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2)
 		// Добавляем очередной байт
@@ -77,7 +77,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -90,6 +90,12 @@ static std::string text(const uint8_t * data, const size_t size) {
 }
 
 /**
+ * @brief Служебные объекты проверки openssl
+ *
+ */
+namespace {
+
+/**
  * @brief Функция запуска команды оболочки без консоли на входе
  *
  * @details stdin подаётся из /dev/null: у оболочки инструмента разработки он бывает
@@ -100,10 +106,13 @@ static std::string text(const uint8_t * data, const size_t size) {
  * @return        код возврата команды
  *
  */
-static int shell(const std::string & command) {
+static int __nts_shell__(const std::string & command) {
 	// Запускаем команду с пустым входом
 	return ::system((command + " </dev/null").c_str());
 }
+
+}
+
 
 /**
  * @brief Временный каталог обмена с openssl, сносимый и при отказе проверки
@@ -132,7 +141,7 @@ typedef struct Sandbox {
 		// Если каталог создан
 		if(!this->path.empty())
 			// Удаляем каталог со всем содержимым
-			(void) shell("rm -rf " + this->path);
+			(void) __nts_shell__("rm -rf " + this->path);
 	}
 } sandbox_t;
 
@@ -225,7 +234,7 @@ static void slice(const std::vector <uint8_t> & key, const std::vector <uint8_t>
 	// Проверяем пустой кусок
 	ASSERT_TRUE(chacha.encrypt(view_t(), nullptr)) << "кусок " << chunk;
 	/**
-	 * Выполняем подачу открытого текста кусками
+	 * Подаём открытый текст кусками
 	 */
 	for(size_t offset = 0; offset < plain.size(); offset += chunk)
 		// Проверяем зашифрование куска
@@ -237,7 +246,7 @@ static void slice(const std::vector <uint8_t> & key, const std::vector <uint8_t>
 	// Открытый текст потока
 	std::vector <uint8_t> opened(plain.size() + 1);
 	/**
-	 * Выполняем подачу шифртекста кусками
+	 * Подаём шифртекст кусками
 	 */
 	for(size_t offset = 0; offset < sealed.size(); offset += chunk)
 		// Проверяем расшифрование куска
@@ -272,7 +281,7 @@ static void check(const std::string & key, const std::string & nonce, const uint
 	// Проверяем шифртекст
 	ASSERT_EQ(text(c.data(), p.size()), sealed);
 	/**
-	 * Выполняем поточную проверку по всем размерам куска
+	 * Проверяем поточно по всем размерам куска
 	 */
 	for(const size_t chunk : CHUNKS)
 		// Проверяем поток кусками заданного размера
@@ -284,17 +293,17 @@ static void check(const std::string & key, const std::string & nonce, const uint
  */
 TEST(ChachaTest, QuarterRound){
 	// Слова раздела 2.1.1
-	uint32_t a = 0x11111111, b = 0x01020304, c = 0x9B8D6F43, d = 0x01234567;
-	// Выполняем четвертьраунд
-	cipher::chacha_t::quarter(a, b, c, d);
+	uint32_t first = 0x11111111, second = 0x01020304, third = 0x9B8D6F43, fourth = 0x01234567;
+	// Вычисляем четвертьраунд
+	cipher::chacha_t::quarter(first, second, third, fourth);
 	// Проверяем первое слово
-	ASSERT_EQ(a, 0xEA2A92F4u);
+	ASSERT_EQ(first, 0xEA2A92F4u);
 	// Проверяем второе слово
-	ASSERT_EQ(b, 0xCB1CF8CEu);
+	ASSERT_EQ(second, 0xCB1CF8CEu);
 	// Проверяем третье слово
-	ASSERT_EQ(c, 0x4581472Eu);
+	ASSERT_EQ(third, 0x4581472Eu);
 	// Проверяем четвёртое слово
-	ASSERT_EQ(d, 0x5881C4BBu);
+	ASSERT_EQ(fourth, 0x5881C4BBu);
 	// Состояние раздела 2.2.1
 	uint32_t state[16] = {
 		0x879531E0, 0xC5ECF37D, 0x516461B1, 0xC9A62F8A,
@@ -309,10 +318,10 @@ TEST(ChachaTest, QuarterRound){
 		0xE46BEA80, 0xB00A5631, 0x974C541A, 0x359E9963,
 		0x5C971061, 0xCCC07C79, 0x2098D9D4, 0x91DBD320
 	};
-	// Выполняем четвертьраунд над диагональю
+	// Вычисляем четвертьраунд над диагональю
 	cipher::chacha_t::quarter(state[2], state[7], state[8], state[13]);
 	/**
-	 * Выполняем сличение слов состояния
+	 * Сличаем слова состояния
 	 */
 	for(size_t i = 0; i < 16; i++)
 		// Проверяем очередное слово
@@ -363,9 +372,9 @@ TEST(ChachaTest, PolyKey){
  * Проверка отказов договора и переполнения счётчика
  */
 TEST(ChachaTest, Refusals){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes(KEY_SEQUENCE);
-	// Заполнение
+	// Заполнение синхропосылки контрольного примера
 	const std::vector <uint8_t> nonce = bytes("000000000000004a00000000");
 	// Объект шифра
 	cipher::chacha_t chacha;
@@ -415,7 +424,7 @@ TEST(ChachaTest, Refusals){
 	ASSERT_TRUE(chacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), 0xFFFFFFFF));
 	// Текст в 65 байтов: на один больше последнего блока
 	uint8_t plain[65] = {0};
-	// Шифртекст
+	// Буфер шифртекста
 	uint8_t sealed[65];
 	// Проверяем зашифрование ровно последнего блока
 	ASSERT_TRUE(chacha.encrypt(view_t(plain, 64), sealed));
@@ -437,9 +446,9 @@ TEST(ChachaTest, Refusals){
  * Проверка того, что блок отбрасывает остаток гаммы, а поток продолжает с нового блока
  */
 TEST(ChachaTest, BlockDiscardsRest){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes(KEY_SEQUENCE);
-	// Заполнение
+	// Заполнение синхропосылки контрольного примера
 	const std::vector <uint8_t> nonce = bytes("000000000000004a00000000");
 	// Открытый текст раздела 2.4.2
 	const std::vector <uint8_t> plain = bytes(SUNSCREEN);
@@ -449,7 +458,7 @@ TEST(ChachaTest, BlockDiscardsRest){
 	cipher::chacha_t chacha;
 	// Проверяем запуск на счётчике ноль
 	ASSERT_TRUE(chacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), 0));
-	// Шифртекст
+	// Буфер шифртекста
 	std::vector <uint8_t> sealed(plain.size());
 	// Проверяем зашифрование одного байта: блок ноль начат
 	ASSERT_TRUE(chacha.encrypt(view_t(plain.data(), 1), sealed.data()));
@@ -473,13 +482,13 @@ TEST(ChachaTest, BlockDiscardsRest){
  * Нехватка памяти: шифр не выделяет памяти вовсе и обязан работать при нулевом запасе
  */
 TEST(ChachaTest, Starved){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes(KEY_SEQUENCE);
-	// Заполнение
+	// Заполнение синхропосылки контрольного примера
 	const std::vector <uint8_t> nonce = bytes("000000000000004a00000000");
 	// Открытый текст
 	const std::vector <uint8_t> plain = bytes(IETF);
-	// Шифртекст
+	// Буфер шифртекста
 	std::vector <uint8_t> sealed(plain.size());
 	// Открытый текст после расшифрования
 	std::vector <uint8_t> opened(plain.size());
@@ -492,19 +501,19 @@ TEST(ChachaTest, Starved){
 		starve::ration_t ration(0);
 		// Объект шифра
 		cipher::chacha_t chacha;
-		// Выполняем запуск шифра
+		// Запускаем шифр
 		outcome = chacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), 1);
 		/**
-		 * Выполняем подачу текста кусками по 37 байтов
+		 * Подаём текст кусками по 37 байтов
 		 */
 		for(size_t offset = 0; outcome && (offset < plain.size()); offset += 37)
 			// Подаём очередной кусок
 			outcome = chacha.encrypt(view_t(plain.data() + offset, (((plain.size() - offset) < 37) ? (plain.size() - offset) : 37)), sealed.data() + offset);
-		// Выполняем перезапуск шифра
+		// Перезапускаем шифр
 		reverse = chacha.start(view_t(key.data(), key.size()), view_t(nonce.data(), nonce.size()), 1);
 		// Если перезапуск прошёл
 		if(reverse)
-			// Выполняем расшифрование разом
+			// Расшифровываем разом
 			reverse = chacha.decrypt(view_t(sealed.data(), sealed.size()), opened.data());
 	}
 	// Проверяем успешность зашифрования без единого выделения
@@ -520,11 +529,11 @@ TEST(ChachaTest, Starved){
  */
 TEST(ChachaTest, Openssl){
 	// Если openssl недоступен
-	if(shell("openssl version >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl недоступен";
 	// Если openssl не умеет ChaCha20
-	if(shell("echo x | openssl enc -chacha20 -K 0000000000000000000000000000000000000000000000000000000000000000 -iv 00000000000000000000000000000000 -out /dev/null >/dev/null 2>&1") != 0)
+	if(__nts_shell__("echo x | openssl enc -chacha20 -K 0000000000000000000000000000000000000000000000000000000000000000 -iv 00000000000000000000000000000000 -out /dev/null >/dev/null 2>&1") != 0)
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl не умеет chacha20";
 	// Временный каталог обмена
@@ -538,25 +547,25 @@ TEST(ChachaTest, Openssl){
 	// Длины, не кратные 64: случайные и обрамляющие блок
 	const size_t LENGTHS[] = {1, 63, 65, 127, 129, 1000, 4097, 12345};
 	/**
-	 * Выполняем перебор длин
+	 * Перебираем длины
 	 */
 	for(const size_t length : LENGTHS){
 		// Ключ, заполнение и текст случая
 		std::vector <uint8_t> key(32), nonce(12), plain(length);
 		/**
-		 * Выполняем заполнение ключа
+		 * Заполняем ключ
 		 */
 		for(uint8_t & byte : key)
 			// Записываем очередной байт
 			byte = static_cast <uint8_t> (generator());
 		/**
-		 * Выполняем заполнение начального заполнения
+		 * Заполняем начальное заполнение
 		 */
 		for(uint8_t & byte : nonce)
 			// Записываем очередной байт
 			byte = static_cast <uint8_t> (generator());
 		/**
-		 * Выполняем заполнение текста
+		 * Заполняем текст
 		 */
 		for(uint8_t & byte : plain)
 			// Записываем очередной байт
@@ -586,7 +595,7 @@ TEST(ChachaTest, Openssl){
 		// Переносим заполнение
 		::memcpy(iv + 4, nonce.data(), 12);
 		// Проверяем зашифрование openssl
-		ASSERT_EQ(shell("openssl enc -chacha20 -K " + text(key.data(), key.size()) + " -iv " + text(iv, sizeof(iv)) + " -in " + input + " -out " + output + " 2>/dev/null"), 0) << "длина " << length;
+		ASSERT_EQ(__nts_shell__("openssl enc -chacha20 -K " + text(key.data(), key.size()) + " -iv " + text(iv, sizeof(iv)) + " -in " + input + " -out " + output + " 2>/dev/null"), 0) << "длина " << length;
 		// Шифртекст openssl
 		std::vector <uint8_t> reference;
 		{
@@ -606,7 +615,7 @@ TEST(ChachaTest, Openssl){
 		// Размер куска: случайный от 1 до 100
 		const size_t chunk = (static_cast <size_t> (generator() % 100) + 1);
 		/**
-		 * Выполняем подачу текста кусками
+		 * Подаём текст кусками
 		 */
 		for(size_t offset = 0; offset < plain.size(); offset += chunk)
 			// Проверяем зашифрование куска
@@ -639,7 +648,7 @@ TEST(ChachaTest, Paths){
 	// Объект шифра
 	cipher::chacha_t chacha;
 	/**
-	 * Выполняем перебор длин
+	 * Перебираем длины
 	 */
 	for(size_t length = 0; length <= 4096; length++){
 		// Смещения буферов от выравнивания
@@ -647,7 +656,7 @@ TEST(ChachaTest, Paths){
 		// Открытый текст с запасом под смещение
 		std::vector <uint8_t> plain(length + 16);
 		/**
-		 * Выполняем заполнение открытого текста
+		 * Заполняем открытый текст
 		 */
 		for(size_t i = 0; i < plain.size(); i++)
 			// Записываем очередной байт
@@ -669,7 +678,7 @@ TEST(ChachaTest, Paths){
 		// Позиция внутри данных
 		size_t position = 0;
 		/**
-		 * Выполняем расшифрование кусками случайной длины
+		 * Расшифровываем кусками случайной длины
 		 */
 		while(position < length){
 			// Длина очередного куска
@@ -704,7 +713,7 @@ TEST(ChachaTest, Paths){
 			// Сбрасываем позицию внутри данных
 			position = 0;
 			/**
-			 * Выполняем зашифрование кусками случайной длины на пути, выбранном машиной
+			 * Зашифровываем кусками случайной длины на пути, выбранном машиной
 			 */
 			while(position < length){
 				// Длина очередного куска

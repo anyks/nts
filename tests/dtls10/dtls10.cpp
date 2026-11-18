@@ -650,7 +650,7 @@ TEST(Dtls10Test, Mutual){
  */
 static bool dtlsable() noexcept {
 	// Порт, журналы и держатель stdin сервера
-	const uint16_t number = vacant(true);
+	const uint16_t number = __nts_vacant__(true);
 	// Если порта нет
 	if(number == 0)
 		// Выводим отрицательный результат - порта нет
@@ -667,9 +667,9 @@ static bool dtlsable() noexcept {
 		// Выводим отрицательный результат - FIFO завести не удалось
 		return false;
 	// Поднимаем сервер openssl
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Поднимаем сервер openssl
-	const bool started = launch("openssl s_server" + accepting(toolkit, number) + " -dtls1 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder);
+	const bool started = __nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -dtls1 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300" + __nts_once__(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder);
 	// Итог
 	bool agreed = false;
 	// Если сервер поднялся
@@ -679,7 +679,7 @@ static bool dtlsable() noexcept {
 		// Дожидаемся готовности сервера
 		std::string text;
 		// Дожидаемся готовности сервера
-		if(!awaited(log, "ACCEPT", text)){
+		if(!__nts_awaited__(log, "ACCEPT", text)){
 			// Останавливаем сервер
 			sentinel.halt();
 			::remove(holder.c_str());
@@ -688,7 +688,7 @@ static bool dtlsable() noexcept {
 			return false;
 		}
 		// Клиент openssl против него
-		(void) shell("(printf 'ping' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1 -CAfile " + crt + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300 -servername localhost -ign_eof -verify_return_error >" + out + " 2>&1 &); sleep 3; pkill -f 'openssl s_client -connect 127.0.0.1:" + std::to_string(number) + "' >/dev/null 2>&1; true");
+		(void) __nts_shell__("(printf 'ping' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1 -CAfile " + crt + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300 -servername localhost -ign_eof -verify_return_error >" + out + " 2>&1 &); sleep 3; pkill -f 'openssl s_client -connect 127.0.0.1:" + std::to_string(number) + "' >/dev/null 2>&1; true");
 		// Ищем договорённый набор у клиента
 		std::ifstream file(out);
 		// Объявляем строку журнала
@@ -712,14 +712,14 @@ static bool dtlsable() noexcept {
 
 TEST(Dtls10Test, Openssl){
 	// Осматриваем оснастку openssl
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем: оснастка openssl не найдена
 		GTEST_SKIP() << "openssl недоступен";
 	}
 	// Если стенд без DTLS 1.0
-	if(!listed("s_server", "dtls1") || !listed("s_client", "dtls1")){
+	if(!__nts_listed__("s_server", "dtls1") || !__nts_listed__("s_client", "dtls1")){
 		// Пропускаем: оснастка openssl не ведёт DTLS 1.0
 		GTEST_SKIP() << "openssl без DTLS 1.0";
 	}
@@ -729,7 +729,7 @@ TEST(Dtls10Test, Openssl){
 		GTEST_SKIP() << "openssl без TLS 1.2 либо без расширенного главного секрета (старше 1.1.0)";
 	}
 	// Если набора нет в оснастке
-	if(shell("openssl ciphers -s 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' >/dev/null 2>&1") != 0){
+	if(__nts_shell__("openssl ciphers -s 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' >/dev/null 2>&1") != 0){
 		// Пропускаем: набора ECDHE-ECDSA-AES128-SHA нет в оснастке
 		GTEST_SKIP() << "openssl без ECDHE-ECDSA-AES128-SHA";
 	}
@@ -747,7 +747,7 @@ TEST(Dtls10Test, Openssl){
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
 		// Ищем вольный порт
-		const uint16_t number = vacant(true);
+		const uint16_t number = __nts_vacant__(true);
 		// Проверяем, что порт нашёлся
 		ASSERT_NE(number, 0);
 		// Составляем имя журнала сервера
@@ -759,17 +759,17 @@ TEST(Dtls10Test, Openssl){
 		// Заводим держатель
 		ASSERT_EQ(fifo(holder.c_str()), 0);
 		// Поднимаем сервер openssl
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -dtls1 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300" + __nts_once__(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 		// Ставим стража серверу
 		sentinel_t sentinel(log + ".pid");
 		// Объявляем буфер журнала
 		std::string text;
 		// Дожидаемся готовности сервера
-		ASSERT_TRUE(awaited(log, "ACCEPT", text)) << text;
+		ASSERT_TRUE(__nts_awaited__(log, "ACCEPT", text)) << text;
 		// Объявляем привязанный порт
 		uint16_t bound = 0;
 		// Заводим сокет
-		const int fd = socketing(0, bound);
+		const int fd = __nts_socketing__(0, bound);
 		// Проверяем сокет
 		ASSERT_GE(fd, 0);
 		// Объявляем адрес собеседника
@@ -799,9 +799,9 @@ TEST(Dtls10Test, Openssl){
 		// Запускаем клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Ведём обмен до установления связи
-		const bool complete = relay(client, fd, peer, 400);
+		const bool complete = __nts_relay__(client, fd, peer, 400);
 		// Если связь не установилась
-		if(!complete){ std::string journal; (void) settle(log, journal); ADD_FAILURE() << journal; }
+		if(!complete){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 		// Проверяем установление связи
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем издание у клиента
@@ -813,7 +813,7 @@ TEST(Dtls10Test, Openssl){
 		// Останавливаем сервер
 		sentinel.halt();
 		// Снимаем журнал сервера
-		(void) settle(log, text);
+		(void) __nts_settle__(log, text);
 		// Убираем журнал сервера
 		::remove(log.c_str());
 		// Убираем держатель
@@ -823,7 +823,7 @@ TEST(Dtls10Test, Openssl){
 		// Объявляем номер порта
 		uint16_t number = 0;
 		// Заводим сокет
-		const int fd = socketing(0, number);
+		const int fd = __nts_socketing__(0, number);
 		// Проверяем сокет
 		ASSERT_GE(fd, 0);
 		// Составляем имя журнала клиента
@@ -831,7 +831,7 @@ TEST(Dtls10Test, Openssl){
 		// Задаём запрос клиента
 		const string request = "hello from openssl over dtls 1.0\n";
 		// Поднимаем клиента openssl
-		ASSERT_TRUE(launch("printf '" + request + "' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1 -CAfile " + crt + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300 -servername localhost -verify_return_error -ign_eof >" + log + " 2>&1", log, log + ".pid", std::string()));
+		ASSERT_TRUE(__nts_launch__("printf '" + request + "' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1 -CAfile " + crt + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300 -servername localhost -verify_return_error -ign_eof >" + log + " 2>&1", log, log + ".pid", std::string()));
 		// Ставим стража клиенту
 		sentinel_t sentinel(log + ".pid");
 		// Объявляем адрес собеседника
@@ -904,7 +904,7 @@ TEST(Dtls10Test, Openssl){
 				(void) server.read(plaintext);
 		}
 		// Если связь не установилась
-		if(!server.established()){ std::string journal; (void) settle(log, journal); ADD_FAILURE() << journal; }
+		if(!server.established()){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 		// Проверяем установление связи
 		ASSERT_TRUE(server.established()) << "отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description) << " состояние " << static_cast <int> (server.state());
 		// Проверяем издание у сервера
@@ -918,7 +918,7 @@ TEST(Dtls10Test, Openssl){
 		// Объявляем буфер журнала
 		std::string text;
 		// Снимаем журнал клиента
-		(void) settle(log, text);
+		(void) __nts_settle__(log, text);
 		// Проверяем протокол у клиента
 		EXPECT_NE(text.find("Protocol  : DTLSv1"), std::string::npos) << text;
 		::remove(log.c_str());

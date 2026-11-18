@@ -48,11 +48,11 @@ namespace {
 	 * @return       признак успешности выработки обёртки секретного ключа
 	 *
 	 */
-	bool wrap(const asn1::tag_t kind, const vector <uint8_t> & key, vector <uint8_t> & result) noexcept {
+	bool __nts_wrap__(const asn1::tag_t kind, const vector <uint8_t> & key, vector <uint8_t> & result) noexcept {
 		// Тело самого ключа внутри обёртки
 		asn1::Writer body;
 		/**
-		 * Выполняем определение вида записи самого ключа
+		 * Определяем вид записи самого ключа
 		 */
 		switch(static_cast <uint32_t> (kind)){
 			// Если ключ записывается строкой байтов порядком от младшего байта к старшему
@@ -150,7 +150,7 @@ namespace {
 		// Заводим образцовое число секретного ключа
 		vector <uint8_t> result(32, 0);
 		/**
-		 * Выполняем заполнение образцового числа секретного ключа
+		 * Заполняем образцовое число секретного ключа
 		 */
 		for(size_t i = 0; i < result.size(); i++)
 			// Записываем очередной байт образцового числа
@@ -169,7 +169,7 @@ TEST(PemTest, Alphabet){
 	vector <pem::block_t> blocks;
 	// Заводим разбираемый текст с известным телом записи
 	const string text = "-----BEGIN DATA-----\nQU5ZS1M=\n-----END DATA-----\n";
-	// Выполняем разбор текста
+	// Разбираем текст
 	ASSERT_EQ(pem::decode(text, blocks), pem::error_t::NONE);
 	// Проверяем количество разобранных записей
 	ASSERT_EQ(blocks.size(), 1u);
@@ -185,7 +185,7 @@ TEST(PemTest, Alphabet){
  */
 TEST(PemTest, Roundtrip){
 	/**
-	 * Выполняем перебор длин тела записи
+	 * Перебираем длины тела записи
 	 */
 	for(size_t size = 0; size < 200; size++){
 		// Заводим записываемую запись
@@ -200,10 +200,10 @@ TEST(PemTest, Roundtrip){
 			block.data.push_back(static_cast <uint8_t> ((i * 7) + 3));
 		// Записанный текст
 		string text;
-		// Выполняем запись записи
+		// Записываем запись
 		ASSERT_EQ(pem::encode(block, text), pem::error_t::NONE);
 		/**
-		 * Выполняем перебор всех строк записанного текста
+		 * Перебираем все строки записанного текста
 		 */
 		for(size_t offset = 0, next = 0; (next = text.find('\n', offset)) != string::npos; offset = (next + 1)){
 			// Если очередная строка является рамкой записи
@@ -215,7 +215,7 @@ TEST(PemTest, Roundtrip){
 		}
 		// Разобранные записи
 		vector <pem::block_t> blocks;
-		// Выполняем разбор записанного текста
+		// Разбираем записанный текст
 		ASSERT_EQ(pem::decode(text, blocks), pem::error_t::NONE);
 		// Проверяем количество разобранных записей
 		ASSERT_EQ(blocks.size(), 1u);
@@ -248,7 +248,7 @@ TEST(PemTest, Ragged){
 	blocks[1].data.assign(48, 0x22);
 	// Записанный текст, служащий основою порчи
 	string origin = "Пояснение перед записями\n";
-	// Выполняем запись набора записей
+	// Записываем набор записей
 	ASSERT_EQ(pem::encode(blocks, origin), pem::error_t::NONE);
 	// Проверяем, что записанный текст не пуст
 	ASSERT_GT(origin.size(), size_t(64));
@@ -258,7 +258,7 @@ TEST(PemTest, Ragged){
 	 */
 	const char letters[5] = {'-', '\n', '=', '\0', 'Z'};
 	/**
-	 * Выполняем перебор длин усечения записанного текста
+	 * Перебираем длины усечения записанного текста
 	 */
 	for(size_t size = 0; size <= origin.size(); size++){
 		// Место, в которое помещается разобранный набор записей
@@ -269,17 +269,17 @@ TEST(PemTest, Ragged){
 		vector <uint8_t> secret;
 		// Усечённый разбираемый текст PEM
 		const string cut = origin.substr(0, size);
-		// Выполняем разбор усечённого текста набором записей
+		// Разбираем усечённый текст набором записей
 		(void) pem::decode(cut, taken);
-		// Выполняем разбор усечённого текста набором сертификатов
+		// Разбираем усечённый текст набором сертификатов
 		(void) pem::certificates(cut, chain);
-		// Выполняем разбор усечённого текста закрытым ключом
+		// Разбираем усечённый текст закрытым ключом
 		(void) pem::secret(cut, secret);
 		/**
-		 * Выполняем перебор знаков порчи очередного места текста
+		 * Перебираем знаки порчи очередного места текста
 		 */
 		for(size_t item = 0; (size > 0) && (item < 5); item++){
-			// Выполняем перенос усечённого текста PEM
+			// Переносим усечённый текст PEM
 			string spoiled = cut;
 			// Портим последний знак усечённого текста
 			spoiled[size - 1] = letters[item];
@@ -289,15 +289,15 @@ TEST(PemTest, Ragged){
 			vector <vector <uint8_t>> chained;
 			// Место, в которое помещается разобранный закрытый ключ
 			vector <uint8_t> keyed;
-			// Выполняем разбор порченого текста набором записей
+			// Разбираем порченый текст набором записей
 			(void) pem::decode(spoiled, items);
-			// Выполняем разбор порченого текста набором сертификатов
+			// Разбираем порченый текст набором сертификатов
 			(void) pem::certificates(spoiled, chained);
-			// Выполняем разбор порченого текста закрытым ключом
+			// Разбираем порченый текст закрытым ключом
 			(void) pem::secret(spoiled, keyed);
 			// Место, в которое помещается разобранный набор по метке
 			vector <vector <uint8_t>> labelled;
-			// Выполняем разбор порченого текста по метке записи
+			// Разбираем порченый текст по метке записи
 			(void) pem::decode(spoiled, "CERTIFICATE", labelled);
 		}
 	}
@@ -320,13 +320,13 @@ TEST(PemTest, Chain){
 	blocks[1].data.assign(90, 0x22);
 	// Записанный текст
 	string text = "Пояснение к цепочке сертификатов\n";
-	// Выполняем запись набора записей
+	// Записываем набор записей
 	ASSERT_EQ(pem::encode(blocks, text), pem::error_t::NONE);
 	// Дописываем пояснение к записям
 	text.append("Пояснение после цепочки\n");
 	// Извлечённая цепочка сертификатов
 	vector <vector <uint8_t>> chain;
-	// Выполняем извлечение цепочки сертификатов
+	// Извлекаем цепочку сертификатов
 	ASSERT_EQ(pem::certificates(text, chain), pem::error_t::NONE);
 	// Проверяем длину извлечённой цепочки сертификатов
 	ASSERT_EQ(chain.size(), 2u);
@@ -395,22 +395,22 @@ TEST(PemTest, Secret){
 	// Получаем образцовое число секретного ключа
 	const vector <uint8_t> & key = specimen();
 	/**
-	 * Выполняем перебор всех дозволенных видов записи ключа
+	 * Перебираем все дозволенные виды записи ключа
 	 */
 	for(const auto kind : {asn1::tag_t::OCTET_STRING, asn1::tag_t::INTEGER, asn1::tag_t::SEQUENCE}){
 		// Заводим записываемую запись секретного ключа
 		pem::block_t block;
 		// Устанавливаем метку записи секретного ключа
 		block.label = "PRIVATE KEY";
-		// Выполняем выработку обёртки секретного ключа
-		ASSERT_TRUE(wrap(kind, key, block.data));
+		// Вырабатываем обёртку секретного ключа
+		ASSERT_TRUE(__nts_wrap__(kind, key, block.data));
 		// Записанный текст
 		string text;
-		// Выполняем запись записи секретного ключа
+		// Записываем запись секретного ключа
 		ASSERT_EQ(pem::encode(block, text), pem::error_t::NONE);
 		// Извлечённый секретный ключ
 		vector <uint8_t> secret;
-		// Выполняем извлечение секретного ключа
+		// Извлекаем секретный ключ
 		ASSERT_EQ(pem::secret(text, secret), pem::error_t::NONE);
 		// Проверяем извлечённый секретный ключ
 		EXPECT_EQ(secret, key);
@@ -434,11 +434,11 @@ TEST(PemTest, Refusal){
 	pem::block_t block;
 	// Устанавливаем метку записи секретного ключа
 	block.label = "PRIVATE KEY";
-	// Выполняем выработку обёртки нулевого секретного ключа
-	ASSERT_TRUE(wrap(asn1::tag_t::OCTET_STRING, vector <uint8_t> (32, 0x00), block.data));
+	// Вырабатываем обёртку нулевого секретного ключа
+	ASSERT_TRUE(__nts_wrap__(asn1::tag_t::OCTET_STRING, vector <uint8_t> (32, 0x00), block.data));
 	// Записанный текст
 	string text;
-	// Выполняем запись записи секретного ключа
+	// Записываем запись секретного ключа
 	ASSERT_EQ(pem::encode(block, text), pem::error_t::NONE);
 	// Проверяем отказ на ключе без значащей части вовсе
 	EXPECT_EQ(pem::secret(text, secret), pem::error_t::CONTENT);
@@ -501,8 +501,8 @@ TEST(PemTest, Refusal){
 	pem::block_t compound;
 	// Устанавливаем метку записи секретного ключа
 	compound.label = "PRIVATE KEY";
-	// Выполняем выработку обёртки годного секретного ключа
-	ASSERT_TRUE(wrap(asn1::tag_t::OCTET_STRING, vector <uint8_t> (32, 0x11), compound.data));
+	// Вырабатываем обёртку годного секретного ключа
+	ASSERT_TRUE(__nts_wrap__(asn1::tag_t::OCTET_STRING, vector <uint8_t> (32, 0x11), compound.data));
 	// Место, на котором стоит значащая часть ключа внутри обёртки
 	size_t place = 0;
 	/**
@@ -525,7 +525,7 @@ TEST(PemTest, Refusal){
 	compound.data[place] = 0x24;
 	// Записанный текст записи с составной строкой байтов
 	string enclosed;
-	// Выполняем запись записи секретного ключа
+	// Записываем запись секретного ключа
 	ASSERT_EQ(pem::encode(compound, enclosed), pem::error_t::NONE);
 	// Проверяем отказ извлечения ключа, записанного составной строкой байтов
 	EXPECT_EQ(pem::secret(enclosed, secret), pem::error_t::CONTENT);
@@ -537,7 +537,7 @@ TEST(PemTest, Refusal){
 	compound.data[place] = 0x84;
 	// Записанный текст записи со строкой байтов не универсального класса
 	string foreign;
-	// Выполняем запись записи секретного ключа
+	// Записываем запись секретного ключа
 	ASSERT_EQ(pem::encode(compound, foreign), pem::error_t::NONE);
 	// Проверяем отказ извлечения ключа, записанного меткой не универсального класса
 	EXPECT_EQ(pem::secret(foreign, secret), pem::error_t::CONTENT);
@@ -832,13 +832,13 @@ TEST(PemTest, Naming){
 		pem::error_t::MEMORY
 	};
 	/**
-	 * Выполняем перебор всех известных отказов разбора
+	 * Перебираем все известные отказы разбора
 	 */
 	for(size_t i = 0; i < (sizeof(errors) / sizeof(pem::error_t)); i++){
 		// Проверяем, что имя очередного отказа передано
 		ASSERT_NE(pem::name(errors[i]), nullptr);
 		/**
-		 * Выполняем перебор отказов, стоящих впереди очередного
+		 * Перебираем отказы, стоящие впереди очередного
 		 */
 		for(size_t j = 0; j < i; j++)
 			// Проверяем несовпадение имён двух разных отказов
@@ -857,7 +857,7 @@ TEST(PemTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе разбор обязан ответить
+	 * Перебираем запасы выделений: на всяком запасе разбор обязан ответить
 	 * либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 64; budget++){
@@ -868,7 +868,7 @@ TEST(PemTest, Starved){
 		{
 			// Отмеряем запас выделений на время разбора
 			starve::ration_t ration(budget);
-			// Выполняем разбор текста при отмеренном запасе
+			// Разбираем текст при отмеренном запасе
 			outcome = pem::decode(text, blocks);
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти
@@ -918,7 +918,7 @@ namespace {
 	 * @param data указатель на освобождаемый блок памяти
 	 *
 	 */
-	void inspect(void * data) noexcept {
+	void __nts_inspect__(void * data) noexcept {
 		// Если образец не задан
 		if(imprint.empty())
 			// Выходим из осмотра
@@ -941,7 +941,7 @@ namespace {
 		// Байты освобождаемого блока
 		const uint8_t * bytes = static_cast <const uint8_t *> (data);
 		/**
-		 * Выполняем поиск образца по всему блоку
+		 * Ищем образец по всему блоку
 		 */
 		for(size_t i = 0; (i + imprint.size()) <= size; i++){
 			// Если образец найден
@@ -974,7 +974,7 @@ TEST(PemTest, UnrequestedScoured){
 	// Метка записи секретного ключа
 	secret.label = "PRIVATE KEY";
 	/**
-	 * Выполняем заполнение тела записи секретного ключа
+	 * Заполняем тело записи секретного ключа
 	 */
 	for(size_t i = 0; i < 96; i++)
 		// Добавляем очередной байт тела записи
@@ -990,7 +990,7 @@ TEST(PemTest, UnrequestedScoured){
 	// Извлечённые сертификаты
 	vector <vector <uint8_t>> chain;
 	// Заводим наблюдателя освобождений
-	starve::watch = inspect;
+	starve::watch = __nts_inspect__;
 	// Итог извлечения сертификатов из текста с ключом
 	const pem::error_t outcome = pem::certificates(text, chain);
 	// Снимаем наблюдателя освобождений
@@ -1035,7 +1035,7 @@ TEST(PemTest, EncodeNoTraces){
 	// Метка записи секретного ключа
 	secret.label = "PRIVATE KEY";
 	/**
-	 * Выполняем заполнение тела записи секретного ключа: длиной в несколько строк текста
+	 * Заполняем тело записи секретного ключа: длиной в несколько строк текста
 	 */
 	for(size_t i = 0; i < 1200; i++)
 		// Добавляем очередной байт тела записи
@@ -1053,7 +1053,7 @@ TEST(PemTest, EncodeNoTraces){
 	// Текст записи в пустой накопитель
 	string again;
 	// Заводим наблюдателя освобождений
-	starve::watch = inspect;
+	starve::watch = __nts_inspect__;
 	// Итог записи в пустой накопитель
 	const pem::error_t empty = pem::encode(secret, again);
 	// Снимаем наблюдателя освобождений
@@ -1069,7 +1069,7 @@ TEST(PemTest, EncodeNoTraces){
 	// Текст записи в накопитель, уже несущий ту же запись: ёмкости под вторую недостаёт
 	string twice = text;
 	// Заводим наблюдателя освобождений
-	starve::watch = inspect;
+	starve::watch = __nts_inspect__;
 	// Итог дописывания записи к накопителю
 	const pem::error_t appended = pem::encode(secret, twice);
 	// Снимаем наблюдателя освобождений
@@ -1113,7 +1113,7 @@ TEST(PemTest, DecodeErrorScoured){
 	// Метка записи секретного ключа
 	secret.label = "PRIVATE KEY";
 	/**
-	 * Выполняем заполнение тела записи секретного ключа
+	 * Заполняем тело записи секретного ключа
 	 */
 	for(size_t i = 0; i < 120; i++)
 		// Добавляем очередной байт тела записи
@@ -1133,7 +1133,7 @@ TEST(PemTest, DecodeErrorScoured){
 		// Извлечённые по метке записи
 		vector <vector <uint8_t>> result;
 		// Заводим наблюдателя освобождений
-		starve::watch = inspect;
+		starve::watch = __nts_inspect__;
 		// Итог извлечения по метке: отказ ожидаем
 		const pem::error_t outcome = pem::decode(text, string("CERTIFICATE"), result);
 		// Снимаем наблюдателя освобождений
@@ -1150,7 +1150,7 @@ TEST(PemTest, DecodeErrorScoured){
 		// Извлечённый секретный ключ
 		vector <uint8_t> key;
 		// Заводим наблюдателя освобождений
-		starve::watch = inspect;
+		starve::watch = __nts_inspect__;
 		// Итог извлечения секретного ключа: отказ ожидаем
 		const pem::error_t outcome = pem::secret(text, key);
 		// Снимаем наблюдателя освобождений

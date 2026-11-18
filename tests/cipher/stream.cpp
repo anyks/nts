@@ -62,7 +62,7 @@ static std::vector <uint8_t> plain(const size_t size) {
 	// Порождаемый текст
 	std::vector <uint8_t> result(size);
 	/**
-	 * Выполняем заполнение текста
+	 * Заполняем текст
 	 */
 	for(size_t i = 0; i < size; i++)
 		// Записываем очередной байт
@@ -81,7 +81,7 @@ static void key(cipher::aes_t & aes) {
 	// Ключ в 32 байта
 	uint8_t data[32];
 	/**
-	 * Выполняем заполнение ключа
+	 * Заполняем ключ
 	 */
 	for(size_t i = 0; i < sizeof(data); i++)
 		// Записываем очередной байт
@@ -107,7 +107,7 @@ static void seal(cipher::stream_t & stream, const cipher::aes_t & aes, const cip
 	// Проверяем заведение потока на зашифрование
 	ASSERT_TRUE(stream.start(cipher::direction_t::ENCRYPT, cipher::block_t(aes), mode)) << "кусок " << chunk;
 	/**
-	 * Выполняем подачу текста кусками
+	 * Подаём текст кусками
 	 */
 	for(size_t offset = 0; offset < source.size(); offset += chunk){
 		// Длина очередного куска
@@ -183,7 +183,7 @@ static void unseal(cipher::stream_t & stream, const cipher::aes_t & aes, const c
 	// Проверяем заведение потока на расшифрование
 	ASSERT_TRUE(stream.start(cipher::direction_t::DECRYPT, cipher::block_t(aes), mode)) << "кусок " << chunk;
 	/**
-	 * Выполняем подачу выхода кусками
+	 * Подаём выход кусками
 	 */
 	for(size_t offset = 0; offset < sealed.size(); offset += chunk){
 		// Длина очередного куска
@@ -219,31 +219,31 @@ static void accept(const cipher::regime_t mode) {
 	// Выход потока, открытый текст режима напрямую и открытый текст потока
 	std::vector <uint8_t> sealed, direct, opened;
 	/**
-	 * Выполняем перебор размеров куска
+	 * Перебираем размеры куска
 	 */
 	for(const size_t chunk : CHUNKS){
-		// Выполняем зашифрование потоком
+		// Зашифровываем потоком
 		seal(stream, aes, mode, source, chunk, sealed);
 		// Проверяем длину выхода: вектор впереди и метка позади
 		ASSERT_EQ(sealed.size(), source.size() + ((mode == cipher::regime_t::GCM) ? 28 : 16)) << "кусок " << chunk;
-		// Выполняем разовое расшифрование режимом напрямую
+		// Расшифровываем разово режимом напрямую
 		open(aes, mode, sealed, direct);
 		// Проверяем схождение с разовым вызовом
 		ASSERT_EQ(direct, source) << "кусок " << chunk;
-		// Выполняем расшифрование потоком тем же куском
+		// Расшифровываем потоком тем же куском
 		unseal(stream, aes, mode, sealed, chunk, opened);
 		// Проверяем схождение открытого текста
 		ASSERT_EQ(opened, source) << "кусок " << chunk;
-		// Выполняем расшифрование потоком по одному байту
+		// Расшифровываем потоком по одному байту
 		unseal(stream, aes, mode, sealed, 1, opened);
 		// Проверяем схождение открытого текста
 		ASSERT_EQ(opened, source) << "кусок " << chunk;
 	}
 	// Выход зашифрования по одному байту
 	std::vector <uint8_t> single;
-	// Выполняем зашифрование потоком по одному байту
+	// Зашифровываем потоком по одному байту
 	seal(stream, aes, mode, source, 1, single);
-	// Выполняем расшифрование потоком разом
+	// Расшифровываем потоком разом
 	unseal(stream, aes, mode, single, single.size(), opened);
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(opened, source);
@@ -253,7 +253,7 @@ static void accept(const cipher::regime_t mode) {
  * Приёмка GCM: нарезка не влияет на итог, сличение с разовым вызовом
  */
 TEST(StreamTest, Gcm){
-	// Выполняем приёмку режима
+	// Принимаем режим
 	accept(cipher::regime_t::GCM);
 }
 
@@ -261,7 +261,7 @@ TEST(StreamTest, Gcm){
  * Приёмка CFB: нарезка не влияет на итог, сличение с разовым вызовом
  */
 TEST(StreamTest, Feedback){
-	// Выполняем приёмку режима
+	// Принимаем режим
 	accept(cipher::regime_t::FEEDBACK);
 }
 
@@ -279,23 +279,23 @@ TEST(StreamTest, Paths){
 	cipher::stream_t stream;
 	// Выход потока и открытый текст
 	std::vector <uint8_t> sealed, opened;
-	// Выполняем зашифрование потоком на пути, выбранном машиной
+	// Зашифровываем потоком на пути, выбранном машиной
 	seal(stream, aes, cipher::regime_t::GCM, source, 7, sealed);
 	// Запрещаем машинные команды
 	machine::allow(false);
-	// Выполняем установку ключа заново: таблицы шифра строятся при установке
+	// Устанавливаем ключ заново: таблицы шифра строятся при установке
 	key(aes);
-	// Выполняем расшифрование потоком таблицами
+	// Расшифровываем потоком таблицами
 	unseal(stream, aes, cipher::regime_t::GCM, sealed, 5, opened);
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(opened, source);
-	// Выполняем зашифрование потоком таблицами
+	// Зашифровываем потоком таблицами
 	seal(stream, aes, cipher::regime_t::GCM, source, 11, sealed);
 	// Возвращаем машинные команды
 	machine::allow(true);
-	// Выполняем установку ключа заново
+	// Устанавливаем ключ заново
 	key(aes);
-	// Выполняем расшифрование потоком командами
+	// Расшифровываем потоком командами
 	unseal(stream, aes, cipher::regime_t::GCM, sealed, 3, opened);
 	// Проверяем схождение открытого текста
 	ASSERT_EQ(opened, source);
@@ -334,7 +334,7 @@ TEST(StreamTest, Empty){
 	// Проверяем подачу пустого куска до вектора
 	ASSERT_TRUE(stream.update(view_t(), opened));
 	/**
-	 * Выполняем подачу выхода по одному байту
+	 * Подаём выход по одному байту
 	 */
 	for(size_t i = 0; i < sealed.size(); i++){
 		// Проверяем подачу байта
@@ -370,14 +370,14 @@ TEST(StreamTest, Tamper){
 	cipher::stream_t stream;
 	// Выход потока и открытый текст
 	std::vector <uint8_t> sealed, opened;
-	// Выполняем зашифрование потоком
+	// Зашифровываем потоком
 	seal(stream, aes, cipher::regime_t::GCM, source, 17, sealed);
 	// Портим последний байт метки
 	sealed.back() ^= 0x80;
 	// Проверяем заведение потока на расшифрование
 	ASSERT_TRUE(stream.start(cipher::direction_t::DECRYPT, cipher::block_t(aes), cipher::regime_t::GCM));
 	/**
-	 * Выполняем подачу порченого выхода по одному байту: ни один кусок не отказывает
+	 * Подаём порченый выход по одному байту: ни один кусок не отказывает
 	 */
 	for(size_t i = 0; i < sealed.size(); i++)
 		// Проверяем подачу байта
@@ -560,7 +560,7 @@ TEST(StreamTest, Guards){
 	ASSERT_TRUE(stream.update(view_t(result.data(), result.size()), opened));
 	// Проверяем отказ завершения
 	ASSERT_FALSE(stream.finish(opened));
-	// Выполняем сброс потока
+	// Сбрасываем поток
 	stream.clear();
 	// Проверяем неготовность после сброса
 	ASSERT_FALSE(stream.ready());
@@ -580,9 +580,9 @@ TEST(StreamTest, Nonce){
 	cipher::stream_t stream;
 	// Выходы двух зашифрований
 	std::vector <uint8_t> first, second;
-	// Выполняем первое зашифрование
+	// Зашифровываем в первый раз
 	seal(stream, aes, cipher::regime_t::GCM, source, 16, first);
-	// Выполняем второе зашифрование
+	// Зашифровываем во второй раз
 	seal(stream, aes, cipher::regime_t::GCM, source, 16, second);
 	// Проверяем, что векторы различны
 	ASSERT_NE(::memcmp(first.data(), second.data(), 12), 0);
@@ -604,12 +604,12 @@ TEST(StreamTest, Starved){
 	cipher::stream_t stream;
 	// Выход исправного зашифрования
 	std::vector <uint8_t> sealed;
-	// Выполняем зашифрование потоком
+	// Зашифровываем потоком
 	seal(stream, aes, cipher::regime_t::GCM, source, 300, sealed);
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе поток обязан ответить
+	 * Перебираем запасы выделений: на всяком запасе поток обязан ответить
 	 * либо успехом, либо отказом, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 32; budget++){
@@ -624,10 +624,10 @@ TEST(StreamTest, Starved){
 		{
 			// Отмеряем запас выделений на время работы потока
 			starve::ration_t ration(budget);
-			// Выполняем заведение потока на зашифрование
+			// Заводим поток на зашифрование
 			outcome = stream.start(cipher::direction_t::ENCRYPT, cipher::block_t(aes), cipher::regime_t::GCM);
 			/**
-			 * Выполняем подачу текста кусками по 37 байтов
+			 * Подаём текст кусками по 37 байтов
 			 */
 			for(size_t offset = 0; outcome && (offset < source.size()); offset += 37)
 				// Подаём очередной кусок
@@ -636,10 +636,10 @@ TEST(StreamTest, Starved){
 			if(outcome)
 				// Завершаем поток
 				outcome = stream.finish(result);
-			// Выполняем заведение потока на расшифрование
+			// Заводим поток на расшифрование
 			reverse = stream.start(cipher::direction_t::DECRYPT, cipher::block_t(aes), cipher::regime_t::GCM);
 			/**
-			 * Выполняем подачу исправного выхода кусками по 37 байтов
+			 * Подаём исправный выход кусками по 37 байтов
 			 */
 			for(size_t offset = 0; reverse && (offset < sealed.size()); offset += 37)
 				// Подаём очередной кусок

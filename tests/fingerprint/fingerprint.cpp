@@ -1553,7 +1553,7 @@ TEST(ProfileTest, Unknown){
  */
 TEST(ProfileTest, Openssl){
 	// Способности системного openssl
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -1581,11 +1581,11 @@ TEST(ProfileTest, Openssl){
 	 */
 	for(size_t alien = 0; alien < 2; alien++){
 		// Если у openssl нет набора, связи неведомого
-		if((alien == 1) && (shell("openssl ciphers ALL 2>/dev/null | grep -q ECDHE-ECDSA-AES128-CCM") != 0))
+		if((alien == 1) && (__nts_shell__("openssl ciphers ALL 2>/dev/null | grep -q ECDHE-ECDSA-AES128-CCM") != 0))
 			// Переходим к следующему случаю
 			continue;
 		// Свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем наличие порта
 		ASSERT_NE(number, 0);
 		// Журнал сервера openssl
@@ -1593,11 +1593,11 @@ TEST(ProfileTest, Openssl){
 		// Наборы сервера: неведомый связи набор ECDHE-ECDSA-AES128-CCM (0xC0AC) издания 1.2
 		const std::string suites = ((alien == 1) ? " -cipher ECDHE-ECDSA-AES128-CCM -tls1_2" : "");
 		// Запускаем сервер openssl в один приём с ответом HTTP
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -cert " + crt + " -key " + key + suites + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -cert " + crt + " -key " + key + suites + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож сервера openssl
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int peer = dial(number);
+		const int peer = __nts_dial__(number);
 		// Проверяем подключение
 		ASSERT_GE(peer, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -1619,7 +1619,7 @@ TEST(ProfileTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, peer);
+			__nts_relay__(client, peer);
 		// Если сервер выбрал неведомый набор
 		if(alien == 1){
 			// Связь обрывается отказом исполнения профиля
@@ -1640,7 +1640,7 @@ TEST(ProfileTest, Openssl){
 			 */
 			for(size_t i = 0; (i < 16) && answer.empty(); i++){
 				// Передаём байты
-				relay(client, peer);
+				__nts_relay__(client, peer);
 				// Читаем принятые данные
 				ASSERT_EQ(client.read(answer), context::error_t::NONE);
 			}
@@ -1656,7 +1656,7 @@ TEST(ProfileTest, Openssl){
 		// Журнал сервера
 		std::string journal;
 		// Дожидаемся отметки завершения снятого сервера
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}

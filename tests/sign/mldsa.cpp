@@ -75,7 +75,7 @@ static std::vector <uint8_t> unhex(const std::string & text) noexcept {
 		return 0;
 	};
 	/**
-	 * Выполняем перебор пар полубайтов записи
+	 * Перебираем пары полубайтов записи
 	 */
 	for(size_t i = 0; i + 1 < text.size(); i += 2)
 		// Собираем байт записи из пары полубайтов
@@ -97,7 +97,7 @@ static std::vector <std::string> fields(const std::string & line) noexcept {
 	// Текущее поле разбора
 	std::string field;
 	/**
-	 * Выполняем перебор знаков строки набора
+	 * Перебираем знаки строки набора
 	 */
 	for(const char c : line){
 		// Если знак разделяет поля
@@ -169,7 +169,7 @@ TEST(MldsaTest, Keygen) {
 	// Число сценариев набора
 	size_t done = 0;
 	/**
-	 * Выполняем перебор строк набора примеров
+	 * Перебираем строки набора примеров
 	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
@@ -188,7 +188,7 @@ TEST(MldsaTest, Keygen) {
 		std::vector <uint8_t> key(pub.size()), secret(priv.size());
 		// Модуль подписи
 		sign::mldsa_t mldsa;
-		// Выполняем выработку ключа из зерна примера
+		// Вырабатываем ключ из зерна примера
 		ASSERT_TRUE(mldsa.generate(set, view_t(seed.data(), seed.size()), key.data(), secret.data()));
 		// Сверяем ключи с примером побайтно
 		EXPECT_EQ(key, pub);
@@ -212,7 +212,7 @@ TEST(MldsaTest, Siggen) {
 	// Число сценариев набора
 	size_t done = 0;
 	/**
-	 * Выполняем перебор строк набора примеров
+	 * Перебираем строки набора примеров
 	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
@@ -229,11 +229,11 @@ TEST(MldsaTest, Siggen) {
 		const std::vector <uint8_t> priv = bytes(parts[2]), msg = bytes(parts[3]), ctx = bytes(parts[4]), want = bytes(parts[5]);
 		// Модули подписи и проверки
 		sign::mldsa_t signer, verifier;
-		// Выполняем установку ключа подписи примера
+		// Устанавливаем ключ подписи примера
 		ASSERT_TRUE(signer.secret(set, view_t(priv.data(), priv.size())));
 		// Ключ проверки из установленного ключа подписи
 		std::vector <uint8_t> pub(sign::mldsa_t::publicSize(set));
-		// Выполняем получение и установку ключа проверки
+		// Получаем и устанавливаем ключ проверки
 		ASSERT_TRUE(signer.key(pub.data(), pub.size()));
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
 		// Место выработанной подписи
@@ -242,16 +242,16 @@ TEST(MldsaTest, Siggen) {
 		if(parts[1] == "d"){
 			// Случайность из тридцати двух нулевых байтов
 			const uint8_t zeros[32] = {};
-			// Выполняем выработку подписи и сверяем с примером побайтно
+			// Вырабатываем подпись и сверяем с примером побайтно
 			ASSERT_TRUE(signer.make(view_t(zeros, sizeof(zeros)), view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), signature.data()));
 			// Выработанная подпись совпадает с примером побайтно
 			EXPECT_EQ(signature, want);
 		// Иначе сценарий хеджированный
 		} else {
-			// Выполняем выработку подписи от источника случайности
+			// Вырабатываем подпись от источника случайности
 			ASSERT_TRUE(signer.make(view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), signature.data()));
 		}
-		// Выполняем сличение выработанной подписи
+		// Сличаем выработанную подпись
 		EXPECT_TRUE(verifier.check(view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), view_t(signature.data(), signature.size())));
 		// Считаем сценарий набора
 		done++;
@@ -272,7 +272,7 @@ TEST(MldsaTest, Sigver) {
 	// Число сценариев набора
 	size_t done = 0;
 	/**
-	 * Выполняем перебор строк набора примеров
+	 * Перебираем строки набора примеров
 	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
@@ -289,9 +289,9 @@ TEST(MldsaTest, Sigver) {
 		const std::vector <uint8_t> pub = bytes(parts[2]), msg = bytes(parts[3]), ctx = bytes(parts[4]), sig = bytes(parts[5]);
 		// Модуль проверки
 		sign::mldsa_t verifier;
-		// Выполняем установку ключа проверки примера
+		// Устанавливаем ключ проверки примера
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
-		// Выполняем сличение подписи примера с ожидаемым ответом
+		// Сличаем подпись примера с ожидаемым ответом
 		EXPECT_EQ(verifier.check(view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), view_t(sig.data(), sig.size())), (parts[1] == "ok"));
 		// Считаем сценарий набора
 		done++;
@@ -315,7 +315,7 @@ static void wycheproofSign(const char * name, const size_t want) {
 	// Число сценариев набора
 	size_t done = 0;
 	/**
-	 * Выполняем перебор строк набора примеров
+	 * Перебираем строки набора примеров
 	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
@@ -332,7 +332,7 @@ static void wycheproofSign(const char * name, const size_t want) {
 		const std::vector <uint8_t> priv = bytes(parts[2]), msg = bytes(parts[3]), ctx = bytes(parts[4]), wantSig = bytes(parts[5]);
 		// Модуль подписи
 		sign::mldsa_t signer;
-		// Выполняем установку ключа подписи примера
+		// Устанавливаем ключ подписи примера
 		const bool accepted = signer.secret(set, view_t(priv.data(), priv.size()));
 		// Если сценарий с гнилым ключом
 		if(parts[1] == "keyerr"){
@@ -356,7 +356,7 @@ static void wycheproofSign(const char * name, const size_t want) {
 			std::vector <uint8_t> signature(sign::mldsa_t::signatureSize(set));
 			// Случайность из тридцати двух нулевых байтов
 			const uint8_t zeros[32] = {};
-			// Выполняем выработку подписи и сверяем с примером побайтно
+			// Вырабатываем подпись и сверяем с примером побайтно
 			ASSERT_TRUE(signer.make(view_t(zeros, sizeof(zeros)), view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), signature.data()));
 			// Выработанная подпись совпадает с примером побайтно
 			EXPECT_EQ(signature, wantSig);
@@ -383,7 +383,7 @@ static void wycheproofVerify(const char * name, const size_t want) {
 	// Число сценариев набора
 	size_t done = 0;
 	/**
-	 * Выполняем перебор строк набора примеров
+	 * Перебираем строки набора примеров
 	 */
 	while(std::getline(input, line)){
 		// Если строка помечена примечанием либо пуста
@@ -400,7 +400,7 @@ static void wycheproofVerify(const char * name, const size_t want) {
 		const std::vector <uint8_t> pub = bytes(parts[2]), msg = bytes(parts[3]), ctx = bytes(parts[4]), sig = bytes(parts[5]);
 		// Модуль проверки
 		sign::mldsa_t verifier;
-		// Выполняем установку ключа проверки примера
+		// Устанавливаем ключ проверки примера
 		const bool accepted = verifier.key(set, view_t(pub.data(), pub.size()));
 		// Если сценарий с гнилым ключом
 		if(parts[1] == "keyerr"){
@@ -410,7 +410,7 @@ static void wycheproofVerify(const char * name, const size_t want) {
 		} else {
 			// Ключ годный
 			ASSERT_TRUE(accepted);
-			// Выполняем сличение подписи примера с ожидаемым ответом
+			// Сличаем подпись примера с ожидаемым ответом
 			EXPECT_EQ(verifier.check(view_t(msg.data(), msg.size()), view_t(ctx.data(), ctx.size()), view_t(sig.data(), sig.size())), (parts[1] == "ok"));
 		}
 		// Считаем сценарий набора
@@ -425,7 +425,7 @@ static void wycheproofVerify(const char * name, const size_t want) {
  *
  */
 TEST(MldsaTest, Wycheproof44Sign) {
-	// Выполняем проверку примеров набора
+	// Проверяем примеры набора
 	wycheproofSign("44", 61u);
 }
 
@@ -434,7 +434,7 @@ TEST(MldsaTest, Wycheproof44Sign) {
  *
  */
 TEST(MldsaTest, Wycheproof44Verify) {
-	// Выполняем проверку примеров набора
+	// Проверяем примеры набора
 	wycheproofVerify("44", 78u);
 }
 
@@ -443,7 +443,7 @@ TEST(MldsaTest, Wycheproof44Verify) {
  *
  */
 TEST(MldsaTest, Wycheproof65Sign) {
-	// Выполняем проверку примеров набора
+	// Проверяем примеры набора
 	wycheproofSign("65", 63u);
 }
 
@@ -452,7 +452,7 @@ TEST(MldsaTest, Wycheproof65Sign) {
  *
  */
 TEST(MldsaTest, Wycheproof65Verify) {
-	// Выполняем проверку примеров набора
+	// Проверяем примеры набора
 	wycheproofVerify("65", 81u);
 }
 
@@ -461,7 +461,7 @@ TEST(MldsaTest, Wycheproof65Verify) {
  *
  */
 TEST(MldsaTest, Wycheproof87Sign) {
-	// Выполняем проверку примеров набора
+	// Проверяем примеры набора
 	wycheproofSign("87", 54u);
 }
 
@@ -470,7 +470,7 @@ TEST(MldsaTest, Wycheproof87Sign) {
  *
  */
 TEST(MldsaTest, Wycheproof87Verify) {
-	// Выполняем проверку примеров набора
+	// Проверяем примеры набора
 	wycheproofVerify("87", 74u);
 }
 
@@ -482,16 +482,16 @@ TEST(MldsaTest, Round) {
 	// Сообщение круга подписи
 	const std::string text = "сообщение круга подписи ML-DSA";
 	/**
-	 * Выполняем перебор наборов параметров
+	 * Перебираем наборы параметров
 	 */
 	for(auto set : {sign::mldsa_t::set_t::DSA44, sign::mldsa_t::set_t::DSA65, sign::mldsa_t::set_t::DSA87}){
 		// Модули подписи и проверки
 		sign::mldsa_t signer, verifier;
 		// Места записей ключей
 		std::vector <uint8_t> pub(sign::mldsa_t::publicSize(set)), priv(sign::mldsa_t::secretSize(set));
-		// Выполняем порождение ключа из источника случайности
+		// Порождаем ключ из источника случайности
 		ASSERT_TRUE(signer.generate(set, pub.data(), priv.data()));
-		// Выполняем установку ключа проверки
+		// Устанавливаем ключ проверки
 		ASSERT_TRUE(verifier.key(set, view_t(pub.data(), pub.size())));
 		// Набор, размер и предел подписи после установки
 		EXPECT_EQ(signer.set(), set);
@@ -499,9 +499,9 @@ TEST(MldsaTest, Round) {
 		EXPECT_EQ(signer.limit(), sign::mldsa_t::signatureSize(set));
 		// Место подписи
 		std::vector <uint8_t> signature(sign::mldsa_t::signatureSize(set));
-		// Выполняем выработку подписи от источника случайности
+		// Вырабатываем подпись от источника случайности
 		ASSERT_TRUE(signer.make(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), view_t(nullptr, 0), signature.data()));
-		// Выполняем сличение подписи
+		// Сличаем подпись
 		EXPECT_TRUE(verifier.check(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), view_t(nullptr, 0), view_t(signature.data(), signature.size())));
 		// Порченый байт подписи отвергается
 		signature[100] ^= 1;

@@ -303,7 +303,7 @@ namespace {
 			// Заданный путь годный, выводим его
 			return std::string(given);
 		// Если инструмент bssl доступен
-		if(shell("command -v bssl >/dev/null 2>&1") == 0)
+		if(__nts_shell__("command -v bssl >/dev/null 2>&1") == 0)
 			// bssl в путях поиска, выводим его имя
 			return std::string("bssl");
 		// Пути к bssl нет, выводим пустую строку
@@ -317,7 +317,7 @@ namespace {
 	 */
 	static bool kemready() noexcept {
 		// Возвращаем признак успешности проверки
-		return (shell("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw X25519MLKEM768) >/dev/null 2>&1") == 0);
+		return (__nts_shell__("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw X25519MLKEM768) >/dev/null 2>&1") == 0);
 	}
 	/**
 	 * @brief Функция составления приветствия по образцу Chrome с долей гибридной группы
@@ -890,14 +890,14 @@ TEST(HybridTest, NistMalformed){
  */
 TEST(HybridTest, NistOpenssl){
 	// Заводим набор инструмента
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем наличие нужных возможностей инструмента
-	if(!toolkit.present || !toolkit.tls13 || !listed("s_server", "groups")){
+	if(!toolkit.present || !toolkit.tls13 || !__nts_listed__("s_server", "groups")){
 		// Пропускаем проверку: недоступен внешний инструмент
 		GTEST_SKIP() << "openssl без TLS 1.3 либо без -groups";
 	}
 	// Если инструмент знает гибридную группу
-	if(shell("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw SecP256r1MLKEM768) >/dev/null 2>&1") != 0){
+	if(__nts_shell__("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw SecP256r1MLKEM768) >/dev/null 2>&1") != 0){
 		// Пропускаем проверку: недоступен внешний инструмент
 		GTEST_SKIP() << "openssl без SecP256r1MLKEM768 (нужен openssl 3.5+)";
 	}
@@ -917,17 +917,17 @@ TEST(HybridTest, NistOpenssl){
 	for(size_t i = 0; i < 2; i++){
 		{
 			// Занимаем вольный порт
-			const uint16_t number = vacant(false);
+			const uint16_t number = __nts_vacant__(false);
 			// Проверяем несовпадение полученного значения с ожидаемым
 			ASSERT_NE(number, 0);
 			// Задаём путь журнала прогона
 			const std::string log = "/tmp/ants-nist-server-" + std::to_string(number) + ".log";
 			// Проверяем обслуживание подключения
-			ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -groups " + NAMES[i] + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+			ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -groups " + NAMES[i] + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 			// Запускаем страж внешнего процесса
 			sentinel_t sentinel(log + ".pid");
 			// Соединяемся с сервером инструмента
-			const int fd = dial(number);
+			const int fd = __nts_dial__(number);
 			// Проверяем, что полученное значение не меньше ожидаемого
 			ASSERT_GE(fd, 0) << "порт " << number;
 			// Создаём контекст клиента
@@ -945,9 +945,9 @@ TEST(HybridTest, NistOpenssl){
 			 */
 			for(size_t k = 0; (k < 8) && !client.established() && (client.state() != context::state_t::FAILED); k++)
 				// Передаём байты между стороной и сокетом
-				relay(client, fd);
+				__nts_relay__(client, fd);
 			// Если связь клиента не установилась, журнал в отказ
-			if(!client.established()){ std::string journal; (void) settle(log, journal); ADD_FAILURE() << journal; }
+			if(!client.established()){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 			// Проверяем установление связи обеими сторонами
 			ASSERT_TRUE(client.established()) << NAMES[i] << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 			// Группа связи сходится с договорённой
@@ -963,7 +963,7 @@ TEST(HybridTest, NistOpenssl){
 			 */
 			for(size_t k = 0; (k < 16) && reply.empty(); k++){
 				// Передаём байты между стороной и сокетом
-				relay(client, fd);
+				__nts_relay__(client, fd);
 				// Чтение ответа прошло без ошибки
 				ASSERT_EQ(client.read(reply), context::error_t::NONE);
 			}
@@ -976,7 +976,7 @@ TEST(HybridTest, NistOpenssl){
 			// Объявляем строку
 			std::string journal;
 			// Снимаем журнал процесса
-			(void) settle(log, journal);
+			(void) __nts_settle__(log, journal);
 			// Удаляем файл журнала
 			::remove(log.c_str());
 		}
@@ -984,17 +984,17 @@ TEST(HybridTest, NistOpenssl){
 			// Заводим номер порта
 			uint16_t number = 0;
 			// Заводим слушающий сокет
-			const int listener = harbour(number);
+			const int listener = __nts_harbour__(number);
 			// Проверяем, что полученное значение не меньше ожидаемого
 			ASSERT_GE(listener, 0);
 			// Задаём путь журнала прогона
 			const std::string log = "/tmp/ants-nist-client-" + std::to_string(number) + ".log";
 			// Проверяем составление имени
-			ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -servername localhost -groups " + NAMES[i] + " -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+			ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -servername localhost -groups " + NAMES[i] + " -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
 			// Запускаем страж внешнего процесса
 			sentinel_t sentinel(log + ".pid");
 			// Принимаем подключение инструмента
-			const int fd = greeted(listener);
+			const int fd = __nts_greeted__(listener);
 			// Проверяем, что полученное значение не меньше ожидаемого
 			ASSERT_GE(fd, 0);
 			// Создаём контекст сервера
@@ -1006,7 +1006,7 @@ TEST(HybridTest, NistOpenssl){
 			// Проверяем успешность запуска
 			ASSERT_EQ(server.start(), context::error_t::NONE);
 			// Обслуживаем подключение до конца
-			const bool complete = serve(server, fd);
+			const bool complete = __nts_serve__(server, fd);
 			// Проверяем итоговую ошибку
 			ASSERT_TRUE(complete) << NAMES[i] << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 			// Проверяем итоговую ошибку
@@ -1014,14 +1014,14 @@ TEST(HybridTest, NistOpenssl){
 			// Проверяем обслуживание подключения
 			EXPECT_EQ(server.group(), GROUPS[i]) << NAMES[i];
 			// Проверяем обслуживание подключения
-			ASSERT_TRUE(farewell(server, fd));
+			ASSERT_TRUE(__nts_farewell__(server, fd));
 			// Закрываем соединение
 			closing(fd);
 			closing(listener);
 			// Объявляем строку
 			std::string text;
 			// Проверяем снятие журнала процесса
-			ASSERT_TRUE(settle(log, text)) << text;
+			ASSERT_TRUE(__nts_settle__(log, text)) << text;
 			// Проверяем несовпадение полученного значения с ожидаемым
 			EXPECT_NE(text.find(std::string("Negotiated TLS1.3 group: ") + NAMES[i]), std::string::npos) << text;
 			// Удаляем файл журнала
@@ -1092,7 +1092,7 @@ TEST(HybridTest, Starved){
  */
 TEST(HybridTest, Openssl){
 	// Заводим набор инструмента
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем наличие нужных возможностей инструмента
 	if(!toolkit.present){
 		// Пропускаем проверку: недоступен внешний инструмент
@@ -1111,17 +1111,17 @@ TEST(HybridTest, Openssl){
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
 		// Занимаем вольный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем несовпадение полученного значения с ожидаемым
 		ASSERT_NE(number, 0);
 		// Задаём путь журнала прогона
 		const std::string log = "/tmp/ants-hybrid-server-" + std::to_string(number) + ".log";
 		// Проверяем обслуживание подключения
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -groups X25519MLKEM768 -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -groups X25519MLKEM768 -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Запускаем страж внешнего процесса
 		sentinel_t sentinel(log + ".pid");
 		// Соединяемся с сервером инструмента
-		const int fd = dial(number);
+		const int fd = __nts_dial__(number);
 		// Проверяем, что полученное значение не меньше ожидаемого
 		ASSERT_GE(fd, 0) << "порт " << number;
 		// Создаём контекст клиента
@@ -1139,7 +1139,7 @@ TEST(HybridTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между стороной и сокетом
-			relay(client, fd);
+			__nts_relay__(client, fd);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Задаём текст запроса
@@ -1153,7 +1153,7 @@ TEST(HybridTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты между стороной и сокетом
-			relay(client, fd);
+			__nts_relay__(client, fd);
 			// Чтение ответа прошло без ошибки
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1168,7 +1168,7 @@ TEST(HybridTest, Openssl){
 		// Объявляем строку
 		std::string journal;
 		// Снимаем журнал процесса
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем файл журнала
 		::remove(log.c_str());
 	}
@@ -1176,7 +1176,7 @@ TEST(HybridTest, Openssl){
 		// Заводим номер порта
 		uint16_t number = 0;
 		// Заводим слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем, что полученное значение не меньше ожидаемого
 		ASSERT_GE(listener, 0);
 		// Задаём путь журнала прогона
@@ -1188,11 +1188,11 @@ TEST(HybridTest, Openssl){
 		// Держатель журнала заведён
 		ASSERT_EQ(fifo(holder.c_str()), 0);
 		// Проверяем составление имени
-		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -servername localhost -groups X25519MLKEM768:X25519 -verify_return_error <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+		ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -servername localhost -groups X25519MLKEM768:X25519 -verify_return_error <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 		// Запускаем страж внешнего процесса
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение инструмента
-		const int fd = greeted(listener);
+		const int fd = __nts_greeted__(listener);
 		// Проверяем, что полученное значение не меньше ожидаемого
 		ASSERT_GE(fd, 0);
 		// Создаём контекст сервера
@@ -1204,16 +1204,16 @@ TEST(HybridTest, Openssl){
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Проверяем итоговую ошибку
-		ASSERT_TRUE(serve(server, fd)) << "отказ " << static_cast <int> (server.error());
+		ASSERT_TRUE(__nts_serve__(server, fd)) << "отказ " << static_cast <int> (server.error());
 		ASSERT_TRUE(server.established());
-		ASSERT_TRUE(farewell(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, fd));
 		// Закрываем соединение
 		closing(fd);
 		closing(listener);
 		// Объявляем строку
 		std::string text;
 		// Проверяем снятие журнала процесса
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Проверяем несовпадение полученного значения с ожидаемым
 		EXPECT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 		EXPECT_NE(text.find("X25519MLKEM768"), std::string::npos) << text;
@@ -1243,17 +1243,17 @@ TEST(HybridTest, Boringssl){
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
 		// Занимаем вольный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем несовпадение полученного значения с ожидаемым
 		ASSERT_NE(number, 0);
 		// Задаём путь журнала прогона
 		const std::string log = "/tmp/ants-hybrid-bssl-server-" + std::to_string(number) + ".log";
 		// Проверяем обслуживание подключения
-		ASSERT_TRUE(launch(tool + " server -accept " + std::to_string(number) + " -cert " + crt + " -key " + key + " -curves X25519MLKEM768 -www </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__(tool + " server -accept " + std::to_string(number) + " -cert " + crt + " -key " + key + " -curves X25519MLKEM768 -www </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Запускаем страж внешнего процесса
 		sentinel_t sentinel(log + ".pid");
 		// Соединяемся с сервером инструмента
-		const int fd = dial(number);
+		const int fd = __nts_dial__(number);
 		// Проверяем, что полученное значение не меньше ожидаемого
 		ASSERT_GE(fd, 0) << "порт " << number;
 		// Создаём контекст клиента
@@ -1271,7 +1271,7 @@ TEST(HybridTest, Boringssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между стороной и сокетом
-			relay(client, fd);
+			__nts_relay__(client, fd);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Задаём текст запроса
@@ -1285,7 +1285,7 @@ TEST(HybridTest, Boringssl){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты между стороной и сокетом
-			relay(client, fd);
+			__nts_relay__(client, fd);
 			// Чтение ответа прошло без ошибки
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1300,7 +1300,7 @@ TEST(HybridTest, Boringssl){
 		// Объявляем строку
 		std::string journal;
 		// Снимаем журнал процесса
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем файл журнала
 		::remove(log.c_str());
 	}
@@ -1308,7 +1308,7 @@ TEST(HybridTest, Boringssl){
 		// Заводим номер порта
 		uint16_t number = 0;
 		// Заводим слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем, что полученное значение не меньше ожидаемого
 		ASSERT_GE(listener, 0);
 		// Задаём путь журнала прогона
@@ -1320,11 +1320,11 @@ TEST(HybridTest, Boringssl){
 		// Держатель журнала заведён
 		ASSERT_EQ(fifo(holder.c_str()), 0);
 		// Проверяем составление имени
-		ASSERT_TRUE(launch(tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -curves X25519MLKEM768:X25519 -root-certs " + crt + " -server-name localhost <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+		ASSERT_TRUE(__nts_launch__(tool + " client -connect 127.0.0.1:" + std::to_string(number) + " -curves X25519MLKEM768:X25519 -root-certs " + crt + " -server-name localhost <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 		// Запускаем страж внешнего процесса
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение инструмента
-		const int fd = greeted(listener);
+		const int fd = __nts_greeted__(listener);
 		// Проверяем, что полученное значение не меньше ожидаемого
 		ASSERT_GE(fd, 0);
 		// Создаём контекст сервера
@@ -1336,16 +1336,16 @@ TEST(HybridTest, Boringssl){
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Проверяем итоговую ошибку
-		ASSERT_TRUE(serve(server, fd)) << "отказ " << static_cast <int> (server.error());
+		ASSERT_TRUE(__nts_serve__(server, fd)) << "отказ " << static_cast <int> (server.error());
 		ASSERT_TRUE(server.established());
-		ASSERT_TRUE(farewell(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, fd));
 		// Закрываем соединение
 		closing(fd);
 		closing(listener);
 		// Объявляем строку
 		std::string text;
 		// Проверяем снятие журнала процесса
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Проверяем несовпадение полученного значения с ожидаемым
 		EXPECT_NE(text.find("X25519MLKEM768"), std::string::npos) << text;
 		// Удаляем файл журнала

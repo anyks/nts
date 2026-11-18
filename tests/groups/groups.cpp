@@ -200,7 +200,7 @@ namespace {
 	 * @return       признак успешности разбора приветствия
 	 *
 	 */
-	static bool offered(client::context_t & client, vector <pair <extension::group_t, vector <uint8_t>>> & result) noexcept {
+	static bool __nts_offered__(client::context_t & client, vector <pair <extension::group_t, vector <uint8_t>>> & result) noexcept {
 		// Объявляем разобранный профиль приветствия
 		fingerprint::profile_t profile;
 		// Разбираем приветствие клиента
@@ -269,9 +269,9 @@ namespace {
 	 */
 	static bool groupable(const char * name, const bool legacy, const std::string & crt, const std::string & key) noexcept {
 		// Признак по делу, а не по подкоманде list: openssl договаривается с собой по этой группе (у 3.0 list -tls-groups нет вовсе)
-		const toolkit_t toolkit = inspect();
+		const toolkit_t toolkit = __nts_inspect__();
 		// Занимаем свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем занятие порта
 		if(number == 0)
 			// Возвращаем признак неудачи
@@ -288,7 +288,7 @@ namespace {
 		// Объявляем довод издания протокола
 		const std::string edition = (legacy ? "-tls1_2" : "-tls1_3");
 		// Запускаем системный сервер с заданной группой
-		const bool started = launch("openssl s_server" + accepting(toolkit, number) + " " + edition + " -cert " + crt + " -key " + key + " -groups " + name + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder);
+		const bool started = __nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " " + edition + " -cert " + crt + " -key " + key + " -groups " + name + __nts_once__(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder);
 		// Объявляем признак договорённости о группе
 		bool agreed = false;
 		// Проверяем запуск сервера
@@ -298,9 +298,9 @@ namespace {
 			// Объявляем буфер журнала сервера
 			std::string text;
 			// Дожидаемся готовности сервера к приёму
-			if(awaited(log, "ACCEPT", text)){
+			if(__nts_awaited__(log, "ACCEPT", text)){
 				// Запускаем системного клиента против своего сервера
-				(void) shell("(printf 'Q\n' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " " + edition + " -groups " + name + " -CAfile " + crt + " -servername localhost >" + out + " 2>&1 &); sleep 3; pkill -f 'openssl s_client -connect 127.0.0.1:" + std::to_string(number) + "' >/dev/null 2>&1; true");
+				(void) __nts_shell__("(printf 'Q\n' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " " + edition + " -groups " + name + " -CAfile " + crt + " -servername localhost >" + out + " 2>&1 &); sleep 3; pkill -f 'openssl s_client -connect 127.0.0.1:" + std::to_string(number) + "' >/dev/null 2>&1; true");
 				// Открываем журнал системного клиента
 				std::ifstream file(out);
 				// Объявляем буфер строки журнала
@@ -337,9 +337,9 @@ namespace {
 	 */
 	static bool against(const std::string & arguments, const vector <extension::group_t> & groups, const vector <extension::group_t> & shares, const bool legacy, const vector <extension::scheme_t> & schemes, const extension::group_t expected, std::string & journal) noexcept {
 		// Осматриваем системный инструмент
-		const toolkit_t toolkit = inspect();
+		const toolkit_t toolkit = __nts_inspect__();
 		// Занимаем свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем занятие порта
 		if(number == 0)
 			// Возвращаем признак неудачи
@@ -347,13 +347,13 @@ namespace {
 		// Объявляем имя журнала сервера
 		const std::string log = "/tmp/ants-groups-server-" + std::to_string(number) + ".log";
 		// Запускаем системный сервер с заданными доводами
-		if(!launch("openssl s_server" + accepting(toolkit, number) + " " + arguments + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"))
+		if(!__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " " + arguments + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"))
 			// Возвращаем признак неудачи запуска
 			return false;
 		// Объявляем страж остановки сервера
 		sentinel_t sentinel(log + ".pid");
 		// Соединяемся с портом сервера
-		const int fd = dial(number);
+		const int fd = __nts_dial__(number);
 		// Проверяем соединение с сервером
 		if(fd < 0)
 			// Возвращаем признак неудачи соединения
@@ -383,7 +383,7 @@ namespace {
 		 */
 		for(size_t i = 0; ok && (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между клиентом и сервером
-			relay(client, fd);
+			__nts_relay__(client, fd);
 		// Проверяем установление связи и выбранную группу
 		ok = (ok && client.established() && (client.group() == expected));
 		// Проверяем установление связи
@@ -399,7 +399,7 @@ namespace {
 			 */
 			for(size_t i = 0; ok && (i < 16) && answer.empty(); i++){
 				// Передаём байты между клиентом и сервером
-				relay(client, fd);
+				__nts_relay__(client, fd);
 				// Принимаем ответ системного сервера
 				ok = (client.read(answer) == context::error_t::NONE);
 			}
@@ -417,7 +417,7 @@ namespace {
 		// Объявляем буфер журнала сервера
 		std::string text;
 		// Снимаем системный сервер и читаем его журнал
-		(void) settle(log, text);
+		(void) __nts_settle__(log, text);
 		// Дополняем журнал записью сервера
 		journal += "\n" + text;
 		::remove(log.c_str());
@@ -440,7 +440,7 @@ namespace {
 		// Объявляем номер порта
 		uint16_t number = 0;
 		// Открываем слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем открытие слушающего сокета
 		if(listener < 0)
 			// Возвращаем признак неудачи
@@ -455,13 +455,13 @@ namespace {
 			// Возвращаем признак неудачи создания канала
 			return false;
 		// Запускаем системного клиента с заданными доводами
-		if(!launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " " + arguments + " -servername localhost -verify_return_error <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder))
+		if(!__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " " + arguments + " -servername localhost -verify_return_error <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder))
 			// Возвращаем признак неудачи запуска
 			return false;
 		// Объявляем страж остановки клиента
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем соединение системного клиента
-		const int fd = greeted(listener);
+		const int fd = __nts_greeted__(listener);
 		// Проверяем принятие соединения
 		if(fd < 0)
 			// Возвращаем признак неудачи принятия
@@ -479,20 +479,20 @@ namespace {
 		// Запускаем рукопожатие сервера
 		bool ok = (server.start() == context::error_t::NONE);
 		// Проводим связь и проверяем выбранную группу
-		ok = (ok && serve(server, fd) && server.established() && (server.group() == expected));
+		ok = (ok && __nts_serve__(server, fd) && server.established() && (server.group() == expected));
 		// Проверяем неудачу связи
 		if(!ok)
 			// Собираем журнал отказа
 			journal = "отказ " + std::to_string(static_cast <int> (server.error())) + " группа " + std::to_string(static_cast <int> (server.group()));
 		// Прощаемся с системным клиентом
-		(void) farewell(server, fd);
+		(void) __nts_farewell__(server, fd);
 		// Закрываем соединение с клиентом
 		closing(fd);
 		closing(listener);
 		// Объявляем буфер журнала клиента
 		std::string text;
 		// Снимаем системного клиента и читаем его журнал
-		(void) settle(log, text);
+		(void) __nts_settle__(log, text);
 		// Дополняем журнал записью клиента
 		journal += "\n" + text;
 		::remove(log.c_str());
@@ -523,7 +523,7 @@ TEST(GroupsTest, Shares){
 		// Объявляем перечень долей приветствия
 		vector <pair <extension::group_t, vector <uint8_t>>> shares;
 		// Разбираем доли приветствия клиента
-		ASSERT_TRUE(offered(client, shares)) << MODERN[i].name;
+		ASSERT_TRUE(__nts_offered__(client, shares)) << MODERN[i].name;
 		// Проверяем единственность доли
 		ASSERT_EQ(shares.size(), static_cast <size_t> (1)) << MODERN[i].name;
 		// Проверяем группу доли
@@ -660,7 +660,7 @@ TEST(GroupsTest, Editions){
 		// Объявляем перечень долей приветствия
 		vector <pair <extension::group_t, vector <uint8_t>>> shares;
 		// Разбираем доли приветствия клиента
-		ASSERT_TRUE(offered(client, shares));
+		ASSERT_TRUE(__nts_offered__(client, shares));
 		// Проверяем число долей
 		ASSERT_EQ(shares.size(), static_cast <size_t> (2));
 		// Проводим связь до тишины
@@ -799,7 +799,7 @@ TEST(GroupsTest, Ecdsa521){
  */
 TEST(GroupsTest, Openssl){
 	// Осматриваем системный инструмент
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем наличие издания 1.3 и доводов групп
 	if(!toolkit.present || !toolkit.tls13 || !toolkit.serverGroups || !toolkit.clientGroups){
 		// Пропускаем проверку без издания 1.3 либо доводов групп
@@ -849,7 +849,7 @@ TEST(GroupsTest, Openssl){
  */
 TEST(GroupsTest, OpensslLegacy){
 	// Осматриваем системный инструмент
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем наличие издания 1.2 и доводов групп
 	if(!toolkit.present || !toolkit.tls12 || !toolkit.serverGroups || !toolkit.clientGroups){
 		// Пропускаем проверку без издания 1.2 либо доводов групп
@@ -905,9 +905,9 @@ TEST(GroupsTest, OpensslLegacy){
  */
 TEST(GroupsTest, OpensslEcdsa521){
 	// Осматриваем системный инструмент
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем наличие издания 1.3 и доводов схем подписи
-	if(!toolkit.present || !toolkit.tls13 || !listed("s_server", "sigalgs") || !listed("s_client", "sigalgs")){
+	if(!toolkit.present || !toolkit.tls13 || !__nts_listed__("s_server", "sigalgs") || !__nts_listed__("s_client", "sigalgs")){
 		// Пропускаем проверку без издания 1.3 либо доводов схем подписи
 		GTEST_SKIP() << "openssl без TLS 1.3 либо без -sigalgs";
 	}
@@ -946,7 +946,7 @@ TEST(GroupsTest, OpensslEcdsa521){
  */
 TEST(GroupsTest, OpensslDefaults){
 	// Осматриваем системный инструмент
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем наличие издания 1.3
 	if(!toolkit.present || !toolkit.tls13){
 		// Пропускаем проверку без издания 1.3
@@ -955,7 +955,7 @@ TEST(GroupsTest, OpensslDefaults){
 	// Объявляем пути к подлинности набора
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Гибрид берётся, когда openssl его знает; иначе сервер без ML-KEM берёт долю X25519
-	const bool hybrid = (shell("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw X25519MLKEM768) >/dev/null 2>&1") == 0);
+	const bool hybrid = (__nts_shell__("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw X25519MLKEM768) >/dev/null 2>&1") == 0);
 	// Определяем ожидаемую группу по известности гибрида
 	const extension::group_t expected = (hybrid ? extension::group_t::X25519MLKEM768 : extension::group_t::X25519);
 	// Объявляем журнал связи

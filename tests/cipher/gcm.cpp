@@ -51,7 +51,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков
+	 * Перебираем пары знаков
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2)
 		// Добавляем очередной байт
@@ -74,7 +74,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -114,7 +114,7 @@ static void slice(const cipher::aes_t & aes, const std::vector <uint8_t> & nonce
 	// Проверяем запуск режима
 	ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size()))) << "кусок " << chunk;
 	/**
-	 * Выполняем подачу связанных данных кусками
+	 * Подаём связанные данные кусками
 	 */
 	for(size_t offset = 0; offset < associated.size(); offset += chunk)
 		// Проверяем подачу куска связанных данных
@@ -126,7 +126,7 @@ static void slice(const cipher::aes_t & aes, const std::vector <uint8_t> & nonce
 	// Проверяем пустой кусок данных
 	ASSERT_TRUE(gcm.encrypt(view_t(), nullptr)) << "кусок " << chunk;
 	/**
-	 * Выполняем подачу открытого текста кусками
+	 * Подаём открытый текст кусками
 	 */
 	for(size_t offset = 0; offset < plain.size(); offset += chunk)
 		// Проверяем зашифрование куска
@@ -148,7 +148,7 @@ static void slice(const cipher::aes_t & aes, const std::vector <uint8_t> & nonce
 	// Открытый текст потока
 	std::vector <uint8_t> opened(plain.size() + 1);
 	/**
-	 * Выполняем подачу шифртекста кусками
+	 * Подаём шифртекст кусками
 	 */
 	for(size_t offset = 0; offset < sealed.size(); offset += chunk)
 		// Проверяем расшифрование куска
@@ -185,9 +185,9 @@ static void check(const std::string & key, const std::string & nonce, const std:
 	ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(n.data(), n.size()))) << "случай " << tag;
 	// Проверяем длину метки по умолчанию
 	ASSERT_EQ(gcm.size(), 16u);
-	// Шифртекст
+	// Буфер шифртекста с запасом
 	std::vector <uint8_t> c(p.size() + 1);
-	// Метка
+	// Буфер метки подлинности
 	uint8_t t[16];
 	// Проверяем зашифрование
 	ASSERT_TRUE(gcm.encrypt(view_t(a.data(), a.size()), view_t(p.data(), p.size()), c.data(), t)) << "случай " << tag;
@@ -210,7 +210,7 @@ static void check(const std::string & key, const std::string & nonce, const std:
 	// Ожидаемые шифртекст и метка
 	const std::vector <uint8_t> s = bytes(sealed), e = bytes(tag);
 	/**
-	 * Выполняем поточную проверку по всем размерам куска
+	 * Проверяем поточно по всем размерам куска
 	 */
 	for(const size_t chunk : CHUNKS)
 		// Проверяем поток кусками заданного размера
@@ -253,9 +253,9 @@ TEST(GcmTest, Aes256){
  * Проверка отказов договора и усечённой метки
  */
 TEST(GcmTest, Refusals){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes("feffe9928665731c6d6a8f9467308308");
-	// Заполнение
+	// Заполнение синхропосылки контрольного примера
 	const std::vector <uint8_t> nonce = bytes("cafebabefacedbaddecaf888");
 	// Объект шифра
 	cipher::aes_t aes;
@@ -277,9 +277,9 @@ TEST(GcmTest, Refusals){
 	ASSERT_EQ(gcm.size(), 12u);
 	// Открытый текст
 	const std::vector <uint8_t> plain = bytes("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a72");
-	// Шифртекст
+	// Буфер шифртекста
 	uint8_t sealed[32];
-	// Метка
+	// Буфер метки подлинности
 	uint8_t tag[16];
 	// Проверяем зашифрование
 	ASSERT_TRUE(gcm.encrypt(view_t(), view_t(plain.data(), plain.size()), sealed, tag));
@@ -293,7 +293,7 @@ TEST(GcmTest, Refusals){
 	ASSERT_EQ(::memcmp(opened, plain.data(), plain.size()), 0);
 	// Проверяем отказ расшифрования с испорченными связанными данными
 	ASSERT_FALSE(gcm.decrypt(view_t(reinterpret_cast <const uint8_t *> ("x"), 1), view_t(sealed, sizeof(sealed)), opened, view_t(tag, 12)));
-	// Выполняем сброс режима
+	// Сбрасываем режим
 	gcm.clear();
 	// Проверяем неготовность после сброса
 	ASSERT_FALSE(gcm.ready());
@@ -321,14 +321,14 @@ TEST(GcmTest, Tables){
  * Проверка заслонов потока: направление, порядок, заслон заполнения, длина метки
  */
 TEST(GcmTest, Stream){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes("feffe9928665731c6d6a8f9467308308");
-	// Заполнение
+	// Заполнение синхропосылки контрольного примера
 	const std::vector <uint8_t> nonce = bytes("cafebabefacedbaddecaf888");
 	// Открытый текст в 100 байтов: четыре блока для сложения по четыре и остаток
 	std::vector <uint8_t> plain(100);
 	/**
-	 * Выполняем заполнение открытого текста
+	 * Заполняем открытый текст
 	 */
 	for(size_t i = 0; i < plain.size(); i++)
 		// Записываем очередной байт
@@ -403,7 +403,7 @@ TEST(GcmTest, Stream){
 	ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size())));
 	// Проверяем сличение метки без единого куска
 	ASSERT_TRUE(gcm.verify(view_t(tag, sizeof(tag))));
-	// Выполняем сброс режима
+	// Сбрасываем режим
 	gcm.clear();
 	// Проверяем отказ потока после сброса
 	ASSERT_FALSE(gcm.encrypt(view_t(plain.data(), 1), sealed));
@@ -413,7 +413,7 @@ TEST(GcmTest, Stream){
  * Проверка схождения обоих путей: командами машины и таблицами
  */
 TEST(GcmTest, Paths){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308");
 	// Заполнение в 13 байтов: путь через многочлен
 	const std::vector <uint8_t> nonce = bytes("cafebabefacedbaddecaf88801");
@@ -422,7 +422,7 @@ TEST(GcmTest, Paths){
 	// Открытый текст в 137 байтов
 	std::vector <uint8_t> plain(137);
 	/**
-	 * Выполняем заполнение открытого текста
+	 * Заполняем открытый текст
 	 */
 	for(size_t i = 0; i < plain.size(); i++)
 		// Записываем очередной байт
@@ -435,7 +435,7 @@ TEST(GcmTest, Paths){
 	cipher::aes_t aes;
 	// Объект режима
 	cipher::gcm_t gcm;
-	// Выполняем зашифрование на пути, выбранном машиной
+	// Зашифровываем на пути, выбранном машиной
 	ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
 	// Проверяем запуск режима
 	ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size())));
@@ -443,7 +443,7 @@ TEST(GcmTest, Paths){
 	ASSERT_TRUE(gcm.encrypt(view_t(associated.data(), associated.size()), view_t(plain.data(), plain.size()), first.data(), tag1));
 	// Запрещаем машинные команды
 	machine::allow(false);
-	// Выполняем установку ключа заново: таблицы шифра строятся при установке
+	// Устанавливаем ключ заново: таблицы шифра строятся при установке
 	ASSERT_TRUE(aes.key(view_t(key.data(), key.size())));
 	// Проверяем запуск режима таблицами
 	ASSERT_TRUE(gcm.start(cipher::block_t(aes), view_t(nonce.data(), nonce.size())));
@@ -470,7 +470,7 @@ TEST(GcmTest, Paths){
  * длины закрывают восьмёрки блоков подряд (ядро циклом), хвосты короче восьмёрки и неполные блоки
  */
 TEST(GcmTest, Batches){
-	// Ключ
+	// Ключ контрольного примера
 	const std::vector <uint8_t> key = bytes("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308");
 	// Заполнение в 12 байтов
 	const std::vector <uint8_t> nonce = bytes("cafebabefacedbaddecaf888");
@@ -481,7 +481,7 @@ TEST(GcmTest, Batches){
 	// Объект режима
 	cipher::gcm_t gcm;
 	/**
-	 * Выполняем перебор длин данных шагом от одного до пяти байтов
+	 * Перебираем длины данных шагом от одного до пяти байтов
 	 */
 	for(size_t length = 0; length <= 1600; length += (1 + (generator() % 5))){
 		// Длина связанных данных: своя на каждую длину данных, до восьмидесяти блоков
@@ -489,13 +489,13 @@ TEST(GcmTest, Batches){
 		// Открытый текст и связанные данные
 		std::vector <uint8_t> plain(length), extra(associated);
 		/**
-		 * Выполняем заполнение открытого текста
+		 * Заполняем открытый текст
 		 */
 		for(size_t i = 0; i < plain.size(); i++)
 			// Записываем очередной байт
 			plain[i] = static_cast <uint8_t> (generator());
 		/**
-		 * Выполняем заполнение связанных данных
+		 * Заполняем связанные данные
 		 */
 		for(size_t i = 0; i < extra.size(); i++)
 			// Записываем очередной байт
@@ -550,7 +550,7 @@ TEST(GcmTest, Restart){
 	// Объявляем открытый текст
 	std::vector <uint8_t> plain(100);
 	/**
-	 * Выполняем заполнение открытого текста
+	 * Заполняем открытый текст
 	 */
 	for(size_t i = 0; i < plain.size(); i++)
 		// Заполняем открытый текст повторяющимся шаблоном
@@ -664,7 +664,7 @@ TEST(GcmTest, Fused){
 	// Объявляем режим GCM
 	cipher::gcm_t gcm;
 	/**
-	 * Выполняем перебор длин
+	 * Перебираем длины
 	 */
 	for(size_t k = 0; k < (sizeof(SIZES) / sizeof(SIZES[0])); k++){
 		// Получаем очередную проверочную длину
@@ -672,7 +672,7 @@ TEST(GcmTest, Fused){
 		// Объявляем буферы открытого текста и шифртекстов
 		std::vector <uint8_t> plain(size), sealed(size), expected(size), back(size);
 		/**
-		 * Выполняем заполнение открытого текста
+		 * Заполняем открытый текст
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Заполняем открытый текст повторяющимся шаблоном
@@ -710,7 +710,7 @@ TEST(GcmTest, Fused){
 		// Восстанавливаем исходный байт шифртекста
 		sealed[size / 2] = static_cast <uint8_t> (sealed[size / 2] ^ 0x40);
 		/**
-		 * Выполняем перебор размеров кусков поточной подачи
+		 * Перебираем размеры кусков поточной подачи
 		 */
 		for(size_t p = 0; p < (sizeof(PIECES) / sizeof(PIECES[0])); p++){
 			// Объявляем буфер поточного шифртекста
@@ -721,7 +721,7 @@ TEST(GcmTest, Fused){
 			ASSERT_TRUE(gcm.restart(view_t(nonce.data(), nonce.size()))) << "длина " << size << " кусок " << PIECES[p];
 			ASSERT_TRUE(gcm.associate(view_t(associated.data(), associated.size()))) << "длина " << size << " кусок " << PIECES[p];
 			/**
-			 * Выполняем поточное зашифрование кусками
+			 * Зашифровываем поточно кусками
 			 */
 			for(size_t offset = 0; offset < size; offset += PIECES[p]){
 				// Вычисляем размер очередного куска
@@ -738,7 +738,7 @@ TEST(GcmTest, Fused){
 			ASSERT_TRUE(gcm.restart(view_t(nonce.data(), nonce.size()))) << "длина " << size << " кусок " << PIECES[p];
 			ASSERT_TRUE(gcm.associate(view_t(associated.data(), associated.size()))) << "длина " << size << " кусок " << PIECES[p];
 			/**
-			 * Выполняем поточное расшифрование кусками
+			 * Расшифровываем поточно кусками
 			 */
 			for(size_t offset = 0; offset < size; offset += PIECES[p]){
 				// Вычисляем размер очередного куска
@@ -780,15 +780,15 @@ TEST(GcmTest, Stitch){
 	// Объявляем режим GCM
 	cipher::gcm_t gcm;
 	/**
-	 * Выполняем перебор ключей
+	 * Перебираем ключи
 	 */
 	for(size_t w = 0; w < 2; w++){
 		/**
-		 * Выполняем перебор синхропосылок
+		 * Перебираем синхропосылки
 		 */
 		for(size_t v = 0; v < 5; v++){
 			/**
-			 * Выполняем перебор длин
+			 * Перебираем длины
 			 */
 			for(size_t k = 0; k < (sizeof(SIZES) / sizeof(SIZES[0])); k++){
 				// Получаем очередную проверочную длину
@@ -796,7 +796,7 @@ TEST(GcmTest, Stitch){
 				// Объявляем буферы открытого текста и шифртекстов
 				std::vector <uint8_t> plain(size), sealed(size), expected(size), back(size);
 				/**
-				 * Выполняем заполнение открытого текста
+				 * Заполняем открытый текст
 				 */
 				for(size_t i = 0; i < size; i++)
 					// Заполняем открытый текст повторяющимся шаблоном

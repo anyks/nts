@@ -1271,7 +1271,7 @@ TEST(CompressTest, Codec){
 	// Проверяем пустоту распакованного
 	ASSERT_TRUE(unpacked.empty());
 	// Если python3 с zlib недоступен
-	if(shell("python3 -c 'import zlib' >/dev/null 2>&1") != 0){
+	if(__nts_shell__("python3 -c 'import zlib' >/dev/null 2>&1") != 0){
 		// Сообщаем о пропуске части вслух
 		std::cout << "python3 с zlib недоступен: сличение потока с настоящим zlib пропущено" << std::endl;
 		// Выходим из проверки
@@ -1290,13 +1290,13 @@ TEST(CompressTest, Codec){
 	// Записываем сжатый поток
 	ASSERT_TRUE(__nts_spill__(sandbox + "/ours.z", packed));
 	// Распаковываем поток настоящим zlib
-	ASSERT_EQ(shell("python3 -c 'import zlib,sys; open(sys.argv[2],\"wb\").write(zlib.decompress(open(sys.argv[1],\"rb\").read()))' " + sandbox + "/ours.z " + sandbox + "/ours.bin"), 0);
+	ASSERT_EQ(__nts_shell__("python3 -c 'import zlib,sys; open(sys.argv[2],\"wb\").write(zlib.decompress(open(sys.argv[1],\"rb\").read()))' " + sandbox + "/ours.z " + sandbox + "/ours.bin"), 0);
 	// Проверяем схождение распакованного настоящим zlib с образцом
 	ASSERT_EQ(slurp(sandbox + "/ours.bin"), sample);
 	// Записываем образец
 	ASSERT_TRUE(__nts_spill__(sandbox + "/sample.bin", sample));
 	// Сжимаем образец настоящим zlib без сжатия: уровень 0 даёт «stored»-блоки
-	ASSERT_EQ(shell("python3 -c 'import zlib,sys; open(sys.argv[2],\"wb\").write(zlib.compress(open(sys.argv[1],\"rb\").read(), 0))' " + sandbox + "/sample.bin " + sandbox + "/theirs.z"), 0);
+	ASSERT_EQ(__nts_shell__("python3 -c 'import zlib,sys; open(sys.argv[2],\"wb\").write(zlib.compress(open(sys.argv[1],\"rb\").read(), 0))' " + sandbox + "/sample.bin " + sandbox + "/theirs.z"), 0);
 	// Читаем поток настоящего zlib
 	const vector <uint8_t> theirs = slurp(sandbox + "/theirs.z");
 	// Проверяем, что поток прочитан
@@ -1318,7 +1318,7 @@ TEST(CompressTest, Codec){
 	 */
 	for(size_t level = 1; level <= 9; level += 4){
 		// Сжимаем сертификат настоящим zlib
-		ASSERT_EQ(shell("python3 -c 'import zlib,sys; open(sys.argv[2],\"wb\").write(zlib.compress(open(sys.argv[1],\"rb\").read(), int(sys.argv[3])))' " + sandbox + "/cert.bin " + sandbox + "/cert.z " + std::to_string(level)), 0) << "уровень " << level;
+		ASSERT_EQ(__nts_shell__("python3 -c 'import zlib,sys; open(sys.argv[2],\"wb\").write(zlib.compress(open(sys.argv[1],\"rb\").read(), int(sys.argv[3])))' " + sandbox + "/cert.bin " + sandbox + "/cert.z " + std::to_string(level)), 0) << "уровень " << level;
 		// Читаем поток настоящего zlib
 		const vector <uint8_t> squeezed = slurp(sandbox + "/cert.z");
 		// Проверяем, что поток прочитан и короче сертификата
@@ -1335,7 +1335,7 @@ TEST(CompressTest, Codec){
 		ASSERT_FALSE(__nts_unstored__(view_t(squeezed.data(), squeezed.size()), certificate.size() - 1, unpacked, nullptr)) << "уровень " << level;
 	}
 	// Удаляем временный каталог
-	(void) shell("rm -rf " + sandbox);
+	(void) __nts_shell__("rm -rf " + sandbox);
 }
 
 /**
@@ -1789,7 +1789,7 @@ TEST(CompressTest, Refusals){
  */
 TEST(CompressTest, Openssl){
 	// Способности системного openssl, снятые щупами
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -1804,12 +1804,12 @@ TEST(CompressTest, Openssl){
 	 * Помощник запуска подаёт пустой вход последней команде строки, и в цепочке команд он
 	 * перебил бы канал у grep: оттого цепочка берётся в скобки, и вход достаётся ей целиком
 	 */
-	if(shell("(openssl list -disabled 2>/dev/null | grep -qi '^ZLIB$')") == 0){
+	if(__nts_shell__("(openssl list -disabled 2>/dev/null | grep -qi '^ZLIB$')") == 0){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl собран без zlib: сжатие сертификатов у него выключено";
 	}
 	// Если s_server не умеет пред-сжимать сертификаты: ключ -cert_comp пришёл с 3.2 и скрыт без zlib
-	if(!listed("s_server", "cert_comp")){
+	if(!__nts_listed__("s_server", "cert_comp")){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl без ключа s_server -cert_comp: сжатия сертификатов у него нет";
 	}
@@ -1821,17 +1821,17 @@ TEST(CompressTest, Openssl){
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
 		// Свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем наличие порта
 		ASSERT_NE(number, 0);
 		// Журнал сервера openssl
 		const std::string log = "/tmp/ants-compress-server-" + std::to_string(number) + ".log";
 		// Запускаем сервер openssl с пред-сжатием сертификатов и запросом подлинности клиента
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -cert_comp -Verify 1 -CAfile " + crt + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -cert_comp -Verify 1 -CAfile " + crt + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int own = dial(number);
+		const int own = __nts_dial__(number);
 		// Проверяем подключение
 		ASSERT_GE(own, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -1853,7 +1853,7 @@ TEST(CompressTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, own);
+			__nts_relay__(client, own);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем, что цепочка сервера пришла сжатой zlib
@@ -1871,7 +1871,7 @@ TEST(CompressTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты
-			relay(client, own);
+			__nts_relay__(client, own);
 			// Читаем принятые данные
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1884,7 +1884,7 @@ TEST(CompressTest, Openssl){
 		// Журнал сервера
 		std::string journal;
 		// Дожидаемся отметки завершения снятого сервера
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
@@ -1892,17 +1892,17 @@ TEST(CompressTest, Openssl){
 		// Порт сервера
 		uint16_t number = 0;
 		// Слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем сокет
 		ASSERT_GE(listener, 0);
 		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-compress-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента openssl с подлинностью
-		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int own = greeted(listener);
+		const int own = __nts_greeted__(listener);
 		// Проверяем подключение
 		ASSERT_GE(own, 0);
 		// Связь стороны сервера
@@ -1920,7 +1920,7 @@ TEST(CompressTest, Openssl){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		const bool complete = serve(server, own);
+		const bool complete = __nts_serve__(server, own);
 		// Проверяем, что рукопожатие дошло до конца
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем, что отказа не было
@@ -1932,7 +1932,7 @@ TEST(CompressTest, Openssl){
 		// Проверяем подлинность клиента
 		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 		// Закрываем связь, коли она ещё открыта
-		ASSERT_TRUE(farewell(server, own));
+		ASSERT_TRUE(__nts_farewell__(server, own));
 		// Закрываем сокет
 		closing(own);
 		// Закрываем слушающий сокет
@@ -1940,7 +1940,7 @@ TEST(CompressTest, Openssl){
 		// Содержимое журнала
 		std::string text;
 		// Клиент обязан завершиться
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Проверяем проверку сертификата сервера клиентом openssl: сжатая цепочка распакована им
 		ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 		// Удаляем журнал

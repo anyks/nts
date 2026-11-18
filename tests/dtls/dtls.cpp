@@ -3095,7 +3095,7 @@ TEST(DtlsTest, CookieForgery){
  */
 TEST(DtlsTest, Openssl){
 	// Способности системного openssl
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -3124,7 +3124,7 @@ TEST(DtlsTest, Openssl){
 	 */
 	for(size_t s = 0; s < (sizeof(ROUNDS) / sizeof(ROUNDS[0])); s++){
 		// Если набор недоступен openssl
-		if(shell(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + ROUNDS[s].title + " >/dev/null 2>&1") != 0){
+		if(__nts_shell__(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + ROUNDS[s].title + " >/dev/null 2>&1") != 0){
 			// Сообщаем о пропуске вслух
 			std::cout << "openssl без " << ROUNDS[s].title << ": сличение пропущено" << std::endl;
 			// Переходим к следующему набору
@@ -3141,13 +3141,13 @@ TEST(DtlsTest, Openssl){
 		 */
 		for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 			// Свободный порт UDP
-			const uint16_t number = vacant(true);
+			const uint16_t number = __nts_vacant__(true);
 			// Проверяем порт
 			ASSERT_NE(number, 0);
 			// Журнал сервера openssl
 			const std::string log = "/tmp/ants-dtls13-server-" + std::to_string(number) + ".log";
 			// Ключ групп
-			const std::string grouping = ((toolkit.serverGroups && toolkit.clientGroups) ? (" -groups " + roster(GROUPS[g])) : "");
+			const std::string grouping = ((toolkit.serverGroups && toolkit.clientGroups) ? (" -groups " + __nts_roster__(GROUPS[g])) : "");
 			// Именованный канал входа сервера openssl: по концу входа сервер уходит, и вход держится каналом, а не паузой
 			const std::string holder = "/tmp/ants-dtls13-server-" + std::to_string(number) + ".fifo";
 			// Убираем канал, оставшийся от прежнего прогона
@@ -3161,17 +3161,17 @@ TEST(DtlsTest, Openssl){
 			 * вход держится открытым именованным каналом до снятия сервера сторожем; итог
 			 * судится по состоянию: подъём по «ACCEPT» в журнале, принятые данные по журналу
 			 */
-			ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_3 -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -ciphersuites " + ROUNDS[s].title + grouping + " -trace" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+			ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -dtls1_3 -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -ciphersuites " + ROUNDS[s].title + grouping + " -trace" + __nts_once__(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 			// Сторож сервера openssl
 			sentinel_t sentinel(log + ".pid");
 			// Текст журнала сервера
 			std::string text;
 			// Дожидаемся подъёма сервера
-			ASSERT_TRUE(awaited(log, "ACCEPT", text)) << text;
+			ASSERT_TRUE(__nts_awaited__(log, "ACCEPT", text)) << text;
 			// Порт своего сокета
 			uint16_t bound = 0;
 			// Свой сокет UDP
-			const int own = socketing(0, bound);
+			const int own = __nts_socketing__(0, bound);
 			// Проверяем сокет
 			ASSERT_GE(own, 0);
 			// Адрес сервера
@@ -3201,7 +3201,7 @@ TEST(DtlsTest, Openssl){
 			// Заводим клиента
 			ASSERT_EQ(client.start(), context::error_t::NONE);
 			// Ведём связь до установления
-			const bool complete = relay(client, own, peer, 400);
+			const bool complete = __nts_relay__(client, own, peer, 400);
 			/**
 			 * Если связь не сложилась: разбор круга 114 показал, что наша сторона выводит
 			 * переписку, общее значение обмена и секреты рукопожатия строго по RFC 9147,
@@ -3223,7 +3223,7 @@ TEST(DtlsTest, Openssl){
 				GTEST_SKIP() << "openssl 4.1 beta (beta1 и beta2) выводит иное общее значение обмена X25519, чем велит RFC 7748: его секреты поры 2 не совпадают с нашими (отказ " << static_cast <int> (client.error()) << ", изъян beta-сборок)";
 			}
 			// Связь установлена
-			ASSERT_TRUE(complete) << ROUNDS[s].title << " " << naming(GROUPS[g]) << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
+			ASSERT_TRUE(complete) << ROUNDS[s].title << " " << __nts_naming__(GROUPS[g]) << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 			// Издание DTLS 1.3
 			ASSERT_EQ(client.version(), static_cast <uint16_t> (0x0304));
 			// Согласованный набор шифрования
@@ -3237,19 +3237,19 @@ TEST(DtlsTest, Openssl){
 			// Пишем запрос серверу openssl поверх установленной связи DTLS 1.3
 			ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 			// Отправляем дейтаграммы
-			relay(client, own, peer, 1);
+			__nts_relay__(client, own, peer, 1);
 			// Сервер печатает принятое в журнал
-			ASSERT_TRUE(awaited(log, request, text)) << text;
+			ASSERT_TRUE(__nts_awaited__(log, request, text)) << text;
 			// Закрываем связь
 			ASSERT_EQ(client.close(), context::error_t::NONE);
 			// Отправляем извещение
-			relay(client, own, peer, 1);
+			__nts_relay__(client, own, peer, 1);
 			// Закрываем сокет
 			closing(own);
 			// Снимаем сервер
 			sentinel.halt();
 			// Дожидаемся отметки завершения
-			(void) settle(log, text);
+			(void) __nts_settle__(log, text);
 			// Удаляем журнал
 			::remove(log.c_str());
 			// Удаляем именованный канал
@@ -3261,7 +3261,7 @@ TEST(DtlsTest, Openssl){
 	 */
 	for(size_t s = 0; s < (sizeof(ROUNDS) / sizeof(ROUNDS[0])); s++){
 		// Если набор недоступен openssl
-		if(shell(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + ROUNDS[s].title + " >/dev/null 2>&1") != 0)
+		if(__nts_shell__(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + ROUNDS[s].title + " >/dev/null 2>&1") != 0)
 			// Переходим к следующему набору
 			continue;
 		// Подлинность стороны
@@ -3277,13 +3277,13 @@ TEST(DtlsTest, Openssl){
 			// Порт сервера
 			uint16_t number = 0;
 			// Свой сокет UDP на свободном порту
-			const int own = socketing(0, number);
+			const int own = __nts_socketing__(0, number);
 			// Проверяем сокет
 			ASSERT_GE(own, 0);
 			// Журнал клиента openssl
 			const std::string log = "/tmp/ants-dtls13-client-" + std::to_string(number) + ".log";
 			// Ключ групп
-			const std::string grouping = ((toolkit.serverGroups && toolkit.clientGroups) ? (" -groups " + roster(GROUPS[g])) : "");
+			const std::string grouping = ((toolkit.serverGroups && toolkit.clientGroups) ? (" -groups " + __nts_roster__(GROUPS[g])) : "");
 			// Данные клиента openssl
 			const string request = "hello from openssl " + std::to_string(s) + " " + std::to_string(g) + "\n";
 			/**
@@ -3291,7 +3291,7 @@ TEST(DtlsTest, Openssl){
 			 * данные, а конец входа не глушит клиента (-ign_eof) - уходит он по close_notify
 			 * нашего сервера, и ожидание идёт по состоянию, а не по паузе
 			 */
-			ASSERT_TRUE(launch("printf '" + request + "' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -ciphersuites " + ROUNDS[s].title + grouping + " -mtu 300 -servername localhost -verify_return_error -ign_eof >" + log + " 2>&1", log, log + ".pid", std::string()));
+			ASSERT_TRUE(__nts_launch__("printf '" + request + "' | openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -dtls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -ciphersuites " + ROUNDS[s].title + grouping + " -mtu 300 -servername localhost -verify_return_error -ign_eof >" + log + " 2>&1", log, log + ".pid", std::string()));
 			// Сторож клиента openssl
 			sentinel_t sentinel(log + ".pid");
 			// Адрес клиента
@@ -3309,7 +3309,7 @@ TEST(DtlsTest, Openssl){
 				// Принимаем дейтаграмму с адресом
 				received = receivingfrom(own, buffer, sizeof(buffer), reinterpret_cast <struct sockaddr *> (&peer), &length);
 			// Приветствие принято
-			ASSERT_GT(received, 0) << ROUNDS[s].title << " " << naming(GROUPS[g]);
+			ASSERT_GT(received, 0) << ROUNDS[s].title << " " << __nts_naming__(GROUPS[g]);
 			// Связь стороны сервера
 			server::context_t server;
 			// Перенос дейтаграммами
@@ -3374,7 +3374,7 @@ TEST(DtlsTest, Openssl){
 				GTEST_SKIP() << "openssl 4.1: защита записей рукопожатия DTLS 1.3 нашего сервера чужим клиентом не читается (отказ " << static_cast <int> (server.error()) << ", разбор отдельный)";
 			}
 			// Связь установлена
-			ASSERT_TRUE(server.established()) << ROUNDS[s].title << " " << naming(GROUPS[g]) << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description) << " состояние " << static_cast <int> (server.state());
+			ASSERT_TRUE(server.established()) << ROUNDS[s].title << " " << __nts_naming__(GROUPS[g]) << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description) << " состояние " << static_cast <int> (server.state());
 			// Данные клиента дошли
 			ASSERT_EQ(string(plaintext.begin(), plaintext.end()), request);
 			// Издание DTLS 1.3
@@ -3405,7 +3405,7 @@ TEST(DtlsTest, Openssl){
 			// Текст журнала
 			std::string text;
 			// Клиент обязан завершиться
-			ASSERT_TRUE(settle(log, text)) << text;
+			ASSERT_TRUE(__nts_settle__(log, text)) << text;
 			// Подлинность сервера сошлась
 			ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 			// Издание DTLS 1.3

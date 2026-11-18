@@ -136,7 +136,7 @@ namespace {
 	 * @return       код завершения команды
 	 *
 	 */
-	static int shell(const std::string & command) noexcept {
+	static int __nts_shell__(const std::string & command) noexcept {
 		// Выполняем команду без входа
 		return std::system((command + " </dev/null").c_str());
 	}
@@ -204,7 +204,7 @@ namespace {
 			// Если песочница заведена
 			if(this->_path != "/tmp")
 				// Удаляем каталог песочницы
-				(void) shell((std::string("rm -rf ") + this->_path).c_str());
+				(void) __nts_shell__((std::string("rm -rf ") + this->_path).c_str());
 		}
 	} sandbox_t;
 }
@@ -492,7 +492,7 @@ TEST(CmsTest, OpensslSign) {
 			" -signer " + CORPUS + "/leaf-rsa.crt -inkey " + CORPUS + "/leaf-rsa.key" +
 			" -certfile " + CORPUS + "/leaf-rsa.crt -nodetach -outform DER -out " + sandbox.file("signed.der") + " 2>/dev/null";
 		// Подпись обязана удаться
-		if(shell(command) != 0)
+		if(__nts_shell__(command) != 0)
 			// Пропускаем проверку без OpenSSL
 			GTEST_SKIP() << "openssl cms -sign is unavailable";
 	}
@@ -521,7 +521,7 @@ TEST(CmsTest, OpensslSign) {
 			" -signer " + CORPUS + "/leaf-ec.crt -inkey " + CORPUS + "/leaf-ec.key" +
 			" -certfile " + CORPUS + "/leaf-ec.crt -nodetach -outform DER -out " + sandbox.file("signed-ec.der") + " 2>/dev/null";
 		// Подпись обязана удаться
-		ASSERT_EQ(shell(command), 0);
+		ASSERT_EQ(__nts_shell__(command), 0);
 	}
 	// Читаем запись подписи ключом ECDSA из файла песочницы
 	const std::string recordEc = slurp(sandbox.file("signed-ec.der"));
@@ -563,14 +563,14 @@ TEST(CmsTest, OpensslVerify) {
 	// Записываем запись в файл
 	sandbox.spill("signed.der", record);
 	// Записываем цепочку доверия
-	(void) shell(std::string("cat ") + CORPUS + "/ca-rsa.crt " + CORPUS + "/mid-rsa.crt > " + sandbox.file("chain.pem"));
+	(void) __nts_shell__(std::string("cat ") + CORPUS + "/ca-rsa.crt " + CORPUS + "/mid-rsa.crt > " + sandbox.file("chain.pem"));
 	// Проверяем подпись OpenSSL
 	{
 		// Команда проверки
 		const std::string command = std::string("openssl cms -verify -binary -inform DER -in ") + sandbox.file("signed.der") +
 			" -CAfile " + CORPUS + "/chain-rsa.pem -out " + sandbox.file("content.txt") + " 2>" + sandbox.file("verify.log");
 		// Проверка обязана удаться
-		if(shell(command) != 0)
+		if(__nts_shell__(command) != 0)
 			// Пропускаем проверку без OpenSSL
 			GTEST_SKIP() << "openssl cms -verify is unavailable: " << slurp(sandbox.file("verify.log"));
 	}
@@ -593,7 +593,7 @@ TEST(CmsTest, OpensslDecrypt) {
 		const std::string command = std::string("openssl cms -encrypt -binary -in ") + sandbox.file("content.txt") +
 			" -aes256 -outform DER -out " + sandbox.file("enveloped.der") + " " + CORPUS + "/leaf-rsa.crt 2>/dev/null";
 		// Зашифрование обязано удаться
-		if(shell(command) != 0)
+		if(__nts_shell__(command) != 0)
 			// Пропускаем проверку без OpenSSL
 			GTEST_SKIP() << "openssl cms -encrypt is unavailable";
 	}
@@ -647,7 +647,7 @@ TEST(CmsTest, OpensslEncrypt) {
 		const std::string command = std::string("openssl cms -decrypt -binary -inform DER -in ") + sandbox.file("enveloped.der") +
 			" -recip " + CORPUS + "/leaf-rsa.crt -inkey " + CORPUS + "/leaf-rsa.key -out " + sandbox.file("content.txt") + " 2>" + sandbox.file("decrypt.log");
 		// Расшифрование обязано удаться
-		if(shell(command) != 0)
+		if(__nts_shell__(command) != 0)
 			// Пропускаем проверку без OpenSSL
 			GTEST_SKIP() << "openssl cms -decrypt is unavailable: " << slurp(sandbox.file("decrypt.log"));
 	}
@@ -667,7 +667,7 @@ TEST(CmsTest, OpensslP7b) {
 		// Команда сборки цепочки
 		const std::string command = std::string("openssl crl2pkcs7 -nocrl -certfile ") + CORPUS + "/chain-rsa.pem -outform DER -out " + sandbox.file("chain.p7b") + " 2>/dev/null";
 		// Сборка обязана удаться
-		if(shell(command) != 0)
+		if(__nts_shell__(command) != 0)
 			// Пропускаем проверку без OpenSSL
 			GTEST_SKIP() << "openssl crl2pkcs7 is unavailable";
 	}
@@ -1493,7 +1493,7 @@ TEST(CmsTest, DeepRefusals) {
  */
 TEST(CmsTest, OpensslRefusals) {
 	// Если эталон OpenSSL недоступен
-	if(shell("openssl version >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 		// Пропускаем интероп без эталона
 		GTEST_SKIP() << "openssl cms is not available";
 	// Песочница файлов проверки
@@ -1525,7 +1525,7 @@ TEST(CmsTest, OpensslRefusals) {
 	// Проверяем отказ нашего разборщика на обрезке
 	ASSERT_NE(signed_.parse(view(truncated)), cms::error_t::NONE);
 	// Проверяем отказ OpenSSL на той же обрезке
-	ASSERT_NE(shell("openssl cms -cmsout -inform DER -in " + shorty + " -noout 2>/dev/null"), 0);
+	ASSERT_NE(__nts_shell__("openssl cms -cmsout -inform DER -in " + shorty + " -noout 2>/dev/null"), 0);
 	// Запись с подменённым видом содержимого
 	std::vector <uint8_t> foreign = record;
 	// Опознаватель подписанного содержимого PKCS #7
@@ -1557,7 +1557,7 @@ TEST(CmsTest, OpensslRefusals) {
 	// Проверяем отказ нашего разборщика на чужом виде содержимого
 	ASSERT_EQ(foreignSigned.parse(view(foreign)), cms::error_t::STRUCTURE);
 	// Проверяем отказ OpenSSL на несоответствии вида и содержимого
-	ASSERT_NE(shell("openssl cms -cmsout -inform DER -in " + alien + " -noout 2>/dev/null"), 0);
+	ASSERT_NE(__nts_shell__("openssl cms -cmsout -inform DER -in " + alien + " -noout 2>/dev/null"), 0);
 }
 
 /**

@@ -50,13 +50,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -82,7 +82,7 @@ static math::integer_t number(const char * text) {
 	uint8_t buffer[math::INTEGER_SIZE];
 	// Разобранное число
 	math::integer_t result;
-	// Выполняем разбор числа
+	// Разбираем число
 	EXPECT_TRUE(result.load(view_t(buffer, bytes(text, buffer))));
 	// Выводим разобранное число
 	return result;
@@ -99,14 +99,14 @@ static std::string text(const math::integer_t & value) {
 	uint8_t buffer[math::INTEGER_SIZE];
 	// Размер числа: у нуля один байт
 	const size_t size = ((value.size() > 0) ? value.size() : 1);
-	// Выполняем запись числа
+	// Записываем число
 	EXPECT_TRUE(value.store(buffer, size));
 	// Собираемая запись
 	std::string result;
 	// Набор шестнадцатеричных знаков
 	static const char * letters = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов числа
+	 * Перебираем байты числа
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший знак очередного байта
@@ -378,21 +378,21 @@ static const char * EVEN_INVERSE =
  *
  */
 TEST(IntegerTest, Arithmetic) {
-	// Слагаемые
+	// Слагаемые контрольного примера
 	const math::integer_t first = number(FIRST), second = number(SECOND);
 	// Итог действия
 	math::integer_t result;
-	// Выполняем сложение
+	// Складываем слагаемые
 	ASSERT_TRUE(result.add(first, second));
 	// Сличаем сумму с ожидаемой
 	ASSERT_EQ(text(result), std::string(SUM));
-	// Выполняем вычитание
+	// Вычитаем слагаемые
 	ASSERT_TRUE(result.subtract(first, second));
 	// Сличаем разность с ожидаемой
 	ASSERT_EQ(text(result), std::string(DIFFERENCE));
-	// Выполняем вычитание большего из меньшего
+	// Вычитаем большее из меньшего
 	ASSERT_FALSE(result.subtract(second, first));
-	// Выполняем умножение
+	// Умножаем слагаемые
 	ASSERT_TRUE(result.multiply(first, second));
 	// Сличаем произведение с ожидаемым
 	ASSERT_EQ(text(result), std::string(PRODUCT));
@@ -426,19 +426,19 @@ TEST(IntegerTest, Division) {
 	const math::integer_t third = number(THIRD), fourth = number(FOURTH), second = number(SECOND);
 	// Частное и остаток
 	math::integer_t quotient, remainder;
-	// Выполняем деление
+	// Делим слагаемые
 	ASSERT_TRUE(quotient.divide(third, fourth, &remainder));
 	// Сличаем частное с ожидаемым
 	ASSERT_EQ(text(quotient), std::string(QUOTIENT));
 	// Сличаем остаток с ожидаемым
 	ASSERT_EQ(text(remainder), std::string(REMAINDER));
-	// Выполняем деление на короткий делитель
+	// Делим на короткий делитель
 	ASSERT_TRUE(quotient.divide(third, second, &remainder));
 	// Сличаем частное с ожидаемым
 	ASSERT_EQ(text(quotient), std::string(WIDE_QUOTIENT));
 	// Сличаем остаток с ожидаемым
 	ASSERT_EQ(text(remainder), std::string(WIDE_REMAINDER));
-	// Выполняем приведение по модулю
+	// Приводим по модулю
 	ASSERT_TRUE(remainder.reduce(third, second));
 	// Сличаем остаток с ожидаемым
 	ASSERT_EQ(text(remainder), std::string(WIDE_REMAINDER));
@@ -450,7 +450,7 @@ TEST(IntegerTest, Division) {
 	ASSERT_TRUE(restored.add(product, remainder));
 	// Проверяем восстановление делимого
 	ASSERT_TRUE(restored.equal(third));
-	// Ноль
+	// Нулевое число
 	math::integer_t zero;
 	// Деление на ноль отвергается
 	ASSERT_FALSE(quotient.divide(third, zero, &remainder));
@@ -474,7 +474,7 @@ TEST(IntegerTest, Modular) {
 	const math::integer_t prime = number(PRIME1024), composite = number(COMPOSITE), base = number(BASE);
 	// Итог действия
 	math::integer_t result;
-	// Выполняем умножение по модулю открытых сомножителей
+	// Умножаем по модулю открытые сомножители
 	ASSERT_TRUE(result.mulmod(third, fourth, composite, false));
 	// Сличаем произведение с ожидаемым
 	ASSERT_EQ(text(result), std::string(MULMOD));
@@ -484,7 +484,7 @@ TEST(IntegerTest, Modular) {
 	ASSERT_TRUE(first.reduce(third, composite));
 	// Приводим второй сомножитель по модулю
 	ASSERT_TRUE(item.reduce(fourth, composite));
-	// Выполняем умножение по Монтгомери
+	// Умножаем по Монтгомери
 	ASSERT_TRUE(result.mulmod(first, item, composite, true));
 	// Сличаем произведение с ожидаемым
 	ASSERT_EQ(text(result), std::string(MULMOD));
@@ -492,11 +492,11 @@ TEST(IntegerTest, Modular) {
 	ASSERT_FALSE(result.mulmod(third, fourth, composite, true));
 	// Усечённый показатель
 	const math::integer_t shortened = number(SHORT);
-	// Выполняем возведение в степень с секретным показателем
+	// Возводим в степень с секретным показателем
 	ASSERT_TRUE(result.power(base, shortened, prime, true));
 	// Сличаем степень с ожидаемой
 	ASSERT_EQ(text(result), std::string(POWER_SHORT));
-	// Выполняем возведение в степень с открытым показателем
+	// Возводим в степень с открытым показателем
 	ASSERT_TRUE(result.power(base, shortened, prime, false));
 	// Сличаем степень с ожидаемой
 	ASSERT_EQ(text(result), std::string(POWER_SHORT));
@@ -506,7 +506,7 @@ TEST(IntegerTest, Modular) {
 	ASSERT_TRUE(result.power(base, second, prime, false));
 	// Сличаем степень с ожидаемой
 	ASSERT_EQ(text(result), std::string(POWER));
-	// Выполняем возведение в степень по составному модулю: показатель длиннее модуля, оттого открыт
+	// Возводим в степень по составному модулю: показатель длиннее модуля, оттого открыт
 	ASSERT_TRUE(result.power(first, fourth, composite, false));
 	// Сличаем степень с ожидаемой
 	ASSERT_EQ(text(result), std::string(POWER_COMPOSITE));
@@ -518,11 +518,11 @@ TEST(IntegerTest, Modular) {
 	even.word(1000);
 	// Возведение по чётному модулю отвергается
 	ASSERT_FALSE(result.power(base, second, even, true));
-	// Единица
+	// Единичное число
 	math::integer_t one;
 	// Записываем единицу
 	one.word(1);
-	// Выполняем обращение по простому модулю
+	// Обращаем по простому модулю
 	ASSERT_TRUE(result.invert(second, prime));
 	// Сличаем обратное с ожидаемым
 	ASSERT_EQ(text(result), std::string(INVERSE));
@@ -532,7 +532,7 @@ TEST(IntegerTest, Modular) {
 	ASSERT_TRUE(item.equal(one));
 	// Показатель и чётный модуль
 	const math::integer_t exponent = number("010001"), carmichael = number(EVEN_MODULUS);
-	// Выполняем обращение по чётному модулю
+	// Обращаем по чётному модулю
 	ASSERT_TRUE(result.invert(exponent, carmichael));
 	// Сличаем обратное с ожидаемым
 	ASSERT_EQ(text(result), std::string(EVEN_INVERSE));
@@ -584,7 +584,7 @@ TEST(IntegerTest, Prime) {
 	ASSERT_TRUE(prime.prime());
 	// Простое число длиной 512 разрядов
 	ASSERT_TRUE(number(PRIME512).prime());
-	// Двойка
+	// Число два
 	math::integer_t two;
 	// Записываем двойку
 	two.word(2);
@@ -658,7 +658,7 @@ static math::integer_t reference(const math::integer_t & base, const math::integ
 	// Накопитель начинается с единицы
 	result.word(1);
 	/**
-	 * Выполняем перебор разрядов показателя от старшего к младшему
+	 * Перебираем разряды показателя от старшего к младшему
 	 */
 	for(size_t i = exponent.bits(); i > 0; i--){
 		// Возводим накопитель в квадрат делением
@@ -696,7 +696,7 @@ static void montgomery(const math::integer_t & modulus, const size_t rounds) {
 	// Итоги действий
 	math::integer_t entered, left, product, expected, power, remainder, inverse, check;
 	/**
-	 * Выполняем случайные проверки
+	 * Проводим случайные проверки
 	 */
 	for(size_t i = 0; i < rounds; i++){
 		// Случайные числа, приведённые по модулю делением
@@ -1111,7 +1111,7 @@ TEST(IntegerTest, VectorSquare) {
 			// Задаём коэффициент числа по номеру примера
 			value[i] = ((sample < 2) ? (radix + ((sample == 0) ? 64 : 0)) : ((state >> 32) & (radix - 1)));
 		}
-		// Делаем младший коэффициент модуля нечётным
+		// Выставляем младший коэффициент модуля нечётным
 		modulus[0] |= 1;
 		// Задаём старший коэффициент модуля по номеру примера
 		modulus[35] = (((sample % 3) == 2) ? 1 : 511);
@@ -1142,7 +1142,7 @@ TEST(IntegerTest, VectorSquare) {
 		 * Перебираем: шесть шагов обращения младшего коэффициента по методу Ньютона
 		 */
 		for(size_t i = 0; i < 6; i++)
-			// Выполняем шаг метода Ньютона
+			// Шагаем методом Ньютона
 			inverse *= (2 - (modulus[0] * inverse));
 		// Берём отрицательное дополнение обратного
 		inverse = (0 - inverse);
@@ -1175,7 +1175,7 @@ TEST(IntegerTest, VectorSquare) {
 			// Ядро обязано полностью записать итог при непустом рабочем буфере
 			::memset(buffer, 0xA5, sizeof(buffer));
 			::memset(result, 0xA5, sizeof(result));
-			// Выполняем квадрат ядром на текущем числе
+			// Возводим в квадрат ядром на текущем числе
 			math::kernel::square29Avx2(buffer, result, value, modulus, inverse, repeat);
 			/**
 			 * Перебираем: коэффициенты результата в пределах избыточности
@@ -1253,7 +1253,7 @@ TEST(IntegerTest, Edges) {
 	ASSERT_TRUE(value.load(view_t(buffer, math::INTEGER_SIZE)));
 	// Проверяем число разрядов
 	ASSERT_EQ(value.bits(), math::INTEGER_BITS);
-	// Единица
+	// Единичное число
 	math::integer_t one, result;
 	// Записываем единицу
 	one.word(1);
@@ -1297,7 +1297,7 @@ TEST(IntegerTest, Edges) {
 	result.right(result, 100);
 	// Проверяем восстановление
 	ASSERT_TRUE(result.equal(first));
-	// Нечётность
+	// Нечётность единицы
 	ASSERT_TRUE(one.odd());
 	// Чётность нуля
 	ASSERT_FALSE(math::integer_t().odd());
@@ -1321,19 +1321,19 @@ TEST(IntegerTest, Edges) {
  * против эталона (решение 6 шапки integer.cpp)
  */
 TEST(IntegerTest, Kernels) {
-	// Единица
+	// Единичное число
 	math::integer_t one;
 	// Записываем единицу
 	one.word(1);
 	/**
-	 * Выполняем перебор ширин модуля в словах
+	 * Перебираем ширины модуля в словах
 	 */
 	for(size_t words = 1; words <= 64; words++){
 		/**
-		 * Выполняем перебор видов модуля
+		 * Перебираем виды модуля
 		 */
 		for(int kind = 0; kind < 4; kind++){
-			// Модуль
+			// Модуль очередного вида
 			math::integer_t modulus;
 			/**
 			 * Определяем вид модуля
@@ -1386,7 +1386,7 @@ TEST(IntegerTest, Kernels) {
 					if(modulus.zero()) modulus.word(1);
 				} break;
 			}
-			// Делаем модуль нечётным
+			// Выставляем модуль нечётным
 			if(!modulus.odd())
 				// Добавляем единицу ради нечётности
 				ASSERT_TRUE(modulus.add(modulus, one));
@@ -1399,10 +1399,10 @@ TEST(IntegerTest, Kernels) {
 			// Вычисляем число на единицу меньше модуля
 			ASSERT_TRUE(last.subtract(modulus, one));
 			/**
-			 * Выполняем перебор входов: случайные, оба меньше модуля на единицу, ноль, единица
+			 * Перебираем входы: случайные, оба меньше модуля на единицу, ноль, единица
 			 */
 			for(int input = 0; input < 4; input++){
-				// Сомножители
+				// Сомножители очередного входа
 				math::integer_t first, second;
 				/**
 				 * Задаём пару сомножителей по номеру входа
@@ -1469,7 +1469,7 @@ TEST(IntegerTest, Kernels) {
 				ASSERT_TRUE(base.random(words * 64));
 				ASSERT_TRUE(base.reduce(base, modulus));
 				ASSERT_TRUE(exponent.random(64));
-				// Эталон
+				// Эталон возведения по модулю
 				expected = reference(base, exponent, modulus);
 				// Секретный путь: окна по всей ширине слов
 				ASSERT_TRUE(field.power(base, exponent, true, power));

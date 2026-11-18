@@ -409,7 +409,7 @@ static std::vector <uint8_t> imprint;
 // Число найденных следов образца в освобождённых блоках
 static size_t traces = 0;
 // Наблюдатель освобождаемых блоков: ищет образец в выдаваемых данных
-static void inspect(void * data) noexcept {
+static void __nts_inspect__(void * data) noexcept {
 	// Без образца наблюдатель молчит
 	if(imprint.empty()) return;
 	// Размер освобождаемого блока
@@ -576,7 +576,7 @@ TEST(RsaTest, EncodeNoTraces){
 	// Буфер второй записи под наблюдателем
 	std::vector <uint8_t> again;
 	// Вешаем наблюдателя на освобождения записчика
-	starve::watch = inspect;
+	starve::watch = __nts_inspect__;
 	// Вторая запись приватного DER под наблюдателем
 	const bool ok = rsa.encode(true, again);
 	// Снимаем наблюдателя

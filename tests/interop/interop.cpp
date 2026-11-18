@@ -161,7 +161,7 @@ namespace {
 	 */
 	bool capable(const protect::suite_t suite) noexcept {
 		// Пробуем набор у openssl
-		return (shell(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + title(suite) + " >/dev/null 2>&1") == 0);
+		return (__nts_shell__(std::string("openssl ciphers -s -tls1_3 -ciphersuites ") + title(suite) + " >/dev/null 2>&1") == 0);
 	}
 	/**
 	 * @brief Функция оглашения пропусков частей сличения
@@ -188,7 +188,7 @@ namespace {
  */
 TEST(InteropTest, Server){
 	// Способности системного openssl, снятые щупами
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -232,19 +232,19 @@ TEST(InteropTest, Server){
 			 */
 			for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 				// Имя группы у openssl
-				const char * curve = naming(GROUPS[g]);
+				const char * curve = __nts_naming__(GROUPS[g]);
 				// Свободный порт
-				const uint16_t number = vacant(false);
+				const uint16_t number = __nts_vacant__(false);
 				// Проверяем наличие порта
 				ASSERT_NE(number, 0);
 				// Журнал сервера openssl
 				const std::string log = "/tmp/ants-interop-server-" + std::to_string(number) + ".log";
 				// Запускаем сервер openssl в один приём с ответом HTTP и с запросом подлинности клиента
-				ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -ciphersuites " + name + " -groups " + curve + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+				ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -ciphersuites " + name + " -groups " + curve + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 				// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 				sentinel_t sentinel(log + ".pid");
 				// Подключаемся к серверу openssl
-				const int fd = dial(number);
+				const int fd = __nts_dial__(number);
 				// Проверяем подключение
 				ASSERT_GE(fd, 0) << "порт " << number;
 				// Связь стороны клиента
@@ -264,7 +264,7 @@ TEST(InteropTest, Server){
 				 */
 				for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 					// Передаём байты
-					relay(client, fd);
+					__nts_relay__(client, fd);
 				// Проверяем установленность связи
 				ASSERT_TRUE(client.established()) << ENTRIES[k].name << " " << name << " " << curve << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 				// Проверяем набор
@@ -282,7 +282,7 @@ TEST(InteropTest, Server){
 				 */
 				for(size_t i = 0; (i < 16) && answer.empty(); i++){
 					// Передаём байты
-					relay(client, fd);
+					__nts_relay__(client, fd);
 					// Читаем принятые данные
 					ASSERT_EQ(client.read(answer), context::error_t::NONE);
 				}
@@ -295,7 +295,7 @@ TEST(InteropTest, Server){
 				// Журнал сервера
 				std::string journal;
 				// Дожидаемся отметки завершения снятого сервера
-				(void) settle(log, journal);
+				(void) __nts_settle__(log, journal);
 				// Удаляем журнал
 				::remove(log.c_str());
 			}
@@ -310,7 +310,7 @@ TEST(InteropTest, Server){
  */
 TEST(InteropTest, Client){
 	// Способности системного openssl, снятые щупами
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -354,21 +354,21 @@ TEST(InteropTest, Client){
 			 */
 			for(size_t g = 0; g < (sizeof(GROUPS) / sizeof(GROUPS[0])); g++){
 				// Имя группы у openssl
-				const char * curve = naming(GROUPS[g]);
+				const char * curve = __nts_naming__(GROUPS[g]);
 				// Порт сервера
 				uint16_t number = 0;
 				// Слушающий сокет
-				const int listener = harbour(number);
+				const int listener = __nts_harbour__(number);
 				// Проверяем сокет
 				ASSERT_GE(listener, 0);
 				// Журнал клиента openssl
 				const std::string log = "/tmp/ants-interop-client-" + std::to_string(number) + ".log";
 				// Запускаем клиента openssl: подлинность клиента тем же ключом, сервер проверяется по своему сертификату
-				ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -ciphersuites " + name + " -groups " + curve + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+				ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -ciphersuites " + name + " -groups " + curve + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
 				// Сторож клиента openssl
 				sentinel_t sentinel(log + ".pid");
 				// Принимаем подключение
-				const int fd = greeted(listener);
+				const int fd = __nts_greeted__(listener);
 				// Проверяем подключение
 				ASSERT_GE(fd, 0);
 				// Связь стороны сервера
@@ -384,7 +384,7 @@ TEST(InteropTest, Client){
 				// Заводим сервер
 				ASSERT_EQ(server.start(), context::error_t::NONE);
 				// Ведём связь до конца рукопожатия
-				const bool complete = serve(server, fd);
+				const bool complete = __nts_serve__(server, fd);
 				// Проверяем, что рукопожатие дошло до конца
 				ASSERT_TRUE(complete) << ENTRIES[k].name << " " << name << " " << curve << " отказ " << static_cast <int> (server.error());
 				// Проверяем, что отказа не было
@@ -394,7 +394,7 @@ TEST(InteropTest, Client){
 				// Проверяем подлинность клиента
 				ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 				// Закрываем связь, коли она ещё открыта
-				ASSERT_TRUE(farewell(server, fd));
+				ASSERT_TRUE(__nts_farewell__(server, fd));
 				// Закрываем сокет
 				closing(fd);
 				// Закрываем слушающий сокет
@@ -402,7 +402,7 @@ TEST(InteropTest, Client){
 				// Текст журнала клиента
 				std::string text;
 				// Клиент обязан завершиться
-				ASSERT_TRUE(settle(log, text)) << text;
+				ASSERT_TRUE(__nts_settle__(log, text)) << text;
 				// Проверка подлинности сервера у клиента обязана сойтись
 				ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 				// Удаляем журнал
@@ -420,7 +420,7 @@ TEST(InteropTest, Client){
  */
 static bool mldsaCapable() noexcept {
 	// Пробуем выработку ключа ML-DSA-65 у openssl
-	return (shell("openssl genpkey -algorithm ML-DSA-65 >/dev/null 2>&1") == 0);
+	return (__nts_shell__("openssl genpkey -algorithm ML-DSA-65 >/dev/null 2>&1") == 0);
 }
 
 /**
@@ -429,7 +429,7 @@ static bool mldsaCapable() noexcept {
  */
 TEST(InteropTest, MldsaServer){
 	// Способности системного openssl, снятые щупами
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -469,17 +469,17 @@ TEST(InteropTest, MldsaServer){
 		// Пути к сертификату и ключу
 		const std::string crt = std::string(CORPUS) + "/" + ENTRIES[k].name + ".crt", key = std::string(CORPUS) + "/" + ENTRIES[k].name + ".pem";
 		// Свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем наличие порта
 		ASSERT_NE(number, 0);
 		// Журнал сервера openssl
 		const std::string log = "/tmp/ants-interop-mldsa-server-" + std::to_string(number) + ".log";
 		// Запускаем сервер openssl в один приём с ответом HTTP, со схемой ML-DSA и с запросом подлинности клиента той же схемой
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -ciphersuites TLS_AES_128_GCM_SHA256 -groups X25519 -sigalgs " + ENTRIES[k].title + " -client_sigalgs " + ENTRIES[k].title + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -ciphersuites TLS_AES_128_GCM_SHA256 -groups X25519 -sigalgs " + ENTRIES[k].title + " -client_sigalgs " + ENTRIES[k].title + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож сервера openssl: снимается по номеру и при отказе посреди проверки
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int fd = dial(number);
+		const int fd = __nts_dial__(number);
 		// Проверяем подключение
 		ASSERT_GE(fd, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -501,7 +501,7 @@ TEST(InteropTest, MldsaServer){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, fd);
+			__nts_relay__(client, fd);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established()) << ENTRIES[k].name << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем цепочку сервера
@@ -517,7 +517,7 @@ TEST(InteropTest, MldsaServer){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты
-			relay(client, fd);
+			__nts_relay__(client, fd);
 			// Читаем принятые данные
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -530,7 +530,7 @@ TEST(InteropTest, MldsaServer){
 		// Журнал сервера
 		std::string journal;
 		// Дожидаемся отметки завершения снятого сервера
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
@@ -542,7 +542,7 @@ TEST(InteropTest, MldsaServer){
  */
 TEST(InteropTest, MldsaClient){
 	// Способности системного openssl, снятые щупами
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -584,17 +584,17 @@ TEST(InteropTest, MldsaClient){
 		// Порт сервера
 		uint16_t number = 0;
 		// Слушающий сокет
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем сокет
 		ASSERT_GE(listener, 0);
 		// Журнал клиента openssl
 		const std::string log = "/tmp/ants-interop-mldsa-client-" + std::to_string(number) + ".log";
 		// Запускаем клиента openssl со схемой ML-DSA: подлинность клиента тем же ключом, сервер проверяется по своему сертификату
-		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -ciphersuites TLS_AES_128_GCM_SHA256 -groups X25519 -sigalgs " + ENTRIES[k].title + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -ciphersuites TLS_AES_128_GCM_SHA256 -groups X25519 -sigalgs " + ENTRIES[k].title + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож клиента openssl
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение
-		const int fd = greeted(listener);
+		const int fd = __nts_greeted__(listener);
 		// Проверяем подключение
 		ASSERT_GE(fd, 0);
 		// Связь стороны сервера
@@ -612,7 +612,7 @@ TEST(InteropTest, MldsaClient){
 		// Заводим сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Ведём связь до конца рукопожатия
-		const bool complete = serve(server, fd);
+		const bool complete = __nts_serve__(server, fd);
 		// Проверяем, что рукопожатие дошло до конца
 		ASSERT_TRUE(complete) << ENTRIES[k].name << " отказ " << static_cast <int> (server.error());
 		// Проверяем, что отказа не было
@@ -620,7 +620,7 @@ TEST(InteropTest, MldsaClient){
 		// Проверяем подлинность клиента
 		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 		// Закрываем связь, коли она ещё открыта
-		ASSERT_TRUE(farewell(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, fd));
 		// Закрываем сокет
 		closing(fd);
 		// Закрываем слушающий сокет
@@ -628,7 +628,7 @@ TEST(InteropTest, MldsaClient){
 		// Текст журнала клиента
 		std::string text;
 		// Клиент обязан завершиться
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// Проверка подлинности сервера у клиента обязана сойтись
 		ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 		// Удаляем журнал

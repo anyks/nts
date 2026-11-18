@@ -63,7 +63,7 @@ using namespace nts;
  * @return        код возврата команды
  *
  */
-static int shell(const std::string & command) {
+static int __nts_shell__(const std::string & command) {
 	// Запускаем команду с пустым входом
 	/**
 	 * Для cmd.exe пустое устройство называется NUL
@@ -511,7 +511,7 @@ namespace {
 				// Если каталог создан
 				if(!this->_path.empty())
 					// Удаляем каталог со всем содержимым
-					(void) shell((std::string("rm -rf ") + this->_path).c_str());
+					(void) __nts_shell__((std::string("rm -rf ") + this->_path).c_str());
 			}
 	} sandbox_t;
 };
@@ -949,17 +949,17 @@ TEST(KeysTest, Signatures){
  */
 TEST(KeysTest, Openssl){
 	// Если openssl недоступен
-	if(shell("openssl version >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl version >/dev/null 2>&1") != 0)
 		// Пропускаем проверку без системного эталона
 		GTEST_SKIP() << "openssl недоступен";
 	// Если openssl не умеет Ed25519 (старше 1.1.1), обмен по набору невозможен
-	if(shell("openssl genpkey -algorithm ed25519 -out /dev/null >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl genpkey -algorithm ed25519 -out /dev/null >/dev/null 2>&1") != 0)
 		// Объявляем пропуск проверки вслух
 		GTEST_SKIP() << "openssl старше 1.1.1: нет Ed25519";
 	// Признак того, что openssl умеет PBES2 с выбором имитовставки и числа оборотов (у LibreSSL нет)
-	const bool tunable = (shell((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/ec256.pem -v2 aes-128-cbc -v2prf hmacWithSHA256 -iter 1 -passout pass:x -out /dev/null >/dev/null 2>&1").c_str()) == 0);
+	const bool tunable = (__nts_shell__((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/ec256.pem -v2 aes-128-cbc -v2prf hmacWithSHA256 -iter 1 -passout pass:x -out /dev/null >/dev/null 2>&1").c_str()) == 0);
 	// Признак того, что openssl умеет подписывать и проверять сообщение целиком (у LibreSSL нет -rawin)
-	const bool rawin = (shell((std::string("openssl pkeyutl -sign -inkey ") + CORPUS + "/ed25519.pem -rawin -in " + CORPUS + "/data.bin -out /dev/null >/dev/null 2>&1").c_str()) == 0);
+	const bool rawin = (__nts_shell__((std::string("openssl pkeyutl -sign -inkey ") + CORPUS + "/ed25519.pem -rawin -in " + CORPUS + "/data.bin -out /dev/null >/dev/null 2>&1").c_str()) == 0);
 	// Если подписи сообщения целиком нет, говорим об этом вслух
 	if(!rawin)
 		// Выводим сообщение о пропуске части проверки
@@ -1003,7 +1003,7 @@ TEST(KeysTest, Openssl){
 			// Проверяем запись файла
 			ASSERT_TRUE(__nts_spill__(sealed, text)) << "Ключ: " << entry.name;
 			// Проверяем, что openssl читает нашу зашифрованную запись
-			ASSERT_EQ(shell((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + " -out " + unsealed).c_str()), 0) << "Ключ: " << entry.name << ", разрядов: " << bits;
+			ASSERT_EQ(__nts_shell__((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + " -out " + unsealed).c_str()), 0) << "Ключ: " << entry.name << ", разрядов: " << bits;
 			// Ключ, расшифрованный openssl
 			keys::key_t unsealedKey;
 			// Проверяем разбор расшифрованной openssl записи: издания openssl расходятся в необязательных полях и в самом виде записи (у 3.0 старый вид), оттого сличать её с набором байт в байт нельзя
@@ -1015,7 +1015,7 @@ TEST(KeysTest, Openssl){
 			// Проверяем совпадение расшифрованного openssl ключа с эталоном в канонической записи
 			ASSERT_EQ(canonical, reference) << "Ключ: " << entry.name << ", разрядов: " << bits;
 			// Проверяем, что openssl отвергает чужой пароль
-			ASSERT_NE(shell((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + "1 -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
+			ASSERT_NE(__nts_shell__((std::string("openssl pkey -in ") + sealed + " -passin pass:" + password + "1 -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
 		}
 		// Имитовставки, которыми openssl шифрует ключ
 		const char * prfs[] = {"hmacWithSHA1", "hmacWithSHA224", "hmacWithSHA256", "hmacWithSHA384", "hmacWithSHA512"};
@@ -1030,7 +1030,7 @@ TEST(KeysTest, Openssl){
 			// Путь к зашифрованной openssl записи
 			const std::string sealed = sandbox.file(std::string(entry.name) + "-" + prf + ".enc.pem");
 			// Проверяем, что openssl зашифровал ключ с заданной имитовставкой и числом оборотов
-			ASSERT_EQ(shell((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/" + entry.name + ".pem -v2 aes-192-cbc -v2prf " + prf + " -iter 777 -passout pass:" + password + " -out " + sealed + " 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name << ", имитовставка: " << prf;
+			ASSERT_EQ(__nts_shell__((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/" + entry.name + ".pem -v2 aes-192-cbc -v2prf " + prf + " -iter 777 -passout pass:" + password + " -out " + sealed + " 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name << ", имитовставка: " << prf;
 			// Разобранный ключ
 			keys::key_t key;
 			// Проверяем разбор зашифрованной openssl записи
@@ -1045,7 +1045,7 @@ TEST(KeysTest, Openssl){
 		// Путь к записи, зашифрованной старой схемой PBES1
 		const std::string legacy = sandbox.file(std::string(entry.name) + "-legacy.enc.pem");
 		// Если openssl зашифровал ключ старой схемой: у новых видов ключей она недоступна
-		if(shell((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/" + entry.name + ".pem -v1 PBE-SHA1-3DES -passout pass:" + password + " -out " + legacy + " 2>/dev/null").c_str()) == 0){
+		if(__nts_shell__((std::string("openssl pkcs8 -topk8 -in ") + CORPUS + "/" + entry.name + ".pem -v1 PBE-SHA1-3DES -passout pass:" + password + " -out " + legacy + " 2>/dev/null").c_str()) == 0){
 			// Разобранный ключ
 			keys::key_t key;
 			// Проверяем отказ схемы: PBES1 не поддерживается намеренно
@@ -1060,7 +1060,7 @@ TEST(KeysTest, Openssl){
 		// Проверяем запись файла
 		ASSERT_TRUE(__nts_spill__(opened, text)) << "Ключ: " << entry.name;
 		// Проверяем, что openssl читает наш открытый ключ
-		ASSERT_EQ(shell((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
+		ASSERT_EQ(__nts_shell__((std::string("openssl pkey -pubin -in ") + opened + " -noout 2>/dev/null").c_str()), 0) << "Ключ: " << entry.name;
 		// Если ключ подписи не вырабатывает
 		if(entry.kind == keys::kind_t::X25519)
 			// Переходим к следующему ключу
@@ -1078,13 +1078,13 @@ TEST(KeysTest, Openssl){
 			// Если openssl умеет проверять сообщение целиком
 			if(rawin){
 				// Проверяем, что openssl принимает нашу подпись нашим открытым ключом
-				ASSERT_EQ(shell((std::string("openssl pkeyutl -verify -pubin -inkey ") + opened + " -rawin" + digest + " -in " + message + " -sigfile " + signature + " >/dev/null 2>&1").c_str()), 0) << "Ключ: " << entry.name;
+				ASSERT_EQ(__nts_shell__((std::string("openssl pkeyutl -verify -pubin -inkey ") + opened + " -rawin" + digest + " -in " + message + " -sigfile " + signature + " >/dev/null 2>&1").c_str()), 0) << "Ключ: " << entry.name;
 			}
 	}
 	// Путь к записи RSAPublicKey
 	const std::string rsa = sandbox.file("rsa.pkcs1.pub.pem");
 	// Проверяем, что openssl записал открытый ключ RSA по PKCS #1
-	ASSERT_EQ(shell((std::string("openssl rsa -in ") + CORPUS + "/rsa2048.pem -RSAPublicKey_out -out " + rsa + " 2>/dev/null").c_str()), 0);
+	ASSERT_EQ(__nts_shell__((std::string("openssl rsa -in ") + CORPUS + "/rsa2048.pem -RSAPublicKey_out -out " + rsa + " 2>/dev/null").c_str()), 0);
 	// Разобранный ключ
 	keys::key_t key;
 	// Проверяем разбор записи под меткой «RSA PUBLIC KEY»
@@ -1157,7 +1157,7 @@ TEST(KeysTest, OpensslRefusals){
 	// Проверяем отказ нашего разборщика
 	ASSERT_EQ(keys::decodePrivateKeyInfo(writer.data(), key), keys::error_t::ALGORITHM);
 	// Проверяем отказ OpenSSL на тех же настройках
-	ASSERT_NE(shell(tool + " pkey -inform DER -in " + parameters + " -noout >" + nullDevice + " 2>&1"), 0);
+	ASSERT_NE(__nts_shell__(tool + " pkey -inform DER -in " + parameters + " -noout >" + nullDevice + " 2>&1"), 0);
 	// Годная запись PrivateKeyInfo Ed448
 	std::vector <uint8_t> der;
 	// Записываем годный секретный ключ
@@ -1171,7 +1171,7 @@ TEST(KeysTest, OpensslRefusals){
 	// Проверяем отказ нашего разборщика на обрезке
 	ASSERT_NE(keys::decodePrivateKeyInfo(__nts_view__(truncated), key), keys::error_t::NONE);
 	// Проверяем отказ OpenSSL на той же обрезке
-	ASSERT_NE(shell(tool + " pkey -inform DER -in " + shorty + " -noout >" + nullDevice + " 2>&1"), 0);
+	ASSERT_NE(__nts_shell__(tool + " pkey -inform DER -in " + shorty + " -noout >" + nullDevice + " 2>&1"), 0);
 	// Запись PKCS #12 с чужим видом содержимого
 	std::vector <uint8_t> foreign = bytes(__nts_corpus__("test.p12"));
 	// Опознаватель данных PKCS #7
@@ -1203,7 +1203,7 @@ TEST(KeysTest, OpensslRefusals){
 	// Проверяем отказ нашего разборщика на чужом виде содержимого
 	ASSERT_EQ(keys::decodePkcs12(__nts_view__(foreign), __nts_view__("secret"), key, chain), keys::error_t::STRUCTURE);
 	// Проверяем отказ OpenSSL на той же записи PKCS #12
-	ASSERT_NE(shell(tool + " pkcs12 -in " + alien + " -passin pass:secret -noout >" + nullDevice + " 2>&1"), 0);
+	ASSERT_NE(__nts_shell__(tool + " pkcs12 -in " + alien + " -passin pass:secret -noout >" + nullDevice + " 2>&1"), 0);
 }
 
 /**
@@ -1290,7 +1290,7 @@ TEST(KeysTest, Gost){
 		// Проверяем совпадение секретных частей
 		ASSERT_EQ(opened.d, secret.d) << "Кривая: " << set[0];
 		// Если openssl доступен
-		if(shell("openssl version >/dev/null 2>&1") == 0){
+		if(__nts_shell__("openssl version >/dev/null 2>&1") == 0){
 			// Временный каталог
 			sandbox_t sandbox;
 			// Проверяем готовность временного каталога
@@ -1298,7 +1298,7 @@ TEST(KeysTest, Gost){
 			// Проверяем запись файла
 			ASSERT_TRUE(__nts_spill__(sandbox.file("gost.der"), der));
 			// Проверяем, что устройство записи разбирается openssl
-			ASSERT_EQ(shell((std::string("openssl asn1parse -inform DER -in ") + sandbox.file("gost.der") + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << set[0];
+			ASSERT_EQ(__nts_shell__((std::string("openssl asn1parse -inform DER -in ") + sandbox.file("gost.der") + " >/dev/null 2>&1").c_str()), 0) << "Кривая: " << set[0];
 		}
 	}
 	// Ключ с несогласованным алгоритмом: кривая 256 разрядов при алгоритме 512
@@ -3097,7 +3097,7 @@ TEST(KeysTest, Ed448){
 		// Путь к изданию эталона
 		const std::string edition = sandbox.file("openssl.version");
 		// Снимаем издание эталона, если он есть в среде исполнения (у OpenWrt его нет)
-		if(shell(tool + " version > " + edition + " 2>&1") != 0)
+		if(__nts_shell__(tool + " version > " + edition + " 2>&1") != 0)
 			// Пропускаем интероп без эталона OpenSSL
 			GTEST_SKIP() << "openssl отсутствует в среде исполнения";
 		// Читаем издание эталона
@@ -3115,19 +3115,19 @@ TEST(KeysTest, Ed448){
 		// Проверяем запись нашего открытого ключа DER
 		ASSERT_TRUE(__nts_spill__(sandbox.file("public.der"), spki));
 		// Проверяем принятие нашего секретного ключа OpenSSL
-		ASSERT_EQ(shell(tool + " pkey -inform DER -in " + sandbox.file("secret.der") + " -noout"), 0);
+		ASSERT_EQ(__nts_shell__(tool + " pkey -inform DER -in " + sandbox.file("secret.der") + " -noout"), 0);
 		// Проверяем принятие нашего открытого ключа OpenSSL
-		ASSERT_EQ(shell(tool + " pkey -pubin -inform DER -in " + sandbox.file("public.der") + " -noout"), 0);
+		ASSERT_EQ(__nts_shell__(tool + " pkey -pubin -inform DER -in " + sandbox.file("public.der") + " -noout"), 0);
 		// Проверяем запись нашего секретного ключа PEM для упаковки PKCS #12
 		ASSERT_EQ(keys::encode(secret, keys::container_t::PRIVATE, text, view_t()), keys::error_t::NONE);
 		// Записываем наш секретный ключ PEM
 		ASSERT_TRUE(__nts_spill__(sandbox.file("secret.pem"), text));
 		// Вырабатываем эталонный открытый ключ OpenSSL из нашего секретного
-		ASSERT_EQ(shell(tool + " pkey -in " + sandbox.file("secret.pem") + " -pubout -outform DER -out " + sandbox.file("openssl.der")), 0);
+		ASSERT_EQ(__nts_shell__(tool + " pkey -in " + sandbox.file("secret.pem") + " -pubout -outform DER -out " + sandbox.file("openssl.der")), 0);
 		// Проверяем побайтовое совпадение открытого ключа с OpenSSL
 		ASSERT_EQ(spki, bytes(__nts_slurp__(sandbox.file("openssl.der"))));
 		// Упаковываем наш ключ и сертификат Ed448 в PKCS #12 средствами OpenSSL
-		ASSERT_EQ(shell(tool + " pkcs12 -export -inkey " + sandbox.file("secret.pem") + " -in " + std::string(CORPUS) + "/ed448.crt -passout pass:secret -out " + sandbox.file("ed448.p12")), 0);
+		ASSERT_EQ(__nts_shell__(tool + " pkcs12 -export -inkey " + sandbox.file("secret.pem") + " -in " + std::string(CORPUS) + "/ed448.crt -passout pass:secret -out " + sandbox.file("ed448.p12")), 0);
 		// Цепочка сертификатов из PKCS #12
 		std::vector <std::vector <uint8_t>> chain;
 		// Проверяем разбор нашего ключа из PKCS #12

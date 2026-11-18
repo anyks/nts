@@ -469,7 +469,7 @@ TEST(AuthoritiesTest, Refusals){
  */
 TEST(AuthoritiesTest, Openssl){
 	// Запрашиваем сведения о чужом эталоне
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Проверяем, что чужой эталон доступен
 	if(!toolkit.present){
 		// Пропускаем проверку без доступного чужого эталона
@@ -492,17 +492,17 @@ TEST(AuthoritiesTest, Openssl){
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
 		// Запрашиваем вакантный порт стенда
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем, что порт стенда получен
 		ASSERT_NE(number, 0);
 		// Составляем путь к журналу чужого эталона
 		const std::string log = "/tmp/ants-authorities-server-" + std::to_string(number) + ".log";
 		// Запускаем чужой эталон в роли сервера с запросом подлинности
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Объявляем стража процесса чужого эталона
 		sentinel_t sentinel(log + ".pid");
 		// Налаживаем соединение с портом стенда
-		const int fd = dial(number);
+		const int fd = __nts_dial__(number);
 		// Проверяем, что соединение с портом налажено
 		ASSERT_GE(fd, 0) << "порт " << number;
 		// Объявляем связь стороны клиента
@@ -524,7 +524,7 @@ TEST(AuthoritiesTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между клиентом и чужим эталоном
-			relay(client, fd);
+			__nts_relay__(client, fd);
 		// Проверяем, что связь клиента с чужим эталоном установилась
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// s_server с -CAfile объявляет владельца файла центров приемлемым издателем
@@ -538,24 +538,24 @@ TEST(AuthoritiesTest, Openssl){
 		// Объявляем буфер журнала чужого эталона
 		std::string journal;
 		// Дожидаемся завершения процесса чужого эталона и читаем журнал
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		::remove(log.c_str());
 	}
 	{
 		// Объявляем номер порта стенда
 		uint16_t number = 0;
 		// Открываем прослушиватель порта стенда
-		const int listener = harbour(number);
+		const int listener = __nts_harbour__(number);
 		// Проверяем, что прослушиватель порта открыт
 		ASSERT_GE(listener, 0);
 		// Составляем путь к журналу чужого эталона
 		const std::string log = "/tmp/ants-authorities-client-" + std::to_string(number) + ".log";
 		// Запускаем чужой эталон в роли клиента с подлинностью
-		ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -cert " + crt + " -key " + key + " -CAfile " + crt + " -servername localhost </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -cert " + crt + " -key " + key + " -CAfile " + crt + " -servername localhost </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Объявляем стража процесса чужого эталона
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем соединение чужого эталона
-		const int fd = greeted(listener);
+		const int fd = __nts_greeted__(listener);
 		// Проверяем, что соединение чужого эталона принято
 		ASSERT_GE(fd, 0);
 		// Объявляем связь стороны сервера
@@ -575,21 +575,21 @@ TEST(AuthoritiesTest, Openssl){
 		// Запускаем связь стороны сервера
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Обслуживаем соединение чужого эталона до завершения
-		const bool complete = serve(server, fd);
+		const bool complete = __nts_serve__(server, fd);
 		// Проверяем, что соединение чужого эталона завершилось
 		ASSERT_TRUE(complete) << "отказ " << static_cast <int> (server.error());
 		// Проверяем, что связь сервера завершилась без отказа
 		ASSERT_EQ(server.error(), context::error_t::NONE);
 		ASSERT_EQ(server.peer().size(), static_cast <size_t> (1));
 		// Проверяем, что обслуживание чужого эталона завершилось штатно
-		ASSERT_TRUE(farewell(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, fd));
 		// Завершаем соединение с портом стенда
 		closing(fd);
 		closing(listener);
 		// Объявляем буфер журнала чужого эталона
 		std::string text;
 		// Дожидаемся завершения процесса чужого эталона и читаем журнал
-		ASSERT_TRUE(settle(log, text)) << text;
+		ASSERT_TRUE(__nts_settle__(log, text)) << text;
 		// s_client печатает перечень приемлемых центров из запроса подлинности
 		EXPECT_NE(text.find("Acceptable client certificate CA names"), std::string::npos) << text;
 		// Проверяем, что журнал не сообщает о пустом перечне центров

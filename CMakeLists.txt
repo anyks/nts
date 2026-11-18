@@ -636,7 +636,7 @@ elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
         # Выводим сообщение о метках контроля потока управления
         message(STATUS "Control-flow protection: IBT, SHSTK\n")
     endif (BRANCH_PROTECTION_FLAG)
-endif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64" AND NOT MSVC)
+endif (CMAKE_SYSTEM_NAME STREQUAL "Android")
 
 ##
  # Проба ядра SHA-512 расширения ARM

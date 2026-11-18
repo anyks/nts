@@ -122,7 +122,7 @@ namespace {
 	 * @return       код завершения команды
 	 *
 	 */
-	static int shell(const std::string & command) noexcept {
+	static int __nts_shell__(const std::string & command) noexcept {
 		// Выполняем команду без входа
 		return std::system((command + " </dev/null").c_str());
 	}
@@ -190,7 +190,7 @@ namespace {
 			// Если песочница заведена
 			if(this->_path != "/tmp")
 				// Удаляем каталог песочницы
-				(void) shell((std::string("rm -rf ") + this->_path).c_str());
+				(void) __nts_shell__((std::string("rm -rf ") + this->_path).c_str());
 		}
 	} sandbox_t;
 	/**
@@ -632,7 +632,7 @@ TEST(CmpTest, OpensslPbmRequest) {
 	// Песочница файлов проверки
 	sandbox_t sandbox;
 	// Вырабатываем запрос ir от OpenSSL с защитой PBM
-	if(shell(std::string("openssl cmp -cmd ir -reqout_only ") + sandbox.file("ir.der") +
+	if(__nts_shell__(std::string("openssl cmp -cmd ir -reqout_only ") + sandbox.file("ir.der") +
 		" -newkey " + CORPUS + "/leaf-rsa.key -subject \"/CN=cmp-test\"" +
 		" -recipient \"/CN=ca-rsa\" -secret pass:" + PASSWORD + " -ref client1 -batch 2>/dev/null") != 0)
 		// Пропускаем проверку, если OpenSSL недоступен
@@ -680,7 +680,7 @@ TEST(CmpTest, OpensslSignRequest) {
 	// Песочница файлов проверки
 	sandbox_t sandbox;
 	// Вырабатываем запрос ir от OpenSSL с защитой подписью
-	if(shell(std::string("openssl cmp -cmd ir -reqout_only ") + sandbox.file("ir-sig.der") +
+	if(__nts_shell__(std::string("openssl cmp -cmd ir -reqout_only ") + sandbox.file("ir-sig.der") +
 		" -newkey " + CORPUS + "/leaf-rsa.key -subject \"/CN=cmp-test\"" +
 		" -cert " + CORPUS + "/leaf-rsa.crt -key " + CORPUS + "/leaf-rsa.key" +
 		" -recipient \"/CN=ca-rsa\" -batch 2>/dev/null") != 0)
@@ -730,7 +730,7 @@ TEST(CmpTest, OpensslMockResponse) {
 	// Песочница файлов проверки
 	sandbox_t sandbox;
 	// Вырабатываем ответ мок-сервера OpenSSL: ip с выданным сертификатом
-	(void) shell(std::string("openssl cmp -use_mock_srv -cmd ir -newkey ") + CORPUS + "/leaf-rsa.key" +
+	(void) __nts_shell__(std::string("openssl cmp -use_mock_srv -cmd ir -newkey ") + CORPUS + "/leaf-rsa.key" +
 		" -subject \"/CN=cmp-test\" -secret pass:" + PASSWORD + " -ref client1" +
 		" -srv_ref MockSrv -srv_secret pass:" + PASSWORD +
 		" -rsp_cert " + CORPUS + "/ca-rsa.crt -srvcert " + CORPUS + "/ca-rsa.crt" +
@@ -781,7 +781,7 @@ TEST(CmpTest, OpensslAcceptsOurs) {
 	const std::string edition = sandbox.file("openssl.version");
 	// Снимаем издание эталона
 	// Снимаем издание эталона, если он есть в среде исполнения (у OpenWrt его нет)
-	if(shell(std::string("openssl version > ") + edition + " 2>&1") != 0)
+	if(__nts_shell__(std::string("openssl version > ") + edition + " 2>&1") != 0)
 		// Пропускаем интероп без эталона OpenSSL
 		GTEST_SKIP() << "openssl отсутствует в среде исполнения";
 	// LibreSSL не несёт подкоманду cmp - интероп без эталона
@@ -814,7 +814,7 @@ TEST(CmpTest, OpensslAcceptsOurs) {
 	// Записываем запрос в файл песочницы
 	sandbox.spill("ours.der", record);
 	// Отдаём запрос мок-серверу OpenSSL: разбор обязан дойти до проверки полномочий
-	const int rc = shell(std::string("openssl cmp -use_mock_srv -reqin ") + sandbox.file("ours.der") +
+	const int rc = __nts_shell__(std::string("openssl cmp -use_mock_srv -reqin ") + sandbox.file("ours.der") +
 		" -cmd ir -secret pass:" + PASSWORD + " -ref client1" +
 		" -srv_ref MockSrv -srv_secret pass:" + PASSWORD +
 		" -srvcert " + CORPUS + "/ca-rsa.crt -batch 2>" + sandbox.file("log.txt"));
@@ -957,7 +957,7 @@ TEST(CmpTest, OpensslRefusals) {
 	const std::string edition = sandbox.file("openssl.version");
 	// Снимаем издание эталона
 	// Снимаем издание эталона, если он есть в среде исполнения (у OpenWrt его нет)
-	if(shell(std::string("openssl version > ") + edition + " 2>&1") != 0)
+	if(__nts_shell__(std::string("openssl version > ") + edition + " 2>&1") != 0)
 		// Пропускаем интероп без эталона OpenSSL
 		GTEST_SKIP() << "openssl отсутствует в среде исполнения";
 	// LibreSSL не несёт подкоманду cmp - интероп без эталона
@@ -965,7 +965,7 @@ TEST(CmpTest, OpensslRefusals) {
 		// Пропускаем интероп без подкоманды cmp у эталона
 		GTEST_SKIP() << "LibreSSL без подкоманды cmp";
 	// Если эталон с поддержкой CMP недоступен
-	if(shell("openssl cmp -help >/dev/null 2>&1") != 0)
+	if(__nts_shell__("openssl cmp -help >/dev/null 2>&1") != 0)
 		// Пропускаем интероп без эталона
 		GTEST_SKIP() << "openssl cmp is not available";
 	// Пароль общего секрета
@@ -1004,7 +1004,7 @@ TEST(CmpTest, OpensslRefusals) {
 	// Путь к журналу эталона
 	const std::string log = sandbox.file("log.txt");
 	// Передаём обрезанный запрос мок-серверу OpenSSL
-	const int rc = shell("openssl cmp -use_mock_srv -reqin " + shorty +
+	const int rc = __nts_shell__("openssl cmp -use_mock_srv -reqin " + shorty +
 		" -cmd ir -newkey " + CORPUS + "/leaf-rsa.key -subject \"/CN=cmp-test\"" +
 		" -secret pass:" + PASSWORD + " -ref client1 -srv_ref MockSrv -srv_secret pass:" + PASSWORD +
 		" -srvcert " + CORPUS + "/ca-rsa.crt -certout " + sandbox.file("cert.pem") + " -batch 2>" + log);
@@ -1036,7 +1036,7 @@ TEST(CmpTest, Pkcs10Roundtrip) {
 	// Подготавливаем ключ подписи
 	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/leaf-rsa.key"))), keys::error_t::NONE);
 	// Вырабатываем запрос PKCS #10 эталоном
-	if(shell(std::string("openssl req -new -key ") + CORPUS + "/leaf-rsa.key -out " + sandbox.file("csr.der") + " -outform DER -subj \"/CN=cmp-test\" 2>/dev/null") != 0)
+	if(__nts_shell__(std::string("openssl req -new -key ") + CORPUS + "/leaf-rsa.key -out " + sandbox.file("csr.der") + " -outform DER -subj \"/CN=cmp-test\" 2>/dev/null") != 0)
 		// Пропускаем проверку, если OpenSSL недоступен
 		GTEST_SKIP() << "openssl req is not available";
 	// Читаем запись запроса

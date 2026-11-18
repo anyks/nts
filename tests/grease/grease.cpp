@@ -1518,7 +1518,7 @@ TEST(GreaseTest, Server){
  */
 TEST(GreaseTest, Openssl13){
 	// Способности системного openssl, снятые щупами
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -1540,7 +1540,7 @@ TEST(GreaseTest, Openssl13){
 	 */
 	for(size_t retry = 0; retry < 2; retry++){
 		// Свободный порт
-		const uint16_t number = vacant(false);
+		const uint16_t number = __nts_vacant__(false);
 		// Проверяем наличие порта
 		ASSERT_NE(number, 0);
 		// Журнал сервера openssl
@@ -1548,11 +1548,11 @@ TEST(GreaseTest, Openssl13){
 		// Группы сервера: при повторе лишь P-384, доли по которой клиент не шлёт
 		const std::string groups = ((retry == 0) ? "X25519:P-384" : "P-384");
 		// Запускаем сервер openssl в один приём с ответом HTTP и с запросом подлинности клиента
-		ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -groups " + groups + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+		ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_3 -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -groups " + groups + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 		// Сторож сервера openssl
 		sentinel_t sentinel(log + ".pid");
 		// Подключаемся к серверу openssl
-		const int own = dial(number);
+		const int own = __nts_dial__(number);
 		// Проверяем подключение
 		ASSERT_GE(own, 0) << "порт " << number;
 		// Связь стороны клиента
@@ -1576,7 +1576,7 @@ TEST(GreaseTest, Openssl13){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты
-			relay(client, own);
+			__nts_relay__(client, own);
 		// Проверяем установленность связи
 		ASSERT_TRUE(client.established()) << "повтор " << retry << " отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем набор
@@ -1594,7 +1594,7 @@ TEST(GreaseTest, Openssl13){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты
-			relay(client, own);
+			__nts_relay__(client, own);
 			// Читаем принятые данные
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1613,14 +1613,14 @@ TEST(GreaseTest, Openssl13){
 		// Журнал сервера
 		std::string journal;
 		// Дожидаемся отметки завершения снятого сервера
-		(void) settle(log, journal);
+		(void) __nts_settle__(log, journal);
 		// Удаляем журнал
 		::remove(log.c_str());
 	}
 	// Порт своего сервера
 	uint16_t number = 0;
 	// Слушающий сокет
-	const int listener = harbour(number);
+	const int listener = __nts_harbour__(number);
 	// Проверяем сокет
 	ASSERT_GE(listener, 0);
 	// Журнал клиента openssl
@@ -1634,11 +1634,11 @@ TEST(GreaseTest, Openssl13){
 	// Файл сеанса клиента openssl: с ним s_client оглашает принятый билет в журнале
 	const std::string session = "/tmp/ants-grease-client-" + std::to_string(number) + ".sess";
 	// Запускаем клиента openssl со своей подлинностью: запрос подлинности с GREASE ему придёт
-	ASSERT_TRUE(launch("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -servername localhost -verify_return_error -sess_out " + session + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+	ASSERT_TRUE(__nts_launch__("openssl s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -CAfile " + crt + " -cert " + crt + " -key " + key + " -servername localhost -verify_return_error -sess_out " + session + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 	// Сторож клиента openssl
 	sentinel_t sentinel(log + ".pid");
 	// Принимаем подключение
-	const int own = greeted(listener);
+	const int own = __nts_greeted__(listener);
 	// Проверяем подключение
 	ASSERT_GE(own, 0);
 	// Связь стороны сервера
@@ -1656,7 +1656,7 @@ TEST(GreaseTest, Openssl13){
 	// Заводим сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Ведём связь до конца рукопожатия
-	ASSERT_TRUE(serve(server, own)) << "отказ " << static_cast <int> (server.error());
+	ASSERT_TRUE(__nts_serve__(server, own)) << "отказ " << static_cast <int> (server.error());
 	// Отказа не было
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	// Связь установлена
@@ -1690,7 +1690,7 @@ TEST(GreaseTest, Openssl13){
 	// Клиент openssl обязан принять билет с расширением GREASE
 	ASSERT_TRUE(granted);
 	// Закрываем связь: по извещению клиент openssl уходит сам и выкладывает журнал
-	ASSERT_TRUE(farewell(server, own));
+	ASSERT_TRUE(__nts_farewell__(server, own));
 	// Закрываем сокет
 	closing(own);
 	// Закрываем слушающий сокет
@@ -1698,7 +1698,7 @@ TEST(GreaseTest, Openssl13){
 	// Текст журнала клиента
 	std::string text;
 	// Дожидаемся отметки завершения
-	ASSERT_TRUE(settle(log, text)) << text;
+	ASSERT_TRUE(__nts_settle__(log, text)) << text;
 	// Проверка подлинности сервера у клиента обязана сойтись
 	ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 	// Билет оглашён журналом клиента
@@ -1727,7 +1727,7 @@ TEST(GreaseTest, OpensslGrease){
 	// Имя двоичного файла openssl 4.1
 	const std::string tool(given);
 	// Если ключ -grease у s_client не найден
-	if(shell("(" + tool + " s_client -help 2>&1 | grep -q '[-]grease') >/dev/null 2>&1") != 0){
+	if(__nts_shell__("(" + tool + " s_client -help 2>&1 | grep -q '[-]grease') >/dev/null 2>&1") != 0){
 		// Пропускаем проверку вслух
 		GTEST_SKIP() << "openssl 4.1 без ключа -grease";
 	}
@@ -1740,17 +1740,17 @@ TEST(GreaseTest, OpensslGrease){
 	// Порт своего сервера
 	uint16_t number = 0;
 	// Слушающий сокет
-	const int listener = harbour(number);
+	const int listener = __nts_harbour__(number);
 	// Проверяем сокет
 	ASSERT_GE(listener, 0);
 	// Журнал клиента openssl
 	const std::string log = "/tmp/ants-grease41-client-" + std::to_string(number) + ".log";
 	// Запускаем клиента openssl 4.1 со вставкой GREASE
-	ASSERT_TRUE(launch(tool + " s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -grease -CAfile " + crt + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
+	ASSERT_TRUE(__nts_launch__(tool + " s_client -connect 127.0.0.1:" + std::to_string(number) + " -tls1_3 -grease -CAfile " + crt + " -servername localhost -verify_return_error </dev/null >" + log + " 2>&1", log, log + ".pid"));
 	// Сторож клиента openssl
 	sentinel_t sentinel(log + ".pid");
 	// Принимаем подключение
-	const int own = greeted(listener);
+	const int own = __nts_greeted__(listener);
 	// Проверяем подключение
 	ASSERT_GE(own, 0);
 	// Предел ожидания приёма
@@ -1895,13 +1895,13 @@ TEST(GreaseTest, OpensslGrease){
 	// Подаём серверу принятое приветствие
 	server.push(view_t(wire.data(), wire.size()));
 	// Ведём связь до конца рукопожатия
-	ASSERT_TRUE(serve(server, own)) << "отказ " << static_cast <int> (server.error());
+	ASSERT_TRUE(__nts_serve__(server, own)) << "отказ " << static_cast <int> (server.error());
 	// Отказа не было
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	// Связь установлена: сервер принял приветствие со значениями GREASE
 	ASSERT_TRUE(server.established());
 	// Закрываем связь: по извещению клиент openssl уходит сам и выкладывает журнал
-	ASSERT_TRUE(farewell(server, own));
+	ASSERT_TRUE(__nts_farewell__(server, own));
 	// Закрываем сокет
 	closing(own);
 	// Закрываем слушающий сокет
@@ -1909,7 +1909,7 @@ TEST(GreaseTest, OpensslGrease){
 	// Текст журнала клиента
 	std::string text;
 	// Дожидаемся отметки завершения
-	ASSERT_TRUE(settle(log, text)) << text;
+	ASSERT_TRUE(__nts_settle__(log, text)) << text;
 	// Проверка подлинности сервера у клиента обязана сойтись
 	ASSERT_NE(text.find("Verify return code: 0 (ok)"), std::string::npos) << text;
 	// Удаляем журнал
@@ -1922,7 +1922,7 @@ TEST(GreaseTest, OpensslGrease){
  */
 TEST(GreaseTest, Openssl12){
 	// Способности системного openssl, снятые щупами
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -1945,17 +1945,17 @@ TEST(GreaseTest, Openssl12){
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Свободный порт
-	const uint16_t number = vacant(false);
+	const uint16_t number = __nts_vacant__(false);
 	// Проверяем наличие порта
 	ASSERT_NE(number, 0);
 	// Журнал сервера openssl
 	const std::string log = "/tmp/ants-grease-tls12-" + std::to_string(number) + ".log";
 	// Запускаем сервер openssl изданием 1.2 без билетов со встречной подлинностью
-	ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -tls1_2 -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256" + grouping(toolkit, true, extension::group_t::SECP256R1) + " -www" + once(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
+	ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -tls1_2 -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256" + __nts_grouping__(toolkit, true, extension::group_t::SECP256R1) + " -www" + __nts_once__(toolkit) + " </dev/null >" + log + " 2>&1", log, log + ".pid"));
 	// Сторож сервера openssl
 	sentinel_t sentinel(log + ".pid");
 	// Подключаемся к серверу openssl
-	const int own = dial(number);
+	const int own = __nts_dial__(number);
 	// Проверяем подключение
 	ASSERT_GE(own, 0) << "порт " << number;
 	// Связь стороны клиента
@@ -1977,7 +1977,7 @@ TEST(GreaseTest, Openssl12){
 	 */
 	for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 		// Передаём байты
-		relay(client, own);
+		__nts_relay__(client, own);
 	// Проверяем установленность связи
 	ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 	// Издание 1.2
@@ -1995,7 +1995,7 @@ TEST(GreaseTest, Openssl12){
 	 */
 	for(size_t i = 0; (i < 16) && answer.empty(); i++){
 		// Передаём байты
-		relay(client, own);
+		__nts_relay__(client, own);
 		// Читаем принятые данные
 		ASSERT_EQ(client.read(answer), context::error_t::NONE);
 	}
@@ -2012,7 +2012,7 @@ TEST(GreaseTest, Openssl12){
 	// Журнал сервера
 	std::string journal;
 	// Дожидаемся отметки завершения снятого сервера
-	(void) settle(log, journal);
+	(void) __nts_settle__(log, journal);
 	// Удаляем журнал
 	::remove(log.c_str());
 }
@@ -2023,7 +2023,7 @@ TEST(GreaseTest, Openssl12){
  */
 TEST(GreaseTest, Dtls){
 	// Способности системного openssl
-	const toolkit_t toolkit = inspect();
+	const toolkit_t toolkit = __nts_inspect__();
 	// Если openssl недоступен
 	if(!toolkit.present){
 		// Пропускаем проверку вслух
@@ -2046,7 +2046,7 @@ TEST(GreaseTest, Dtls){
 	// Пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Свободный порт UDP
-	const uint16_t number = vacant(true);
+	const uint16_t number = __nts_vacant__(true);
 	// Проверяем порт
 	ASSERT_NE(number, 0);
 	// Журнал сервера openssl
@@ -2058,17 +2058,17 @@ TEST(GreaseTest, Dtls){
 	// Заводим именованный канал
 	ASSERT_EQ(fifo(holder.c_str()), 0);
 	// Запускаем сервер openssl: DTLS 1.2, приём приветствия с меткой, встречная подлинность
-	ASSERT_TRUE(launch("openssl s_server" + accepting(toolkit, number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256" + grouping(toolkit, true, extension::group_t::SECP256R1) + " -mtu 300" + once(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
+	ASSERT_TRUE(__nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -dtls1_2 -listen -no_ticket -cert " + crt + " -key " + key + " -Verify 1 -CAfile " + crt + " -cipher ECDHE-ECDSA-AES128-GCM-SHA256" + __nts_grouping__(toolkit, true, extension::group_t::SECP256R1) + " -mtu 300" + __nts_once__(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder));
 	// Сторож сервера openssl
 	sentinel_t sentinel(log + ".pid");
 	// Текст журнала сервера
 	std::string text;
 	// Дожидаемся подъёма сервера
-	ASSERT_TRUE(awaited(log, "ACCEPT", text)) << text;
+	ASSERT_TRUE(__nts_awaited__(log, "ACCEPT", text)) << text;
 	// Порт своего сокета
 	uint16_t bound = 0;
 	// Свой сокет UDP
-	const int own = socketing(0, bound);
+	const int own = __nts_socketing__(0, bound);
 	// Проверяем сокет
 	ASSERT_GE(own, 0);
 	// Адрес сервера
@@ -2100,7 +2100,7 @@ TEST(GreaseTest, Dtls){
 	// Заводим клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём связь до установления
-	const bool complete = relay(client, own, peer, 400);
+	const bool complete = __nts_relay__(client, own, peer, 400);
 	// Связь установлена
 	ASSERT_TRUE(complete) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 	// Издание DTLS 1.2
@@ -2114,19 +2114,19 @@ TEST(GreaseTest, Dtls){
 	// Отправляем запрос по установленной связи
 	ASSERT_EQ(client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 	// Отправляем дейтаграммы
-	relay(client, own, peer, 1);
+	__nts_relay__(client, own, peer, 1);
 	// Сервер печатает принятое в журнал
-	ASSERT_TRUE(awaited(log, request, text)) << text;
+	ASSERT_TRUE(__nts_awaited__(log, request, text)) << text;
 	// Закрываем связь
 	ASSERT_EQ(client.close(), context::error_t::NONE);
 	// Отправляем извещение
-	relay(client, own, peer, 1);
+	__nts_relay__(client, own, peer, 1);
 	// Закрываем сокет
 	closing(own);
 	// Снимаем сервер
 	sentinel.halt();
 	// Дожидаемся отметки завершения
-	(void) settle(log, text);
+	(void) __nts_settle__(log, text);
 	// Удаляем журнал
 	::remove(log.c_str());
 	// Удаляем именованный канал
