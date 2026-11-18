@@ -47,7 +47,7 @@ namespace {
 	 * @return     число байтов
 	 *
 	 */
-	static size_t bytes(const char * text, uint8_t * data) {
+	static size_t __nts_bytes__(const char * text, uint8_t * data) {
 		// Объявляем счётчик записанных байтов
 		size_t result = 0;
 		/** Перебираем: пары шестнадцатеричных знаков записи, пока не достигнут конец строки */
@@ -75,7 +75,7 @@ namespace {
 	 * @return     запись
 	 *
 	 */
-	static std::string text(const uint8_t * data, const size_t size) {
+	static std::string __nts_text__(const uint8_t * data, const size_t size) {
 		// Объявляем строку записи
 		std::string result;
 		// Таблица шестнадцатеричных знаков
@@ -97,7 +97,7 @@ namespace {
 	 * @return     содержимое
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Объявляем строку содержимого
 		std::string result;
 		// Открываем файл на чтение
@@ -127,7 +127,7 @@ namespace {
 	 * @return     признак успешности
 	 *
 	 */
-	static bool spill(const std::string & path, const uint8_t * data, const size_t size) {
+	static bool __nts_spill__(const std::string & path, const uint8_t * data, const size_t size) {
 		// Открываем файл на запись
 		FILE * file = ::fopen(path.c_str(), "wb");
 		// Проверяем удачу открытия
@@ -147,7 +147,7 @@ namespace {
 	 * @return        признак нулевого кода завершения
 	 *
 	 */
-	static bool run(const std::string & command) {
+	static bool __nts_run__(const std::string & command) {
 		// Запускаем команду и сверяем код завершения
 		return (::system((command + " </dev/null").c_str()) == 0);
 	}
@@ -186,25 +186,25 @@ TEST(X448Test, Vectors) {
 	// Объявляем буферы ключей и общего значения
 	uint8_t alice[56], bob[56], key[56], shared[56];
 	// Раскладываем секретный ключ Алисы
-	ASSERT_EQ(bytes(ALICE_SECRET, alice), static_cast <size_t> (56));
-	ASSERT_EQ(bytes(BOB_SECRET, bob), static_cast <size_t> (56));
+	ASSERT_EQ(__nts_bytes__(ALICE_SECRET, alice), static_cast <size_t> (56));
+	ASSERT_EQ(__nts_bytes__(BOB_SECRET, bob), static_cast <size_t> (56));
 	// Открытый ключ Алисы
 	ASSERT_TRUE(agreement::x448(view_t(alice, sizeof(alice)), key));
 	// Сверяем запись с вектором открытого ключа
-	ASSERT_EQ(text(key, sizeof(key)), std::string(ALICE_PUBLIC));
+	ASSERT_EQ(__nts_text__(key, sizeof(key)), std::string(ALICE_PUBLIC));
 	// Открытый ключ Боба
 	ASSERT_TRUE(agreement::x448(view_t(bob, sizeof(bob)), key));
 	// Сверяем запись с вектором открытого ключа
-	ASSERT_EQ(text(key, sizeof(key)), std::string(BOB_PUBLIC));
+	ASSERT_EQ(__nts_text__(key, sizeof(key)), std::string(BOB_PUBLIC));
 	// Общее значение со стороны Алисы
 	ASSERT_TRUE(agreement::x448(view_t(alice, sizeof(alice)), view_t(key, sizeof(key)), shared));
 	// Сверяем общее значение с вектором
-	ASSERT_EQ(text(shared, sizeof(shared)), std::string(SHARED));
+	ASSERT_EQ(__nts_text__(shared, sizeof(shared)), std::string(SHARED));
 	// Общее значение со стороны Боба
 	ASSERT_TRUE(agreement::x448(view_t(alice, sizeof(alice)), key));
 	ASSERT_TRUE(agreement::x448(view_t(bob, sizeof(bob)), view_t(key, sizeof(key)), shared));
 	// Сверяем общее значение с вектором
-	ASSERT_EQ(text(shared, sizeof(shared)), std::string(SHARED));
+	ASSERT_EQ(__nts_text__(shared, sizeof(shared)), std::string(SHARED));
 }
 
 /**
@@ -215,7 +215,7 @@ TEST(X448Test, Clamping) {
 	// Объявляем буферы ключей и итогов
 	uint8_t alice[56], loose[56], first[56], second[56];
 	// Раскладываем секретный ключ Алисы
-	ASSERT_EQ(bytes(ALICE_SECRET, alice), static_cast <size_t> (56));
+	ASSERT_EQ(__nts_bytes__(ALICE_SECRET, alice), static_cast <size_t> (56));
 	::memcpy(loose, alice, sizeof(loose));
 	// Портим зажимаемые разряды: два младших и старший
 	loose[0] |= 0x03;
@@ -225,7 +225,7 @@ TEST(X448Test, Clamping) {
 	ASSERT_TRUE(agreement::x448(view_t(alice, sizeof(alice)), first));
 	ASSERT_TRUE(agreement::x448(view_t(loose, sizeof(loose)), second));
 	// Сверяем оба итога
-	ASSERT_EQ(text(first, sizeof(first)), text(second, sizeof(second)));
+	ASSERT_EQ(__nts_text__(first, sizeof(first)), __nts_text__(second, sizeof(second)));
 }
 
 /**
@@ -236,7 +236,7 @@ TEST(X448Test, Reject) {
 	// Объявляем буферы ключа, точки и итога
 	uint8_t alice[56], point[56], result[56];
 	// Раскладываем секретный ключ Алисы
-	ASSERT_EQ(bytes(ALICE_SECRET, alice), static_cast <size_t> (56));
+	ASSERT_EQ(__nts_bytes__(ALICE_SECRET, alice), static_cast <size_t> (56));
 	// Точка нулевой первой координаты: порядок один
 	::memset(point, 0, sizeof(point));
 	// Проверяем отказ умножения
@@ -282,14 +282,14 @@ TEST(X448Test, Generate) {
 	// Открытый ключ выводится из секретного
 	ASSERT_TRUE(agreement::x448(view_t(secretA, sizeof(secretA)), derived));
 	// Сверяем вывод с открытым ключом пары
-	EXPECT_EQ(text(derived, sizeof(derived)), text(keyA, sizeof(keyA)));
+	EXPECT_EQ(__nts_text__(derived, sizeof(derived)), __nts_text__(keyA, sizeof(keyA)));
 	// Две пары различны
-	EXPECT_NE(text(keyA, sizeof(keyA)), text(keyB, sizeof(keyB)));
+	EXPECT_NE(__nts_text__(keyA, sizeof(keyA)), __nts_text__(keyB, sizeof(keyB)));
 	// Обмен сходится
 	ASSERT_TRUE(agreement::x448(view_t(secretA, sizeof(secretA)), view_t(keyB, sizeof(keyB)), sharedA));
 	ASSERT_TRUE(agreement::x448(view_t(secretB, sizeof(secretB)), view_t(keyA, sizeof(keyA)), sharedB));
 	// Сверяем общие значения сторон
-	EXPECT_EQ(text(sharedA, sizeof(sharedA)), text(sharedB, sizeof(sharedB)));
+	EXPECT_EQ(__nts_text__(sharedA, sizeof(sharedA)), __nts_text__(sharedB, sizeof(sharedB)));
 }
 
 /**
@@ -298,7 +298,7 @@ TEST(X448Test, Generate) {
  */
 TEST(X448Test, Foreign) {
 	// Проверяем наличие системного openssl с X448
-	if(!run("openssl genpkey -algorithm X448 -out /dev/null >/dev/null 2>&1")){
+	if(!__nts_run__("openssl genpkey -algorithm X448 -out /dev/null >/dev/null 2>&1")){
 		// Пропускаем проверку без openssl
 		GTEST_SKIP() << "Системный openssl без X448";
 	}
@@ -309,11 +309,11 @@ TEST(X448Test, Foreign) {
 	// Запоминаем путь временного каталога
 	const std::string dir(pattern);
 	// Порождаем секретный ключ Алисы через openssl
-	ASSERT_TRUE(run("openssl genpkey -algorithm X448 -out " + dir + "/alice.pem 2>/dev/null"));
-	ASSERT_TRUE(run("openssl pkey -in " + dir + "/alice.pem -outform DER -out " + dir + "/alice.der 2>/dev/null"));
-	ASSERT_TRUE(run("openssl pkey -in " + dir + "/alice.pem -pubout -outform DER -out " + dir + "/alice-pub.der 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl genpkey -algorithm X448 -out " + dir + "/alice.pem 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl pkey -in " + dir + "/alice.pem -outform DER -out " + dir + "/alice.der 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl pkey -in " + dir + "/alice.pem -pubout -outform DER -out " + dir + "/alice-pub.der 2>/dev/null"));
 	// Читаем оба файла целиком
-	const std::string secret = slurp(dir + "/alice.der"), pub = slurp(dir + "/alice-pub.der");
+	const std::string secret = __nts_slurp__(dir + "/alice.der"), pub = __nts_slurp__(dir + "/alice-pub.der");
 	// PKCS#8: 16 байтов заголовка и 56 байтов ключа; SubjectPublicKeyInfo: 12 байтов заголовка и 56 байтов ключа
 	ASSERT_EQ(secret.size(), static_cast <size_t> (72));
 	ASSERT_EQ(pub.size(), static_cast <size_t> (68));
@@ -322,19 +322,19 @@ TEST(X448Test, Foreign) {
 	// Выводим открытый ключ из секретного записи PKCS#8
 	ASSERT_TRUE(agreement::x448(view_t(reinterpret_cast <const uint8_t *> (secret.data()) + 16, 56), key));
 	// Сверяем запись с ключом из SubjectPublicKeyInfo
-	ASSERT_EQ(text(key, sizeof(key)), text(reinterpret_cast <const uint8_t *> (pub.data()) + 12, 56));
+	ASSERT_EQ(__nts_text__(key, sizeof(key)), __nts_text__(reinterpret_cast <const uint8_t *> (pub.data()) + 12, 56));
 	// Ключ Боба из RFC 7748 в записи PKCS#8
 	uint8_t bob[56], pkcs8[72];
 	// Раскладываем секретный ключ Боба
-	ASSERT_EQ(bytes(BOB_SECRET, bob), static_cast <size_t> (56));
-	ASSERT_EQ(bytes("3046020100300506032b656f043a0438", pkcs8), static_cast <size_t> (16));
+	ASSERT_EQ(__nts_bytes__(BOB_SECRET, bob), static_cast <size_t> (56));
+	ASSERT_EQ(__nts_bytes__("3046020100300506032b656f043a0438", pkcs8), static_cast <size_t> (16));
 	::memcpy(pkcs8 + 16, bob, sizeof(bob));
 	// Записываем ключ Боба в файл записи PKCS#8
-	ASSERT_TRUE(spill(dir + "/bob.der", pkcs8, sizeof(pkcs8)));
-	ASSERT_TRUE(run("openssl pkey -inform DER -in " + dir + "/bob.der -pubout -out " + dir + "/bob-pub.pem 2>/dev/null"));
-	ASSERT_TRUE(run("openssl pkeyutl -derive -inkey " + dir + "/alice.pem -peerkey " + dir + "/bob-pub.pem -out " + dir + "/shared.bin 2>/dev/null"));
+	ASSERT_TRUE(__nts_spill__(dir + "/bob.der", pkcs8, sizeof(pkcs8)));
+	ASSERT_TRUE(__nts_run__("openssl pkey -inform DER -in " + dir + "/bob.der -pubout -out " + dir + "/bob-pub.pem 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl pkeyutl -derive -inkey " + dir + "/alice.pem -peerkey " + dir + "/bob-pub.pem -out " + dir + "/shared.bin 2>/dev/null"));
 	// Читаем общее значение openssl
-	const std::string shared = slurp(dir + "/shared.bin");
+	const std::string shared = __nts_slurp__(dir + "/shared.bin");
 	// Проверяем длину общего значения
 	ASSERT_EQ(shared.size(), static_cast <size_t> (56));
 	// Объявляем буфер общего значения
@@ -342,7 +342,7 @@ TEST(X448Test, Foreign) {
 	// Вычисляем общее значение со стороны Боба
 	ASSERT_TRUE(agreement::x448(view_t(bob, sizeof(bob)), view_t(key, sizeof(key)), result));
 	// Сверяем общее значение с выводом openssl
-	ASSERT_EQ(text(result, sizeof(result)), text(reinterpret_cast <const uint8_t *> (shared.data()), 56));
+	ASSERT_EQ(__nts_text__(result, sizeof(result)), __nts_text__(reinterpret_cast <const uint8_t *> (shared.data()), 56));
 	// Удаляем временный каталог
-	ASSERT_TRUE(run("rm -rf " + dir));
+	ASSERT_TRUE(__nts_run__("rm -rf " + dir));
 }

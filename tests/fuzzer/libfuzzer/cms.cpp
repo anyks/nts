@@ -51,23 +51,23 @@ extern "C" {
 		const view_t input(data, size);
 		// Разбираемое подписанное содержимое CMS
 		cms::signed_t signedData;
-		// Выполняем разбор подписанного содержимого CMS
+		// Разбираем подписанное содержимое CMS
 		signedData.parse(input);
 		// Разбираемое ограждённое содержимое CMS
 		cms::enveloped_t envelopedData;
-		// Выполняем разбор ограждённого содержимого CMS
+		// Разбираем ограждённое содержимое CMS
 		envelopedData.parse(input);
 		// Разбираемое хешированное содержимое CMS
 		cms::digested_t digestedData;
-		// Выполняем разбор хешированного содержимого CMS
+		// Разбираем хешированное содержимое CMS
 		digestedData.parse(input);
 		// Разбираемое зашифрованное содержимое CMS
 		cms::encrypted_t encryptedData;
-		// Выполняем разбор зашифрованного содержимого CMS
+		// Разбираем зашифрованное содержимое CMS
 		encryptedData.parse(input);
 		// Разбираемое заверенное содержимое CMS
 		cms::authenticated_t authenticatedData;
-		// Выполняем разбор заверенного содержимого CMS
+		// Разбираем заверенное содержимое CMS
 		authenticatedData.parse(input);
 		// Выводим код продолжения ворошения
 		return 0;

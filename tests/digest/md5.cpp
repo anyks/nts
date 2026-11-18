@@ -50,7 +50,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов хеша
+	 * Перебираем байты хеша
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -111,18 +111,18 @@ TEST(Md5Test, Million){
 	// Размеры кусков, которыми подаётся сообщение
 	const size_t chunks[] = {1, 3, 7, 63, 64, 65, 1000, 4097};
 	/**
-	 * Выполняем перебор размеров кусков
+	 * Перебираем размеры кусков
 	 */
 	for(size_t c = 0; c < (sizeof(chunks) / sizeof(chunks[0])); c++){
 		// Объект хеширования
 		digest::md5_t hasher;
 		/**
-		 * Выполняем подачу сообщения кусками
+		 * Подаём сообщение кусками
 		 */
 		for(size_t offset = 0; offset < message.size(); offset += chunks[c]){
 			// Размер очередного куска
 			const size_t size = (((message.size() - offset) < chunks[c]) ? (message.size() - offset) : chunks[c]);
-			// Выполняем подачу очередного куска
+			// Подаём очередной кусок
 			hasher.update(view_t(reinterpret_cast <const uint8_t *> (message.data()) + offset, size));
 		}
 		// Место, в которое записывается хеш
@@ -160,9 +160,9 @@ TEST(Md5Test, Refusals){
 	ASSERT_TRUE(hasher.finish(result, sizeof(result)));
 	// Проверяем хеш пустого сообщения после отказов
 	ASSERT_EQ(text(result, sizeof(result)), "d41d8cd98f00b204e9800998ecf8427e");
-	// Выполняем сброс состояния
+	// Сбрасываем состояние
 	hasher.reset();
-	// Выполняем подачу сообщения «abc»
+	// Подаём сообщение «abc»
 	hasher.update(view_t(reinterpret_cast <const uint8_t *> ("abc"), 3));
 	// Проверяем снятие хеша после сброса
 	ASSERT_TRUE(hasher.finish(result, sizeof(result)));

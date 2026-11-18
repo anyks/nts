@@ -39,15 +39,15 @@ using namespace nts;
 /**
  * @brief Функция сравнения байтов
  *
- * @param a первый буфер
- * @param b второй буфер
- * @param n число байтов
+ * @param first  первый буфер
+ * @param second второй буфер
+ * @param length число байтов
  * @return  признак совпадения
  *
  */
-static bool same(const uint8_t * a, const uint8_t * b, const size_t n) {
+static bool same(const uint8_t * first, const uint8_t * second, const size_t length) {
 	// Выводим признак побайтового совпадения буферов
-	return ::memcmp(a, b, n) == 0;
+	return ::memcmp(first, second, length) == 0;
 }
 
 /**
@@ -66,9 +66,9 @@ TEST(Sntrup761Test, Roundtrip) {
 	std::vector <uint8_t> sharedA(agreement::SNTRUP761_SHARED);
 	// Буфер общего секрета стороны B
 	std::vector <uint8_t> sharedB(agreement::SNTRUP761_SHARED);
-	// Инкапсуляция
+	// Инкапсулируем открытый ключ стороной A
 	ASSERT_TRUE(agreement::encaps(view_t(pk.data(), pk.size()), cipher.data(), sharedA.data()));
-	// Декапсуляция
+	// Декапсулируем шифртекст стороной B
 	ASSERT_TRUE(agreement::decaps(view_t(cipher.data(), cipher.size()), view_t(sk.data(), sk.size()), sharedB.data()));
 	// Общие секреты должны совпасть
 	EXPECT_TRUE(same(sharedA.data(), sharedB.data(), agreement::SNTRUP761_SHARED));
@@ -84,7 +84,7 @@ TEST(Sntrup761Test, Tampered) {
 	std::vector <uint8_t> sk(agreement::SNTRUP761_SECRET);
 	// Выработка пары ключей обязана удаться
 	ASSERT_TRUE(agreement::pair(pk.data(), sk.data()));
-	// Инкапсуляция
+	// Буфер шифртекста инкапсуляции
 	std::vector <uint8_t> cipher(agreement::SNTRUP761_CIPHERTEXT);
 	// Буфер общего секрета стороны A
 	std::vector <uint8_t> sharedA(agreement::SNTRUP761_SHARED);

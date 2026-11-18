@@ -48,7 +48,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков
+	 * Перебираем пары знаков
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2)
 		// Добавляем очередной байт
@@ -71,7 +71,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -92,23 +92,23 @@ TEST(Sm4Test, Vector){
 	// Открытый текст примера стандарта
 	const std::vector <uint8_t> plain = bytes("0123456789abcdeffedcba9876543210");
 	// Объект шифра
-	cipher::sm4_t sm4;
+	cipher::sm4_t cipher;
 	// Проверяем неготовность шифра без ключа
-	ASSERT_FALSE(sm4.ready());
+	ASSERT_FALSE(cipher.ready());
 	// Проверяем установку ключа
-	ASSERT_TRUE(sm4.key(view_t(secret.data(), secret.size())));
+	ASSERT_TRUE(cipher.key(view_t(secret.data(), secret.size())));
 	// Проверяем готовность шифра
-	ASSERT_TRUE(sm4.ready());
+	ASSERT_TRUE(cipher.ready());
 	// Зашифрованный блок
 	uint8_t sealed[16];
 	// Проверяем зашифрование блока
-	ASSERT_TRUE(sm4.encrypt(plain.data(), sealed));
+	ASSERT_TRUE(cipher.encrypt(plain.data(), sealed));
 	// Проверяем шифртекст примера стандарта
 	ASSERT_EQ(text(sealed, sizeof(sealed)), "681edf34d206965e86b3e94f536e4246");
 	// Расшифрованный блок
 	uint8_t opened[16];
 	// Проверяем расшифрование блока
-	ASSERT_TRUE(sm4.decrypt(sealed, opened));
+	ASSERT_TRUE(cipher.decrypt(sealed, opened));
 	// Проверяем схождение с открытым текстом
 	ASSERT_EQ(::memcmp(opened, plain.data(), 16), 0);
 }
@@ -120,19 +120,19 @@ TEST(Sm4Test, Million){
 	// Ключ примера стандарта
 	const std::vector <uint8_t> secret = bytes("0123456789abcdeffedcba9876543210");
 	// Объект шифра
-	cipher::sm4_t sm4;
+	cipher::sm4_t cipher;
 	// Проверяем установку ключа
-	ASSERT_TRUE(sm4.key(view_t(secret.data(), secret.size())));
+	ASSERT_TRUE(cipher.key(view_t(secret.data(), secret.size())));
 	// Текущий блок цепочки
 	uint8_t block[16] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
 	/**
-	 * Выполняем миллион зашифрований подряд
+	 * Зашифровываем блок миллион раз подряд
 	 */
 	for(size_t i = 0; i < 1000000; i++){
 		// Зашифрованный блок
 		uint8_t sealed[16];
 		// Проверяем зашифрование блока
-		ASSERT_TRUE(sm4.encrypt(block, sealed));
+		ASSERT_TRUE(cipher.encrypt(block, sealed));
 		// Переносим итог в текущий блок
 		::memcpy(block, sealed, 16);
 	}
@@ -147,17 +147,17 @@ TEST(Sm4Test, InPlace){
 	// Ключ примера стандарта
 	const std::vector <uint8_t> secret = bytes("0123456789abcdeffedcba9876543210");
 	// Объект шифра
-	cipher::sm4_t sm4;
+	cipher::sm4_t cipher;
 	// Проверяем установку ключа
-	ASSERT_TRUE(sm4.key(view_t(secret.data(), secret.size())));
+	ASSERT_TRUE(cipher.key(view_t(secret.data(), secret.size())));
 	// Блок, зашифровываемый на своём месте
 	uint8_t block[16] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
 	// Проверяем зашифрование блока на своём месте
-	ASSERT_TRUE(sm4.encrypt(block, block));
+	ASSERT_TRUE(cipher.encrypt(block, block));
 	// Проверяем шифртекст примера стандарта
 	ASSERT_EQ(text(block, sizeof(block)), "681edf34d206965e86b3e94f536e4246");
 	// Проверяем расшифрование блока на своём месте
-	ASSERT_TRUE(sm4.decrypt(block, block));
+	ASSERT_TRUE(cipher.decrypt(block, block));
 	// Проверяем схождение с открытым текстом
 	ASSERT_EQ(text(block, sizeof(block)), "0123456789abcdeffedcba9876543210");
 }
@@ -171,27 +171,27 @@ TEST(Sm4Test, Refusals){
 	// Открытый текст примера стандарта
 	const std::vector <uint8_t> plain = bytes("0123456789abcdeffedcba9876543210");
 	// Объект шифра
-	cipher::sm4_t sm4;
+	cipher::sm4_t cipher;
 	// Зашифрованный блок
 	uint8_t sealed[16];
 	// Проверяем отказ зашифрования без ключа
-	ASSERT_FALSE(sm4.encrypt(plain.data(), sealed));
+	ASSERT_FALSE(cipher.encrypt(plain.data(), sealed));
 	// Проверяем отказ расшифрования без ключа
-	ASSERT_FALSE(sm4.decrypt(plain.data(), sealed));
+	ASSERT_FALSE(cipher.decrypt(plain.data(), sealed));
 	// Проверяем отказ установки пустого ключа
-	ASSERT_FALSE(sm4.key(view_t()));
+	ASSERT_FALSE(cipher.key(view_t()));
 	// Проверяем отказ установки ключа неверной длины
-	ASSERT_FALSE(sm4.key(view_t(secret.data(), 15)));
+	ASSERT_FALSE(cipher.key(view_t(secret.data(), 15)));
 	// Проверяем установку ключа
-	ASSERT_TRUE(sm4.key(view_t(secret.data(), secret.size())));
+	ASSERT_TRUE(cipher.key(view_t(secret.data(), secret.size())));
 	// Проверяем отказ зашифрования пустого блока
-	ASSERT_FALSE(sm4.encrypt(nullptr, sealed));
+	ASSERT_FALSE(cipher.encrypt(nullptr, sealed));
 	// Проверяем отказ зашифрования в пустое место
-	ASSERT_FALSE(sm4.encrypt(plain.data(), nullptr));
-	// Выполняем затирание ключа
-	sm4.clear();
+	ASSERT_FALSE(cipher.encrypt(plain.data(), nullptr));
+	// Затираем ключ
+	cipher.clear();
 	// Проверяем неготовность шифра после затирания
-	ASSERT_FALSE(sm4.ready());
+	ASSERT_FALSE(cipher.ready());
 	// Проверяем отказ зашифрования после затирания
-	ASSERT_FALSE(sm4.encrypt(plain.data(), sealed));
+	ASSERT_FALSE(cipher.encrypt(plain.data(), sealed));
 }

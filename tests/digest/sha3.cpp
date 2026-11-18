@@ -50,7 +50,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -94,7 +94,7 @@ static std::string pieces(const digest::sha3_t type, const std::string & message
 	// Объект преобразования
 	digest::keccak_t keccak(type);
 	/**
-	 * Выполняем подачу сообщения кусками
+	 * Подаём сообщение кусками
 	 */
 	for(size_t offset = 0; offset < message.size(); offset += chunk){
 		// Длина очередного куска
@@ -154,7 +154,7 @@ TEST(Sha3Test, Abc){
  * Сообщение в 448 разрядов по FIPS 202
  */
 TEST(Sha3Test, Twoblock){
-	// Сообщение
+	// Берём сообщение двухблочной проверки
 	const std::string message = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
 	// Проверяем SHA3-224
 	ASSERT_EQ(whole(digest::sha3_t::SHA3_224, message, 28), "8a24108b154ada21c9fd5574494479ba5c7e7ab76ef264ead0fcce33");
@@ -168,7 +168,7 @@ TEST(Sha3Test, Twoblock){
  * Миллион знаков «a» по FIPS 202 и SHAKE128 на 200 байтов
  */
 TEST(Sha3Test, Million){
-	// Сообщение
+	// Берём сообщение из миллиона знаков a
 	const std::string message(1000000, 'a');
 	// Проверяем SHA3-256
 	ASSERT_EQ(whole(digest::sha3_t::SHA3_256, message, 32), "5c8875ae474a3634ba4fd55ec85bffd661f32aca75c6d699d0cdcb6c115891c1");
@@ -186,13 +186,13 @@ TEST(Sha3Test, Chunks){
 	std::mt19937 generator(20260907);
 	// Длины кусков, включая длины вокруг скоростей 72, 104, 136, 144 и 168
 	const size_t chunks[] = {1, 7, 71, 72, 73, 103, 104, 105, 135, 136, 137, 143, 144, 145, 167, 168, 169, 1000};
-	// Разновидности
+	// Разновидности хеша и выжимания SHA-3
 	const digest::sha3_t kinds[] = {digest::sha3_t::SHA3_224, digest::sha3_t::SHA3_256, digest::sha3_t::SHA3_384, digest::sha3_t::SHA3_512, digest::sha3_t::SHAKE128, digest::sha3_t::SHAKE256};
 	/**
 	 * Перебираем длины сообщений с шагом 37 до шестисот знаков
 	 */
 	for(size_t length = 0; length <= 600; length += 37){
-		// Сообщение
+		// Готовим сообщение текущей длины
 		std::string message(length, 'x');
 		/**
 		 * Заполняем сообщение знаками из генератора
@@ -224,7 +224,7 @@ TEST(Sha3Test, Chunks){
  * Выжимание функции переменного выхода кусками сходится с выжиманием за один раз
  */
 TEST(Sha3Test, Squeezing){
-	// Сообщение
+	// Берём сообщение проверки выжимания
 	const std::string message = "The quick brown fox jumps over the lazy dog";
 	// Итог за один раз в 500 байтов
 	const std::string reference = whole(digest::sha3_t::SHAKE256, message, 500);
@@ -305,7 +305,7 @@ TEST(Sha3Test, Refusals){
 	ASSERT_EQ(text(result, 32), "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a");
 	// Проверяем отказ повторного снятия итога
 	ASSERT_FALSE(keccak.finish(result, 32));
-	// Выполняем сброс на SHAKE128
+	// Сбрасываем состояние на SHAKE128
 	keccak.reset(digest::sha3_t::SHAKE128);
 	// Проверяем разновидность после сброса
 	ASSERT_EQ(keccak.type(), digest::sha3_t::SHAKE128);

@@ -51,7 +51,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -75,7 +75,7 @@ static std::vector <uint8_t> range(const int from, const int to) {
 	// Заполняемая область
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(int i = from; i < to; i++)
 		// Добавляем очередной байт
@@ -90,9 +90,9 @@ static std::vector <uint8_t> range(const int from, const int to) {
 TEST(HkdfTest, First){
 	// Исходный материал: 22 байта 0x0b
 	const std::vector <uint8_t> material(22, 0x0B);
-	// Соль
+	// Соль выведения ключа
 	const std::vector <uint8_t> salt = range(0x00, 0x0D);
-	// Привязка
+	// Привязка выведения ключа
 	const std::vector <uint8_t> info = range(0xF0, 0xFA);
 	// Псевдослучайный ключ
 	uint8_t key[32];
@@ -150,9 +150,9 @@ TEST(HkdfTest, Third){
 TEST(HkdfTest, Fourth){
 	// Исходный материал: 11 байтов 0x0b
 	const std::vector <uint8_t> material(11, 0x0B);
-	// Соль
+	// Соль выведения ключа
 	const std::vector <uint8_t> salt = range(0x00, 0x0D);
-	// Привязка
+	// Привязка выведения ключа
 	const std::vector <uint8_t> info = range(0xF0, 0xFA);
 	// Выведенный материал
 	uint8_t output[42];

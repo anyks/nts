@@ -75,7 +75,7 @@ TEST(WipeTest, Area) {
 	// Затираем середину, оставляя по восемь сторожевых байтов с краёв
 	sys::wipe(area + 8, 24);
 	/**
-	 * Выполняем перебор байтов области
+	 * Перебираем байты области
 	 */
 	for(size_t i = 0; i < sizeof(area); i++){
 		// Если байт внутри затёртой середины
@@ -103,13 +103,13 @@ TEST(WipeTest, Empty) {
 	sys::wipe(nullptr, 16);
 	// Затираем пустой набор байтов
 	std::vector <uint8_t> nothing;
-	// Выполняем затирание
+	// Затираем пустой набор байтов
 	sys::wipe(nothing);
 	// Проверяем пустоту набора
 	EXPECT_TRUE(nothing.empty());
 	// Затираем пустую строку
 	std::string blank;
-	// Выполняем затирание
+	// Затираем пустую строку
 	sys::wipe(blank);
 	// Проверяем пустоту строки
 	EXPECT_TRUE(blank.empty());
@@ -124,7 +124,7 @@ TEST(WipeTest, Containers) {
 	const uint8_t * buffer = secret.data();
 	// Ёмкость набора до затирания
 	const size_t capacity = secret.capacity();
-	// Выполняем затирание
+	// Затираем набор байтов
 	sys::wipe(secret);
 	// Проверяем опустошение набора
 	EXPECT_TRUE(secret.empty());
@@ -135,7 +135,7 @@ TEST(WipeTest, Containers) {
  */
 #if !defined(NTS_ASAN)
 	/**
-	 * Выполняем перебор байтов прежнего буфера
+	 * Перебираем байты прежнего буфера
 	 */
 	for(size_t i = 0; i < 64; i++)
 		// Проверяем обнуление байта
@@ -151,7 +151,7 @@ TEST(WipeTest, Containers) {
 	std::string password(48, 'p');
 	// Указатель на буфер строки до затирания
 	const char * text = password.data();
-	// Выполняем затирание
+	// Затираем строку
 	sys::wipe(password);
 	// Проверяем опустошение строки
 	EXPECT_TRUE(password.empty());
@@ -160,7 +160,7 @@ TEST(WipeTest, Containers) {
  */
 #if !defined(NTS_ASAN)
 	/**
-	 * Выполняем перебор байтов прежнего буфера строки
+	 * Перебираем байты прежнего буфера строки
 	 */
 	for(size_t i = 0; i < 48; i++)
 		// Проверяем обнуление байта
@@ -185,7 +185,7 @@ TEST(WipeTest, Large) {
 	// Затираем область с невыровненного начала
 	sys::wipe(area.data() + 3, size);
 	/**
-	 * Выполняем перебор байтов области
+	 * Перебираем байты области
 	 */
 	for(size_t i = 0; i < area.size(); i++){
 		// Если байт внутри затёртой области

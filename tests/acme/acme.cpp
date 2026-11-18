@@ -64,7 +64,7 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Открываем файл на чтение
 		std::ifstream file(path, std::ios::binary);
 		// Читаем содержимое файла в поток
@@ -81,7 +81,7 @@ namespace {
 	 * @return     просмотр строки
 	 *
 	 */
-	static view_t view(const std::string & text) {
+	static view_t __nts_view__(const std::string & text) {
 		// Выводим просмотр строки
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -92,9 +92,9 @@ namespace {
 	 * @param result ключ, в который помещается итог разбора
 	 *
 	 */
-	static void load(const std::string & path, keys::key_t & result) {
+	static void __nts_load__(const std::string & path, keys::key_t & result) {
 		// Читаем запись ключа
-		const std::string text = slurp(path);
+		const std::string text = __nts_slurp__(path);
 		// Разбираем запись ключа
 		ASSERT_EQ(keys::decode(text, view_t(), result), keys::error_t::NONE);
 	}
@@ -124,7 +124,7 @@ TEST(AcmeTest, Directory) {
 	// Разбираем ответ
 	acme::directory_t directory;
 	// Разбор обязан удаться
-	ASSERT_EQ(directory.parse(view(std::string(ANSWER))), acme::error_t::NONE);
+	ASSERT_EQ(directory.parse(__nts_view__(std::string(ANSWER))), acme::error_t::NONE);
 	// Сверяем адреса ресурсов
 	ASSERT_EQ(directory.newNonce, "https://example.com/acme/new-nonce");
 	ASSERT_EQ(directory.newAccount, "https://example.com/acme/new-account");
@@ -137,13 +137,13 @@ TEST(AcmeTest, Directory) {
 	// Отказы разбора
 	{
 		// Пустой ответ
-		ASSERT_EQ(directory.parse(view(std::string(""))), acme::error_t::EMPTY);
+		ASSERT_EQ(directory.parse(__nts_view__(std::string(""))), acme::error_t::EMPTY);
 		// Ответ не объект
-		ASSERT_EQ(directory.parse(view(std::string("[1,2]"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(directory.parse(__nts_view__(std::string("[1,2]"))), acme::error_t::STRUCTURE);
 		// Ответ без адреса newNonce
-		ASSERT_EQ(directory.parse(view(std::string("{\"newAccount\":\"https://a/\",\"newOrder\":\"https://b/\",\"revokeCert\":\"https://c/\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(directory.parse(__nts_view__(std::string("{\"newAccount\":\"https://a/\",\"newOrder\":\"https://b/\",\"revokeCert\":\"https://c/\"}"))), acme::error_t::STRUCTURE);
 		// Порченый ответ
-		ASSERT_EQ(directory.parse(view(std::string("{\"newNonce\":"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(directory.parse(__nts_view__(std::string("{\"newNonce\":"))), acme::error_t::STRUCTURE);
 	}
 }
 
@@ -172,7 +172,7 @@ TEST(AcmeTest, Order) {
 	// Разбираем ответ
 	acme::order_t order;
 	// Разбор обязан удаться
-	ASSERT_EQ(order.parse(view(std::string(ANSWER))), acme::error_t::NONE);
+	ASSERT_EQ(order.parse(__nts_view__(std::string(ANSWER))), acme::error_t::NONE);
 	// Сверяем поля заказа
 	ASSERT_EQ(order.status, "pending");
 	ASSERT_EQ(order.expires, "2016-01-20T14:09:07.99Z");
@@ -191,11 +191,11 @@ TEST(AcmeTest, Order) {
 	// Отказы разбора
 	{
 		// Ответ без состояния
-		ASSERT_EQ(order.parse(view(std::string("{\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
 		// Ответ без идентификаторов
-		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pending\",\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"status\":\"pending\",\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
 		// Идентификатор чужого вида
-		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pending\",\"identifiers\":[{\"type\":\"email\",\"value\":\"a@b\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"status\":\"pending\",\"identifiers\":[{\"type\":\"email\",\"value\":\"a@b\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
 	}
 }
 
@@ -233,7 +233,7 @@ TEST(AcmeTest, Authorization) {
 	// Разбираем ответ
 	acme::authorization_t authorization;
 	// Разбор обязан удаться
-	ASSERT_EQ(authorization.parse(view(std::string(ANSWER))), acme::error_t::NONE);
+	ASSERT_EQ(authorization.parse(__nts_view__(std::string(ANSWER))), acme::error_t::NONE);
 	// Сверяем поля записи
 	ASSERT_EQ(authorization.status, "valid");
 	ASSERT_EQ(authorization.expires, "2018-09-09T14:09:00.0Z");
@@ -255,11 +255,11 @@ TEST(AcmeTest, Authorization) {
 	// Отказы разбора
 	{
 		// Ответ без испытаний
-		ASSERT_EQ(authorization.parse(view(std::string("{\"status\":\"pending\",\"identifier\":{\"type\":\"dns\",\"value\":\"a\"}}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(authorization.parse(__nts_view__(std::string("{\"status\":\"pending\",\"identifier\":{\"type\":\"dns\",\"value\":\"a\"}}"))), acme::error_t::STRUCTURE);
 		// Испытание без адреса
-		ASSERT_EQ(authorization.parse(view(std::string("{\"status\":\"pending\",\"identifier\":{\"type\":\"dns\",\"value\":\"a\"},\"challenges\":[{\"type\":\"http-01\",\"status\":\"pending\"}]}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(authorization.parse(__nts_view__(std::string("{\"status\":\"pending\",\"identifier\":{\"type\":\"dns\",\"value\":\"a\"},\"challenges\":[{\"type\":\"http-01\",\"status\":\"pending\"}]}"))), acme::error_t::STRUCTURE);
 		// Испытание без метки разбирается: новые виды испытаний её не несут
-		ASSERT_EQ(authorization.parse(view(std::string("{\"status\":\"pending\",\"identifier\":{\"type\":\"dns\",\"value\":\"a\"},\"challenges\":[{\"type\":\"http-01\",\"url\":\"https://u/\",\"status\":\"pending\"}]}"))), acme::error_t::NONE);
+		ASSERT_EQ(authorization.parse(__nts_view__(std::string("{\"status\":\"pending\",\"identifier\":{\"type\":\"dns\",\"value\":\"a\"},\"challenges\":[{\"type\":\"http-01\",\"url\":\"https://u/\",\"status\":\"pending\"}]}"))), acme::error_t::NONE);
 	}
 }
 
@@ -278,7 +278,7 @@ TEST(AcmeTest, Problem) {
 	// Разбираем ответ
 	acme::problem_t problem;
 	// Разбор обязан удаться
-	ASSERT_EQ(problem.parse(view(std::string(ANSWER))), acme::error_t::NONE);
+	ASSERT_EQ(problem.parse(__nts_view__(std::string(ANSWER))), acme::error_t::NONE);
 	// Сверяем поля отказа
 	ASSERT_EQ(problem.type, "urn:ietf:params:acme:error:malformed");
 	ASSERT_EQ(problem.detail, "Some of the identifiers requested were rejected");
@@ -286,16 +286,16 @@ TEST(AcmeTest, Problem) {
 	// Отказ без состояния
 	{
 		// Разбираем ответ без состояния
-		ASSERT_EQ(problem.parse(view(std::string("{\"type\":\"urn:ietf:params:acme:error:unauthorized\"}"))), acme::error_t::NONE);
+		ASSERT_EQ(problem.parse(__nts_view__(std::string("{\"type\":\"urn:ietf:params:acme:error:unauthorized\"}"))), acme::error_t::NONE);
 		// Состояние нулевое
 		ASSERT_EQ(problem.status, 0);
 	}
 	// Отказы разбора
 	{
 		// Ответ без вида отказа
-		ASSERT_EQ(problem.parse(view(std::string("{\"detail\":\"oops\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(problem.parse(__nts_view__(std::string("{\"detail\":\"oops\"}"))), acme::error_t::STRUCTURE);
 		// Пустой ответ
-		ASSERT_EQ(problem.parse(view(std::string(""))), acme::error_t::EMPTY);
+		ASSERT_EQ(problem.parse(__nts_view__(std::string(""))), acme::error_t::EMPTY);
 	}
 }
 
@@ -376,7 +376,7 @@ TEST(AcmeTest, KeyAuthorization) {
 	// Разбираем ключ
 	keys::key_t key;
 	// Запись ключа разбирается без ошибок
-	ASSERT_EQ(jws::unjwk(view(std::string(JWK)), key), jws::error_t::NONE);
+	ASSERT_EQ(jws::unjwk(__nts_view__(std::string(JWK)), key), jws::error_t::NONE);
 	// Вырабатываем владение ключом
 	std::string possession;
 	// Выработка обязана удаться
@@ -401,18 +401,18 @@ TEST(AcmeTest, Request) {
 	// Разбираем ключ набора
 	keys::key_t key;
 	// Ключ набора читается из файла набора
-	load(std::string(CORPUS) + "/ca-ec.key", key);
+	__nts_load__(std::string(CORPUS) + "/ca-ec.key", key);
 	// Готовим ключ подписи
 	keys::signer_t signer;
 	// Подготовка ключа подписи удаётся
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-ec.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-ec.key"))), keys::error_t::NONE);
 	// Полезная нагрузка запроса
 	std::string payload;
 	// Собираем полезную нагрузку новой учётной записи
 	acme::newAccount({"mailto:admin@example.org"}, false, false, payload);
 	// Собираем запрос с записью ключа JWK
 	std::string body;
-	ASSERT_EQ(acme::request("https://example.com/acme/new-account", "6S8IqOGY7eL2lsGoTZYifg", "", key, view(payload), signer, body), acme::error_t::NONE);
+	ASSERT_EQ(acme::request("https://example.com/acme/new-account", "6S8IqOGY7eL2lsGoTZYifg", "", key, __nts_view__(payload), signer, body), acme::error_t::NONE);
 	// Тело запроса несёт три члена
 	ASSERT_NE(body.find("\"protected\":\""), 0);
 	ASSERT_NE(body.find("\",\"payload\":\""), std::string::npos);
@@ -430,7 +430,7 @@ TEST(AcmeTest, Request) {
 		// Разбираем компактную запись подписи из тела запроса
 		jws::signature_t signature;
 		// Компактная запись JWS разбирается
-		ASSERT_EQ(signature.parse(view(compact)), jws::error_t::NONE);
+		ASSERT_EQ(signature.parse(__nts_view__(compact)), jws::error_t::NONE);
 		// Подпись обязана сойтись
 		ASSERT_EQ(signature.verify(key), jws::error_t::NONE);
 		// Заголовок несёт jwk, nonce и url
@@ -448,7 +448,7 @@ TEST(AcmeTest, Request) {
 		// Итог сборки
 		std::string other;
 		// Сборка обязана удаться
-		ASSERT_EQ(acme::request("https://example.com/acme/order/1/finalize", "Ab8IqOGY7eL2lsGoTZYifg", "https://example.com/acme/acct/1", key, view(std::string("{\"csr\":\"AA\"}")), signer, other), acme::error_t::NONE);
+		ASSERT_EQ(acme::request("https://example.com/acme/order/1/finalize", "Ab8IqOGY7eL2lsGoTZYifg", "https://example.com/acme/acct/1", key, __nts_view__(std::string("{\"csr\":\"AA\"}")), signer, other), acme::error_t::NONE);
 		// Извлекаем заголовок записи
 		const size_t head = other.find("\"protected\":\"") + 13;
 		// Конец защищённого заголовка в теле
@@ -456,7 +456,7 @@ TEST(AcmeTest, Request) {
 		// Декодируем заголовок
 		std::vector <uint8_t> header;
 		// Защищённый заголовок декодируется из base64url
-		ASSERT_TRUE(jws::unbase64url(view(other.substr(head, middle - head)), header));
+		ASSERT_TRUE(jws::unbase64url(__nts_view__(other.substr(head, middle - head)), header));
 		// Заголовок несёт kid, а не jwk
 		const std::string text(reinterpret_cast <const char *> (header.data()), header.size());
 		ASSERT_NE(text.find("\"kid\":\"https://example.com/acme/acct/1\""), std::string::npos);
@@ -509,7 +509,7 @@ TEST(AcmeTest, Escapes) {
 	// Разбираем ответ
 	acme::order_t order;
 	// Разбор обязан удаться
-	ASSERT_EQ(order.parse(view(std::string(ANSWER))), acme::error_t::NONE);
+	ASSERT_EQ(order.parse(__nts_view__(std::string(ANSWER))), acme::error_t::NONE);
 	// Сверяем состояние с экранированной кавычкой
 	ASSERT_EQ(order.status, "pend\"ing");
 	// Сверяем адрес записи полномочий с экранированными чертами и обратной чертой
@@ -524,23 +524,23 @@ TEST(AcmeTest, Escapes) {
 		"\"finalize\": \"https://f/\""
 		"}";
 	// Разбор обязан удаться
-	ASSERT_EQ(order.parse(view(std::string(CONTROLS))), acme::error_t::NONE);
+	ASSERT_EQ(order.parse(__nts_view__(std::string(CONTROLS))), acme::error_t::NONE);
 	// Сверяем состояние: управляющие знаки и коды A (U+0041), ß (U+00DF), U+6C34
 	ASSERT_EQ(order.status, std::string("a\b\f\n\r\t" "A" "A" "\xC3\x9F" "\xE6\xB0\xB4"));
 	// Отказы разбора
 	{
 		// Оборванная экранировка в конце строки
-		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pending\\\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"status\":\"pending\\\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
 		// Чужая экранировка
-		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pend\\xing\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"status\":\"pend\\xing\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
 		// Чужой разряд кода Unicode
-		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pend\\u00zz\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"status\":\"pend\\u00zz\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
 		// Оборванная запись кода Unicode
-		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pend\\u00\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"status\":\"pend\\u00\",\"identifiers\":[{\"type\":\"dns\",\"value\":\"a\"}],\"authorizations\":[],\"finalize\":\"https://f/\"}"))), acme::error_t::STRUCTURE);
 		// Строка без закрывающей кавычки
-		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pending,\"identifiers\":[]}"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"status\":\"pending,\"identifiers\":[]}"))), acme::error_t::STRUCTURE);
 		// Экранировка в самом конце записи
-		ASSERT_EQ(order.parse(view(std::string("{\"status\":\"pending\\"))), acme::error_t::STRUCTURE);
+		ASSERT_EQ(order.parse(__nts_view__(std::string("{\"status\":\"pending\\"))), acme::error_t::STRUCTURE);
 	}
 	// Код Unicode заглавными разрядами
 	static const char * CAPITAL =
@@ -551,7 +551,7 @@ TEST(AcmeTest, Escapes) {
 		"\"finalize\": \"https://f/\""
 		"}";
 	// Разбор обязан удаться
-	ASSERT_EQ(order.parse(view(std::string(CAPITAL))), acme::error_t::NONE);
+	ASSERT_EQ(order.parse(__nts_view__(std::string(CAPITAL))), acme::error_t::NONE);
 	// Сверяем состояние: коды A, ß и é
 	ASSERT_EQ(order.status, std::string("A\xC3\x9F\xC3\xA9"));
 }
@@ -578,13 +578,13 @@ TEST(AcmeTest, Starved){
 	// Разбираемый ключ набора: разбирается заранее, чтобы разбор не попал под подмену выделений
 	keys::key_t key;
 	// Ключ набора читается из файла набора
-	load(std::string(CORPUS) + "/ca-ec.key", key);
+	__nts_load__(std::string(CORPUS) + "/ca-ec.key", key);
 	// Текст записи ключа набора: читается заранее, чтобы чтение не попало под подмену выделений
-	const std::string pem = slurp(std::string(CORPUS) + "/ca-ec.key");
+	const std::string pem = __nts_slurp__(std::string(CORPUS) + "/ca-ec.key");
 	// Подготовленный ключ подписи: готовится заранее, чтобы подготовка не попала под подмену выделений
 	keys::signer_t signer;
 	// Проверяем подготовку ключа из записи набора
-	ASSERT_EQ(signer.prepare(view(pem)), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(pem)), keys::error_t::NONE);
 	// Полезная нагрузка запроса: собирается заранее, чтобы сборка не попала под подмену выделений
 	std::string payload;
 	// Полезная нагрузка новой учётной записи собирается заранее
@@ -604,7 +604,7 @@ TEST(AcmeTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе сборка и разбор обязаны
+	 * Перебираем запасы выделений: на всяком запасе сборка и разбор обязаны
 	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -615,7 +615,7 @@ TEST(AcmeTest, Starved){
 			starve::ration_t ration(budget);
 			// Собранное тело запроса
 			std::string body;
-			// Выполняем сборку запроса при отмеренном запасе
+			// Собираем запрос при отмеренном запасе
 			requested = acme::request(url, nonce, kid, key, bodyView, signer, body);
 		}
 		// Проверяем, что сборка ответила успехом либо отказом памяти
@@ -629,7 +629,7 @@ TEST(AcmeTest, Starved){
 			starve::ration_t ration(budget);
 			// Выработанное владение ключом
 			std::string possession;
-			// Выполняем выработку владения ключом при отмеренном запасе
+			// Вырабатываем владение ключом при отмеренном запасе
 			possessed = acme::keyPossession(token, key, possession);
 		}
 		// Проверяем, что выработка ответила успехом либо отказом памяти
@@ -643,7 +643,7 @@ TEST(AcmeTest, Starved){
 			starve::ration_t ration(budget);
 			// Разбираемый заказ
 			acme::order_t order;
-			// Выполняем разбор ответа заказа при отмеренном запасе
+			// Разбираем ответ заказа при отмеренном запасе
 			parsed = order.parse(answer);
 		}
 		// Проверяем, что разбор ответил успехом либо отказом памяти

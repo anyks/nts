@@ -51,7 +51,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -96,7 +96,7 @@ TEST(HashTest, Sizes){
 	// Размеры блоков по алгоритмам
 	const size_t blocks[] = {64, 64, 64, 64, 128, 128, 64, 64};
 	/**
-	 * Выполняем перебор алгоритмов
+	 * Перебираем алгоритмы
 	 */
 	for(size_t i = 0; i < 8; i++){
 		// Проверяем длину хеша алгоритма
@@ -138,7 +138,7 @@ TEST(HashTest, Dispatch){
 	ASSERT_TRUE(digest::hash(digest::hash_t::STREEBOG256, view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), result, sizeof(result)));
 	// Хеш «Стрибог» того же сообщения самим модулем
 	uint8_t direct[32];
-	// Выполняем выработку хеша модулем
+	// Вырабатываем хеш модулем
 	ASSERT_TRUE(digest::streebog(digest::type_t::SHORT, view_t(reinterpret_cast <const uint8_t *> (message.data()), message.size()), direct, sizeof(direct)));
 	// Проверяем схождение общего хеширования с модулем
 	ASSERT_EQ(::memcmp(result, direct, sizeof(direct)), 0);
@@ -150,11 +150,11 @@ TEST(HashTest, Dispatch){
 	digest::hasher_t hasher(digest::hash_t::SHA224);
 	// Проверяем выбранный алгоритм
 	ASSERT_EQ(hasher.type(), digest::hash_t::SHA224);
-	// Выполняем подачу сообщения по одному знаку
+	// Подаём сообщение по одному знаку
 	hasher.update(view_t(reinterpret_cast <const uint8_t *> ("a"), 1));
-	// Выполняем подачу сообщения по одному знаку
+	// Подаём сообщение по одному знаку
 	hasher.update(view_t(reinterpret_cast <const uint8_t *> ("b"), 1));
-	// Выполняем подачу сообщения по одному знаку
+	// Подаём сообщение по одному знаку
 	hasher.update(view_t(reinterpret_cast <const uint8_t *> ("c"), 1));
 	// Проверяем снятие хеша
 	ASSERT_TRUE(hasher.finish(result, sizeof(result)));
@@ -224,7 +224,7 @@ TEST(HashTest, Foreign){
 	ASSERT_EQ(mac(digest::hash_t::SHA512, "4eb68fe9cda573be3ef1183b34a776fbc62bbb6e0571632afbbcb292e95e655160d984ded4b8fe9b1a221d9d5250c5c6587fc18556194b95c7159ba8e19c1779", message), "a4eaf14ba267f1af48e3ceda03b9ae2addfcd8fd57b1ed35dd0bca4ecb15836d4beab59902fefc56f5c2054529196fe2e287891e4e18f902812a002090413ede");
 	// Проверяем усечение имитовставки до восьми байтов
 	uint8_t truncated[8];
-	// Выполняем выработку усечённой имитовставки
+	// Вырабатываем усечённую имитовставку
 	ASSERT_TRUE(digest::hmac(digest::hash_t::SHA256, view_t(reinterpret_cast <const uint8_t *> ("Jefe"), 4), view_t(reinterpret_cast <const uint8_t *> ("what do ya want for nothing?"), 28), truncated, sizeof(truncated)));
 	// Проверяем старшие байты имитовставки
 	ASSERT_EQ(text(truncated, sizeof(truncated)), "5bdcc146bf60754e");
