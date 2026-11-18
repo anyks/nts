@@ -72,7 +72,7 @@ namespace {
 	/**
 	 * Путь к набору проверочных ключей
 	 */
-	static const char * CORPUS = ANTS_CORPUS;
+	static const char * CORPUS = NTS_CORPUS;
 	/**
 	 * Управляющие разряды сценария младшего байта
 	 */

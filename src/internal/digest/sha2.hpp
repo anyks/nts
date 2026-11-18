@@ -61,7 +61,7 @@
  * путь. Под ASan без оптимизации ядра не берутся: вставка занимает все четырнадцать регистров
  * общего назначения (признак __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp, круг 38)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядер на ассемблере
 	 */

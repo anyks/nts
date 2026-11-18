@@ -62,7 +62,7 @@
  * а ASan держит адреса своего стека в регистрах); ядру AArch64 регистров хватает, и оно
  * проверяется отладочной сборкой
  */
-#if((defined(__x86_64__) && !defined(__NTS_ASAN_UNOPTIMIZED__)) || (defined(__aarch64__) && defined(__ARM_FEATURE_AES))) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+#if((defined(__x86_64__) && !defined(__NTS_ASAN_UNOPTIMIZED__)) || (defined(__aarch64__) && defined(__ARM_FEATURE_AES))) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия сшитого ядра на ассемблере
 	 */
@@ -108,7 +108,7 @@
 					 */
 					static void stitchX86(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, uint8_t * frame, const uint8_t * hash, const uint8_t * source, uint8_t * result, size_t count) noexcept {
 						// Шаги счётчика в старшем байте четвёртого слова, маска перестановки байтов
-						alignas(16) static const uint8_t CONSTANTS[144] = {
+						alignas(16) static const uint8_t CONSTNTS[144] = {
 							// Первая строка постоянных ядра
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
@@ -445,7 +445,7 @@
 						"vmovdqu %%xmm15, 32(%[tab])\n\t"
 						"vzeroupper\n\t"
 						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [kp] "=&r" (kp), [n] "=&r" (n), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
-						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTANTS)
+						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTNTS)
 						: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory");
 						// Забираем продвинутый счётчик и накопитель
 						::memcpy(counter, frame, 16);
@@ -472,7 +472,7 @@
 					 */
 					static void stitchArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, uint8_t * frame, const uint8_t * hash, const uint8_t * source, uint8_t * result, size_t count) noexcept {
 						// Шаги счётчика в старшем байте четвёртого слова, многочлен приведения
-						alignas(16) static const uint8_t CONSTANTS[32] = {
+						alignas(16) static const uint8_t CONSTNTS[32] = {
 							// Первая строка постоянных ядра
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 							135, 0, 0, 0, 0, 0, 0, 0, 135, 0, 0, 0, 0, 0, 0, 0
@@ -860,7 +860,7 @@
 						"str q28, [%[tab], #32]\n\t"
 						"str q23, [%[tab]]\n\t"
 						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [kp] "=&r" (kp), [n] "=&r" (n), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
-						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTANTS)
+						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTNTS)
 						: "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31", "cc", "memory");
 						// Забираем продвинутый счётчик и накопитель
 						::memcpy(counter, frame, 16);
@@ -887,7 +887,7 @@
 					 */
 					static void stitchArm(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, uint8_t * frame, const uint8_t * hash, const uint8_t * source, uint8_t * result, size_t count) noexcept {
 						// Шаги счётчика в старшем байте четвёртого слова, многочлен приведения
-						alignas(16) static const uint8_t CONSTANTS[32] = {
+						alignas(16) static const uint8_t CONSTNTS[32] = {
 							// Первая строка постоянных ядра
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 							135, 0, 0, 0, 0, 0, 0, 0, 135, 0, 0, 0, 0, 0, 0, 0
@@ -1296,7 +1296,7 @@
 						"str q28, [%[tab], #32]\n\t"
 						"str q23, [%[tab]]\n\t"
 						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [kp] "=&r" (kp), [n] "=&r" (n), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
-						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTANTS)
+						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTNTS)
 						: "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31", "cc", "memory");
 						// Забираем продвинутый счётчик и накопитель
 						::memcpy(counter, frame, 16);

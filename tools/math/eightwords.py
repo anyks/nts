@@ -14,7 +14,7 @@
 # сомножитель, q - треугольник в памяти, r - итог, c - хвост модуля.
 #
 # Запуск: python3 tools/math/eightwords.py > kernels8.txt, затем текст переносится в
-# kernels.hpp на место семи макросов __ANTS_AARCH64_*8__. Правки ядер вносятся сюда, а
+# kernels.hpp на место семи макросов __NTS_AARCH64_*8__. Правки ядер вносятся сюда, а
 # не в заголовок: сходимость проверена щупом на 300 000 входах с краями (круг 34,
 # 23.09.2026); единственная ловушка при порождении - цепочка из одного элемента у
 # последнего ряда треугольника, где перенос из младших половин уже учтён и складывать
@@ -185,13 +185,13 @@ def store_high(H):
     for j in range(0, 8, 2): e("stp %s, %s, [%%[r], #%d]" % (H[j], H[j + 1], 64 + 8 * j))
     return out
 macros = [
-    ("__ANTS_AARCH64_PRODUCT8__", product()),
-    ("__ANTS_AARCH64_HIGH8_PRODUCT__", store_high([R(8 + k) for k in range(8)])),
-    ("__ANTS_AARCH64_FOLD8_PRODUCT__", fold([R(8 + k) for k in range(8)])),
-    ("__ANTS_AARCH64_TRIANGLE8__", triangle()),
-    ("__ANTS_AARCH64_DIAGONAL8__", diagonal()),
-    ("__ANTS_AARCH64_HIGH8_SQUARE__", store_high(["%%[w%d]" % k for k in range(8)])),
-    ("__ANTS_AARCH64_FOLD8_SQUARE__", fold(["%%[w%d]" % k for k in range(8)])),
+    ("__NTS_AARCH64_PRODUCT8__", product()),
+    ("__NTS_AARCH64_HIGH8_PRODUCT__", store_high([R(8 + k) for k in range(8)])),
+    ("__NTS_AARCH64_FOLD8_PRODUCT__", fold([R(8 + k) for k in range(8)])),
+    ("__NTS_AARCH64_TRIANGLE8__", triangle()),
+    ("__NTS_AARCH64_DIAGONAL8__", diagonal()),
+    ("__NTS_AARCH64_HIGH8_SQUARE__", store_high(["%%[w%d]" % k for k in range(8)])),
+    ("__NTS_AARCH64_FOLD8_SQUARE__", fold(["%%[w%d]" % k for k in range(8)])),
 ]
 import sys
 f = sys.stdout

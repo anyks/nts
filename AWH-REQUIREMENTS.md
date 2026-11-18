@@ -938,7 +938,7 @@ SecP384r1MLKEM1024 0x11ED) опускаются - их не шлёт ни оди
 | сырой CipherState под счётчик и окно повтора | `cipher_t::encrypt/decrypt(n, …)`, `key(out)`; перенос в проверке кадров |
 | PQNoise: отвлечение KEM, pqXX, pqIK, чистый ML-KEM строкой | `noise::kem_t`, `kemlength`, тринадцать узоров таблицей, `PqnoiseTest` 6 проверок |
 | целость классики после обобщения | flynn 1920, Cacophony 472 теми же числами |
-| свой замороженный корпус с оговоркой | `tests/corpus/noise/pqnoise.txt`, 52 записи, `ANTS_NOISE_FREEZE` вслух |
+| свой замороженный корпус с оговоркой | `tests/corpus/noise/pqnoise.txt`, 52 записи, `NTS_NOISE_FREEZE` вслух |
 
 ### Закрыто 08.09.2026: пределы длины записи (дефект по профилям отпечатков; исправление, не охват)
 

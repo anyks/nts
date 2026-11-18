@@ -9,7 +9,7 @@ project(nts VERSION 1.0.0 LANGUAGES CXX)
  # переменные CMAKE_SOURCE_DIR и CMAKE_BINARY_DIR указывают на проект потребителя,
  # потому все пути внутри проекта идут от текущих каталогов и от этой переменной
  ##
-SET(ANTS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+SET(NTS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Устанавливаем полное название проекта
 SET(PROJECT_VENDOR_LONG "ANYKS - Network Transport Security (A-NTS)")
@@ -368,10 +368,10 @@ if (CMAKE_CURVE_TABLES)
     # Выполняем подключение зависимостей программы вычисления кратных
     ##
      # Вспомогательные цели всегда статические: при сборке динамической библиотеки
-     # заголовки без признака ANTS_STATICLIB объявляют символы импортом из DLL, и
+     # заголовки без признака NTS_STATICLIB объявляют символы импортом из DLL, и
      # программа вычисления кратных под Windows не связывается
      ##
-    target_compile_definitions(nts_tables_bootstrap PUBLIC ANTS_STATICLIB)
+    target_compile_definitions(nts_tables_bootstrap PUBLIC NTS_STATICLIB)
     # Развернутые ядра на ассемблере требуют оптимизации: без нее GCC не собирает
     # распределение регистров (asm operand has impossible constraints), а сборки
     # сторонних утилит идут с пустым CMAKE_BUILD_TYPE - цели вычисления кратных
@@ -692,7 +692,7 @@ option(CMAKE_CIPHER_COMPACT "Build the block cipher with the compact tables" OFF
 # Если блочный шифр собирается малыми таблицами
 if (CMAKE_CIPHER_COMPACT)
     # Объявляем сборке блочного шифра работу малыми таблицами
-    add_compile_definitions(ANTS_CIPHER_COMPACT)
+    add_compile_definitions(NTS_CIPHER_COMPACT)
     # Выводим сообщение о способе сборки блочного шифра
     message(STATUS "Block cipher tables: compact\n")
 # Если блочный шифр собирается развёрнутыми таблицами
@@ -702,34 +702,34 @@ else (CMAKE_CIPHER_COMPACT)
 endif (CMAKE_CIPHER_COMPACT)
 
 # Устанавливаем имя библиотеки
-SET(ANTS_LIB_NAME ${PROJECT_NAME})
+SET(NTS_LIB_NAME ${PROJECT_NAME})
 
 ##
  # Определения версии для программного договора: строка и числа берутся из строки
  # project() и нигде больше не повторяются. Сводное число удобно воротам условной
- # компиляции потребителя: #if ANTS_VERSION_NUMBER >= 1000000
+ # компиляции потребителя: #if NTS_VERSION_NUMBER >= 1000000
  ##
-math(EXPR ANTS_VERSION_NUMBER "${PROJECT_VERSION_MAJOR} * 1000000 + ${PROJECT_VERSION_MINOR} * 1000 + ${PROJECT_VERSION_PATCH}")
-SET(ANTS_VERSION_DEFINES
-    ANTS_VERSION="${PROJECT_VERSION}"
-    ANTS_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-    ANTS_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-    ANTS_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-    ANTS_VERSION_NUMBER=${ANTS_VERSION_NUMBER}
+math(EXPR NTS_VERSION_NUMBER "${PROJECT_VERSION_MAJOR} * 1000000 + ${PROJECT_VERSION_MINOR} * 1000 + ${PROJECT_VERSION_PATCH}")
+SET(NTS_VERSION_DEFINES
+    NTS_VERSION="${PROJECT_VERSION}"
+    NTS_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    NTS_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    NTS_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+    NTS_VERSION_NUMBER=${NTS_VERSION_NUMBER}
 )
 
 # Если нужно собрать динамическую библиотеку
 if (CMAKE_SHARED_BUILD_LIB)
     # Добавляем динамическую библиотеку
-    add_library(${ANTS_LIB_NAME} SHARED ${SOURCE_FILES})
+    add_library(${NTS_LIB_NAME} SHARED ${SOURCE_FILES})
     # Выполняем экспорт методов доступных извне в динамических библиотеках
-    target_compile_definitions(${ANTS_LIB_NAME} PRIVATE ANTS_SHARED_LIBRARY_EXPORT)
+    target_compile_definitions(${NTS_LIB_NAME} PRIVATE NTS_SHARED_LIBRARY_EXPORT)
 # Если нужно собрать статическую библиотеку
 else (CMAKE_SHARED_BUILD_LIB)
     # Активируем сборку статической библиотеки
-    add_compile_definitions(ANTS_STATICLIB)
+    add_compile_definitions(NTS_STATICLIB)
     # Добавляем статическую библиотеку
-    add_library(${ANTS_LIB_NAME} STATIC ${SOURCE_FILES})
+    add_library(${NTS_LIB_NAME} STATIC ${SOURCE_FILES})
     ##
      # Признак статической сборки обязан доехать до потребителя цели: без него
      # заголовки под Windows объявляют символы как импорт из динамической
@@ -737,7 +737,7 @@ else (CMAKE_SHARED_BUILD_LIB)
      # ветвь даёт лишь видимость символов и молчит, оттого дефект виден
      # только под Windows
      ##
-    target_compile_definitions(${ANTS_LIB_NAME} PUBLIC ANTS_STATICLIB)
+    target_compile_definitions(${NTS_LIB_NAME} PUBLIC NTS_STATICLIB)
 endif (CMAKE_SHARED_BUILD_LIB)
 
 ##
@@ -745,26 +745,26 @@ endif (CMAKE_SHARED_BUILD_LIB)
  # установки - экосистемный каталог include/anyks/nts под префиксом. Так цель
  # годна и через add_subdirectory, и через find_package(nts CONFIG)
  ##
-target_include_directories(${ANTS_LIB_NAME} PUBLIC
+target_include_directories(${NTS_LIB_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include/anyks/${PROJECT_NAME}>
 )
 
 # Требуемый стандарт языка доезжает до потребителя цели
-target_compile_features(${ANTS_LIB_NAME} PUBLIC cxx_std_17)
+target_compile_features(${NTS_LIB_NAME} PUBLIC cxx_std_17)
 
 # Версия доезжает до потребителя цели: макросы видны и в заголовках, и в условной компиляции
-target_compile_definitions(${ANTS_LIB_NAME} PUBLIC ${ANTS_VERSION_DEFINES})
+target_compile_definitions(${NTS_LIB_NAME} PUBLIC ${NTS_VERSION_DEFINES})
 
 # Потоки: замок укрытого хранилища (std::mutex) и обработчик разветвления (pthread_atfork)
 find_package(Threads REQUIRED)
-target_link_libraries(${ANTS_LIB_NAME} PUBLIC Threads::Threads)
+target_link_libraries(${NTS_LIB_NAME} PUBLIC Threads::Threads)
 
 # Псевдоним пакета в дереве сборки: потребитель через add_subdirectory зовёт ту же цель nts::nts
-add_library(${PROJECT_NAME}::${ANTS_LIB_NAME} ALIAS ${ANTS_LIB_NAME})
+add_library(${PROJECT_NAME}::${NTS_LIB_NAME} ALIAS ${NTS_LIB_NAME})
 
 # Версия и имя динамической библиотеки: libnts.so.1 → libnts.so.1.0.0, nts.dll под Windows
-set_target_properties(${ANTS_LIB_NAME} PROPERTIES
+set_target_properties(${NTS_LIB_NAME} PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
     OUTPUT_NAME ${PROJECT_NAME}
@@ -773,13 +773,13 @@ set_target_properties(${ANTS_LIB_NAME} PROPERTIES
 # Если кратные точки основания заготавливаются при сборке
 if (CMAKE_CURVE_TABLES)
     # Ставим вычисление кратных прежде сборки самой библиотеки
-    add_dependencies(${ANTS_LIB_NAME} nts_curve_tables)
+    add_dependencies(${NTS_LIB_NAME} nts_curve_tables)
 endif (CMAKE_CURVE_TABLES)
 
 # Если сборка ведётся под Windows
 if (WIN32)
     # Источник случайности системы там живёт в отдельной библиотеке: доезжает и до потребителя статической цели
-    target_link_libraries(${ANTS_LIB_NAME} PUBLIC bcrypt)
+    target_link_libraries(${NTS_LIB_NAME} PUBLIC bcrypt)
 endif (WIN32)
 
 # Если необходимо собрать набор проверок
@@ -837,21 +837,21 @@ if (CMAKE_BUILD_TESTS)
      # попасть и в саму библиотеку: без этого покрытие считается по одним проверкам,
      # а обращения к памяти внутри библиотеки остаются без надзора
      ##
-    add_library(${ANTS_LIB_NAME}_test STATIC ${SOURCE_FILES})
+    add_library(${NTS_LIB_NAME}_test STATIC ${SOURCE_FILES})
     # Проверочная копия библиотеки всегда статическая: признак доезжает до проверок и при сборке DLL
-    target_compile_definitions(${ANTS_LIB_NAME}_test PUBLIC ANTS_STATICLIB)
+    target_compile_definitions(${NTS_LIB_NAME}_test PUBLIC NTS_STATICLIB)
     # Версия доезжает и до проверочной копии: она собирается из тех же источников
-    target_compile_definitions(${ANTS_LIB_NAME}_test PUBLIC ${ANTS_VERSION_DEFINES})
+    target_compile_definitions(${NTS_LIB_NAME}_test PUBLIC ${NTS_VERSION_DEFINES})
 
     # Если кратные точки основания заготавливаются при сборке
     if (CMAKE_CURVE_TABLES)
         # Ставим вычисление кратных прежде сборки проверочной копии библиотеки
-        add_dependencies(${ANTS_LIB_NAME}_test nts_curve_tables)
+        add_dependencies(${NTS_LIB_NAME}_test nts_curve_tables)
     endif (CMAKE_CURVE_TABLES)
     # Если сборка ведётся под Windows
     if (WIN32)
         # Источник случайности системы там живёт в отдельной библиотеке; оснастка проверок ведёт сокеты Winsock
-        target_link_libraries(${ANTS_LIB_NAME}_test PUBLIC bcrypt ws2_32)
+        target_link_libraries(${NTS_LIB_NAME}_test PUBLIC bcrypt ws2_32)
         ##
          # Проверки под MinGW и clang связываются со статическим runtime: подмена
          # operator new в проверке (нехватка памяти, учёт кучи) не видна библиотеке,
@@ -862,7 +862,7 @@ if (CMAKE_BUILD_TESTS)
         endif (NOT MSVC)
     endif (WIN32)
     # Включаем флаги компиляции проверок для библиотеки проверок
-    target_compile_options(${ANTS_LIB_NAME}_test PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
+    target_compile_options(${NTS_LIB_NAME}_test PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
     ##
      # Каталог пакетов операционной системы добавляется к путям поиска
@@ -922,10 +922,10 @@ if (${CMAKE_BUILD_BENCHMARKS})
     target_include_directories(bench PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sample/compress")
 
     # Передаём путь к набору ключей для сличения: замер обмена RSA читает подлинность из него
-    target_compile_definitions(bench PRIVATE ANTS_CORPUS="${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus")
+    target_compile_definitions(bench PRIVATE NTS_CORPUS="${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus")
 
     # Выполняем подключение библиотеки к приложению набора замеров
-    target_link_libraries(bench ${ANTS_LIB_NAME})
+    target_link_libraries(bench ${NTS_LIB_NAME})
 
     # Указываем каталог для исполняемого файла набора замеров
     set_target_properties(bench PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bench)
@@ -943,7 +943,7 @@ if (${CMAKE_BUILD_BENCHMARKS})
             # Выводим сообщение о сличении замеров с эталоном
             message(STATUS "Benchmark reference OpenSSL: Yes")
             # Объявляем сборке набора замеров наличие эталона
-            target_compile_definitions(bench PRIVATE ANTS_BENCH_OPENSSL)
+            target_compile_definitions(bench PRIVATE NTS_BENCH_OPENSSL)
             # Выполняем подключение эталона к приложению набора замеров
             target_link_libraries(bench OpenSSL::SSL OpenSSL::Crypto)
         # Если эталона OpenSSL в системе нет
@@ -962,7 +962,7 @@ if (${CMAKE_BUILD_BENCHMARKS})
             # Подключаем заголовочные файлы эталона к приложению набора замеров
             target_include_directories(bench PRIVATE "${CMAKE_BENCHMARK_BORINGSSL}/include")
             # Объявляем сборке набора замеров наличие эталона BoringSSL
-            target_compile_definitions(bench PRIVATE ANTS_BENCH_BORINGSSL)
+            target_compile_definitions(bench PRIVATE NTS_BENCH_BORINGSSL)
             # Выполняем подключение потоков: сборка BoringSSL держит свои нити
             find_package(Threads)
             # Выполняем подключение эталона к приложению набора замеров
@@ -1000,7 +1000,7 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выполняем создание приложения образца
         add_executable(${name} ${src})
         # Выполняем подключение библиотеки к приложению образца
-        target_link_libraries(${name} ${ANTS_LIB_NAME})
+        target_link_libraries(${name} ${NTS_LIB_NAME})
         # Указываем каталог для исполняемого файла образца
         set_target_properties(${name} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${dir}
@@ -1314,7 +1314,7 @@ if (${CMAKE_BUILD_SAMPLES})
         # Выполняем создание приложения образца
         add_sample(${name} ${src} ${dir})
         # Передаём путь к набору ключей и ответов
-        target_compile_definitions(${name} PRIVATE ANTS_CORPUS="${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus")
+        target_compile_definitions(${name} PRIVATE NTS_CORPUS="${CMAKE_CURRENT_SOURCE_DIR}/tests/corpus")
     endfunction()
 
     # Устанавливаем имя приложения рукопожатия издания TLS 1.2
@@ -1603,7 +1603,7 @@ if (${CMAKE_BUILD_SAMPLES})
                 # Выводим сообщение о сличении с zlib
                 message(STATUS "Compression sample zlib: Yes")
                 # Объявляем образцу наличие zlib
-                target_compile_definitions(${COMPRESS_APP_NAME} PRIVATE ANTS_SAMPLE_ZLIB)
+                target_compile_definitions(${COMPRESS_APP_NAME} PRIVATE NTS_SAMPLE_ZLIB)
                 # Выполняем подключение zlib к образцу
                 target_link_libraries(${COMPRESS_APP_NAME} ZLIB::ZLIB)
             # Если системного zlib нет
@@ -1828,7 +1828,7 @@ set(NTS_CMAKE_DIR "${NTS_LIBROOT}/cmake/${PROJECT_NAME}")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.hpp")
 
 # Выполняем установку библиотеки с описанием цели для экспорта
-install(TARGETS ${ANTS_LIB_NAME}
+install(TARGETS ${NTS_LIB_NAME}
     EXPORT ${PROJECT_NAME}Targets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -1889,16 +1889,16 @@ export(EXPORT ${PROJECT_NAME}Targets
 ##
  # Цель фреймворка для macOS и iOS (по образцу AWH)
  #
- # Собирает ${ANTS_LIB_NAME}.framework: объединённая libtool'ом статическая
- # библиотека, заголовки, сгенерированный зонтичный ${ANTS_LIB_NAME}.hpp,
+ # Собирает ${NTS_LIB_NAME}.framework: объединённая libtool'ом статическая
+ # библиотека, заголовки, сгенерированный зонтичный ${NTS_LIB_NAME}.hpp,
  # module.modulemap для Clang Modules и Info.plist с версией проекта.
  # Для iOS дерево конфигурируется с CMAKE_SYSTEM_NAME=IOS - цель та же
  ##
 if (APPLE)
-    SET(FRAMEWORK_OUTPUT_PATH "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.framework")
+    SET(FRAMEWORK_OUTPUT_PATH "${CMAKE_BINARY_DIR}/dist/${NTS_LIB_NAME}.framework")
 
     # 1. Библиотеки для объединения: у A-NTS внешних зависимостей нет
-    SET(ALL_LIBS "$<TARGET_FILE:${ANTS_LIB_NAME}>")
+    SET(ALL_LIBS "$<TARGET_FILE:${NTS_LIB_NAME}>")
 
     # 2. Преобразуем список CMake в строку для Bash (разделитель - пробел)
     string(REPLACE ";" " " ALL_LIBS_STR "${ALL_LIBS}")
@@ -1908,24 +1908,24 @@ if (APPLE)
         "${FRAMEWORK_OUTPUT_PATH}/Headers"
         "${FRAMEWORK_OUTPUT_PATH}/Modules"
         "${FRAMEWORK_OUTPUT_PATH}/Resources"
-        "${FRAMEWORK_OUTPUT_PATH}/${ANTS_LIB_NAME}"
+        "${FRAMEWORK_OUTPUT_PATH}/${NTS_LIB_NAME}"
         "${FRAMEWORK_OUTPUT_PATH}/Versions/Current"
     )
 
     # 4. Создаем цель 'framework'
     add_custom_target(framework
-        COMMAND ${CMAKE_COMMAND} -E echo "Собираем фреймворк ${ANTS_LIB_NAME}..."
+        COMMAND ${CMAKE_COMMAND} -E echo "Собираем фреймворк ${NTS_LIB_NAME}..."
         COMMAND bash "${CMAKE_SOURCE_DIR}/sh/build_nts_framework.sh"
-            "${ANTS_LIB_NAME}"              # Аргумент 1: имя фреймворка
+            "${NTS_LIB_NAME}"              # Аргумент 1: имя фреймворка
             "${CMAKE_BINARY_DIR}"           # Аргумент 2: каталог сборки
             "${CMAKE_BINARY_DIR}/dist"      # Аргумент 3: каталог результата
             "${CMAKE_SOURCE_DIR}/include"   # Аргумент 4: каталог заголовков
             "${ALL_LIBS_STR}"               # Аргумент 5: список .a библиотек через пробел
             "${PROJECT_VERSION}"            # Аргумент 6: версия фреймворка
         BYPRODUCTS ${FRAMEWORK_BYPRODUCTS}
-        DEPENDS ${ANTS_LIB_NAME}
+        DEPENDS ${NTS_LIB_NAME}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        COMMENT "Упаковка ${ANTS_LIB_NAME} во фреймворк"
+        COMMENT "Упаковка ${NTS_LIB_NAME} во фреймворк"
         VERBATIM
     )
 
@@ -1935,15 +1935,15 @@ if (APPLE)
     # Устанавливаем собранный фреймворк, если он построен к моменту установки:
     # цель framework факультативна, и установка без неё не должна падать
     install(CODE "
-        if (EXISTS \"${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.framework\")
-            file(INSTALL DESTINATION \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\" TYPE DIRECTORY FILES \"${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.framework\" USE_SOURCE_PERMISSIONS)
+        if (EXISTS \"${CMAKE_BINARY_DIR}/dist/${NTS_LIB_NAME}.framework\")
+            file(INSTALL DESTINATION \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\" TYPE DIRECTORY FILES \"${CMAKE_BINARY_DIR}/dist/${NTS_LIB_NAME}.framework\" USE_SOURCE_PERMISSIONS)
         endif ()
     ")
 
     ##
      # Цель XCFramework для iOS: срезы устройства и симулятора одним пакетом
      #
-     # Собирает ${ANTS_LIB_NAME}.xcframework из двух фреймворков (iphoneos и
+     # Собирает ${NTS_LIB_NAME}.xcframework из двух фреймворков (iphoneos и
      # iphonesimulator) - форма поставки для Xcode-потребителей. Целевую версию
      # iOS задаёт CMAKE_OSX_DEPLOYMENT_TARGET конфигурации (умолчание 12.0)
      ##
@@ -1955,11 +1955,11 @@ if (APPLE)
             COMMAND bash "${CMAKE_SOURCE_DIR}/sh/build_nts_xcframework.sh"
                 "${CMAKE_SOURCE_DIR}"           # Аргумент 1: каталог исходников
                 "${CMAKE_BINARY_DIR}/xc"         # Аргумент 2: корень срезов сборки
-                "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.xcframework"
+                "${CMAKE_BINARY_DIR}/dist/${NTS_LIB_NAME}.xcframework"
                 "${CMAKE_OSX_DEPLOYMENT_TARGET}" # Аргумент 4: целевая версия iOS
-            BYPRODUCTS "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}.xcframework"
+            BYPRODUCTS "${CMAKE_BINARY_DIR}/dist/${NTS_LIB_NAME}.xcframework"
             WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-            COMMENT "Упаковка ${ANTS_LIB_NAME} в XCFramework (устройство и симулятор)"
+            COMMENT "Упаковка ${NTS_LIB_NAME} в XCFramework (устройство и симулятор)"
             VERBATIM
         )
         message(STATUS "Цель 'xcframework' добавлена, целевая версия iOS: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
@@ -1969,7 +1969,7 @@ endif()
 ##
  # Цель пакета AAR для Android: срезы всех изделий одним пакетом prefab
  #
- # Собирает ${ANTS_LIB_NAME}-<версия>.aar из статических библиотур четырёх изделий
+ # Собирает ${NTS_LIB_NAME}-<версия>.aar из статических библиотур четырёх изделий
  # (arm64-v8a, armeabi-v7a, x86_64, x86) с заголовками и описанием prefab -
  # форма поставки для gradle-потребителей. Издание платформы задаёт
  # ANDROID_PLATFORM конфигурации (умолчание android-28 - порождатель arc4random_buf
@@ -1983,12 +1983,12 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Android")
         COMMAND bash "${CMAKE_SOURCE_DIR}/sh/build_nts_android.sh"
             "${CMAKE_SOURCE_DIR}"               # Аргумент 1: каталог исходников
             "${CMAKE_BINARY_DIR}/aar"           # Аргумент 2: корень срезов сборки
-            "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}-${PROJECT_VERSION}.aar"
+            "${CMAKE_BINARY_DIR}/dist/${NTS_LIB_NAME}-${PROJECT_VERSION}.aar"
             "${ANDROID_PLATFORM}"               # Аргумент 4: издание платформы Android
             "${PROJECT_VERSION}"                # Аргумент 5: версия библиотеки
-        BYPRODUCTS "${CMAKE_BINARY_DIR}/dist/${ANTS_LIB_NAME}-${PROJECT_VERSION}.aar"
+        BYPRODUCTS "${CMAKE_BINARY_DIR}/dist/${NTS_LIB_NAME}-${PROJECT_VERSION}.aar"
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-        COMMENT "Упаковка ${ANTS_LIB_NAME} в AAR (prefab, четыре изделия)"
+        COMMENT "Упаковка ${NTS_LIB_NAME} в AAR (prefab, четыре изделия)"
         VERBATIM
     )
     message(STATUS "Цель 'aar' добавлена, издание платформы: ${ANDROID_PLATFORM}")

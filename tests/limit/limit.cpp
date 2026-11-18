@@ -61,7 +61,7 @@ using namespace nts;
 /**
  * Каталог образцов ключей
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * @brief Служебные помощники проверок
@@ -967,7 +967,7 @@ TEST(LimitTest, Openssl){
 			// Обнуляем поле готовности описателя перед опросом
 			waiting.revents = 0;
 			// Дожидаемся данных с запасом 200 мс
-			if(ANTS_POLL(&waiting, 1, 200) <= 0)
+			if(NTS_POLL(&waiting, 1, 200) <= 0)
 				continue;
 			// Буфер чтения
 			uint8_t buffer[16384];

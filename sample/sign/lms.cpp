@@ -70,7 +70,7 @@ namespace {
 		 */
 		try {
 			// Поток чтения файла набора
-			ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+			ifstream file(string(NTS_CORPUS) + "/" + name, ios::binary);
 			// Если файл открыт
 			if(file.is_open())
 				// Читаем файл целиком

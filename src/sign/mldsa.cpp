@@ -83,7 +83,7 @@
  *       потому стена открывается признаком архитектуры вместо признака набора
  *
  */
-#if ((defined(__x86_64__) && defined(__SSE2__)) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) && defined(__SSE2__)) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Системный заголовочный файл
 	 */
@@ -100,7 +100,7 @@
 /**
  * Ветвь NEON на ARM64
  */
-#elif ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#elif ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Системный заголовочный файл
 	 */

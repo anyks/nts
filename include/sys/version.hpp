@@ -63,9 +63,9 @@ namespace nts {
 		 * @brief Функция получения строки издания библиотеки
 		 *
 		 * @details Издание живёт в строке project() сборки и доезжает сюда определением
-		 *          ANTS_VERSION: строка вида "1.0.0". Потребителю, которому издание нужно
+		 *          NTS_VERSION: строка вида "1.0.0". Потребителю, которому издание нужно
 		 *          для решения о вызовах, короче сравнить сводное число из number() либо
-		 *          ворот условной компиляции \#if ANTS_VERSION_NUMBER >= 1000000
+		 *          ворот условной компиляции \#if NTS_VERSION_NUMBER >= 1000000
 		 *
 		 * @return строка издания библиотеки
 		 *
@@ -73,9 +73,9 @@ namespace nts {
 		 * @brief Function of the search of the library edition string
 		 *
 		 * @details The edition lives in the project() line of the build and arrives
-		 *          here by the ANTS_VERSION definition: a string like "1.0.0". A consumer
+		 *          here by the NTS_VERSION definition: a string like "1.0.0". A consumer
 		 *          deciding by the edition is better served by the summary number of
-		 *          number() or by the conditional compilation gate \#if ANTS_VERSION_NUMBER >= 1000000
+		 *          number() or by the conditional compilation gate \#if NTS_VERSION_NUMBER >= 1000000
 		 *
 		 * @return the library edition string
 		 *
@@ -88,7 +88,7 @@ namespace nts {
 		 *
 		 * @details Число сводится из номеров издания как старший * 1000000 + младший * 1000
 		 *          + заплатка: сравнение чисел одним знаком и решает, какое издание новее.
-		 *          То же число заведено макросом ANTS_VERSION_NUMBER для условной компиляции
+		 *          То же число заведено макросом NTS_VERSION_NUMBER для условной компиляции
 		 *
 		 * @return сводное число издания библиотеки
 		 *
@@ -97,7 +97,7 @@ namespace nts {
 		 *
 		 * @details The number is summarized from the edition numbers as major * 1000000 + minor * 1000
 		 *          + patch: a single number comparison then decides which edition is newer.
-		 *          The same number is set by the ANTS_VERSION_NUMBER macro for conditional compilation
+		 *          The same number is set by the NTS_VERSION_NUMBER macro for conditional compilation
 		 *
 		 * @return the summary number of the library edition
 		 *

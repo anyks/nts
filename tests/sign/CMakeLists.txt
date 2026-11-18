@@ -8,10 +8,10 @@ add_executable(${TEST_GOST_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/gost.cpp")
 target_compile_options(${TEST_GOST_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_GOST_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_GOST_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_GOST_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_GOST_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_GOST_NAME} COMMAND ${TEST_GOST_NAME})
@@ -26,10 +26,10 @@ add_executable(${TEST_ED25519_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/ed25519.cpp")
 target_compile_options(${TEST_ED25519_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_ED25519_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_ED25519_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_ED25519_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_ED25519_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_ED25519_NAME} COMMAND ${TEST_ED25519_NAME})
@@ -44,10 +44,10 @@ add_executable(${TEST_ED448_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/ed448.cpp")
 target_compile_options(${TEST_ED448_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_ED448_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_ED448_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_ED448_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_ED448_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_ED448_NAME} COMMAND ${TEST_ED448_NAME})
@@ -61,10 +61,10 @@ add_executable(${TEST_ECDSA_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/ecdsa.cpp")
 target_compile_options(${TEST_ECDSA_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_ECDSA_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_ECDSA_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_ECDSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_ECDSA_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_ECDSA_NAME} COMMAND ${TEST_ECDSA_NAME})
@@ -79,10 +79,10 @@ add_executable(${TEST_SM2_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/sm2.cpp")
 target_compile_options(${TEST_SM2_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_SM2_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_SM2_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_SM2_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_SM2_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_SM2_NAME} COMMAND ${TEST_SM2_NAME})
@@ -96,10 +96,10 @@ add_executable(${TEST_RSA_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/rsa.cpp")
 target_compile_options(${TEST_RSA_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_RSA_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_RSA_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_RSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_RSA_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_RSA_NAME} COMMAND ${TEST_RSA_NAME})
@@ -113,13 +113,13 @@ add_executable(${TEST_MLDSA_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/mldsa.cpp")
 target_compile_options(${TEST_MLDSA_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_MLDSA_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_MLDSA_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Передаем расположение набора контрольных примеров
-target_compile_definitions(${TEST_MLDSA_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+target_compile_definitions(${TEST_MLDSA_NAME} PRIVATE NTS_CORPUS="${NTS_ROOT}/tests/corpus")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_MLDSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_MLDSA_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_MLDSA_NAME} COMMAND ${TEST_MLDSA_NAME})
@@ -133,13 +133,13 @@ add_executable(${TEST_SLHDSA_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/slhdsa.cpp")
 target_compile_options(${TEST_SLHDSA_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_SLHDSA_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_SLHDSA_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Передаем расположение набора контрольных примеров
-target_compile_definitions(${TEST_SLHDSA_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+target_compile_definitions(${TEST_SLHDSA_NAME} PRIVATE NTS_CORPUS="${NTS_ROOT}/tests/corpus")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_SLHDSA_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_SLHDSA_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_SLHDSA_NAME} COMMAND ${TEST_SLHDSA_NAME})
@@ -153,13 +153,13 @@ add_executable(${TEST_LMS_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/lms.cpp")
 target_compile_options(${TEST_LMS_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_LMS_NAME} PRIVATE "${ANTS_ROOT}/tests")
+target_include_directories(${TEST_LMS_NAME} PRIVATE "${NTS_ROOT}/tests")
 
 # Передаем расположение набора контрольных примеров
-target_compile_definitions(${TEST_LMS_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+target_compile_definitions(${TEST_LMS_NAME} PRIVATE NTS_CORPUS="${NTS_ROOT}/tests/corpus")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_LMS_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_LMS_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_LMS_NAME} COMMAND ${TEST_LMS_NAME})

@@ -22,7 +22,7 @@
  *          различается ею
  *
  * @note Контейнер берётся из набора tests/corpus, выработанного openssl: путь
- *       к набору передаётся сборкой определением ANTS_CORPUS
+ *       к набору передаётся сборкой определением NTS_CORPUS
  *
  * @copyright Copyright © 2026
  *
@@ -106,7 +106,7 @@ namespace {
 		 */
 		try {
 			// Поток чтения файла набора
-			ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+			ifstream file(string(NTS_CORPUS) + "/" + name, ios::binary);
 			// Если файл открыт
 			if(file.is_open())
 				// Читаем файл целиком

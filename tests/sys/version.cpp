@@ -39,9 +39,9 @@ using namespace nts;
  */
 TEST(VersionTest, String) {
 	// Строка вызова равна строке макроса сборки
-	ASSERT_STREQ(sys::version(), ANTS_VERSION);
+	ASSERT_STREQ(sys::version(), NTS_VERSION);
 	// Строка не пуста
-	ASSERT_GT(std::string(ANTS_VERSION).size(), static_cast <size_t> (0));
+	ASSERT_GT(std::string(NTS_VERSION).size(), static_cast <size_t> (0));
 }
 /**
  * @brief Проверка номеров издания
@@ -49,15 +49,15 @@ TEST(VersionTest, String) {
  */
 TEST(VersionTest, Numbers) {
 	// Старший номер вызова равен числу макроса
-	ASSERT_EQ(sys::majorVersion(), static_cast <uint32_t> (ANTS_VERSION_MAJOR));
+	ASSERT_EQ(sys::majorVersion(), static_cast <uint32_t> (NTS_VERSION_MAJOR));
 	// Младший номер вызова равен числу макроса
-	ASSERT_EQ(sys::minorVersion(), static_cast <uint32_t> (ANTS_VERSION_MINOR));
+	ASSERT_EQ(sys::minorVersion(), static_cast <uint32_t> (NTS_VERSION_MINOR));
 	// Заплатка вызова равна числу макроса
-	ASSERT_EQ(sys::patchVersion(), static_cast <uint32_t> (ANTS_VERSION_PATCH));
+	ASSERT_EQ(sys::patchVersion(), static_cast <uint32_t> (NTS_VERSION_PATCH));
 	// Сводное число равно своей арифметике из номеров
-	ASSERT_EQ(sys::number(), static_cast <uint32_t> ((ANTS_VERSION_MAJOR * 1000000) + (ANTS_VERSION_MINOR * 1000) + ANTS_VERSION_PATCH));
+	ASSERT_EQ(sys::number(), static_cast <uint32_t> ((NTS_VERSION_MAJOR * 1000000) + (NTS_VERSION_MINOR * 1000) + NTS_VERSION_PATCH));
 	// Сводное число вызова равно числу макроса
-	ASSERT_EQ(sys::number(), static_cast <uint32_t> (ANTS_VERSION_NUMBER));
+	ASSERT_EQ(sys::number(), static_cast <uint32_t> (NTS_VERSION_NUMBER));
 }
 /**
  * @brief Проверка сборки строки из номеров
@@ -65,7 +65,7 @@ TEST(VersionTest, Numbers) {
  */
 TEST(VersionTest, Composition) {
 	// Строка издания собирается из своих номеров точками
-	const std::string built = (std::to_string(ANTS_VERSION_MAJOR) + "." + std::to_string(ANTS_VERSION_MINOR) + "." + std::to_string(ANTS_VERSION_PATCH));
+	const std::string built = (std::to_string(NTS_VERSION_MAJOR) + "." + std::to_string(NTS_VERSION_MINOR) + "." + std::to_string(NTS_VERSION_PATCH));
 	// Строка вызова равна собранной строке
 	ASSERT_STREQ(sys::version(), built.c_str());
 }

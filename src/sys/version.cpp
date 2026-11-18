@@ -14,7 +14,7 @@
  *
  * @brief Модуль издания библиотеки
  *
- * @details Издание живёт в строке project() сборки и доезжает определениями ANTS_VERSION:
+ * @details Издание живёт в строке project() сборки и доезжает определениями NTS_VERSION:
  *          они ставятся цели библиотеки сборкой и вручную нигде не повторяются. Сводное
  *          число сводится из номеров издания здесь же при компиляции, и расхождение
  *          числа со строкой сборки ловит запрет компиляции
@@ -36,7 +36,7 @@ namespace {
 	/**
 	 * Сводное число обязано сходиться со своими номерами: опечатка сборки ловится здесь
 	 */
-	static_assert((ANTS_VERSION_MAJOR * 1000000 + ANTS_VERSION_MINOR * 1000 + ANTS_VERSION_PATCH) == ANTS_VERSION_NUMBER, "сводное число издания не сходится с номерами");
+	static_assert((NTS_VERSION_MAJOR * 1000000 + NTS_VERSION_MINOR * 1000 + NTS_VERSION_PATCH) == NTS_VERSION_NUMBER, "сводное число издания не сходится с номерами");
 }
 
 /**
@@ -47,7 +47,7 @@ namespace {
  */
 const char * nts::sys::version() noexcept {
 	// Выводим строку издания из определения сборки
-	return ANTS_VERSION;
+	return NTS_VERSION;
 }
 /**
  * @brief Метод получения сводного числа издания библиотеки
@@ -57,7 +57,7 @@ const char * nts::sys::version() noexcept {
  */
 uint32_t nts::sys::number() noexcept {
 	// Выводим сводное число издания из определения сборки
-	return ANTS_VERSION_NUMBER;
+	return NTS_VERSION_NUMBER;
 }
 /**
  * @brief Метод получения старшего номера издания библиотеки
@@ -67,7 +67,7 @@ uint32_t nts::sys::number() noexcept {
  */
 uint32_t nts::sys::majorVersion() noexcept {
 	// Выводим старший номер издания из определения сборки
-	return ANTS_VERSION_MAJOR;
+	return NTS_VERSION_MAJOR;
 }
 /**
  * @brief Метод получения младшего номера издания библиотеки
@@ -77,7 +77,7 @@ uint32_t nts::sys::majorVersion() noexcept {
  */
 uint32_t nts::sys::minorVersion() noexcept {
 	// Выводим младший номер издания из определения сборки
-	return ANTS_VERSION_MINOR;
+	return NTS_VERSION_MINOR;
 }
 /**
  * @brief Метод получения заплатки издания библиотеки
@@ -87,5 +87,5 @@ uint32_t nts::sys::minorVersion() noexcept {
  */
 uint32_t nts::sys::patchVersion() noexcept {
 	// Выводим заплатку издания из определения сборки
-	return ANTS_VERSION_PATCH;
+	return NTS_VERSION_PATCH;
 }

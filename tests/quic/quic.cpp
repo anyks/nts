@@ -60,7 +60,7 @@ using namespace nts;
 /**
  * Путь к набору ключей для сличения
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * @brief Служебные объекты проверок

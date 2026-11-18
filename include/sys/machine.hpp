@@ -137,7 +137,7 @@ namespace nts {
 		 * @return        признак того, что расширение есть и не запрещено
 		 *
 		 * @note Первое обращение снимает признаки машины и читает переменную окружения
-		 *       ANTS_MACHINE: значение «0» запрещает все расширения на исполнении, без
+		 *       NTS_MACHINE: значение «0» запрещает все расширения на исполнении, без
 		 *       пересборки; иное число - маска запрещённых разрядов feature_t (например
 		 *       «0x40» снимает AVX2, «0x60» - AVX2 и SSSE3, оставляя SSE2), чем проверки
 		 *       принуждают выбор пути помимо опроса машины. Дальнейшие обращения отвечают по снятому
@@ -148,7 +148,7 @@ namespace nts {
 		 * @param feature the extension being checked
 		 * @return        the flag of the extension being present and not forbidden
 		 *
-		 * @note The first call takes the flags of the machine and reads the ANTS_MACHINE environment
+		 * @note The first call takes the flags of the machine and reads the NTS_MACHINE environment
 		 *       variable: the value «0» forbids all the extensions at the run time, without a rebuild;
 		 *       another number is a mask of the forbidden bits of feature_t (e.g. «0x40» drops AVX2,
 		 *       «0x60» - AVX2 and SSSE3 leaving SSE2), by which the checks force the choice of a path

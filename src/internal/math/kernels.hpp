@@ -2394,7 +2394,7 @@ namespace nts {
 				 * модуля; оттого указатели объявлены изменяемыми с ранним запретом. Берутся при MULX и
 				 * ADCX/ADOX у машины по признаку, снятому вызывающим (curve.cpp): на Xeon E5-2630 v4 умножение
 				 * цепочкой 30,8 → 24,9 нс при 25,8 у ecp_nistz256_mul_mont, квадрат 23,0 → 22,0 при 20,6.
-				 * Под ASan без оптимизации и при ANTS_NO_MACHINE не собираются. GCC младше девятой
+				 * Под ASan без оптимизации и при NTS_NO_MACHINE не собираются. GCC младше девятой
 				 * версии цепочки переносов ADX не собирает распределением регистров (базовый
 				 * GCC 8.3 DragonFly 6.4): там ветка закрыта порогом версии, и кривые идут
 				 * переносимыми ядрами на C++.
@@ -2416,7 +2416,7 @@ namespace nts {
 				 *       у squareminus4x; кривые идут переносимыми ядрами на C++. FreeBSD-clang
 				 *       и GCC эти цепочки собирают - ветка за ними сохранена
 				 */
-				#if !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE) && (defined(__clang__) || \
+				#if !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE) && (defined(__clang__) || \
 				    !defined(__GNUC__) || (__GNUC__ >= 9)) && !(defined(__x86_64__) && (defined(__APPLE__) || defined(__ANDROID__)))
 					/**
 					 * Признак наличия ядер P-256 и модуля вида 2^256 - c на MULX и ADCX/ADOX

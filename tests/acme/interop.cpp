@@ -56,7 +56,7 @@ using namespace nts;
 /**
  * Путь к набору образцов проверок
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * Адрес каталога эталонного сервера

@@ -135,7 +135,7 @@ namespace {
 		// Снятые разряды расширений
 		uint16_t result = 0;
 		// Переменная окружения запрета расширений
-		const char * variable = ::getenv("ANTS_MACHINE");
+		const char * variable = ::getenv("NTS_MACHINE");
 		// Если расширения запрещены окружением целиком
 		if((variable != nullptr) && (::strcmp(variable, "0") == 0))
 			// Выводим отсутствие расширений

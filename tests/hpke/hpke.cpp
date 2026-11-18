@@ -1094,7 +1094,7 @@ TEST(HpkeTest, Starved){
 /**
  * Каталог набора контрольных примеров
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * @brief Контрольный пример HPKE с постквантовым способом инкапсуляции

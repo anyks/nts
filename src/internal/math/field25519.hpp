@@ -379,7 +379,7 @@ namespace nts {
  * разряду на MULQ по столбцам (пространство имён columns). Под ASan без оптимизации не берётся
  * (регистры общего назначения заняты целиком, признак __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядер на словах
 	 */

@@ -107,7 +107,7 @@
 /**
  * Если сборка ведётся под ARM64 от младшего байта с 64-разрядным путём
  */
-#if defined(__aarch64__) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE) && defined(__NTS_POLY1305_WIDE__)
+#if defined(__aarch64__) && !defined(__ARM_BIG_ENDIAN) && !defined(NTS_NO_MACHINE) && defined(__NTS_POLY1305_WIDE__)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -120,7 +120,7 @@
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC с 64-разрядным путём
  */
-#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE) && defined(__NTS_POLY1305_WIDE__)
+#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(NTS_NO_MACHINE) && defined(__NTS_POLY1305_WIDE__)
 	/**
 	 * Подключаем заголовочный файл команд x86-64 вплоть до AVX2
 	 */
@@ -153,7 +153,7 @@
 /**
  * Если 64-разрядный путь собирается под x86-64 собирателем семейства GCC
  */
-#if defined(__NTS_POLY1305_WIDE__) && defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(ANTS_NO_MACHINE)
+#if defined(__NTS_POLY1305_WIDE__) && defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Объявляем наличие ядра блоков на ассемблере x86-64
 	 */

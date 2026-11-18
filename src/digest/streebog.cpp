@@ -192,7 +192,7 @@ namespace {
 	 *          младшие разряды
 	 *
 	 */
-	static constexpr uint64_t CONSTANTS[12][8] = {
+	static constexpr uint64_t CONSTNTS[12][8] = {
 		{
 			// Величина итерации с номером 1
 			0xDD806559F2A64507ULL, 0x05767436CC744D23ULL,
@@ -414,7 +414,7 @@ namespace {
 				 */
 				for(size_t i = 0; i < 11; i++){
 					// Вырабатываем ключ очередной итерации
-					transform(item, CONSTANTS[i], item);
+					transform(item, CONSTNTS[i], item);
 					// Применяем преобразование к состоянию шифруемого блока
 					transform(state, item, state);
 				}
@@ -426,7 +426,7 @@ namespace {
 				/**
 				 * Круг: выработка ключа очередной итерации и применение преобразования к состоянию
 				 */
-				#define __NTS_STREEBOG_ROUND__(N) transform(item, CONSTANTS[N], item); transform(state, item, state);
+				#define __NTS_STREEBOG_ROUND__(N) transform(item, CONSTNTS[N], item); transform(state, item, state);
 				// Разворачиваем применения преобразования вручную, круг за кругом
 				__NTS_STREEBOG_ROUND__(0) __NTS_STREEBOG_ROUND__(1) __NTS_STREEBOG_ROUND__(2) __NTS_STREEBOG_ROUND__(3)
 				__NTS_STREEBOG_ROUND__(4) __NTS_STREEBOG_ROUND__(5) __NTS_STREEBOG_ROUND__(6) __NTS_STREEBOG_ROUND__(7)
@@ -434,7 +434,7 @@ namespace {
 				#undef __NTS_STREEBOG_ROUND__
 			#endif
 			// Вырабатываем ключ последней итерации
-			transform(item, CONSTANTS[11], item);
+			transform(item, CONSTNTS[11], item);
 			/**
 			 * Выполняем сложение состояния с ключом последней итерации
 			 */
@@ -635,14 +635,14 @@ namespace {
 			 */
 			for(size_t i = 0; i < 11; i++){
 				// Читаем величину очередной итерации
-				fetch(CONSTANTS[i], c0, c1, c2, c3);
+				fetch(CONSTNTS[i], c0, c1, c2, c3);
 				// Вырабатываем ключ очередной итерации
 				lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
 				// Применяем преобразование к состоянию шифруемого блока
 				lpsx(s0, s1, s2, s3, k0, k1, k2, k3);
 			}
 			// Читаем величину последней итерации
-			fetch(CONSTANTS[11], c0, c1, c2, c3);
+			fetch(CONSTNTS[11], c0, c1, c2, c3);
 			// Вырабатываем ключ последней итерации
 			lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
 			// Складываем состояние с ключом последней итерации

@@ -77,7 +77,7 @@ namespace {
 	/**
 	 * Способ раундового преобразования выбирается ключом сборки
 	 */
-	#if !defined(ANTS_CIPHER_COMPACT)
+	#if !defined(NTS_CIPHER_COMPACT)
 		/**
 		 * @brief Таблица совмещённого раундового преобразования
 		 *

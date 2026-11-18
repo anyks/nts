@@ -46,7 +46,7 @@
  * @note Переносимый путь и векторные ветви собираются в один двоичный файл, а выбор
  *       делается на исполнении по опознанию машины (sys/machine.hpp). Команды
  *       порождаются в отдельных функциях с атрибутом цели, оттого общих ключей
- *       расширений сборке не нужно. Признак ANTS_NO_MACHINE выбрасывает векторные
+ *       расширений сборке не нужно. Признак NTS_NO_MACHINE выбрасывает векторные
  *       ветви из сборки вовсе. Векторная ветвь берётся только на целых блоках гаммы:
  *       остаток блока и хвост короче пачки идут переносимым путём, и нарезка данных
  *       на куски на итог не влияет. Рабочие слова векторных ветвей живут в регистрах
@@ -83,7 +83,7 @@
 /**
  * Если сборка ведётся под ARM64 от младшего байта
  */
-#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -96,7 +96,7 @@
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC либо Microsoft Visual C++ без ядер на ассемблере
  */
-#elif (defined(__x86_64__) || defined(__e2k__) || defined(__NTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE) && !defined(__NTS_CHACHA_X86_64__)
+#elif (defined(__x86_64__) || defined(__e2k__) || defined(__NTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(NTS_NO_MACHINE) && !defined(__NTS_CHACHA_X86_64__)
 	/**
 	 * Подключаем заголовочный файл команд x86-64 вплоть до AVX2
 	 */
@@ -186,7 +186,7 @@ namespace {
 	 * @brief Постоянные слова состояния: запись «expand 32-byte k» от младшего байта
 	 *
 	 */
-	static constexpr uint32_t CONSTANTS[4] = {0x61707865, 0x3320646E, 0x79622D32, 0x6B206574};
+	static constexpr uint32_t CONSTNTS[4] = {0x61707865, 0x3320646E, 0x79622D32, 0x6B206574};
 
 	/**
 	 * @brief Функция чтения слова в 32 разряда от младшего байта
@@ -1445,7 +1445,7 @@ bool nts::cipher::Chacha::start(const view_t & key, const view_t & nonce, const 
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Записываем очередное постоянное слово
-		this->_state[i] = CONSTANTS[i];
+		this->_state[i] = CONSTNTS[i];
 	/**
 	 * Выполняем запись слов ключа от младшего байта
 	 */
@@ -1636,7 +1636,7 @@ bool nts::cipher::Chacha::hchacha(const view_t & key, const view_t & nonce, uint
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Константы ядра потока
-		work[i] = CONSTANTS[i];
+		work[i] = CONSTNTS[i];
 	/**
 	 * Выполняем заполнение ключа
 	 */

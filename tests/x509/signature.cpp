@@ -896,7 +896,7 @@ static const char * CERTIFICATE_EC512 =
 /**
  * Содержимое, подписанное ключами набора образцов ради проверки подписи владения
  */
-static const char * POSSESSION = "ANTS possession of the key";
+static const char * POSSESSION = "NTS possession of the key";
 
 /**
  * Подпись содержимого ключом ec256.pem с хешем SHA-256: SEQUENCE {r, s}
@@ -959,7 +959,7 @@ static const char * SIGNATURE_ED25519 =
  */
 static bool corpus(const char * name, std::vector <std::vector <uint8_t>> & result) {
 	// Путь к файлу набора образцов
-	const std::string path = std::string(ANTS_CORPUS) + "/" + name;
+	const std::string path = std::string(NTS_CORPUS) + "/" + name;
 	// Открываем файл набора образцов
 	std::ifstream file(path, std::ios::binary);
 	// Если файл открыть не удалось
@@ -1093,7 +1093,7 @@ TEST(SignatureTest, Classic) {
  */
 TEST(SignatureTest, Variants) {
 	// Записи сертификатов разновидностей
-	static const char * VARIANTS[10] = {
+	static const char * VARINTS[10] = {
 		CERTIFICATE_PSS256, CERTIFICATE_PSS384, CERTIFICATE_PSS512,
 		CERTIFICATE_RSA1, CERTIFICATE_RSA224, CERTIFICATE_RSA384, CERTIFICATE_RSA512,
 		CERTIFICATE_EC224, CERTIFICATE_EC384, CERTIFICATE_EC512
@@ -1109,7 +1109,7 @@ TEST(SignatureTest, Variants) {
 	 */
 	for(size_t i = 0; i < 10; i++)
 		// Проверяем схождение подписи и отказ при порче тела и подписи
-		spoil(bytes(VARIANTS[i]), LABELS[i]);
+		spoil(bytes(VARINTS[i]), LABELS[i]);
 	// Запись сертификата RSASSA-PSS
 	const std::vector <uint8_t> data = bytes(CERTIFICATE_PSS256);
 	// Объект разбираемого сертификата

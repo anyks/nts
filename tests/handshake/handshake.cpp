@@ -76,7 +76,7 @@ static vector <uint8_t> decode(const char * text) noexcept {
 	// Получаем длину разбираемой строки
 	const size_t length = ::strlen(text);
 	/**
-	 * Выполняем перебор пар знаков шестнадцатеричной записи
+	 * Перебираем пары знаков шестнадцатеричной записи
 	 */
 	for(size_t i = 0; (i + 1) < length; i += 2)
 		// Добавляем очередной разобранный байт
@@ -93,7 +93,7 @@ TEST(HandshakeTest, Header){
 	handshake::header_t header;
 	// Разбираемая обвязка сообщения завершения рукопожатия
 	const uint8_t data[] = {0x14, 0x00, 0x00, 0x20};
-	// Выполняем разбор обвязки сообщения рукопожатия
+	// Разбираем обвязку сообщения рукопожатия
 	ASSERT_EQ(handshake::parse(view_t(data, sizeof(data)), header), handshake::error_t::NONE);
 	// Проверяем вид разобранного сообщения рукопожатия
 	ASSERT_EQ(header.type, handshake::type_t::FINISHED);
@@ -101,13 +101,13 @@ TEST(HandshakeTest, Header){
 	ASSERT_EQ(header.size, static_cast <size_t> (32));
 	// Место, в которое записывается обвязка сообщения
 	uint8_t buffer[handshake::HANDSHAKE_HEADER];
-	// Выполняем обратную запись разобранной обвязки
+	// Записываем разобранную обвязку обратно
 	ASSERT_EQ(handshake::build(header, buffer), handshake::error_t::NONE);
 	// Проверяем схождение записанной обвязки с разобранной
 	ASSERT_EQ(::memcmp(buffer, data, sizeof(data)), 0);
 	// Разбираемая обвязка сжатой цепочки сертификатов по RFC 8879
 	const uint8_t compressed[] = {0x19, 0x00, 0x01, 0x00};
-	// Выполняем разбор обвязки сжатой цепочки сертификатов
+	// Разбираем обвязку сжатой цепочки сертификатов
 	ASSERT_EQ(handshake::parse(view_t(compressed, sizeof(compressed)), header), handshake::error_t::NONE);
 	// Проверяем вид разобранного сообщения: сжатая цепочка сертификатов
 	ASSERT_EQ(header.type, handshake::type_t::COMPRESSED);
@@ -121,7 +121,7 @@ TEST(HandshakeTest, Header){
 	ASSERT_EQ(handshake::parse(view_t(hungry, sizeof(hungry)), header), handshake::error_t::HUNGRY);
 	// Разбираемая обвязка просьбы о пересогласовании HelloRequest: вид ноль, тело пусто
 	const uint8_t request[] = {0x00, 0x00, 0x00, 0x00};
-	// Выполняем разбор обвязки просьбы о пересогласовании
+	// Разбираем обвязку просьбы о пересогласовании
 	ASSERT_EQ(handshake::parse(view_t(request, sizeof(request)), header), handshake::error_t::NONE);
 	// Проверяем вид разобранного сообщения: просьба о пересогласовании
 	ASSERT_EQ(header.type, handshake::type_t::HELLO_REQUEST);
@@ -135,7 +135,7 @@ TEST(HandshakeTest, Header){
 	ASSERT_FALSE(handshake::known(handshake::type_t::NONE));
 	// Разбираемая обвязка просьбы о подтверждении адреса HelloVerifyRequest (раздел 4.2.1 RFC 6347): вид три
 	const uint8_t verification[] = {0x03, 0x00, 0x00, 0x03, 0xFE, 0xFF, 0x00};
-	// Выполняем разбор обвязки просьбы о подтверждении адреса
+	// Разбираем обвязку просьбы о подтверждении адреса
 	ASSERT_EQ(handshake::parse(view_t(verification, sizeof(verification)), header), handshake::error_t::NONE);
 	// Проверяем вид разобранного сообщения: просьба о подтверждении адреса
 	ASSERT_EQ(header.type, handshake::type_t::VERIFY_REQUEST);
@@ -170,16 +170,16 @@ TEST(HandshakeTest, Independence){
 	// Перечень сообщений рукопожатия контрольного примера
 	vector <vector <uint8_t>> sample;
 	/**
-	 * Выполняем перебор сообщений рукопожатия контрольного примера
+	 * Перебираем сообщения рукопожатия контрольного примера
 	 */
 	for(size_t i = 0; i < count; i++){
 		// Получаем очередное сообщение рукопожатия
 		sample.push_back(decode(MESSAGES[i]));
-		// Выполняем склейку очередного сообщения в переписку рукопожатия
+		// Склеиваем очередное сообщение в переписку рукопожатия
 		stream.insert(stream.end(), sample[i].begin(), sample[i].end());
 	}
 	/**
-	 * Выполняем перебор размеров куска, которым подаётся переписка рукопожатия
+	 * Перебираем размеры куска, которым подаётся переписка рукопожатия
 	 */
 	for(size_t chunk = 1; chunk <= stream.size(); chunk = ((chunk < 8) ? (chunk + 1) : (chunk * 3))){
 		// Объект сборщика входящих сообщений рукопожатия
@@ -187,25 +187,25 @@ TEST(HandshakeTest, Independence){
 		// Число уже собранных сообщений рукопожатия
 		size_t index = 0;
 		/**
-		 * Выполняем подачу переписки рукопожатия кусками заданной длины
+		 * Подаём переписку рукопожатия кусками заданной длины
 		 */
 		for(size_t offset = 0; offset < stream.size(); offset += chunk){
 			// Определяем длину очередного подаваемого куска
 			const size_t size = ((stream.size() - offset) < chunk ? (stream.size() - offset) : chunk);
-			// Выполняем подачу очередного куска переписки рукопожатия
+			// Подаём очередной кусок переписки рукопожатия
 			/**
 			 * Пустой кусок подаётся сборщику успешностью: подать нечего, но и
 			 * отказывать не за что - записи вправе приходить и порожними
 			 */
 			ASSERT_EQ(reader.push(view_t(nullptr, 0)), handshake::error_t::NONE) << "кусок " << chunk;
-			// Выполняем подачу очередного куска сборщику сообщений
+			// Подаём очередной кусок сборщику сообщений
 			ASSERT_EQ(reader.push(view_t(stream.data() + offset, size)), handshake::error_t::NONE) << "кусок " << chunk;
 			// Обвязка очередного собранного сообщения
 			handshake::header_t header;
 			// Тело очередного собранного сообщения
 			view_t payload;
 			/**
-			 * Выполняем выборку всех собранных на этот миг сообщений
+			 * Выбираем все собранные на этот миг сообщения
 			 */
 			while(reader.next(header, payload) == handshake::error_t::NONE){
 				// Проверяем схождение вида собранного сообщения с контрольным примером
@@ -240,14 +240,14 @@ TEST(HandshakeTest, Compose){
 	// Переписка рукопожатия контрольного примера
 	vector <uint8_t> sample;
 	/**
-	 * Выполняем перебор сообщений рукопожатия контрольного примера
+	 * Перебираем сообщения рукопожатия контрольного примера
 	 */
 	for(size_t i = 0; i < count; i++){
 		// Получаем очередное сообщение рукопожатия
 		const vector <uint8_t> message = decode(MESSAGES[i]);
-		// Выполняем составление очередного сообщения рукопожатия
+		// Составляем очередное сообщение рукопожатия
 		ASSERT_EQ(writer.push(TYPES[i], view_t(message.data() + handshake::HANDSHAKE_HEADER, message.size() - handshake::HANDSHAKE_HEADER)), handshake::error_t::NONE) << "сообщение " << i;
-		// Выполняем склейку очередного сообщения в переписку рукопожатия
+		// Склеиваем очередное сообщение в переписку рукопожатия
 		sample.insert(sample.end(), message.begin(), message.end());
 	}
 	// Получаем составленную переписку рукопожатия
@@ -258,7 +258,7 @@ TEST(HandshakeTest, Compose){
 	ASSERT_EQ(::memcmp(data.data, sample.data(), data.size), 0);
 	// Проверяем отказ составления сообщения неизвестного вида
 	ASSERT_EQ(writer.push(static_cast <handshake::type_t> (0x2A), view_t(sample.data(), 1)), handshake::error_t::TYPE);
-	// Выполняем сброс накопителя составленных сообщений
+	// Сбрасываем накопитель составленных сообщений
 	writer.clear();
 	// Проверяем опустошение накопителя составителя
 	ASSERT_EQ(writer.pending(), static_cast <size_t> (0));
@@ -294,7 +294,7 @@ TEST(HandshakeTest, Limit){
 	ASSERT_TRUE(reader.limit(16));
 	// Обвязка сообщения, объявившего тело сверх принятого связью предела
 	const uint8_t source[] = {0x0B, 0x00, 0x01, 0x51};
-	// Выполняем подачу обвязки объявленного сообщения
+	// Подаём обвязку объявленного сообщения
 	ASSERT_EQ(reader.push(view_t(source, sizeof(source))), handshake::error_t::NONE);
 	// Обвязка собранного сообщения
 	handshake::header_t header;
@@ -306,7 +306,7 @@ TEST(HandshakeTest, Limit){
 	ASSERT_EQ(reader.pending(), sizeof(source));
 	// Проверяем пустоту просмотра ещё не выданного сообщения
 	ASSERT_EQ(reader.message().data, nullptr);
-	// Выполняем сброс состояния сборщика
+	// Сбрасываем состояние сборщика
 	reader.clear();
 	// Проверяем опустошение накопителя сборщика
 	ASSERT_EQ(reader.pending(), static_cast <size_t> (0));
@@ -357,10 +357,10 @@ static handshake::error_t exhaust(const vector <vector <uint8_t>> & messages, bo
 	// Итог очередного шага
 	handshake::error_t outcome = handshake::error_t::NONE;
 	/**
-	 * Выполняем перебор сообщений рукопожатия контрольного примера
+	 * Перебираем сообщения рукопожатия контрольного примера
 	 */
 	for(size_t i = 0; i < messages.size(); i++){
-		// Выполняем составление очередного сообщения рукопожатия
+		// Составляем очередное сообщение рукопожатия
 		outcome = writer.push(TYPES[i], view_t(messages[i].data() + handshake::HANDSHAKE_HEADER, messages[i].size() - handshake::HANDSHAKE_HEADER));
 		// Если составление сообщения не состоялось
 		if(outcome != handshake::error_t::NONE)
@@ -372,12 +372,12 @@ static handshake::error_t exhaust(const vector <vector <uint8_t>> & messages, bo
 	// Объект сборщика входящих сообщений рукопожатия
 	handshake::reader_t reader;
 	/**
-	 * Выполняем подачу переписки рукопожатия кусками по семь байтов
+	 * Подаём переписку рукопожатия кусками по семь байтов
 	 */
 	for(size_t offset = 0; offset < data.size; offset += 7){
 		// Определяем длину очередного подаваемого куска
 		const size_t size = ((data.size - offset) < 7 ? (data.size - offset) : 7);
-		// Выполняем подачу очередного куска переписки
+		// Подаём очередной кусок переписки
 		outcome = reader.push(view_t(data.data + offset, size));
 		// Если подача куска не состоялась
 		if(outcome != handshake::error_t::NONE)
@@ -388,7 +388,7 @@ static handshake::error_t exhaust(const vector <vector <uint8_t>> & messages, bo
 		// Тело очередного собранного сообщения
 		view_t payload;
 		/**
-		 * Выполняем выборку всех собранных на этот миг сообщений
+		 * Выбираем все собранные на этот миг сообщения
 		 */
 		while((outcome = reader.next(header, payload)) == handshake::error_t::NONE){
 			// Если собранное сообщение с исходным не сходится
@@ -416,7 +416,7 @@ TEST(HandshakeTest, Starved){
 	// Сообщения рукопожатия контрольного примера вместе с обвязкой
 	vector <vector <uint8_t>> messages;
 	/**
-	 * Выполняем перебор сообщений рукопожатия контрольного примера
+	 * Перебираем сообщения рукопожатия контрольного примера
 	 */
 	for(size_t i = 0; i < (sizeof(MESSAGES) / sizeof(MESSAGES[0])); i++)
 		// Добавляем очередное разобранное сообщение рукопожатия
@@ -424,7 +424,7 @@ TEST(HandshakeTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе составление и сборка
+	 * Перебираем запасы выделений: на всяком запасе составление и сборка
 	 * обязаны ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 256; budget++){
@@ -435,7 +435,7 @@ TEST(HandshakeTest, Starved){
 		{
 			// Отмеряем запас выделений на время составления и сборки
 			starve::ration_t ration(budget);
-			// Выполняем составление и сборку при отмеренном запасе
+			// Составляем и собираем при отмеренном запасе
 			outcome = exhaust(messages, intact);
 		}
 		// Проверяем, что составление и сборка ответили успехом либо отказом памяти

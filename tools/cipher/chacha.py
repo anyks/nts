@@ -58,8 +58,8 @@ ROT16 = [2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13]
 ROT8 = [3, 0, 1, 2, 7, 4, 5, 6, 11, 8, 9, 10, 15, 12, 13, 14]
 def words(vals):
 	return sum(([v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF] for v in vals), [])
-CONSTANTS = ROT16 * 2 + ROT8 * 2 + words(range(8)) + words([8] * 8) + words([4] * 4)
-assert len(CONSTANTS) == 144
+CONSTNTS = ROT16 * 2 + ROT8 * 2 + words(range(8)) + words([8] * 8) + words([4] * 4)
+assert len(CONSTNTS) == 144
 
 # ---------- ядро ----------
 class Kernel:
@@ -245,7 +245,7 @@ def kernel_cpp(kern, name, brief):
 		'\t\t\t\t * @param source покрываемые данные пачками по %d байтов\n\t\t\t\t * @param result место под покрытые данные\n'
 		'\t\t\t\t * @param count  число пачек, не меньше одной\n\t\t\t\t *\n\t\t\t\t */\n' % (brief, kern.size, 64 * kern.lanes)
 		+ '\t\t\t\tstatic void %s(const uint32_t * state, uint8_t * frame, const uint8_t * source, uint8_t * result, size_t count) noexcept {\n\t\t\t\t\t__asm__ __volatile__(\n' % name)
-	tail = ('\n\t\t\t\t\t\t: [src] "+r" (source), [dst] "+r" (result), [count] "+r" (count)\n\t\t\t\t\t\t: [state] "r" (state), [frame] "r" (frame), [cst] "r" (CONSTANTS)\n'
+	tail = ('\n\t\t\t\t\t\t: [src] "+r" (source), [dst] "+r" (result), [count] "+r" (count)\n\t\t\t\t\t\t: [state] "r" (state), [frame] "r" (frame), [cst] "r" (CONSTNTS)\n'
 		'\t\t\t\t\t\t: %s, "cc", "memory");\n\t\t\t\t}\n' % regs)
 	return head + asmtext(render(kern), '\t\t\t\t\t\t') + tail
 
@@ -284,8 +284,8 @@ HEADER = """/**
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_CIPHER_CHACHA__
-#define __ANTS_INTERNAL_CIPHER_CHACHA__
+#ifndef __NTS_INTERNAL_CIPHER_CHACHA__
+#define __NTS_INTERNAL_CIPHER_CHACHA__
 
 /**
  * Стандартные заголовочные файлы
@@ -301,13 +301,13 @@ HEADER = """/**
 /**
  * Ядра берутся у gcc и clang на x86-64; у прочих собирателей и архитектур остаются ветви на
  * интринсиках либо переносимый путь. Под ASan без оптимизации ядра не берутся (признак
- * __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
+ * __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядер на ассемблере
 	 */
-	#define __ANTS_CHACHA_X86_64__
+	#define __NTS_CHACHA_X86_64__
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -334,7 +334,7 @@ HEADER = """/**
 				/**
 				 * @brief Постоянные ядер: маски вращения на 16 и 8 разрядов в двух полосах, приращения счётчиков 0…7, восьмёрки и четвёрки
 				 */
-				alignas(32) static const uint8_t CONSTANTS[144] = {
+				alignas(32) static const uint8_t CONSTNTS[144] = {
 %s
 				};
 """
@@ -343,13 +343,13 @@ FOOTER = """			}
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_CIPHER_CHACHA__
+#endif // __NTS_INTERNAL_CIPHER_CHACHA__
 """
 
 def header():
 	rows = []
 	for i in range(0, 144, 16):
-		rows.append('\t\t\t\t\t' + ', '.join(str(v) for v in CONSTANTS[i:i + 16]) + (',' if i + 16 < 144 else ''))
+		rows.append('\t\t\t\t\t' + ', '.join(str(v) for v in CONSTNTS[i:i + 16]) + (',' if i + 16 < 144 else ''))
 	parts = [HEADER % (20 * 32, 20 * 16, '\n'.join(rows))]
 	names = {'avx2': 'Метод покрытия гаммой пачек по восемь блоков ядром AVX2', 'ssse3': 'Метод покрытия гаммой пачек по четыре блока ядром SSSE3', 'sse2': 'Метод покрытия гаммой пачек по четыре блока ядром SSE2'}
 	for tag in ('avx2', 'ssse3', 'sse2'):
@@ -364,7 +364,7 @@ def run(kern, state, source, count):
 	V = kern.V; L = kern.lanes
 	mem = bytearray(1 << 17)
 	FRAME, CST, STATE, SRC, DST = 0x1000, 0x2000, 0x3000, 0x4000, 0x10000
-	mem[CST:CST + 144] = bytes(CONSTANTS)
+	mem[CST:CST + 144] = bytes(CONSTNTS)
 	mem[STATE:STATE + 64] = b''.join(w.to_bytes(4, 'little') for w in state)
 	mem[SRC:SRC + len(source)] = source
 	ptr = {'frame': FRAME, 'cst': CST, 'state': STATE, 'src': SRC, 'dst': DST}

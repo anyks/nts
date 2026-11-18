@@ -61,7 +61,7 @@
  *       собирателя вместо признака набора
  *
  */
-#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_X64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_X64__) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * x86-64 собирается интринсиками SSE
 	 */
@@ -228,7 +228,7 @@ namespace nts {
 		 * ключ не нужен вовсе, потому ядро объявлено здесь внешней связью и зовётся лишь при
 		 * признаке AVX2 машины
 		 */
-		#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+		#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
 			/**
 			 * @brief Функция кодирования очереди блоков двадцати четырёх байтов командами AVX2
 			 *
@@ -245,7 +245,7 @@ namespace nts {
 		/**
 		 * Компиляционные стены машинных ядер: x86-64 требует SSSE3, ARM64 - NEON основания
 		 */
-#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_X64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_X64__) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 		/**
 		 * @brief Пространство имён машинных ядер основания 64
 		 *
@@ -373,7 +373,7 @@ namespace nts {
 				/**
 				 * Машина несёт ядро кодирования: стены те же, что у самого ядра
 				 */
-				#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_X64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+				#if((defined(__x86_64__) && defined(__SSSE3__)) || (defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_X64__) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 					/**
 					 * x86-64 спрашивает команды SSSE3
 					 */

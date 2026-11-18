@@ -70,7 +70,7 @@ namespace {
 	/**
 	 * Путь к набору образцов
 	 */
-	static const char * CORPUS = ANTS_CORPUS;
+	static const char * CORPUS = NTS_CORPUS;
 	/**
 	 * @brief Функция чтения файла набора целиком
 	 *
@@ -352,7 +352,7 @@ namespace {
 	 */
 	static std::string __nts_bssltool__() noexcept {
 		// Путь из окружения
-		const char * given = ::getenv("ANTS_BSSL");
+		const char * given = ::getenv("NTS_BSSL");
 		// Если путь задан окружением
 		if((given != nullptr) && (::access(given, X_OK) == 0))
 			// Выводим путь
@@ -1373,7 +1373,7 @@ TEST(EchTest, Boringssl2){
 	// Если инструмента нет
 	if(tool.empty()){
 		// Пропускаем проверку вслух
-		GTEST_SKIP() << "bssl (BoringSSL) недоступен: задайте ANTS_BSSL";
+		GTEST_SKIP() << "bssl (BoringSSL) недоступен: задайте NTS_BSSL";
 	}
 	// Пути к образцам
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
@@ -1506,11 +1506,11 @@ TEST(EchTest, Boringssl2){
  */
 TEST(EchTest, Openssl){
 	// Путь к openssl 4.0 из окружения
-	const char * given = ::getenv("ANTS_OPENSSL4");
+	const char * given = ::getenv("NTS_OPENSSL4");
 	// Если путь не задан либо двоичный файл неисполняем
 	if((given == nullptr) || (::access(given, X_OK) != 0)){
 		// Пропускаем проверку вслух
-		GTEST_SKIP() << "openssl 4.0 недоступен: задайте ANTS_OPENSSL4";
+		GTEST_SKIP() << "openssl 4.0 недоступен: задайте NTS_OPENSSL4";
 	}
 	// Имя двоичного файла openssl 4.0
 	const std::string tool(given);
@@ -2055,7 +2055,7 @@ TEST(EchTest, Boringssl3){
 	// Проверяем, что данные не пусты
 	if(tool.empty()){
 		// Пропускаем проверку: недоступен внешний инструмент
-		GTEST_SKIP() << "bssl (BoringSSL) недоступен: задайте ANTS_BSSL";
+		GTEST_SKIP() << "bssl (BoringSSL) недоступен: задайте NTS_BSSL";
 	}
 	// Задаём пути файлов набора
 	const std::string echlist = std::string(CORPUS) + "/ech/bssl.list";

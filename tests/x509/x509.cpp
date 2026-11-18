@@ -1793,7 +1793,7 @@ TEST(X509Test, Starved) {
  */
 static vector <uint8_t> corpus(const char * name) {
 	// Открываем файл набора образцов
-	ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+	ifstream file(string(NTS_CORPUS) + "/" + name, ios::binary);
 	// Если файл открыть не удалось
 	if(!file.is_open())
 		// Выводим пустой накопитель

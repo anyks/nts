@@ -379,17 +379,17 @@ TEST(FieldTest, Starved){
 		/**
 		 * Наблюдатель есть: снятие отравы области памяти перед чтением накопителя
 		 */
-		#define ANTS_FIELD_UNPOISON(data, size) ASAN_UNPOISON_MEMORY_REGION(data, size)
+		#define NTS_FIELD_UNPOISON(data, size) ASAN_UNPOISON_MEMORY_REGION(data, size)
 	#endif
 #endif
 /**
  * Макрос не выставлен: наблюдателя адресов в сборке нет
  */
-#if !defined(ANTS_FIELD_UNPOISON)
+#if !defined(NTS_FIELD_UNPOISON)
 	/**
 	 * Наблюдателя нет: снятие отравы вырождается в пустое действие
 	 */
-	#define ANTS_FIELD_UNPOISON(data, size) ((void) 0)
+	#define NTS_FIELD_UNPOISON(data, size) ((void) 0)
 #endif
 
 /**
@@ -422,7 +422,7 @@ TEST(FieldTest, Wiped){
 	// Накопитель пуст
 	ASSERT_EQ(builder.pending(), static_cast <size_t> (0));
 	// Снимаем отраву наблюдателя адресов с прежней области накопителя
-	ANTS_FIELD_UNPOISON(before.data, before.size);
+	NTS_FIELD_UNPOISON(before.data, before.size);
 	// Число ненулевых байтов прежней области накопителя
 	size_t dirty = 0;
 	/**

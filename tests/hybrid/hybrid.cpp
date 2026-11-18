@@ -55,7 +55,7 @@ namespace {
 	/**
 	 * Путь к набору ключей
 	 */
-	static const char * CORPUS = ANTS_CORPUS;
+	static const char * CORPUS = NTS_CORPUS;
 	/**
 	 * Длина доли клиента гибридной группы
 	 */
@@ -89,7 +89,7 @@ namespace {
 	 * @return       признак успешности чтения
 	 *
 	 */
-	static bool identity(const char * name, context::credential_t & result) noexcept {
+	static bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Загружаем содержимое из файла набора
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Объявляем список байтов
@@ -109,7 +109,7 @@ namespace {
 	 * @return       признак того, что байты передавались
 	 *
 	 */
-	static bool pump(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак передачи
 		bool moved = false;
 		/**
@@ -160,7 +160,7 @@ namespace {
 	 * @return       признак того, что байты передавались
 	 *
 	 */
-	static bool forth(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_forth__(client::context_t & client, server::context_t & server) noexcept {
 		// Берём вывод клиента
 		const view_t data = client.output();
 		// Если вывод стороны опустошён
@@ -184,7 +184,7 @@ namespace {
 	 * @return       признак того, что байты передавались
 	 *
 	 */
-	static bool back(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_back__(client::context_t & client, server::context_t & server) noexcept {
 		// Берём вывод сервера
 		const view_t data = server.output();
 		// Если вывод стороны опустошён
@@ -207,11 +207,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	static void converse(client::context_t & client, server::context_t & server) noexcept {
+	static void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
 		 * Перебираем: передачи байтов между сторонами при условии, что они двигают данные и их меньше шестнадцати
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			continue;
 	}
 	/**
@@ -222,7 +222,7 @@ namespace {
 	 * @return       признак успешности
 	 *
 	 */
-	static bool captured(client::context_t & client, fingerprint::profile_t & result) noexcept {
+	static bool __nts_captured__(client::context_t & client, fingerprint::profile_t & result) noexcept {
 		// Возвращаем признак успешности проверки
 		return (fingerprint::parse(client.output(), result) == fingerprint::error_t::NONE);
 	}
@@ -263,7 +263,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны
 	 *
 	 */
-	static bool exchanged(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_exchanged__(client::context_t & client, server::context_t & server) noexcept {
 		// Задаём текст запроса
 		const string request = "Запрос по гибридной группе", reply = "Ответ по гибридной группе";
 		// Если запись запроса клиентом удалась
@@ -271,7 +271,7 @@ namespace {
 			// Возвращаем признак неудачи
 			return false;
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Объявляем список байтов
 		vector <uint8_t> received;
 		// Если чтение запроса сервером удалось и текст совпал
@@ -283,8 +283,8 @@ namespace {
 			// Возвращаем признак неудачи
 			return false;
 		// Проводим рукопожатие сторон
-		converse(client, server);
-		// Очищаем
+		__nts_converse__(client, server);
+		// Очищаем накопитель принятого
 		received.clear();
 		// Возвращаем признак успешности проверки
 		return ((client.read(received) == context::error_t::NONE) && (string(received.begin(), received.end()) == reply));
@@ -295,9 +295,9 @@ namespace {
 	 * @return путь либо пустая строка
 	 *
 	 */
-	static std::string bssltool() noexcept {
+	static std::string __nts_bssltool__() noexcept {
 		// Ищем переменную пути инструмента
-		const char * given = ::getenv("ANTS_BSSL");
+		const char * given = ::getenv("NTS_BSSL");
 		// Если путь задан и исполняем
 		if((given != nullptr) && (::access(given, X_OK) == 0))
 			// Заданный путь годный, выводим его
@@ -315,7 +315,7 @@ namespace {
 	 * @return признак того, что openssl знает X25519MLKEM768
 	 *
 	 */
-	static bool kemready() noexcept {
+	static bool __nts_kemready__() noexcept {
 		// Возвращаем признак успешности проверки
 		return (__nts_shell__("(openssl list -tls-groups 2>/dev/null | tr ':' '\\n' | grep -qw X25519MLKEM768) >/dev/null 2>&1") == 0);
 	}
@@ -326,7 +326,7 @@ namespace {
 	 * @return     признак успешности
 	 *
 	 */
-	static bool chromehello(vector <uint8_t> & body) {
+	static bool __nts_chromehello__(vector <uint8_t> & body) {
 		// Заводим приветствие клиента
 		hello::client_t greeting;
 		// Заполняем поле приветствия
@@ -349,7 +349,7 @@ namespace {
 		greeting.methods.push_back(0);
 		// Объявляем статический буфер байтов
 		static vector <uint8_t> name, share, groups, versions, schemes, modes, formats, protocols, padding;
-		// Очищаем
+		// Очищаем накопители расширений
 		name.clear(); share.clear(); groups.clear(); versions.clear(); schemes.clear(); modes.clear(); formats.clear(); protocols.clear(); padding.clear();
 		// Задаём проверочные байты
 		static const uint8_t STUB[1] = {0x00};
@@ -369,12 +369,19 @@ namespace {
 		for(size_t i = 0; i < curvekey.size(); i++) curvekey[i] = static_cast <uint8_t> (i + 100);
 		// Если имя example.com разобралось
 		if(extension::name(view_t(reinterpret_cast <const uint8_t *> ("example.com"), 11), name) != extension::error_t::NONE) return false;
+		// Тело долей обмена собирается из буфера
 		if(extension::shares(vector <extension::share_t> {extension::share_t(static_cast <extension::group_t> (0x2A2A), view_t(STUB, 1)), extension::share_t(extension::group_t::X25519MLKEM768, view_t(kemkey.data(), kemkey.size())), extension::share_t(extension::group_t::X25519, view_t(curvekey.data(), curvekey.size()))}, share) != extension::error_t::NONE) return false;
+		// Список групп совпадает с записанным
 		if(extension::groups(vector <extension::group_t> {static_cast <extension::group_t> (0x2A2A), extension::group_t::X25519MLKEM768, extension::group_t::X25519, extension::group_t::SECP256R1, extension::group_t::SECP384R1}, groups) != extension::error_t::NONE) return false;
+		// Список изданий совпадает с записанным
 		if(extension::versions(vector <uint16_t> {0x2A2A, 0x0304, 0x0303}, versions) != extension::error_t::NONE) return false;
+		// Список схем совпадает с записанным
 		if(extension::schemes(vector <extension::scheme_t> {static_cast <extension::scheme_t> (0x0403), static_cast <extension::scheme_t> (0x0804), static_cast <extension::scheme_t> (0x0401), static_cast <extension::scheme_t> (0x0503), static_cast <extension::scheme_t> (0x0805), static_cast <extension::scheme_t> (0x0501), static_cast <extension::scheme_t> (0x0806), static_cast <extension::scheme_t> (0x0601)}, schemes) != extension::error_t::NONE) return false;
+		// Список режимов совпадает с записанным
 		if(extension::modes(vector <extension::regime_t> {extension::regime_t::SHARED}, modes) != extension::error_t::NONE) return false;
+		// Список форматов совпадает с записанным
 		if(extension::formats(vector <uint8_t> {0x00}, formats) != extension::error_t::NONE) return false;
+		// Список протоколов совпадает с записанным
 		if(extension::protocols(vector <string> {"h2", "http/1.1"}, protocols) != extension::error_t::NONE) return false;
 		// Заполняем заданным байтом
 		padding.assign(100, 0x00);
@@ -426,7 +433,7 @@ TEST(HybridTest, Loopback){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Создаём контекст клиента
 	client::context_t client;
 	// Создаём контекст сервера
@@ -447,7 +454,7 @@ TEST(HybridTest, Loopback){
 	// Объявляем профиль отпечатка
 	fingerprint::profile_t offer;
 	// Проверяем снятие приветствия
-	ASSERT_TRUE(captured(client, offer));
+	ASSERT_TRUE(__nts_captured__(client, offer));
 	// Объявляем список долей
 	const vector <extension::share_t> offered = offersof(offer);
 	// Проверяем размер
@@ -458,7 +465,7 @@ TEST(HybridTest, Loopback){
 	// Ключ инкапсуляции в доле годен
 	EXPECT_TRUE(agreement::validate(agreement::kem_t::MLKEM768, view_t(offered[0].key.data, agreement::encapsulation(agreement::kem_t::MLKEM768))));
 	// Первая передача: приветствие уходит серверу
-	ASSERT_TRUE(forth(client, server));
+	ASSERT_TRUE(__nts_forth__(client, server));
 	// Ответ сервера: доля сервера длиной шифртекста и точки
 	const view_t answer = server.output();
 	// Проверяем, что полученное значение больше ожидаемого
@@ -479,14 +486,14 @@ TEST(HybridTest, Loopback){
 		EXPECT_TRUE(found);
 	}
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Согласованная группа у обеих сторон - гибрид
 	EXPECT_EQ(client.group(), extension::group_t::X25519MLKEM768);
 	EXPECT_EQ(server.group(), extension::group_t::X25519MLKEM768);
 	// Проверяем обмен данными в обе стороны
-	EXPECT_TRUE(exchanged(client, server));
+	EXPECT_TRUE(__nts_exchanged__(client, server));
 }
 
 /**
@@ -497,7 +504,7 @@ TEST(HybridTest, Retry){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	{
 		// Создаём контекст клиента
 		client::context_t client;
@@ -515,12 +522,12 @@ TEST(HybridTest, Retry){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Приветствие и просьба о повторе
-		ASSERT_TRUE(forth(client, server));
-		ASSERT_TRUE(back(client, server));
+		ASSERT_TRUE(__nts_forth__(client, server));
+		ASSERT_TRUE(__nts_back__(client, server));
 		// Повторное приветствие клиента
 		fingerprint::profile_t again;
 		// Проверяем снятие приветствия
-		ASSERT_TRUE(captured(client, again));
+		ASSERT_TRUE(__nts_captured__(client, again));
 		// Объявляем список долей
 		const vector <extension::share_t> offered = offersof(again);
 		// Проверяем размер
@@ -529,11 +536,11 @@ TEST(HybridTest, Retry){
 		EXPECT_EQ(offered[0].group, extension::group_t::X25519MLKEM768);
 		EXPECT_EQ(offered[0].key.size, OFFER);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем обмен данными в обе стороны
-		EXPECT_TRUE(exchanged(client, server));
+		EXPECT_TRUE(__nts_exchanged__(client, server));
 	}
 	{
 		// Создаём контекст клиента
@@ -554,7 +561,7 @@ TEST(HybridTest, Retry){
 		// Объявляем профиль отпечатка
 		fingerprint::profile_t offer;
 		// Проверяем снятие приветствия
-		ASSERT_TRUE(captured(client, offer));
+		ASSERT_TRUE(__nts_captured__(client, offer));
 		// Объявляем список долей
 		const vector <extension::share_t> offered = offersof(offer);
 		// Проверяем размер
@@ -565,14 +572,14 @@ TEST(HybridTest, Retry){
 		// До установления группа не выбрана
 		EXPECT_EQ(client.group(), extension::group_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Согласованная группа - X25519
 		EXPECT_EQ(client.group(), extension::group_t::X25519);
 		EXPECT_EQ(server.group(), extension::group_t::X25519);
 		// Проверяем обмен данными в обе стороны
-		EXPECT_TRUE(exchanged(client, server));
+		EXPECT_TRUE(__nts_exchanged__(client, server));
 	}
 }
 
@@ -584,7 +591,7 @@ TEST(HybridTest, Profile){
 	// Объявляем список байтов
 	vector <uint8_t> body;
 	// Проверяем истинность условия
-	ASSERT_TRUE(chromehello(body));
+	ASSERT_TRUE(__nts_chromehello__(body));
 	// Объявляем список байтов
 	const vector <uint8_t> record = wrapped(body);
 	// Объявляем профиль отпечатка
@@ -598,7 +605,7 @@ TEST(HybridTest, Profile){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
 	 * Перебираем: круги связи при условии, что их меньше двух
 	 */
@@ -621,7 +628,7 @@ TEST(HybridTest, Profile){
 		// Объявляем профиль отпечатка
 		fingerprint::profile_t made;
 		// Проверяем снятие приветствия
-		ASSERT_TRUE(captured(client, made));
+		ASSERT_TRUE(__nts_captured__(client, made));
 		// Объявляем список долей
 		const vector <extension::share_t> offered = offersof(made);
 		// Объявляем строку
@@ -665,11 +672,11 @@ TEST(HybridTest, Profile){
 		// Проверяем истинность условия
 		EXPECT_TRUE(grouped);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << "круг " << round << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещения " << static_cast <int> (client.alert().description) << " " << static_cast <int> (server.alert().description);
 		// Проверяем обмен данными в обе стороны
-		EXPECT_TRUE(exchanged(client, server));
+		EXPECT_TRUE(__nts_exchanged__(client, server));
 	}
 }
 
@@ -690,13 +697,13 @@ TEST(HybridTest, Nist){
 	// Задаём проверочные байты
 	static const uint8_t CODES[][2] = {{0x11, 0xEB}, {0x11, 0xED}};
 	/**
-	 * Выполняем перебор групп
+	 * Перебираем группы
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Объявляем подлинность стороны
 		context::credential_t credential;
 		// Проверяем составление подлинности из набора
-		ASSERT_TRUE(identity("ec256", credential));
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Создаём контекст клиента
 		client::context_t client;
 		// Создаём контекст сервера
@@ -717,7 +724,7 @@ TEST(HybridTest, Nist){
 		// Объявляем профиль отпечатка
 		fingerprint::profile_t offer;
 		// Проверяем снятие приветствия
-		ASSERT_TRUE(captured(client, offer));
+		ASSERT_TRUE(__nts_captured__(client, offer));
 		// Объявляем список долей
 		const vector <extension::share_t> offered = offersof(offer);
 		// Проверяем размер
@@ -730,7 +737,7 @@ TEST(HybridTest, Nist){
 		// Проверяем корректность открытого ключа
 		EXPECT_TRUE(agreement::validate(((i == 0) ? agreement::kem_t::MLKEM768 : agreement::kem_t::MLKEM1024), view_t(offered[0].key.data + ((i == 0) ? 65 : 97), OFFERS[i] - ((i == 0) ? 65 : 97)))) << i;
 		// Проверяем завершение рукопожатия
-		ASSERT_TRUE(forth(client, server));
+		ASSERT_TRUE(__nts_forth__(client, server));
 		// Берём вывод сервера
 		const view_t answer = server.output();
 		// Проверяем, что полученное значение больше ожидаемого
@@ -751,14 +758,14 @@ TEST(HybridTest, Nist){
 			EXPECT_TRUE(found) << i;
 		}
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << i << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Группа связи сходится у обеих сторон
 		EXPECT_EQ(client.group(), GROUPS[i]) << i;
 		EXPECT_EQ(server.group(), GROUPS[i]) << i;
 		// Проверяем обмен данными в обе стороны
-		EXPECT_TRUE(exchanged(client, server)) << i;
+		EXPECT_TRUE(__nts_exchanged__(client, server)) << i;
 	}
 	// Длины долей клиента у открытого API совпадают с проводом
 	EXPECT_EQ(extension::length(extension::group_t::SECP256R1MLKEM768), OFFERS[0]);
@@ -769,7 +776,7 @@ TEST(HybridTest, Nist){
 		// Объявляем подлинность стороны
 		context::credential_t credential;
 		// Проверяем составление подлинности из набора
-		ASSERT_TRUE(identity("ec256", credential));
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Создаём контекст клиента
 		client::context_t client;
 		// Создаём контекст сервера
@@ -786,12 +793,12 @@ TEST(HybridTest, Nist){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проверяем завершение рукопожатия
-		ASSERT_TRUE(forth(client, server));
-		ASSERT_TRUE(back(client, server));
+		ASSERT_TRUE(__nts_forth__(client, server));
+		ASSERT_TRUE(__nts_back__(client, server));
 		// Объявляем профиль отпечатка
 		fingerprint::profile_t again;
 		// Проверяем снятие приветствия
-		ASSERT_TRUE(captured(client, again));
+		ASSERT_TRUE(__nts_captured__(client, again));
 		// Объявляем список долей
 		const vector <extension::share_t> offered = offersof(again);
 		// Проверяем размер
@@ -800,13 +807,13 @@ TEST(HybridTest, Nist){
 		EXPECT_EQ(offered[0].group, extension::group_t::SECP256R1MLKEM768);
 		EXPECT_EQ(offered[0].key.size, OFFERS[0]);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Группа связи сходится с договорённой
 		EXPECT_EQ(client.group(), extension::group_t::SECP256R1MLKEM768);
 		// Проверяем обмен данными в обе стороны
-		EXPECT_TRUE(exchanged(client, server));
+		EXPECT_TRUE(__nts_exchanged__(client, server));
 	}
 }
 
@@ -818,13 +825,13 @@ TEST(HybridTest, NistMalformed){
 	// Задаём таблицу проверочных констант
 	static const size_t SIZES[] = {100, 1250};
 	/**
-	 * Выполняем перебор длин
+	 * Перебираем длины
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Объявляем подлинность стороны
 		context::credential_t credential;
 		// Проверяем составление подлинности из набора
-		ASSERT_TRUE(identity("ec256", credential));
+		ASSERT_TRUE(__nts_identity__("ec256", credential));
 		// Приветствие с одной долей негодной длины
 		hello::client_t greeting;
 		// Заполняем поле приветствия
@@ -904,7 +911,7 @@ TEST(HybridTest, NistOpenssl){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Задаём пути файлов набора
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	// Задаём таблицу названий групп
@@ -912,7 +919,7 @@ TEST(HybridTest, NistOpenssl){
 	// Задаём таблицу групп
 	static const extension::group_t GROUPS[] = {extension::group_t::SECP256R1MLKEM768, extension::group_t::SECP384R1MLKEM1024};
 	/**
-	 * Выполняем перебор групп
+	 * Перебираем группы
 	 */
 	for(size_t i = 0; i < 2; i++){
 		{
@@ -927,9 +934,9 @@ TEST(HybridTest, NistOpenssl){
 			// Запускаем страж внешнего процесса
 			sentinel_t sentinel(log + ".pid");
 			// Соединяемся с сервером инструмента
-			const int fd = __nts_dial__(number);
+			const int own = __nts_dial__(number);
 			// Проверяем, что полученное значение не меньше ожидаемого
-			ASSERT_GE(fd, 0) << "порт " << number;
+			ASSERT_GE(own, 0) << "порт " << number;
 			// Создаём контекст клиента
 			client::context_t client;
 			// Задаём группы клиента
@@ -945,7 +952,7 @@ TEST(HybridTest, NistOpenssl){
 			 */
 			for(size_t k = 0; (k < 8) && !client.established() && (client.state() != context::state_t::FAILED); k++)
 				// Передаём байты между стороной и сокетом
-				__nts_relay__(client, fd);
+				__nts_relay__(client, own);
 			// Если связь клиента не установилась, журнал в отказ
 			if(!client.established()){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 			// Проверяем установление связи обеими сторонами
@@ -963,14 +970,14 @@ TEST(HybridTest, NistOpenssl){
 			 */
 			for(size_t k = 0; (k < 16) && reply.empty(); k++){
 				// Передаём байты между стороной и сокетом
-				__nts_relay__(client, fd);
+				__nts_relay__(client, own);
 				// Чтение ответа прошло без ошибки
 				ASSERT_EQ(client.read(reply), context::error_t::NONE);
 			}
 			// Проверяем несовпадение полученного значения с ожидаемым
 			EXPECT_NE(string(reply.begin(), reply.end()).find("HTTP/1.0 200"), string::npos) << NAMES[i];
 			// Закрываем соединение
-			closing(fd);
+			closing(own);
 			// Останавливаем страж процесса
 			sentinel.halt();
 			// Объявляем строку
@@ -994,9 +1001,9 @@ TEST(HybridTest, NistOpenssl){
 			// Запускаем страж внешнего процесса
 			sentinel_t sentinel(log + ".pid");
 			// Принимаем подключение инструмента
-			const int fd = __nts_greeted__(listener);
+			const int own = __nts_greeted__(listener);
 			// Проверяем, что полученное значение не меньше ожидаемого
-			ASSERT_GE(fd, 0);
+			ASSERT_GE(own, 0);
 			// Создаём контекст сервера
 			server::context_t server;
 			// Задаём группы сервера
@@ -1006,7 +1013,7 @@ TEST(HybridTest, NistOpenssl){
 			// Проверяем успешность запуска
 			ASSERT_EQ(server.start(), context::error_t::NONE);
 			// Обслуживаем подключение до конца
-			const bool complete = __nts_serve__(server, fd);
+			const bool complete = __nts_serve__(server, own);
 			// Проверяем итоговую ошибку
 			ASSERT_TRUE(complete) << NAMES[i] << " отказ " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (server.alert().description);
 			// Проверяем итоговую ошибку
@@ -1014,9 +1021,9 @@ TEST(HybridTest, NistOpenssl){
 			// Проверяем обслуживание подключения
 			EXPECT_EQ(server.group(), GROUPS[i]) << NAMES[i];
 			// Проверяем обслуживание подключения
-			ASSERT_TRUE(__nts_farewell__(server, fd));
+			ASSERT_TRUE(__nts_farewell__(server, own));
 			// Закрываем соединение
-			closing(fd);
+			closing(own);
 			closing(listener);
 			// Объявляем строку
 			std::string text;
@@ -1034,7 +1041,7 @@ TEST(HybridTest, Starved){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Заводим признаки голодания и завершения
 	bool starved = false, complete = false;
 	/**
@@ -1065,7 +1072,7 @@ TEST(HybridTest, Starved){
 			// Проверяем результат поиска
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE))
 				// Проводим рукопожатие сторон
-				converse(client, server);
+				__nts_converse__(client, server);
 		}
 		// Собираем итоги обеих сторон связи
 		const context::error_t outcomes[4] = {first, second, client.error(), server.error()};
@@ -1099,14 +1106,14 @@ TEST(HybridTest, Openssl){
 		GTEST_SKIP() << "openssl недоступен";
 	}
 	// Проверяем наличие нужных возможностей инструмента
-	if(!toolkit.tls13 || !toolkit.serverGroups || !toolkit.clientGroups || !kemready()){
+	if(!toolkit.tls13 || !toolkit.serverGroups || !toolkit.clientGroups || !__nts_kemready__()){
 		// Пропускаем проверку: недоступен внешний инструмент
 		GTEST_SKIP() << "openssl без TLS 1.3, без -groups либо без X25519MLKEM768 (нужен openssl 3.5+)";
 	}
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Задаём пути файлов набора
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
@@ -1121,9 +1128,9 @@ TEST(HybridTest, Openssl){
 		// Запускаем страж внешнего процесса
 		sentinel_t sentinel(log + ".pid");
 		// Соединяемся с сервером инструмента
-		const int fd = __nts_dial__(number);
+		const int own = __nts_dial__(number);
 		// Проверяем, что полученное значение не меньше ожидаемого
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(own, 0) << "порт " << number;
 		// Создаём контекст клиента
 		client::context_t client;
 		// Задаём группы клиента
@@ -1139,7 +1146,7 @@ TEST(HybridTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между стороной и сокетом
-			__nts_relay__(client, fd);
+			__nts_relay__(client, own);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Задаём текст запроса
@@ -1153,7 +1160,7 @@ TEST(HybridTest, Openssl){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты между стороной и сокетом
-			__nts_relay__(client, fd);
+			__nts_relay__(client, own);
 			// Чтение ответа прошло без ошибки
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1162,7 +1169,7 @@ TEST(HybridTest, Openssl){
 		// Проверяем несовпадение полученного значения с ожидаемым
 		EXPECT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
 		// Закрываем соединение
-		closing(fd);
+		closing(own);
 		// Останавливаем страж процесса
 		sentinel.halt();
 		// Объявляем строку
@@ -1192,9 +1199,9 @@ TEST(HybridTest, Openssl){
 		// Запускаем страж внешнего процесса
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение инструмента
-		const int fd = __nts_greeted__(listener);
+		const int own = __nts_greeted__(listener);
 		// Проверяем, что полученное значение не меньше ожидаемого
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(own, 0);
 		// Создаём контекст сервера
 		server::context_t server;
 		// Задаём группы сервера
@@ -1204,11 +1211,11 @@ TEST(HybridTest, Openssl){
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Проверяем итоговую ошибку
-		ASSERT_TRUE(__nts_serve__(server, fd)) << "отказ " << static_cast <int> (server.error());
+		ASSERT_TRUE(__nts_serve__(server, own)) << "отказ " << static_cast <int> (server.error());
 		ASSERT_TRUE(server.established());
-		ASSERT_TRUE(__nts_farewell__(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, own));
 		// Закрываем соединение
-		closing(fd);
+		closing(own);
 		closing(listener);
 		// Объявляем строку
 		std::string text;
@@ -1229,16 +1236,16 @@ TEST(HybridTest, Openssl){
  */
 TEST(HybridTest, Boringssl){
 	// Задаём строковую константу
-	const std::string tool = bssltool();
+	const std::string tool = __nts_bssltool__();
 	// Проверяем, что данные не пусты
 	if(tool.empty()){
 		// Пропускаем проверку: недоступен внешний инструмент
-		GTEST_SKIP() << "bssl (BoringSSL) недоступен: задайте ANTS_BSSL";
+		GTEST_SKIP() << "bssl (BoringSSL) недоступен: задайте NTS_BSSL";
 	}
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Задаём пути файлов набора
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
@@ -1253,9 +1260,9 @@ TEST(HybridTest, Boringssl){
 		// Запускаем страж внешнего процесса
 		sentinel_t sentinel(log + ".pid");
 		// Соединяемся с сервером инструмента
-		const int fd = __nts_dial__(number);
+		const int own = __nts_dial__(number);
 		// Проверяем, что полученное значение не меньше ожидаемого
-		ASSERT_GE(fd, 0) << "порт " << number;
+		ASSERT_GE(own, 0) << "порт " << number;
 		// Создаём контекст клиента
 		client::context_t client;
 		// Задаём группы клиента
@@ -1271,7 +1278,7 @@ TEST(HybridTest, Boringssl){
 		 */
 		for(size_t i = 0; (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между стороной и сокетом
-			__nts_relay__(client, fd);
+			__nts_relay__(client, own);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established()) << "отказ " << static_cast <int> (client.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Задаём текст запроса
@@ -1285,7 +1292,7 @@ TEST(HybridTest, Boringssl){
 		 */
 		for(size_t i = 0; (i < 16) && answer.empty(); i++){
 			// Передаём байты между стороной и сокетом
-			__nts_relay__(client, fd);
+			__nts_relay__(client, own);
 			// Чтение ответа прошло без ошибки
 			ASSERT_EQ(client.read(answer), context::error_t::NONE);
 		}
@@ -1294,7 +1301,7 @@ TEST(HybridTest, Boringssl){
 		// Проверяем несовпадение полученного значения с ожидаемым
 		EXPECT_NE(text.find("HTTP/1.0 200"), string::npos) << text;
 		// Закрываем соединение
-		closing(fd);
+		closing(own);
 		// Останавливаем страж процесса
 		sentinel.halt();
 		// Объявляем строку
@@ -1324,9 +1331,9 @@ TEST(HybridTest, Boringssl){
 		// Запускаем страж внешнего процесса
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем подключение инструмента
-		const int fd = __nts_greeted__(listener);
+		const int own = __nts_greeted__(listener);
 		// Проверяем, что полученное значение не меньше ожидаемого
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(own, 0);
 		// Создаём контекст сервера
 		server::context_t server;
 		// Задаём группы сервера
@@ -1336,11 +1343,11 @@ TEST(HybridTest, Boringssl){
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		// Проверяем итоговую ошибку
-		ASSERT_TRUE(__nts_serve__(server, fd)) << "отказ " << static_cast <int> (server.error());
+		ASSERT_TRUE(__nts_serve__(server, own)) << "отказ " << static_cast <int> (server.error());
 		ASSERT_TRUE(server.established());
-		ASSERT_TRUE(__nts_farewell__(server, fd));
+		ASSERT_TRUE(__nts_farewell__(server, own));
 		// Закрываем соединение
-		closing(fd);
+		closing(own);
 		closing(listener);
 		// Объявляем строку
 		std::string text;

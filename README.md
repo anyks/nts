@@ -236,9 +236,9 @@ number. The third way — bypassing CMake, with manual `-I` and `-l` — is desc
 
 The shared library is built with the option `CMAKE_SHARED_BUILD_LIB=ON`: `libnts.so.1` →
 `libnts.so.1.0.0` under Linux and BSD, `libnts.1.dylib` under macOS, `nts.dll` under Windows;
-the symbols are exported by the flag `ANTS_SHARED_LIBRARY_EXPORT` when building the
+the symbols are exported by the flag `NTS_SHARED_LIBRARY_EXPORT` when building the
 library itself and are imported at the consumer without any flags. The paths inside the project go
-from `CMAKE_CURRENT_SOURCE_DIR` and the variable `ANTS_ROOT`, not from the root
+from `CMAKE_CURRENT_SOURCE_DIR` and the variable `NTS_ROOT`, not from the root
 `CMAKE_SOURCE_DIR`/`CMAKE_BINARY_DIR`: through `add_subdirectory` the root variables
 point to the project of the consumer, and the project used to break on this before.
 
@@ -250,8 +250,8 @@ built and run.
 
 The headers distinguish three builds: the build of the shared library itself, of its
 consumer, and the static one. A consumer taking `libnts.a` through the CMake target `nts`
-gets the flag `ANTS_STATICLIB` by itself (it is declared at the target as `PUBLIC`). One who
-attaches the library bypassing CMake must define `ANTS_STATICLIB` in his own build:
+gets the flag `NTS_STATICLIB` by itself (it is declared at the target as `PUBLIC`). One who
+attaches the library bypassing CMake must define `NTS_STATICLIB` in his own build:
 without it under Windows the symbols are declared as imported from a shared library, and
 linking fails; on the other systems the flag affects only the visibility of the
 symbols, and its absence stays silent.
@@ -261,9 +261,9 @@ symbols, and its absence stays silent.
 AES, SHA-256 and the multiplication in the GCM field go by the instructions of the extensions (ARMv8 Crypto, AES-NI,
 PCLMULQDQ) if the machine where the binary is run has them: both branches are always
 built, and the choice is made once at the first access by the detection of the processor
-(`sys/machine.hpp`). The environment variable `ANTS_MACHINE=0` or the call
+(`sys/machine.hpp`). The environment variable `NTS_MACHINE=0` or the call
 `machine::allow(false)` switch everything to the tables without a rebuild — that is how both
-paths are compared on one machine. `ANTS_NO_MACHINE` in the compiler flags throws the instruction branch
+paths are compared on one machine. `NTS_NO_MACHINE` in the compiler flags throws the instruction branch
 out of the build entirely. The option `CMAKE_CIPHER_CARRYLESS` concerns MGM and is still
 set at build time.
 
@@ -347,7 +347,7 @@ found during the first round was shown by **its own** system, and none of them w
 visible on the workstation.
 
 They must be walked **every time a change touches what the compiler is free to
-interpret in its own way**. Forced inlining (`__ANTS_INLINE__`) is a change of
+interpret in its own way**. Forced inlining (`__NTS_INLINE__`) is a change of
 exactly that kind: GCC is entitled to answer it with a hard error if it cannot inline the
 body, and there is no way at all to learn about this on a machine with clang. The round of 31.08.2026 checked
 exactly that; the oldest compiler of the set, g++ 10.5 on NetBSD, accepted it without complaint.
@@ -1010,7 +1010,7 @@ the fingerprint is taken from the same parsing that drives the handshake.
   estimate "looks like a browser"; `print()` — a human-readable print of the profile.
 - `fingerprint::parse(view, stream)` and `akamai(stream, text)` — the Akamai fingerprint by the beginning of an
   HTTP/2 stream (SETTINGS, WINDOW_UPDATE, PRIORITY, the order of the pseudo-headers of the first request).
-- `fingerprint::dump`/`load` — a portable snapshot of a profile: the marker `ANTSFP`, the version, big-endian,
+- `fingerprint::dump`/`load` — a portable snapshot of a profile: the marker `NTSFP`, the version, big-endian,
   fixed widths; the parsed fields are derived anew on loading.
   `store_t` — a bundle of profiles with identifiers and its own snapshot, without thread guarding.
 
@@ -1084,7 +1084,7 @@ unopenable ECH is rejected: the connection goes by the outer hello, the own conf
 `retry_configs`. `greeting()` and `profile()` of the server give out the outer hello as it went on the
 wire. The check against BoringSSL (`bssl server`/`bssl client`, `bssl generate-ech`) in both directions,
 including the retry request, — `EchTest.Boringssl2` (skipped with a notice without the tool; the path is
-`ANTS_BSSL`). The sample is `sample/ech`.
+`NTS_BSSL`). The sample is `sample/ech`.
 
 Early data under ECH (section 6.1 of RFC 9849) go: `early_data` only in the inner
 hello, the early keys from the transcript of ClientHelloInner; a server that declined ECH skips the
@@ -1300,7 +1300,7 @@ a core without input-output, a refusal by value instead of exceptions: in Noise 
   roles over 13 patterns × 2 KEMs × 8 suites; the maximum message lengths are computed beforehand
   (pqXX on the composite 1216 / 2368 / 2384 / 1152) and pinned; an own frozen corpus
   `tests/corpus/noise/pqnoise.txt` (52 records) — it proves invariance since the day of freezing, not
-  correctness; regeneration only explicitly through `ANTS_NOISE_FREEZE`.
+  correctness; regeneration only explicitly through `NTS_NOISE_FREEZE`.
 
 ## Application-layer settings ALPS (draft-vvv-tls-alps)
 

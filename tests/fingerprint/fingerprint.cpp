@@ -328,7 +328,7 @@ namespace {
 	/**
 	 * Путь к набору ключей
 	 */
-	static const char * CORPUS = ANTS_CORPUS;
+	static const char * CORPUS = NTS_CORPUS;
 	/**
 	 * @brief Функция чтения файла набора целиком
 	 *
@@ -987,7 +987,7 @@ TEST(FingerprintTest, Snapshot){
 	// Составляем снимок
 	ASSERT_EQ(fingerprint::dump(fox, snapshot), fingerprint::error_t::NONE);
 	// Проверяем метку снимка
-	EXPECT_EQ(::memcmp(snapshot.data(), "ANTSFP", 6), 0);
+	EXPECT_EQ(::memcmp(snapshot.data(), "NTSFP", 6), 0);
 	// Читаем снимок
 	ASSERT_EQ(fingerprint::load(view_t(snapshot.data(), snapshot.size()), loaded), fingerprint::error_t::NONE);
 	// Отпечатки исходного и прочитанного профилей

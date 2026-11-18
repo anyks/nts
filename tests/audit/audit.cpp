@@ -90,7 +90,7 @@ namespace {
 	/**
 	 * Путь к набору ключей
 	 */
-	static const char * CORPUS = ANTS_CORPUS;
+	static const char * CORPUS = NTS_CORPUS;
 	/**
 	 * @brief Функция чтения файла набора целиком
 	 *
@@ -4962,10 +4962,10 @@ TEST(AuditTest, TicketEditionMismatch){
  * Мутация (вернуть объявление внутрь try либо убрать wipe из внешнего catch) роняет пин.
  */
 TEST(AuditTest, IssueTicketSecretScopedBeforeTry){
-	// Объявляем file и конструируем (ANTS_ENGINE_SRC, std::ios::binary)
-	std::ifstream file(ANTS_ENGINE_SRC, std::ios::binary);
+	// Объявляем file и конструируем (NTS_ENGINE_SRC, std::ios::binary)
+	std::ifstream file(NTS_ENGINE_SRC, std::ios::binary);
 	// Исходник движка открыт
-	ASSERT_TRUE(file.is_open()) << "нет исходника движка: " << ANTS_ENGINE_SRC;
+	ASSERT_TRUE(file.is_open()) << "нет исходника движка: " << NTS_ENGINE_SRC;
 	// Объявляем source и конструируем ((std::istreambuf_iterator <char> (file)), s…)
 	const std::string source((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
 	// Вырезаем тело issue() по сигнатуре и сопоставлению скобок
@@ -5125,27 +5125,27 @@ TEST(AuditTest, HeartbeatBleed){
  */
 #if defined(__SANITIZE_ADDRESS__)
 	/** Признак сборки с ограждением адресов */
-	#define ANTS_AUDIT_ASAN 1
+	#define NTS_AUDIT_ASAN 1
 /** Ветвление сборки: defined(__has_feature) */
 #elif defined(__has_feature)
 	/** Ветвление сборки: __has_feature(address_sanitizer) */
 	#if __has_feature(address_sanitizer)
 		/** Признак сборки с ограждением адресов */
-		#define ANTS_AUDIT_ASAN 1
+		#define NTS_AUDIT_ASAN 1
 	#endif
 #endif
 
 /**
  * Снятие отравы с области под ограждением адресов
  */
-#if defined(ANTS_AUDIT_ASAN)
+#if defined(NTS_AUDIT_ASAN)
 	#include <sanitizer/asan_interface.h>
 	/** Снятие отравы области под ограждением адресов */
-	#define ANTS_AUDIT_UNPOISON(data, size) ASAN_UNPOISON_MEMORY_REGION(data, size)
+	#define NTS_AUDIT_UNPOISON(data, size) ASAN_UNPOISON_MEMORY_REGION(data, size)
 /** Ветвь без ограждения адресов */
 #else
 	/** Снятие отравы области под ограждением адресов */
-	#define ANTS_AUDIT_UNPOISON(data, size) ((void) 0)
+	#define NTS_AUDIT_UNPOISON(data, size) ((void) 0)
 #endif
 
 /**
@@ -5290,7 +5290,7 @@ TEST(AuditTest, PlaintextCleansing){
 		// Требуем: plain.capacity() не меньше opened.size())
 		ASSERT_GE(plain.capacity(), opened.size()) << "режим " << static_cast <int> (mode);
 		// Снимаем отраву с буфера накопителя за его размером
-		ANTS_AUDIT_UNPOISON(plain.data(), opened.size());
+		NTS_AUDIT_UNPOISON(plain.data(), opened.size());
 		// Число нулевых байтов в отозванном хвосте накопителя прикладных данных
 		const size_t retracted = __nts_zeros__(plain.data(), opened.size());
 		// Если режим без класса
@@ -5342,7 +5342,7 @@ TEST(AuditTest, PlaintextCleansing){
 		// Проверяем: память прежнего накопителя потребителя осталась с движком
 		ASSERT_GE(plain.capacity(), payload.size()) << "режим " << static_cast <int> (mode);
 		// Снимаем отраву с буфера накопителя за его размером
-		ANTS_AUDIT_UNPOISON(plain.data(), payload.size());
+		NTS_AUDIT_UNPOISON(plain.data(), payload.size());
 		// Число нулевых байтов в буфере прикладных данных
 		const size_t blanked = __nts_zeros__(plain.data(), payload.size());
 		// Если режим без класса
@@ -5364,9 +5364,9 @@ TEST(AuditTest, PlaintextCleansing){
  */
 TEST(AuditTest, SecretsViaPurge){
 	// Открываем исходник движка
-	std::ifstream file(ANTS_ENGINE_SRC, std::ios::binary);
+	std::ifstream file(NTS_ENGINE_SRC, std::ios::binary);
 	// Проверяем открытие исходника
-	ASSERT_TRUE(file.is_open()) << "нет исходника движка: " << ANTS_ENGINE_SRC;
+	ASSERT_TRUE(file.is_open()) << "нет исходника движка: " << NTS_ENGINE_SRC;
 	// Исходник целиком
 	const std::string source((std::istreambuf_iterator <char> (file)), std::istreambuf_iterator <char> ());
 	// Число голых вызовов wipe() в начале оператора

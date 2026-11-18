@@ -56,7 +56,7 @@ namespace {
 	/**
 	 * Путь к набору ключей
 	 */
-	static const char * CORPUS = ANTS_CORPUS;
+	static const char * CORPUS = NTS_CORPUS;
 	/**
 	 * @brief Функция чтения файла целиком
 	 *

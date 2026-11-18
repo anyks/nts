@@ -74,7 +74,7 @@
 /**
  * Если библиотека собирается статически
  */
-#if defined(ANTS_STATICLIB)
+#if defined(NTS_STATICLIB)
 	/**
 	 * Обозначение символов, доступных снаружи библиотеки
 	 */
@@ -82,7 +82,7 @@
 /**
  * Если производится сборка самой динамической библиотеки
  */
-#elif defined(ANTS_SHARED_LIBRARY_EXPORT)
+#elif defined(NTS_SHARED_LIBRARY_EXPORT)
 	/**
 	 * Обозначение символов, доступных снаружи библиотеки
 	 */

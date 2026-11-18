@@ -149,8 +149,8 @@ HEADER = """/**
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_CIPHER_POLY1305__
-#define __ANTS_INTERNAL_CIPHER_POLY1305__
+#ifndef __NTS_INTERNAL_CIPHER_POLY1305__
+#define __NTS_INTERNAL_CIPHER_POLY1305__
 
 /**
  * Стандартные заголовочные файлы
@@ -165,13 +165,13 @@ HEADER = """/**
 
 /**
  * Ядро берётся у gcc и clang на x86-64; у прочих собирателей остаётся ветвь на интринсиках.
- * Под ASan без оптимизации ядро не берётся (признак __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
+ * Под ASan без оптимизации ядро не берётся (признак __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядра на ассемблере
 	 */
-	#define __ANTS_POLY1305_X86_64__
+	#define __NTS_POLY1305_X86_64__
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -214,7 +214,7 @@ FOOTER = """
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_CIPHER_POLY1305__
+#endif // __NTS_INTERNAL_CIPHER_POLY1305__
 """
 
 def header():

@@ -51,7 +51,7 @@
  * Ядро берётся у gcc и clang на x86-64; под ASan без оптимизации не берётся (все регистры
  * общего назначения заняты, признак __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядра квадрата на mulq
 	 */

@@ -42,7 +42,7 @@
 /**
  * Если системный zlib найден сборкой
  */
-#ifdef ANTS_SAMPLE_ZLIB
+#ifdef NTS_SAMPLE_ZLIB
 	/**
 	 * Подключаем заголовочный файл zlib
 	 */
@@ -81,7 +81,7 @@ namespace {
 		 */
 		try {
 			// Поток чтения файла набора
-			ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+			ifstream file(string(NTS_CORPUS) + "/" + name, ios::binary);
 			// Если файл открыт
 			if(file.is_open())
 				// Читаем файл целиком
@@ -200,7 +200,7 @@ namespace {
 	/**
 	 * Если системный zlib найден сборкой
 	 */
-	#ifdef ANTS_SAMPLE_ZLIB
+	#ifdef NTS_SAMPLE_ZLIB
 		/**
 		 * @brief Вызов сжатия цепочки сертификатов системным zlib
 		 *
@@ -347,7 +347,7 @@ int main(int argc, char * argv[]) noexcept {
 			/**
 			 * Если системный zlib найден сборкой: клиент предпочитает его
 			 */
-			#ifdef ANTS_SAMPLE_ZLIB
+			#ifdef NTS_SAMPLE_ZLIB
 				// Добавляем zlib клиенту под опознавателем 1 реестра RFC 8879
 				mine.push_back(context::codec_t(static_cast <uint16_t> (extension::compression_t::ZLIB), zlibCompress, zlibDecompress, &ours));
 			#endif
@@ -408,7 +408,7 @@ int main(int argc, char * argv[]) noexcept {
 	/**
 	 * Если системный zlib найден сборкой: сличаем с настоящим zlib
 	 */
-	#ifdef ANTS_SAMPLE_ZLIB
+	#ifdef NTS_SAMPLE_ZLIB
 		// Выводим заголовок прогона с zlib
 		cout << endl << "== Системный zlib (опознаватель 1 реестра RFC 8879) ==" << endl;
 		{

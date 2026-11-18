@@ -55,7 +55,7 @@
  * интринсиках либо переносимый путь. Под ASan без оптимизации ядра не берутся (признак
  * __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядер на ассемблере
 	 */
@@ -89,7 +89,7 @@
 				 * @brief Постоянные ядер: маски вращения на 16 и 8 разрядов в двух полосах, приращения счётчиков 0…7, восьмёрки и четвёрки
 				 *
 				 */
-				alignas(32) static const uint8_t CONSTANTS[144] = {
+				alignas(32) static const uint8_t CONSTNTS[144] = {
 					// Маски вращения в первой полосе
 					2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13,
 					2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13,
@@ -1633,7 +1633,7 @@
 						"jnz 1b\n\t"
 						"vzeroupper\n\t"
 						: [src] "+r" (source), [dst] "+r" (result), [count] "+r" (count)
-						: [state] "r" (state), [frame] "r" (frame), [cst] "r" (CONSTANTS)
+						: [state] "r" (state), [frame] "r" (frame), [cst] "r" (CONSTNTS)
 						: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory");
 				}
 				/**
@@ -3367,7 +3367,7 @@
 						"decq %[count]\n\t"
 						"jnz 1b\n\t"
 						: [src] "+r" (source), [dst] "+r" (result), [count] "+r" (count)
-						: [state] "r" (state), [frame] "r" (frame), [cst] "r" (CONSTANTS)
+						: [state] "r" (state), [frame] "r" (frame), [cst] "r" (CONSTNTS)
 						: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory");
 				}
 				/**
@@ -5421,7 +5421,7 @@
 						"decq %[count]\n\t"
 						"jnz 1b\n\t"
 						: [src] "+r" (source), [dst] "+r" (result), [count] "+r" (count)
-						: [state] "r" (state), [frame] "r" (frame), [cst] "r" (CONSTANTS)
+						: [state] "r" (state), [frame] "r" (frame), [cst] "r" (CONSTNTS)
 						: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory");
 				}
 			}

@@ -39,12 +39,12 @@
  * byte: за подпиской заголовков библиотеки на пространство std имя двоится со
  * std::byte, потому системные заголовки подключаются раньше всех прочих
  */
-#if (defined(ANTS_BENCH_OPENSSL) || defined(ANTS_BENCH_BORINGSSL)) && defined(_WIN32)
+#if (defined(NTS_BENCH_OPENSSL) || defined(NTS_BENCH_BORINGSSL)) && defined(_WIN32)
 	/**
 	 * Заголовки BoringSSL не выносят полного <windows.h>: его широкие определения
 	 * ломают склейку имён в макросах эталона, оттого окна отсекаются до худых
 	 */
-	#ifdef ANTS_BENCH_BORINGSSL
+	#ifdef NTS_BENCH_BORINGSSL
 		/**
 		 * Отсекаем широкую часть <windows.h>: сокеты и окна остаются, прочее уходит
 		 */
@@ -124,7 +124,7 @@
 /**
  * Если сличение с эталоном включено: OpenSSL системной поставки либо BoringSSL из клона
  */
-#if defined(ANTS_BENCH_OPENSSL) || defined(ANTS_BENCH_BORINGSSL)
+#if defined(NTS_BENCH_OPENSSL) || defined(NTS_BENCH_BORINGSSL)
 	/**
 	 * Подключаем заголовочные файлы эталона
 	 */
@@ -136,7 +136,7 @@
 	/**
 	 * Провайдеры есть лишь у OpenSSL: BoringSSL их не знает, заголовка у него нет
 	 */
-	#ifdef ANTS_BENCH_OPENSSL
+	#ifdef NTS_BENCH_OPENSSL
 		#include <openssl/provider.h>
 	#endif
 #endif
@@ -300,7 +300,7 @@ namespace {
 		 */
 		try {
 			// Поток чтения файла набора
-			ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+			ifstream file(string(NTS_CORPUS) + "/" + name, ios::binary);
 			// Если файл открыт
 			if(file.is_open())
 				// Читаем файл целиком
@@ -806,7 +806,7 @@ namespace {
 	 * и лишних алгоритмов у него просто нет - тогда посредник возвращает пусто, и сличение
 	 * этой строки само собой пропускается
 	 */
-	#if defined(ANTS_BENCH_OPENSSL) || defined(ANTS_BENCH_BORINGSSL)
+	#if defined(NTS_BENCH_OPENSSL) || defined(NTS_BENCH_BORINGSSL)
 		/**
 		 * @brief Функция добычи хеша эталона по имени
 		 *
@@ -818,7 +818,7 @@ namespace {
 		/**
 		 * У BoringSSL хеши отдаются готовыми указателями по имени
 		 */
-		#ifdef ANTS_BENCH_BORINGSSL
+		#ifdef NTS_BENCH_BORINGSSL
 			// Возвращаем готовый хеш SHA3-256
 			if(::strcmp(name, "SHA3-256") == 0)
 				// Выводим готовый хеш SHA3-256
@@ -847,7 +847,7 @@ namespace {
 		/**
 		 * Готовые хеши BoringSSL принадлежат самому эталону
 		 */
-		#ifdef ANTS_BENCH_BORINGSSL
+		#ifdef NTS_BENCH_BORINGSSL
 			// Готовые хеши принадлежат самому эталону: освобождения не требуется
 			(void) method;
 		/**
@@ -869,7 +869,7 @@ namespace {
 		/**
 		 * У BoringSSL шифры отдаются готовыми указателями по имени
 		 */
-		#ifdef ANTS_BENCH_BORINGSSL
+		#ifdef NTS_BENCH_BORINGSSL
 			// Если заказан шифр AES-256-CBC
 			if(::strcmp(name, "AES-256-CBC") == 0)
 				// Выводим готовый шифр AES-256-CBC
@@ -898,7 +898,7 @@ namespace {
 		/**
 		 * Готовые шифры BoringSSL принадлежат самому эталону
 		 */
-		#ifdef ANTS_BENCH_BORINGSSL
+		#ifdef NTS_BENCH_BORINGSSL
 			// Готовые шифры принадлежат самому эталону: освобождения не требуется
 			(void) cipher;
 		/**
@@ -921,7 +921,7 @@ namespace {
 		/**
 		 * У BoringSSL пара вырабатывается через объект порождения по номеру вида
 		 */
-		#ifdef ANTS_BENCH_BORINGSSL
+		#ifdef NTS_BENCH_BORINGSSL
 			// Номера видов ключей по именам: ED448, X448, SM2 и SLH-DSA у эталона нет
 			const pair <const char *, int> kinds[] = {
 				{"EC", EVP_PKEY_EC}, {"ED25519", EVP_PKEY_ED25519}, {"X25519", EVP_PKEY_X25519},
@@ -1004,7 +1004,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается итог работы над областью байтов
 	vector <uint8_t> result(VOLUME, 0);
 	// Выводим заголовок замеров своей работы
-	cout << "Замеры ANTS" << endl << endl;
+	cout << "Замеры NTS" << endl << endl;
 	// Место, в которое помещается хеш области байтов
 	uint8_t hash[64];
 	/**
@@ -2318,11 +2318,11 @@ int main(int argc, char * argv[]) noexcept {
 	/**
 	 * Если сличение с эталоном включено сборкой
 	 */
-	#if defined(ANTS_BENCH_OPENSSL) || defined(ANTS_BENCH_BORINGSSL)
+	#if defined(NTS_BENCH_OPENSSL) || defined(NTS_BENCH_BORINGSSL)
 		/**
 		 * Заголовок различается по эталону: имя библиотеки у каждого своё
 		 */
-		#ifdef ANTS_BENCH_BORINGSSL
+		#ifdef NTS_BENCH_BORINGSSL
 		// Выводим заголовок замеров работы эталона
 		cout << endl << "Замеры эталона BoringSSL" << endl << endl;
 		/**
@@ -2455,7 +2455,7 @@ int main(int argc, char * argv[]) noexcept {
 		 * AEAD-интерфейс: поточный ChaCha20 эталон наружу не отдаёт - сличение пропускается,
 		 * а ChaCha20-Poly1305 замеряется запечатыванием AEAD
 		 */
-	#ifdef ANTS_BENCH_BORINGSSL
+	#ifdef NTS_BENCH_BORINGSSL
 		// Замер поточного шифрования ChaCha20 эталона: сличения нет
 		const double chachaRef = 0.;
 		// Контекст запечатывания ChaCha20-Poly1305 эталона
@@ -2592,7 +2592,7 @@ int main(int argc, char * argv[]) noexcept {
 		/**
 		 * Хеш подписи P-256 у эталона: BoringSSL требует явного хеша, OpenSSL берёт умолчание
 		 */
-		#ifdef ANTS_BENCH_BORINGSSL
+		#ifdef NTS_BENCH_BORINGSSL
 		// Явный хеш SHA-256 подписи P-256 эталона
 		const EVP_MD * ecMethod = ::EVP_sha256();
 		/**
@@ -2789,7 +2789,7 @@ int main(int argc, char * argv[]) noexcept {
 		 * SM2 живёт лишь у OpenSSL с провайдером: у BoringSSL ни кривой, ни вяжущего
 		 * опознаватель вызова нет - сличение пропускается
 		 */
-	#ifndef ANTS_BENCH_BORINGSSL
+	#ifndef NTS_BENCH_BORINGSSL
 		// Ключевая пара SM2 эталона
 		EVP_PKEY * sm2Key = pairGenerate("SM2");
 		// Хеш SM3 эталона
@@ -2959,7 +2959,7 @@ int main(int argc, char * argv[]) noexcept {
 		 * Замеры упаковки ML-KEM-768 эталона: у OpenSSL сама упаковка появилась с издания
 		 * 3.5, младшие издания её не знают, а BoringSSL знает всегда - но своим номером вида
 		 */
-#if (OPENSSL_VERSION_NUMBER >= 0x30500000L) || defined(ANTS_BENCH_BORINGSSL)
+#if (OPENSSL_VERSION_NUMBER >= 0x30500000L) || defined(NTS_BENCH_BORINGSSL)
 		// Замеры упаковки ML-KEM-768 эталона
 		double mlkemSealRef = 0., mlkemOpenRef = 0.;
 		// Ключевая пара ML-KEM-768 эталона
@@ -3015,7 +3015,7 @@ int main(int argc, char * argv[]) noexcept {
 		/**
 		 * Named-группы обмена есть лишь у OpenSSL: у BoringSSL способа завести группу нет
 		 */
-	#ifndef ANTS_BENCH_BORINGSSL
+	#ifndef NTS_BENCH_BORINGSSL
 		// Объект порождения ключей группы ffdhe2048 эталона
 		EVP_PKEY_CTX * dhFrame = ::EVP_PKEY_CTX_new_id(EVP_PKEY_DH, nullptr);
 		// Если группу ffdhe2048 у эталона завести удалось
@@ -3068,7 +3068,7 @@ int main(int argc, char * argv[]) noexcept {
 		/**
 		 * Провайдеры есть лишь у OpenSSL: ГОСТ живёт в провайдере gostprov на стендах с ним
 		 */
-	#ifndef ANTS_BENCH_BORINGSSL
+	#ifndef NTS_BENCH_BORINGSSL
 		// Провайдер ГОСТ эталона
 		OSSL_PROVIDER * gostprov = ::OSSL_PROVIDER_load(nullptr, "gostprov");
 		// Если провайдер ГОСТ у эталона нашёлся
@@ -3295,7 +3295,7 @@ int main(int argc, char * argv[]) noexcept {
 				// Выводим отрицательный результат - контексты завести не удалось
 				return false;
 			// Путь к набору ключей
-			const string root = (string(ANTS_CORPUS) + "/");
+			const string root = (string(NTS_CORPUS) + "/");
 			// Если подлинность сервера установить не удалось
 			if((::SSL_CTX_use_certificate_chain_file(sctx, (root + certificate).c_str()) != 1) || (::SSL_CTX_use_PrivateKey_file(sctx, (root + key).c_str(), SSL_FILETYPE_PEM) != 1))
 				// Выводим отрицательный результат - подлинность сервера не установлена
@@ -3309,7 +3309,7 @@ int main(int argc, char * argv[]) noexcept {
 		/**
 		 * У BoringSSL наборы издания 1.3 назначаются списком шифров
 		 */
-		#ifdef ANTS_BENCH_BORINGSSL
+		#ifdef NTS_BENCH_BORINGSSL
 			// Назначаем серверу набор AES-128-GCM: у BoringSSL наборы проходят списком шифров
 			::SSL_CTX_set_cipher_list(sctx, "TLS_AES_128_GCM_SHA256");
 			// Назначаем клиенту набор AES-128-GCM тем же списком шифров
@@ -3438,7 +3438,7 @@ int main(int argc, char * argv[]) noexcept {
 			// Контексты эталона с умолчаниями
 			SSL_CTX * sctx = ::SSL_CTX_new(::TLS_server_method()), * cctx = ::SSL_CTX_new(::TLS_client_method());
 			// Путь к набору ключей
-			const string root = (string(ANTS_CORPUS) + "/");
+			const string root = (string(NTS_CORPUS) + "/");
 			// Если контексты заведены и подлинность ECDSA установлена
 			if((sctx != nullptr) && (cctx != nullptr) && (::SSL_CTX_use_certificate_chain_file(sctx, (root + "ec256.crt").c_str()) == 1) && (::SSL_CTX_use_PrivateKey_file(sctx, (root + "ec256.pem").c_str(), SSL_FILETYPE_PEM) == 1)){
 				// Издание TLS 1.3, без билетов и доверия цепочке; группы и наборы - умолчания эталона
@@ -3657,7 +3657,7 @@ int main(int argc, char * argv[]) noexcept {
 		 * нет ни на одной: чтобы сличить сами алгоритмы, а не оснастку под них, эталон
 		 * запускается с отключённым ускорением
 		 */
-	#ifdef ANTS_BENCH_BORINGSSL
+	#ifdef NTS_BENCH_BORINGSSL
 		// Выводим примету отсутствия переключателя ускорения у эталона BoringSSL
 		cout << endl << "Эталон здесь идёт машинными командами ускорения; у BoringSSL" << endl;
 		// Выводим примету отсутствия переключателя ускорения у эталона BoringSSL

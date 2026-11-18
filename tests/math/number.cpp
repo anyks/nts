@@ -922,7 +922,7 @@ TEST(NumberTest, Inverse) {
  * же сборки без ADX (mulq) и с арифметикой modulus_t по модулю 2^256 - 617 на краях - 0, 1, 2, p - 2,
  * p - 1, p, p + 1, 2^256 - 1, 2^255, 2^255 - 1, c, 2^256 - 2c, 2^256 - c² - и на 20 000 случайных парах со
  * старшими словами из единиц, в том числе на место сомножителя и на место числа. Без MULX и ADCX/ADOX у
- * машины (или под ANTS_MACHINE, запрещающим ADX) сборка под ADX кривой не берётся и здесь не зовётся:
+ * машины (или под NTS_MACHINE, запрещающим ADX) сборка под ADX кривой не берётся и здесь не зовётся:
  * сличаются лишь ядра без ADX с modulus_t, о чём проверка сообщает
  */
 TEST(NumberTest, FoldingMulx) {
@@ -943,7 +943,7 @@ TEST(NumberTest, FoldingMulx) {
 	const bool adx = machine::has(machine::feature_t::ADX);
 	/** Ядра на MULX есть только в сборке с заданным признаком ADX */
 	#if !defined(__NTS_X86_64_ADX_KERNELS__)
-		// В этой сборке ядер на MULX нет вовсе (ASan без оптимизации либо ANTS_NO_MACHINE)
+		// В этой сборке ядер на MULX нет вовсе (ASan без оптимизации либо NTS_NO_MACHINE)
 		const bool kernels = false;
 	/** Иначе ядер на MULX в сборке нет */
 	#else

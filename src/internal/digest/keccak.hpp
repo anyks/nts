@@ -345,7 +345,7 @@
  * объявляет их доступными (__ARM_FEATURE_SHA3: clang на процессорах Apple задаёт его сам, у gcc и
  * clang под Linux он появляется от -march=armv8.2-a+sha3) - как у MGM с __ARM_FEATURE_AES
  */
-#if defined(__aarch64__) && defined(__ARM_FEATURE_SHA3) && !defined(ANTS_NO_MACHINE)
+#if defined(__aarch64__) && defined(__ARM_FEATURE_SHA3) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядра на командах SHA-3
 	 */
@@ -3841,7 +3841,7 @@ namespace nts {
  * атрибут цели AVX2 и зовётся лишь после проверки машины; на ARM64 NEON вечно доступен.
  * Под ASan без оптимизации ядро не берётся, как и соседние
  */
-#if (defined(__x86_64__) || defined(__aarch64__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if (defined(__x86_64__) || defined(__aarch64__)) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия параллельного ядра четырёх состояний
 	 */

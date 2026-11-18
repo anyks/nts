@@ -107,7 +107,7 @@
  *       потому стена открывается признаком архитектуры вместо признака набора
  *
  */
-#if ((defined(__x86_64__) && defined(__SSE2__)) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) && defined(__SSE2__)) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Системный заголовочный файл
 	 */
@@ -124,7 +124,7 @@
 /**
  * Ветвь пакетных команд Эльбруса с набором команд 5 и старше
  */
-#elif defined(__e2k__) && defined(__iset__) && (__iset__ >= 5) && !defined(ANTS_NO_MACHINE)
+#elif defined(__e2k__) && defined(__iset__) && (__iset__ >= 5) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признаки векторного пути: пакетные команды Эльбруса
 	 */
@@ -136,7 +136,7 @@
 /**
  * Ветвь NEON на ARM64: расширение вечно доступно на этой архитектуре
  */
-#elif ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#elif ((defined(__aarch64__) && defined(__ARM_NEON)) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Системный заголовочный файл
 	 */

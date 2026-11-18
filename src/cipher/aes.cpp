@@ -71,7 +71,7 @@
  * @note Обе ветви - командами и таблицами - собираются в один двоичный файл, а выбор
  *       делается на исполнении по опознанию машины (sys/machine.hpp). Команды
  *       порождаются в отдельных функциях с атрибутом цели, оттого общих ключей
- *       расширений сборке не нужно. Признак ANTS_NO_MACHINE выбрасывает ветвь команд
+ *       расширений сборке не нужно. Признак NTS_NO_MACHINE выбрасывает ветвь команд
  *       из сборки вовсе
  *
  */
@@ -79,7 +79,7 @@
 /**
  * Если сборка ведётся под ARM64
  */
-#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -126,7 +126,7 @@
 /**
  * Если сборка ведётся под x86-64 собирателем семейства GCC
  */
-#elif (defined(__x86_64__) || defined(__e2k__) || defined(__NTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__x86_64__) || defined(__e2k__) || defined(__NTS_MSVC_X64__)) && (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд x86-64
 	 */

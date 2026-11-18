@@ -69,7 +69,7 @@ namespace {
 	/**
 	 * Путь к проверочным ключам
 	 */
-	static const char * CORPUS = ANTS_CORPUS;
+	static const char * CORPUS = NTS_CORPUS;
 	/**
 	 * @brief Функция чтения файла проверочного ключа целиком
 	 *

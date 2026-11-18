@@ -379,8 +379,8 @@ HEADER = """/**
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_MATH_MONT__
-#define __ANTS_INTERNAL_MATH_MONT__
+#ifndef __NTS_INTERNAL_MATH_MONT__
+#define __NTS_INTERNAL_MATH_MONT__
 
 /**
  * Стандартные заголовочные файлы
@@ -395,13 +395,13 @@ HEADER = """/**
 
 /**
  * Ядро берётся у gcc и clang на x86-64; под ASan без оптимизации не берётся (все регистры
- * общего назначения заняты, признак __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
+ * общего назначения заняты, признак __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядра квадрата на mulq
 	 */
-	#define __ANTS_MONT_SQUARE8X_MULQ__
+	#define __NTS_MONT_SQUARE8X_MULQ__
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -447,7 +447,7 @@ FOOTER = """						: [carry] "+m" (carry), [window] "+m" (window)
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_MATH_MONT__
+#endif // __NTS_INTERNAL_MATH_MONT__
 """
 
 def header():

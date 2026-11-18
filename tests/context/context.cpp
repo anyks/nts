@@ -107,7 +107,7 @@ namespace {
 		// Чтение файла набора ключей
 		const auto reading = [](const char * name) noexcept -> vector <uint8_t> {
 			// Открываем файл набора
-			ifstream file(string(ANTS_CORPUS) + "/" + name, ios::binary);
+			ifstream file(string(NTS_CORPUS) + "/" + name, ios::binary);
 			// Выводим содержимое файла
 			return vector <uint8_t> ((istreambuf_iterator <char> (file)), istreambuf_iterator <char> ());
 		};
@@ -9535,13 +9535,13 @@ TEST(ContextTest, ExportingLegacy){
 	context::credential_t credentials;
 	{
 		// Читаем секретный ключ в записи PEM
-		std::ifstream key(std::string(ANTS_CORPUS) + "/ec256.pem", std::ios::binary);
+		std::ifstream key(std::string(NTS_CORPUS) + "/ec256.pem", std::ios::binary);
 		// Файл ключа открывается
 		ASSERT_TRUE(key.is_open());
 		// Читаем ключ из файла в подлинность
 		credentials.secret.assign(std::istreambuf_iterator <char> (key), std::istreambuf_iterator <char> ());
 		// Читаем сертификат в записи PEM
-		std::ifstream crt(std::string(ANTS_CORPUS) + "/ec256.crt", std::ios::binary);
+		std::ifstream crt(std::string(NTS_CORPUS) + "/ec256.crt", std::ios::binary);
 		// Файл сертификата открывается
 		ASSERT_TRUE(crt.is_open());
 		// Читаем сертификат из файла
@@ -9734,13 +9734,13 @@ TEST(ContextTest, SrtpLegacy){
 	context::credential_t credentials;
 	{
 		// Читаем секретный ключ в записи PEM
-		std::ifstream key(std::string(ANTS_CORPUS) + "/ec256.pem", std::ios::binary);
+		std::ifstream key(std::string(NTS_CORPUS) + "/ec256.pem", std::ios::binary);
 		// Файл ключа открывается
 		ASSERT_TRUE(key.is_open());
 		// Читаем ключ из файла в подлинность
 		credentials.secret.assign(std::istreambuf_iterator <char> (key), std::istreambuf_iterator <char> ());
 		// Читаем сертификат в записи PEM
-		std::ifstream crt(std::string(ANTS_CORPUS) + "/ec256.crt", std::ios::binary);
+		std::ifstream crt(std::string(NTS_CORPUS) + "/ec256.crt", std::ios::binary);
 		// Файл сертификата открывается
 		ASSERT_TRUE(crt.is_open());
 		// Читаем сертификат из файла
@@ -9837,13 +9837,13 @@ TEST(ContextTest, Sm){
 	context::credential_t credentials;
 	{
 		// Читаем секретный ключ в записи PEM
-		std::ifstream key(std::string(ANTS_CORPUS) + "/sm2.pem", std::ios::binary);
+		std::ifstream key(std::string(NTS_CORPUS) + "/sm2.pem", std::ios::binary);
 		// Файл ключа открывается
 		ASSERT_TRUE(key.is_open());
 		// Читаем ключ из файла в подлинность
 		credentials.secret.assign(std::istreambuf_iterator <char> (key), std::istreambuf_iterator <char> ());
 		// Читаем сертификат в записи PEM
-		std::ifstream crt(std::string(ANTS_CORPUS) + "/sm2.crt", std::ios::binary);
+		std::ifstream crt(std::string(NTS_CORPUS) + "/sm2.crt", std::ios::binary);
 		// Файл сертификата открывается
 		ASSERT_TRUE(crt.is_open());
 		// Читаем сертификат из файла
@@ -9934,13 +9934,13 @@ TEST(ContextTest, SmHybrid){
 	context::credential_t credentials;
 	{
 		// Читаем секретный ключ в записи PEM
-		std::ifstream key(std::string(ANTS_CORPUS) + "/sm2.pem", std::ios::binary);
+		std::ifstream key(std::string(NTS_CORPUS) + "/sm2.pem", std::ios::binary);
 		// Файл ключа открывается
 		ASSERT_TRUE(key.is_open());
 		// Читаем ключ из файла в подлинность
 		credentials.secret.assign(std::istreambuf_iterator <char> (key), std::istreambuf_iterator <char> ());
 		// Читаем сертификат в записи PEM
-		std::ifstream crt(std::string(ANTS_CORPUS) + "/sm2.crt", std::ios::binary);
+		std::ifstream crt(std::string(NTS_CORPUS) + "/sm2.crt", std::ios::binary);
 		// Файл сертификата открывается
 		ASSERT_TRUE(crt.is_open());
 		// Читаем сертификат из файла

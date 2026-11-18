@@ -35,7 +35,7 @@
  * без ключей сборки (Microsoft Visual C++), и стены кодека допускают x86-64: прочие
  * машины ядра не зовут вовсе
  */
-#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Системный заголовочный файл
 	 */

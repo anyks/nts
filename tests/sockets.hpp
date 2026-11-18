@@ -17,7 +17,7 @@
  * @details Проверки интеропа гоняют байты через настоящие сокеты к openssl. У Windows
  *          сокет не закрывается close(), срок ожидания приёма - число миллисекунд, а
  *          не timeval, опрос - WSAPoll, и Winsock требует подъёма. Всё это спрятано
- *          здесь: проверки зовут closing(), patience() и ANTS_POLL()
+ *          здесь: проверки зовут closing(), patience() и NTS_POLL()
  *
  * @copyright Copyright © 2026
  *
@@ -116,7 +116,7 @@
 	/**
 	 * Опрос готовности сокетов через WSAPoll
 	 */
-	#define ANTS_POLL(fds, count, timeout) ::WSAPoll((fds), (count), (timeout))
+	#define NTS_POLL(fds, count, timeout) ::WSAPoll((fds), (count), (timeout))
 /**
  * Для операционных систем POSIX
  */
@@ -152,7 +152,7 @@
 	/**
 	 * Опрос готовности сокетов через poll
 	 */
-	#define ANTS_POLL(fds, count, timeout) ::poll((fds), (count), (timeout))
+	#define NTS_POLL(fds, count, timeout) ::poll((fds), (count), (timeout))
 #endif
 
 /**

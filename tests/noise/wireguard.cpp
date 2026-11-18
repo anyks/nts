@@ -431,7 +431,7 @@ TEST(WireguardTest, Refusals){
  */
 TEST(WireguardTest, Vector){
 	// Читаем эталонный вектор из файла
-	const auto v = reference(std::string(ANTS_CORPUS) + "/noise/wireguard.txt");
+	const auto v = reference(std::string(NTS_CORPUS) + "/noise/wireguard.txt");
 	// Проверяем число ключей эталона
 	ASSERT_EQ(v.size(), 10u);
 	// Достаём постоянные ключи и общий ключ

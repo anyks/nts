@@ -137,7 +137,7 @@
 /**
  * Если сборка ведётся под ARM64
  */
-#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -237,7 +237,7 @@
  * у него нет, ядра SHA-2 идут внутренними функциями SSE2/SSSE3; переносимый путь остаётся
  * для прочих собирателей и под запретом команд
  */
-#if defined(__NTS_MSVC_X64__) && !defined(ANTS_NO_MACHINE) && !defined(__NTS_ASAN_UNOPTIMIZED__)
+#if defined(__NTS_MSVC_X64__) && !defined(NTS_NO_MACHINE) && !defined(__NTS_ASAN_UNOPTIMIZED__)
 	/**
 	 * Подключаем заголовочный файл внутренних функций x86-64
 	 */

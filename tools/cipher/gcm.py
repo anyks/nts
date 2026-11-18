@@ -164,8 +164,8 @@ def powers(H, arch):
 # ---------- ядро x86-64 ----------
 # Кадр [tab]: 0 основание счётчика, 16 число средних кругов, 32 накопитель, 48 ячейки половин (8 × 16)
 # Постоянные [cst]: 0…127 шаги счётчика 1…8 в старшем байте, 128 маска перестановки байтов
-X86_CONSTANTS = sum(([0] * 15 + [i] for i in range(1, 9)), []) + list(range(15, -1, -1))
-assert len(X86_CONSTANTS) == 144
+X86_CONSTNTS = sum(([0] * 15 + [i] for i in range(1, 9)), []) + list(range(15, -1, -1))
+assert len(X86_CONSTNTS) == 144
 X86_FRAME = 176
 
 class X86:
@@ -300,8 +300,8 @@ def render_x86(op):
 # ---------- ядро AArch64 ----------
 # Кадр [tab]: 0 основание счётчика, 16 число средних кругов, 32 накопитель
 # Постоянные [cst]: 0 шаг счётчика в старшем байте четвёртого слова, 16 многочлен x^7 + x^2 + x + 1 в обоих словах
-ARM_CONSTANTS = ([0] * 15 + [1]) + ([0x87] + [0] * 7) * 2
-assert len(ARM_CONSTANTS) == 32
+ARM_CONSTNTS = ([0] * 15 + [1]) + ([0x87] + [0] * 7) * 2
+assert len(ARM_CONSTNTS) == 32
 ARM_FRAME = 48
 
 class Arm:
@@ -585,7 +585,7 @@ def run(arch, ins, schedule, counter, pow_table, acc, hash_data, source, chunks)
 	frame[16:24] = (rounds - 9).to_bytes(8, 'little')
 	frame[32:48] = acc
 	vm.mem = {'keys': bytearray(b''.join(schedule)), 'pow': bytearray(pow_table), 'tab': frame,
-		'cst': bytearray(X86_CONSTANTS if arch == 'x86' else ARM_CONSTANTS), 'hash': bytearray(hash_data), 'src': bytearray(source), 'dst': bytearray(len(source))}
+		'cst': bytearray(X86_CONSTNTS if arch == 'x86' else ARM_CONSTNTS), 'hash': bytearray(hash_data), 'src': bytearray(source), 'dst': bytearray(len(source))}
 	for name in ('keys', 'pow', 'tab', 'cst', 'hash', 'src', 'dst'): vm.g[name] = (name, 0)
 	vm.g['cnt'] = chunks
 	for name in ('kp', 'n', 't0', 't1', 'tail'): vm.g[name] = 0
@@ -667,8 +667,8 @@ HEADER = """/**
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_CIPHER_GCM__
-#define __ANTS_INTERNAL_CIPHER_GCM__
+#ifndef __NTS_INTERNAL_CIPHER_GCM__
+#define __NTS_INTERNAL_CIPHER_GCM__
 
 /**
  * Стандартные заголовочные файлы
@@ -687,15 +687,15 @@ HEADER = """/**
  * сборки (признак __ARM_FEATURE_AES: у clang на процессорах Apple задан сам, у gcc и clang под Linux
  * появляется от -march=armv8-a+crypto); у прочих собирателей и архитектур остаются ветви на
  * интринсиках либо переносимый путь. Под ASan без оптимизации ядро x86-64 не берётся (признак
- * __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp: тринадцать регистров общего назначения во вставке,
+ * __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp: тринадцать регистров общего назначения во вставке,
  * а ASan держит адреса своего стека в регистрах); ядру AArch64 регистров хватает, и оно
  * проверяется отладочной сборкой
  */
-#if ((defined(__x86_64__) && !defined(__ANTS_ASAN_UNOPTIMIZED__)) || (defined(__aarch64__) && defined(__ARM_FEATURE_AES))) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(ANTS_NO_MACHINE)
+#if ((defined(__x86_64__) && !defined(__NTS_ASAN_UNOPTIMIZED__)) || (defined(__aarch64__) && defined(__ARM_FEATURE_AES))) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия сшитого ядра на ассемблере
 	 */
-	#define __ANTS_GCM_STITCH__
+	#define __NTS_GCM_STITCH__
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -722,7 +722,7 @@ FOOTER = """			}
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_CIPHER_GCM__
+#endif // __NTS_INTERNAL_CIPHER_GCM__
 """
 
 DOC = """				/**
@@ -744,12 +744,12 @@ DOC = """				/**
 
 def kernel_cpp(arch, ins, rename=None):
 	if arch == 'x86':
-		consts = X86_CONSTANTS; name = 'stitchX86'; brief = 'ядром x86-64 с кодировкой VEX (AVX, PCLMULQDQ, AES-NI, MOVBE)'
+		consts = X86_CONSTNTS; name = 'stitchX86'; brief = 'ядром x86-64 с кодировкой VEX (AVX, PCLMULQDQ, AES-NI, MOVBE)'
 		note = 'сдвинутые на разряд с переставленными байтами'
 		regs = ', '.join('"xmm%d"' % i for i in range(16))
 		lines = [render_x86(op) for op in ins]
 	else:
-		consts = ARM_CONSTANTS; name = 'stitchArm'; brief = 'ядром AArch64 (AES и PMULL расширения crypto%s)' % (', eor3 расширения SHA-3' if any(op[0] == 'eor3' for op in ins) else '')
+		consts = ARM_CONSTNTS; name = 'stitchArm'; brief = 'ядром AArch64 (AES и PMULL расширения crypto%s)' % (', eor3 расширения SHA-3' if any(op[0] == 'eor3' for op in ins) else '')
 		note = 'с отражёнными разрядами байтов и суммой половин третьим словом'
 		regs = ', '.join('"v%d"' % i for i in range(32))
 		lines = [render_arm(op) for op in ins]
@@ -760,7 +760,7 @@ def kernel_cpp(arch, ins, rename=None):
 	head = DOC % (brief, note)
 	head += '\t\t\t\tstatic void %s(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, uint8_t * frame, const uint8_t * hash, const uint8_t * source, uint8_t * result, size_t count) noexcept {\n' % name
 	head += '\t\t\t\t\t// Шаги счётчика в старшем байте четвёртого слова%s\n' % (', маска перестановки байтов' if arch == 'x86' else ', многочлен приведения')
-	head += '\t\t\t\t\talignas(16) static const uint8_t CONSTANTS[%d] = {\n%s\n\t\t\t\t\t};\n' % (len(consts), '\n'.join(rows))
+	head += '\t\t\t\t\talignas(16) static const uint8_t CONSTNTS[%d] = {\n%s\n\t\t\t\t\t};\n' % (len(consts), '\n'.join(rows))
 	head += '\t\t\t\t\t// Число кругов с девятого до предпоследнего\n\t\t\t\t\tconst uint64_t middle = static_cast <uint64_t> (rounds - 9);\n'
 	head += '\t\t\t\t\t// Записываем в кадр основание счётчика, число средних кругов и накопитель\n'
 	head += '\t\t\t\t\t::memcpy(frame, counter, 16);\n\t\t\t\t\t::memcpy(frame + 16, &middle, sizeof(middle));\n\t\t\t\t\t::memcpy(frame + 32, accumulator, 16);\n'
@@ -768,7 +768,7 @@ def kernel_cpp(arch, ins, rename=None):
 	head += '\t\t\t\t\tconst uint8_t * kp = nullptr;\n\t\t\t\t\tsize_t n = 0;\n\t\t\t\t\tuint64_t t0 = 0, t1 = 0, tail = 0;\n'
 	head += '\t\t\t\t\t__asm__ __volatile__(\n'
 	tail = ('\n\t\t\t\t\t\t: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [kp] "=&r" (kp), [n] "=&r" (n), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)\n'
-		'\t\t\t\t\t\t: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTANTS)\n'
+		'\t\t\t\t\t\t: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTNTS)\n'
 		'\t\t\t\t\t\t: %s, "cc", "memory");\n' % regs)
 	tail += '\t\t\t\t\t// Забираем продвинутый счётчик и накопитель\n\t\t\t\t\t::memcpy(counter, frame, 16);\n\t\t\t\t\t::memcpy(accumulator, frame + 32, 16);\n\t\t\t\t}\n'
 	return head + asmtext(lines, '\t\t\t\t\t\t') + tail

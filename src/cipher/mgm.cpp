@@ -59,7 +59,7 @@
 #include "sys/wipe.hpp"
 
 /**
- * @note Признак ANTS_NO_CARRYLESS отключает машинное умножение принудительно:
+ * @note Признак NTS_NO_CARRYLESS отключает машинное умножение принудительно:
  *       переносимый путь работает на большинстве машин матрицы, и прогонять его надо
  *       и там, где машина умножать без переносов умеет
  *
@@ -68,7 +68,7 @@
 /**
  * Если машина умножает без переносов командой PMULL
  */
-#if defined(__aarch64__) && defined(__ARM_FEATURE_AES) && !defined(ANTS_NO_CARRYLESS)
+#if defined(__aarch64__) && defined(__ARM_FEATURE_AES) && !defined(NTS_NO_CARRYLESS)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -81,7 +81,7 @@
 /**
  * Если машина умножает без переносов командой PCLMULQDQ
  */
-#elif defined(__x86_64__) && defined(__PCLMUL__) && !defined(ANTS_NO_CARRYLESS)
+#elif defined(__x86_64__) && defined(__PCLMUL__) && !defined(NTS_NO_CARRYLESS)
 	/**
 	 * Подключаем заголовочный файл команд x86-64
 	 */
@@ -95,7 +95,7 @@
  * Если сборка ведётся собирателем Microsoft Visual C++ под ARM64 либо x86-64: внутренние функции
  * умножения без переносов доступны ему без ключей сборки, а несёт ли их машина, знает лишь опознание
  */
-#elif (defined(__NTS_MSVC_ARM64__) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_CARRYLESS)
+#elif (defined(__NTS_MSVC_ARM64__) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_CARRYLESS)
 	/**
 	 * Если сборка ведётся под x86-64
 	 */

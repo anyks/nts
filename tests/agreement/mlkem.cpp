@@ -43,7 +43,7 @@ using namespace nts;
 /**
  * Путь к набору векторов
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * @brief Функция разбора шестнадцатеричной строки

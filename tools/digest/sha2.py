@@ -497,8 +497,8 @@ HEADER = """/**
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __ANTS_INTERNAL_DIGEST_SHA2__
-#define __ANTS_INTERNAL_DIGEST_SHA2__
+#ifndef __NTS_INTERNAL_DIGEST_SHA2__
+#define __NTS_INTERNAL_DIGEST_SHA2__
 
 /**
  * Стандартные заголовочные файлы
@@ -514,13 +514,13 @@ HEADER = """/**
 /**
  * Ядра берутся у gcc и clang на x86-64; у прочих собирателей и архитектур остаётся переносимый
  * путь. Под ASan без оптимизации ядра не берутся: вставка занимает все четырнадцать регистров
- * общего назначения (признак __ANTS_ASAN_UNOPTIMIZED__ из sys/global.hpp, круг 38)
+ * общего назначения (признак __NTS_ASAN_UNOPTIMIZED__ из sys/global.hpp, круг 38)
  */
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__ANTS_ASAN_UNOPTIMIZED__) && !defined(ANTS_NO_MACHINE)
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(_MSC_VER) && !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Признак наличия ядер на ассемблере
 	 */
-	#define __ANTS_SHA2_X86_64__
+	#define __NTS_SHA2_X86_64__
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -554,7 +554,7 @@ FOOTER = """			}
 	}
 #endif
 
-#endif // __ANTS_INTERNAL_DIGEST_SHA2__
+#endif // __NTS_INTERNAL_DIGEST_SHA2__
 """
 def header():
 	parts = [HEADER]

@@ -17,7 +17,7 @@
  * @details Чужого корпуса у PQNoise нет. Корпус tests/corpus/noise/pqnoise.txt порождён нашим же
  *          кодом на закреплённых зёрнах и заморожен: он доказывает неизменность поведения с
  *          дня заморозки, не правильность и не совместимость. Пересоздание - только вслух:
- *          ANTS_NOISE_FREEZE=путь пишет новый файл и проваливает проверку, чтобы заморозка не
+ *          NTS_NOISE_FREEZE=путь пишет новый файл и проваливает проверку, чтобы заморозка не
  *          прошла молча
  *
  * @copyright Copyright © 2026
@@ -53,7 +53,7 @@ using namespace nts;
 /**
  * Путь к набору корпусов
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * @brief Служебные объекты набора
@@ -947,14 +947,14 @@ TEST(PqnoiseTest, Limits){
 	}
 }
 /**
- * @brief Свой замороженный корпус: 52 записи, сличение байт в байт; ANTS_NOISE_FREEZE пересоздаёт его вслух и проваливает проверку
+ * @brief Свой замороженный корпус: 52 записи, сличение байт в байт; NTS_NOISE_FREEZE пересоздаёт его вслух и проваливает проверку
  *
  */
 TEST(PqnoiseTest, Corpus){
 	// Задаём пути файлов набора
 	const std::string path = (std::string(CORPUS) + "/noise/pqnoise.txt");
 	// Ищем переменную заморозки корпуса
-	const char * freeze = ::getenv("ANTS_NOISE_FREEZE");
+	const char * freeze = ::getenv("NTS_NOISE_FREEZE");
 	// Проверяем, что задана заморозка корпуса
 	if(freeze != nullptr){
 		// Составляем записи корпуса

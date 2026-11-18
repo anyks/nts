@@ -65,7 +65,7 @@ using namespace nts;
 /**
  * Путь к набору ключей для сличения
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * @brief Служебные объекты проверок
@@ -1718,11 +1718,11 @@ TEST(GreaseTest, Openssl13){
  */
 TEST(GreaseTest, OpensslGrease){
 	// Путь к openssl 4.1 из окружения
-	const char * given = ::getenv("ANTS_OPENSSL41");
+	const char * given = ::getenv("NTS_OPENSSL41");
 	// Если путь не задан либо двоичный файл неисполняем
 	if((given == nullptr) || (::access(given, X_OK) != 0)){
 		// Пропускаем проверку вслух
-		GTEST_SKIP() << "openssl 4.1 недоступен: задайте ANTS_OPENSSL41";
+		GTEST_SKIP() << "openssl 4.1 недоступен: задайте NTS_OPENSSL41";
 	}
 	// Имя двоичного файла openssl 4.1
 	const std::string tool(given);

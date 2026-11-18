@@ -88,7 +88,7 @@ static const char * PASSWORD_CORPUS = "Пароль-123";
 /**
  * Путь к набору ключей для сличения
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * Опознаватель кривой P-256

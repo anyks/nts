@@ -216,7 +216,7 @@ print('''				/**
 				/**
 				 * Признак наличия ядер на восемь слов x86-64
 				 */
-				#define __ANTS_X86_64_KERNELS8__
+				#define __NTS_X86_64_KERNELS8__
 				/**
 				 * @brief Метод полного произведения восьми слов на восемь на ассемблере x86-64
 				 *
@@ -225,7 +225,7 @@ print('''				/**
 				 * @param result место, в которое помещаются шестнадцать слов произведения
 				 *
 				 */
-				static __ANTS_INLINE__ void product8(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void product8(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 					__asm__ __volatile__(''')
 print(render_all(kp.ins, ind))
 print('''						:
@@ -240,7 +240,7 @@ print('''						:
 				 * @param result место, в которое помещаются шестнадцать слов квадрата
 				 *
 				 */
-				static __ANTS_INLINE__ void square8(const uint64_t * value, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void square8(const uint64_t * value, uint64_t * result) noexcept {
 					__asm__ __volatile__(''')
 print(render_all(ks.ins, ind))
 print('''						:
@@ -256,7 +256,7 @@ print('''						:
 				 * @param result место, в которое помещаются восемь слов итога, меньшего модуля
 				 *
 				 */
-				static __ANTS_INLINE__ void foldminus8(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void foldminus8(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
 					__asm__ __volatile__(''')
 print(render_all(kf.ins, ind))
 print('''						: [h0] "=m" (result[0]), [h1] "=m" (result[1]), [h2] "=m" (result[2]), [h3] "=m" (result[3]), [h4] "=m" (result[4]), [h5] "=m" (result[5]), [h6] "=m" (result[6]), [h7] "=m" (result[7])

@@ -54,7 +54,7 @@
  * Если сборка ведётся под x86-64: векторное сложение итогов таблицы идёт SSE2,
  * который на этой архитектуре базовый и ключей сборки не требует
  */
-#if (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл внутренних функций x86-64
 	 */
@@ -66,7 +66,7 @@
 /**
  * Если сборка ведётся под ARM64: векторное сложение идёт NEON
  */
-#elif (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */
@@ -400,7 +400,7 @@ namespace {
 	/**
 	 * Если шифр работает развёрнутыми таблицами преобразования
 	 */
-	#if !defined(ANTS_CIPHER_COMPACT)
+	#if !defined(NTS_CIPHER_COMPACT)
 		/**
 		 * @brief Развёрнутая таблица преобразования блока
 		 *
@@ -586,7 +586,7 @@ namespace {
 	 * @param key   складываемый ключ
 	 *
 	 */
-	#if !defined(ANTS_CIPHER_COMPACT)
+	#if !defined(NTS_CIPHER_COMPACT)
 		/**
 		 * @brief Функция подстановки и линейного преобразования четырёх блоков разом
 		 *
@@ -825,7 +825,7 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
 	/**
 	 * Если шифр работает развёрнутыми таблицами преобразования
 	 */
-	#if !defined(ANTS_CIPHER_COMPACT)
+	#if !defined(NTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу прямого преобразования
 		const spread_t & table = forward();
 		/**
@@ -881,7 +881,7 @@ bool nts::cipher::Kuznyechik::batch(const uint8_t * sources, const size_t blocks
 	/**
 	 * Если шифр работает развёрнутыми таблицами преобразования
 	 */
-	#if !defined(ANTS_CIPHER_COMPACT)
+	#if !defined(NTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу прямого преобразования
 		const spread_t & table = forward();
 		// Четыре преобразуемых блока
@@ -950,7 +950,7 @@ bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) 
 	/**
 	 * Если шифр работает развёрнутыми таблицами преобразования
 	 */
-	#if !defined(ANTS_CIPHER_COMPACT)
+	#if !defined(NTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу обратного преобразования
 		const spread_t & table = backward();
 		/**

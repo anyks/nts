@@ -48,7 +48,7 @@ using namespace nts;
 	/**
 	 * Ограждение адресов задано ключом собирателя
 	 */
-	#define ANTS_ASAN 1
+	#define NTS_ASAN 1
 /**
  * Ключа собирателя нет: опрашиваем поддержку ограждения адресов через __has_feature
  */
@@ -60,7 +60,7 @@ using namespace nts;
 		/**
 		 * Ограждение адресов задано ключом собирателя
 		 */
-		#define ANTS_ASAN 1
+		#define NTS_ASAN 1
 	#endif
 #endif
 
@@ -133,7 +133,7 @@ TEST(WipeTest, Containers) {
 /**
  * Если ограждения адресов нет: буфер остался у набора и обязан быть нулевым
  */
-#if !defined(ANTS_ASAN)
+#if !defined(NTS_ASAN)
 	/**
 	 * Выполняем перебор байтов прежнего буфера
 	 */
@@ -158,7 +158,7 @@ TEST(WipeTest, Containers) {
 /**
  * Если ограждения адресов нет
  */
-#if !defined(ANTS_ASAN)
+#if !defined(NTS_ASAN)
 	/**
 	 * Выполняем перебор байтов прежнего буфера строки
 	 */

@@ -8,16 +8,16 @@ add_executable(${TEST_AUDIT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/audit.cpp")
 target_compile_options(${TEST_AUDIT_NAME} PRIVATE ${GCC_COVERAGE_COMPILE_FLAGS})
 
 # Передаём путь к набору ключей
-target_compile_definitions(${TEST_AUDIT_NAME} PRIVATE ANTS_CORPUS="${ANTS_ROOT}/tests/corpus")
+target_compile_definitions(${TEST_AUDIT_NAME} PRIVATE NTS_CORPUS="${NTS_ROOT}/tests/corpus")
 
 # Передаём путь к исходнику движка: статический пин затирания ключа билета (круг 9) читает его текст
-target_compile_definitions(${TEST_AUDIT_NAME} PRIVATE ANTS_ENGINE_SRC="${ANTS_ROOT}/src/internal/engine/engine.cpp")
+target_compile_definitions(${TEST_AUDIT_NAME} PRIVATE NTS_ENGINE_SRC="${NTS_ROOT}/src/internal/engine/engine.cpp")
 
 # Подключаем каталог общих заголовочных файлов набора проверок
-target_include_directories(${TEST_AUDIT_NAME} PRIVATE "${ANTS_ROOT}/tests" "${ANTS_ROOT}/src")
+target_include_directories(${TEST_AUDIT_NAME} PRIVATE "${NTS_ROOT}/tests" "${NTS_ROOT}/src")
 
 # Выполняем подключение зависимостей цели проверок
-target_link_libraries(${TEST_AUDIT_NAME} ${ANTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
+target_link_libraries(${TEST_AUDIT_NAME} ${NTS_LIB_NAME}_test GTest::gtest_main ${GCC_COVERAGE_LIBS})
 
 # Регистрируем цель проверок
 add_test(NAME ${TEST_AUDIT_NAME} COMMAND ${TEST_AUDIT_NAME})

@@ -42,7 +42,7 @@ using namespace nts;
 /**
  * Каталог набора контрольных примеров
  */
-static const char * CORPUS = ANTS_CORPUS;
+static const char * CORPUS = NTS_CORPUS;
 
 /**
  * @brief Функция разбора записи из шестнадцатеричного текста

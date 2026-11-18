@@ -46,7 +46,7 @@
 /**
  * Если сборка ведётся под x86-64: слой NH идёт SSE2 (базовый на архитектуре)
  */
-#if (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(ANTS_NO_MACHINE)
+#if (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл внутренних функций x86-64
 	 */
@@ -58,7 +58,7 @@
 /**
  * Если сборка ведётся под ARM64: слой NH идёт NEON
  */
-#elif (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(ANTS_NO_MACHINE)
+#elif (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(NTS_NO_MACHINE)
 	/**
 	 * Подключаем заголовочный файл команд ARM
 	 */

@@ -1489,7 +1489,7 @@ TEST(TrustTest, Addressed){
  */
 static bool corpus(const char * name, vector <vector <uint8_t>> & result) {
 	// Путь к файлу набора образцов
-	const string path = string(ANTS_CORPUS) + "/" + name;
+	const string path = string(NTS_CORPUS) + "/" + name;
 	// Открываем файл набора образцов
 	ifstream file(path, ios::binary);
 	// Если файл открыть не удалось
@@ -1511,7 +1511,7 @@ static bool corpus(const char * name, vector <vector <uint8_t>> & result) {
  */
 static bool listing(const char * name, vector <uint8_t> & result) {
 	// Путь к файлу набора образцов
-	const string path = string(ANTS_CORPUS) + "/" + name;
+	const string path = string(NTS_CORPUS) + "/" + name;
 	// Открываем файл набора образцов
 	ifstream file(path, ios::binary);
 	// Если файл открыть не удалось
