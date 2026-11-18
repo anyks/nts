@@ -182,7 +182,7 @@ namespace {
 	 *       заголовке. Замер 22.09.2026
 	 *
 	 */
-	__NTS_NOINLINE__ static void overwrite() noexcept {
+	static __NTS_NOINLINE__ void overwrite() noexcept {
 		// Область стека, накрывающая кадры удвоения и сложения точек
 		uint64_t area[512];
 		/**
@@ -358,7 +358,7 @@ namespace {
 		 */
 		__NTS_INLINE__ void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Умножение встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
-			math::kernel::multiply <WORDS, ADX> (this->layout, first, second, result);
+			math::kernel::__nts_multiply__ <WORDS, ADX> (this->layout, first, second, result);
 		}
 		/**
 		 * @brief Метод возведения в квадрат по модулю
@@ -366,7 +366,7 @@ namespace {
 		 */
 		__NTS_INLINE__ void square(const value_t & value, value_t & result) const noexcept {
 			// Возведение в квадрат встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
-			math::kernel::square <WORDS, ADX> (this->layout, value, result);
+			math::kernel::__nts_square__ <WORDS, ADX> (this->layout, value, result);
 		}
 		/**
 		 * @brief Метод сложения точек кривой
@@ -378,7 +378,7 @@ namespace {
 		 */
 		__NTS_INLINE__ void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Сложение встраиваемым ядром
-			math::kernel::add <WORDS> (this->layout, first, second, result);
+			math::kernel::__nts_add__ <WORDS> (this->layout, first, second, result);
 		}
 		/**
 		 * @brief Метод вычитания по модулю
@@ -386,7 +386,7 @@ namespace {
 		 */
 		__NTS_INLINE__ void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Вычитание встраиваемым ядром
-			math::kernel::subtract <WORDS> (this->layout, first, second, result);
+			math::kernel::__nts_subtract__ <WORDS> (this->layout, first, second, result);
 		}
 		/**
 		 * @brief Метод выбора одного из двух значений наложением маски
@@ -394,7 +394,7 @@ namespace {
 		 */
 		__NTS_INLINE__ void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
 			// Выбор наложением маски
-			math::kernel::choose <WORDS> (mask, first, second, result);
+			math::kernel::__nts_choose__ <WORDS> (mask, first, second, result);
 		}
 		/**
 		 * @brief Метод получения маски равенства значения нулю
@@ -402,7 +402,7 @@ namespace {
 		 */
 		__NTS_INLINE__ uint64_t zero(const value_t & value) const noexcept {
 			// Выводим маску равенства нулю
-			return math::kernel::zero <WORDS> (value);
+			return math::kernel::__nts_zero__ <WORDS> (value);
 		}
 		/**
 		 * @brief Метод чтения значения из слов числа
@@ -436,7 +436,7 @@ namespace {
 			// Обнуление числа: слова выше ширины поля нулевые
 			number = math::number_t();
 			// Записываем слова значения
-			math::kernel::put <WORDS> (value, number.words);
+			math::kernel::__nts_put__ <WORDS> (value, number.words);
 		}
 		/**
 		 * @brief Метод выборки строки слов из таблицы наложением маски

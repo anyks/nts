@@ -544,7 +544,6 @@ namespace {
 		 * Слово в 32 разряда по любому адресу, совместимое по памяти с любым типом
 		 */
 		typedef uint32_t __attribute__((may_alias, aligned(1))) aliased32_t;
-
 		/**
 		 * Слово в 64 разряда по любому адресу, совместимое по памяти с любым типом
 		 */
@@ -888,7 +887,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __NTS_SHA256_TARGET__ void compressArm(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_SHA256_TARGET__ void __nts_compress_arm__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
@@ -1105,7 +1104,7 @@ namespace {
 		 * @return     четвёрка слов
 		 *
 		 */
-		static __NTS_INLINE__ __NTS_SHA256_TARGET__ uint32x4_t quadruple(const uint8_t * data) noexcept {
+		static __NTS_INLINE__ __NTS_SHA256_TARGET__ uint32x4_t __nts_quadruple__(const uint8_t * data) noexcept {
 			// Выводим четвёрку слов с обращённым порядком байтов внутри каждого слова
 			return vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(data)));
 		}
@@ -1123,7 +1122,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __NTS_SHA256_TARGET__ void compressArm(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_SHA256_TARGET__ void __nts_compress_arm__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
@@ -1139,9 +1138,9 @@ namespace {
 			 */
 			for(size_t block = 0; block < count; block++, data += 64){
 				// Четвёрки слов расписания
-				uint32x4_t w0 = quadruple(data), w1 = quadruple(data + 16);
+				uint32x4_t w0 = __nts_quadruple__(data), w1 = __nts_quadruple__(data + 16);
 				// Четвёрки слов расписания
-				uint32x4_t w2 = quadruple(data + 32), w3 = quadruple(data + 48);
+				uint32x4_t w2 = __nts_quadruple__(data + 32), w3 = __nts_quadruple__(data + 48);
 				// Половины состояния на входе блока
 				const uint32x4_t abcd0 = abcd, efgh0 = efgh;
 				/**
@@ -1257,7 +1256,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static void compress256Msvc(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static void __nts_compress256_msvc__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Маски перестановки байтов
 			const __m128i mask0 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK256));
 			// Маска укладки младших половин для сигмы единицы
@@ -1379,7 +1378,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static void compress512Msvc(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static void __nts_compress512_msvc__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Маска перестановки байтов
 			const __m128i mask512 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK512));
 			/**
@@ -1598,7 +1597,7 @@ namespace {
 		 * @return     пара слов
 		 *
 		 */
-		static __NTS_INLINE__ __NTS_SHA512_TARGET__ uint64x2_t pair(const uint8_t * data) noexcept {
+		static __NTS_INLINE__ __NTS_SHA512_TARGET__ uint64x2_t __nts_pair__(const uint8_t * data) noexcept {
 			// Выводим пару слов с обращённым порядком байтов внутри каждого слова
 			return vreinterpretq_u64_u8(vrev64q_u8(vld1q_u8(data)));
 		}
@@ -1616,7 +1615,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __NTS_SHA512_TARGET__ void compressArm512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_SHA512_TARGET__ void __nts_compress_arm512__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Пары состояния: ab, cd, ef и gh
 			uint64x2_t abPair = vld1q_u64(hash), cdPair = vld1q_u64(hash + 2);
 			// Пары состояния: ab, cd, ef и gh
@@ -1628,9 +1627,9 @@ namespace {
 				// Сохранённые пары для сложения в конце блока
 				const uint64x2_t abPair0 = abPair, cdPair0 = cdPair, efPair0 = efPair, ghPair0 = ghPair;
 				// Пары слов расписания
-				uint64x2_t msg0 = pair(data), msg1 = pair(data + 16), msg2 = pair(data + 32), msg3 = pair(data + 48);
+				uint64x2_t msg0 = __nts_pair__(data), msg1 = __nts_pair__(data + 16), msg2 = __nts_pair__(data + 32), msg3 = __nts_pair__(data + 48);
 				// Пары слов расписания
-				uint64x2_t msg4 = pair(data + 64), msg5 = pair(data + 80), msg6 = pair(data + 96), msg7 = pair(data + 112);
+				uint64x2_t msg4 = __nts_pair__(data + 64), msg5 = __nts_pair__(data + 80), msg6 = __nts_pair__(data + 96), msg7 = __nts_pair__(data + 112);
 				/**
 				 * Прогоняем пять проходов по шестнадцать кругов
 				 */
@@ -1778,7 +1777,7 @@ namespace {
 			// Если машина хеширует командами
 			if(machine::has(machine::feature_t::SHA256)){
 				// Разбор пачки командами
-				compressArm(data, count, hash);
+				__nts_compress_arm__(data, count, hash);
 				// Выходим из метода
 				return;
 			}
@@ -1790,7 +1789,7 @@ namespace {
 			// Если перестановка байтов SSSE3 есть
 			if(machine::has(machine::feature_t::SSSE3)){
 				// Разбор пачки ядром на интринсиках
-				compress256Msvc(data, count, hash);
+				__nts_compress256_msvc__(data, count, hash);
 				// Выходим из метода
 				return;
 			}
@@ -1861,7 +1860,7 @@ namespace {
 			// Если машина хеширует командами
 			if(machine::has(machine::feature_t::SHA512)){
 				// Разбор пачки командами
-				compressArm512(data, count, hash);
+				__nts_compress_arm512__(data, count, hash);
 				// Выходим из метода
 				return;
 			}
@@ -1873,7 +1872,7 @@ namespace {
 			// Если перестановка байтов SSSE3 есть
 			if(machine::has(machine::feature_t::SSSE3)){
 				// Разбор пачки ядром на интринсиках
-				compress512Msvc(data, count, hash);
+				__nts_compress512_msvc__(data, count, hash);
 				// Выходим из метода
 				return;
 			}

@@ -222,7 +222,7 @@ namespace {
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выбираем очередное слово итога наложением маски
-			value[i] = select(mask, buffer[i], value[i]);
+			value[i] = __nts_select__(mask, buffer[i], value[i]);
 		// Затирание итога вычитания модуля
 		clean(buffer, size);
 	}
@@ -699,13 +699,13 @@ void nts::math::Modulus::add(const number_t & first, const number_t & second, nu
 	// Если модуль поля укладывается в четыре слова
 	if(this->_words == 4){
 		// Сложение слагаемых развёрнутым способом
-		addition <4> (first.words, second.words, this->_modulus.words, result.words);
+		__nts_addition__ <4> (first.words, second.words, this->_modulus.words, result.words);
 		// Выходим из сложения чисел
 		return;
 	// Если модуль поля укладывается в восемь слов
 	} else if(this->_words == 8) {
 		// Сложение слагаемых развёрнутым способом
-		addition <8> (first.words, second.words, this->_modulus.words, result.words);
+		__nts_addition__ <8> (first.words, second.words, this->_modulus.words, result.words);
 		// Выходим из сложения чисел
 		return;
 	}
@@ -726,13 +726,13 @@ void nts::math::Modulus::subtract(const number_t & first, const number_t & secon
 	// Если модуль поля укладывается в четыре слова
 	if(this->_words == 4){
 		// Вычитание развёрнутым способом
-		subtraction <4> (first.words, second.words, this->_modulus.words, result.words);
+		__nts_subtraction__ <4> (first.words, second.words, this->_modulus.words, result.words);
 		// Выходим из вычитания чисел
 		return;
 	// Если модуль поля укладывается в восемь слов
 	} else if(this->_words == 8) {
 		// Вычитание развёрнутым способом
-		subtraction <8> (first.words, second.words, this->_modulus.words, result.words);
+		__nts_subtraction__ <8> (first.words, second.words, this->_modulus.words, result.words);
 		// Выходим из вычитания чисел
 		return;
 	}
@@ -747,7 +747,7 @@ void nts::math::Modulus::subtract(const number_t & first, const number_t & secon
 	 */
 	for(size_t i = 0; i < this->_words; i++)
 		// Выбираем очередное слово итога наложением маски заёма
-		result.words[i] = select(0 - borrow, buffer[i], result.words[i]);
+		result.words[i] = __nts_select__(0 - borrow, buffer[i], result.words[i]);
 	// Затирание суммы разности с модулем
 	clean(buffer, this->_words);
 }
@@ -775,8 +775,8 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 		 */
 		if(this->_words == 4)
 			// Умножаем числа ядром в четыре слова
-			kernel::multiply <4> (layout, first.words, second.words, result.words);
-		else kernel::multiply <8> (layout, first.words, second.words, result.words);
+			kernel::__nts_multiply__ <4> (layout, first.words, second.words, result.words);
+		else kernel::__nts_multiply__ <8> (layout, first.words, second.words, result.words);
 		// Выходим из умножения чисел
 		return;
 	}
@@ -871,10 +871,10 @@ void nts::math::Modulus::square(const number_t & value, number_t & result) const
 	 */
 	if(this->_words == 4)
 		// Возводим в квадрат ядром в четыре слова
-		kernel::square <4> (this->layout(), value.words, result.words);
+		kernel::__nts_square__ <4> (this->layout(), value.words, result.words);
 	else if(this->_words == 8)
 		// Возводим в квадрат ядром в восемь слов
-		kernel::square <8> (this->layout(), value.words, result.words);
+		kernel::__nts_square__ <8> (this->layout(), value.words, result.words);
 	// Прочие количества слов идут общим умножением: своего квадрата у него нет
 	else this->multiply(value, value, result);
 }
@@ -912,7 +912,7 @@ void nts::math::Modulus::power(const number_t & base, const number_t & exponent,
 		 */
 		for(size_t j = 0; j < this->_words; j++)
 			// Выбираем очередное слово степени наложением маски разряда показателя
-			value.words[j] = select(0 - bit, item.words[j], value.words[j]);
+			value.words[j] = __nts_select__(0 - bit, item.words[j], value.words[j]);
 	}
 	// Записываем накопленную степень
 	result = value;

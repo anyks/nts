@@ -31,15 +31,15 @@
 #include <utility>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл модуля
  */
 #include "cipher/aes.hpp"
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "sys/machine.hpp"
 #include "sys/wipe.hpp"
+#include "sys/machine.hpp"
 
 /**
  * @note Табличный путь ведёт круги прямой линией по количеству кругов ключа (шаблон на 10, 12
@@ -184,7 +184,9 @@ namespace {
 	 */
 	using namespace nts::cipher;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
 	/**
@@ -198,7 +200,6 @@ namespace {
 		// Выводим удвоенный элемент с приведением по многочлену 0x11B
 		return static_cast <uint8_t> ((value << 1) ^ ((value & 0x80) ? 0x1B : 0x00));
 	}
-
 	/**
 	 * @brief Функция умножения элементов поля GF(2^8)
 	 *
@@ -230,7 +231,6 @@ namespace {
 		// Выводим произведение
 		return result;
 	}
-
 	/**
 	 * @brief Функция кругового сдвига байта влево
 	 *
@@ -264,7 +264,7 @@ namespace {
 	 *
 	 * @details Подстановка строится из обратных элементов поля через порождающий
 	 *          элемент 3 и аффинного преобразования раздела 5.1.1 FIPS 197; таблицы
-	 *          раунда складываются из подстановки и перемешивания столбцов
+	 *          раунда складываются из подстановки и перемешивания столбцов.
 	 *
 	 * @return вычисленные таблицы
 	 *
@@ -292,6 +292,9 @@ namespace {
 			const uint8_t affine = static_cast <uint8_t> (opposite ^ __nts_rotate__(opposite, 1) ^ __nts_rotate__(opposite, 2) ^ __nts_rotate__(opposite, 3) ^ __nts_rotate__(opposite, 4));
 			// Записываем значение подстановки
 			tables.sbox[power] = static_cast <uint8_t> (affine ^ 0x63);
+		/**
+		 * Продолжаем перебирать оставшиеся ненулевые элементы поля степенями порождающего
+		 */
 		} while(power != 1);
 		// Нулевой элемент обратного не имеет: подстановка даёт постоянную аффинного преобразования
 		tables.sbox[0] = 0x63;
@@ -379,11 +382,12 @@ namespace {
 		 */
 		#else
 			// Выводим слово, собранное от старшего байта
-			return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
-			        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
+			return (
+				(static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
+				(static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3])
+			);
 		#endif
 	}
-
 	/**
 	 * @brief Функция записи слова от старшего байта
 	 *
@@ -412,14 +416,13 @@ namespace {
 			data[3] = static_cast <uint8_t> (value);
 		#endif
 	}
-
 	/**
 	 * @brief Функция чтения слова в порядке байтов машины
 	 *
 	 * @details Гамма накладывается на слова в порядке машины: слово исходных данных
 	 *          читается как есть, а под него переставляется слово гаммы - одна
 	 *          перестановка на слово вместо двух (круг 51, 29.09.2026). Без перестановок
-	 *          одной командой порядок машины подменяется порядком от старшего байта
+	 *          одной командой порядок машины подменяется порядком от старшего байта.
 	 *
 	 * @param data читаемые байты
 	 * @return     прочитанное слово
@@ -440,7 +443,6 @@ namespace {
 			return __nts_load__(data);
 		#endif
 	}
-
 	/**
 	 * @brief Функция записи слова в порядке байтов машины
 	 *
@@ -463,7 +465,6 @@ namespace {
 			__nts_store__(value, data);
 		#endif
 	}
-
 	/**
 	 * @brief Функция перестановки слова от старшего байта под порядок машины
 	 *
@@ -471,7 +472,7 @@ namespace {
 	 * @return      слово под порядок машины
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_swap__(const uint32_t value) noexcept {
+	static constexpr uint32_t __nts_swap__(const uint32_t value) noexcept {
 		/**
 		 * Если слова читаются одной командой
 		 */
@@ -486,7 +487,6 @@ namespace {
 			return value;
 		#endif
 	}
-
 	/**
 	 * @brief Функция подстановки всех байтов слова
 	 *
@@ -494,10 +494,12 @@ namespace {
 	 * @return      слово с подставленными байтами
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_substitute__(const uint32_t value) noexcept {
+	static constexpr uint32_t __nts_substitute__(const uint32_t value) noexcept {
 		// Выводим слово с подставленными байтами
-		return ((static_cast <uint32_t> (TABLES.sbox[value >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(value >> 16) & 0xFF]) << 16) |
-		        (static_cast <uint32_t> (TABLES.sbox[(value >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[value & 0xFF]));
+		return (
+			(static_cast <uint32_t> (TABLES.sbox[value >> 24]) << 24) | (static_cast <uint32_t> (TABLES.sbox[(value >> 16) & 0xFF]) << 16) |
+			(static_cast <uint32_t> (TABLES.sbox[(value >> 8) & 0xFF]) << 8) | static_cast <uint32_t> (TABLES.sbox[value & 0xFF])
+		);
 	}
 
 	/**
@@ -513,15 +515,15 @@ namespace {
 		 * @param result место, в которое записывается зашифрованный блок
 		 *
 		 */
-		static __NTS_AES_TARGET__ void sealArm(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_AES_TARGET__ void __nts_seal_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
 			// Состояние шифра
 			uint8x16_t state = vld1q_u8(source);
 			/**
 			 * Ведём внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
 			 */
 			for(size_t round = 0; (round + 1) < rounds; round++)
-			// Раунд командами AESE и AESMC
-			state = vaesmcq_u8(vaeseq_u8(state, vld1q_u8(keys + (round * 16))));
+				// Раунд командами AESE и AESMC
+				state = vaesmcq_u8(vaeseq_u8(state, vld1q_u8(keys + (round * 16))));
 			// Последний раунд без перемешивания и складываем с последним ключом
 			state = veorq_u8(vaeseq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
 			// Записываем зашифрованный блок
@@ -536,15 +538,15 @@ namespace {
 		 * @param result место, в которое записывается расшифрованный блок
 		 *
 		 */
-		static __NTS_AES_TARGET__ void openArm(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_AES_TARGET__ void __nts_open_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
 			// Состояние шифра
 			uint8x16_t state = vld1q_u8(source);
 			/**
 			 * Ведём внутренние раунды: ключи расшифрования уже пропущены через обратное перемешивание
 			 */
 			for(size_t round = 0; (round + 1) < rounds; round++)
-			// Раунд командами AESD и AESIMC
-			state = vaesimcq_u8(vaesdq_u8(state, vld1q_u8(keys + (round * 16))));
+				// Раунд командами AESD и AESIMC
+				state = vaesimcq_u8(vaesdq_u8(state, vld1q_u8(keys + (round * 16))));
 			// Последний раунд без перемешивания и складываем с последним ключом
 			state = veorq_u8(vaesdq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
 			// Записываем расшифрованный блок
@@ -563,15 +565,15 @@ namespace {
 		 * @param result место, в которое записывается зашифрованный блок
 		 *
 		 */
-		static __NTS_AES_TARGET__ void sealX86(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_AES_TARGET__ void __nts_seal_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
 			// Состояние шифра, сложенное с первым ключом
 			__m128i state = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (source)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
 			/**
 			 * Ведём внутренние раунды командой AESENC
 			 */
 			for(size_t round = 1; round < rounds; round++)
-			// Очередной раунд
-			state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
+				// Очередной раунд
+				state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
 			// Последний раунд командой AESENCLAST
 			state = _mm_aesenclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
 			// Записываем зашифрованный блок
@@ -586,15 +588,15 @@ namespace {
 		 * @param result место, в которое записывается расшифрованный блок
 		 *
 		 */
-		static __NTS_AES_TARGET__ void openX86(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_AES_TARGET__ void __nts_open_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
 			// Состояние шифра, сложенное с первым ключом
 			__m128i state = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (source)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
 			/**
 			 * Ведём внутренние раунды командой AESDEC
 			 */
 			for(size_t round = 1; round < rounds; round++)
-			// Очередной раунд
-			state = _mm_aesdec_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
+				// Очередной раунд
+				state = _mm_aesdec_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
 			// Последний раунд командой AESDECLAST
 			state = _mm_aesdeclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
 			// Записываем расшифрованный блок
@@ -609,7 +611,7 @@ namespace {
 	 * @return      число с обратным порядком байтов
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_reversed__(const uint32_t value) noexcept {
+	static constexpr uint32_t __nts_reversed__(const uint32_t value) noexcept {
 		// Разворачиваем байты сдвигами: собиратель сводит это к одной команде
 		return ((value >> 24) | ((value >> 8) & 0x0000FF00U) | ((value << 8) & 0x00FF0000U) | (value << 24));
 	}
@@ -645,15 +647,15 @@ namespace {
 		/**
 		 * Слово состояния табличного пути
 		 */
-		typedef uint64_t word_t;
-		/**
-		 * Иначе слово состояния табличного пути в 32 разряда
-		 */
+		using word_t = uint64_t;
+	/**
+	 * Иначе слово состояния табличного пути в 32 разряда
+	 */
 	#else
 		/**
 		 * Слово состояния табличного пути
 		 */
-		typedef uint32_t word_t;
+		using word_t = uint32_t;
 	#endif
 
 	/**
@@ -759,7 +761,7 @@ namespace {
 	 *          lcc сворачивал цикл по кругам в конвейерный цикл с платой за вход на каждом
 	 *          блоке (круг 51, 29.09.2026). Полных кругов нечётное число у всех трёх длин
 	 *          ключа (9, 11, 13): они идут парами, последний полный - отдельно, а итог
-	 *          заключительной подстановки возвращается словами на место состояния
+	 *          заключительной подстановки возвращается словами на место состояния.
 	 *
 	 * @param keys развёрнутое расписание ключей шифрования
 	 * @param s0   первое слово блока: заменяется словом итога
@@ -802,7 +804,7 @@ namespace {
 	/**
 	 * @brief Функция кругов расшифрования одного блока прямой линией
 	 *
-	 * @details Круги выписаны подряд без цикла, как у шифрования
+	 * @details Круги выписаны подряд без цикла, как у шифрования.
 	 *
 	 * @param keys развёрнутое расписание ключей расшифрования
 	 * @param s0   первое слово блока: заменяется словом итога
@@ -870,7 +872,7 @@ namespace {
 	 *          круг одного блока упирается в задержки извлечения индекса, чтения таблицы
 	 *          и сложения, а независимые блоки заполняют широкие команды между ними;
 	 *          цикл по кругам lcc сворачивал в конвейерный цикл с платой за вход на
-	 *          всякую пачку (круг 51, 29.09.2026)
+	 *          всякую пачку (круг 51, 29.09.2026).
 	 *
 	 * @param keys развёрнутое расписание ключей шифрования
 	 * @param a0…a3 слова блока: заменяются словами зашифрованного блока
@@ -979,6 +981,7 @@ namespace {
 		__nts_store__(c0, result + 32), __nts_store__(c1, result + 36), __nts_store__(c2, result + 40), __nts_store__(c3, result + 44);
 		__nts_store__(d0, result + 48), __nts_store__(d1, result + 52), __nts_store__(d2, result + 56), __nts_store__(d3, result + 60);
 	}
+
 	/**
 	 * Если есть ветвь команд AES расширения ARMv8
 	 */
@@ -994,7 +997,7 @@ namespace {
 		 * @param result место, в которое записывается шифртекст
 		 *
 		 */
-		static __NTS_AES_TARGET__ void chainArm(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
+		static __NTS_AES_TARGET__ void __nts_chain_arm__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
 			// Регистр сцепления держится вектором на весь проход
 			uint8x16_t state = vld1q_u8(record);
 			// Количество блоков сообщения
@@ -1009,8 +1012,8 @@ namespace {
 				 * Ведём внутренние раунды: подстановка со сдвигом и ключом, затем перемешивание
 				 */
 				for(size_t round = 0; (round + 1) < rounds; round++)
-				// Раунд командами AESE и AESMC
-				state = vaesmcq_u8(vaeseq_u8(state, vld1q_u8(keys + (round * 16))));
+					// Раунд командами AESE и AESMC
+					state = vaesmcq_u8(vaeseq_u8(state, vld1q_u8(keys + (round * 16))));
 				// Последний раунд без перемешивания и складываем с последним ключом
 				state = veorq_u8(vaeseq_u8(state, vld1q_u8(keys + ((rounds - 1) * 16))), vld1q_u8(keys + (rounds * 16)));
 				// Записываем шифрблок на место итога
@@ -1024,13 +1027,13 @@ namespace {
 		 *
 		 * @details Обёртка нужна пакетному раскрытию: загрузку интринсиком-макросом
 		 *          компилятор внутри пакета не разворачивает, а через обычный вызов
-		 *          раскрывает без труда
+		 *          раскрывает без труда.
 		 *
 		 * @param keys вектор раундового ключа
 		 * @return     прочитанный вектор ключа
 		 *
 		 */
-		static __NTS_INLINE__ uint8x16_t loadArm(const uint8_t * keys) noexcept {
+		static __NTS_INLINE__ uint8x16_t __nts_load_arm__(const uint8_t * keys) noexcept {
 			// Выводим прочитанный вектор ключа
 			return vld1q_u8(keys);
 		}
@@ -1044,7 +1047,7 @@ namespace {
 		 *          крупных единицах трансляции вставляет загрузки ключей между командами
 		 *          пары, сплав срывается, и серийная цепочка кругов дорожает на треть и
 		 *          больше - вид с ключами в регистрах исключает эту вставку независимо от
-		 *          состава единицы трансляции
+		 *          состава единицы трансляции.
 		 *
 		 * @param keys   раундовые ключи байтами в порядке памяти
 		 * @param record регистр сдвига: на входе прежнее заполнение, на выходе последний шифрблок
@@ -1055,13 +1058,13 @@ namespace {
 		 *
 		 */
 		template <size_t ROUNDS, size_t... I>
-		static __NTS_AES_TARGET__ void chainArmR(const uint8_t * keys, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result, const std::index_sequence <I...> &) noexcept {
+		static __NTS_AES_TARGET__ void __nts_chain_arm_r__(const uint8_t * keys, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result, const std::index_sequence <I...> &) noexcept {
 			/**
 			 * Раундовые ключи в именованных значениях на весь проход: внутренних кругов
 			 * на единицу меньше количества кругов, ключ предпоследнего круга идёт последним
 			 * AESE без перемешивания, а ключ последнего круга отбеливает итог
 			 */
-			const uint8x16_t round[ROUNDS + 1] = {loadArm(keys + (I * 16))..., loadArm(keys + ((ROUNDS - 1) * 16)), loadArm(keys + (ROUNDS * 16))};
+			const uint8x16_t round[ROUNDS + 1] = {__nts_load_arm__(keys + (I * 16))..., __nts_load_arm__(keys + ((ROUNDS - 1) * 16)), __nts_load_arm__(keys + (ROUNDS * 16))};
 			// Регистр сцепления держится вектором на весь проход
 			uint8x16_t state = vld1q_u8(record);
 			// Количество блоков сообщения
@@ -1085,6 +1088,7 @@ namespace {
 			vst1q_u8(record, state);
 		}
 	#endif
+
 	/**
 	 * Если есть ветвь команд AES-NI
 	 */
@@ -1100,7 +1104,7 @@ namespace {
 		 * @param result место, в которое записывается шифртекст
 		 *
 		 */
-		static __NTS_AES_TARGET__ void chainX86(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
+		static __NTS_AES_TARGET__ void __nts_chain_x86__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
 			// Регистр сцепления держится вектором на весь проход
 			__m128i state = _mm_loadu_si128(reinterpret_cast <const __m128i *> (record));
 			// Количество блоков сообщения
@@ -1115,8 +1119,8 @@ namespace {
 				 * Ведём внутренние раунды командой AESENC
 				 */
 				for(size_t round = 1; round < rounds; round++)
-				// Очередной раунд
-				state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
+					// Очередной раунд
+					state = _mm_aesenc_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (round * 16))));
 				// Последний раунд командой AESENCLAST
 				state = _mm_aesenclast_si128(state, _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys + (rounds * 16))));
 				// Записываем шифрблок на место итога
@@ -1126,6 +1130,7 @@ namespace {
 			_mm_storeu_si128(reinterpret_cast <__m128i *> (record), state);
 		}
 	#endif
+
 	/**
 	 * @brief Функция выработки гаммы таблицами: по четыре блоков счётчика разом
 	 *
@@ -1201,10 +1206,8 @@ namespace {
 				__nts_native_store__(__nts_native__(source) ^ __nts_swap__(s0), result), __nts_native_store__(__nts_native__(source + 4) ^ __nts_swap__(s1), result + 4), __nts_native_store__(__nts_native__(source + 8) ^ __nts_swap__(s2), result + 8), __nts_native_store__(__nts_native__(source + 12) ^ __nts_swap__(s3), result + 12);
 				// Сдвигаем позицию чтения
 				source += 16;
-			// Иначе гамма пишется сразу на место
-			} else
-				// Записываем блок гаммы
-				__nts_store__(s0, result), __nts_store__(s1, result + 4), __nts_store__(s2, result + 8), __nts_store__(s3, result + 12);
+			// Иначе гамма пишется сразу на место, записываем блок гаммы
+			} else __nts_store__(s0, result), __nts_store__(s1, result + 4), __nts_store__(s2, result + 8), __nts_store__(s3, result + 12);
 			// Сдвигаем позицию записи
 			result += 16;
 			// Продвигаем счётчик
@@ -1229,7 +1232,7 @@ namespace {
 		 * @param result  место, в которое записывается гамма либо исходные данные под ней
 		 *
 		 */
-		static __NTS_AES_TARGET__ void streamArm(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_AES_TARGET__ void __nts_stream_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
 			// Текущее значение счётчика
 			uint8_t current[16];
 			// Копируем начальное значение счётчика
@@ -1383,15 +1386,13 @@ namespace {
 					// Блок исходных данных читается до шифрования: он вправе совпадать с местом записи
 					const uint8x16_t plain = vld1q_u8(source);
 					// Шифруем блок счётчика
-					sealArm(keys, rounds, current, result);
+					__nts_seal_arm__(keys, rounds, current, result);
 					// Накладываем гамму на блок исходных данных
 					vst1q_u8(result, veorq_u8(vld1q_u8(result), plain));
 					// Сдвигаем позицию чтения
 					source += 16;
-				// Иначе гамма пишется сразу на место
-				} else
-				// Шифруем блок счётчика
-				sealArm(keys, rounds, current, result);
+				// Иначе гамма пишется сразу на место, шифруем блок счётчика
+				} else __nts_seal_arm__(keys, rounds, current, result);
 				// Сдвигаем позицию записи
 				result += 16;
 				// Уменьшаем число оставшихся блоков
@@ -1415,7 +1416,7 @@ namespace {
 		 * @param result  место, в которое записывается гамма либо исходные данные под ней
 		 *
 		 */
-		static __NTS_AES_TARGET__ void streamX86(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_AES_TARGET__ void __nts_stream_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
 			// Текущее значение счётчика
 			uint8_t current[16];
 			// Копируем начальное значение счётчика
@@ -1574,7 +1575,7 @@ namespace {
 					// Блок исходных данных читается до шифрования: он вправе совпадать с местом записи
 					const __m128i plain = _mm_loadu_si128(reinterpret_cast <const __m128i *> (source));
 					// Шифруем блок счётчика
-					sealX86(keys, rounds, current, result);
+					__nts_seal_x86__(keys, rounds, current, result);
 					// Накладываем гамму на блок исходных данных
 					_mm_storeu_si128(reinterpret_cast <__m128i *> (result), _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (result)), plain));
 					// Сдвигаем позицию чтения
@@ -1582,7 +1583,7 @@ namespace {
 				// Иначе гамма пишется сразу на место
 				} else
 				// Шифруем блок счётчика
-				sealX86(keys, rounds, current, result);
+				__nts_seal_x86__(keys, rounds, current, result);
 				// Сдвигаем позицию записи
 				result += 16;
 				// Уменьшаем число оставшихся блоков
@@ -1665,8 +1666,10 @@ bool nts::cipher::Aes::key(const view_t & key) noexcept {
 		// Слово раундового ключа
 		const uint32_t item = this->_decryption[i];
 		// Обратное перемешивание столбца через таблицы расшифрования и подстановку
-		this->_decryption[i] = (TABLES.td[0][TABLES.sbox[item >> 24]] ^ TABLES.td[1][TABLES.sbox[(item >> 16) & 0xFF]] ^
-		                        TABLES.td[2][TABLES.sbox[(item >> 8) & 0xFF]] ^ TABLES.td[3][TABLES.sbox[item & 0xFF]]);
+		this->_decryption[i] = (
+			TABLES.td[0][TABLES.sbox[item >> 24]] ^ TABLES.td[1][TABLES.sbox[(item >> 16) & 0xFF]] ^
+			TABLES.td[2][TABLES.sbox[(item >> 8) & 0xFF]] ^ TABLES.td[3][TABLES.sbox[item & 0xFF]]
+		);
 	}
 	/**
 	 * Записываем раундовые ключи байтами в порядке памяти
@@ -1720,7 +1723,7 @@ bool nts::cipher::Aes::encrypt(const uint8_t * source, uint8_t * result) const n
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
 			// Зашифрование командами
-			sealArm(this->_sealing, this->_rounds, source, result);
+			__nts_seal_arm__(this->_sealing, this->_rounds, source, result);
 			// Выводим успешность зашифрования
 			return true;
 		}
@@ -1731,12 +1734,11 @@ bool nts::cipher::Aes::encrypt(const uint8_t * source, uint8_t * result) const n
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
 			// Зашифрование командами
-			sealX86(this->_sealing, this->_rounds, source, result);
+			__nts_seal_x86__(this->_sealing, this->_rounds, source, result);
 			// Выводим успешность зашифрования
 			return true;
 		}
 	#endif
-	// Раундовые ключи
 	/**
 	 * Количество кругов известно с установки ключа: путь с ним, заложенным на сборке,
 	 * разворачивает круги целиком и держит состояние в регистрах
@@ -1815,14 +1817,14 @@ bool nts::cipher::Aes::batch(const uint8_t * sources, const size_t blocks, uint8
 	// Выводим успешность зашифрования
 	return true;
 }
-	/**
-	 * @brief Метод расшифрования блока
-	 *
-	 * @param source расшифровываемый блок
-	 * @param result место, в которое помещается расшифрованный блок
-	 * @return       признак успешности расшифрования
-	 *
-	 */
+/**
+ * @brief Метод расшифрования блока
+ *
+ * @param source расшифровываемый блок
+ * @param result место, в которое помещается расшифрованный блок
+ * @return       признак успешности расшифрования
+ *
+ */
 bool nts::cipher::Aes::decrypt(const uint8_t * source, uint8_t * result) const noexcept {
 	// Если ключ не установлен либо блоки не переданы
 	if(!this->_ready || (source == nullptr) || (result == nullptr))
@@ -1835,7 +1837,7 @@ bool nts::cipher::Aes::decrypt(const uint8_t * source, uint8_t * result) const n
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
 			// Расшифрование командами
-			openArm(this->_opening, this->_rounds, source, result);
+			__nts_open_arm__(this->_opening, this->_rounds, source, result);
 			// Выводим успешность расшифрования
 			return true;
 		}
@@ -1846,7 +1848,7 @@ bool nts::cipher::Aes::decrypt(const uint8_t * source, uint8_t * result) const n
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
 			// Расшифрование командами
-			openX86(this->_opening, this->_rounds, source, result);
+			__nts_open_x86__(this->_opening, this->_rounds, source, result);
 			// Выводим успешность расшифрования
 			return true;
 		}
@@ -1888,7 +1890,7 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, cons
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
 			// Выработка гаммы командами
-			streamArm(this->_sealing, this->_rounds, counter, blocks, source, result);
+			__nts_stream_arm__(this->_sealing, this->_rounds, counter, blocks, source, result);
 			// Выводим успешность выработки
 			return true;
 		}
@@ -1899,12 +1901,11 @@ bool nts::cipher::Aes::stream(const uint8_t * counter, const size_t blocks, cons
 		// Если машина шифрует командами
 		if(machine::has(machine::feature_t::AES)){
 			// Выработка гаммы командами
-			streamX86(this->_sealing, this->_rounds, counter, blocks, source, result);
+			__nts_stream_x86__(this->_sealing, this->_rounds, counter, blocks, source, result);
 			// Выводим успешность выработки
 			return true;
 		}
 	#endif
-	// Текущий блок счётчика
 	/**
 	 * Гамма таблицами по четыре блоков разом, круги прямой линией по количеству кругов ключа
 	 */
@@ -1950,39 +1951,39 @@ bool nts::cipher::Aes::chain(uint8_t * record, const uint8_t * source, const siz
 	 * Если есть ветвь команд AES расширения ARMv8
 	 */
 	#if defined(__NTS_AES_ARM__)
-	// Если машина шифрует командами
-	if(machine::has(machine::feature_t::AES)){
-		// Выбор вида цепочки по количеству кругов
-		if(this->_rounds == 10){
-			// Зашифрование цепочкой AES-128 ключами из регистров
-			chainArmR <10> (this->_sealing, record, source, size, result, std::make_index_sequence <9> ());
-		// Зашифрование цепочкой AES-192 ключами из регистров
-		} else if(this->_rounds == 12){
-			// Зашифрование цепочкой ключами из регистров
-			chainArmR <12> (this->_sealing, record, source, size, result, std::make_index_sequence <11> ());
-		// Зашифрование цепочкой AES-256 ключами из регистров
-		} else if(this->_rounds == 14){
-			// Зашифрование цепочкой ключами из регистров
-			chainArmR <14> (this->_sealing, record, source, size, result, std::make_index_sequence <13> ());
-		// Зашифрование цепочкой общим циклом кругов при постороннем их числе
-		} else {
-			// Зашифрование цепочкой командами
-			chainArm(this->_sealing, this->_rounds, record, source, size, result);
+		// Если машина шифрует командами
+		if(machine::has(machine::feature_t::AES)){
+			// Выбор вида цепочки по количеству кругов
+			if(this->_rounds == 10){
+				// Зашифрование цепочкой AES-128 ключами из регистров
+				__nts_chain_arm_r__ <10> (this->_sealing, record, source, size, result, std::make_index_sequence <9> ());
+			// Зашифрование цепочкой AES-192 ключами из регистров
+			} else if(this->_rounds == 12){
+				// Зашифрование цепочкой ключами из регистров
+				__nts_chain_arm_r__ <12> (this->_sealing, record, source, size, result, std::make_index_sequence <11> ());
+			// Зашифрование цепочкой AES-256 ключами из регистров
+			} else if(this->_rounds == 14){
+				// Зашифрование цепочкой ключами из регистров
+				__nts_chain_arm_r__ <14> (this->_sealing, record, source, size, result, std::make_index_sequence <13> ());
+			// Зашифрование цепочкой общим циклом кругов при постороннем их числе
+			} else {
+				// Зашифрование цепочкой командами
+				__nts_chain_arm__(this->_sealing, this->_rounds, record, source, size, result);
+			}
+			// Выводим успешность зашифрования
+			return true;
 		}
-		// Выводим успешность зашифрования
-		return true;
-	}
 	/**
 	 * Если есть ветвь команд AES-NI
 	 */
 	#elif defined(__NTS_AES_X86__)
-	// Если машина шифрует командами
-	if(machine::has(machine::feature_t::AES)){
-		// Зашифрование цепочкой командами
-		chainX86(this->_sealing, this->_rounds, record, source, size, result);
-		// Выводим успешность зашифрования
-		return true;
-	}
+		// Если машина шифрует командами
+		if(machine::has(machine::feature_t::AES)){
+			// Зашифрование цепочкой командами
+			__nts_chain_x86__(this->_sealing, this->_rounds, record, source, size, result);
+			// Выводим успешность зашифрования
+			return true;
+		}
 	#endif
 	// Без команд машины цепочки нет: режим ведёт сообщение общим путём
 	return false;
@@ -2000,8 +2001,8 @@ const uint8_t * nts::cipher::Aes::schedule() const noexcept {
 	#if defined(__NTS_AES_ARM__) || defined(__NTS_AES_X86__)
 		// Если ключ установлен и команды AES у машины есть
 		if(this->_ready && machine::has(machine::feature_t::AES))
-		// Выводим расписание ключа зашифрования
-		return this->_sealing;
+			// Выводим расписание ключа зашифрования
+			return this->_sealing;
 	#endif
 	// Выводим пустое расписание: слитым ядрам режимов нечего взять
 	return nullptr;

@@ -18,13 +18,13 @@
 # значение меньше 2^512 + c² и не меньше модуля ровно тогда, когда прибавление хвоста выходит за
 # 2^512 либо разряд 2^512 уже стоит - выбор cmovnc из сохранённой в памяти копии; итог - операнды
 # в памяти (при встраивании в формулы точки лежит в кадре). Свёртка по модулю 2^511 + c остаётся
-# на C++ (foldplus).
+# на C++ (__nts_foldplus__).
 #
 # Правки вносятся сюда, а не в заголовок: интерпретатор ниже исполняет порождённый список команд на
 # случайных числах и сличает с точной арифметикой Python - порождение отказывает без сходимости.
 #
 # Запуск: python3 tools/math/eightx86.py > eight.inc, затем текст переносится в
-# src/internal/math/kernels.hpp на место ядер product8, square8 и foldminus8 ветви x86-64
+# src/internal/math/kernels.hpp на место ядер __nts_product8__, __nts_square8__ и __nts_foldminus8__ ветви x86-64
 import random, sys
 
 M64 = 0xFFFFFFFFFFFFFFFF
@@ -211,7 +211,7 @@ print('''				/**
 				 * регистрах, старшая умножается на хвост по слову с переносом в регистре, выход за сетку
 				 * (не больше c при c < 2^32) сворачивается вторым произведением в слово, условное
 				 * вычитание модуля - прибавлением хвоста с выбором cmovnc из копии в памяти; итог -
-				 * операнды в памяти. Свёртка по модулю 2^511 + c остаётся на C++ (foldplus)
+				 * операнды в памяти. Свёртка по модулю 2^511 + c остаётся на C++ (__nts_foldplus__)
 				 */
 				/**
 				 * Признак наличия ядер на восемь слов x86-64
@@ -225,7 +225,7 @@ print('''				/**
 				 * @param result место, в которое помещаются шестнадцать слов произведения
 				 *
 				 */
-				static __NTS_INLINE__ void product8(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void __nts_product8__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 					__asm__ __volatile__(''')
 print(render_all(kp.ins, ind))
 print('''						:
@@ -240,7 +240,7 @@ print('''						:
 				 * @param result место, в которое помещаются шестнадцать слов квадрата
 				 *
 				 */
-				static __NTS_INLINE__ void square8(const uint64_t * value, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void __nts_square8__(const uint64_t * value, uint64_t * result) noexcept {
 					__asm__ __volatile__(''')
 print(render_all(ks.ins, ind))
 print('''						:
@@ -256,7 +256,7 @@ print('''						:
 				 * @param result место, в которое помещаются восемь слов итога, меньшего модуля
 				 *
 				 */
-				static __NTS_INLINE__ void foldminus8(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void __nts_foldminus8__(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
 					__asm__ __volatile__(''')
 print(render_all(kf.ins, ind))
 print('''						: [h0] "=m" (result[0]), [h1] "=m" (result[1]), [h2] "=m" (result[2]), [h3] "=m" (result[3]), [h4] "=m" (result[4]), [h5] "=m" (result[5]), [h6] "=m" (result[6]), [h7] "=m" (result[7])
