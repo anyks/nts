@@ -1371,7 +1371,7 @@ TEST(OcspTest, Gost){
 	// Подлинность стороны ГОСТ
 	context::credential_t credential;
 	// Вырабатываем подлинность ГОСТ
-	ASSERT_TRUE(identity("anyks.com", credential));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credential));
 	// Запись ответа
 	vector <uint8_t> data;
 	// Вырабатываем ответ good
@@ -1405,7 +1405,7 @@ TEST(OcspTest, Gost){
 	// Чужая подлинность ГОСТ с тем же именем
 	context::credential_t other;
 	// Вырабатываем чужую подлинность
-	ASSERT_TRUE(identity("anyks.com", other));
+	ASSERT_TRUE(__nts_identity__("anyks.com", other));
 	// Просмотр чужого сертификата
 	const view_t alien(other.chain[0].data(), other.chain[0].size());
 	// Проверяем, что ответ к чужому сертификату не относится: хеш ключа издателя иной
@@ -1652,7 +1652,7 @@ TEST(OcspTest, Loopback){
 			// Подлинность стороны ГОСТ
 			context::credential_t credential;
 			// Вырабатываем подлинность ГОСТ
-			ASSERT_TRUE(identity("anyks.com", credential));
+			ASSERT_TRUE(__nts_identity__("anyks.com", credential));
 			// Ответ ГОСТ
 			vector <uint8_t> answer;
 			// Вырабатываем ответ good

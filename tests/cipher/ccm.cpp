@@ -52,7 +52,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков
+	 * Перебираем пары знаков
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2)
 		// Добавляем очередной байт
@@ -75,7 +75,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов
+	 * Перебираем байты
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -158,13 +158,13 @@ TEST(CcmTest, Sm4){
 	// Открытый текст примера
 	const std::vector <uint8_t> message = bytes("48656c6c6f2c20534d342d43434d21");
 	// Объект шифра SM4
-	cipher::sm4_t sm4;
+	cipher::sm4_t cipher;
 	// Проверяем установку ключа
-	ASSERT_TRUE(sm4.key(view_t(secret.data(), secret.size())));
+	ASSERT_TRUE(cipher.key(view_t(secret.data(), secret.size())));
 	// Объект режима CCM
 	cipher::ccm_t ccm;
 	// Проверяем запуск режима с меткой в 16 байтов
-	ASSERT_TRUE(ccm.start(cipher::block_t(sm4), view_t(once.data(), once.size()), 16));
+	ASSERT_TRUE(ccm.start(cipher::block_t(cipher), view_t(once.data(), once.size()), 16));
 	// Зашифрованное сообщение
 	std::vector <uint8_t> sealed(message.size());
 	// Выработанная метка целостности
@@ -229,7 +229,7 @@ TEST(CcmTest, Refusals){
 	ASSERT_TRUE(ccm.encrypt(view_t(), view_t(), sealed.data(), tag));
 	// Проверяем отказ расшифрования с меткой неверной длины
 	ASSERT_FALSE(ccm.decrypt(view_t(), view_t(sealed.data(), 0), view_t(tag, 7), sealed.data()));
-	// Выполняем сброс состояния режима
+	// Сбрасываем состояние режима
 	ccm.clear();
 	// Проверяем неготовность режима после сброса
 	ASSERT_FALSE(ccm.ready());

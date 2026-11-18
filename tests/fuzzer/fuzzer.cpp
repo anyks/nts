@@ -509,7 +509,7 @@ TEST(FuzzerTest, Chunks){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Вырабатываем подлинность стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Потоки байтов направлений передачи
 	vector <uint8_t> streams[2];
 	// Признаки установленности связи сторонами
@@ -548,7 +548,7 @@ TEST(FuzzerTest, Corruption){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Вырабатываем подлинность стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Потоки байтов направлений передачи
 	vector <uint8_t> streams[2];
 	// Признаки установленности связи сторонами
@@ -676,7 +676,7 @@ TEST(FuzzerTest, Garbage){
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Вырабатываем подлинность стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Заводим источник повторимых случайных значений
 	random_t roller(0x5F4C4F42415245);
 	/**

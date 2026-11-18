@@ -57,21 +57,21 @@ extern "C" {
 		const view_t password(reinterpret_cast <const uint8_t *> ("secret"), 6);
 		// Разбираемый секретный ключ PrivateKeyInfo или OneAsymmetricKey
 		keys::key_t privateKey;
-		// Выполняем разбор PrivateKeyInfo и OneAsymmetricKey
+		// Разбираем PrivateKeyInfo и OneAsymmetricKey
 		keys::decodePrivateKeyInfo(input, privateKey);
 		// Разбираемый открытый ключ SubjectPublicKeyInfo
 		keys::key_t publicKey;
-		// Выполняем разбор SubjectPublicKeyInfo
+		// Разбираем SubjectPublicKeyInfo
 		keys::decodeSubjectPublicKeyInfo(input, publicKey);
 		// Разбираемый ключ EncryptedPrivateKeyInfo
 		keys::key_t encryptedKey;
-		// Выполняем разбор EncryptedPrivateKeyInfo
+		// Разбираем EncryptedPrivateKeyInfo
 		keys::decodeEncryptedPrivateKeyInfo(input, password, encryptedKey);
 		// Разбираемый ключ записи PKCS #12
 		keys::key_t pkcs12Key;
 		// Цепочка сертификатов записи PKCS #12
 		std::vector <std::vector <uint8_t>> certificates;
-		// Выполняем разбор записи PKCS #12
+		// Разбираем запись PKCS #12
 		keys::decodePkcs12(input, password, pkcs12Key, certificates);
 		// Выводим код продолжения ворошения
 		return 0;

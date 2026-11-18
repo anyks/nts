@@ -48,7 +48,7 @@ namespace {
 	 * @param depth  глубина, на которой ведётся обход записи
 	 *
 	 */
-	void walk(asn1::Reader & reader, const size_t depth) noexcept {
+	void __nts_walk__(asn1::Reader & reader, const size_t depth) noexcept {
 		// Если предельная глубина обхода записи превышена
 		if(depth > 16)
 			// Выходим из обхода записи ASN.1
@@ -56,15 +56,15 @@ namespace {
 		// Разбираемый элемент записи ASN.1
 		asn1::element_t element;
 		/**
-		 * Выполняем перебор всех элементов записи ASN.1
+		 * Перебираем все элементы записи ASN.1
 		 */
 		while(reader.next(element)){
 			// Если элемент записи имеет составной вид метки
 			if(element.constructed){
 				// Заводим разборщик содержимого составного элемента
 				asn1::Reader inner = reader.enter(element);
-				// Выполняем обход содержимого составного элемента
-				walk(inner, depth + 1);
+				// Обходим содержимое составного элемента
+				__nts_walk__(inner, depth + 1);
 			}
 		}
 	}
@@ -85,8 +85,8 @@ extern "C" {
 	int LLVMFuzzerTestOneInput(const uint8_t * data, const size_t size) noexcept {
 		// Заводим разборщик подаваемой записи ASN.1
 		asn1::Reader reader(view_t(data, size));
-		// Выполняем обход записи ASN.1 во всю её глубину
-		walk(reader, 0);
+		// Обходим запись ASN.1 во всю её глубину
+		__nts_walk__(reader, 0);
 		// Выводим код продолжения ворошения
 		return 0;
 	}

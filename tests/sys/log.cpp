@@ -60,7 +60,7 @@ namespace {
 		// Объявляем текст записи
 		string text;
 	};
-	// Накопитель
+	// Журнал накопленных записей
 	struct journal_t {
 		// Объявляем накопленные записи
 		vector <entry_t> entries;
@@ -72,7 +72,7 @@ namespace {
 	/**
 	 * Сток проверки: складывает сообщения в накопитель из контекста
 	 */
-	void collect(const sys::log::level_t level, const char * text, void * context) noexcept {
+	void __nts_collect__(const sys::log::level_t level, const char * text, void * context) noexcept {
 		// Получаем накопитель из контекста
 		journal_t * journal = static_cast <journal_t *> (context);
 		// Запоминаем контекст в накопителе
@@ -83,7 +83,7 @@ namespace {
 	/**
 	 * Число записей с подстрокой
 	 */
-	size_t count(const journal_t & journal, const char * needle) noexcept {
+	size_t __nts_count__(const journal_t & journal, const char * needle) noexcept {
 		// Объявляем счётчик найденных записей
 		size_t result = 0;
 		/**
@@ -170,7 +170,7 @@ TEST(LogTest, Abort) {
 	// Объявляем учётные данные
 	context::credential_t credentials;
 	// Загружаем учётные данные стороны сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Объявляем контекст стороны клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -210,7 +210,7 @@ TEST(LogTest, Abort) {
 	ASSERT_EQ(client.state(), context::state_t::FAILED);
 	ASSERT_EQ(client.error(), context::error_t::PROTECTION);
 	// В стоке сообщение об обрыве у клиента: отказ, имя извещения, без тайн
-	ASSERT_EQ(count(journal, "client: connection aborted"), 1u);
+	ASSERT_EQ(__nts_count__(journal, "client: connection aborted"), 1u);
 	// Объявляем признак критической записи об обрыве
 	bool critical = false;
 	/**
@@ -222,8 +222,8 @@ TEST(LogTest, Abort) {
 	// Проверяем наличие критической записи об обрыве
 	EXPECT_TRUE(critical);
 	// Проверяем запись с именем извещения об обрыве
-	EXPECT_EQ(count(journal, "alert bad_record_mac"), 1u);
-	EXPECT_EQ(count(journal, "error 5"), 1u);
+	EXPECT_EQ(__nts_count__(journal, "alert bad_record_mac"), 1u);
+	EXPECT_EQ(__nts_count__(journal, "error 5"), 1u);
 	/**
 	 * Перебираем: записи накопителя при условии проверки длины сообщений
 	 */
@@ -277,8 +277,8 @@ TEST(LogTest, Abort) {
 		// Проверяем понижение укрытия куска
 		ASSERT_NE(lowered, nullptr);
 		// Проверяем предупреждение о частичном укрытии
-		EXPECT_GE(count(journal, "sheltered partially"), 1u);
-		EXPECT_GE(count(journal, "wired no"), 1u);
+		EXPECT_GE(__nts_count__(journal, "sheltered partially"), 1u);
+		EXPECT_GE(__nts_count__(journal, "wired no"), 1u);
 		// Возвращаем кусок хранилищу
 		vault.give(lowered, length);
 		// Под требованием: отказ и сообщение об отказе
@@ -286,7 +286,7 @@ TEST(LogTest, Abort) {
 		// Проверяем отказ выдачи куска под требованием
 		EXPECT_EQ(vault.take(length * 2), nullptr);
 		// Проверяем сообщение об отказе
-		EXPECT_GE(count(journal, "refused"), 1u);
+		EXPECT_GE(__nts_count__(journal, "refused"), 1u);
 		// Снимаем требование отказа
 		vault.demand(false);
 		::setrlimit(RLIMIT_MEMLOCK, &previous);

@@ -374,7 +374,7 @@ TEST(AuthoritiesTest, Lying){
 		// Запускаем связь стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Подменяем ответ враждебного сервера негодным перечнем
-		ASSERT_TRUE(adversary(client, MALFORMED[i])) << i;
+		ASSERT_TRUE(__nts_adversary__(client, MALFORMED[i])) << i;
 		// Проверяем, что связь клиента отказалась от сообщения
 		EXPECT_EQ(client.error(), context::error_t::MESSAGE) << i;
 		EXPECT_EQ(client.alert().description, alert::description_t::DECODE) << i;

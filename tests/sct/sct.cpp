@@ -531,7 +531,7 @@ TEST(SctTest, Lying){
 	// Враждебный сервер набора проверок подписывает владение ключом ГОСТ: подлинность и набор ему под стать
 	context::credential_t credential;
 	// Составляем подлинность враждебного сервера
-	ASSERT_TRUE(identity("anyks.com", credential));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credential));
 	// Таблица негодных перечней
 	static const distortion_t MALFORMED[] = {distortion_t::MALSCT, distortion_t::HOLLOWSCT, distortion_t::TRAILSCT};
 	/**
@@ -549,7 +549,7 @@ TEST(SctTest, Lying){
 		// Запускаем клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим враждебное рукопожатие
-		ASSERT_TRUE(adversary(client, MALFORMED[i], &credential)) << i;
+		ASSERT_TRUE(__nts_adversary__(client, MALFORMED[i], &credential)) << i;
 		// Проверяем отказ по меткам времени
 		EXPECT_EQ(client.error(), context::error_t::TIMESTAMPS) << i;
 		EXPECT_EQ(client.alert().description, alert::description_t::DECODE) << i;
@@ -568,7 +568,7 @@ TEST(SctTest, Lying){
 		// Запускаем клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим враждебное рукопожатие без запроса
-		ASSERT_TRUE(adversary(client, distortion_t::UNASKEDSCT, &credential));
+		ASSERT_TRUE(__nts_adversary__(client, distortion_t::UNASKEDSCT, &credential));
 		// Проверяем отказ по расширению
 		EXPECT_EQ(client.error(), context::error_t::EXTENSION);
 		EXPECT_EQ(client.alert().description, alert::description_t::EXTENSION);
@@ -585,7 +585,7 @@ TEST(SctTest, Lying){
 		// Запускаем клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим враждебное рукопожатие с перечнем в приветствии
-		ASSERT_TRUE(adversary(client, distortion_t::SCTHELLO));
+		ASSERT_TRUE(__nts_adversary__(client, distortion_t::SCTHELLO));
 		// Проверяем отказ по сообщению
 		EXPECT_EQ(client.error(), context::error_t::MESSAGE);
 		EXPECT_EQ(client.alert().description, alert::description_t::PARAMETER);
@@ -601,7 +601,7 @@ TEST(SctTest, Greedy){
 	// Враждебный клиент набора проверок говорит лишь наборами ГОСТ
 	context::credential_t credential;
 	// Составляем подлинность враждебного клиента
-	ASSERT_TRUE(identity("anyks.com", credential));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credential));
 	// Связь стороны сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -615,7 +615,7 @@ TEST(SctTest, Greedy){
 	// Запускаем сервер
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Проводим враждебное рукопожатие
-	(void) intruder(server, distortion_t::GREEDYSCT, &credential);
+	(void) __nts_intruder__(server, distortion_t::GREEDYSCT, &credential);
 	// Проверяем отказ по сообщению
 	EXPECT_EQ(server.error(), context::error_t::MESSAGE);
 	EXPECT_EQ(server.alert().description, alert::description_t::DECODE);

@@ -113,7 +113,7 @@
 		#define S_ISREG(mode) (((mode) & _S_IFMT) == _S_IFREG)
 	#endif
 	/**
-	 * @brief Создание временного каталога по образцу с шестью X на конце
+	 * @brief Функция создания временного каталога по образцу с шестью X на конце
 	 *
 	 */
 	inline char * mkdtemp(char * pattern) noexcept {
@@ -123,12 +123,17 @@
 		return ((::_mkdir(pattern) == 0) ? pattern : nullptr);
 	}
 	/**
-	 * @brief Ожидание в микросекундах без windows.h: его макросы (SHORT, POINTS, IN) ломают проверки
+	 * @brief Функция ожидания в микросекундах без windows.h: его макросы (SHORT, POINTS, IN) ломают проверки
 	 *
 	 */
-	inline int usleep(const unsigned long micro) noexcept { std::this_thread::sleep_for(std::chrono::microseconds(micro)); return 0; }
+	inline int usleep(const unsigned long micro) noexcept {
+		// Усыпляем поток на заданное число микросекунд
+		std::this_thread::sleep_for(std::chrono::microseconds(micro));
+		// Возвращаем признак успеха
+		return 0;
+	}
 	/**
-	 * @brief Ожидание в секундах без windows.h: его макросы (SHORT, POINTS, IN) ломают проверки
+	 * @brief Функция ожидания в секундах без windows.h: его макросы (SHORT, POINTS, IN) ломают проверки
 	 *
 	 */
 	inline unsigned int sleep(const unsigned int seconds) noexcept { std::this_thread::sleep_for(std::chrono::seconds(seconds)); return 0; }

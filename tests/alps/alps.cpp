@@ -490,7 +490,7 @@ TEST(AlpsTest, Lying){
 	// Проверяем успешность запуска
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проверяем истинность условия
-	ASSERT_TRUE(adversary(client, distortion_t::SETTLING, &credential));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::SETTLING, &credential));
 	// Проверяем итоговую ошибку
 	EXPECT_EQ(client.error(), context::error_t::MESSAGE);
 	EXPECT_EQ(client.alert().description, alert::description_t::PARAMETER);
@@ -507,7 +507,7 @@ TEST(AlpsTest, Missing){
 	// Враждебный клиент набора проверок говорит лишь наборами ГОСТ: подлинность и набор ему под стать
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(identity("anyks.com", credential));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credential));
 	// Создаём контекст сервера
 	server::context_t server;
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
@@ -523,7 +523,7 @@ TEST(AlpsTest, Missing){
 	// Проверяем успешность запуска
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Проверяем обслуживание подключения
-	ASSERT_TRUE(intruder(server, distortion_t::TACITURN, &credential));
+	ASSERT_TRUE(__nts_intruder__(server, distortion_t::TACITURN, &credential));
 	// Проверяем итоговую ошибку
 	EXPECT_EQ(server.error(), context::error_t::ORDER);
 	EXPECT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
@@ -546,7 +546,7 @@ TEST(AlpsTest, Missing){
 	// Проверяем успешность запуска
 	ASSERT_EQ(another.start(), context::error_t::NONE);
 	// Прогоняем нарушителя
-	(void) intruder(another, distortion_t::VOIDSETTLED, &credential);
+	(void) __nts_intruder__(another, distortion_t::VOIDSETTLED, &credential);
 	// Проверяем итоговую ошибку
 	EXPECT_EQ(another.error(), context::error_t::MESSAGE);
 	EXPECT_EQ(another.alert().description, alert::description_t::DECODE);

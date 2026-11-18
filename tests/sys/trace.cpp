@@ -414,7 +414,7 @@ TEST(TraceTest, TicketKey) {
 	// Объявляем учётные данные
 	context::credential_t credentials;
 	// Загружаем личность сервера
-	ASSERT_TRUE(identity("anyks.com", credentials));
+	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
 	// Ключи выданных билетов: на стеке, чтобы искать их в куче
 	uint8_t keys[2][64];
 	// Объявляем длину ключа билета

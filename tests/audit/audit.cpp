@@ -3356,7 +3356,7 @@ TEST(AuditTest, RetryReset){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны с именем узла
-	ASSERT_TRUE(identity("example.com", credential));
+	ASSERT_TRUE(__nts_identity__("example.com", credential));
 	// Объявляем client и конструируем (false), server(true)
 	internal::engine_t client(false), server(true);
 	// Задаём транспорт движку
@@ -3458,7 +3458,7 @@ TEST(AuditTest, RetryLimitReset){
 	// Подлинность стороны
 	context::credential_t credential;
 	// Подлинность стороны с именем узла
-	ASSERT_TRUE(identity("example.com", credential));
+	ASSERT_TRUE(__nts_identity__("example.com", credential));
 	// Объявляем client и конструируем (false), server(true)
 	internal::engine_t client(false), server(true);
 	// Задаём транспорт движку

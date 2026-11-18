@@ -224,7 +224,7 @@ namespace {
 	 * @return         признак успешности составления защищённой записи
 	 *
 	 */
-	bool hollow(const protect::suite_t suite, const view_t & key, const view_t & vector, const uint64_t sequence, const record::type_t inner, std::vector <uint8_t> & result, const size_t filler) noexcept {
+	bool __nts_hollow__(const protect::suite_t suite, const view_t & key, const view_t & vector, const uint64_t sequence, const record::type_t inner, std::vector <uint8_t> & result, const size_t filler) noexcept {
 		// Получаем длину блока базового шифра набора
 		const size_t size = protect::block(suite);
 		// Если набор шифрования неизвестен
@@ -309,7 +309,7 @@ namespace {
 	 * @return           признак успешности отправки сообщения рукопожатия
 	 *
 	 */
-	bool deliver(protect::protection_t & protection, session::transcript_t & transcript, const handshake::type_t type, const view_t & body, vector <uint8_t> & result) noexcept {
+	bool __nts_deliver__(protect::protection_t & protection, session::transcript_t & transcript, const handshake::type_t type, const view_t & body, vector <uint8_t> & result) noexcept {
 		// Объект составителя отправляемых сообщений рукопожатия
 		handshake::writer_t writer;
 		// Если сообщение рукопожатия составить не удалось
@@ -341,7 +341,7 @@ namespace {
 	 * @return           признак успешности выработки подписи владения ключом
 	 *
 	 */
-	bool possession(const context::credential_t & credential, const session::transcript_t & transcript, const bool server, vector <uint8_t> & result, const char * override) noexcept {
+	bool __nts_possession__(const context::credential_t & credential, const session::transcript_t & transcript, const bool server, vector <uint8_t> & result, const char * override) noexcept {
 		// Объект разбора сертификата враждебного сервера
 		x509::certificate_t leaf;
 		// Если сертификат враждебного сервера разобрать не удалось
@@ -456,7 +456,7 @@ namespace {
 	 *       о заслоне снимается с самого клиента
 	 *
 	 */
-	bool adversary(client::context_t & client, const distortion_t distortion, const context::credential_t * credential) noexcept {
+	bool __nts_adversary__(client::context_t & client, const distortion_t distortion, const context::credential_t * credential) noexcept {
 		// Получаем байты, отправляемые клиентом серверу
 		const view_t sending = client.output();
 		// Если клиент серверу ничего не отправил
@@ -968,7 +968,7 @@ namespace {
 		 */
 		const vector <uint8_t> unpicked = {0x00, 0x04, 0x00, 0x2A, 0x00, 0x00};
 		// Если защищённые расширения враждебного сервера отправить не удалось
-		if(!deliver(protection, transcript, handshake::type_t::EXTENSIONS,
+		if(!__nts_deliver__(protection, transcript, handshake::type_t::EXTENSIONS,
 			((distortion == distortion_t::MANGLED) ? view_t(mangled.data(), mangled.size()) : ((distortion == distortion_t::UNPICKED) ? view_t(unpicked.data(), unpicked.size()) : view_t(extensions.data(), extensions.size()))), answered))
 			// Выводим отказ ответа враждебного сервера
 			return false;
@@ -978,7 +978,7 @@ namespace {
 		 */
 		if(distortion == distortion_t::TWINNED){
 			// Если повторные защищённые расширения отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::EXTENSIONS, view_t(extensions.data(), extensions.size()), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::EXTENSIONS, view_t(extensions.data(), extensions.size()), answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Выполняем подачу ответа враждебного сервера клиенту
@@ -1038,7 +1038,7 @@ namespace {
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Если запрос подлинности враждебного сервера отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::REQUEST, builder.data(), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::REQUEST, builder.data(), answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Выполняем подачу ответа враждебного сервера клиенту
@@ -1083,7 +1083,7 @@ namespace {
 			// Если перечень схем подписи негоден: длина перечня нечётна
 			else request = {0x00, 0x00, 0x07, 0x00, 0x0D, 0x00, 0x03, 0x00, 0x01, 0x08};
 			// Если запрос подлинности с негодным перечнем доставить клиенту не удалось
-			if(!deliver(protection, transcript, handshake::type_t::REQUEST, view_t(request.data(), request.size()), answered)){
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::REQUEST, view_t(request.data(), request.size()), answered)){
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			}
@@ -1107,7 +1107,7 @@ namespace {
 			// Получаем составленное тело запроса подлинности клиента
 			const view_t request = builder.data();
 			// Если запрос подлинности враждебного сервера отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::REQUEST, request, answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::REQUEST, request, answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Выполняем подачу ответа враждебного сервера клиенту
@@ -1153,7 +1153,7 @@ namespace {
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Если цепочку сертификатов враждебного сервера отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 		// Если враждебный сервер доводит рукопожатие до подписи владения ключом
@@ -1214,7 +1214,7 @@ namespace {
 				chain = {0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x01, 0x30, 0x00, 0x01, 0x00};
 			}
 			// Если цепочку сертификатов враждебного сервера отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered)){
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered)){
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			}
@@ -1239,7 +1239,7 @@ namespace {
 					// Выводим отказ ответа враждебного сервера
 					return false;
 			// Если враждебный сервер подписывает владение ключом по-настоящему
-			} else if(!possession(* credential, transcript, true, witnessed, ((distortion == distortion_t::ALIENLEAF) ? "1.2.643.2.2.35.1" : nullptr)))
+			} else if(!__nts_possession__(* credential, transcript, true, witnessed, ((distortion == distortion_t::ALIENLEAF) ? "1.2.643.2.2.35.1" : nullptr)))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			/**
@@ -1301,7 +1301,7 @@ namespace {
 					return false;
 			}
 			// Если подпись владения ключом враждебного сервера отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::VERIFY, view_t(witnessed.data(), witnessed.size()), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::VERIFY, view_t(witnessed.data(), witnessed.size()), answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 		}
@@ -1355,7 +1355,7 @@ namespace {
 				// Портим последний байт имитовставки завершения рукопожатия
 				completed[sizeof(completed) - 1] = static_cast <uint8_t> (completed[sizeof(completed) - 1] ^ 0x01);
 			// Если завершение рукопожатия враждебного сервера отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::FINISHED, view_t(completed, sizeof(completed)), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::FINISHED, view_t(completed, sizeof(completed)), answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			// Если хеш переписки рукопожатия получить не удалось
@@ -1491,7 +1491,7 @@ namespace {
 			// Выполняем сброс накопителя ответа враждебного сервера
 			answered.clear();
 			// Если билет возобновления связи отправить не удалось
-			if(!deliver(outgoing, transcript, handshake::type_t::TICKET, view_t(issued.data(), issued.size()), answered))
+			if(!__nts_deliver__(outgoing, transcript, handshake::type_t::TICKET, view_t(issued.data(), issued.size()), answered))
 				// Выводим отказ ответа враждебного сервера
 				return false;
 			}
@@ -1503,7 +1503,7 @@ namespace {
 				 */
 				answered.clear();
 				// Если смену ключевого материала отправить не удалось
-				if(!deliver(outgoing, transcript, handshake::type_t::UPDATE, view_t(nullptr, 0), answered))
+				if(!__nts_deliver__(outgoing, transcript, handshake::type_t::UPDATE, view_t(nullptr, 0), answered))
 					// Выводим отказ ответа враждебного сервера
 					return false;
 			}
@@ -1512,7 +1512,7 @@ namespace {
 				// Выполняем сброс накопителя ответа враждебного сервера
 				answered.clear();
 				// Запись с содержимым в один байт и неведомым видом 0x2A: до разбора вида она доходит
-				if(!hollow(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), static_cast <record::type_t> (0x2A), answered, 1)){
+				if(!__nts_hollow__(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), static_cast <record::type_t> (0x2A), answered, 1)){
 					// Выводим отказ ответа враждебного сервера
 					return false;
 				}
@@ -1526,7 +1526,7 @@ namespace {
 				 * содержимым: своя защита записей такую составить не даёт, оттого
 				 * враждебный сервер складывает её сам
 				 */
-				if(!hollow(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), record::type_t::HANDSHAKE, answered, 0))
+				if(!__nts_hollow__(suite, view_t(material, sizeof(material)), view_t(element, protect::block(suite)), outgoing.sequence(), record::type_t::HANDSHAKE, answered, 0))
 					// Выводим отказ ответа враждебного сервера
 					return false;
 			}
@@ -1879,7 +1879,7 @@ namespace {
 	 *       суждение о заслоне снимается с самого сервера
 	 *
 	 */
-	bool intruder(server::context_t & server, const distortion_t distortion, const context::credential_t * credential) noexcept {
+	bool __nts_intruder__(server::context_t & server, const distortion_t distortion, const context::credential_t * credential) noexcept {
 		/**
 		 * Кривая обмена ключами враждебного клиента: искажениями BARE и STRANGER
 		 * берётся кривая, в перечень сервера по умолчанию не входящая, - без этого
@@ -2345,7 +2345,7 @@ namespace {
 		// Если враждебный клиент шлёт конец упреждающих данных, которых не посылал
 		if(distortion == distortion_t::FAREWELL){
 			// Если конец упреждающих данных враждебного клиента отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::EARLY, view_t(nullptr, 0), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::EARLY, view_t(nullptr, 0), answered))
 				// Выводим отказ рукопожатия враждебного клиента
 				return false;
 			// Выполняем подачу ответа враждебного клиента серверу
@@ -2382,17 +2382,17 @@ namespace {
 				// Выводим отказ рукопожатия враждебного клиента
 				return false;
 			// Если цепочку сертификатов враждебного клиента отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
 				// Выводим отказ рукопожатия враждебного клиента
 				return false;
 			// Накопитель, в который складывается тело подписи владения ключом
 			vector <uint8_t> witnessed;
 			// Если подпись владения ключом враждебного клиента выработать не удалось
-			if(!possession(* credential, transcript, false, witnessed, nullptr))
+			if(!__nts_possession__(* credential, transcript, false, witnessed, nullptr))
 				// Выводим отказ рукопожатия враждебного клиента
 				return false;
 			// Если подпись владения ключом враждебного клиента отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::VERIFY, view_t(witnessed.data(), witnessed.size()), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::VERIFY, view_t(witnessed.data(), witnessed.size()), answered))
 				// Выводим отказ рукопожатия враждебного клиента
 				return false;
 		}
@@ -2420,7 +2420,7 @@ namespace {
 				// Выводим отказ ответа враждебного клиента
 				return false;
 			// Если цепочку сертификатов отправить не удалось
-			if(!deliver(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
+			if(!__nts_deliver__(protection, transcript, handshake::type_t::CERTIFICATE, view_t(chain.data(), chain.size()), answered))
 				// Выводим отказ ответа враждебного клиента
 				return false;
 		}
@@ -2437,7 +2437,7 @@ namespace {
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
 		// Если завершение рукопожатия враждебного клиента отправить не удалось
-		if(!deliver(protection, transcript, handshake::type_t::FINISHED, view_t(completed, sizeof(completed)), answered))
+		if(!__nts_deliver__(protection, transcript, handshake::type_t::FINISHED, view_t(completed, sizeof(completed)), answered))
 			// Выводим отказ рукопожатия враждебного клиента
 			return false;
 		// Выполняем подачу ответа враждебного клиента серверу
@@ -2453,9 +2453,9 @@ namespace {
 	 * @return           признак успешности ответа враждебного сервера
 	 *
 	 */
-	[[maybe_unused]] bool adversary(client::context_t & client, const distortion_t distortion) noexcept {
+	[[maybe_unused]] bool __nts_adversary__(client::context_t & client, const distortion_t distortion) noexcept {
 		// Отвечаем без подлинности
-		return adversary(client, distortion, nullptr);
+		return __nts_adversary__(client, distortion, nullptr);
 	}
 	/**
 	 * @brief Функция приветствия враждебного клиента без подлинности
@@ -2465,9 +2465,9 @@ namespace {
 	 * @return           признак успешности приветствия враждебного клиента
 	 *
 	 */
-	[[maybe_unused]] bool intruder(server::context_t & server, const distortion_t distortion) noexcept {
+	[[maybe_unused]] bool __nts_intruder__(server::context_t & server, const distortion_t distortion) noexcept {
 		// Приветствуем без подлинности
-		return intruder(server, distortion, nullptr);
+		return __nts_intruder__(server, distortion, nullptr);
 	}
 };
 

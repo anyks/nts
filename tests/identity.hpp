@@ -75,7 +75,7 @@ namespace {
 	 * @return       признак успешности составления записи имени
 	 *
 	 */
-	bool title(asn1::writer_t & writer, const string & name) noexcept {
+	bool __nts_title__(asn1::writer_t & writer, const string & name) noexcept {
 		// Открываем набор записей имени стороны сертификата
 		if(!writer.open(asn1::tag_t::SEQUENCE))
 			// Выводим отказ составления записи имени
@@ -122,7 +122,7 @@ namespace {
 	 *               разбор ключа обязан отвергнуть лист до всякой сверки подписи
 	 *
 	 */
-	bool identity(const string & name, context::credential_t & result, const bool alien) noexcept {
+	bool __nts_identity__(const string & name, context::credential_t & result, const bool alien) noexcept {
 		// Эллиптическая кривая ключа стороны связи
 		curve::curve_t curve;
 		// Если кривую ключа стороны связи завести не удалось
@@ -212,7 +212,7 @@ namespace {
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Если имя издателя сертификата записать не удалось
-		if(!title(body, name))
+		if(!__nts_title__(body, name))
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Открываем набор записи срока действия сертификата
@@ -232,7 +232,7 @@ namespace {
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Если имя владельца сертификата записать не удалось
-		if(!title(body, name))
+		if(!__nts_title__(body, name))
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Открываем набор сведений об открытом ключе
@@ -353,9 +353,9 @@ namespace {
 	 * @return       признак успешности выработки подлинности стороны
 	 *
 	 */
-	bool identity(const string & name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const string & name, context::credential_t & result) noexcept {
 		// Вырабатываем подлинность своим алгоритмом
-		return identity(name, result, false);
+		return __nts_identity__(name, result, false);
 	}
 };
 

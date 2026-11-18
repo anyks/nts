@@ -2130,7 +2130,7 @@ TEST(ContextTest, Trailing){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного сервера с данными за закрытием
-	ASSERT_TRUE(adversary(client, distortion_t::AFTERCLOSE, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::AFTERCLOSE, &credentials));
 	/**
 	 * Раздел 6.1 RFC 8446 велит пропускать всё, что пришло за извещением о закрытии:
 	 * обрыв связи здесь был бы отступлением от стандарта
@@ -2163,7 +2163,7 @@ TEST(ContextTest, Farewell){
 	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного клиента с концом упреждающих данных
-	ASSERT_TRUE(intruder(server, distortion_t::FAREWELL, &credentials));
+	ASSERT_TRUE(__nts_intruder__(server, distortion_t::FAREWELL, &credentials));
 	/**
 	 * Раздел 4.5 RFC 8446: конец упреждающих данных закрывает поток, идущий ключами
 	 * упреждения, а связь этого потока не открывала вовсе
@@ -3537,7 +3537,7 @@ TEST(ContextTest, Adorned){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного сервера с непрошенным расширением записи
-	ASSERT_TRUE(adversary(client, distortion_t::ADORNED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::ADORNED));
 	/**
 	 * Раздел 4.4.2 RFC 8446: расширения записи цепочки отвечают тем, которые клиент
 	 * предложил приветствием, а всё прочее объявляется «unsupported_extension»
@@ -3560,7 +3560,7 @@ TEST(ContextTest, Voiceless){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного сервера с запросом без схем подписи
-	ASSERT_TRUE(adversary(client, distortion_t::SILENT));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::SILENT));
 	/**
 	 * Раздел 4.3.2 RFC 8446: запрос подлинности обязан нести схемы подписи, ибо без
 	 * них клиенту нечем узнать, какую подпись сервер сличить сумеет
@@ -3599,7 +3599,7 @@ TEST(ContextTest, Ancient){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::ARCHAIC, &credentials);
+	(void) __nts_intruder__(server, distortion_t::ARCHAIC, &credentials);
 	/**
 	 * Раздел 4.2.1 RFC 8446 велит объявлять перечень изданий протокола всяким
 	 * приветствием клиента: без него издание связи неопределимо вовсе
@@ -3644,7 +3644,7 @@ TEST(ContextTest, Antique){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::OUTDATED, &credentials);
+	(void) __nts_intruder__(server, distortion_t::OUTDATED, &credentials);
 	/**
 	 * Раздел 4.2.1 RFC 8446: не найдя среди предложенных изданий своего, сервер
 	 * обязан оборвать связь извещением о несовпадении издания протокола
@@ -3678,7 +3678,7 @@ TEST(ContextTest, Estranged){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::ALIEN, &credentials);
+	(void) __nts_intruder__(server, distortion_t::ALIEN, &credentials);
 	/**
 	 * Раздел 4.1.1 RFC 8446: не найдя общего с клиентом набора шифрования, сервер
 	 * обязан оборвать связь извещением о несостоявшемся рукопожатии
@@ -3712,7 +3712,7 @@ TEST(ContextTest, Naked){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::BARE, &credentials);
+	(void) __nts_intruder__(server, distortion_t::BARE, &credentials);
 	/**
 	 * Раздел 4.2.7 RFC 8446: не опознав доли клиента, сервер ищет перечень кривых,
 	 * и отсутствие его при (EC)DHE - отсутствие обязательного расширения
@@ -3746,7 +3746,7 @@ TEST(ContextTest, Foreignness){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::STRANGER, &credentials);
+	(void) __nts_intruder__(server, distortion_t::STRANGER, &credentials);
 	/**
 	 * Раздел 4.1.1 RFC 8446: не найдя общей с клиентом кривой обмена ключами, сервер
 	 * обязан оборвать связь извещением о несостоявшемся рукопожатии
@@ -3780,7 +3780,7 @@ TEST(ContextTest, Voided){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::HOLLOW, &credentials);
+	(void) __nts_intruder__(server, distortion_t::HOLLOW, &credentials);
 	/**
 	 * Раздел 4.2.8 RFC 8446: открытая часть ключа в доле обмена длиной не короче
 	 * байта, и пустую долю отвергает уже разбор расширения - отказом записи
@@ -4066,7 +4066,7 @@ TEST(ContextTest, Speechless){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::SPEECHLESS));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::SPEECHLESS));
 	/**
 	 * Раздел 4.2.1 RFC 8446 велит серверу объявлять выбранное издание протокола
 	 * расширением приветствия: без него связь издания не знает вовсе
@@ -4095,7 +4095,7 @@ TEST(ContextTest, Regressed){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::REGRESSED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::REGRESSED));
 	/**
 	 * Раздел 4.2.1 RFC 8446: связь ведётся единственным изданием, и объявление
 	 * издания предыдущего есть попытка увести стороны ниже
@@ -4123,7 +4123,7 @@ TEST(ContextTest, Keyless){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::KEYLESS));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::KEYLESS));
 	/**
 	 * Раздел 4.2.8 RFC 8446: при обмене мимолётными ключами сервер обязан объявить
 	 * свою открытую часть, и без неё общего значения вывести не из чего
@@ -4146,7 +4146,7 @@ TEST(ContextTest, Swapped){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::SWAPPED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::SWAPPED));
 	/**
 	 * Раздел 4.2.8 RFC 8446: доля сервера обязана идти по той же кривой, по какой
 	 * шла доля клиента, им же выбранная
@@ -4178,7 +4178,7 @@ TEST(ContextTest, Wordless){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::WORDLESS, &credentials);
+	(void) __nts_intruder__(server, distortion_t::WORDLESS, &credentials);
 	/**
 	 * Раздел 9.2 RFC 8446: без схем подписи сервер подписать владение ключом не вправе
 	 * ничем. Отсутствие схем и возобновление ключом сверяются РАЗНЫМИ половинами
@@ -4202,7 +4202,7 @@ TEST(ContextTest, Presumed){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::PRESUMED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::PRESUMED));
 	/**
 	 * Раздел 4.2.11 RFC 8446: сервер вправе выбрать лишь тот заранее разделённый
 	 * ключ, какой клиент ему предложил, и место выбора обязано лежать в предложении
@@ -4225,7 +4225,7 @@ TEST(ContextTest, Unoffered){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::UNOFFERED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::UNOFFERED));
 	/**
 	 * Место выбранного ключа и наличие самого предложения сверяются РАЗНЫМИ половинами
 	 * заслона: выбор ПЕРВОГО ключа у клиента, не предлагавшего ни одного, годен местом
@@ -4296,7 +4296,7 @@ TEST(ContextTest, Modeless){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::MODELESS, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MODELESS, &credentials);
 	/**
 	 * Раздел 4.2.9 RFC 8446 велит клиенту, предлагающему заранее разделённый ключ,
 	 * объявлять и способы обмена им: без них сервер выбора связи не знает
@@ -4338,7 +4338,7 @@ TEST(ContextTest, Garbled){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::GARBLED, &credentials);
+	(void) __nts_intruder__(server, distortion_t::GARBLED, &credentials);
 	/**
 	 * Тело расширения способов обмена разбору не поддалось, и молчать о том нельзя:
 	 * дальнейший выбор связи опирался бы на неразобранное
@@ -4380,7 +4380,7 @@ TEST(ContextTest, Spurious){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::SPURIOUS, &credentials);
+	(void) __nts_intruder__(server, distortion_t::SPURIOUS, &credentials);
 	/**
 	 * Раздел 4.2.11 RFC 8446: предложение несёт опознаватели ключей и привязки к ним,
 	 * и неразобранным оно к выбору ключа не годится
@@ -4435,7 +4435,7 @@ TEST(ContextTest, Mangled){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым сообщением
-	ASSERT_TRUE(adversary(client, distortion_t::MANGLED, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MANGLED, &credentials));
 	/**
 	 * Тело защищённых расширений объявляет длину перечня свыше собственного размера:
 	 * разбору оно не поддаётся, и молчать о том нельзя
@@ -4460,7 +4460,7 @@ TEST(ContextTest, Tattered){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым сообщением
-	ASSERT_TRUE(adversary(client, distortion_t::TATTERED, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::TATTERED, &credentials));
 	/**
 	 * Раздел 4.6.1 RFC 8446: билет несёт срок, добавку к возрасту, неповторимое
 	 * значение и своё тело, и неразобранным к возобновлению он не годится
@@ -4485,7 +4485,7 @@ TEST(ContextTest, Scrambled){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым сообщением
-	ASSERT_TRUE(adversary(client, distortion_t::SCRAMBLED, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::SCRAMBLED, &credentials));
 	/**
 	 * Раздел 4.6.3 RFC 8446 кладёт смене ключевого материала тело ровно в один байт,
 	 * и пустое тело разбору не поддаётся
@@ -4521,7 +4521,7 @@ TEST(ContextTest, Malversion){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::MALVERSION, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MALVERSION, &credentials);
 	/**
 	 * Тело расширения объявляет длину перечня свыше собственного размера: разбору
 	 * оно не поддаётся, и опираться на неразобранное сервер не вправе
@@ -4555,7 +4555,7 @@ TEST(ContextTest, Malshare){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::MALSHARE, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MALSHARE, &credentials);
 	/**
 	 * Тело расширения объявляет длину перечня свыше собственного размера: разбору
 	 * оно не поддаётся, и опираться на неразобранное сервер не вправе
@@ -4589,7 +4589,7 @@ TEST(ContextTest, Malgroups){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::MALGROUPS, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MALGROUPS, &credentials);
 	/**
 	 * Тело расширения объявляет длину перечня свыше собственного размера: разбору
 	 * оно не поддаётся, и опираться на неразобранное сервер не вправе
@@ -4623,7 +4623,7 @@ TEST(ContextTest, Malcurves){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::MALCURVES, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MALCURVES, &credentials);
 	/**
 	 * Тело расширения объявляет длину перечня свыше собственного размера: разбору
 	 * оно не поддаётся, и опираться на неразобранное сервер не вправе
@@ -4657,7 +4657,7 @@ TEST(ContextTest, Malname){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::MALNAME, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MALNAME, &credentials);
 	/**
 	 * Тело расширения объявляет длину перечня свыше собственного размера: разбору
 	 * оно не поддаётся, и опираться на неразобранное сервер не вправе
@@ -4696,7 +4696,7 @@ TEST(ContextTest, Malprotocol){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::MALPROTOCOL, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MALPROTOCOL, &credentials);
 	/**
 	 * Тело расширения объявляет длину перечня свыше собственного размера: разбору
 	 * оно не поддаётся, и опираться на неразобранное сервер не вправе
@@ -4719,7 +4719,7 @@ TEST(ContextTest, Oddset){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::ODDSUITE));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::ODDSUITE));
 	/**
 	 * Раздел 4.1.3 RFC 8446: сервер вправе выбрать лишь тот набор шифрования, какой
 	 * клиент ему предложил
@@ -4742,7 +4742,7 @@ TEST(ContextTest, Prepicked){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::PICKEDEARLY));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::PICKEDEARLY));
 	/**
 	 * Раздел 4.1.4 RFC 8446: просьба о повторе приветствия заранее разделённого ключа
 	 * ещё не выбирает, и расширение это в ней не своё
@@ -4770,7 +4770,7 @@ TEST(ContextTest, Belated){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::LATECOOKIE));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::LATECOOKIE));
 	/**
 	 * Раздел 4.2.2 RFC 8446: метку возврата состояния несёт просьба о повторе, и в
 	 * самом приветствии сервера ей места нет
@@ -4798,7 +4798,7 @@ TEST(ContextTest, Malselect){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::MALSELECT));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALSELECT));
 	/**
 	 * Тело расширения выбранной кривой объявляет длину свыше собственного размера:
 	 * разбору оно не поддаётся
@@ -4821,7 +4821,7 @@ TEST(ContextTest, Maledition){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::MALEDITION));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALEDITION));
 	/**
 	 * Тело расширения издания протокола объявляет длину свыше собственного размера:
 	 * разбору оно не поддаётся
@@ -4844,7 +4844,7 @@ TEST(ContextTest, Malchosen){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::MALCHOSEN));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALCHOSEN));
 	/**
 	 * Тело расширения выбранного ключа объявляет длину свыше собственного размера:
 	 * разбору оно не поддаётся
@@ -4867,7 +4867,7 @@ TEST(ContextTest, Malsharing){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера искажённым приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::MALSHARING));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALSHARING));
 	/**
 	 * Тело расширения открытой части ключа объявляет длину свыше собственного
 	 * размера: разбору оно не поддаётся
@@ -4933,7 +4933,7 @@ TEST(ContextTest, Twice){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь на втором
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит
 	 */
-	(void) intruder(server, distortion_t::TWICE, &credentials);
+	(void) __nts_intruder__(server, distortion_t::TWICE, &credentials);
 	/**
 	 * Раздел 4.1.2 RFC 8446: приветствие клиент шлёт единожды, а повторное - лишь
 	 * по просьбе сервера о повторе, каковой здесь не было
@@ -4956,7 +4956,7 @@ TEST(ContextTest, Doubled){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера двойным приветствием
-	ASSERT_TRUE(adversary(client, distortion_t::DOUBLED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::DOUBLED));
 	/**
 	 * Раздел 4.1.3 RFC 8446: приветствие сервер шлёт единожды, и второе им же
 	 * увело бы стороны в разные ключи
@@ -4983,7 +4983,7 @@ TEST(ContextTest, Twinned){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера повторными расширениями
-	ASSERT_TRUE(adversary(client, distortion_t::TWINNED, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::TWINNED, &credentials));
 	/**
 	 * Раздел 4.3.1 RFC 8446 кладёт защищённым расширениям единственное место в
 	 * рукопожатии, и второе их появление есть приход сообщения не в свой черёд
@@ -5011,7 +5011,7 @@ TEST(ContextTest, Malalpn){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера негодным прикладным протоколом
-	ASSERT_TRUE(adversary(client, distortion_t::MALALPN));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALALPN));
 	/**
 	 * Тело расширения прикладного протокола объявляет длину свыше собственного
 	 * размера: разбору оно не поддаётся
@@ -5038,7 +5038,7 @@ TEST(ContextTest, Maladvance){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера билетом с негодным пределом
-	ASSERT_TRUE(adversary(client, distortion_t::MALADVANCE, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALADVANCE, &credentials));
 	/**
 	 * Раздел 4.6.1 RFC 8446: предел упреждающих данных объявляется расширением
 	 * билета, и неразобранным он к упреждению не годится
@@ -5067,7 +5067,7 @@ TEST(ContextTest, Unsettled){
 	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Враждебный клиент с искажением UNSETTLED срывает рукопожатие сервера
-	ASSERT_TRUE(intruder(server, distortion_t::UNSETTLED, &credentials));
+	ASSERT_TRUE(__nts_intruder__(server, distortion_t::UNSETTLED, &credentials));
 	/**
 	 * Раздел 4.1.4 RFC 8446: общая кривая обмена у сторон есть, а доли по ней клиент
 	 * не прислал - сервер просит повтора приветствия. Повторив прежнее, клиент не
@@ -5102,7 +5102,7 @@ TEST(ContextTest, Malcookie){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::MALCOOKIE, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MALCOOKIE, &credentials);
 	/**
 	 * Раздел 4.2.2 RFC 8446: метку сервер складывал сам, но повторённую разобрать
 	 * обязан, и неразборчивая означает, что вернулась не она
@@ -5125,7 +5125,7 @@ TEST(ContextTest, Recurrent){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера приветствием и просьбою о повторе
-	ASSERT_TRUE(adversary(client, distortion_t::RECURRENT));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::RECURRENT));
 	/**
 	 * Раздел 4.1.4 RFC 8446: просьба о повторе идёт вместо приветствия сервера,
 	 * а не за ним - приветствием пора обмена ключами уже завершена
@@ -5391,7 +5391,7 @@ TEST(ContextTest, Discord){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит вовсе
 	 */
-	(void) intruder(server, distortion_t::DISCORD, &credentials);
+	(void) __nts_intruder__(server, distortion_t::DISCORD, &credentials);
 	/**
 	 * Раздел 4.4.3 RFC 8446: подписывать владение ключом дозволено лишь схемой, какую
 	 * собеседник объявил признаваемой, а схемы длинной кривой сертификату на короткой
@@ -5415,7 +5415,7 @@ TEST(ContextTest, Misplaced){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера расширением не в своём месте
-	ASSERT_TRUE(adversary(client, distortion_t::MISPLACED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MISPLACED));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	/**
@@ -5444,7 +5444,7 @@ TEST(ContextTest, Outplaced){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного сервера с билетом не в своём расширении
-	ASSERT_TRUE(adversary(client, distortion_t::OUTPLACED, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::OUTPLACED, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	/**
@@ -5470,7 +5470,7 @@ TEST(ContextTest, Offplaced){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера запросом не в своём расширении
-	ASSERT_TRUE(adversary(client, distortion_t::OFFPLACED, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::OFFPLACED, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::EXTENSION);
 	/**
@@ -5494,7 +5494,7 @@ TEST(ContextTest, Unwanted){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера непрошенным расширением
-	ASSERT_TRUE(adversary(client, distortion_t::EXTENSION));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::EXTENSION));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::EXTENSION);
 	/**
@@ -5523,7 +5523,7 @@ TEST(ContextTest, Chain){
 		// Заводим связи стороны клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << "искажение " << item;
 		// Формируем ответ враждебного сервера искажённой цепочкой сертификатов
-		ASSERT_TRUE(adversary(client, distortions[item])) << "искажение " << item;
+		ASSERT_TRUE(__nts_adversary__(client, distortions[item])) << "искажение " << item;
 		/**
 		 * Раздел 4.4.2 RFC 8446: непустой опознаватель запроса объявляется отказом
 		 * разбора сообщения, а пустая цепочка сервера - отказом подлинности
@@ -5554,7 +5554,7 @@ TEST(ContextTest, Declared){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера неизвестной схемой подписи
-	ASSERT_TRUE(adversary(client, distortion_t::SCHEME, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::SCHEME, &credentials));
 	/**
 	 * Заслон схемы стоит прежде проверки самой подписи: оттого отказ приходит именно
 	 * схемой, а не несошедшейся подписью
@@ -5577,7 +5577,7 @@ TEST(ContextTest, Declared){
 	 * Схема известная, но положенная кривой, которой в сертификате нет: подпись по
 	 * ней проверялась бы не тем ключом, которым объявлена
 	 */
-	ASSERT_TRUE(adversary(foreign, distortion_t::FOREIGN, &credentials));
+	ASSERT_TRUE(__nts_adversary__(foreign, distortion_t::FOREIGN, &credentials));
 	// Проверяем обрыв связи отказом схемы подписи
 	ASSERT_EQ(foreign.error(), context::error_t::SCHEME);
 	// Проверяем извещение, которым связь оборвана клиентом
@@ -5601,7 +5601,7 @@ TEST(ContextTest, Expiry){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного сервера с билетом свыше семи суток
-	ASSERT_TRUE(adversary(client, distortion_t::LIFETIME, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::LIFETIME, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	/**
@@ -5826,7 +5826,7 @@ TEST(ContextTest, Divided){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера разорванным сообщением рукопожатия
-	ASSERT_TRUE(adversary(client, distortion_t::INTERLEAVE));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::INTERLEAVE));
 	/**
 	 * Раздел 5.1 RFC 8446: сообщения рукопожатия перемежать записями иного
 	 * содержимого нельзя, и разрыв объявляется извещением «unexpected_message»
@@ -5857,7 +5857,7 @@ TEST(ContextTest, Intruder){
 	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного клиента, ничего не искажающего
-	ASSERT_TRUE(intruder(server, distortion_t::NONE));
+	ASSERT_TRUE(__nts_intruder__(server, distortion_t::NONE));
 	/**
 	 * Оснастка проверяется прежде заслонов: рукопожатие, сложенное вручную, обязано
 	 * устанавливать связь - иначе всякий отказ будет отказом самой оснастки
@@ -5888,7 +5888,7 @@ TEST(ContextTest, Echoed){
 	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного клиента с чужим опознавателем запроса
-	ASSERT_TRUE(intruder(server, distortion_t::CONTEXT, &credentials));
+	ASSERT_TRUE(__nts_intruder__(server, distortion_t::CONTEXT, &credentials));
 	/**
 	 * Раздел 4.4.2 RFC 8446: опознаватель запроса, взятый с потолка, отвечает не тому
 	 * запросу, который был сделан
@@ -5911,7 +5911,7 @@ TEST(ContextTest, Label){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Удовлетворяем просьбу враждебного сервера о повторе приветствия с меткой
-	ASSERT_TRUE(adversary(client, distortion_t::COOKIE));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::COOKIE));
 	// Проверяем, что связь просьбу о повторе приняла
 	ASSERT_EQ(client.error(), context::error_t::NONE);
 	// Получаем повторное приветствие, отправленное клиентом
@@ -5970,7 +5970,7 @@ TEST(ContextTest, Compression){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного сервера, объявившего способ сжатия
-	ASSERT_TRUE(adversary(client, distortion_t::METHOD));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::METHOD));
 	/**
 	 * Раздел 4.1.3 RFC 8446: способ сжатия достался изданию 1.3 от предыдущих и
 	 * назначения не имеет, оттого серверу и велено слать нуль
@@ -5993,13 +5993,13 @@ TEST(ContextTest, Kept){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Удовлетворяем просьбу враждебного сервера о повторе приветствия
-	ASSERT_TRUE(adversary(client, distortion_t::PROPOSAL));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::PROPOSAL));
 	// Проверяем, что связь просьбу о повторе приняла
 	ASSERT_EQ(client.error(), context::error_t::NONE);
 	// Проверяем отправку повторного приветствия клиентом
 	ASSERT_GT(client.output().size, static_cast <size_t> (0));
 	// Формируем ответ враждебного сервера с иным набором шифрования
-	ASSERT_TRUE(adversary(client, distortion_t::PROPOSED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::PROPOSED));
 	/**
 	 * Раздел 4.1.4 RFC 8446: набор шифрования между просьбой о повторе и самим
 	 * приветствием сервер менять не вправе, ибо переписка рукопожатия хешируется им
@@ -6022,13 +6022,13 @@ TEST(ContextTest, Insistent){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Удовлетворяем первую просьбу враждебного сервера о повторе приветствия
-	ASSERT_TRUE(adversary(client, distortion_t::PROPOSAL));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::PROPOSAL));
 	// Проверяем, что связь первую просьбу о повторе приняла
 	ASSERT_EQ(client.error(), context::error_t::NONE);
 	// Проверяем отправку повторного приветствия клиентом
 	ASSERT_GT(client.output().size, static_cast <size_t> (0));
 	// Удовлетворяем вторую просьбу враждебного сервера о повторе приветствия
-	ASSERT_TRUE(adversary(client, distortion_t::REPEATED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::REPEATED));
 	/**
 	 * Раздел 4.1.4 RFC 8446: просьба о повторе приветствия дозволена за связь лишь
 	 * однажды, и второй такой просьбой сервер загнал бы связь в бесконечный круг
@@ -6051,7 +6051,7 @@ TEST(ContextTest, Composition){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера расширением не своего сообщения
-	ASSERT_TRUE(adversary(client, distortion_t::GREETING));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::GREETING));
 	/**
 	 * Раздел 4.1.3 RFC 8446: приветствию сервера положены всего три расширения, а
 	 * всё прочее принадлежит защищённым расширениям
@@ -6302,7 +6302,7 @@ TEST(ContextTest, Hollow){
 	context::credential_t credentials;
 	// Подлинность сервера читается из ключей
 	ASSERT_TRUE(__nts_identity__("anyks.com", credentials));
-	ASSERT_TRUE(adversary(client, distortion_t::VACANT, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::VACANT, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::RECORD);
 	/**
@@ -6329,7 +6329,7 @@ TEST(ContextTest, Retrograde){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Удовлетворяем просьбу враждебного сервера о повторе с изданием ниже TLS 1.3
-	ASSERT_TRUE(adversary(client, distortion_t::RETROGRADE));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::RETROGRADE));
 	/**
 	 * Раздел 9.2 RFC 8446 требует расширения издания и от просьбы о повторе, а раздел
 	 * 4.2.1 велит сверять его ПРЕЖДЕ разбора всего прочего. Стой сверка ниже
@@ -6359,7 +6359,7 @@ TEST(ContextTest, Lengthy){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера подписью непомерной длины
-	ASSERT_TRUE(adversary(client, distortion_t::LENGTHY, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::LENGTHY, &credentials));
 	/**
 	 * Длина подписи приходит с той стороны связи и пределом сообщения ограничена лишь
 	 * сверху: без заслона разворот записи подписи вынес бы её за место, отведённое
@@ -6388,7 +6388,7 @@ TEST(ContextTest, Malsigned){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера испорченной подписью владения ключом
-	ASSERT_TRUE(adversary(client, distortion_t::MALSIGN, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALSIGN, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::SIGNATURE);
 	/**
@@ -6417,7 +6417,7 @@ TEST(ContextTest, Malfinished){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера испорченным завершением рукопожатия
-	ASSERT_TRUE(adversary(client, distortion_t::MALFINISH, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALFINISH, &credentials));
 	// Проверяем обрыв связи стороной клиента
 	ASSERT_EQ(client.error(), context::error_t::COMPLETION);
 	/**
@@ -6450,7 +6450,7 @@ TEST(ContextTest, Misordered){
 	 * Итог враждебного клиента здесь не сличается: сервер обрывает связь ещё на
 	 * приветствии, и до ответа, которого клиент ждёт, дело не доходит
 	 */
-	(void) intruder(server, distortion_t::MISORDER, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MISORDER, &credentials);
 	// Проверяем обрыв связи стороной сервера
 	ASSERT_EQ(server.error(), context::error_t::MESSAGE);
 	/**
@@ -6476,7 +6476,7 @@ TEST(ContextTest, Offcurve){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера долей обмена вне кривой
-	ASSERT_TRUE(adversary(client, distortion_t::OFFCURVE));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::OFFCURVE));
 	/**
 	 * Точка, кривой не принадлежащая, отвергается выработкой общего значения: без
 	 * этого сличения подставная точка малого порядка выдала бы секретный ключ своей
@@ -6508,7 +6508,7 @@ TEST(ContextTest, Offpoint){
 	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Составляем приветствие враждебного клиента долей обмена вне кривой
-	(void) intruder(server, distortion_t::OFFPOINT, &credentials);
+	(void) __nts_intruder__(server, distortion_t::OFFPOINT, &credentials);
 	// Проверяем обрыв связи стороной сервера
 	ASSERT_EQ(server.error(), context::error_t::EXCHANGE);
 	// Проверяем извещение, которым связь оборвана сервером
@@ -6529,7 +6529,7 @@ TEST(ContextTest, Synthesized){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Формируем ответ враждебного сервера сообщением поддельного вида
-	ASSERT_TRUE(adversary(client, distortion_t::SYNTHETIC));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::SYNTHETIC));
 	/**
 	 * Вид message_hash заведён разделом 4.4.1 RFC 8446 для ПОДМЕНЫ первого приветствия
 	 * в переписке рукопожатия и по связи идти не вправе вовсе, хотя сборщик сообщений
@@ -6564,7 +6564,7 @@ TEST(ContextTest, Malschemes){
 	// Заводим связи стороны сервера
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Составляем приветствие враждебного клиента с негодными схемами подписи
-	(void) intruder(server, distortion_t::MALSCHEMES, &credentials);
+	(void) __nts_intruder__(server, distortion_t::MALSCHEMES, &credentials);
 	// Проверяем обрыв связи стороной сервера
 	ASSERT_EQ(server.error(), context::error_t::MESSAGE);
 	/**
@@ -6591,7 +6591,7 @@ TEST(ContextTest, Malrequest){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением MALREQUEST срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::MALREQUEST, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALREQUEST, &credentials));
 	// Раздел 4.3.2 RFC 8446: вид расширения объявлен двумя байтами, обрыв на нём - негодное тело
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	ASSERT_EQ(client.alert().description, alert::description_t::DECODE);
@@ -6614,7 +6614,7 @@ TEST(ContextTest, Overrequest){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением OVERREQUEST срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::OVERREQUEST, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::OVERREQUEST, &credentials));
 	// Связь обрывается на разборе сообщения
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	ASSERT_EQ(client.alert().description, alert::description_t::DECODE);
@@ -6637,7 +6637,7 @@ TEST(ContextTest, Malreqschemes){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением MALREQSCHEMES срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::MALREQSCHEMES, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALREQSCHEMES, &credentials));
 	// Связь обрывается на разборе сообщения
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	ASSERT_EQ(client.alert().description, alert::description_t::DECODE);
@@ -6660,7 +6660,7 @@ TEST(ContextTest, Malchain){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением MALCHAIN срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::MALCHAIN, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALCHAIN, &credentials));
 	// Связь обрывается на разборе сообщения
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	// Раздел 6.2 RFC 8446: негодная цепочка сертификатов извещается как bad_certificate
@@ -6684,7 +6684,7 @@ TEST(ContextTest, Malverify){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением MALVERIFY срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::MALVERIFY, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::MALVERIFY, &credentials));
 	// Связь обрывается на разборе сообщения
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	// Раздел 4.4.3 RFC 8446: негодная подпись владения ключом извещается как decrypt_error
@@ -6708,7 +6708,7 @@ TEST(ContextTest, Garbageleaf){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением GARBAGELEAF срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::GARBAGELEAF, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::GARBAGELEAF, &credentials));
 	// Связь обрывается на сертификате
 	ASSERT_EQ(client.error(), context::error_t::CERTIFICATE);
 	// Связь не устанавливается
@@ -6730,7 +6730,7 @@ TEST(ContextTest, Oddsign){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением ODDSIGN срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::ODDSIGN, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::ODDSIGN, &credentials));
 	// Раздел 2 RFC 9215: подпись - два числа равной длины, нечётная длина на два не делится
 	ASSERT_EQ(client.error(), context::error_t::SIGNATURE);
 	// Связь не устанавливается
@@ -6752,7 +6752,7 @@ TEST(ContextTest, Alientype){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением ALIENTYPE срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::ALIENTYPE, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::ALIENTYPE, &credentials));
 	/**
 	 * Раздел 5.2 RFC 8446: истинный вид содержимого обязан быть одним из известных.
 	 * Отвергает его снятие защиты записи, ещё до движка: заслон движка на тот же
@@ -6833,7 +6833,7 @@ TEST(ContextTest, Unknownpsk){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Раздел 4.2.11 RFC 8446: неведомый ключ сервер вправе не признать и продолжить полным рукопожатием
-	ASSERT_TRUE(intruder(server, distortion_t::UNKNOWNPSK, &credentials));
+	ASSERT_TRUE(__nts_intruder__(server, distortion_t::UNKNOWNPSK, &credentials));
 	// Ошибок у сервера нет
 	ASSERT_EQ(server.error(), context::error_t::NONE);
 	// Разделённый ключ сервером не принят
@@ -6855,7 +6855,7 @@ TEST(ContextTest, Alienleaf){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением ALIENLEAF срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::ALIENLEAF, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::ALIENLEAF, &credentials));
 	// Раздел 4.4.2.2 RFC 8446: сертификат с ключом непригодного алгоритма отвергается
 	ASSERT_EQ(client.error(), context::error_t::CERTIFICATE);
 	// Связь не устанавливается
@@ -7055,7 +7055,7 @@ TEST(ContextTest, Unattested){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением UNATTESTED срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::UNATTESTED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::UNATTESTED));
 	/**
 	 * Раздел 4.4.2 RFC 8446: сервер обязан предъявить сертификат во всяком
 	 * рукопожатии, кроме связи на заранее разделённом ключе. Посредник, знающий обмен
@@ -7094,7 +7094,7 @@ TEST(ContextTest, Unproven){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	// Враждебный клиент с искажением UNPROVEN срывает рукопожатие сервера
-	ASSERT_TRUE(intruder(server, distortion_t::UNPROVEN, &credentials));
+	ASSERT_TRUE(__nts_intruder__(server, distortion_t::UNPROVEN, &credentials));
 	// Раздел 4.4.3 RFC 8446: за непустым сертификатом обязана идти подпись владения
 	ASSERT_EQ(server.error(), context::error_t::ORDER);
 	ASSERT_EQ(server.alert().description, alert::description_t::UNEXPECTED);
@@ -7117,7 +7117,7 @@ TEST(ContextTest, Spanning){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением SPANNING срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::SPANNING, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::SPANNING, &credentials));
 	// Раздел 5.1 RFC 8446: сообщение перед сменой ключей кончается на границе записи
 	ASSERT_EQ(client.error(), context::error_t::ORDER);
 	ASSERT_EQ(client.alert().description, alert::description_t::UNEXPECTED);
@@ -7150,7 +7150,7 @@ TEST(ContextTest, Unpicked){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением UNPICKED срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::UNPICKED, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::UNPICKED, &credentials));
 	// Раздел 4.2.11 RFC 8446: упреждение принимается лишь при выбранном ключе
 	ASSERT_EQ(client.error(), context::error_t::MESSAGE);
 	ASSERT_EQ(client.alert().description, alert::description_t::PARAMETER);
@@ -7245,7 +7245,7 @@ TEST(ContextTest, Stale){
 	// Заведение обеих сторон удаётся
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Враждебное приветствие с искажением UNOFFERED срывает рукопожатие
-	ASSERT_TRUE(adversary(client, distortion_t::UNOFFERED));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::UNOFFERED));
 	/**
 	 * Раздел 4.2.11 RFC 8446: выбранный ключ обязан лежать в пределах предложенного,
 	 * а предложено не было ничего - место нулевое тут ничем не лучше иного
@@ -7760,7 +7760,7 @@ TEST(ContextTest, Overgrown){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного сервера с непомерным сообщением после
-	ASSERT_TRUE(adversary(client, distortion_t::OVERGROWN, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::OVERGROWN, &credentials));
 	/**
 	 * После установления связи сообщения рукопожатия шире билета не ходят: связь
 	 * обрывается по одной обвязке, не копя мегабайты чужого мусора
@@ -7787,7 +7787,7 @@ TEST(ContextTest, Impostor){
 	// Заводим связи стороны клиента
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Ведём рукопожатие враждебного сервера с повторной цепочкой после
-	ASSERT_TRUE(adversary(client, distortion_t::IMPOSTOR, &credentials));
+	ASSERT_TRUE(__nts_adversary__(client, distortion_t::IMPOSTOR, &credentials));
 	/**
 	 * За установленной связью законны лишь смена ключей и билеты: цепочка
 	 * сертификатов после установления - сообщение не в свой черёд, и принятая

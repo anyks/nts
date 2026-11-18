@@ -47,7 +47,7 @@ static std::vector <uint8_t> bytes(const std::string & text) {
 	// Разобранные байты
 	std::vector <uint8_t> result;
 	/**
-	 * Выполняем перебор пар знаков
+	 * Перебираем пары знаков
 	 */
 	for(size_t i = 0; (i + 1) < text.size(); i += 2)
 		// Добавляем очередной байт
@@ -84,12 +84,12 @@ TEST(BcryptTest, Vectors) {
 		{"password", "salt", "7af41469e52860da49debfaa6a4e12a2cb857b907b2bb20d2902a9ccd424adb1", 1}
 	};
 	/**
-	 * Выполняем перебор контрольных примеров
+	 * Перебираем контрольные примеры
 	 */
 	for(const auto & item : VECTORS){
 		// Место выработанного ключа
 		uint8_t key[32];
-		// Выполняем выработку ключа контрольного примера
+		// Вырабатываем ключ контрольного примера
 		ASSERT_TRUE(digest::bcrypt(::text(item.pass), ::text(item.salt), key, sizeof(key), item.rounds)) << "пароль " << item.pass;
 		// Сверяем выработанный ключ с контрольным примером
 		EXPECT_EQ(std::vector <uint8_t> (key, key + sizeof(key)), bytes(item.key)) << "пароль " << item.pass;
@@ -102,7 +102,7 @@ TEST(BcryptTest, Vectors) {
 TEST(BcryptTest, Partial) {
 	// Место выработанного ключа нестандартной длины
 	uint8_t key[42];
-	// Выполняем выработку ключа длиной не в целое число блоков: перемешивание байтов
+	// Вырабатываем ключ длиной не в целое число блоков: перемешивание байтов
 	ASSERT_TRUE(digest::bcrypt(::text("password"), ::text("salt"), key, sizeof(key), 4));
 	// Выработка того же ключа по блокам обязана дать те же байты на тех же местах
 	uint8_t whole[64];

@@ -79,7 +79,7 @@ namespace {
 	 * @return     просмотр набора
 	 *
 	 */
-	static view_t view(const std::vector <uint8_t> & data) noexcept {
+	static view_t __nts_view__(const std::vector <uint8_t> & data) noexcept {
 		// Выводим просмотр набора
 		return view_t(data.data(), data.size());
 	}
@@ -97,7 +97,7 @@ TEST(SrtpTest, KeyDerivation) {
 	// Сессионные ключи
 	srtp::keys_t keys;
 	// Вывод обязан удаться
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(masterKey), __nts_view__(masterSalt), keys), srtp::error_t::NONE);
 	// Ключ шифрования обязан совпасть с вектором
 	const std::vector <uint8_t> cipher = unhex("C61E7A93744F39EE10734AFE3FF7A087");
 	// Ключ шифрования обязан совпасть с вектором
@@ -113,17 +113,17 @@ TEST(SrtpTest, KeyDerivation) {
 	// Вывод с чужой длиной мастер-ключа обязан отказать
 	std::vector <uint8_t> shortKey(masterKey.begin(), masterKey.end() - 1);
 	// Вывод с укороченным мастер-ключом обязан отказать кодом KEY
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(shortKey), view(masterSalt), keys), srtp::error_t::KEY);
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(shortKey), __nts_view__(masterSalt), keys), srtp::error_t::KEY);
 	// Вывод с чужой длиной мастер-соли обязан отказать
 	std::vector <uint8_t> shortSalt(masterSalt.begin(), masterSalt.end() - 1);
 	// Вывод с укороченной мастер-солью обязан отказать кодом KEY
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(shortSalt), keys), srtp::error_t::KEY);
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(masterKey), __nts_view__(shortSalt), keys), srtp::error_t::KEY);
 	// Вывод профилем AES-256-GCM обязан взять ключ в 32 байта
 	std::vector <uint8_t> key32(32, 0x01);
 	// Мастер-соль в двенадцать байтов
 	std::vector <uint8_t> salt12(12, 0x02);
 	// Вывод профилем AES-256-GCM обязан удаться
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AEAD_AES_256_GCM, view(key32), view(salt12), keys), srtp::error_t::NONE);
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AEAD_AES_256_GCM, __nts_view__(key32), __nts_view__(salt12), keys), srtp::error_t::NONE);
 	// Ключ имитовставки у профиля AES-GCM пуст
 	ASSERT_TRUE(keys.auth.empty());
 	// Длина ключа обязана быть 32, соли - 12
@@ -144,7 +144,7 @@ TEST(SrtpTest, AesCmKeystream) {
 	srtp::keys_t keys;
 	// Ключ шифрования
 	keys.cipher = sessionKey;
-	// Соль
+	// Устанавливаем соль сеанса
 	keys.salt = sessionSalt;
 	// Ключ имитовставки (в векторе не проверяется)
 	keys.auth.assign(20, 0);
@@ -159,7 +159,7 @@ TEST(SrtpTest, AesCmKeystream) {
 	// Защищённый пакет
 	std::vector <uint8_t> protectedPacket;
 	// Защита обязана удаться
-	ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+	ASSERT_EQ(sender.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 	// Первые шестнадцать байтов гаммы обязаны совпасть с вектором
 	const std::vector <uint8_t> gamma0 = unhex("E03EAD0935C95E80E166B16DD92B4EB4");
 	// Гамма с позиции 12 обязана совпасть с первым вектором
@@ -203,7 +203,7 @@ TEST(SrtpTest, Aead128Rtp) {
 	// Защищённый пакет
 	std::vector <uint8_t> protectedPacket;
 	// Защита обязана удаться
-	ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+	ASSERT_EQ(sender.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 	// Итог обязан совпасть с вектором побайтно
 	const std::vector <uint8_t> want = unhex(
 		"8040f17b8041f8d35501a0b2"
@@ -220,7 +220,7 @@ TEST(SrtpTest, Aead128Rtp) {
 	// Открытый пакет
 	std::vector <uint8_t> plain;
 	// Снятие защиты обязано удаться
-	ASSERT_EQ(receiver.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(protectedPacket), plain), srtp::error_t::NONE);
 	// Открытый пакет обязан совпасть с исходным
 	ASSERT_EQ(plain, packet);
 	// Подделанный байт метки следующего пакета обязан отказать
@@ -230,13 +230,13 @@ TEST(SrtpTest, Aead128Rtp) {
 	// Защищённый второй пакет
 	std::vector <uint8_t> forged;
 	// Защита обязана удаться
-	ASSERT_EQ(sender.protect(view(second), forged), srtp::error_t::NONE);
+	ASSERT_EQ(sender.protect(__nts_view__(second), forged), srtp::error_t::NONE);
 	// Портим байт метки
 	forged[forged.size() - 1] ^= 0x01;
 	// Снятие защиты обязано отказать имитовставкой
-	ASSERT_EQ(receiver.unprotect(view(forged), plain), srtp::error_t::SIGNATURE);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(forged), plain), srtp::error_t::SIGNATURE);
 	// Повтор первого пакета обязан отказать повтором
-	ASSERT_EQ(receiver.unprotect(view(protectedPacket), plain), srtp::error_t::REPLAY);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(protectedPacket), plain), srtp::error_t::REPLAY);
 }
 
 /**
@@ -270,7 +270,7 @@ TEST(SrtpTest, Aead256Rtp) {
 	// Защищённый пакет
 	std::vector <uint8_t> protectedPacket;
 	// Защита обязана удаться
-	ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+	ASSERT_EQ(sender.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 	// Итог обязан совпасть с вектором побайтно
 	const std::vector <uint8_t> want = unhex(
 		"8040f17b8041f8d35501a0b2"
@@ -318,9 +318,9 @@ TEST(SrtpTest, Aead128Rtcp) {
 	 */
 	for(uint32_t i = 0; i < 0x05d4; i++)
 		// Защита обязана удаваться
-		ASSERT_EQ(sender.protectControl(view(packet), protectedPacket), srtp::error_t::NONE);
+		ASSERT_EQ(sender.protectControl(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 	// Защита пакета вектора обязана удаться
-	ASSERT_EQ(sender.protectControl(view(packet), protectedPacket), srtp::error_t::NONE);
+	ASSERT_EQ(sender.protectControl(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 	// Итог обязан совпасть с вектором побайтно
 	const std::vector <uint8_t> want = unhex(
 		"81c8000d4d617273"
@@ -339,19 +339,19 @@ TEST(SrtpTest, Aead128Rtcp) {
 	// Открытый пакет
 	std::vector <uint8_t> plain;
 	// Снятие защиты обязано удаться
-	ASSERT_EQ(receiver.unprotectControl(view(protectedPacket), plain), srtp::error_t::NONE);
+	ASSERT_EQ(receiver.unprotectControl(__nts_view__(protectedPacket), plain), srtp::error_t::NONE);
 	// Открытый пакет обязан совпасть с исходным
 	ASSERT_EQ(plain, packet);
 	// Подделанный байт шифротекста следующего пакета обязан отказать
 	std::vector <uint8_t> forged;
 	// Защита следующего пакета обязана удаться
-	ASSERT_EQ(sender.protectControl(view(packet), forged), srtp::error_t::NONE);
+	ASSERT_EQ(sender.protectControl(__nts_view__(packet), forged), srtp::error_t::NONE);
 	// Портим байт шифротекста
 	forged[20] ^= 0x01;
 	// Снятие защиты обязано отказать имитовставкой
-	ASSERT_EQ(receiver.unprotectControl(view(forged), plain), srtp::error_t::SIGNATURE);
+	ASSERT_EQ(receiver.unprotectControl(__nts_view__(forged), plain), srtp::error_t::SIGNATURE);
 	// Повтор первого пакета обязан отказать повтором
-	ASSERT_EQ(receiver.unprotectControl(view(protectedPacket), plain), srtp::error_t::REPLAY);
+	ASSERT_EQ(receiver.unprotectControl(__nts_view__(protectedPacket), plain), srtp::error_t::REPLAY);
 }
 
 /**
@@ -378,7 +378,7 @@ TEST(SrtpTest, RoundtripCm) {
 		// Сессионные ключи
 		srtp::keys_t keys;
 		// Вывод обязан удаться
-		ASSERT_EQ(srtp::keys(profiles[p], view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
+		ASSERT_EQ(srtp::keys(profiles[p], __nts_view__(masterKey), __nts_view__(masterSalt), keys), srtp::error_t::NONE);
 		// Полусессии сторон
 		srtp::session_t sender, receiver;
 		// Установка ключей обязана удаться
@@ -398,7 +398,7 @@ TEST(SrtpTest, RoundtripCm) {
 			// Защищённый пакет
 			std::vector <uint8_t> protectedPacket;
 			// Защита обязана удаться
-			ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+			ASSERT_EQ(sender.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 			// Заголовок обязан остаться открытым
 			ASSERT_EQ(::memcmp(protectedPacket.data(), packet.data(), 12), 0);
 			// Полезная нагрузка обязана отличаться
@@ -406,7 +406,7 @@ TEST(SrtpTest, RoundtripCm) {
 			// Открытый пакет
 			std::vector <uint8_t> plain;
 			// Снятие защиты обязано удаться
-			ASSERT_EQ(receiver.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+			ASSERT_EQ(receiver.unprotect(__nts_view__(protectedPacket), plain), srtp::error_t::NONE);
 			// Открытый пакет обязан совпасть с исходным
 			ASSERT_EQ(plain, packet);
 		}
@@ -431,7 +431,7 @@ TEST(SrtpTest, RoundtripCmRtcp) {
 	// Сессионные ключи
 	srtp::keys_t keys;
 	// Вывод обязан удаться
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(masterKey), __nts_view__(masterSalt), keys), srtp::error_t::NONE);
 	// Полусессии сторон
 	srtp::session_t sender, receiver;
 	// Установка ключей обязана удаться
@@ -450,7 +450,7 @@ TEST(SrtpTest, RoundtripCmRtcp) {
 		// Защищённый пакет
 		std::vector <uint8_t> protectedPacket;
 		// Защита обязана удаться
-		ASSERT_EQ(sender.protectControl(view(packet), protectedPacket), srtp::error_t::NONE);
+		ASSERT_EQ(sender.protectControl(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 		// Длина итога: пакет, слово ESRTCP и метка
 		ASSERT_EQ(protectedPacket.size(), packet.size() + 4 + 10);
 		// Первые восемь байтов обязаны остаться открытыми
@@ -463,7 +463,7 @@ TEST(SrtpTest, RoundtripCmRtcp) {
 		// Открытый пакет
 		std::vector <uint8_t> plain;
 		// Снятие защиты обязано удаться
-		ASSERT_EQ(receiver.unprotectControl(view(protectedPacket), plain), srtp::error_t::NONE);
+		ASSERT_EQ(receiver.unprotectControl(__nts_view__(protectedPacket), plain), srtp::error_t::NONE);
 		// Открытый пакет обязан совпасть с исходным
 		ASSERT_EQ(plain, packet);
 	}
@@ -487,7 +487,7 @@ TEST(SrtpTest, RolloverCounter) {
 	// Сессионные ключи
 	srtp::keys_t keys;
 	// Вывод обязан удаться
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(masterKey), __nts_view__(masterSalt), keys), srtp::error_t::NONE);
 	// Полусессии сторон
 	srtp::session_t sender, receiver;
 	// Установка ключей обязана удаться
@@ -508,11 +508,11 @@ TEST(SrtpTest, RolloverCounter) {
 		// Защищённый пакет
 		std::vector <uint8_t> protectedPacket;
 		// Защита обязана удаться
-		ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		ASSERT_EQ(sender.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 		// Открытый пакет
 		std::vector <uint8_t> plain;
 		// Снятие защиты обязано удаться и через переполнение
-		ASSERT_EQ(receiver.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+		ASSERT_EQ(receiver.unprotect(__nts_view__(protectedPacket), plain), srtp::error_t::NONE);
 		// Открытый пакет обязан совпасть с исходным
 		ASSERT_EQ(plain, packet);
 		// Номер нарастает через переполнение
@@ -542,7 +542,7 @@ TEST(SrtpTest, ReplayWindow) {
 	// Сессионные ключи
 	srtp::keys_t keys;
 	// Вывод обязан удаться
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(masterKey), __nts_view__(masterSalt), keys), srtp::error_t::NONE);
 	// Полусессии сторон
 	srtp::session_t sender, receiver;
 	// Установка ключей обязана удаться
@@ -561,20 +561,20 @@ TEST(SrtpTest, ReplayWindow) {
 		// Номер пакета
 		packet[3] = i + 1;
 		// Защита обязана удаться
-		ASSERT_EQ(sender.protect(view(packet), packets[i]), srtp::error_t::NONE);
+		ASSERT_EQ(sender.protect(__nts_view__(packet), packets[i]), srtp::error_t::NONE);
 	}
 	// Открытый пакет
 	std::vector <uint8_t> plain;
 	// Пакет с номером 100 принимается первым: окно сдвигается к нему
-	ASSERT_EQ(receiver.unprotect(view(packets[99]), plain), srtp::error_t::NONE);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(packets[99]), plain), srtp::error_t::NONE);
 	// Пакет с номером 36 старше окна в 64 индекса: отказ повтора
-	ASSERT_EQ(receiver.unprotect(view(packets[35]), plain), srtp::error_t::REPLAY);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(packets[35]), plain), srtp::error_t::REPLAY);
 	// Пакет с номером 37 на краю окна: принимается
-	ASSERT_EQ(receiver.unprotect(view(packets[36]), plain), srtp::error_t::NONE);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(packets[36]), plain), srtp::error_t::NONE);
 	// Повтор пакета с номером 37: отказ повтора
-	ASSERT_EQ(receiver.unprotect(view(packets[36]), plain), srtp::error_t::REPLAY);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(packets[36]), plain), srtp::error_t::REPLAY);
 	// Пакет с номером 50 внутри окна: принимается
-	ASSERT_EQ(receiver.unprotect(view(packets[49]), plain), srtp::error_t::NONE);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(packets[49]), plain), srtp::error_t::NONE);
 }
 
 /**
@@ -591,7 +591,7 @@ TEST(SrtpTest, PairLayout) {
 	// Мастер-ключи сторон
 	srtp::keys_t client, server;
 	// Раскладка обязана удаться
-	ASSERT_EQ(srtp::pair(srtp::profile_t::AES128_CM_SHA1_80, view(material), client, server), srtp::error_t::NONE);
+	ASSERT_EQ(srtp::pair(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(material), client, server), srtp::error_t::NONE);
 	// Ключ клиента: байты 0..15
 	ASSERT_EQ(client.cipher.size(), 16U);
 	ASSERT_EQ(client.cipher[0], 0);
@@ -608,11 +608,11 @@ TEST(SrtpTest, PairLayout) {
 	// Раскладка с чужой длиной материала обязана отказать
 	std::vector <uint8_t> shortMaterial(59, 0);
 	// Раскладка с материалом в пятьдесят девять байтов обязана отказать устройством записи
-	ASSERT_EQ(srtp::pair(srtp::profile_t::AES128_CM_SHA1_80, view(shortMaterial), client, server), srtp::error_t::STRUCTURE);
+	ASSERT_EQ(srtp::pair(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(shortMaterial), client, server), srtp::error_t::STRUCTURE);
 	// Раскладка профилем AES-128-GCM: 2 × (16 + 12) = 56 байтов
 	std::vector <uint8_t> materialGcm(56, 0);
 	// Раскладка профилем AES-128-GCM обязана удаться
-	ASSERT_EQ(srtp::pair(srtp::profile_t::AEAD_AES_128_GCM, view(materialGcm), client, server), srtp::error_t::NONE);
+	ASSERT_EQ(srtp::pair(srtp::profile_t::AEAD_AES_128_GCM, __nts_view__(materialGcm), client, server), srtp::error_t::NONE);
 	// Соль обязана быть двенадцати байтов
 	ASSERT_EQ(client.salt.size(), 12U);
 }
@@ -628,16 +628,16 @@ TEST(SrtpTest, Refusals) {
 	std::vector <uint8_t> packet(44, 0);
 	// Первый байт заголовка: версия 2
 	packet[0] = 0x80;
-	// Итог
+	// Буфер итога защиты
 	std::vector <uint8_t> result;
 	// Защита без ключей обязана отказать
-	ASSERT_EQ(empty.protect(view(packet), result), srtp::error_t::EMPTY);
+	ASSERT_EQ(empty.protect(__nts_view__(packet), result), srtp::error_t::EMPTY);
 	// Снятие защиты без ключей обязано отказать
-	ASSERT_EQ(empty.unprotect(view(packet), result), srtp::error_t::EMPTY);
+	ASSERT_EQ(empty.unprotect(__nts_view__(packet), result), srtp::error_t::EMPTY);
 	// Защита RTCP без ключей обязана отказать
-	ASSERT_EQ(empty.protectControl(view(packet), result), srtp::error_t::EMPTY);
+	ASSERT_EQ(empty.protectControl(__nts_view__(packet), result), srtp::error_t::EMPTY);
 	// Снятие защиты RTCP без ключей обязано отказать
-	ASSERT_EQ(empty.unprotectControl(view(packet), result), srtp::error_t::EMPTY);
+	ASSERT_EQ(empty.unprotectControl(__nts_view__(packet), result), srtp::error_t::EMPTY);
 	// Ключи неверной длины
 	srtp::keys_t bad;
 	// Ключ в пятнадцать байтов
@@ -653,27 +653,27 @@ TEST(SrtpTest, Refusals) {
 	// Мастер-ключ и мастер-соль
 	std::vector <uint8_t> masterKey(16, 0x11), masterSalt(14, 0x22);
 	// Вывод обязан удаться
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
-	// Полусессия
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(masterKey), __nts_view__(masterSalt), keys), srtp::error_t::NONE);
+	// Объект полусессии
 	srtp::session_t session;
 	// Установка ключей обязана удаться
 	ASSERT_TRUE(session.start(srtp::profile_t::AES128_CM_SHA1_80, keys));
 	// Пакет короче заголовка обязан отказать
 	std::vector <uint8_t> tiny(8, 0);
 	// Защита пакета в восемь байтов обязана отказать устройством записи
-	ASSERT_EQ(session.protect(view(tiny), result), srtp::error_t::STRUCTURE);
+	ASSERT_EQ(session.protect(__nts_view__(tiny), result), srtp::error_t::STRUCTURE);
 	// Пакет с меткой короче метки обязан отказать
-	ASSERT_EQ(session.unprotect(view(tiny), result), srtp::error_t::STRUCTURE);
+	ASSERT_EQ(session.unprotect(__nts_view__(tiny), result), srtp::error_t::STRUCTURE);
 	// Пакет RTCP короче заголовка обязан отказать
 	std::vector <uint8_t> tinyRtcp(4, 0);
 	// Защита RTCP в четыре байта обязана отказать устройством записи
-	ASSERT_EQ(session.protectControl(view(tinyRtcp), result), srtp::error_t::STRUCTURE);
+	ASSERT_EQ(session.protectControl(__nts_view__(tinyRtcp), result), srtp::error_t::STRUCTURE);
 	// Пакет SRTCP короче слова и метки обязан отказать
-	ASSERT_EQ(session.unprotectControl(view(tiny), result), srtp::error_t::STRUCTURE);
+	ASSERT_EQ(session.unprotectControl(__nts_view__(tiny), result), srtp::error_t::STRUCTURE);
 	// Подделанный пакет обязан отказать имитовставкой
 	std::vector <uint8_t> protectedPacket;
 	// Защита обязана удаться
-	ASSERT_EQ(session.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+	ASSERT_EQ(session.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 	// Портим байт полезной нагрузки
 	protectedPacket[20] ^= 0x40;
 	// Полусессия получателя
@@ -681,7 +681,7 @@ TEST(SrtpTest, Refusals) {
 	// Установка ключей обязана удаться
 	ASSERT_TRUE(receiver.start(srtp::profile_t::AES128_CM_SHA1_80, keys));
 	// Снятие защиты обязано отказать имитовставкой
-	ASSERT_EQ(receiver.unprotect(view(protectedPacket), result), srtp::error_t::SIGNATURE);
+	ASSERT_EQ(receiver.unprotect(__nts_view__(protectedPacket), result), srtp::error_t::SIGNATURE);
 }
 
 /**
@@ -723,15 +723,15 @@ TEST(SrtpTest, Coverage) {
 	// Мастер-ключ и мастер-соль
 	const std::vector <uint8_t> masterKey(16, 0x11), masterSalt(14, 0x22);
 	// Вывод неизвестным профилем обязан отказать алгоритмом
-	ASSERT_EQ(srtp::keys(static_cast <srtp::profile_t> (0x0003), view(masterKey), view(masterSalt), keys), srtp::error_t::ALGORITHM);
+	ASSERT_EQ(srtp::keys(static_cast <srtp::profile_t> (0x0003), __nts_view__(masterKey), __nts_view__(masterSalt), keys), srtp::error_t::ALGORITHM);
 	// Ключевой материал раскладки
 	const std::vector <uint8_t> material(60, 0);
 	// Мастер-ключи сторон
 	srtp::keys_t client, server;
 	// Раскладка неизвестным профилем обязана отказать алгоритмом
-	ASSERT_EQ(srtp::pair(static_cast <srtp::profile_t> (0x0003), view(material), client, server), srtp::error_t::ALGORITHM);
+	ASSERT_EQ(srtp::pair(static_cast <srtp::profile_t> (0x0003), __nts_view__(material), client, server), srtp::error_t::ALGORITHM);
 	// Вывод годным профилем обязан удаться
-	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, view(masterKey), view(masterSalt), keys), srtp::error_t::NONE);
+	ASSERT_EQ(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, __nts_view__(masterKey), __nts_view__(masterSalt), keys), srtp::error_t::NONE);
 	// Полусессии сторон
 	srtp::session_t sender, receiver;
 	// Установка ключей обязана удаться
@@ -745,11 +745,11 @@ TEST(SrtpTest, Coverage) {
 		// Защищённый пакет
 		std::vector <uint8_t> protectedPacket;
 		// Защита обязана удаться
-		ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		ASSERT_EQ(sender.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 		// Открытый пакет
 		std::vector <uint8_t> plain;
 		// Снятие защиты обязано удаться
-		ASSERT_EQ(receiver.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+		ASSERT_EQ(receiver.unprotect(__nts_view__(protectedPacket), plain), srtp::error_t::NONE);
 		// Открытый пакет обязан совпасть с исходным
 		ASSERT_EQ(plain, packet);
 	}
@@ -769,13 +769,13 @@ TEST(SrtpTest, Coverage) {
 		// Защищённый пакет
 		std::vector <uint8_t> protectedPacket;
 		// Защита обязана удаться
-		ASSERT_EQ(sender.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		ASSERT_EQ(sender.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 		// Заголовок с расширением обязан остаться открытым: 12 + 4 + 4 байтов
 		ASSERT_EQ(::memcmp(protectedPacket.data(), packet.data(), 20), 0);
 		// Открытый пакет
 		std::vector <uint8_t> plain;
 		// Снятие защиты обязано удаться
-		ASSERT_EQ(receiver.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+		ASSERT_EQ(receiver.unprotect(__nts_view__(protectedPacket), plain), srtp::error_t::NONE);
 		// Открытый пакет обязан совпасть с исходным
 		ASSERT_EQ(plain, packet);
 		// Пакет с расширением, оборванным под длину заголовка: слов два, а записано одно
@@ -785,11 +785,11 @@ TEST(SrtpTest, Coverage) {
 		// Дописываем полезную нагрузку
 		shorty.insert(shorty.end(), 32, 0x5A);
 		// Защита обязана удаться: заголовок считается по записанной длине
-		ASSERT_EQ(sender.protect(view(shorty), protectedPacket), srtp::error_t::NONE);
+		ASSERT_EQ(sender.protect(__nts_view__(shorty), protectedPacket), srtp::error_t::NONE);
 		// Пакет с расширением, у которого под расширение нет четырёх байтов
 		std::vector <uint8_t> ragged(packet.begin(), packet.begin() + 13);
 		// Защита обязана отказать устройством записи
-		ASSERT_EQ(sender.protect(view(ragged), protectedPacket), srtp::error_t::STRUCTURE);
+		ASSERT_EQ(sender.protect(__nts_view__(ragged), protectedPacket), srtp::error_t::STRUCTURE);
 		// Пакет с расширением, чья длина не умещается в пакет: слов сто, а пакет короткий
 		std::vector <uint8_t> overlong(packet.begin(), packet.begin() + 20);
 		// Длина расширения: сто слов
@@ -799,13 +799,13 @@ TEST(SrtpTest, Coverage) {
 		// Дописываем полезную нагрузку
 		overlong.insert(overlong.end(), 32, 0x5A);
 		// Защита обязана отказать устройством записи: заголовок длиннее пакета
-		ASSERT_EQ(sender.protect(view(overlong), protectedPacket), srtp::error_t::STRUCTURE);
+		ASSERT_EQ(sender.protect(__nts_view__(overlong), protectedPacket), srtp::error_t::STRUCTURE);
 		// Пакет с опознавателем CSRC, короче заголовка с опознавателями
 		std::vector <uint8_t> csrc(12, 0);
 		// Первый байт заголовка: версия 2, один опознаватель CSRC
 		csrc[0] = 0x81;
 		// Защита обязана отказать устройством записи: заголовок с опознавателем длиннее пакета
-		ASSERT_EQ(sender.protect(view(csrc), protectedPacket), srtp::error_t::STRUCTURE);
+		ASSERT_EQ(sender.protect(__nts_view__(csrc), protectedPacket), srtp::error_t::STRUCTURE);
 	}
 	{
 		// Полусессии сторон для оценки счётчика переполнений
@@ -824,18 +824,18 @@ TEST(SrtpTest, Coverage) {
 		// Защищённый пакет
 		std::vector <uint8_t> protectedPacket;
 		// Защита обязана удаться
-		ASSERT_EQ(ahead.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		ASSERT_EQ(ahead.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 		// Открытый пакет
 		std::vector <uint8_t> plain;
 		// Снятие защиты обязано удаться
-		ASSERT_EQ(behind.unprotect(view(protectedPacket), plain), srtp::error_t::NONE);
+		ASSERT_EQ(behind.unprotect(__nts_view__(protectedPacket), plain), srtp::error_t::NONE);
 		// Пакет с номером далеко впереди: разность с старшим номером превышает половину круга
 		packet[2] = 0x80;
 		// Младший байт номера: одиннадцать
 	packet[3] = 0x0B;
 		// Защита обязана удаться
-		ASSERT_EQ(ahead.protect(view(packet), protectedPacket), srtp::error_t::NONE);
+		ASSERT_EQ(ahead.protect(__nts_view__(packet), protectedPacket), srtp::error_t::NONE);
 		// Снятие защиты обязано отказать имитовставкой: счётчик переполнений оценён как предыдущий круг
-		ASSERT_EQ(behind.unprotect(view(protectedPacket), plain), srtp::error_t::SIGNATURE);
+		ASSERT_EQ(behind.unprotect(__nts_view__(protectedPacket), plain), srtp::error_t::SIGNATURE);
 	}
 }
