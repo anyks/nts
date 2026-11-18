@@ -60,16 +60,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -79,7 +79,7 @@ namespace {
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр области байтов строки знаков
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
@@ -101,7 +101,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Ключ выработки метки целостности образца
 	uint8_t key[digest::UMAC_KEY];
 	/**
-	 * Выполняем перебор байтов ключа выработки метки
+	 * Перебираем байтов ключа выработки метки
 	 */
 	for(size_t i = 0; i < sizeof(key); i++)
 		// Заполняем очередной байт ключа выработки метки
@@ -113,35 +113,35 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается метка целостности сообщения
 	uint8_t tag[digest::UMAC_128];
 	/**
-	 * Выполняем выработку метки целостности в шестьдесят четыре разряда
+	 * Вырабатываем метки целостности в шестьдесят четыре разряда
 	 *
 	 * @note Метка зависит от одноразового числа наравне с ключом: то же сообщение
 	 *       с иным числом даёт иную метку, а повтор пары «ключ, число» выдаёт ключ
 	 *
 	 */
-	if(!digest::umac(view_t(key, sizeof(key)), view_t(nonce, sizeof(nonce)), ::text(message), tag, digest::UMAC_64)){
+	if(!digest::umac(view_t(key, sizeof(key)), view_t(nonce, sizeof(nonce)), ::__nts_text__(message), tag, digest::UMAC_64)){
 		// Выводим сообщение об отказе выработки метки
 		cout << "Выработать метку UMAC-64 не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим метку целостности сообщения в шестьдесят четыре разряда
-	::print("Метка UMAC-64 ", tag, digest::UMAC_64);
-	// Выполняем выработку метки целостности в сто двадцать восемь разрядов
-	if(!digest::umac(view_t(key, sizeof(key)), view_t(nonce, sizeof(nonce)), ::text(message), tag, digest::UMAC_128)){
+	::__nts_print__("Метка UMAC-64 ", tag, digest::UMAC_64);
+	// Вырабатываем метки целостности в сто двадцать восемь разрядов
+	if(!digest::umac(view_t(key, sizeof(key)), view_t(nonce, sizeof(nonce)), ::__nts_text__(message), tag, digest::UMAC_128)){
 		// Выводим сообщение об отказе выработки метки
 		cout << "Выработать метку UMAC-128 не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим метку целостности сообщения в сто двадцать восемь разрядов
-	::print("Метка UMAC-128", tag, digest::UMAC_128);
+	::__nts_print__("Метка UMAC-128", tag, digest::UMAC_128);
 	// Иное одноразовое число выработки метки целостности
 	const uint8_t other[8] = {0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
-	// Выполняем выработку метки того же сообщения от иного одноразового числа
-	digest::umac(view_t(key, sizeof(key)), view_t(other, sizeof(other)), ::text(message), tag, digest::UMAC_64);
+	// Вырабатываем метки того же сообщения от иного одноразового числа
+	digest::umac(view_t(key, sizeof(key)), view_t(other, sizeof(other)), ::__nts_text__(message), tag, digest::UMAC_64);
 	// Выводим метку того же сообщения от иного одноразового числа
-	::print("Иное число    ", tag, digest::UMAC_64);
+	::__nts_print__("Иное число    ", tag, digest::UMAC_64);
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;
 }

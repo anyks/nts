@@ -103,7 +103,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM: связь принимает и её
 		result.secret = corpus((string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -112,7 +112,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочки сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -125,18 +125,18 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		// Получаем байты, отправляемые клиентом
 		view_t data = client.output();
 		// Если клиенту есть что отправить серверу
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя клиента
 			client.consume(buffer.size());
-			// Выполняем подачу отправленных байтов серверу
+			// Подаём отправленных байтов серверу
 			server.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -145,11 +145,11 @@ namespace {
 		data = server.output();
 		// Если серверу есть что отправить клиенту
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя сервера
 			server.consume(buffer.size());
-			// Выполняем подачу отправленных байтов клиенту
+			// Подаём отправленных байтов клиенту
 			client.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -165,13 +165,13 @@ namespace {
 	 * @return       число кругов передачи байтов между сторонами
 	 *
 	 */
-	size_t converse(client::context_t & client, server::context_t & server) noexcept {
+	size_t __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		// Число кругов передачи байтов между сторонами
 		size_t rounds = 0;
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байтов между сторонами, пока им есть что сказать
 		 */
-		while((rounds < 16) && pump(client, server))
+		while((rounds < 16) && __nts_pump__(client, server))
 			// Считаем круги передачи байтов
 			rounds++;
 		// Выводим число кругов передачи байтов
@@ -185,7 +185,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по связи издания TLS 1.2";
 		// Прикладные данные, отправляемые сервером
@@ -198,8 +198,8 @@ namespace {
 		if(server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())) != context::error_t::NONE)
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
+		// Передаём байтов между сторонами связи
+		__nts_converse__(client, server);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
 		// Если сервер принял не то, что послал клиент
@@ -229,13 +229,13 @@ namespace {
 	 *       клиент, расширенного главного секрета не знающий
 	 *
 	 */
-	bool greeting(const bool master, vector <uint8_t> & result) noexcept {
+	bool __nts_greeting__(const bool master, vector <uint8_t> & result) noexcept {
 		// Составляемое приветствие клиента
 		hello::client_t hello;
 		// Издание TLS 1.2 заголовком, без перечня изданий - как у чужого клиента
 		hello.version = 0x0303;
 		/**
-		 * Выполняем заполнение случайного значения: у образца оно предсказуемо нарочно
+		 * Заполняем случайного значения: у образца оно предсказуемо нарочно
 		 */
 		for(size_t i = 0; i < sizeof(hello.random); i++)
 			// Записываем очередной байт
@@ -290,9 +290,9 @@ namespace {
 	 * @return      название набора шифрования
 	 *
 	 */
-	const char * naming(const protect::suite_t suite) noexcept {
+	const char * __nts_naming__(const protect::suite_t suite) noexcept {
 		/**
-		 * Выполняем определение набора шифрования
+		 * Определяем набора шифрования
 		 */
 		switch(static_cast <uint16_t> (suite)){
 			// Если набор ECDHE-ECDSA с AES-128-GCM
@@ -316,7 +316,7 @@ namespace {
 	 * @return           признак успешности настройки
 	 *
 	 */
-	bool arrange(client::context_t & client, server::context_t & server, const context::credential_t & credential) noexcept {
+	bool __nts_arrange__(client::context_t & client, server::context_t & server, const context::credential_t & credential) noexcept {
 		// Наборы клиента: ChaCha20 первым, AES вторым
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256});
 		// Наборы сервера: AES первым, ChaCha20 вторым
@@ -348,7 +348,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Подлинность стороны сервера
 	context::credential_t credential;
 	// Если подлинность стороны сервера прочитать не удалось
-	if(!identity("ec256", credential)){
+	if(!__nts_identity__("ec256", credential)){
 		// Выводим сообщение об отказе чтения подлинности
 		cout << "Прочитать подлинность сервера из набора ключей не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -357,7 +357,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим заголовок первого прогона
 	cout << "== Пределы изданий и порядок выбора набора ==" << endl;
 	/**
-	 * Выполняем перебор порядка выбора набора: порядком сервера и порядком клиента
+	 * Перебираем порядка выбора набора: порядком сервера и порядком клиента
 	 */
 	for(size_t own = 0; own < 2; own++){
 		// Связь стороны клиента
@@ -365,7 +365,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить стороны не удалось
-		if(!arrange(client, server, credential)){
+		if(!__nts_arrange__(client, server, credential)){
 			// Выводим сообщение об отказе настройки
 			cout << "Установить пределы изданий клиента не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -383,7 +383,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Проводим рукопожатие
-		const size_t rounds = converse(client, server);
+		const size_t rounds = __nts_converse__(client, server);
 		// Если рукопожатие не пройдено
 		if(!client.established() || !server.established()){
 			// Выводим сообщение об отказе рукопожатия
@@ -394,7 +394,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим согласованное издание
 		cout << "Издание связи       : 0x" << hex << uppercase << client.version() << dec << " (TLS 1.2), рукопожатие за " << rounds << " круга" << endl;
 		// Выводим выбранный набор
-		cout << "Порядок выбора      : " << ((own == 0) ? "сервера" : "клиента") << ", набор " << naming(server.suite()) << endl;
+		cout << "Порядок выбора      : " << ((own == 0) ? "сервера" : "клиента") << ", набор " << __nts_naming__(server.suite()) << endl;
 		// Ожидаемый набор по порядку стороны, ведущей выбор
 		const protect::suite_t expected = ((own == 0) ? protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256 : protect::suite_t::ECDHE_ECDSA_CHACHA20_POLY1305_SHA256);
 		// Если набор выбран не порядком ведущей стороны
@@ -407,7 +407,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим порядок RFC 7366: у наборов AEAD он не значится
 		cout << "Порядок RFC 7366    : " << (client.etm() ? "encrypt_then_mac" : "не применим, набор AEAD") << endl;
 		// Если обмен прикладными данными не удался
-		if(!barter(client, server)){
+		if(!__nts_barter__(client, server)){
 			// Выводим сообщение об отказе обмена
 			cout << "Обмен прикладными данными не удался" << endl;
 			// Выходим из приложения с признаком отказа
@@ -421,7 +421,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим заголовок прогона расширенного главного секрета
 	cout << endl << "== Расширенный главный секрет RFC 7627 ==" << endl;
 	/**
-	 * Выполняем перебор приветствий чужого клиента: без расширения и с ним
+	 * Перебираем приветствий чужого клиента: без расширения и с ним
 	 */
 	for(size_t master = 0; master < 2; master++){
 		// Связь стороны сервера
@@ -431,7 +431,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Запись приветствия чужого клиента
 		vector <uint8_t> wire;
 		// Если приветствие составить либо сервер завести не удалось
-		if(!greeting(master == 1, wire) || (server.start() != context::error_t::NONE)){
+		if(!__nts_greeting__(master == 1, wire) || (server.start() != context::error_t::NONE)){
 			// Выводим сообщение об отказе
 			cout << "Составить приветствие чужого клиента не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -475,7 +475,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить стороны не удалось
-		if(!arrange(client, server, credential)){
+		if(!__nts_arrange__(client, server, credential)){
 			// Выводим сообщение об отказе настройки
 			cout << "Установить пределы изданий клиента не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -495,7 +495,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Если рукопожатие не пройдено либо билет не выдан
 		if(!client.established() || !server.established() || client.tickets().empty()){
 			// Выводим сообщение об отказе
@@ -519,7 +519,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим длину записи билета
 		cout << "Запись билета       : " << octets.size() << " байт, уходит «в другой процесс»" << endl;
 		// Если обмен прикладными данными не удался
-		if(!barter(client, server)){
+		if(!__nts_barter__(client, server)){
 			// Выводим сообщение об отказе обмена
 			cout << "Обмен прикладными данными не удался" << endl;
 			// Выходим из приложения с признаком отказа
@@ -541,7 +541,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Соседний сервер с тем же ключом билетов
 		server::context_t server;
 		// Если настроить стороны не удалось
-		if(!arrange(client, server, credential)){
+		if(!__nts_arrange__(client, server, credential)){
 			// Выводим сообщение об отказе настройки
 			cout << "Установить пределы изданий клиента не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -563,7 +563,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Проводим сокращённое рукопожатие
-		const size_t rounds = converse(client, server);
+		const size_t rounds = __nts_converse__(client, server);
 		// Если рукопожатие не пройдено либо билет не признан
 		if(!client.established() || !server.established() || !client.shared() || !server.shared()){
 			// Выводим сообщение об отказе
@@ -572,11 +572,11 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Выводим итог возобновления: сертификатов при нём не бывает
-		cout << "Возобновление       : билет признан соседним сервером за " << rounds << " круга, сертификатов " << client.peer().size() << ", набор " << naming(client.suite()) << endl;
+		cout << "Возобновление       : билет признан соседним сервером за " << rounds << " круга, сертификатов " << client.peer().size() << ", набор " << __nts_naming__(client.suite()) << endl;
 		// Выводим новый билет: раздел 3.3 RFC 5077 выдаёт его во всяком рукопожатии
 		cout << "Новый билет         : " << (client.tickets().empty() ? "не выдан" : "выдан заново") << endl;
 		// Если обмен прикладными данными не удался
-		if(!barter(client, server)){
+		if(!__nts_barter__(client, server)){
 			// Выводим сообщение об отказе обмена
 			cout << "Обмен прикладными данными по возобновлённой связи не удался" << endl;
 			// Выходим из приложения с признаком отказа
@@ -585,7 +585,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Закрываем связь клиентом
 		client.close();
 		// Доставляем извещение о закрытии
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Выводим состояние сервера после закрытия
 		cout << "Закрытие связи      : " << ((server.state() == context::state_t::CLOSED) ? "сервер извещён клиентом" : "извещение не дошло") << endl;
 	}

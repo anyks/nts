@@ -66,16 +66,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -85,7 +85,7 @@ namespace {
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
-	view_t text(const string & text) noexcept {
+	view_t __nts_text__(const string & text) noexcept {
 		// Выводим просмотр области байтов строки знаков
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -96,7 +96,7 @@ namespace {
 	 * @return     просмотр области байтов набора
 	 *
 	 */
-	view_t view(const vector <uint8_t> & data) noexcept {
+	view_t __nts_view__(const vector <uint8_t> & data) noexcept {
 		// Выводим просмотр области байтов набора
 		return view_t(data.data(), data.size());
 	}
@@ -107,7 +107,7 @@ namespace {
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
-	string corpus(const char * name) noexcept {
+	string __nts_corpus__(const char * name) noexcept {
 		// Содержимое файла
 		string result;
 		/**
@@ -138,7 +138,7 @@ namespace {
 	 * @return       признак успешности сборки
 	 *
 	 */
-	bool nameOf(const char * common, vector <uint8_t> & result) noexcept {
+	bool __nts_name_of__(const char * common, vector <uint8_t> & result) noexcept {
 		// Записчик записи имени
 		asn1::writer_t name;
 		// Если запись имени не открыта
@@ -186,7 +186,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Блоки записи PEM сертификата владельца
 	vector <pem::block_t> blocks;
 	// Если запись PEM сертификата не разобрана
-	if(pem::decode(::corpus("leaf-rsa.crt"), blocks) != pem::error_t::NONE){
+	if(pem::decode(::__nts_corpus__("leaf-rsa.crt"), blocks) != pem::error_t::NONE){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать запись сертификата не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -194,8 +194,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Сертификат владельца
 	x509::certificate_t certificate;
-	// Выполняем разбор сертификата владельца
-	if(certificate.parse(::view(blocks[0].data)) != x509::error_t::NONE){
+	// Разбираем сертификата владельца
+	if(certificate.parse(::__nts_view__(blocks[0].data)) != x509::error_t::NONE){
 		// Выводим сообщение об отказе разбора сертификата
 		cout << "Разобрать сертификат набора не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -203,8 +203,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Подготовленный секретный ключ защиты подписью
 	keys::signer_t signer;
-	// Выполняем подготовку ключа подписи из записи набора
-	if(signer.prepare(::text(::corpus("leaf-rsa.key"))) != keys::error_t::NONE){
+	// Готовим ключа подписи из записи набора
+	if(signer.prepare(::__nts_text__(::__nts_corpus__("leaf-rsa.key"))) != keys::error_t::NONE){
 		// Выводим сообщение об отказе подготовки ключа
 		cout << "Подготовить ключ подписи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -212,8 +212,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Записи имён отправителя и получателя
 	vector <uint8_t> sender, recipient;
-	// Выполняем сборку имён отправителя и получателя
-	if(!::nameOf("cmp-client", sender) || !::nameOf("cmp-ca", recipient)){
+	// Собираем имён отправителя и получателя
+	if(!::__nts_name_of__("cmp-client", sender) || !::__nts_name_of__("cmp-ca", recipient)){
 		// Выводим сообщение об отказе сборки имён
 		cout << "Собрать имена сторон не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -222,7 +222,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Запись шаблона сертификата
 	vector <uint8_t> certTemplate;
 	/**
-	 * Выполняем сборку шаблона сертификата
+	 * Собираем шаблона сертификата
 	 *
 	 * @details Шаблон несёт имя владельца и сведения об открытом ключе: оба поля
 	 *          берутся записями из сертификата владельца набора
@@ -237,25 +237,25 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается запись PKIMessage
 	vector <uint8_t> record;
 	/**
-	 * Выполняем сборку запроса инициализации ir с защитой подписью
+	 * Собираем запроса инициализации ir с защитой подписью
 	 *
 	 * @details Подтверждение владения ставится видом signature по разделу 5.2.8.4:
 	 *          подпись ключом защиты над записью CertReq, как велит примечание к
 	 *          POPOSigningKey в RFC 4211
 	 *
 	 */
-	if(cmp::request(cmp::body_t::IR, ::view(sender), ::view(recipient), {::view(certTemplate)}, signer, digest::hash_t::SHA256, record) != cmp::error_t::NONE){
+	if(cmp::request(cmp::body_t::IR, ::__nts_view__(sender), ::__nts_view__(recipient), {::__nts_view__(certTemplate)}, signer, digest::hash_t::SHA256, record) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе сборки запроса
 		cout << "Собрать запрос ir не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим начало записи PKIMessage
-	::print("Запрос ir          ", record.data(), (record.size() < 32) ? record.size() : 32);
+	::__nts_print__("Запрос ir          ", record.data(), (record.size() < 32) ? record.size() : 32);
 	// Разбираемое сообщение
 	cmp::message_t parsed;
-	// Выполняем разбор записи сообщения
-	if(parsed.parse(::view(record)) != cmp::error_t::NONE){
+	// Разбираем записи сообщения
+	if(parsed.parse(::__nts_view__(record)) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать запрос ir не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -265,7 +265,7 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Заголовок          : издание cmp" << (parsed.header().pvno == 2 ? "2000" : "?") << ", защита " << parsed.header().protection << endl;
 	// Запросы сертификатов тела
 	vector <cmp::request_t> requests;
-	// Выполняем разбор запросов тела
+	// Разбираем запросов тела
 	if(cmp::requests(parsed.body(), requests) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе разбора тела
 		cout << "Разобрать тело запроса не удалось" << endl;
@@ -274,7 +274,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Выводим число запросов и опознаватель первого
 	cout << "Тело               : запросов " << requests.size() << ", опознаватель первого " << requests[0].id << endl;
-	// Выполняем проверку защиты сообщения ключом владельца
+	// Проверяем защиты сообщения ключом владельца
 	if(cmp::verify(parsed, certificate.key()) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе проверки защиты
 		cout << "Защита подписью не сошлась" << endl;
@@ -290,14 +290,14 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается запись PKIMessage под защитой PBM
 	vector <uint8_t> pbm;
 	/**
-	 * Выполняем сборку запроса сертификата cr с защитой парольной имитовставкой PBM
+	 * Собираем запроса сертификата cr с защитой парольной имитовставкой PBM
 	 *
 	 * @details Имитовставка вырабатывается по разделу 5.1.3.1 RFC 4210: пароль с
 	 *          затравкой пропускается через одностороннюю функцию, итоговый ключ
 	 *          идёт в HMAC над защищаемой частью сообщения
 	 *
 	 */
-	if(cmp::request(cmp::body_t::CR, ::view(sender), ::view(recipient), {::view(certTemplate)}, ::text(kid), ::text(password), digest::hash_t::SHA256, pbm) != cmp::error_t::NONE){
+	if(cmp::request(cmp::body_t::CR, ::__nts_view__(sender), ::__nts_view__(recipient), {::__nts_view__(certTemplate)}, ::__nts_text__(kid), ::__nts_text__(password), digest::hash_t::SHA256, pbm) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе сборки запроса
 		cout << "Собрать запрос cr не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -305,8 +305,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Разбираемое сообщение под защитой PBM
 	cmp::message_t parsedPbm;
-	// Выполняем разбор записи сообщения
-	if(parsedPbm.parse(::view(pbm)) != cmp::error_t::NONE){
+	// Разбираем записи сообщения
+	if(parsedPbm.parse(::__nts_view__(pbm)) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать запрос cr не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -314,8 +314,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Выводим алгоритм защиты заголовка
 	cout << "Защита PBM         : " << parsedPbm.header().protection << endl;
-	// Выполняем проверку защиты паролем общего секрета
-	if(cmp::verify(parsedPbm, ::text(password)) != cmp::error_t::NONE){
+	// Проверяем защиты паролем общего секрета
+	if(cmp::verify(parsedPbm, ::__nts_text__(password)) != cmp::error_t::NONE){
 		// Выводим сообщение об отказе проверки защиты
 		cout << "Защита PBM не сошлась" << endl;
 		// Выходим из приложения с признаком отказа
@@ -324,7 +324,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим сообщение об успешной проверке защиты
 	cout << "Проверка защиты    : имитовставка PBM сошлась" << endl;
 	// Если проверка чужим паролем отвергнута
-	if(cmp::verify(parsedPbm, ::text("foreign-secret")) == cmp::error_t::PROTECTION)
+	if(cmp::verify(parsedPbm, ::__nts_text__("foreign-secret")) == cmp::error_t::PROTECTION)
 		// Выводим сообщение об отвержении чужого пароля
 		cout << "Проверка подмены   : чужой пароль отвергнут" << endl;
 	// Выходим из приложения с признаком успеха

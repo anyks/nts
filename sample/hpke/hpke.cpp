@@ -59,11 +59,11 @@ namespace {
 	 * @param size  длина области
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Печатаем подпись
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Печатаем байт
@@ -78,14 +78,14 @@ namespace {
 	 * @return     просмотр
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр текста
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
 };
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы
@@ -109,22 +109,22 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Печатаем открытый ключ получателя: его отправитель получает заранее
-	::print("Открытый ключ получателя", recipient.point().data, recipient.point().size);
+	::__nts_print__("Открытый ключ получателя", recipient.point().data, recipient.point().size);
 	// Сведения о применении, вплетаемые в выработку ключей
-	const view_t info = ::text("образец HPKE A-NTS");
+	const view_t info = ::__nts_text__("образец HPKE A-NTS");
 	// Открытая присоединённая часть сообщения
-	const view_t associated = ::text("заголовок");
+	const view_t associated = ::__nts_text__("заголовок");
 	// Секрет, разделённый заранее, - пуст в базовом режиме
 	const hpke::shared_t nothing;
 	// Упаковка ключа и шифртекст одного вызова
 	vector <uint8_t> enc, sealed;
 	// Отправитель запечатывает сообщение на открытом ключе получателя
-	if(hpke::seal(suite, hpke::regime_t::BASE, recipient.point(), info, nothing, nullptr, associated, ::text("сообщение одним вызовом"), enc, sealed) != hpke::error_t::NONE)
+	if(hpke::seal(suite, hpke::regime_t::BASE, recipient.point(), info, nothing, nullptr, associated, ::__nts_text__("сообщение одним вызовом"), enc, sealed) != hpke::error_t::NONE)
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем упаковку и шифртекст
-	::print("Упаковка ключа", enc.data(), enc.size());
-	::print("Шифртекст     ", sealed.data(), sealed.size());
+	::__nts_print__("Упаковка ключа", enc.data(), enc.size());
+	::__nts_print__("Шифртекст     ", sealed.data(), sealed.size());
 	// Вскрытое сообщение
 	vector <uint8_t> opened;
 	// Получатель вскрывает сообщение своим ключом
@@ -160,7 +160,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	/**
-	 * Выполняем передачу трёх сообщений подряд одним контекстом
+	 * Передаём трёх сообщений подряд одним контекстом
 	 */
 	for(size_t i = 0; i < 3; i++){
 		// Сообщение потока
@@ -181,11 +181,11 @@ int main(int argc, char * argv[]) noexcept {
 	// Режим PSK: обе стороны знают ещё и разделённый заранее ключ с опознавателем
 	hpke::shared_t psk;
 	// Устанавливаем ключ и опознаватель
-	psk.key = ::text("заранее разделённый ключ достаточной длины");
+	psk.key = ::__nts_text__("заранее разделённый ключ достаточной длины");
 	// Опознаватель ключа PSK
-	psk.identity = ::text("ключ образца");
+	psk.identity = ::__nts_text__("ключ образца");
 	// Если запечатать в режиме PSK не удалось
-	if(hpke::seal(suite, hpke::regime_t::PSK, recipient.point(), info, psk, nullptr, associated, ::text("сообщение под PSK"), enc, sealed) != hpke::error_t::NONE)
+	if(hpke::seal(suite, hpke::regime_t::PSK, recipient.point(), info, psk, nullptr, associated, ::__nts_text__("сообщение под PSK"), enc, sealed) != hpke::error_t::NONE)
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Если вскрыть в режиме PSK не удалось

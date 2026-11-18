@@ -65,11 +65,11 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	static void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	static void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт области шестнадцатеричной записью
@@ -120,9 +120,9 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим открытый ключ клиента, уходящий приветствием
-	print("Открытый ключ клиента", opened, sizeof(opened));
+	__nts_print__("Открытый ключ клиента", opened, sizeof(opened));
 	// Выводим открытый ключ сервера, уходящий приветствием
-	print("Открытый ключ сервера", answer, sizeof(answer));
+	__nts_print__("Открытый ключ сервера", answer, sizeof(answer));
 	// Общие значения, выработанные сторонами связи
 	uint8_t client[32] = {0}, server[32] = {0};
 	// Если общее значение стороной клиента выработать не удалось
@@ -140,9 +140,9 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим общее значение, выработанное стороной клиента
-	print("Значение у клиента   ", client, sizeof(client));
+	__nts_print__("Значение у клиента   ", client, sizeof(client));
 	// Выводим общее значение, выработанное стороной сервера
-	print("Значение у сервера   ", server, sizeof(server));
+	__nts_print__("Значение у сервера   ", server, sizeof(server));
 	// Если общие значения сторон разошлись
 	if(::memcmp(client, server, sizeof(client)) != 0){
 		// Выводим сообщение о расхождении общих значений сторон

@@ -98,15 +98,15 @@ namespace {
 		 * @return вычисленная таблица преобразования
 		 *
 		 */
-		static constexpr tables_t compute() noexcept {
+		static constexpr tables_t __nts_compute__() noexcept {
 			// Вычисляемая таблица преобразования
 			tables_t result = {};
 			/**
-			 * Выполняем перебор номеров байтов внутри слова
+			 * Перебираем номера байтов внутри слова
 			 */
 			for(size_t i = 0; i < 4; i++){
 				/**
-				 * Выполняем перебор возможных значений байта
+				 * Перебираем возможные значения байта
 				 */
 				for(size_t j = 0; j < 256; j++){
 					// Подстановка обоих полубайтов значения
@@ -125,7 +125,7 @@ namespace {
 		 * @brief Таблица совмещённого раундового преобразования
 		 *
 		 */
-		static constexpr tables_t TABLES = compute();
+		static constexpr tables_t TABLES = __nts_compute__();
 		/**
 		 * @brief Функция раундового преобразования
 		 *
@@ -145,7 +145,7 @@ namespace {
 		 *       по секрету: было 128 байтов, стало 4 КБ
 		 *
 		 */
-		static __NTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
+		static __NTS_INLINE__ uint32_t __nts_round__(const uint32_t value, const uint32_t key) noexcept {
 			// Сложение преобразуемого слова с раундовым ключом
 			const uint32_t item = (value + key);
 			// Выводим итог преобразования, собранный из слагаемых по байтам слова
@@ -165,11 +165,11 @@ namespace {
 		 * @return      слово с подставленными полубайтами
 		 *
 		 */
-		static __NTS_INLINE__ uint32_t substitute(const uint32_t value) noexcept {
+		static __NTS_INLINE__ uint32_t __nts_substitute__(const uint32_t value) noexcept {
 			// Собираемое слово итога подстановки
 			uint32_t result = 0;
 			/**
-			 * Выполняем перебор полубайтов преобразуемого слова
+			 * Перебираем полубайты преобразуемого слова
 			 */
 			for(size_t i = 0; i < 8; i++)
 			// Подстановка очередного полубайта слова
@@ -189,9 +189,9 @@ namespace {
 		 * @return      итог раундового преобразования
 		 *
 		 */
-		static __NTS_INLINE__ uint32_t round(const uint32_t value, const uint32_t key) noexcept {
+		static __NTS_INLINE__ uint32_t __nts_round__(const uint32_t value, const uint32_t key) noexcept {
 			// Подстановка полубайтов суммы слова и раундового ключа
-			const uint32_t item = substitute(value + key);
+			const uint32_t item = __nts_substitute__(value + key);
 			// Выводим итог кругового сдвига подставленного слова
 			return ((item << 11) | (item >> 21));
 		}
@@ -203,7 +203,7 @@ namespace {
 	 * @return     разобранное слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта к младшему
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
 		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
@@ -215,7 +215,7 @@ namespace {
 	 * @param data  место, в которое записывается слово
 	 *
 	 */
-	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void __nts_store__(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем старший байт слова
 		data[0] = static_cast <uint8_t> ((value >> 24) & 0xFF);
 		// Записываем второй байт слова
@@ -238,19 +238,19 @@ namespace {
 	 * @param result место, в которое помещаются четыре преобразованных блока подряд
 	 *
 	 */
-	static void process4(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+	static void __nts_process4__(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Половины первых двух блоков
-		uint32_t h0 = load(source), l0 = load(source + 4), h1 = load(source + 8), l1 = load(source + 12);
+		uint32_t h0 = __nts_load__(source), l0 = __nts_load__(source + 4), h1 = __nts_load__(source + 8), l1 = __nts_load__(source + 12);
 		// Половины последних двух блоков
-		uint32_t h2 = load(source + 16), l2 = load(source + 20), h3 = load(source + 24), l3 = load(source + 28);
+		uint32_t h2 = __nts_load__(source + 16), l2 = __nts_load__(source + 20), h3 = __nts_load__(source + 24), l3 = __nts_load__(source + 28);
 		/**
-		 * Выполняем тридцать один круг над четырьмя блоками
+		 * Проходим тридцать один круг над четырьмя блоками
 		 */
 		for(size_t i = 0; i < 31; i++){
 			// Ключ круга
 			const uint32_t key = keys[i];
 			// Новые младшие половины четырёх блоков
-			const uint32_t t0 = (round(l0, key) ^ h0), t1 = (round(l1, key) ^ h1), t2 = (round(l2, key) ^ h2), t3 = (round(l3, key) ^ h3);
+			const uint32_t t0 = (__nts_round__(l0, key) ^ h0), t1 = (__nts_round__(l1, key) ^ h1), t2 = (__nts_round__(l2, key) ^ h2), t3 = (__nts_round__(l3, key) ^ h3);
 			// Сдвигаем половины первого блока
 			h0 = l0; l0 = t0;
 			// Сдвигаем половины второго блока
@@ -261,17 +261,17 @@ namespace {
 			h3 = l3; l3 = t3;
 		}
 		// Записываем итог последнего круга первого блока
-		store(round(l0, keys[31]) ^ h0, result);
-		store(l0, result + 4);
+		__nts_store__(__nts_round__(l0, keys[31]) ^ h0, result);
+		__nts_store__(l0, result + 4);
 		// Записываем итог последнего круга второго блока
-		store(round(l1, keys[31]) ^ h1, result + 8);
-		store(l1, result + 12);
+		__nts_store__(__nts_round__(l1, keys[31]) ^ h1, result + 8);
+		__nts_store__(l1, result + 12);
 		// Записываем итог последнего круга третьего блока
-		store(round(l2, keys[31]) ^ h2, result + 16);
-		store(l2, result + 20);
+		__nts_store__(__nts_round__(l2, keys[31]) ^ h2, result + 16);
+		__nts_store__(l2, result + 20);
 		// Записываем итог последнего круга четвёртого блока
-		store(round(l3, keys[31]) ^ h3, result + 24);
-		store(l3, result + 28);
+		__nts_store__(__nts_round__(l3, keys[31]) ^ h3, result + 24);
+		__nts_store__(l3, result + 28);
 	}
 	/**
 	 * @brief Функция преобразования блока набором раундовых ключей
@@ -285,26 +285,26 @@ namespace {
 	 * @param result  место, в которое помещается преобразованный блок
 	 *
 	 */
-	static __NTS_INLINE__ void process(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_process__(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Разбираем старшую половину преобразуемого блока
-		uint32_t high = load(source);
+		uint32_t high = __nts_load__(source);
 		// Разбираем младшую половину преобразуемого блока
-		uint32_t low = load(source + 4);
+		uint32_t low = __nts_load__(source + 4);
 		/**
-		 * Выполняем тридцать один раунд преобразования
+		 * Проходим тридцать один раунд преобразования
 		 */
 		for(size_t i = 0; i < 31; i++){
 			// Вычисляем новое значение младшей половины блока
-			const uint32_t item = (round(low, keys[i]) ^ high);
+			const uint32_t item = (__nts_round__(low, keys[i]) ^ high);
 			// Переносим прежнюю младшую половину блока в старшую
 			high = low;
 			// Запоминаем новое значение младшей половины блока
 			low = item;
 		}
 		// Записываем старшую половину преобразованного блока
-		store(round(low, keys[31]) ^ high, result);
+		__nts_store__(__nts_round__(low, keys[31]) ^ high, result);
 		// Записываем младшую половину преобразованного блока
-		store(low, result + 4);
+		__nts_store__(low, result + 4);
 	}
 };
 
@@ -333,11 +333,11 @@ bool nts::cipher::Magma::key(const view_t & key) noexcept {
 		// Выводим отказ установки ключа
 		return false;
 	/**
-	 * Выполняем разбор ключа шифрования на восемь слов
+	 * Разбираем ключ шифрования на восемь слов
 	 */
 	for(size_t i = 0; i < 8; i++){
 		// Разбираем очередное слово ключа шифрования
-		const uint32_t item = load(key.data + (i * 4));
+		const uint32_t item = __nts_load__(key.data + (i * 4));
 		// Записываем слово раундовым ключом первой восьмёрки раундов
 		this->_keys[i] = item;
 		// Записываем слово раундовым ключом второй восьмёрки раундов
@@ -379,7 +379,7 @@ bool nts::cipher::Magma::encrypt(const uint8_t * source, uint8_t * result) const
 		// Выводим отказ зашифрования
 		return false;
 	// Преобразование блока раундовыми ключами в прямом порядке
-	process(this->_keys, source, result);
+	__nts_process__(this->_keys, source, result);
 	// Выводим успешность зашифрования
 	return true;
 }
@@ -400,11 +400,11 @@ bool nts::cipher::Magma::batch(const uint8_t * sources, const size_t blocks, uin
 	// Число оставшихся блоков
 	size_t left = blocks;
 	/**
-	 * Выполняем шифрование по четыре блока разом
+	 * Шифруем по четыре блока разом
 	 */
 	while(left >= 4){
 		// Преобразуем четыре блока одним телом
-		process4(this->_keys, sources, results);
+		__nts_process4__(this->_keys, sources, results);
 		// Сдвигаем исходные блоки
 		sources += (4 * MAGMA_BLOCK);
 		// Сдвигаем место итога
@@ -413,7 +413,7 @@ bool nts::cipher::Magma::batch(const uint8_t * sources, const size_t blocks, uin
 		left -= 4;
 	}
 	/**
-	 * Выполняем шифрование хвоста по блоку
+	 * Шифруем хвост по блоку
 	 */
 	for(size_t i = 0; i < left; i++)
 		// Шифруем очередной блок
@@ -437,13 +437,13 @@ bool nts::cipher::Magma::decrypt(const uint8_t * source, uint8_t * result) const
 	// Набор раундовых ключей в порядке расшифрования
 	uint32_t keys[32];
 	/**
-	 * Выполняем разворот набора раундовых ключей
+	 * Разворачиваем набор раундовых ключей
 	 */
 	for(size_t i = 0; i < 32; i++)
 		// Переносим очередной раундовый ключ
 		keys[i] = this->_keys[31 - i];
 	// Преобразование блока раундовыми ключами в обратном порядке
-	process(keys, source, result);
+	__nts_process__(keys, source, result);
 	// Затирание набора раундовых ключей
 	wipe(keys, sizeof(keys));
 	// Выводим успешность расшифрования

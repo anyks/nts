@@ -132,7 +132,7 @@ namespace {
 	 * @param value приводимый элемент
 	 *
 	 */
-	static void carry(element_t & value) noexcept {
+	static void __nts_carry__(element_t & value) noexcept {
 		// Перенос из младшей конечности во вторую
 		uint64_t item = (value.limbs[0] >> 51);
 		// Отбрасываем перенесённые разряды младшей конечности
@@ -175,11 +175,11 @@ namespace {
 	 * @param value приводимый элемент
 	 *
 	 */
-	static void reduce(element_t & value) noexcept {
+	static void __nts_reduce__(element_t & value) noexcept {
 		// Первую волну переносов
-		carry(value);
+		__nts_carry__(value);
 		// Вторую волну переносов: после первой младшая конечность могла вырасти
-		carry(value);
+		__nts_carry__(value);
 		// Признак того, что элемент не меньше модуля: сложение с девятнадцатью выходит за 2^255
 		uint64_t flag = ((value.limbs[0] + 19) >> 51);
 		// Проносим признак сквозь вторую конечность
@@ -193,7 +193,7 @@ namespace {
 		// Прибавляем девятнадцать по признаку: вычитание модуля есть сложение с девятнадцатью и сброс 2^255
 		value.limbs[0] += (flag * 19);
 		/**
-		 * Выполняем волну переносов без сворачивания: разряд 2^255 здесь сбрасывается,
+		 * Проводим волну переносов без сворачивания: разряд 2^255 здесь сбрасывается,
 		 * а не возвращается в младшую конечность, иначе модуль вычелся бы дважды
 		 */
 		for(size_t i = 0; i < (LIMBS - 1); i++){
@@ -213,11 +213,11 @@ namespace {
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void power(const element_t & value, const size_t count, element_t & result) noexcept {
+	static void __nts_power__(const element_t & value, const size_t count, element_t & result) noexcept {
 		// Переносим возводимый элемент в место итога
 		result = value;
 		/**
-		 * Выполняем возведение в квадрат заданное число раз
+		 * Возводим в квадрат заданное число раз
 		 */
 		for(size_t i = 0; i < count; i++)
 			// Возводим накопленное значение в квадрат
@@ -235,7 +235,7 @@ namespace {
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void chain(const element_t & value, element_t & eleven, element_t & result) noexcept {
+	static void __nts_chain__(const element_t & value, element_t & eleven, element_t & result) noexcept {
 		// Промежуточные степени цепочки
 		element_t z2, z9, z10, z50, item;
 		// Вырабатываем z^2
@@ -253,31 +253,31 @@ namespace {
 		// Вырабатываем z^(2^5 - 1)
 		mul(item, z9, item);
 		// Вырабатываем z^(2^10 - 2^5)
-		power(item, 5, z10);
+		__nts_power__(item, 5, z10);
 		// Вырабатываем z^(2^10 - 1)
 		mul(z10, item, z10);
 		// Вырабатываем z^(2^20 - 2^10)
-		power(z10, 10, item);
+		__nts_power__(z10, 10, item);
 		// Вырабатываем z^(2^20 - 1)
 		mul(item, z10, item);
 		// Вырабатываем z^(2^40 - 2^20)
-		power(item, 20, result);
+		__nts_power__(item, 20, result);
 		// Вырабатываем z^(2^40 - 1)
 		mul(result, item, result);
 		// Вырабатываем z^(2^50 - 2^10)
-		power(result, 10, item);
+		__nts_power__(result, 10, item);
 		// Вырабатываем z^(2^50 - 1)
 		mul(item, z10, z50);
 		// Вырабатываем z^(2^100 - 2^50)
-		power(z50, 50, item);
+		__nts_power__(z50, 50, item);
 		// Вырабатываем z^(2^100 - 1)
 		mul(item, z50, item);
 		// Вырабатываем z^(2^200 - 2^100)
-		power(item, 100, result);
+		__nts_power__(item, 100, result);
 		// Вырабатываем z^(2^200 - 1)
 		mul(result, item, result);
 		// Вырабатываем z^(2^250 - 2^50)
-		power(result, 50, item);
+		__nts_power__(result, 50, item);
 		// Вырабатываем z^(2^250 - 1)
 		mul(item, z50, result);
 	}
@@ -291,7 +291,7 @@ namespace {
  */
 void nts::math::field25519::zero(element_t & result) noexcept {
 	/**
-	 * Выполняем перебор конечностей элемента
+	 * Перебираем конечности элемента
 	 */
 	for(size_t i = 0; i < LIMBS; i++)
 		// Обнуляем очередную конечность
@@ -320,13 +320,13 @@ void nts::math::field25519::load(const uint8_t * data, element_t & result) noexc
 	// Слова разбираемой записи
 	uint64_t words[4];
 	/**
-	 * Выполняем перебор слов записи
+	 * Перебираем слова записи
 	 */
 	for(size_t i = 0; i < 4; i++){
 		// Обнуляем очередное слово
 		words[i] = 0;
 		/**
-		 * Выполняем перебор байтов очередного слова от старшего к младшему
+		 * Перебираем байты очередного слова от старшего к младшему
 		 */
 		for(size_t j = 8; j > 0; j--)
 			// Дописываем очередной байт в слово
@@ -343,7 +343,7 @@ void nts::math::field25519::load(const uint8_t * data, element_t & result) noexc
 	// Выделяем старшую конечность из четвёртого слова с отбрасыванием старшего разряда
 	result.limbs[4] = ((words[3] >> 12) & MASK);
 	// Приведение записи, не меньшей модуля
-	reduce(result);
+	__nts_reduce__(result);
 }
 /**
  * @brief Функция записи элемента поля в тридцать два байта
@@ -356,7 +356,7 @@ void nts::math::field25519::store(const element_t & value, uint8_t * data) noexc
 	// Приводимая копия элемента
 	element_t item = value;
 	// Полное приведение элемента
-	reduce(item);
+	__nts_reduce__(item);
 	// Слова записываемого элемента
 	uint64_t words[4];
 	// Собираем первое слово из младшей и второй конечностей
@@ -368,11 +368,11 @@ void nts::math::field25519::store(const element_t & value, uint8_t * data) noexc
 	// Собираем четвёртое слово из четвёртой и старшей конечностей
 	words[3] = ((item.limbs[3] >> 39) | (item.limbs[4] << 12));
 	/**
-	 * Выполняем перебор слов записи
+	 * Перебираем слова записи
 	 */
 	for(size_t i = 0; i < 4; i++){
 		/**
-		 * Выполняем перебор байтов очередного слова от младшего к старшему
+		 * Перебираем байты очередного слова от младшего к старшему
 		 */
 		for(size_t j = 0; j < 8; j++)
 			// Записываем очередной байт слова
@@ -389,13 +389,13 @@ void nts::math::field25519::store(const element_t & value, uint8_t * data) noexc
  */
 void nts::math::field25519::add(const element_t & first, const element_t & second, element_t & result) noexcept {
 	/**
-	 * Выполняем перебор конечностей слагаемых
+	 * Перебираем конечности слагаемых
 	 */
 	for(size_t i = 0; i < LIMBS; i++)
 		// Складываем очередные конечности
 		result.limbs[i] = (first.limbs[i] + second.limbs[i]);
 	// Волну переносов
-	carry(result);
+	__nts_carry__(result);
 }
 /**
  * @brief Функция вычитания элементов поля
@@ -409,13 +409,13 @@ void nts::math::field25519::sub(const element_t & first, const element_t & secon
 	// Вычитаем младшие конечности с прибавлением удвоенного модуля
 	result.limbs[0] = ((first.limbs[0] + TWICE_LOW) - second.limbs[0]);
 	/**
-	 * Выполняем перебор старших конечностей
+	 * Перебираем старшие конечности
 	 */
 	for(size_t i = 1; i < LIMBS; i++)
 		// Вычитаем очередные конечности с прибавлением удвоенного модуля
 		result.limbs[i] = ((first.limbs[i] + TWICE_HIGH) - second.limbs[i]);
 	// Волну переносов
-	carry(result);
+	__nts_carry__(result);
 }
 /**
  * @brief Функция умножения элементов поля
@@ -463,9 +463,9 @@ void nts::math::field25519::invert(const element_t & value, element_t & result) 
 	// Степени z^11 и z^(2^250 - 1)
 	element_t eleven, item;
 	// Общую часть цепочки степеней
-	chain(value, eleven, item);
+	__nts_chain__(value, eleven, item);
 	// Вырабатываем z^(2^255 - 32)
-	power(item, 5, item);
+	__nts_power__(item, 5, item);
 	// Вырабатываем z^(2^255 - 21)
 	mul(item, eleven, result);
 }
@@ -480,9 +480,9 @@ void nts::math::field25519::root(const element_t & value, element_t & result) no
 	// Степени z^11 и z^(2^250 - 1)
 	element_t eleven, item;
 	// Общую часть цепочки степеней
-	chain(value, eleven, item);
+	__nts_chain__(value, eleven, item);
 	// Вырабатываем z^(2^252 - 4)
-	power(item, 2, item);
+	__nts_power__(item, 2, item);
 	// Вырабатываем z^(2^252 - 3)
 	mul(item, value, result);
 }
@@ -504,7 +504,7 @@ bool nts::math::field25519::equal(const element_t & first, const element_t & sec
 	// Накопленная разность записей
 	uint8_t item = 0;
 	/**
-	 * Выполняем перебор байтов записей
+	 * Перебираем байты записей
 	 */
 	for(size_t i = 0; i < SIZE; i++)
 		// Накапливаем разность очередных байтов
@@ -537,7 +537,7 @@ void nts::math::field25519::swap(element_t & first, element_t & second, const ui
 	// Маска обмена: все разряды по признаку
 	const uint64_t mask = (0 - (flag & 1));
 	/**
-	 * Выполняем перебор конечностей элементов
+	 * Перебираем конечности элементов
 	 */
 	for(size_t i = 0; i < LIMBS; i++){
 		// Разность конечностей под маской

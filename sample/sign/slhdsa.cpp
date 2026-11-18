@@ -60,16 +60,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -96,7 +96,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается закрытый ключ подписи
 	vector <uint8_t> secret(sign::slh_dsa_t::secretSize(set));
 	/**
-	 * Выполняем порождение ключевой пары
+	 * Порождаем ключевой пары
 	 *
 	 * @details Зерно порождения - три значения по n байтов: SK.seed ‖ SK.prf ‖ PK.seed.
 	 *          Из них выводятся и ключ проверки PK.seed ‖ PK.root, и ключ подписи
@@ -109,9 +109,9 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим открытый ключ проверки подписи
-	::print("Открытый ключ      ", key.data(), key.size());
+	::__nts_print__("Открытый ключ      ", key.data(), key.size());
 	/**
-	 * Выполняем установку ключа подписи
+	 * Устанавливаем ключа подписи
 	 *
 	 * @note Порождение заполняет лишь места ключей, а состояние модуля не занимает:
 	 *       ключ подписи устанавливается отдельным вызовом, который сверяет запись
@@ -129,7 +129,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается подпись сообщения
 	vector <uint8_t> signature(sign::slh_dsa_t::signatureSize(set));
 	/**
-	 * Выполняем подписание сообщения
+	 * Подписываем сообщения
 	 *
 	 * @details Подписывается обвязка 0x00 ‖ длина контекста ‖ контекст ‖ сообщение;
 	 *          контекст в TLS пустой. Подпись длинная - у набора 128s она 7856 байтов
@@ -142,7 +142,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начало подписи сообщения
-	::print("Подпись            ", signature.data(), 32);
+	::__nts_print__("Подпись            ", signature.data(), 32);
 	// Если подпись сообщения не сошлась
 	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), view_t(signature.data(), signature.size()))){
 		// Выводим сообщение об отказе проверки подписи

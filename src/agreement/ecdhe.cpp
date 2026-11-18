@@ -84,9 +84,9 @@ namespace {
 	 * @param size   длина записи числа в байтах
 	 *
 	 */
-	static void reverse(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
+	static void __nts_reverse__(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
 		/**
-		 * Выполняем перебор байтов записи числа
+		 * Перебираем байты записи числа
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Переносим очередной байт записи числа
@@ -115,7 +115,7 @@ bool nts::agreement::generate(const curve::curve_t & curve, uint8_t * secret, ui
 	// Секретный ключ мимолётной пары
 	math::number_t value;
 	/**
-	 * Выполняем отбор секретного ключа из области от единицы до порядка подгруппы
+	 * Отбираем секретный ключ из области от единицы до порядка подгруппы
 	 */
 	do {
 		// Если случайное значение выработать не удалось
@@ -134,7 +134,7 @@ bool nts::agreement::generate(const curve::curve_t & curve, uint8_t * secret, ui
 	// Если секретный ключ записать удалось
 	if(ok){
 		// Разворот записи секретного ключа
-		reverse(buffer, secret, size);
+		__nts_reverse__(buffer, secret, size);
 		// Открытый ключ мимолётной пары
 		curve::point_t point;
 		// Умножение образующей точки на секретный ключ
@@ -142,9 +142,9 @@ bool nts::agreement::generate(const curve::curve_t & curve, uint8_t * secret, ui
 		// Если координаты открытого ключа записать удалось
 		if((ok = curve.coordinates(point, first, second, size))){
 			// Разворот записи первой координаты открытого ключа
-			reverse(first, key, size);
+			__nts_reverse__(first, key, size);
 			// Разворот записи второй координаты открытого ключа
-			reverse(second, key + size, size);
+			__nts_reverse__(second, key + size, size);
 		}
 	}
 	// Затирание записанных координат открытого ключа
@@ -193,11 +193,11 @@ bool nts::agreement::ecdhe(const curve::curve_t & curve, const view_t & secret, 
 	// Места, в которые записываются число и координаты открытого ключа
 	uint8_t buffer[math::NUMBER_SIZE], first[math::NUMBER_SIZE], second[math::NUMBER_SIZE];
 	// Разворот записи секретного ключа своей стороны
-	reverse(secret.data, buffer, size);
+	__nts_reverse__(secret.data, buffer, size);
 	// Разворот записи первой координаты открытого ключа
-	reverse(key.data, first, size);
+	__nts_reverse__(key.data, first, size);
 	// Разворот записи второй координаты открытого ключа
-	reverse(key.data + size, second, size);
+	__nts_reverse__(key.data + size, second, size);
 	// Получаем арифметику порядка подгруппы точек кривой
 	const math::modulus_t & order = curve.order();
 	// Секретный ключ своей стороны
@@ -256,7 +256,7 @@ bool nts::agreement::ecdhe(const curve::curve_t & curve, const view_t & secret, 
 			// Начинаем с самой точки
 			cleared = point;
 			/**
-			 * Выполняем удвоения до снятия кофактора-степени двойки
+			 * Удваиваем до снятия кофактора-степени двойки
 			 */
 			for(uint64_t step = h; step > 1; step >>= 1)
 				// Удваиваем точку
@@ -279,7 +279,7 @@ bool nts::agreement::ecdhe(const curve::curve_t & curve, const view_t & secret, 
 			// Если координаты кратной точки записать удалось
 			if((ok = curve.coordinates(common, first, second, size)))
 				// Разворот записи первой координаты кратной точки
-				reverse(first, result, size);
+				__nts_reverse__(first, result, size);
 		}
 		// Затирание кратной точки обмена мимолётными ключами
 		wipe(&common, sizeof(common));

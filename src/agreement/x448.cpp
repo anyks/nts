@@ -109,7 +109,7 @@ namespace {
 	 * @return       признак того, что кратная точка не обратилась в ноль
 	 *
 	 */
-	static bool ladder(const uint8_t * scalar, const element_t & point, element_t & result) noexcept {
+	static bool __nts_ladder__(const uint8_t * scalar, const element_t & point, element_t & result) noexcept {
 		// Координаты двух точек лестницы
 		element_t x2, z2, x3, z3;
 		/**
@@ -129,7 +129,7 @@ namespace {
 		// Накопленный признак обмена точек лестницы
 		uint64_t swapped = 0;
 		/**
-		 * Выполняем обход разрядов скаляра от 447-го к нулевому. Порядок действий шага -
+		 * Обходим разряды скаляра от 447-го к нулевому. Порядок действий шага -
 		 * по образцу x25519_scalar_mult OpenSSL: независимые умножения и квадраты идут
 		 * рядом, и машина перекрывает их (решение 3 шапки)
 		 */
@@ -217,7 +217,7 @@ namespace {
 	 * @return       признак того, что итог не обратился в ноль
 	 *
 	 */
-	static bool multiply(const uint8_t * secret, const uint8_t * point, uint8_t * result) noexcept {
+	static bool __nts_multiply__(const uint8_t * secret, const uint8_t * point, uint8_t * result) noexcept {
 		// Зажатый скаляр
 		uint8_t scalar[agreement::X448_SIZE];
 		// Переносим секретный ключ
@@ -233,7 +233,7 @@ namespace {
 		// Первая координата кратной точки
 		element_t item;
 		// Умножение лестницей
-		const bool ok = ladder(scalar, u, item);
+		const bool ok = __nts_ladder__(scalar, u, item);
 		// Записываем первую координату кратной точки
 		store(item, result);
 		// Затираем скаляр
@@ -270,7 +270,7 @@ bool nts::agreement::x448(const view_t & secret, const view_t & point, uint8_t *
 		// Выводим отказ выработки общего значения
 		return false;
 	// Умножение открытого ключа на секретный
-	const bool ok = multiply(secret.data, point.data, result);
+	const bool ok = __nts_multiply__(secret.data, point.data, result);
 	// Если общее значение обратилось в ноль
 	if(!ok)
 		// Затирание места общего значения
@@ -298,7 +298,7 @@ bool nts::agreement::x448(const view_t & secret, uint8_t * result) noexcept {
 	// Точка основания кривой: первая координата пять
 	uint8_t base[X448_SIZE] = {5};
 	// Умножение точки основания на секретный ключ
-	const bool ok = multiply(secret.data, base, result);
+	const bool ok = __nts_multiply__(secret.data, base, result);
 	// Если открытый ключ обратился в ноль
 	if(!ok)
 		// Затирание места открытого ключа

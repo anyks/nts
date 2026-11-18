@@ -57,7 +57,7 @@ namespace {
 	 * @return    признак
 	 *
 	 */
-	static bool composite(const nts::noise::kem_t kem) noexcept {
+	static bool __nts_composite__(const nts::noise::kem_t kem) noexcept {
 		// Выводим признак
 		return (kem == nts::noise::kem_t::X25519MLKEM768);
 	}
@@ -68,7 +68,7 @@ namespace {
 	 * @return    признак
 	 *
 	 */
-	static bool known(const nts::noise::kem_t kem) noexcept {
+	static bool __nts_known__(const nts::noise::kem_t kem) noexcept {
 		// Выводим признак
 		return ((kem == nts::noise::kem_t::X25519MLKEM768) || (kem == nts::noise::kem_t::MLKEM768));
 	}
@@ -84,11 +84,11 @@ namespace {
  */
 size_t nts::noise::kemlength(const kem_t kem, const part_t part) noexcept {
 	// Если механизм не поддержан
-	if(!known(kem))
+	if(!__nts_known__(kem))
 		// Выводим нуль
 		return 0;
 	// Добавка составного механизма
-	const size_t extra = (composite(kem) ? X : 0);
+	const size_t extra = (__nts_composite__(kem) ? X : 0);
 	/**
 	 * Определяем часть
 	 */
@@ -121,7 +121,7 @@ size_t nts::noise::kemlength(const kem_t kem, const part_t part) noexcept {
  */
 bool nts::noise::kemgenerateDeterministic(const kem_t kem, const view_t & seed, uint8_t * key, uint8_t * secret) noexcept {
 	// Если механизм, зерно либо места негодны
-	if(!known(kem) || (seed.data == nullptr) || (seed.size != kemlength(kem, part_t::SEED)) || (key == nullptr) || (secret == nullptr))
+	if(!__nts_known__(kem) || (seed.data == nullptr) || (seed.size != kemlength(kem, part_t::SEED)) || (key == nullptr) || (secret == nullptr))
 		// Выводим отрицательный результат - пара не порождена
 		return false;
 	// Порождаем пару ML-KEM-768 из d ‖ z
@@ -129,7 +129,7 @@ bool nts::noise::kemgenerateDeterministic(const kem_t kem, const view_t & seed, 
 		// Выводим отрицательный результат - упаковка пары не удалась
 		return false;
 	// Если механизм составной, за ML-KEM идёт X25519
-	if(composite(kem)){
+	if(__nts_composite__(kem)){
 		// Закрытый ключ X25519 - хвост зерна, открытый выводится
 		::memcpy(secret + DK, seed.data + SEED, X);
 		// Если открытый ключ не выведен
@@ -154,7 +154,7 @@ bool nts::noise::kemgenerateDeterministic(const kem_t kem, const view_t & seed, 
  */
 bool nts::noise::kemgenerate(const kem_t kem, uint8_t * key, uint8_t * secret) noexcept {
 	// Если механизм негоден
-	if(!known(kem))
+	if(!__nts_known__(kem))
 		// Выводим отрицательный результат - механизм негоден
 		return false;
 	// Зерно набора
@@ -183,7 +183,7 @@ bool nts::noise::kemgenerate(const kem_t kem, uint8_t * key, uint8_t * secret) n
  */
 bool nts::noise::encapsulateDeterministic(const kem_t kem, const view_t & key, const view_t & coins, uint8_t * ciphertext, uint8_t * shared) noexcept {
 	// Если механизм, ключ, случайность либо места негодны
-	if(!known(kem) || (key.data == nullptr) || (key.size != kemlength(kem, part_t::PUBLIC)) || (coins.data == nullptr) || (coins.size != kemlength(kem, part_t::COINS)) || (ciphertext == nullptr) || (shared == nullptr))
+	if(!__nts_known__(kem) || (key.data == nullptr) || (key.size != kemlength(kem, part_t::PUBLIC)) || (coins.data == nullptr) || (coins.size != kemlength(kem, part_t::COINS)) || (ciphertext == nullptr) || (shared == nullptr))
 		// Выводим отрицательный результат - капсула не выработана
 		return false;
 	// Упаковываем ML-KEM-768 на m
@@ -191,7 +191,7 @@ bool nts::noise::encapsulateDeterministic(const kem_t kem, const view_t & key, c
 		// Выводим отрицательный результат - упаковка не удалась
 		return false;
 	// Если механизм составной, за ML-KEM идёт X25519: временный открытый ключ в шифртекст, общий секрет следом
-	if(composite(kem)){
+	if(__nts_composite__(kem)){
 		// Если открытый ключ не выведен либо DH дал точку малого порядка
 		if(!agreement::x25519(view_t(coins.data + M, X), ciphertext + CT) || !agreement::x25519(view_t(coins.data + M, X), view_t(key.data + EK, X), shared + SS)){
 			// Затираем секрет и шифртекст
@@ -216,7 +216,7 @@ bool nts::noise::encapsulateDeterministic(const kem_t kem, const view_t & key, c
  */
 bool nts::noise::encapsulate(const kem_t kem, const view_t & key, uint8_t * ciphertext, uint8_t * shared) noexcept {
 	// Если механизм негоден
-	if(!known(kem))
+	if(!__nts_known__(kem))
 		// Выводим отрицательный результат - механизм негоден
 		return false;
 	// Случайность упаковки
@@ -244,7 +244,7 @@ bool nts::noise::encapsulate(const kem_t kem, const view_t & key, uint8_t * ciph
  */
 bool nts::noise::decapsulate(const kem_t kem, const view_t & secret, const view_t & ciphertext, uint8_t * shared) noexcept {
 	// Если механизм, ключ, шифртекст либо место негодны
-	if(!known(kem) || (secret.data == nullptr) || (secret.size != kemlength(kem, part_t::SECRET)) || (ciphertext.data == nullptr) || (ciphertext.size != kemlength(kem, part_t::CIPHERTEXT)) || (shared == nullptr))
+	if(!__nts_known__(kem) || (secret.data == nullptr) || (secret.size != kemlength(kem, part_t::SECRET)) || (ciphertext.data == nullptr) || (ciphertext.size != kemlength(kem, part_t::CIPHERTEXT)) || (shared == nullptr))
 		// Выводим отрицательный результат - секрет не извлечён
 		return false;
 	// Распаковываем ML-KEM-768
@@ -252,7 +252,7 @@ bool nts::noise::decapsulate(const kem_t kem, const view_t & secret, const view_
 		// Выводим отрицательный результат - распаковка не удалась
 		return false;
 	// Если механизм составной, DH X25519 своего закрытого с временным открытым из шифртекста
-	if(composite(kem) && !agreement::x25519(view_t(secret.data + DK, X), view_t(ciphertext.data + CT, X), shared + SS)){
+	if(__nts_composite__(kem) && !agreement::x25519(view_t(secret.data + DK, X), view_t(ciphertext.data + CT, X), shared + SS)){
 		// Затираем секрет
 		wipe(shared, SS + X);
 		// Выводим отрицательный результат - секрет не выделен

@@ -70,9 +70,9 @@ namespace {
 	 * @return      признак того, что уровень определён протоколом
 	 *
 	 */
-	static bool suitable(const level_t level) noexcept {
+	static bool __nts_suitable__(const level_t level) noexcept {
 		/**
-		 * Выполняем определение уровня извещения
+		 * Определяем уровень извещения
 		 */
 		switch(static_cast <uint8_t> (level)){
 			// Если это один из известных уровней извещения
@@ -130,7 +130,7 @@ alert::error_t nts::alert::build(const alert_t & alert, uint8_t * result) noexce
 		// Выводим отказ о непереданном месте записи
 		return error_t::EMPTY;
 	// Если уровень извещения протоколом не определён
-	if(!suitable(alert.level))
+	if(!__nts_suitable__(alert.level))
 		// Выводим отказ об уровне извещения
 		return error_t::LEVEL;
 	// Записываем уровень извещения
@@ -149,7 +149,7 @@ alert::error_t nts::alert::build(const alert_t & alert, uint8_t * result) noexce
  */
 bool nts::alert::known(const description_t description) noexcept {
 	/**
-	 * Выполняем определение описания извещения
+	 * Определяем описание извещения
 	 */
 	switch(static_cast <uint8_t> (description)){
 		// Если это одно из известных описаний извещения
@@ -200,7 +200,7 @@ bool nts::alert::known(const description_t description) noexcept {
  */
 bool nts::alert::fatal(const alert_t & alert) noexcept {
 	/**
-	 * Выполняем определение описания извещения
+	 * Определяем описание извещения
 	 */
 	switch(static_cast <uint8_t> (alert.description)){
 		// Если сторона завершила передачу данных либо отменила рукопожатие
@@ -221,7 +221,7 @@ bool nts::alert::fatal(const alert_t & alert) noexcept {
  */
 bool nts::alert::grave(const description_t description) noexcept {
 	/**
-	 * Выполняем определение описания извещения: перечень раздела 7.2.2 RFC 5246,
+	 * Определяем описание извещения: перечень раздела 7.2.2 RFC 5246,
 	 * раздела 8 RFC 6066, раздела 2 RFC 4279, раздела 3.2 RFC 7301 и раздела 3 RFC 7507
 	 */
 	switch(static_cast <uint8_t> (description)){
@@ -259,7 +259,7 @@ bool nts::alert::grave(const description_t description) noexcept {
  */
 const char * nts::alert::name(const description_t description) noexcept {
 	/**
-	 * Выполняем определение описания извещения
+	 * Определяем описание извещения
 	 */
 	switch(static_cast <uint8_t> (description)){
 		// Если сторона завершила передачу данных

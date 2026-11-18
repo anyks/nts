@@ -77,7 +77,7 @@ namespace {
 	 * @return     слова троек, готовые к разбору на шестёрки
 	 *
 	 */
-	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i gather(const uint8_t * data) noexcept {
+	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_gather__(const uint8_t * data) noexcept {
 		// Младшие шестнадцать байтов блока
 		const __m128i low = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data));
 		// Старшие восемь байтов блока
@@ -99,7 +99,7 @@ namespace {
 	 * @return         шестёрки разрядов по одному значению на байт
 	 *
 	 */
-	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i split(const __m256i shuffled) noexcept {
+	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_split__(const __m256i shuffled) noexcept {
 		// Старшие шестёрки каждой пары слов: старшие произведения без переносов
 		const __m256i upper = _mm256_mulhi_epu16(_mm256_and_si256(shuffled, _mm256_set1_epi32(0x0fc0fc00)), _mm256_set1_epi32(0x04000040));
 		// Младшие шестёрки каждой пары слов: младшие произведения
@@ -123,7 +123,7 @@ namespace {
 	 * @return         знаки основания 64
 	 *
 	 */
-	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i convert(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
+	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_convert__(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
 		// Таблица добавок своего алфавита разводится по обеим полосам
 		const __m256i table = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast <const __m128i *> ((alphabet == nts::codec::alphabet_t::URL) ? nts::codec::kernel::OFFSETS_URL : nts::codec::kernel::OFFSETS)));
 		// Номер хвостового диапазона: нуль до пятидесяти одного, далее единица..двенадцать
@@ -153,25 +153,25 @@ namespace {
  */
 __NTS_BASE64_TARGET__ void nts::codec::encodeBlocks(const uint8_t * data, uint8_t * result, const size_t blocks, const alphabet_t alphabet) noexcept {
 	// Номер блока очереди
-	size_t i = 0;
+	size_t blockIndex = 0;
 	/**
-	 * Выполняем перебор пар блоков: два вектора идут вперемежку
+	 * Перебираем пары блоков: два вектора идут вперемежку
 	 */
-	for(; (i + 2) <= blocks; i += 2){
+	for(; (blockIndex + 2) <= blocks; blockIndex += 2){
 		// Шестёрки разрядов первого блока пары
-		const __m256i first = split(gather(data + (24 * i)));
+		const __m256i first = __nts_split__(__nts_gather__(data + (24 * blockIndex)));
 		// Шестёрки разрядов второго блока пары
-		const __m256i second = split(gather(data + (24 * i) + 24));
+		const __m256i second = __nts_split__(__nts_gather__(data + (24 * blockIndex) + 24));
 		// Записываем тридцать два знака первого блока пары
-		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * i)), convert(first, alphabet));
+		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex)), __nts_convert__(first, alphabet));
 		// Записываем тридцать два знака второго блока пары
-		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * i) + 32), convert(second, alphabet));
+		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex) + 32), __nts_convert__(second, alphabet));
 	}
 	/**
-	 * Выполняем добор непарного блока очереди
+	 * Добираем непарный блок очереди
 	 */
-	for(; i < blocks; i++)
+	for(; blockIndex < blocks; blockIndex++)
 		// Записываем тридцать два знака непарного блока
-		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * i)), convert(split(gather(data + (24 * i))), alphabet));
+		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex)), __nts_convert__(__nts_split__(__nts_gather__(data + (24 * blockIndex))), alphabet));
 }
 #endif

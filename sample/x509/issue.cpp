@@ -74,16 +74,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -141,7 +141,7 @@ namespace {
 	 * @return       признак успешности подготовки ключа
 	 *
 	 */
-	bool signer(const char * name, keys::signer_t & signer) noexcept {
+	bool __nts_signer__(const char * name, keys::signer_t & signer) noexcept {
 		// Секретный ключ набора
 		const vector <uint8_t> secret = corpus(name);
 		// Выводим успешность подготовки ключа
@@ -173,7 +173,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Эталонный сертификат владельца
 	x509::certificate_t reference;
-	// Выполняем разбор эталонного сертификата
+	// Разбираем эталонного сертификата
 	if(reference.parse(view_t(der.data(), der.size())) != x509::error_t::NONE){
 		// Выводим сообщение об отказе разбора сертификата
 		cout << "Разобрать сертификат не удалось" << endl;
@@ -182,8 +182,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Подготовленный секретный ключ владельца
 	keys::signer_t signer;
-	// Выполняем подготовку ключа владельца из записи набора
-	if(!::signer("leaf-rsa.key", signer)){
+	// Готовим ключа владельца из записи набора
+	if(!::__nts_signer__("leaf-rsa.key", signer)){
 		// Выводим сообщение об отказе подготовки ключа
 		cout << "Подготовить секретный ключ не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -204,7 +204,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выпущенный самоподписанный сертификат
 	vector <uint8_t> issued;
 	/**
-	 * Выполняем выпуск самоподписанного сертификата сроком с 2026-01-01 по 2030-01-01
+	 * Выпускаем самоподписанного сертификата сроком с 2026-01-01 по 2030-01-01
 	 *
 	 * @details Имя издателя совпадает с именем владельца, а подпись ставится тем же
 	 *          ключом, чьи сведения лежат в сертификате. Расширения есть - сертификат
@@ -221,7 +221,7 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Самоподписанный    : " << issued.size() << " байтов" << endl;
 	// Разбираемый выпущенный сертификат
 	x509::certificate_t self;
-	// Выполняем разбор выпущенного сертификата обратно
+	// Разбираем выпущенного сертификата обратно
 	if(self.parse(view_t(issued.data(), issued.size())) != x509::error_t::NONE){
 		// Выводим сообщение об отказе разбора выпущенного сертификата
 		cout << "Разобрать выпущенный сертификат не удалось" << endl;
@@ -229,8 +229,8 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим порядковый номер выпущенного сертификата
-	::print("Порядковый номер   ", self.number().data, self.number().size);
-	// Выполняем проверку подписи самоподписанного сертификата его же ключом
+	::__nts_print__("Порядковый номер   ", self.number().data, self.number().size);
+	// Проверяем подписи самоподписанного сертификата его же ключом
 	if(x509::verify(self, self.key()) != x509::error_t::NONE){
 		// Выводим сообщение о несошедшейся подписи
 		cout << "Проверка самоподписи: подпись не сошлась" << endl;
@@ -250,7 +250,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем проверку подписи запроса ключом самого запроса
+	// Проверяем подписи запроса ключом самого запроса
 	if(x509::verify(request, request.key()) != x509::error_t::NONE){
 		// Выводим сообщение о несошедшейся подписи запроса
 		cout << "Подпись запроса не сошлась" << endl;
@@ -260,9 +260,9 @@ int main(int argc, char * argv[]) noexcept {
 	// Тело записи сертификата издателя
 	const vector <uint8_t> caDer = ::body(::corpus("ca-rsa.crt"));
 	// Сертификат издателя
-	x509::certificate_t ca;
+	x509::certificate_t issuerCert;
 	// Если сертификат издателя не прочитан либо не разобран
-	if(caDer.empty() || (ca.parse(view_t(caDer.data(), caDer.size())) != x509::error_t::NONE)){
+	if(caDer.empty() || (issuerCert.parse(view_t(caDer.data(), caDer.size())) != x509::error_t::NONE)){
 		// Выводим сообщение об отказе разбора сертификата издателя
 		cout << "Разобрать сертификат издателя не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -270,8 +270,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Подготовленный секретный ключ издателя
 	keys::signer_t issuer;
-	// Выполняем подготовку ключа издателя из записи набора
-	if(!::signer("ca-rsa.key", issuer)){
+	// Готовим ключа издателя из записи набора
+	if(!::__nts_signer__("ca-rsa.key", issuer)){
 		// Выводим сообщение об отказе подготовки ключа издателя
 		cout << "Подготовить ключ издателя не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -282,14 +282,14 @@ int main(int argc, char * argv[]) noexcept {
 	// Выпущенный издателем сертификат
 	vector <uint8_t> signed_;
 	/**
-	 * Выполняем выпуск сертификата по запросу подписью издателя
+	 * Выпускаем сертификата по запросу подписью издателя
 	 *
 	 * @details Имя владельца и сведения об открытом ключе берутся из запроса,
 	 *          имя издателя - из сертификата издателя. Расширения запроса не
 	 *          копируются: вызывающий сам решает, какие расширения выдать
 	 *
 	 */
-	if(x509::issueByCA(request, ca.subjects(), issuer, digest::hash_t::SHA256, view_t(number, sizeof(number)), 1767225600, 1893456000, vector <x509::extension_t> (), signed_) != x509::error_t::NONE){
+	if(x509::issueByCA(request, issuerCert.subjects(), issuer, digest::hash_t::SHA256, view_t(number, sizeof(number)), 1767225600, 1893456000, vector <x509::extension_t> (), signed_) != x509::error_t::NONE){
 		// Выводим сообщение об отказе выпуска сертификата
 		cout << "Выпустить сертификат подписью издателя не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -299,7 +299,7 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Подписан издателем : " << signed_.size() << " байтов" << endl;
 	// Разбираемый выданный сертификат
 	x509::certificate_t certificate;
-	// Выполняем разбор выданного сертификата обратно
+	// Разбираем выданного сертификата обратно
 	if(certificate.parse(view_t(signed_.data(), signed_.size())) != x509::error_t::NONE){
 		// Выводим сообщение об отказе разбора выданного сертификата
 		cout << "Разобрать выданный сертификат не удалось" << endl;
@@ -312,8 +312,8 @@ int main(int argc, char * argv[]) noexcept {
 	if(x509::text(certificate.issuers(), name) == x509::error_t::NONE)
 		// Выводим имя издателя выданного сертификата
 		cout << "Издатель           : " << name << endl;
-	// Выполняем проверку подписи выданного сертификата ключом издателя
-	if(x509::verify(certificate, ca.key()) != x509::error_t::NONE){
+	// Проверяем подписи выданного сертификата ключом издателя
+	if(x509::verify(certificate, issuerCert.key()) != x509::error_t::NONE){
 		// Выводим сообщение о несошедшейся подписи
 		cout << "Проверка издателя  : подпись не сошлась" << endl;
 		// Выходим из приложения с признаком отказа

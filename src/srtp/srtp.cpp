@@ -71,7 +71,7 @@ namespace {
 	 * @return        длина метки: 10, 4 либо 16 у AEAD; ноль у неизвестного профиля
 	 *
 	 */
-	static size_t tagLength(const nts::srtp::profile_t profile) noexcept {
+	static size_t __nts_tag_length__(const nts::srtp::profile_t profile) noexcept {
 		/**
 		 * По профилю защиты
 		 */
@@ -112,7 +112,7 @@ namespace {
 	 *          блоки E(x·2^16 + i) под мастер-ключом.
 	 *
 	 */
-	static nts::srtp::error_t prf(const view_t & key, const view_t & salt, const uint8_t label, uint8_t * result, const size_t size) noexcept {
+	static nts::srtp::error_t __nts_prf__(const view_t & key, const view_t & salt, const uint8_t label, uint8_t * result, const size_t size) noexcept {
 		// Шифр AES
 		cipher::aes_t aes;
 		// Если мастер-ключ установить не удалось
@@ -172,7 +172,7 @@ namespace {
 	 *          12..13, младшие два байта нулевые под счётчик блоков.
 	 *
 	 */
-	static void ivRtp(const view_t & salt, const uint32_t ssrc, const uint32_t roc, const uint16_t seq, uint8_t * iv) noexcept {
+	static void __nts_iv_rtp__(const view_t & salt, const uint32_t ssrc, const uint32_t roc, const uint16_t seq, uint8_t * iv) noexcept {
 		// Зануляем синхропосылку целиком
 		::memset(iv, 0, BLOCK);
 		// Переносим соль в начало блока
@@ -208,7 +208,7 @@ namespace {
 	 * @param iv    место, в которое записывается синхропосылка (16 байтов)
 	 *
 	 */
-	static void ivRtcp(const view_t & salt, const uint32_t ssrc, const uint32_t index, uint8_t * iv) noexcept {
+	static void __nts_iv_rtcp__(const view_t & salt, const uint32_t ssrc, const uint32_t index, uint8_t * iv) noexcept {
 		// Зануляем синхропосылку целиком
 		::memset(iv, 0, BLOCK);
 		// Переносим соль в начало блока
@@ -241,7 +241,7 @@ namespace {
 	 * @param iv   место, в которое записывается одноразовое число (12 байтов)
 	 *
 	 */
-	static void ivRtpAead(const view_t & salt, const uint32_t ssrc, const uint32_t roc, const uint16_t seq, uint8_t * iv) noexcept {
+	static void __nts_iv_rtp_aead__(const view_t & salt, const uint32_t ssrc, const uint32_t roc, const uint16_t seq, uint8_t * iv) noexcept {
 		// Переносим соль целиком
 		::memcpy(iv, salt.data, 12);
 		// Накладываем опознаватель источника
@@ -275,7 +275,7 @@ namespace {
 	 * @param iv    место, в которое записывается одноразовое число (12 байтов)
 	 *
 	 */
-	static void ivRtcpAead(const view_t & salt, const uint32_t ssrc, const uint32_t index, uint8_t * iv) noexcept {
+	static void __nts_iv_rtcp_aead__(const view_t & salt, const uint32_t ssrc, const uint32_t index, uint8_t * iv) noexcept {
 		// Переносим соль целиком
 		::memcpy(iv, salt.data, 12);
 		// Накладываем опознаватель источника
@@ -310,7 +310,7 @@ namespace {
 	 *          байтами последнего блока гаммы.
 	 *
 	 */
-	static nts::srtp::error_t applyCm(const view_t & key, const uint8_t * iv, const view_t & source, uint8_t * result) noexcept {
+	static nts::srtp::error_t __nts_apply_cm__(const view_t & key, const uint8_t * iv, const view_t & source, uint8_t * result) noexcept {
 		// Шифр AES
 		cipher::aes_t aes;
 		// Если ключ установить не удалось
@@ -378,7 +378,7 @@ namespace {
 	 * @return       признак совпадения
 	 *
 	 */
-	static bool equal(const view_t & first, const view_t & second) noexcept {
+	static bool __nts_equal__(const view_t & first, const view_t & second) noexcept {
 		// Если длины различны
 		if(first.size != second.size)
 			// Метки не совпадают
@@ -402,15 +402,15 @@ namespace {
 	 * @return       длина заголовка в байтах, ноль при негодном пакете
 	 *
 	 */
-	static size_t headerLength(const view_t & packet) noexcept {
+	static size_t __nts_header_length__(const view_t & packet) noexcept {
 		// Если пакет короче минимального заголовка
 		if(packet.size < RTP_HEADER)
 			// Выводим ноль
 			return 0;
 		// Число опознавателей CSRC
-		const size_t cc = (packet.data[0] & 0x0F);
+		const size_t csrcCount = (packet.data[0] & 0x0F);
 		// Длина заголовка с опознавателями
-		size_t header = RTP_HEADER + cc * 4;
+		size_t header = RTP_HEADER + csrcCount * 4;
 		// Если пакет короче заголовка
 		if(packet.size < header)
 			// Выводим ноль
@@ -511,11 +511,11 @@ nts::srtp::error_t nts::srtp::keys(const profile_t profile, const view_t & key, 
 		// Занимаем место под соль
 		result.salt.assign(saltSize, 0);
 		// Если вывод ключа шифрования не удался
-		if(prf(key, salt, 0x00, result.cipher.data(), keySize) != error_t::NONE)
+		if(__nts_prf__(key, salt, 0x00, result.cipher.data(), keySize) != error_t::NONE)
 			// Выводим отказ ключа
 			return error_t::KEY;
 		// Если вывод соли не удался
-		if(prf(key, salt, 0x02, result.salt.data(), saltSize) != error_t::NONE)
+		if(__nts_prf__(key, salt, 0x02, result.salt.data(), saltSize) != error_t::NONE)
 			// Выводим отказ ключа
 			return error_t::KEY;
 		// Если профиль несёт имитовставку HMAC
@@ -523,7 +523,7 @@ nts::srtp::error_t nts::srtp::keys(const profile_t profile, const view_t & key, 
 			// Занимаем место под ключ имитовставки (двадцать байтов HMAC-SHA1)
 			result.auth.assign(20, 0);
 			// Если вывод ключа имитовставки не удался
-			if(prf(key, salt, 0x01, result.auth.data(), 20) != error_t::NONE)
+			if(__nts_prf__(key, salt, 0x01, result.auth.data(), 20) != error_t::NONE)
 				// Выводим отказ ключа
 				return error_t::KEY;
 		// У профилей AES-GCM ключа имитовставки нет
@@ -717,7 +717,7 @@ nts::srtp::error_t nts::srtp::Session::protect(const view_t & packet, vector <ui
 		// Выводим отказ пустого объекта
 		return error_t::EMPTY;
 	// Длина заголовка пакета
-	const size_t header = headerLength(packet);
+	const size_t header = __nts_header_length__(packet);
 	// Если пакет негоден
 	if(header == 0)
 		// Выводим отказ устройства записи
@@ -735,7 +735,7 @@ nts::srtp::error_t nts::srtp::Session::protect(const view_t & packet, vector <ui
 	// Признак начала потока
 	this->_started = true;
 	// Длина метки профиля
-	const size_t tag = tagLength(this->_profile);
+	const size_t tag = __nts_tag_length__(this->_profile);
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -759,7 +759,7 @@ nts::srtp::error_t nts::srtp::Session::protect(const view_t & packet, vector <ui
 		// Одноразовое число AEAD
 		uint8_t iv[12];
 		// Собираем одноразовое число пакета
-		ivRtpAead(view_t(this->_salt.data(), this->_salt.size()), ssrc, this->_roc, seq, iv);
+		__nts_iv_rtp_aead__(view_t(this->_salt.data(), this->_salt.size()), ssrc, this->_roc, seq, iv);
 		// Режим GCM
 		cipher::gcm_t gcm;
 		// Шифр AES
@@ -785,9 +785,9 @@ nts::srtp::error_t nts::srtp::Session::protect(const view_t & packet, vector <ui
 		// Синхропосылка пакета
 		uint8_t iv[BLOCK];
 		// Собираем синхропосылку пакета
-		ivRtp(view_t(this->_salt.data(), this->_salt.size()), ssrc, this->_roc, seq, iv);
+		__nts_iv_rtp__(view_t(this->_salt.data(), this->_salt.size()), ssrc, this->_roc, seq, iv);
 		// Если наложение гаммы не удалось
-		if(applyCm(view_t(this->_cipher.data(), this->_cipher.size()), iv, payload, result.data() + header) != error_t::NONE){
+		if(__nts_apply_cm__(view_t(this->_cipher.data(), this->_cipher.size()), iv, payload, result.data() + header) != error_t::NONE){
 			// Затирание синхропосылки
 			nts::sys::wipe(iv, BLOCK);
 			// Выводим отказ ключа
@@ -849,7 +849,7 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 		// Выводим отказ пустого объекта
 		return error_t::EMPTY;
 	// Длина метки профиля
-	const size_t tag = tagLength(this->_profile);
+	const size_t tag = __nts_tag_length__(this->_profile);
 	// Если пакет короче метки
 	if(packet.size <= tag)
 		// Выводим отказ устройства записи
@@ -857,7 +857,7 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 	// Просмотр пакета без метки
 	const view_t body(packet.data, packet.size - tag);
 	// Длина заголовка пакета
-	const size_t header = headerLength(body);
+	const size_t header = __nts_header_length__(body);
 	// Если пакет негоден
 	if(header == 0)
 		// Выводим отказ устройства записи
@@ -906,7 +906,7 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 		// Одноразовое число AEAD
 		uint8_t iv[12];
 		// Собираем одноразовое число пакета
-		ivRtpAead(view_t(this->_salt.data(), this->_salt.size()), ssrc, roc, seq, iv);
+		__nts_iv_rtp_aead__(view_t(this->_salt.data(), this->_salt.size()), ssrc, roc, seq, iv);
 		// Режим GCM
 		cipher::gcm_t gcm;
 		// Шифр AES
@@ -986,7 +986,7 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 		// Затирание буфера
 		nts::sys::wipe(mac.data(), mac.size());
 		// Если метки не сошлись постоянной сверкой
-		if(!equal(view_t(computed, tag), view_t(packet.data + body.size, tag))){
+		if(!__nts_equal__(view_t(computed, tag), view_t(packet.data + body.size, tag))){
 			// Затирание метки
 			nts::sys::wipe(computed, 10);
 			// Выводим отказ имитовставки
@@ -997,7 +997,7 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 		// Синхропосылка пакета
 		uint8_t iv[BLOCK];
 		// Собираем синхропосылку пакета
-		ivRtp(view_t(this->_salt.data(), this->_salt.size()), ssrc, roc, seq, iv);
+		__nts_iv_rtp__(view_t(this->_salt.data(), this->_salt.size()), ssrc, roc, seq, iv);
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -1017,7 +1017,7 @@ nts::srtp::error_t nts::srtp::Session::unprotect(const view_t & packet, vector <
 			return error_t::MEMORY;
 		}
 		// Если наложение гаммы не удалось
-		if(applyCm(view_t(this->_cipher.data(), this->_cipher.size()), iv, view_t(body.data + header, body.size - header), result.data() + header) != error_t::NONE){
+		if(__nts_apply_cm__(view_t(this->_cipher.data(), this->_cipher.size()), iv, view_t(body.data + header, body.size - header), result.data() + header) != error_t::NONE){
 			// Затирание итога и синхропосылки
 			nts::sys::wipe(result.data(), result.size());
 			nts::sys::wipe(iv, BLOCK);
@@ -1110,7 +1110,7 @@ nts::srtp::error_t nts::srtp::Session::protectControl(const view_t & packet, vec
 	// Слово ESRTCP: флаг шифрования и индекс
 	const uint32_t esrtcp = 0x80000000U | index;
 	// Длина метки профиля
-	const size_t tag = tagLength(this->_profile);
+	const size_t tag = __nts_tag_length__(this->_profile);
 	// Если профиль AES-GCM
 	const bool aead = ((this->_profile == profile_t::AEAD_AES_128_GCM) || (this->_profile == profile_t::AEAD_AES_256_GCM));
 	/**
@@ -1136,7 +1136,7 @@ nts::srtp::error_t nts::srtp::Session::protectControl(const view_t & packet, vec
 		// Одноразовое число AEAD
 		uint8_t iv[12];
 		// Собираем одноразовое число пакета
-		ivRtcpAead(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
+		__nts_iv_rtcp_aead__(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
 		// Режим GCM
 		cipher::gcm_t gcm;
 		// Шифр AES
@@ -1176,9 +1176,9 @@ nts::srtp::error_t nts::srtp::Session::protectControl(const view_t & packet, vec
 		// Синхропосылка пакета
 		uint8_t iv[BLOCK];
 		// Собираем синхропосылку пакета
-		ivRtcp(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
+		__nts_iv_rtcp__(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
 		// Если наложение гаммы не удалось
-		if(applyCm(view_t(this->_cipher.data(), this->_cipher.size()), iv, payload, result.data() + 8) != error_t::NONE){
+		if(__nts_apply_cm__(view_t(this->_cipher.data(), this->_cipher.size()), iv, payload, result.data() + 8) != error_t::NONE){
 			// Затирание синхропосылки
 			nts::sys::wipe(iv, BLOCK);
 			// Выводим отказ ключа
@@ -1224,7 +1224,7 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 		// Выводим отказ пустого объекта
 		return error_t::EMPTY;
 	// Длина метки профиля
-	const size_t tag = tagLength(this->_profile);
+	const size_t tag = __nts_tag_length__(this->_profile);
 	// Если пакет короче заголовка, слова ESRTCP и метки
 	if(packet.size < 8 + 4 + tag)
 		// Выводим отказ устройства записи
@@ -1258,7 +1258,7 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 		// Одноразовое число AEAD
 		uint8_t iv[12];
 		// Собираем одноразовое число пакета
-		ivRtcpAead(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
+		__nts_iv_rtcp_aead__(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
 		// Режим GCM
 		cipher::gcm_t gcm;
 		// Шифр AES
@@ -1316,7 +1316,7 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 			// Выводим отказ ключа
 			return error_t::KEY;
 		// Если метки не сошлись постоянной сверкой
-		if(!equal(view_t(computed, tag), view_t(packet.data + word + 4, tag))){
+		if(!__nts_equal__(view_t(computed, tag), view_t(packet.data + word + 4, tag))){
 			// Затирание метки
 			nts::sys::wipe(computed, 10);
 			// Выводим отказ имитовставки
@@ -1327,7 +1327,7 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 		// Синхропосылка пакета
 		uint8_t iv[BLOCK];
 		// Собираем синхропосылку пакета
-		ivRtcp(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
+		__nts_iv_rtcp__(view_t(this->_salt.data(), this->_salt.size()), ssrc, index, iv);
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -1347,7 +1347,7 @@ nts::srtp::error_t nts::srtp::Session::unprotectControl(const view_t & packet, v
 			return error_t::MEMORY;
 		}
 		// Если наложение гаммы не удалось
-		if(applyCm(view_t(this->_cipher.data(), this->_cipher.size()), iv, view_t(packet.data + 8, packet.size - tag - 4 - 8), result.data() + 8) != error_t::NONE){
+		if(__nts_apply_cm__(view_t(this->_cipher.data(), this->_cipher.size()), iv, view_t(packet.data + 8, packet.size - tag - 4 - 8), result.data() + 8) != error_t::NONE){
 			// Затирание итога и синхропосылки
 			nts::sys::wipe(result.data(), result.size());
 			nts::sys::wipe(iv, BLOCK);

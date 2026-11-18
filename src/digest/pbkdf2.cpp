@@ -96,7 +96,7 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 	// Признак успешности вывода
 	bool ok = true;
 	/**
-	 * Выполняем вывод блоков ключа, пока его не хватает
+	 * Выводим блоки ключа, пока его не хватает
 	 */
 	for(uint32_t index = 1; ok && (produced < size); index++){
 		// Номер блока от старшего байта
@@ -114,7 +114,7 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 		// Первый оборот кладётся в блок как есть
 		::memcpy(block, round, length);
 		/**
-		 * Выполняем остальные обороты: каждый - имитовставка предыдущего
+		 * Считаем остальные обороты: каждый - имитовставка предыдущего
 		 */
 		for(uint32_t i = 1; ok && (i < iterations); i++){
 			// Начало очередного оборота
@@ -126,7 +126,7 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 				// Прерываем вывод
 				break;
 			/**
-			 * Выполняем сложение оборота с блоком по модулю два
+			 * Складываем оборот с блоком по модулю два
 			 */
 			for(size_t j = 0; j < length; j++)
 				// Складываем очередной байт

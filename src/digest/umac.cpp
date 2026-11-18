@@ -122,9 +122,9 @@ namespace {
 	 * @param size   количество байтов записи
 	 *
 	 */
-	static __NTS_INLINE__ void store(const uint64_t value, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_store__(const uint64_t value, uint8_t * result, const size_t size) noexcept {
 		/**
-		 * Выполняем запись байтов от старшего к младшему
+		 * Записываем байты от старшего к младшему
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Записываем очередной байт числа
@@ -138,11 +138,11 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t fetch(const uint8_t * data, const size_t size) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_fetch__(const uint8_t * data, const size_t size) noexcept {
 		// Прочитанное число
 		uint64_t result = 0;
 		/**
-		 * Выполняем чтение байтов от старшего к младшему
+		 * Читаем байты от старшего к младшему
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Присоединяем очередной байт числа
@@ -163,19 +163,19 @@ namespace {
 	 * @param size   длина выводимого материала в байтах
 	 *
 	 */
-	static void kdf(Aes & aes, const uint64_t index, uint8_t * result, const size_t size) noexcept {
+	static void __nts_kdf__(Aes & aes, const uint64_t index, uint8_t * result, const size_t size) noexcept {
 		// Блок счётчика и его шифрованный образ
 		uint8_t input[BLOCK], output[BLOCK];
 		// Количество блоков выводимого материала
 		const size_t count = ((size + BLOCK - 1) / BLOCK);
 		/**
-		 * Выполняем перебор блоков выводимого материала
+		 * Перебираем блоки выводимого материала
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Записываем опознаватель ключа в первые восемь байтов блока
-			store(index, input, BLOCK - 8);
+			__nts_store__(index, input, BLOCK - 8);
 			// Записываем номер блока в последние восемь байтов блока
-			store(i + 1, input + (BLOCK - 8), 8);
+			__nts_store__(i + 1, input + (BLOCK - 8), 8);
 			// Шифруем блок счётчика
 			aes.encrypt(input, output);
 			// Длина переносимой доли блока
@@ -199,7 +199,7 @@ namespace {
 		 * @return      вектор слов старшим байтом вперёд
 		 *
 		 */
-		static __NTS_INLINE__ __m128i reverse32(const __m128i value) noexcept {
+		static __NTS_INLINE__ __m128i __nts_reverse32__(const __m128i value) noexcept {
 			// Обмен соседних байтов в каждой 16-разрядной половине
 			const __m128i swapped = _mm_or_si128(_mm_slli_epi16(value, 8), _mm_srli_epi16(value, 8));
 			// Обмен двух 16-разрядных половин в каждом 32-разрядном слове
@@ -219,7 +219,7 @@ namespace {
 	 * @return       накопленное значение слоя
 	 *
 	 */
-	static uint64_t nh(const uint8_t * key, const uint8_t * data, const size_t size) noexcept {
+	static uint64_t __nts_nh__(const uint8_t * key, const uint8_t * data, const size_t size) noexcept {
 		/**
 		 * Если есть векторный путь SSE2: разворот четвёрок и произведения сумм идут
 		 * векторно, без побайтового чтения и скалярного накопления
@@ -228,27 +228,27 @@ namespace {
 			// Накопитель произведений (два слова по 64 разряда)
 			__m128i acc = _mm_setzero_si128();
 			/**
-			 * Выполняем перебор групп по восемь слов (32 байта)
+			 * Перебираем группы по восемь слов (32 байта)
 			 */
 			for(size_t i = 0; i < size; i += 32){
 				// Первые четыре слова сообщения (младшим байтом вперёд) и ключа (старшим вперёд)
 				const __m128i m1 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data + i));
 				// Ключ первой пары, развёрнутый старшим байтом вперёд
-				const __m128i k1 = reverse32(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i)));
+				const __m128i k1 = __nts_reverse32__(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i)));
 				// Вторые четыре слова сообщения и ключа (через четыре позиции)
 				const __m128i m2 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data + i + 16));
 				// Ключ второй пары, развёрнутый старшим байтом вперёд
-				const __m128i k2 = reverse32(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i + 16)));
+				const __m128i k2 = __nts_reverse32__(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key + i + 16)));
 				// Суммы слов по модулю 2^32
 				const __m128i a = _mm_add_epi32(m1, k1);
 				// Суммы вторых пар слов по модулю 2^32
 				const __m128i b = _mm_add_epi32(m2, k2);
 				// Произведения чётных пар (слова 0 и 2) по модулю 2^64
-				const __m128i pe = _mm_mul_epu32(a, b);
+				const __m128i prodEven = _mm_mul_epu32(a, b);
 				// Произведения нечётных пар (слова 1 и 3)
-				const __m128i po = _mm_mul_epu32(_mm_srli_epi64(a, 32), _mm_srli_epi64(b, 32));
+				const __m128i prodOdd = _mm_mul_epu32(_mm_srli_epi64(a, 32), _mm_srli_epi64(b, 32));
 				// Накапливаем произведения
-				acc = _mm_add_epi64(acc, _mm_add_epi64(pe, po));
+				acc = _mm_add_epi64(acc, _mm_add_epi64(prodEven, prodOdd));
 			}
 			// Складываем два слова накопителя
 			return static_cast <uint64_t> (_mm_cvtsi128_si64(acc)) + static_cast <uint64_t> (_mm_cvtsi128_si64(_mm_srli_si128(acc, 8)));
@@ -259,7 +259,7 @@ namespace {
 			// Накопитель произведений
 			uint64x2_t acc = vdupq_n_u64(0);
 			/**
-			 * Выполняем перебор групп по восемь слов (32 байта)
+			 * Перебираем группы по восемь слов (32 байта)
 			 */
 			for(size_t i = 0; i < size; i += 32){
 				// Первые четыре слова сообщения (младшим байтом вперёд) и ключа (старшим вперёд)
@@ -292,7 +292,7 @@ namespace {
 			// Развёрнутый блок сообщения
 			uint8_t swapped[L1_BLOCK];
 			/**
-			 * Выполняем разворот каждой четвёрки байтов блока (ENDIAN-SWAP)
+			 * Разворачиваем каждую четвёрку байтов блока (ENDIAN-SWAP)
 			 */
 			for(size_t i = 0; i < size; i += 4){
 				// Разворачиваем очередную четвёрку байтов
@@ -305,21 +305,21 @@ namespace {
 				swapped[i + 3] = data[i];
 			}
 			/**
-			 * Выполняем перебор групп по восемь слов (32 байта)
+			 * Перебираем группы по восемь слов (32 байта)
 			 */
 			for(size_t i = 0; i < size; i += 32){
 				/**
-				 * Выполняем перебор четырёх пар слов в группе
+				 * Перебираем четыре пары слов в группе
 				 */
 				for(size_t j = 0; j < 4; j++){
 					// Слово сообщения и слово ключа первой пары
-					const uint32_t m1 = static_cast <uint32_t> (fetch(swapped + i + j * 4, 4));
+					const uint32_t m1 = static_cast <uint32_t> (__nts_fetch__(swapped + i + j * 4, 4));
 					// Слово ключа первой пары
-					const uint32_t k1 = static_cast <uint32_t> (fetch(key + i + j * 4, 4));
+					const uint32_t k1 = static_cast <uint32_t> (__nts_fetch__(key + i + j * 4, 4));
 					// Слово сообщения и слово ключа второй пары (через четыре позиции)
-					const uint32_t m2 = static_cast <uint32_t> (fetch(swapped + i + j * 4 + 16, 4));
+					const uint32_t m2 = static_cast <uint32_t> (__nts_fetch__(swapped + i + j * 4 + 16, 4));
 					// Слово ключа второй пары
-					const uint32_t k2 = static_cast <uint32_t> (fetch(key + i + j * 4 + 16, 4));
+					const uint32_t k2 = static_cast <uint32_t> (__nts_fetch__(key + i + j * 4 + 16, 4));
 					// Накапливаем произведение сумм по модулю 2^64
 					acc += (static_cast <uint64_t> (m1 + k1) * static_cast <uint64_t> (m2 + k2));
 				}
@@ -343,15 +343,15 @@ namespace {
 	 * @return       длина вывода слоя в байтах
 	 *
 	 */
-	static __NTS_INLINE__ size_t l1hash(const uint8_t * key, const view_t & data, uint8_t * result) noexcept {
+	static __NTS_INLINE__ size_t __nts_l1hash__(const uint8_t * key, const view_t & data, uint8_t * result) noexcept {
 		// Смещение пройденной части сообщения и длина вывода
 		size_t offset = 0, length = 0;
 		/**
-		 * Выполняем перебор полных блоков сообщения по 1024 байта
+		 * Перебираем полные блоки сообщения по 1024 байта
 		 */
 		while(data.size - offset > L1_BLOCK){
 			// Записываем значение блока с длиной полного блока в битах старшим байтом вперёд
-			store(nh(key, data.data + offset, L1_BLOCK) + static_cast <uint64_t> (L1_BLOCK) * 8, result + length, 8);
+			__nts_store__(__nts_nh__(key, data.data + offset, L1_BLOCK) + static_cast <uint64_t> (L1_BLOCK) * 8, result + length, 8);
 			// Сдвигаем смещение и длину на пройденный блок
 			offset += L1_BLOCK;
 			// Сдвигаем длину на значение блока
@@ -368,7 +368,7 @@ namespace {
 		// Длина добитого остатка (кратная 32 байтам, не меньше одного блока по 32 байта)
 		const size_t padded = ((rest == 0) ? 32 : ((rest + 31) / 32) * 32);
 		// Записываем значение остатка с его длиной в битах старшим байтом вперёд
-		store(nh(key, tail, padded) + static_cast <uint64_t> (rest) * 8, result + length, 8);
+		__nts_store__(__nts_nh__(key, tail, padded) + static_cast <uint64_t> (rest) * 8, result + length, 8);
 		// Сдвигаем длину на остаток
 		length += 8;
 		// Затираем добитый остаток
@@ -389,9 +389,9 @@ namespace {
 	 * @return  новое значение полинома по модулю
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t poly64step(const uint64_t k, const uint64_t y, const uint64_t m) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_poly64step__(const uint64_t k, const uint64_t y, const uint64_t m) noexcept {
 		// Простой модуль 2^64 - 59
-		const uint64_t p = (~static_cast <uint64_t> (0)) - 58;
+		const uint64_t modulus = (~static_cast <uint64_t> (0)) - 58;
 		// Произведение ключа на значение в 128 разрядов
 		const wide_t product = (wide_t(k) * y);
 		// Старшее и младшее слова произведения
@@ -407,9 +407,9 @@ namespace {
 		// Складываем перенос умножением на 59
 		result += (extra * 59);
 		// Приводим вычитанием модуля, пока значение не меньше модуля
-		if(result >= p)
+		if(result >= modulus)
 			// Вычитаем модуль
-			result -= p;
+			result -= modulus;
 		// Выводим значение полинома по модулю
 		return result;
 	}
@@ -421,10 +421,10 @@ namespace {
 	 * @return     значение полинома по модулю
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t poly64(const uint64_t key, const view_t & data) noexcept {
-		// Дополнение модуля до 2^64 (2^64 - p)
+	static __NTS_INLINE__ uint64_t __nts_poly64__(const uint64_t key, const view_t & data) noexcept {
+		// Дополнение модуля до 2^64 (2^64 - modulus)
 		const uint64_t offset = 59;
-		// Метка модуля (p - 1)
+		// Метка модуля (modulus - 1)
 		const uint64_t marker = (~static_cast <uint64_t> (0)) - 59;
 		// Наибольшее слово, берущееся напрямую: 2^64 - 2^32
 		const uint64_t maxword = ((~static_cast <uint64_t> (0)) - (static_cast <uint64_t> (1) << 32) + 1);
@@ -433,21 +433,21 @@ namespace {
 		// Накопленное значение полинома
 		uint64_t y = 1;
 		/**
-		 * Выполняем перебор слов значения по восемь байтов
+		 * Перебираем слова значения по восемь байтов
 		 */
 		for(size_t i = 0; i < data.size; i += 8){
 			// Очередное слово значения старшим байтом вперёд
-			const uint64_t m = fetch(data.data + i, 8);
+			const uint64_t m = __nts_fetch__(data.data + i, 8);
 			// Если слово не берётся напрямую
 			if(m >= maxword){
 				// Шаг полинома с меткой модуля
-				y = poly64step(k, y, marker);
+				y = __nts_poly64step__(k, y, marker);
 				// Шаг полинома со сдвинутым словом
-				y = poly64step(k, y, m - offset);
+				y = __nts_poly64step__(k, y, m - offset);
 			// Иначе слово берётся напрямую
 			} else {
 				// Шаг полинома со словом
-				y = poly64step(k, y, m);
+				y = __nts_poly64step__(k, y, m);
 			}
 		}
 		// Выводим накопленное значение полинома
@@ -466,26 +466,26 @@ namespace {
 	 * @return      итог слоя (четыре байта)
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t l3hash(const uint8_t * k1, const uint8_t * k2, const uint8_t * value) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_l3hash__(const uint8_t * k1, const uint8_t * k2, const uint8_t * value) noexcept {
 		// Простой модуль 2^36 - 5
-		const uint64_t p = ((static_cast <uint64_t> (1) << 36) - 5);
+		const uint64_t modulus = ((static_cast <uint64_t> (1) << 36) - 5);
 		// Накопленная сумма произведений
 		uint64_t acc = 0;
 		/**
-		 * Выполняем перебор восьми пар слов
+		 * Перебираем восемь пар слов
 		 */
 		for(size_t i = 0; i < 8; i++){
 			// Двухбайтовое слово значения старшим байтом вперёд
-			const uint64_t m = fetch(value + i * 2, 2);
+			const uint64_t m = __nts_fetch__(value + i * 2, 2);
 			// Восьмибайтовое слово ключа по модулю 2^36 - 5
-			const uint64_t k = (fetch(k1 + i * 8, 8) % p);
+			const uint64_t k = (__nts_fetch__(k1 + i * 8, 8) % modulus);
 			// Накапливаем произведение по модулю 2^36 - 5
-			acc = ((acc + m * k) % p);
+			acc = ((acc + m * k) % modulus);
 		}
 		// Усекаем сумму до 2^32
 		const uint32_t y = static_cast <uint32_t> (acc & 0xFFFFFFFFULL);
 		// Второй ключ слоя
-		const uint32_t pad = static_cast <uint32_t> (fetch(k2, 4));
+		const uint32_t pad = static_cast <uint32_t> (__nts_fetch__(k2, 4));
 		// Выводим итог слоя, сложенный с ключом по модулю два
 		return (y ^ pad);
 	}
@@ -502,11 +502,11 @@ namespace {
 	 * @param size   длина подложки в байтах (8 или 16)
 	 *
 	 */
-	static __NTS_INLINE__ void pdf(Aes & aes, const view_t & nonce, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_pdf__(Aes & aes, const view_t & nonce, uint8_t * result, const size_t size) noexcept {
 		// Ключ подложки, выводимый из ключа связи
 		uint8_t subkey[UMAC_KEY];
 		// Выводим ключ подложки опознавателем ноль
-		kdf(aes, 0, subkey, sizeof(subkey));
+		__nts_kdf__(aes, 0, subkey, sizeof(subkey));
 		// Шифр подложки
 		Aes pad;
 		// Устанавливаем ключ подложки
@@ -516,9 +516,9 @@ namespace {
 		// Переносим одноразовое число
 		::memcpy(block, nonce.data, nonce.size);
 		// Индекс подстроки блока по одноразовому числу
-		const uint64_t index = (fetch(nonce.data, nonce.size) % (BLOCK / size));
+		const uint64_t index = (__nts_fetch__(nonce.data, nonce.size) % (BLOCK / size));
 		// Складываем одноразовое число с индексом по модулю два
-		store(fetch(block, nonce.size) ^ index, block, nonce.size);
+		__nts_store__(__nts_fetch__(block, nonce.size) ^ index, block, nonce.size);
 		// Шифрованный образ блока одноразового числа
 		uint8_t output[BLOCK];
 		// Шифруем блок одноразового числа
@@ -561,23 +561,23 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 	// Ключи слоёв универсального хеширования
 	uint8_t l1key[1024 + (UMAC_128 / 4 - 1) * 16], l2key[(UMAC_128 / 4) * 24], l3key1[(UMAC_128 / 4) * 64], l3key2[(UMAC_128 / 4) * 4];
 	// Выводим ключ слоя L1 опознавателем один
-	kdf(aes, 1, l1key, 1024 + (iters - 1) * 16);
+	__nts_kdf__(aes, 1, l1key, 1024 + (iters - 1) * 16);
 	// Выводим ключ слоя L2 опознавателем два
-	kdf(aes, 2, l2key, iters * 24);
+	__nts_kdf__(aes, 2, l2key, iters * 24);
 	// Выводим первый ключ слоя L3 опознавателем три
-	kdf(aes, 3, l3key1, iters * 64);
+	__nts_kdf__(aes, 3, l3key1, iters * 64);
 	// Выводим второй ключ слоя L3 опознавателем четыре
-	kdf(aes, 4, l3key2, iters * 4);
+	__nts_kdf__(aes, 4, l3key2, iters * 4);
 	// Итог универсального хеширования (по четыре байта на итерацию)
 	uint8_t hashed[UMAC_128];
 	// Вывод слоя L1: по восемь байтов на каждый блок сообщения в 1024 байта
-	uint8_t * l1 = nullptr;
+	uint8_t * l1Buffer = nullptr;
 	// Если сообщение длиннее ключа слоя L1, вывод слоя L1 идёт потоком в слой L2
 	if(data.size > 1024){
 		// Выделяем место под вывод слоя L1
-		l1 = new(std::nothrow) uint8_t[((data.size / L1_BLOCK) + 1) * 8];
+		l1Buffer = new(std::nothrow) uint8_t[((data.size / L1_BLOCK) + 1) * 8];
 		// Если место под вывод слоя L1 не выделено
-		if(l1 == nullptr){
+		if(l1Buffer == nullptr){
 			// Затираем ключи слоёв
 			wipe(l1key, sizeof(l1key));
 			wipe(l2key, sizeof(l2key));
@@ -590,7 +590,7 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 		}
 	}
 	/**
-	 * Выполняем перебор итераций по длине итога
+	 * Перебираем итерации по длине итога
 	 */
 	for(size_t i = 0; i < iters; i++){
 		// Значение слоя L2: шестнадцать байтов
@@ -600,7 +600,7 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 			// Значение слоя L1 ключом этой итерации
 			uint8_t av[8];
 			// Вычисляем значение слоя L1
-			l1hash(l1key + i * 16, data, av);
+			__nts_l1hash__(l1key + i * 16, data, av);
 			// Записываем значение слоя L1 в младшие восемь байтов слоя L2
 			::memcpy(b + 8, av, 8);
 			// Затираем значение слоя L1
@@ -608,30 +608,30 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 		// Иначе значение слоя L1 сводится полиномом от потока его значений
 		} else {
 			// Вычисляем вывод слоя L1 потоком значений по блокам
-			const size_t length = l1hash(l1key + i * 16, data, l1);
+			const size_t length = __nts_l1hash__(l1key + i * 16, data, l1Buffer);
 			// Сводим поток полиномом по модулю 2^64 - 59
-			const uint64_t reduced = poly64(fetch(l2key + i * 24, 8), view_t(l1, length));
+			const uint64_t reduced = __nts_poly64__(__nts_fetch__(l2key + i * 24, 8), view_t(l1Buffer, length));
 			// Записываем сведённое значение старшим байтом вперёд в младшие восемь байтов слоя L2
-			store(reduced, b + 8, 8);
+			__nts_store__(reduced, b + 8, 8);
 		}
 		// Итог слоя L3 ключами этой итерации старшим байтом вперёд
-		store(l3hash(l3key1 + i * 64, l3key2 + i * 4, b), hashed + i * 4, 4);
+		__nts_store__(__nts_l3hash__(l3key1 + i * 64, l3key2 + i * 4, b), hashed + i * 4, 4);
 		// Затираем значение слоя L2
 		wipe(b, sizeof(b));
 	}
 	// Освобождаем вывод слоя L1
-	if(l1 != nullptr){
+	if(l1Buffer != nullptr){
 		// Затираем вывод слоя L1
-		wipe(l1, ((data.size / L1_BLOCK) + 1) * 8);
+		wipe(l1Buffer, ((data.size / L1_BLOCK) + 1) * 8);
 		// Освобождаем вывод слоя L1
-		delete[] l1;
+		delete[] l1Buffer;
 	}
 	// Подложка от одноразового числа длиной в итог
 	uint8_t pad[UMAC_128];
 	// Выводим подложку
-	pdf(aes, nonce, pad, size);
+	__nts_pdf__(aes, nonce, pad, size);
 	/**
-	 * Выполняем сложение итога хеширования с подложкой по модулю два
+	 * Складываем итог хеширования с подложкой по модулю два
 	 */
 	for(size_t i = 0; i < size; i++)
 		// Складываем очередной байт итога с подложкой

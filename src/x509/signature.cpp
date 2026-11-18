@@ -290,9 +290,9 @@ namespace {
 	 * @return          запись известного алгоритма либо нулевой указатель
 	 *
 	 */
-	static const record_t * lookup(const string & algorithm) noexcept {
+	static const record_t * __nts_lookup__(const string & algorithm) noexcept {
 		/**
-		 * Выполняем перебор известных алгоритмов подписи
+		 * Перебираем известные алгоритмы подписи
 		 */
 		for(size_t i = 0; i < (sizeof(ALGORITHMS) / sizeof(record_t)); i++){
 			// Если опознаватель алгоритма подписи совпал с искомым
@@ -311,9 +311,9 @@ namespace {
 	 * @return       признак того, что алгоритм хеша известен
 	 *
 	 */
-	static bool hashing(const string & oid, digest::hash_t & result) noexcept {
+	static bool __nts_hashing__(const string & oid, digest::hash_t & result) noexcept {
 		/**
-		 * Выполняем перебор известных алгоритмов хеша
+		 * Перебираем известные алгоритмы хеша
 		 */
 		for(size_t i = 0; i < (sizeof(HASHES) / sizeof(hash_t)); i++){
 			// Если опознаватель алгоритма хеша совпал с искомым
@@ -334,9 +334,9 @@ namespace {
 	 * @return          признак пригодности алгоритма открытого ключа
 	 *
 	 */
-	static bool suitable(const string & algorithm) noexcept {
+	static bool __nts_suitable__(const string & algorithm) noexcept {
 		/**
-		 * Выполняем перебор известных алгоритмов открытого ключа
+		 * Перебираем известные алгоритмы открытого ключа
 		 */
 		for(size_t i = 0; i < (sizeof(KEYS) / sizeof(const char *)); i++){
 			// Если опознаватель алгоритма открытого ключа совпал с искомым
@@ -362,7 +362,7 @@ namespace {
 	 *          RFC 9215
 	 *
 	 */
-	static nts::x509::error_t identifier(const view_t & parameters, string & result) noexcept {
+	static nts::x509::error_t __nts_identifier__(const view_t & parameters, string & result) noexcept {
 		// Сброс извлекаемого опознавателя
 		result.clear();
 		// Если запись настроек алгоритма ключа не передана
@@ -405,7 +405,7 @@ namespace {
 	 * @return     признак успешности извлечения координат открытого ключа
 	 *
 	 */
-	static bool coordinates(const view_t & data, const size_t size, uint8_t * x, uint8_t * y) noexcept {
+	static bool __nts_coordinates__(const view_t & data, const size_t size, uint8_t * xCoord, uint8_t * yCoord) noexcept {
 		// Если запись открытого ключа не передана
 		if((data.data == nullptr) || (data.size == 0))
 			// Выводим отказ извлечения координат открытого ключа
@@ -423,14 +423,14 @@ namespace {
 			// Выводим отказ извлечения координат открытого ключа
 			return false;
 		/**
-		 * Выполняем разворот записи координат: в сертификате они лежат от младшего
+		 * Разворачиваем запись координат: в сертификате они лежат от младшего
 		 * байта к старшему, а арифметика ждёт обратного порядка
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Переносим очередной байт первой координаты
-			x[i] = element.content.data[size - i - 1];
+			xCoord[i] = element.content.data[size - i - 1];
 			// Переносим очередной байт второй координаты
-			y[i] = element.content.data[(size * 2) - i - 1];
+			yCoord[i] = element.content.data[(size * 2) - i - 1];
 		}
 		// Выводим успешность извлечения координат открытого ключа
 		return true;
@@ -444,15 +444,15 @@ namespace {
 	 * @return      отказ заведения подписи
 	 *
 	 */
-	static nts::x509::error_t establish(const nts::x509::key_t & key, curve::curve_t & curve, sign::gost_t & gost) noexcept {
+	static nts::x509::error_t __nts_establish__(const nts::x509::key_t & key, curve::curve_t & curve, sign::gost_t & gost) noexcept {
 		// Если алгоритм открытого ключа непригоден
-		if(!suitable(key.algorithm))
+		if(!__nts_suitable__(key.algorithm))
 			// Выводим отказ ключа чужого алгоритма
 			return nts::x509::error_t::KEY;
 		// Опознаватель набора параметров кривой
 		string oid;
 		// Итог извлечения опознавателя набора параметров кривой
-		const nts::x509::error_t extracted = ::identifier(key.parameters, oid);
+		const nts::x509::error_t extracted = ::__nts_identifier__(key.parameters, oid);
 		// Если опознаватель набора параметров кривой извлечь не удалось
 		if(extracted != nts::x509::error_t::NONE)
 			// Выводим отказ извлечения опознавателя
@@ -464,7 +464,7 @@ namespace {
 		// Места, в которые помещаются координаты открытого ключа
 		uint8_t x[math::NUMBER_SIZE], y[math::NUMBER_SIZE];
 		// Если координаты открытого ключа извлечь не удалось
-		if(!coordinates(key.key, curve.size(), x, y))
+		if(!__nts_coordinates__(key.key, curve.size(), x, y))
 			// Выводим отказ заведения подписи
 			return nts::x509::error_t::SIGNATURE;
 		/**
@@ -493,13 +493,13 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t gost(const view_t & body, const view_t & signature, const size_t size, const nts::x509::key_t & key) noexcept {
+	static nts::x509::error_t __nts_gost__(const view_t & body, const view_t & signature, const size_t size, const nts::x509::key_t & key) noexcept {
 		// Эллиптическая кривая проверки подписи
 		curve::curve_t curve;
 		// Объект модуля электронной подписи
 		sign::gost_t gost;
 		// Итог заведения подписи по открытому ключу
-		const nts::x509::error_t established = establish(key, curve, gost);
+		const nts::x509::error_t established = __nts_establish__(key, curve, gost);
 		// Если подпись по открытому ключу завести не удалось
 		if(established != nts::x509::error_t::NONE)
 			// Выводим отказ заведения подписи
@@ -515,7 +515,7 @@ namespace {
 		// Место, в которое помещается хеш подписанной записи
 		uint8_t digest[64];
 		/**
-		 * Выполняем выработку хеша подписанной записи: длина хеша задана самим
+		 * Вырабатываем хеш подписанной записи: длина хеша задана самим
 		 * опознавателем алгоритма подписи
 		 */
 		const digest::type_t type = (size == 32 ? digest::type_t::SHORT : digest::type_t::LONG);
@@ -533,7 +533,7 @@ namespace {
 		// Определяем длину всякой части подписи
 		const size_t half = (signature.size / 2);
 		/**
-		 * Выполняем перестановку частей подписи: раздел 2 RFC 9215 велит записывать в
+		 * Переставляем части подписи: раздел 2 RFC 9215 велит записывать в
 		 * сертификат сперва s, а затем r, тогда как выработка даёт их в обратном порядке
 		 */
 		::memcpy(buffer, signature.data + half, half);
@@ -554,7 +554,7 @@ namespace {
 	 * @return       отказ разбора записи опознавателя алгоритма
 	 *
 	 */
-	static nts::x509::error_t algorithm(const view_t & data, string & oid, view_t & params) noexcept {
+	static nts::x509::error_t __nts_algorithm__(const view_t & data, string & oid, view_t & params) noexcept {
 		// Сброс записи настроек алгоритма
 		params = view_t();
 		// Разборщик записи опознавателя алгоритма
@@ -608,7 +608,7 @@ namespace {
 	 * @return           признак того, что настроек алгоритма нет
 	 *
 	 */
-	static bool absent(const view_t & parameters) noexcept {
+	static bool __nts_absent__(const view_t & parameters) noexcept {
 		// Если запись настроек алгоритма не передана
 		if((parameters.data == nullptr) || (parameters.size == 0))
 			// Выводим признак отсутствия настроек
@@ -636,7 +636,7 @@ namespace {
 	 * @return    отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t rsa(const nts::x509::key_t & key, sign::rsa_t & rsa, const bool pss) noexcept {
+	static nts::x509::error_t __nts_rsa__(const nts::x509::key_t & key, sign::rsa_t & rsa, const bool pss) noexcept {
 		// Если алгоритм открытого ключа не есть RSA
 		if((key.algorithm.compare(RSA_KEY) != 0) && (key.algorithm.compare(PSS_KEY) != 0))
 			// Выводим отказ ключа чужого алгоритма
@@ -646,7 +646,7 @@ namespace {
 			// Выводим отказ ключа чужого алгоритма
 			return nts::x509::error_t::KEY;
 		// Если ключ RSA несёт настройки, отличные от NULL
-		if((key.algorithm.compare(RSA_KEY) == 0) && !absent(key.parameters))
+		if((key.algorithm.compare(RSA_KEY) == 0) && !__nts_absent__(key.parameters))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		// Если запись открытого ключа занимает неполное количество байтов
@@ -681,7 +681,7 @@ namespace {
 	 * @return      отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t ecdsa(const nts::x509::key_t & key, curve::curve_t & curve, sign::ecdsa_t & ecdsa) noexcept {
+	static nts::x509::error_t __nts_ecdsa__(const nts::x509::key_t & key, curve::curve_t & curve, sign::ecdsa_t & ecdsa) noexcept {
 		// Если алгоритм открытого ключа не есть ключ эллиптической кривой
 		if(key.algorithm.compare(EC_KEY) != 0)
 			// Выводим отказ ключа чужого алгоритма
@@ -749,7 +749,7 @@ namespace {
 	 * @return        отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t ed25519(const nts::x509::key_t & key, sign::ed25519_t & ed25519) noexcept {
+	static nts::x509::error_t __nts_ed25519__(const nts::x509::key_t & key, sign::ed25519_t & ed25519) noexcept {
 		// Если алгоритм открытого ключа не есть Ed25519
 		if(key.algorithm.compare(ED_KEY) != 0)
 			// Выводим отказ ключа чужого алгоритма
@@ -777,7 +777,7 @@ namespace {
 	 * @return      отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t ed448(const nts::x509::key_t & key, sign::ed448_t & ed448) noexcept {
+	static nts::x509::error_t __nts_ed448__(const nts::x509::key_t & key, sign::ed448_t & ed448) noexcept {
 		// Если алгоритм открытого ключа не есть Ed448
 		if(key.algorithm.compare(ED448_KEY) != 0)
 			// Выводим отказ ключа чужого алгоритма
@@ -814,7 +814,7 @@ namespace {
 	 * @return           отказ разбора настроек подписи
 	 *
 	 */
-	static nts::x509::error_t settings(const view_t & parameters, digest::hash_t & hash, size_t & salt) noexcept {
+	static nts::x509::error_t __nts_settings__(const view_t & parameters, digest::hash_t & hash, size_t & salt) noexcept {
 		// Устанавливаем умолчание алгоритма хеша подписи
 		hash = digest::hash_t::SHA1;
 		// Устанавливаем умолчание длины соли
@@ -838,7 +838,7 @@ namespace {
 		// Номер метки последнего разобранного поля: поля идут по возрастанию меток
 		int32_t last = -1;
 		/**
-		 * Выполняем перебор полей настроек подписи
+		 * Перебираем поля настроек подписи
 		 */
 		while(!items.empty()){
 			// Если очередное поле разобрать не удалось
@@ -858,7 +858,7 @@ namespace {
 			// Разборщик содержимого поля
 			asn1::Reader inner = items.enter(element);
 			/**
-			 * Выполняем разбор поля по его метке
+			 * Разбираем поле по его метке
 			 */
 			switch(element.tag){
 				// Алгоритм хеша подписи
@@ -874,13 +874,13 @@ namespace {
 					// Запись настроек алгоритма хеша, которая не рассматривается
 					view_t params;
 					// Итог разбора записи опознавателя алгоритма хеша
-					const nts::x509::error_t outcome = algorithm(identifier.element, oid, params);
+					const nts::x509::error_t outcome = __nts_algorithm__(identifier.element, oid, params);
 					// Если запись опознавателя алгоритма хеша разобрать не удалось
 					if(outcome != nts::x509::error_t::NONE)
 						// Выводим отказ разбора настроек
 						return outcome;
 					// Если алгоритм хеша неизвестен
-					if(!hashing(oid, hash))
+					if(!__nts_hashing__(oid, hash))
 						// Выводим отказ разбора настроек
 						return nts::x509::error_t::SIGNATURE;
 				} break;
@@ -897,7 +897,7 @@ namespace {
 					// Запись настроек алгоритма порождения маски: опознаватель хеша
 					view_t params;
 					// Итог разбора записи опознавателя алгоритма порождения маски
-					const nts::x509::error_t outcome = algorithm(identifier.element, oid, params);
+					const nts::x509::error_t outcome = __nts_algorithm__(identifier.element, oid, params);
 					// Если запись опознавателя алгоритма порождения маски разобрать не удалось
 					if(outcome != nts::x509::error_t::NONE)
 						// Выводим отказ разбора настроек
@@ -909,13 +909,13 @@ namespace {
 					// Запись настроек алгоритма хеша маски, которая не рассматривается
 					view_t nested;
 					// Итог разбора записи опознавателя алгоритма хеша маски
-					const nts::x509::error_t hashed = algorithm(params, oid, nested);
+					const nts::x509::error_t hashed = __nts_algorithm__(params, oid, nested);
 					// Если запись опознавателя алгоритма хеша маски разобрать не удалось
 					if(hashed != nts::x509::error_t::NONE)
 						// Выводим отказ разбора настроек
 						return hashed;
 					// Если алгоритм хеша маски неизвестен
-					if(!hashing(oid, mask))
+					if(!__nts_hashing__(oid, mask))
 						// Выводим отказ разбора настроек
 						return nts::x509::error_t::SIGNATURE;
 				} break;
@@ -974,7 +974,7 @@ namespace {
 	 * @return           признак успешности извлечения настроек
 	 *
 	 */
-	static bool declared(const view_t & body, view_t & parameters) noexcept {
+	static bool __nts_declared__(const view_t & body, view_t & parameters) noexcept {
 		// Сброс извлекаемой записи настроек
 		parameters = view_t();
 		// Разборщик тела сертификата
@@ -1032,7 +1032,7 @@ namespace {
 	 *          модулем, отдельного хеширования содержимого здесь не ведётся
 	 *
 	 */
-	static nts::x509::error_t sm2(const view_t & content, const view_t & signature, const nts::x509::key_t & key, const view_t & id) noexcept {
+	static nts::x509::error_t __nts_sm2__(const view_t & content, const view_t & signature, const nts::x509::key_t & key, const view_t & id) noexcept {
 		// Если ключ не эллиптической кривой: ключ SM2 идёт записью id-ecPublicKey с кривой curveSM2
 		if(key.algorithm.compare(EC_KEY) != 0)
 			// Выводим отказ ключа чужого алгоритма
@@ -1080,13 +1080,13 @@ namespace {
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		// Объект модуля электронной подписи
-		sign::sm2_t sm2;
+		sign::sm2_t sm2ctx;
 		// Если кривую в модуль установить не удалось
-		if(!sm2.start(curve))
+		if(!sm2ctx.start(curve))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		// Если открытый ключ подписавшей стороны установить не удалось
-		if(!sm2.key(view_t(key.key.data + 1, curve.size()), view_t(key.key.data + 1 + curve.size(), curve.size()), id))
+		if(!sm2ctx.key(view_t(key.key.data + 1, curve.size()), view_t(key.key.data + 1 + curve.size(), curve.size()), id))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		// Место, в которое помещается подпись в сыром виде
@@ -1096,7 +1096,7 @@ namespace {
 			// Выводим отказ проверки подписи
 			return nts::x509::error_t::SIGNATURE;
 		// Выводим итог проверки подписи
-		return (sm2.check(content, view_t(raw, sizeof(raw))) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
+		return (sm2ctx.check(content, view_t(raw, sizeof(raw))) ? nts::x509::error_t::NONE : nts::x509::error_t::SIGNATURE);
 	}
 	/**
 	 * @brief Функция проверки подписи ECDSA содержимого открытым ключом
@@ -1108,7 +1108,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t ecdsa(const digest::hash_t hash, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static nts::x509::error_t __nts_ecdsa__(const digest::hash_t hash, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Если алгоритм хеша не установлен
 		if(hash == digest::hash_t::NONE)
 			// Выводим отказ проверки подписи
@@ -1118,7 +1118,7 @@ namespace {
 		// Объект модуля электронной подписи
 		sign::ecdsa_t ecdsa;
 		// Итог заведения открытого ключа
-		const nts::x509::error_t established = ::ecdsa(key, curve, ecdsa);
+		const nts::x509::error_t established = ::__nts_ecdsa__(key, curve, ecdsa);
 		// Если открытый ключ завести не удалось
 		if(established != nts::x509::error_t::NONE)
 			// Выводим отказ заведения открытого ключа
@@ -1159,9 +1159,9 @@ namespace {
 	 *          политика ключа, объявленная издателем, не зависит от места проверки
 	 *
 	 */
-	static bool bounded(const nts::x509::key_t & key, const digest::hash_t hash, const size_t salt) noexcept {
+	static bool __nts_bounded__(const nts::x509::key_t & key, const digest::hash_t hash, const size_t salt) noexcept {
 		// Если ключ не id-RSASSA-PSS либо настроек у него нет - ограничений нет
-		if((key.algorithm.compare(PSS_KEY) != 0) || absent(key.parameters))
+		if((key.algorithm.compare(PSS_KEY) != 0) || __nts_absent__(key.parameters))
 			// Выводим признак дозволенной подписи
 			return true;
 		// Настройки ключа
@@ -1169,7 +1169,7 @@ namespace {
 		// Наименьшая соль по ключу
 		size_t least = 0;
 		// Если настройки ключа разобрать не удалось
-		if(settings(key.parameters, bound, least) != nts::x509::error_t::NONE)
+		if(__nts_settings__(key.parameters, bound, least) != nts::x509::error_t::NONE)
 			// Выводим отказ: неразбираемые настройки ключа подписи не дозволяют
 			return false;
 		// Выводим признак того, что хеш подписи тот же, а соль не короче заданной ключом
@@ -1187,7 +1187,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t rsa(const sign::scheme_t scheme, const digest::hash_t hash, const size_t salt, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static nts::x509::error_t __nts_rsa__(const sign::scheme_t scheme, const digest::hash_t hash, const size_t salt, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Если алгоритм хеша не установлен
 		if(hash == digest::hash_t::NONE)
 			// Выводим отказ проверки подписи
@@ -1195,7 +1195,7 @@ namespace {
 		// Объект модуля электронной подписи
 		sign::rsa_t rsa;
 		// Итог заведения открытого ключа: ключ id-RSASSA-PSS годен лишь схеме PSS
-		const nts::x509::error_t established = ::rsa(key, rsa, (scheme == sign::scheme_t::PSS));
+		const nts::x509::error_t established = ::__nts_rsa__(key, rsa, (scheme == sign::scheme_t::PSS));
 		// Если открытый ключ завести не удалось
 		if(established != nts::x509::error_t::NONE)
 			// Выводим отказ заведения открытого ключа
@@ -1227,11 +1227,11 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t ed25519(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static nts::x509::error_t __nts_ed25519__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
 		sign::ed25519_t ed25519;
 		// Итог заведения открытого ключа
-		const nts::x509::error_t established = ::ed25519(key, ed25519);
+		const nts::x509::error_t established = ::__nts_ed25519__(key, ed25519);
 		// Если открытый ключ завести не удалось
 		if(established != nts::x509::error_t::NONE)
 			// Выводим отказ заведения открытого ключа
@@ -1252,11 +1252,11 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t ed448(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static nts::x509::error_t __nts_ed448__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
 		sign::ed448_t ed448;
 		// Итог заведения открытого ключа
-		const nts::x509::error_t established = ::ed448(key, ed448);
+		const nts::x509::error_t established = ::__nts_ed448__(key, ed448);
 		// Если открытый ключ завести не удалось
 		if(established != nts::x509::error_t::NONE)
 			// Выводим отказ заведения открытого ключа
@@ -1276,7 +1276,7 @@ namespace {
 	 * @return      отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t mldsa(const nts::x509::key_t & key, sign::mldsa_t & mldsa) noexcept {
+	static nts::x509::error_t __nts_mldsa__(const nts::x509::key_t & key, sign::mldsa_t & mldsa) noexcept {
 		// Набор параметров по опознавателю алгоритма
 		sign::mldsa_t::set_t set = sign::mldsa_t::set_t::NONE;
 		// Если алгоритм открытого ключа ML-DSA-44
@@ -1313,11 +1313,11 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t mldsa(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static nts::x509::error_t __nts_mldsa__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
 		sign::mldsa_t mldsa;
 		// Итог заведения открытого ключа
-		const nts::x509::error_t established = ::mldsa(key, mldsa);
+		const nts::x509::error_t established = ::__nts_mldsa__(key, mldsa);
 		// Если открытый ключ завести не удалось
 		if(established != nts::x509::error_t::NONE)
 			// Выводим отказ заведения открытого ключа
@@ -1337,7 +1337,7 @@ namespace {
 	 * @return       отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t slhdsa(const nts::x509::key_t & key, sign::slh_dsa_t & slhdsa) noexcept {
+	static nts::x509::error_t __nts_slhdsa__(const nts::x509::key_t & key, sign::slh_dsa_t & slhdsa) noexcept {
 		// Набор параметров по опознавателю алгоритма
 		sign::slh_dsa_t::set_t set = sign::slh_dsa_t::set_t::NONE;
 		/**
@@ -1375,11 +1375,11 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t slhdsa(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static nts::x509::error_t __nts_slhdsa__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
 		sign::slh_dsa_t slhdsa;
 		// Итог заведения открытого ключа
-		const nts::x509::error_t established = ::slhdsa(key, slhdsa);
+		const nts::x509::error_t established = ::__nts_slhdsa__(key, slhdsa);
 		// Если открытый ключ завести не удалось
 		if(established != nts::x509::error_t::NONE)
 			// Выводим отказ заведения открытого ключа
@@ -1411,27 +1411,27 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 		// Выводим отказ проверки подписи
 		return nts::x509::error_t::SIGNATURE;
 	// Разыскиваем алгоритм подписи по опознавателю
-	const record_t * record = lookup(algorithm);
+	const record_t * record = __nts_lookup__(algorithm);
 	// Если алгоритм подписи неизвестен
 	if(record == nullptr)
 		// Выводим отказ проверки подписи
 		return nts::x509::error_t::SIGNATURE;
 	/**
-	 * Выполняем проверку подписи по виду её алгоритма
+	 * Проверяем подпись по виду её алгоритма
 	 */
 	switch(record->kind){
 		// Подпись по ГОСТ Р 34.10-2012
 		case family_t::GOST:
 			// Выводим итог проверки подписи ГОСТ: длина хеша задана алгоритмом
-			return ::gost(body, signature, digest::length(record->hash), key);
+			return ::__nts_gost__(body, signature, digest::length(record->hash), key);
 		// Подпись ECDSA
 		case family_t::ECDSA:
 			// Выводим итог проверки подписи ECDSA
-			return ::ecdsa(record->hash, body, signature, key);
+			return ::__nts_ecdsa__(record->hash, body, signature, key);
 		// Подпись RSA по схеме PKCS #1 v1.5
 		case family_t::PKCS1:
 			// Выводим итог проверки подписи RSA: соль схемой не используется
-			return ::rsa(sign::scheme_t::PKCS1, record->hash, 0, body, signature, key);
+			return ::__nts_rsa__(sign::scheme_t::PKCS1, record->hash, 0, body, signature, key);
 		// Подпись RSA по схеме RSASSA-PSS
 		case family_t::PSS: {
 			// Алгоритм хеша подписи
@@ -1439,34 +1439,34 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 			// Длина соли подписи
 			size_t salt = 0;
 			// Итог разбора настроек подписи
-			const nts::x509::error_t outcome = settings(parameters, hash, salt);
+			const nts::x509::error_t outcome = __nts_settings__(parameters, hash, salt);
 			// Если настройки подписи разобрать не удалось
 			if(outcome != nts::x509::error_t::NONE)
 				// Выводим отказ разбора настроек подписи
 				return outcome;
 			// Если настройки ключа id-RSASSA-PSS подписи не дозволяют
-			if(!bounded(key, hash, salt))
+			if(!__nts_bounded__(key, hash, salt))
 				// Выводим отказ проверки подписи
 				return nts::x509::error_t::SIGNATURE;
 			// Выводим итог проверки подписи RSA по схеме RSASSA-PSS
-			return ::rsa(sign::scheme_t::PSS, hash, salt, body, signature, key);
+			return ::__nts_rsa__(sign::scheme_t::PSS, hash, salt, body, signature, key);
 		}
 		// Подпись Ed25519
 		case family_t::ED25519:
 			// Выводим итог проверки подписи Ed25519
-			return ::ed25519(body, signature, key);
+			return ::__nts_ed25519__(body, signature, key);
 		// Подпись Ed448
 		case family_t::ED448:
 			// Выводим итог проверки подписи Ed448
-			return ::ed448(body, signature, key);
+			return ::__nts_ed448__(body, signature, key);
 		// Подпись ML-DSA
 		case family_t::MLDSA:
 			// Выводим итог проверки подписи ML-DSA
-			return ::mldsa(body, signature, key);
+			return ::__nts_mldsa__(body, signature, key);
 		// Подпись SLH-DSA
 		case family_t::SLHDSA:
 			// Выводим итог проверки подписи SLH-DSA
-			return ::slhdsa(body, signature, key);
+			return ::__nts_slhdsa__(body, signature, key);
 	}
 	// Выводим отказ проверки подписи: вид алгоритма неизвестен
 	return nts::x509::error_t::SIGNATURE;
@@ -1488,7 +1488,7 @@ nts::x509::error_t nts::x509::verify(const view_t & digest, const view_t & signa
 	// Объект подписи RSA
 	sign::rsa_t rsa;
 	// Отказ заведения ключа: сырая подпись PKCS #1 v1.5 - ключ id-RSASSA-PSS негоден
-	const error_t failure = ::rsa(key, rsa, false);
+	const error_t failure = ::__nts_rsa__(key, rsa, false);
 	// Если ключ завести не удалось
 	if(failure != error_t::NONE)
 		// Выводим отрицательный результат - ключ завести не удалось
@@ -1528,11 +1528,11 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
  */
 nts::x509::error_t nts::x509::identifier(const key_t & key, string & result) noexcept {
 	// Если алгоритм ключа модулем не поддержан
-	if(!suitable(key.algorithm))
+	if(!__nts_suitable__(key.algorithm))
 		// Выводим отказ ключа чужого алгоритма
 		return error_t::KEY;
 	// Выводим итог извлечения опознавателя набора параметров
-	return ::identifier(key.parameters, result);
+	return ::__nts_identifier__(key.parameters, result);
 }
 /**
  * @brief Функция заведения кривой открытого ключа
@@ -1547,7 +1547,7 @@ nts::x509::error_t nts::x509::identifier(const key_t & key, string & result) noe
  */
 nts::x509::error_t nts::x509::parameters(const key_t & key, curve::curve_t & result) noexcept {
 	// Если алгоритм ключа модулем не поддержан
-	if(!suitable(key.algorithm))
+	if(!__nts_suitable__(key.algorithm))
 		// Выводим отказ ключа чужого алгоритма
 		return error_t::KEY;
 	// Опознаватель набора параметров кривой ключа
@@ -1581,7 +1581,7 @@ nts::x509::error_t nts::x509::check(const key_t & key, const view_t & content, c
 	// Объект модуля электронной подписи
 	sign::gost_t gost;
 	// Итог заведения подписи по открытому ключу
-	const nts::x509::error_t established = establish(key, curve, gost);
+	const nts::x509::error_t established = __nts_establish__(key, curve, gost);
 	// Если подпись по открытому ключу завести не удалось
 	if(established != nts::x509::error_t::NONE)
 		// Выводим отказ заведения подписи
@@ -1626,7 +1626,7 @@ nts::x509::error_t nts::x509::check(const key_t & key, const digest::hash_t algo
 		// Выводим отказ проверки подписи содержимого
 		return nts::x509::error_t::SIGNATURE;
 	// Если ключ подписи по ГОСТ Р 34.10-2012, алгоритм хеша задан самим ключом
-	if(suitable(key.algorithm))
+	if(__nts_suitable__(key.algorithm))
 		// Выводим итог проверки подписи содержимого ключом ГОСТ
 		return nts::x509::check(key, content, signature);
 	// Если ключ эллиптической кривой, подпись записана набором SEQUENCE {r, s}
@@ -1636,39 +1636,39 @@ nts::x509::error_t nts::x509::check(const key_t & key, const digest::hash_t algo
 			// Опознаватель подписи владения ключом по RFC 8998
 			static const char * ID = "TLSv1.3+GM+Cipher+Suite";
 			// Выводим итог проверки подписи SM2
-			return ::sm2(content, signature, key, view_t(reinterpret_cast <const uint8_t *> (ID), 22));
+			return ::__nts_sm2__(content, signature, key, view_t(reinterpret_cast <const uint8_t *> (ID), 22));
 		}
 		// Выводим итог проверки подписи ECDSA
-		return ::ecdsa(algorithm, content, signature, key);
+		return ::__nts_ecdsa__(algorithm, content, signature, key);
 	}
 	// Если ключ SM2, подпись идёт с опознавателем владения ключом по RFC 8998
 	if(key.algorithm.compare(SM2_KEY) == 0){
 		// Опознаватель подписи владения ключом по RFC 8998
 		static const char * ID = "TLSv1.3+GM+Cipher+Suite";
 		// Выводим итог проверки подписи SM2
-		return ::sm2(content, signature, key, view_t(reinterpret_cast <const uint8_t *> (ID), 22));
+		return ::__nts_sm2__(content, signature, key, view_t(reinterpret_cast <const uint8_t *> (ID), 22));
 	}
 	// Если ключ RSA, подпись по схеме RSASSA-PSS с солью длиной в хеш: раздел 4.2.3 RFC 8446
 	if((key.algorithm.compare(RSA_KEY) == 0) || (key.algorithm.compare(PSS_KEY) == 0)){
 		// Если настройки ключа id-RSASSA-PSS подписи не дозволяют (раздел 3.3 RFC 4055)
-		if(!bounded(key, algorithm, digest::length(algorithm)))
+		if(!__nts_bounded__(key, algorithm, digest::length(algorithm)))
 			// Выводим отказ проверки подписи содержимого
 			return nts::x509::error_t::SIGNATURE;
 		// Выводим итог проверки подписи RSA по схеме RSASSA-PSS
-		return ::rsa(sign::scheme_t::PSS, algorithm, digest::length(algorithm), content, signature, key);
+		return ::__nts_rsa__(sign::scheme_t::PSS, algorithm, digest::length(algorithm), content, signature, key);
 	}
 	// Если ключ Ed25519, подпись сырая, а хеш не считается вовсе
 	if(key.algorithm.compare(ED_KEY) == 0)
 		// Выводим итог проверки подписи Ed25519
-		return ::ed25519(content, signature, key);
+		return ::__nts_ed25519__(content, signature, key);
 	// Если ключ Ed448, подпись сырая, а хеш не считается вовсе
 	if(key.algorithm.compare(ED448_KEY) == 0)
 		// Выводим итог проверки подписи Ed448
-		return ::ed448(content, signature, key);
+		return ::__nts_ed448__(content, signature, key);
 	// Если ключ ML-DSA, подпись сырая, а хеш не считается вовсе
 	if((key.algorithm.compare(MLDSA44_KEY) == 0) || (key.algorithm.compare(MLDSA65_KEY) == 0) || (key.algorithm.compare(MLDSA87_KEY) == 0))
 		// Выводим итог проверки подписи ML-DSA: контекст пуст
-		return ::mldsa(content, signature, key);
+		return ::__nts_mldsa__(content, signature, key);
 	// Выводим отказ ключа чужого алгоритма
 	return nts::x509::error_t::KEY;
 }
@@ -1696,7 +1696,7 @@ nts::x509::error_t nts::x509::verify(const certificate_t & certificate, const ke
 	 * Заслон этот недостижим извне: тело сертификата уже разобрано разбором сертификата,
 	 * и опознаватель алгоритма подписи в нём сверен с внешним. Стоит он ради связности
 	 */
-	if(!declared(certificate.body(), parameters))
+	if(!__nts_declared__(certificate.body(), parameters))
 		// Выводим отказ проверки подписи сертификата
 		return nts::x509::error_t::SIGNATURE;
 	// Выводим итог проверки подписи тела сертификата

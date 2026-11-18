@@ -76,7 +76,7 @@ namespace {
 	 *       ключа EC несёт её обязательно (RFC 5915), и кодеку её нужно подать
 	 *
 	 */
-	bool produce(keys::key_t & result) noexcept {
+	bool __nts_produce__(keys::key_t & result) noexcept {
 		// Кривая ключа
 		curve::curve_t curve;
 		// Если кривую по опознавателю завести не удалось
@@ -117,7 +117,7 @@ namespace {
 	 * @param text  текст записи PEM
 	 *
 	 */
-	void glance(const char * title, const string & text) noexcept {
+	void __nts_glance__(const char * title, const string & text) noexcept {
 		// Конец первой строки
 		const size_t first = text.find('\n');
 		// Начало последней непустой строки
@@ -126,13 +126,13 @@ namespace {
 		if((first == string::npos) || (last == string::npos)){
 			// Выводим запись целиком
 			cout << title << text << endl;
-			// Выходим
+			// Выходим из приложения
 			return;
 		}
 		// Число строк записи
 		size_t lines = 0;
 		/**
-		 * Выполняем подсчёт строк записи
+		 * Считаем строки записи
 		 */
 		for(size_t i = 0; i < text.size(); i++)
 			// Если знак завершает строку
@@ -148,7 +148,7 @@ namespace {
 	 * @return       признак того, что подпись выработана и сошлась
 	 *
 	 */
-	bool ecdsa(const keys::key_t & secret, const keys::key_t & opened) noexcept {
+	bool __nts_ecdsa__(const keys::key_t & secret, const keys::key_t & opened) noexcept {
 		// Подписываемое сообщение
 		const string message = "Сообщение, подписываемое разобранным ключом ECDSA";
 		// Хеш сообщения
@@ -212,7 +212,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выработанный ключ
 	keys::key_t made;
 	// Если ключ выработать не удалось
-	if(!produce(made)){
+	if(!__nts_produce__(made)){
 		// Выводим сообщение об отказе выработки
 		cout << "Выработать ключ ECDSA не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -272,7 +272,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим итог: запись секретного ключа из открытого отвергается
 	cout << "PKCS #8 из открытого: отказ " << keys::name(keys::encodePrivateKeyInfo(opened, refused)) << endl;
 	// Если подпись разобранным ключом не сошлась
-	if(!ecdsa(secret, opened)){
+	if(!__nts_ecdsa__(secret, opened)){
 		// Выводим сообщение об отказе подписи
 		cout << "Подпись разобранным ключом не сошлась" << endl;
 		// Выходим из приложения с признаком отказа
@@ -290,7 +290,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим запись PEM секретного ключа
-	glance("PRIVATE KEY         : ", text);
+	__nts_glance__("PRIVATE KEY         : ", text);
 	// Ключ, разобранный из PEM
 	keys::key_t again;
 	// Если запись PEM разобрать не удалось
@@ -308,7 +308,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим запись PEM открытого ключа
-	glance("PUBLIC KEY          : ", text);
+	__nts_glance__("PUBLIC KEY          : ", text);
 	// Пароль зашифрованной записи: последовательность октетов без преобразования
 	string password = "Пароль-123";
 	// Если зашифрованную запись PEM составить не удалось: AES-256-CBC, PBKDF2 на 2048 оборотов
@@ -319,7 +319,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим зашифрованную запись PEM
-	glance("ENCRYPTED PRIVATE KEY: ", text);
+	__nts_glance__("ENCRYPTED PRIVATE KEY: ", text);
 	// Ключ, разобранный из зашифрованной записи
 	keys::key_t unsealed;
 	// Если зашифрованную запись паролем разобрать не удалось
@@ -406,7 +406,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим запись PEM ключа Ed25519
-	glance("PRIVATE KEY         : ", text);
+	__nts_glance__("PRIVATE KEY         : ", text);
 	// Сбрасываем ключи с затиранием секретных составляющих
 	secret.clear();
 	// Сброс выработанного ключа

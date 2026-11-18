@@ -63,7 +63,7 @@ namespace {
 	 * @return     содержимое файла набора данных
 	 *
 	 */
-	string slurp(const char * name) noexcept {
+	string __nts_slurp__(const char * name) noexcept {
 		// Содержимое файла набора данных
 		string result;
 		/**
@@ -94,16 +94,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -122,7 +122,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Не используем параметры приложения
 	(void) argv;
 	// Читаем ключ id-RSASSA-PSS из набора данных в записи PEM
-	const string pem = ::slurp("rsapss.key");
+	const string pem = ::__nts_slurp__("rsapss.key");
 	// Если файл ключа не прочитан
 	if(pem.empty()){
 		// Выводим сообщение об отказе чтения файла ключа
@@ -167,7 +167,7 @@ int main(int argc, char * argv[]) noexcept {
 	const char * message = "Сообщение, которое требуется подписать";
 	// Место, в которое помещается хеш подписываемого сообщения
 	uint8_t digest[32];
-	// Выполняем хеширование подписываемого сообщения SHA-256
+	// Хешируем подписываемого сообщения SHA-256
 	if(!digest::sha2(digest::sha_t::SHA256, view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), digest, sizeof(digest))){
 		// Выводим сообщение об отказе хеширования сообщения
 		cout << "Захешировать сообщение не удалось" << endl;
@@ -175,11 +175,11 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим хеш подписываемого сообщения
-	::print("Хеш сообщения      ", digest, sizeof(digest));
+	::__nts_print__("Хеш сообщения      ", digest, sizeof(digest));
 	// Место, в которое помещается подпись сообщения
 	uint8_t signature[256];
 	/**
-	 * Выполняем подписание хеша сообщения
+	 * Подписываем хеша сообщения
 	 *
 	 * @details Схема PSS с хешем SHA-256 и длиной соли 32 байта — та же, что у
 	 *          схемы rsa_pss_pss_sha256 (0x0809) в TLS 1.3. Соль вырабатывается
@@ -193,7 +193,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим подпись сообщения
-	::print("Подпись            ", signature, sign.size());
+	::__nts_print__("Подпись            ", signature, sign.size());
 	// Если подпись сообщения не сошлась
 	if(!sign.check(sign::scheme_t::PSS, digest::hash_t::SHA256, view_t(digest, sizeof(digest)), view_t(signature, sign.size()), 32)){
 		// Выводим сообщение об отказе проверки подписи

@@ -64,16 +64,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -96,7 +96,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Начальное заполнение счётчика длиной в блок шифра
 	uint8_t nonce[cipher::KUZNYECHIK_BLOCK];
 	/**
-	 * Выполняем заполнение ключа шифрования и начального заполнения счётчика
+	 * Заполняем ключа шифрования и начального заполнения счётчика
 	 */
 	for(size_t i = 0; i < sizeof(secret); i++){
 		// Заполняем очередной байт ключа шифрования
@@ -148,14 +148,14 @@ int main(int argc, char * argv[]) noexcept {
 	 * Разовое наложение защиты: связанные данные и сообщение подаются одним вызовом
 	 */
 	cipher::galois_t mode;
-	// Выполняем запуск режима работы
+	// Запускаем режима работы
 	if(!mode.start(block, view_t(nonce, sizeof(nonce)))){
 		// Выводим сообщение об отказе запуска режима
 		cout << "Запустить режим MGM не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем разовое зашифрование сообщения с выработкой метки целостности
+	// Зашифровываем сообщение разово с выработкой метки целостности
 	if(!mode.encrypt(view_t(reinterpret_cast <const uint8_t *> (header), headlen),
 		view_t(reinterpret_cast <const uint8_t *> (message), length), whole, tag)){
 		// Выводим сообщение об отказе зашифрования
@@ -164,33 +164,33 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим шифртекст разового хода
-	::print("Шифртекст разовый  ", whole, length);
+	::__nts_print__("Шифртекст разовый  ", whole, length);
 	// Выводим метку целостности разового хода
-	::print("Метка разовая      ", tag, sizeof(tag));
+	::__nts_print__("Метка разовая      ", tag, sizeof(tag));
 	/**
 	 * Поточное наложение защиты на той же паре: связанные данные подаются двумя кусками,
 	 * сообщение — кусками по семь байтов, то есть длина куска не кратна блоку шифра
 	 */
 	cipher::galois_t sender;
-	// Выполняем запуск режима работы поточного зашифрования
+	// Запускаем режима работы поточного зашифрования
 	sender.start(block, view_t(nonce, sizeof(nonce)));
-	// Выполняем подачу первой половины связанных данных
+	// Подаём первой половины связанных данных
 	sender.associate(view_t(reinterpret_cast <const uint8_t *> (header), headlen / 2));
-	// Выполняем подачу остатка связанных данных
+	// Подаём остатка связанных данных
 	sender.associate(view_t(reinterpret_cast <const uint8_t *> (header) + (headlen / 2), headlen - (headlen / 2)));
 	/**
-	 * Выполняем зашифрование сообщения кусками по семь байтов
+	 * Зашифровываем сообщения кусками по семь байтов
 	 */
 	for(size_t offset = 0; offset < length; offset += 7){
 		// Определяем длину очередного куска сообщения
 		const size_t count = (((length - offset) < 7) ? (length - offset) : 7);
-		// Выполняем зашифрование очередного куска сообщения
+		// Зашифровываем очередного куска сообщения
 		sender.encrypt(view_t(reinterpret_cast <const uint8_t *> (message) + offset, count), stream + offset);
 	}
-	// Выполняем завершение поточного зашифрования выработкой метки целостности
+	// Завершаем поточного зашифрования выработкой метки целостности
 	sender.finish(flow);
 	// Выводим метку целостности поточного хода
-	::print("Метка поточная     ", flow, sizeof(flow));
+	::__nts_print__("Метка поточная     ", flow, sizeof(flow));
 	/**
 	 * Нарезка на итог не влияет: разовые зашифрование и расшифрование выражены тем же
 	 * потоком, оттого метки и шифртексты обоих ходов обязаны совпасть байт в байт
@@ -203,20 +203,20 @@ int main(int argc, char * argv[]) noexcept {
 	 * на завершении
 	 */
 	cipher::galois_t receiver;
-	// Выполняем запуск режима работы поточного расшифрования
+	// Запускаем режима работы поточного расшифрования
 	receiver.start(block, view_t(nonce, sizeof(nonce)));
-	// Выполняем подачу связанных данных одним куском
+	// Подаём связанных данных одним куском
 	receiver.associate(view_t(reinterpret_cast <const uint8_t *> (header), headlen));
 	/**
-	 * Выполняем расшифрование шифртекста кусками по пять байтов
+	 * Расшифровываем шифртекста кусками по пять байтов
 	 */
 	for(size_t offset = 0; offset < length; offset += 5){
 		// Определяем длину очередного куска шифртекста
 		const size_t count = (((length - offset) < 5) ? (length - offset) : 5);
-		// Выполняем расшифрование очередного куска шифртекста
+		// Расшифровываем очередного куска шифртекста
 		receiver.decrypt(view_t(whole + offset, count), back + offset);
 	}
-	// Выполняем сличение метки целостности, которым поток закрывается
+	// Сличаем метки целостности, которым поток закрывается
 	if(receiver.verify(view_t(tag, sizeof(tag)))){
 		// Выводим расшифрованное поточным ходом сообщение
 		cout << "Открытый текст     : " << string(reinterpret_cast <const char *> (back), length) << endl;
@@ -231,11 +231,11 @@ int main(int argc, char * argv[]) noexcept {
 	whole[length - 1] = static_cast <uint8_t> (whole[length - 1] ^ 0x01);
 	// Объект режима проверки порченого шифртекста
 	cipher::galois_t broken;
-	// Выполняем запуск режима работы проверки порченого шифртекста
+	// Запускаем режима работы проверки порченого шифртекста
 	broken.start(block, view_t(nonce, sizeof(nonce)));
-	// Выполняем подачу связанных данных потока проверки
+	// Подаём связанных данных потока проверки
 	broken.associate(view_t(reinterpret_cast <const uint8_t *> (header), headlen));
-	// Выполняем расшифрование порченого шифртекста одним куском
+	// Расшифровываем порченого шифртекста одним куском
 	broken.decrypt(view_t(whole, length), back);
 	// Выводим признак схождения метки на порченом шифртексте
 	cout << "Метка на порче     : " << (broken.verify(view_t(tag, sizeof(tag))) ? "сошлась" : "не сошлась") << endl;
@@ -245,25 +245,25 @@ int main(int argc, char * argv[]) noexcept {
 	 * дозволяется лишь после смены заполнения вызовом restart
 	 */
 	cipher::galois_t spent;
-	// Выполняем запуск режима работы на израсходованном заполнении
+	// Запускаем режима работы на израсходованном заполнении
 	spent.start(block, view_t(nonce, sizeof(nonce)));
-	// Выполняем первое зашифрование сообщения
+	// Зашифровываем сообщение впервые
 	spent.encrypt(view_t(reinterpret_cast <const uint8_t *> (message), length), stream);
-	// Выполняем снятие метки целостности первого зашифрования
+	// Снимаем метки целостности первого зашифрования
 	spent.finish(flow);
 	// Выводим признак отказа повторного зашифрования на том же заполнении
 	cout << "Повтор отвергнут   : " << (spent.encrypt(view_t(reinterpret_cast <const uint8_t *> (message), length), stream) ? "нет" : "да") << endl;
-	// Выполняем смену начального заполнения счётчика без смены шифра
+	// Сменяем начальное заполнение счётчика без смены шифра
 	nonce[sizeof(nonce) - 1] = static_cast <uint8_t> (nonce[sizeof(nonce) - 1] ^ 0x01);
 	// Выводим признак успешности смены начального заполнения счётчика
 	cout << "Заполнение сменено : " << (spent.restart(view_t(nonce, sizeof(nonce))) ? "да" : "нет") << endl;
-	// Выполняем зашифрование сообщения на новом начальном заполнении счётчика
+	// Зашифровываем сообщения на новом начальном заполнении счётчика
 	spent.encrypt(view_t(reinterpret_cast <const uint8_t *> (message), length), stream);
 	// Выводим признак успешности завершения зашифрования на новом заполнении
 	cout << "Шифрование после   : " << (spent.finish(flow) ? "да" : "нет") << endl;
-	// Выполняем затирание ключа шифрования
+	// Затираем ключа шифрования
 	sys::wipe(secret, sizeof(secret));
-	// Выполняем затирание начального заполнения счётчика
+	// Затираем начального заполнения счётчика
 	sys::wipe(nonce, sizeof(nonce));
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;

@@ -103,7 +103,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool chained(context::credential_t & result) noexcept {
+	bool __nts_chained__(context::credential_t & result) noexcept {
 		// Читаем секретный ключ листа цепочки в записи PEM
 		result.secret = corpus("leaf-ec.key");
 		// Читаем цепочку набора в записи PEM: лист, посредник и корень
@@ -112,7 +112,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочки сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return ((pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE) && (result.chain.size() == 3));
@@ -125,18 +125,18 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		// Получаем байты, отправляемые клиентом
 		view_t data = client.output();
 		// Если клиенту есть что отправить серверу
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя клиента
 			client.consume(buffer.size());
-			// Выполняем подачу отправленных байтов серверу
+			// Подаём отправленных байтов серверу
 			server.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -145,11 +145,11 @@ namespace {
 		data = server.output();
 		// Если серверу есть что отправить клиенту
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя сервера
 			server.consume(buffer.size());
-			// Выполняем подачу отправленных байтов клиенту
+			// Подаём отправленных байтов клиенту
 			client.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -165,11 +165,11 @@ namespace {
 	 * @return       число байтов, отправленных сервером за рукопожатие
 	 *
 	 */
-	size_t converse(client::context_t & client, server::context_t & server) noexcept {
+	size_t __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		// Число байтов, отправленных сервером
 		size_t sent = 0;
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байтов между сторонами, пока им есть что сказать
 		 */
 		for(size_t i = 0; i < 16; i++){
 			// Получаем байты, отправляемые клиентом
@@ -178,17 +178,17 @@ namespace {
 			bool moved = (data.size > 0);
 			// Если клиенту есть что отправить серверу
 			if(moved){
-				// Выполняем перенос отправляемых байтов
+				// Переносим отправляемых байтов
 				const vector <uint8_t> buffer(data.data, data.data + data.size);
 				// Снимаем отправленные байты с накопителя клиента
 				client.consume(buffer.size());
-				// Выполняем подачу отправленных байтов серверу: ответ складывается тотчас
+				// Подаём отправленных байтов серверу: ответ складывается тотчас
 				server.push(view_t(buffer.data(), buffer.size()));
 			}
 			// Считаем байты, накопленные сервером к отправке
 			sent += server.output().size;
 			// Переносим ответ сервера клиенту
-			moved = (pump(client, server) || moved);
+			moved = (__nts_pump__(client, server) || moved);
 			// Если байты между сторонами не передавались
 			if(!moved)
 				// Прекращаем передачу
@@ -202,7 +202,7 @@ namespace {
 	 */
 	#ifdef NTS_SAMPLE_ZLIB
 		/**
-		 * @brief Вызов сжатия цепочки сертификатов системным zlib
+		 * @brief Функция вызова сжатия цепочки сертификатов системным zlib
 		 *
 		 * @param source  сжимаемое тело сообщения цепочки
 		 * @param result  накопитель, в который складывается сжатый поток
@@ -210,7 +210,7 @@ namespace {
 		 * @return        признак успешности сжатия
 		 *
 		 */
-		bool zlibCompress(const view_t & source, vector <uint8_t> & result, void * context) {
+		bool __nts_zlib_compress__(const view_t & source, vector <uint8_t> & result, void * context) {
 			// Верхний предел длины сжатого потока
 			uLongf length = ::compressBound(static_cast <uLong> (source.size));
 			// Занимаем место под сжатый поток
@@ -233,7 +233,7 @@ namespace {
 			return true;
 		}
 		/**
-		 * @brief Вызов распаковки цепочки сертификатов системным zlib
+		 * @brief Функция вызова распаковки цепочки сертификатов системным zlib
 		 *
 		 * @param source   распаковываемый сжатый поток
 		 * @param expected ожидаемая длина тела после распаковки
@@ -242,7 +242,7 @@ namespace {
 		 * @return         признак успешности распаковки
 		 *
 		 */
-		bool zlibDecompress(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context) {
+		bool __nts_zlib_decompress__(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context) {
 			// Длина распакованного тела
 			uLongf length = static_cast <uLongf> (expected);
 			// Занимаем место под распакованное тело
@@ -275,7 +275,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Подлинность стороны сервера: цепочка из трёх сертификатов
 	context::credential_t credential;
 	// Если подлинность стороны сервера прочитать не удалось
-	if(!chained(credential)){
+	if(!__nts_chained__(credential)){
 		// Выводим сообщение об отказе чтения подлинности
 		cout << "Прочитать цепочку сервера из набора ключей не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -284,7 +284,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Длина цепочки сертификатов
 	size_t total = 0;
 	/**
-	 * Выполняем подсчёт длины цепочки сертификатов
+	 * Считаем длину цепочки сертификатов
 	 */
 	for(size_t i = 0; i < credential.chain.size(); i++)
 		// Прибавляем длину очередного сертификата
@@ -297,7 +297,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Тело цепочки одним куском
 		vector <uint8_t> body;
 		/**
-		 * Выполняем сборку тела цепочки
+		 * Собираем тела цепочки
 		 */
 		for(size_t i = 0; i < credential.chain.size(); i++)
 			// Дописываем очередной сертификат
@@ -307,7 +307,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Распакованное тело
 		vector <uint8_t> unpacked;
 		// Если сжатие либо распаковка не сошлись
-		if(!lz77Compress(view_t(body.data(), body.size()), packed, nullptr) || !lz77Decompress(view_t(packed.data(), packed.size()), body.size(), unpacked, nullptr) || (unpacked != body)){
+		if(!__nts_lz77_compress__(view_t(body.data(), body.size()), packed, nullptr) || !__nts_lz77_decompress__(view_t(packed.data(), packed.size()), body.size(), unpacked, nullptr) || (unpacked != body)){
 			// Выводим сообщение об отказе кодека
 			cout << "Кодек не сошёлся сам с собой" << endl;
 			// Выходим из приложения с признаком отказа
@@ -320,7 +320,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Распаковка порченого потока
 		vector <uint8_t> spoiled;
 		// Выводим итог распаковки усечённого потока: длина не сошлась - отказ
-		cout << "Усечённый поток     : распаковка " << (lz77Decompress(view_t(truncated.data(), truncated.size()), body.size(), spoiled, nullptr) ? "прошла" : "отказала - длина не сошлась с ожидаемой") << endl;
+		cout << "Усечённый поток     : распаковка " << (__nts_lz77_decompress__(view_t(truncated.data(), truncated.size()), body.size(), spoiled, nullptr) ? "прошла" : "отказала - длина не сошлась с ожидаемой") << endl;
 	}
 	// Выводим заголовок прогона со сжатием в рукопожатии
 	cout << endl << "== Сжатие цепочки в рукопожатии ==" << endl;
@@ -329,7 +329,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Число байтов залпа сервера без сжатия и со сжатием
 	size_t plain = 0, squeezed = 0;
 	/**
-	 * Выполняем перебор: без кодеков и с кодеками
+	 * Перебираем: без кодеков и с кодеками
 	 */
 	for(size_t pass = 0; pass < 2; pass++){
 		// Связь стороны клиента
@@ -352,9 +352,9 @@ int main(int argc, char * argv[]) noexcept {
 				mine.push_back(context::codec_t(static_cast <uint16_t> (extension::compression_t::ZLIB), zlibCompress, zlibDecompress, &ours));
 			#endif
 			// Добавляем частный кодек клиенту
-			mine.push_back(context::codec_t(LZ77_ALGORITHM, lz77Compress, lz77Decompress, &ours));
+			mine.push_back(context::codec_t(LZ77_ALGORITHM, __nts_lz77_compress__, __nts_lz77_decompress__, &ours));
 			// Сервер знает лишь частный кодек: общий алгоритм найдётся по нему
-			yours.push_back(context::codec_t(LZ77_ALGORITHM, lz77Compress, lz77Decompress, &theirs));
+			yours.push_back(context::codec_t(LZ77_ALGORITHM, __nts_lz77_compress__, __nts_lz77_decompress__, &theirs));
 			// Устанавливаем алгоритмы клиенту с умолчанием предела распаковки
 			client.codecs(mine, 0);
 			// Устанавливаем алгоритмы серверу
@@ -368,7 +368,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Проводим рукопожатие со счётом байтов сервера
-		const size_t sent = converse(client, server);
+		const size_t sent = __nts_converse__(client, server);
 		// Если рукопожатие не пройдено
 		if(!client.established() || !server.established()){
 			// Выводим сообщение об отказе рукопожатия
@@ -432,7 +432,7 @@ int main(int argc, char * argv[]) noexcept {
 				return EXIT_FAILURE;
 			}
 			// Проводим рукопожатие
-			const size_t sent = converse(client, server);
+			const size_t sent = __nts_converse__(client, server);
 			// Если рукопожатие не пройдено либо сжатие не zlib
 			if(!client.established() || (client.compression(context::direction_t::READ) != static_cast <uint16_t> (extension::compression_t::ZLIB))){
 				// Выводим сообщение об отказе

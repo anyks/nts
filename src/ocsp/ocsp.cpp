@@ -127,9 +127,9 @@ namespace {
 	 * @return    описание алгоритма хеша либо nullptr
 	 *
 	 */
-	static const hash_t * lookup(const string & oid) noexcept {
+	static const hash_t * __nts_lookup__(const string & oid) noexcept {
 		/**
-		 * Выполняем перебор признаваемых алгоритмов хеша
+		 * Перебираем признаваемые алгоритмы хеша
 		 */
 		for(size_t i = 0; i < (sizeof(HASHES) / sizeof(hash_t)); i++){
 			// Если опознаватель алгоритма сошёлся
@@ -147,9 +147,9 @@ namespace {
 	 * @return          описание алгоритма хеша либо nullptr
 	 *
 	 */
-	static const hash_t * lookup(const digest::hash_t algorithm) noexcept {
+	static const hash_t * __nts_lookup__(const digest::hash_t algorithm) noexcept {
 		/**
-		 * Выполняем перебор признаваемых алгоритмов хеша
+		 * Перебираем признаваемые алгоритмы хеша
 		 */
 		for(size_t i = 0; i < (sizeof(HASHES) / sizeof(hash_t)); i++){
 			// Если алгоритм хеша сошёлся
@@ -167,7 +167,7 @@ namespace {
 	 * @return      отказ модуля
 	 *
 	 */
-	static ocsp::error_t translate(const asn1::error_t error) noexcept {
+	static ocsp::error_t __nts_translate__(const asn1::error_t error) noexcept {
 		// Выводим отказ модуля, отвечающий отказу модуля ASN.1
 		return ((error == asn1::error_t::MEMORY) ? ocsp::error_t::MEMORY : ocsp::error_t::ENCODING);
 	}
@@ -181,7 +181,7 @@ namespace {
 	 * @return            признак того, что элемент отвечает ожиданию
 	 *
 	 */
-	static bool alike(const asn1::element_t & element, const asn1::cls_t cls, const bool constructed, const uint32_t tag) noexcept {
+	static bool __nts_alike__(const asn1::element_t & element, const asn1::cls_t cls, const bool constructed, const uint32_t tag) noexcept {
 		// Выводим признак соответствия элемента ожиданию
 		return ((element.cls == cls) && (element.constructed == constructed) && (element.tag == tag));
 	}
@@ -194,7 +194,7 @@ namespace {
 	 * @return        причина отказа либо ocsp::error_t::NONE
 	 *
 	 */
-	static ocsp::error_t algorithm(const asn1::element_t & element, string & oid, view_t & params) noexcept {
+	static ocsp::error_t __nts_algorithm__(const asn1::element_t & element, string & oid, view_t & params) noexcept {
 		// Если запись опознавателя алгоритма не составная
 		if(!element.constructed)
 			// Выводим отказ состава записи
@@ -206,13 +206,13 @@ namespace {
 		// Если опознаватель алгоритма разобрать не удалось
 		if(!reader.next(asn1::tag_t::OBJECT, item))
 			// Выводим отказ кодировки записи
-			return translate(reader.err());
+			return __nts_translate__(reader.err());
 		// Отказ извлечения опознавателя алгоритма
 		const asn1::error_t failure = asn1::oid(item, oid);
 		// Если опознаватель алгоритма извлечь не удалось
 		if(failure != asn1::error_t::NONE)
 			// Выводим отказ извлечения опознавателя
-			return translate(failure);
+			return __nts_translate__(failure);
 		// Сбрасываем запись настроек алгоритма
 		params = view_t(nullptr, 0);
 		// Если настройки алгоритма записаны
@@ -222,7 +222,7 @@ namespace {
 			// Если запись настроек алгоритма разобрать не удалось
 			if(!reader.next(settings))
 				// Выводим отказ кодировки записи
-				return translate(reader.err());
+				return __nts_translate__(reader.err());
 			// Запоминаем запись настроек алгоритма целиком
 			params = settings.element;
 		}
@@ -244,13 +244,13 @@ namespace {
 	 *       GeneralizedTime по Гринвичу: двузначный год здесь не дозволен
 	 *
 	 */
-	static ocsp::error_t stamp(asn1::reader_t & reader, int64_t & result) noexcept {
+	static ocsp::error_t __nts_stamp__(asn1::reader_t & reader, int64_t & result) noexcept {
 		// Объект разобранной метки времени
 		asn1::element_t item;
 		// Если метку времени разобрать не удалось
 		if(!reader.next(asn1::tag_t::GENERALIZED_TIME, item))
 			// Выводим отказ метки времени
-			return ((reader.err() == asn1::error_t::TAG) ? ocsp::error_t::TIME : translate(reader.err()));
+			return ((reader.err() == asn1::error_t::TAG) ? ocsp::error_t::TIME : __nts_translate__(reader.err()));
 		// Если миг из метки времени извлечь не удалось
 		if(asn1::time(item, asn1::tag_t::GENERALIZED_TIME, result) != asn1::error_t::NONE)
 			// Выводим отказ метки времени
@@ -269,7 +269,7 @@ namespace {
 	 *          опознавателя, необязательного признака обязательности и строки байтов
 	 *
 	 */
-	static ocsp::error_t extensions(const view_t & data, vector <x509::extension_t> & result) noexcept {
+	static ocsp::error_t __nts_extensions__(const view_t & data, vector <x509::extension_t> & result) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -281,7 +281,7 @@ namespace {
 			// Если набор расширений разобрать не удалось
 			if(!reader.next(asn1::tag_t::SEQUENCE, list))
 				// Выводим отказ кодировки записи
-				return translate(reader.err());
+				return __nts_translate__(reader.err());
 			// Если за набором расширений идут лишние поля либо набор не составной
 			if(!reader.empty() || !list.constructed)
 				// Выводим отказ состава записи
@@ -293,7 +293,7 @@ namespace {
 				// Выводим отказ записи расширения
 				return ocsp::error_t::EXTENSION;
 			/**
-			 * Выполняем обход записей расширений
+			 * Обходим записи расширений
 			 */
 			while(!items.empty()){
 				// Объект разобранной записи расширения
@@ -301,7 +301,7 @@ namespace {
 				// Если запись расширения разобрать не удалось
 				if(!items.next(asn1::tag_t::SEQUENCE, entry))
 					// Выводим отказ кодировки записи
-					return translate(items.err());
+					return __nts_translate__(items.err());
 				// Если запись расширения не составная
 				if(!entry.constructed)
 					// Выводим отказ состава записи
@@ -315,19 +315,19 @@ namespace {
 				// Если опознаватель расширения разобрать не удалось
 				if(!fields.next(asn1::tag_t::OBJECT, field))
 					// Выводим отказ кодировки записи
-					return translate(fields.err());
+					return __nts_translate__(fields.err());
 				// Отказ извлечения опознавателя расширения
 				const asn1::error_t failure = asn1::oid(field, extension.oid);
 				// Если опознаватель расширения извлечь не удалось
 				if(failure != asn1::error_t::NONE)
 					// Выводим отказ извлечения опознавателя
-					return translate(failure);
+					return __nts_translate__(failure);
 				// Если поле за опознавателем разобрать не удалось
 				if(!fields.next(field))
 					// Выводим отказ кодировки записи
-					return translate(fields.err());
+					return __nts_translate__(fields.err());
 				// Если записан признак обязательности расширения
-				if(alike(field, asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::BOOLEAN))){
+				if(__nts_alike__(field, asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::BOOLEAN))){
 					// Если признак обязательности извлечь не удалось
 					if(asn1::boolean(field, extension.critical) != asn1::error_t::NONE)
 						// Выводим отказ записи расширения
@@ -342,10 +342,10 @@ namespace {
 					// Если содержимое расширения разобрать не удалось
 					if(!fields.next(field))
 						// Выводим отказ кодировки записи
-						return translate(fields.err());
+						return __nts_translate__(fields.err());
 				}
 				// Если содержимое расширения записано не строкой байтов
-				if(!alike(field, asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::OCTET_STRING)))
+				if(!__nts_alike__(field, asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::OCTET_STRING)))
 					// Выводим отказ записи расширения
 					return ocsp::error_t::EXTENSION;
 				// Запоминаем содержимое расширения
@@ -355,7 +355,7 @@ namespace {
 					// Выводим отказ состава записи
 					return ocsp::error_t::STRUCTURE;
 				/**
-				 * Выполняем перебор уже разобранных расширений
+				 * Перебираем уже разобранные расширения
 				 */
 				for(size_t i = 0; i < result.size(); i++){
 					// Если расширение с тем же опознавателем уже встречалось
@@ -391,7 +391,7 @@ namespace {
 	 *          метки, длины и байта неиспользуемых разрядов
 	 *
 	 */
-	static bool hashes(const x509::certificate_t & issuer, const digest::hash_t algorithm, uint8_t * name, uint8_t * key, size_t & size) noexcept {
+	static bool __nts_hashes__(const x509::certificate_t & issuer, const digest::hash_t algorithm, uint8_t * name, uint8_t * key, size_t & size) noexcept {
 		// Определяем длину хеша
 		size = digest::length(algorithm);
 		// Если длина хеша не определена
@@ -413,7 +413,7 @@ namespace {
 	 * @return       признак совпадения областей байтов
 	 *
 	 */
-	static bool same(const view_t & first, const view_t & second) noexcept {
+	static bool __nts_same__(const view_t & first, const view_t & second) noexcept {
 		// Выводим признак совпадения областей байтов
 		return ((first.size == second.size) && ((first.size == 0) || (::memcmp(first.data, second.data, first.size) == 0)));
 	}
@@ -428,7 +428,7 @@ namespace {
 	 *          хешем SHA-1 значения строки битов его открытого ключа
 	 *
 	 */
-	static bool named(const response_t & response, const x509::certificate_t & certificate) noexcept {
+	static bool __nts_named__(const response_t & response, const x509::certificate_t & certificate) noexcept {
 		// Признак того, что ответчик назван хешем ключа
 		bool hashed = false;
 		// Получаем опознаватель ответчика
@@ -436,7 +436,7 @@ namespace {
 		// Если ответчик назван именем
 		if(!hashed)
 			// Выводим итог сличения имени ответчика с именем владельца
-			return same(responder, certificate.subjects().element);
+			return __nts_same__(responder, certificate.subjects().element);
 		// Место, в которое помещается хеш ключа
 		uint8_t hash[KEY_HASH];
 		// Если хеш ключа вычислить не удалось
@@ -444,7 +444,7 @@ namespace {
 			// Выводим отсутствие совпадения
 			return false;
 		// Выводим итог сличения хеша ключа с опознавателем ответчика
-		return same(responder, view_t(hash, sizeof(hash)));
+		return __nts_same__(responder, view_t(hash, sizeof(hash)));
 	}
 	/**
 	 * @brief Функция проверки подписи ответа ключом сертификата
@@ -454,7 +454,7 @@ namespace {
 	 * @return            причина отказа либо ocsp::error_t::NONE
 	 *
 	 */
-	static ocsp::error_t signed_(const response_t & response, const x509::certificate_t & certificate) noexcept {
+	static ocsp::error_t __nts_signed___(const response_t & response, const x509::certificate_t & certificate) noexcept {
 		// Количество неиспользуемых разрядов последнего байта подписи
 		uint8_t unused = 0;
 		// Получаем подпись ответчика
@@ -489,7 +489,7 @@ namespace {
 	 *          проверяемый сертификат, и действовать на миг проверки
 	 *
 	 */
-	static ocsp::error_t delegated(const x509::certificate_t & candidate, const x509::certificate_t & issuer, const int64_t moment) noexcept {
+	static ocsp::error_t __nts_delegated__(const x509::certificate_t & candidate, const x509::certificate_t & issuer, const int64_t moment) noexcept {
 		// Разыскиваем расширение расширенного назначения ключа
 		const x509::extension_t * extension = candidate.extension(PURPOSE);
 		// Если расширения расширенного назначения ключа нет
@@ -511,7 +511,7 @@ namespace {
 		// Признак наличия назначения подписи ответов
 		bool suitable = false;
 		/**
-		 * Выполняем перебор опознавателей назначения ключа
+		 * Перебираем опознаватели назначения ключа
 		 */
 		for(size_t i = 0; (i < purposes.size()) && !suitable; i++)
 			// Запоминаем, найдено ли назначение подписи ответов
@@ -521,7 +521,7 @@ namespace {
 			// Выводим отказ права ответчика
 			return ocsp::error_t::RESPONDER;
 		// Если издатель приложенного сертификата с издателем проверяемого разошёлся
-		if(!same(candidate.issuers().element, issuer.subjects().element))
+		if(!__nts_same__(candidate.issuers().element, issuer.subjects().element))
 			// Выводим отказ права ответчика
 			return ocsp::error_t::RESPONDER;
 		// Раздел 4.2 RFC 5280: критичное расширение, библиотеке неведомое, делает сертификат ответчика негодным - как у звеньев цепочки доверия
@@ -576,7 +576,7 @@ namespace {
 	 * @return       отказ модуля
 	 *
 	 */
-	static ocsp::error_t failed(const asn1::writer_t & writer) noexcept {
+	static ocsp::error_t __nts_failed__(const asn1::writer_t & writer) noexcept {
 		// Выводим отказ модуля, отвечающий отказу составителя
 		return ((writer.err() == asn1::error_t::MEMORY) ? ocsp::error_t::MEMORY : ocsp::error_t::STRUCTURE);
 	}
@@ -602,7 +602,7 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 	// Если опознаватель сертификата разобрать не удалось
 	if(!reader.next(asn1::tag_t::SEQUENCE, item))
 		// Выводим отказ кодировки записи
-		return translate(reader.err());
+		return __nts_translate__(reader.err());
 	// Если запись опознавателя сертификата не составная
 	if(!item.constructed)
 		// Выводим отказ состава записи
@@ -615,11 +615,11 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 		// Если опознаватель алгоритма хеша разобрать не удалось
 		if(!fields.next(asn1::tag_t::SEQUENCE, field))
 			// Выводим отказ кодировки записи
-			return translate(fields.err());
+			return __nts_translate__(fields.err());
 		// Запись настроек алгоритма хеша
 		view_t params;
 		// Отказ разбора опознавателя алгоритма хеша
-		const error_t failure = ::algorithm(field, result.identifier.algorithm, params);
+		const error_t failure = ::__nts_algorithm__(field, result.identifier.algorithm, params);
 		// Если опознаватель алгоритма хеша разобрать не удалось
 		if(failure != error_t::NONE)
 			// Выводим отказ разбора опознавателя алгоритма
@@ -627,19 +627,19 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 		// Если хеш имени издателя разобрать не удалось
 		if(!fields.next(asn1::tag_t::OCTET_STRING, field))
 			// Выводим отказ кодировки записи
-			return translate(fields.err());
+			return __nts_translate__(fields.err());
 		// Запоминаем хеш имени издателя
 		result.identifier.name = field.content;
 		// Если хеш ключа издателя разобрать не удалось
 		if(!fields.next(asn1::tag_t::OCTET_STRING, field))
 			// Выводим отказ кодировки записи
-			return translate(fields.err());
+			return __nts_translate__(fields.err());
 		// Запоминаем хеш ключа издателя
 		result.identifier.key = field.content;
 		// Если порядковый номер сертификата разобрать не удалось
 		if(!fields.next(asn1::tag_t::INTEGER, field))
 			// Выводим отказ кодировки записи
-			return translate(fields.err());
+			return __nts_translate__(fields.err());
 		// Если порядковый номер сертификата извлечь не удалось
 		if(asn1::integer(field, result.identifier.serial) != asn1::error_t::NONE)
 			// Выводим отказ кодировки записи
@@ -652,13 +652,13 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 	// Если состояние сертификата разобрать не удалось
 	if(!reader.next(item))
 		// Выводим отказ кодировки записи
-		return translate(reader.err());
+		return __nts_translate__(reader.err());
 	// Если состояние записано меткой не того класса
 	if(item.cls != asn1::cls_t::CONTEXT)
 		// Выводим отказ состава записи
 		return error_t::STRUCTURE;
 	/**
-	 * Выполняем определение состояния сертификата по метке выбора
+	 * Определяем состояние сертификата по метке выбора
 	 */
 	switch(item.tag){
 		// Если сертификат не отозван
@@ -679,7 +679,7 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 			// Создаём разборщик сведений об отзыве
 			asn1::reader_t revoked(item.content);
 			// Отказ разбора мига отзыва
-			const error_t failure = stamp(revoked, result.revocation);
+			const error_t failure = __nts_stamp__(revoked, result.revocation);
 			// Если миг отзыва разобрать не удалось
 			if(failure != error_t::NONE)
 				// Выводим отказ разбора мига отзыва
@@ -691,9 +691,9 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 				// Если причину отзыва разобрать не удалось
 				if(!revoked.next(reason))
 					// Выводим отказ кодировки записи
-					return translate(revoked.err());
+					return __nts_translate__(revoked.err());
 				// Если причина отзыва записана не своей меткой
-				if(!alike(reason, asn1::cls_t::CONTEXT, true, 0))
+				if(!__nts_alike__(reason, asn1::cls_t::CONTEXT, true, 0))
 					// Выводим отказ состава записи
 					return error_t::STRUCTURE;
 				// Если за причиной отзыва идут лишние поля
@@ -719,13 +719,13 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 			return error_t::STRUCTURE;
 	}
 	// Отказ разбора мига верности состояния
-	const error_t failure = stamp(reader, result.updated);
+	const error_t failure = __nts_stamp__(reader, result.updated);
 	// Если миг верности состояния разобрать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ разбора мига верности
 		return failure;
 	/**
-	 * Выполняем разбор необязательных полей ответа по сертификату
+	 * Разбираем необязательные поля ответа по сертификату
 	 */
 	while(!reader.empty()){
 		// Объект разобранного необязательного поля
@@ -733,9 +733,9 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 		// Если необязательное поле разобрать не удалось
 		if(!reader.next(field))
 			// Выводим отказ кодировки записи
-			return translate(reader.err());
+			return __nts_translate__(reader.err());
 		// Если записан миг окончания обещания
-		if(alike(field, asn1::cls_t::CONTEXT, true, 0)){
+		if(__nts_alike__(field, asn1::cls_t::CONTEXT, true, 0)){
 			// Если миг окончания обещания уже был
 			if(result.next != 0)
 				// Выводим отказ состава записи
@@ -743,7 +743,7 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 			// Создаём разборщик обёртки мига окончания обещания
 			asn1::reader_t wrapper(field.content);
 			// Отказ разбора мига окончания обещания
-			const error_t status = stamp(wrapper, result.next);
+			const error_t status = __nts_stamp__(wrapper, result.next);
 			// Если миг окончания обещания разобрать не удалось
 			if(status != error_t::NONE)
 				// Выводим отказ разбора мига окончания обещания
@@ -753,13 +753,13 @@ nts::ocsp::error_t nts::ocsp::Response::single(const asn1::element_t & element, 
 				// Выводим отказ состава записи
 				return error_t::STRUCTURE;
 		// Если записан набор расширений ответа по сертификату
-		} else if(alike(field, asn1::cls_t::CONTEXT, true, 1)) {
+		} else if(__nts_alike__(field, asn1::cls_t::CONTEXT, true, 1)) {
 			// Если набор расширений уже был либо за ним идут поля
 			if(!result.extensions.empty() || !reader.empty())
 				// Выводим отказ состава записи
 				return error_t::STRUCTURE;
 			// Отказ разбора набора расширений
-			const error_t status = ::extensions(field.content, result.extensions);
+			const error_t status = ::__nts_extensions__(field.content, result.extensions);
 			// Если набор расширений разобрать не удалось
 			if(status != error_t::NONE)
 				// Выводим отказ разбора набора расширений
@@ -793,9 +793,9 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 	// Если первое поле подписываемой части разобрать не удалось
 	if(!reader.next(item))
 		// Выводим отказ кодировки записи
-		return translate(reader.err());
+		return __nts_translate__(reader.err());
 	// Если записано издание ответа
-	if(alike(item, asn1::cls_t::CONTEXT, true, 0)){
+	if(__nts_alike__(item, asn1::cls_t::CONTEXT, true, 0)){
 		// Создаём разборщик обёртки издания ответа
 		asn1::reader_t wrapper(item.content);
 		// Объект разобранного издания ответа
@@ -821,10 +821,10 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 		// Если опознаватель ответчика разобрать не удалось
 		if(!reader.next(item))
 			// Выводим отказ кодировки записи
-			return translate(reader.err());
+			return __nts_translate__(reader.err());
 	}
 	// Если ответчик назван именем
-	if(alike(item, asn1::cls_t::CONTEXT, true, 1)){
+	if(__nts_alike__(item, asn1::cls_t::CONTEXT, true, 1)){
 		// Создаём разборщик обёртки имени ответчика
 		asn1::reader_t wrapper(item.content);
 		// Объект разобранного имени ответчика
@@ -832,7 +832,7 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 		// Если имя ответчика разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, name))
 			// Выводим отказ кодировки записи
-			return translate(wrapper.err());
+			return __nts_translate__(wrapper.err());
 		// Если за именем ответчика идут лишние поля либо имя не составное
 		if(!wrapper.empty() || !name.constructed)
 			// Выводим отказ состава записи
@@ -842,7 +842,7 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 		// Запоминаем, что ответчик назван именем
 		this->_hashed = false;
 	// Если ответчик назван хешем ключа
-	} else if(alike(item, asn1::cls_t::CONTEXT, true, 2)) {
+	} else if(__nts_alike__(item, asn1::cls_t::CONTEXT, true, 2)) {
 		// Создаём разборщик обёртки хеша ключа ответчика
 		asn1::reader_t wrapper(item.content);
 		// Объект разобранного хеша ключа ответчика
@@ -850,7 +850,7 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 		// Если хеш ключа ответчика разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::OCTET_STRING, hash))
 			// Выводим отказ кодировки записи
-			return translate(wrapper.err());
+			return __nts_translate__(wrapper.err());
 		// Если за хешем идут лишние поля либо длина хеша не отвечает SHA-1
 		if(!wrapper.empty() || (hash.content.size != KEY_HASH))
 			// Выводим отказ состава записи
@@ -864,7 +864,7 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 		// Выводим отказ состава записи
 		return error_t::STRUCTURE;
 	// Отказ разбора мига составления ответа
-	error_t failure = stamp(reader, this->_produced);
+	error_t failure = __nts_stamp__(reader, this->_produced);
 	// Если миг составления ответа разобрать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ разбора мига составления
@@ -872,7 +872,7 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 	// Если перечень ответов по сертификатам разобрать не удалось
 	if(!reader.next(asn1::tag_t::SEQUENCE, item))
 		// Выводим отказ кодировки записи
-		return translate(reader.err());
+		return __nts_translate__(reader.err());
 	// Если перечень ответов по сертификатам не составной
 	if(!item.constructed)
 		// Выводим отказ состава записи
@@ -880,7 +880,7 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 	// Создаём разборщик перечня ответов по сертификатам
 	asn1::reader_t list(item.content);
 	/**
-	 * Выполняем обход ответов по сертификатам
+	 * Обходим ответы по сертификатам
 	 */
 	while(!list.empty()){
 		// Объект разобранной записи ответа по сертификату
@@ -888,7 +888,7 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 		// Если запись ответа по сертификату разобрать не удалось
 		if(!list.next(asn1::tag_t::SEQUENCE, entry))
 			// Выводим отказ кодировки записи
-			return translate(list.err());
+			return __nts_translate__(list.err());
 		// Разбираемый ответ по сертификату
 		single_t response;
 		// Отказ разбора ответа по сертификату
@@ -918,13 +918,13 @@ nts::ocsp::error_t nts::ocsp::Response::content(const asn1::element_t & element)
 		// Если обёртку набора расширений разобрать не удалось
 		if(!reader.next(wrapper))
 			// Выводим отказ кодировки записи
-			return translate(reader.err());
+			return __nts_translate__(reader.err());
 		// Если обёртка записана не своей меткой либо за ней идут лишние поля
-		if(!alike(wrapper, asn1::cls_t::CONTEXT, true, 1) || !reader.empty())
+		if(!__nts_alike__(wrapper, asn1::cls_t::CONTEXT, true, 1) || !reader.empty())
 			// Выводим отказ состава записи
 			return error_t::STRUCTURE;
 		// Отказ разбора набора расширений
-		failure = ::extensions(wrapper.content, this->_extensions);
+		failure = ::__nts_extensions__(wrapper.content, this->_extensions);
 		// Если набор расширений разобрать не удалось
 		if(failure != error_t::NONE)
 			// Выводим отказ разбора набора расширений
@@ -948,7 +948,7 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 	// Если запись основного ответа разобрать не удалось
 	if(!reader.next(asn1::tag_t::SEQUENCE, root))
 		// Выводим отказ кодировки записи
-		return translate(reader.err());
+		return __nts_translate__(reader.err());
 	// Если за записью основного ответа идут лишние байты либо запись не составная
 	if(!reader.empty() || !root.constructed)
 		// Выводим отказ состава записи
@@ -960,7 +960,7 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 	// Если подписываемую часть разобрать не удалось
 	if(!fields.next(asn1::tag_t::SEQUENCE, item))
 		// Выводим отказ кодировки записи
-		return translate(fields.err());
+		return __nts_translate__(fields.err());
 	// Отказ разбора подписываемой части
 	error_t failure = this->content(item);
 	// Если подписываемую часть разобрать не удалось
@@ -970,9 +970,9 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 	// Если опознаватель алгоритма подписи разобрать не удалось
 	if(!fields.next(asn1::tag_t::SEQUENCE, item))
 		// Выводим отказ кодировки записи
-		return translate(fields.err());
+		return __nts_translate__(fields.err());
 	// Отказ разбора опознавателя алгоритма подписи
-	failure = ::algorithm(item, this->_algorithm, this->_parameters);
+	failure = ::__nts_algorithm__(item, this->_algorithm, this->_parameters);
 	// Если опознаватель алгоритма подписи разобрать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ разбора опознавателя алгоритма
@@ -980,7 +980,7 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 	// Если подпись ответчика разобрать не удалось
 	if(!fields.next(asn1::tag_t::BIT_STRING, item))
 		// Выводим отказ кодировки записи
-		return translate(fields.err());
+		return __nts_translate__(fields.err());
 	// Если значение подписи извлечь не удалось
 	if(asn1::bits(item, this->_signature, this->_unused) != asn1::error_t::NONE)
 		// Выводим отказ кодировки записи
@@ -992,9 +992,9 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 		// Если обёртку сертификатов разобрать не удалось
 		if(!fields.next(wrapper))
 			// Выводим отказ кодировки записи
-			return translate(fields.err());
+			return __nts_translate__(fields.err());
 		// Если обёртка записана не своей меткой либо за ней идут лишние поля
-		if(!alike(wrapper, asn1::cls_t::CONTEXT, true, 0) || !fields.empty())
+		if(!__nts_alike__(wrapper, asn1::cls_t::CONTEXT, true, 0) || !fields.empty())
 			// Выводим отказ состава записи
 			return error_t::STRUCTURE;
 		// Создаём разборщик обёртки сертификатов
@@ -1004,7 +1004,7 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 		// Если перечень сертификатов разобрать не удалось
 		if(!inner.next(asn1::tag_t::SEQUENCE, list))
 			// Выводим отказ кодировки записи
-			return translate(inner.err());
+			return __nts_translate__(inner.err());
 		// Если за перечнем идут лишние поля либо перечень не составной
 		if(!inner.empty() || !list.constructed)
 			// Выводим отказ состава записи
@@ -1012,7 +1012,7 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 		// Создаём разборщик перечня сертификатов
 		asn1::reader_t entries(list.content);
 		/**
-		 * Выполняем обход приложенных сертификатов
+		 * Обходим приложенные сертификаты
 		 */
 		while(!entries.empty()){
 			// Объект разобранной записи сертификата
@@ -1020,7 +1020,7 @@ nts::ocsp::error_t nts::ocsp::Response::basic(const view_t & data) noexcept {
 			// Если запись сертификата разобрать не удалось
 			if(!entries.next(asn1::tag_t::SEQUENCE, entry))
 				// Выводим отказ кодировки записи
-				return translate(entries.err());
+				return __nts_translate__(entries.err());
 			/**
 			 * Выполняем перехват ошибок
 			 */
@@ -1056,7 +1056,7 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	// Если запись ответа разобрать не удалось
 	if(!reader.next(asn1::tag_t::SEQUENCE, root))
 		// Выводим отказ кодировки записи
-		return (this->_error = translate(reader.err()));
+		return (this->_error = __nts_translate__(reader.err()));
 	// Если за записью ответа идут лишние байты либо запись не составная
 	if(!reader.empty() || !root.constructed)
 		// Выводим отказ состава записи
@@ -1070,13 +1070,13 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	// Если исход обращения разобрать не удалось
 	if(!fields.next(item))
 		// Выводим отказ кодировки записи
-		return (this->_error = translate(fields.err()));
+		return (this->_error = __nts_translate__(fields.err()));
 	// Если исход записан не перечислением в один байт
-	if(!alike(item, asn1::cls_t::UNIVERSAL, false, ENUMERATED) || (item.content.size != 1))
+	if(!__nts_alike__(item, asn1::cls_t::UNIVERSAL, false, ENUMERATED) || (item.content.size != 1))
 		// Выводим отказ состава записи
 		return (this->_error = error_t::STRUCTURE);
 	/**
-	 * Выполняем определение исхода обращения по значению перечисления
+	 * Определяем исход обращения по значению перечисления
 	 */
 	switch(item.content.data[0]){
 		// Если исход обращения известен
@@ -1106,9 +1106,9 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	// Если обёртку тела ответа разобрать не удалось
 	if(!fields.next(wrapper))
 		// Выводим отказ кодировки записи
-		return (this->_error = translate(fields.err()));
+		return (this->_error = __nts_translate__(fields.err()));
 	// Если обёртка записана не своей меткой либо за ней идут лишние поля
-	if(!alike(wrapper, asn1::cls_t::CONTEXT, true, 0) || !fields.empty())
+	if(!__nts_alike__(wrapper, asn1::cls_t::CONTEXT, true, 0) || !fields.empty())
 		// Выводим отказ состава записи
 		return (this->_error = error_t::STRUCTURE);
 	// Создаём разборщик обёртки тела ответа
@@ -1118,7 +1118,7 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	// Если тело ответа разобрать не удалось
 	if(!inner.next(asn1::tag_t::SEQUENCE, body))
 		// Выводим отказ кодировки записи
-		return (this->_error = translate(inner.err()));
+		return (this->_error = __nts_translate__(inner.err()));
 	// Если за телом ответа идут лишние поля либо тело не составное
 	if(!inner.empty() || !body.constructed)
 		// Выводим отказ состава записи
@@ -1128,7 +1128,7 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	// Если опознаватель вида ответа разобрать не удалось
 	if(!parts.next(asn1::tag_t::OBJECT, item))
 		// Выводим отказ кодировки записи
-		return (this->_error = translate(parts.err()));
+		return (this->_error = __nts_translate__(parts.err()));
 	// Опознаватель вида ответа
 	string type;
 	// Отказ извлечения опознавателя вида ответа
@@ -1136,7 +1136,7 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	// Если опознаватель вида ответа извлечь не удалось
 	if(failure != asn1::error_t::NONE)
 		// Выводим отказ извлечения опознавателя
-		return (this->_error = translate(failure));
+		return (this->_error = __nts_translate__(failure));
 	// Если вид ответа не основной
 	if(type.compare(BASIC) != 0)
 		// Выводим отказ состава записи
@@ -1144,7 +1144,7 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	// Если запись основного ответа разобрать не удалось
 	if(!parts.next(asn1::tag_t::OCTET_STRING, item))
 		// Выводим отказ кодировки записи
-		return (this->_error = translate(parts.err()));
+		return (this->_error = __nts_translate__(parts.err()));
 	// Если за записью основного ответа идут лишние поля
 	if(!parts.empty())
 		// Выводим отказ состава записи
@@ -1331,7 +1331,7 @@ nts::ocsp::error_t nts::ocsp::nonce(const vector <x509::extension_t> & extension
 	// Сбрасываем неповторимое значение
 	result = view_t(nullptr, 0);
 	/**
-	 * Выполняем перебор расширений набора
+	 * Перебираем расширения набора
 	 */
 	for(size_t i = 0; i < extensions.size(); i++){
 		// Если это не расширение неповторимого значения
@@ -1414,11 +1414,11 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 	// Получаем ответы по сертификатам
 	const vector <single_t> & responses = response.responses();
 	/**
-	 * Выполняем перебор ответов по сертификатам в поисках проверяемого
+	 * Перебираем ответы по сертификатам в поисках проверяемого
 	 */
 	for(size_t i = 0; (i < responses.size()) && (single == nullptr); i++){
 		// Описание алгоритма хеша опознавателя
-		const hash_t * hash = lookup(responses[i].identifier.algorithm);
+		const hash_t * hash = __nts_lookup__(responses[i].identifier.algorithm);
 		// Если алгоритм хеша опознавателя не поддерживается
 		if(hash == nullptr)
 			// Переходим к следующему ответу
@@ -1428,11 +1428,11 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 		// Длина хешей
 		size_t size = 0;
 		// Если хеши издателя вычислить не удалось
-		if(!hashes(authority, hash->algorithm, name, key, size))
+		if(!__nts_hashes__(authority, hash->algorithm, name, key, size))
 			// Выводим отказ алгоритма хеша
 			return error_t::HASH;
 		// Если хеши издателя и порядковый номер сошлись
-		if(same(responses[i].identifier.name, view_t(name, size)) && same(responses[i].identifier.key, view_t(key, size)) && same(responses[i].identifier.serial, subject.number()))
+		if(__nts_same__(responses[i].identifier.name, view_t(name, size)) && __nts_same__(responses[i].identifier.key, view_t(key, size)) && __nts_same__(responses[i].identifier.serial, subject.number()))
 			// Запоминаем ответ по проверяемому сертификату
 			single = &responses[i];
 	}
@@ -1460,20 +1460,20 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 			// Выводим отказ нехватки памяти
 			return error_t::MEMORY;
 		// Если приложенный сертификат разобрать не удалось либо ответчик назван не им
-		if((parsed != x509::error_t::NONE) || !named(response, candidate))
+		if((parsed != x509::error_t::NONE) || !__nts_named__(response, candidate))
 			// Переходим к следующему сертификату
 			continue;
 		// Проверка права приложенного сертификата отвечать за издателя
-		failure = delegated(candidate, authority, moment);
+		failure = __nts_delegated__(candidate, authority, moment);
 		// Если приложенный сертификат отвечать вправе
 		if(failure == error_t::NONE)
 			// Проверка подписи ответа ключом ответчика
-			failure = signed_(response, candidate);
+			failure = __nts_signed___(response, candidate);
 	}
 	// Если приложенные сертификаты ответ не подтвердили, а ответчиком назван сам издатель
-	if((failure != error_t::NONE) && named(response, authority)){
+	if((failure != error_t::NONE) && __nts_named__(response, authority)){
 		// Итог проверки подписи ответа ключом издателя
-		const error_t direct = signed_(response, authority);
+		const error_t direct = __nts_signed___(response, authority);
 		// Если подпись издателя сошлась либо приложенные сертификаты ничего точнее отсутствия ответчика не сказали
 		if((direct == error_t::NONE) || (failure == error_t::RESPONDER))
 			// Запоминаем итог проверки подписи издателем
@@ -1524,7 +1524,7 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 		 * RFC 8954: ответ без запрошенного значения либо с чужим значением
 		 * отвергается — иначе подменой сошёл бы ответ, записанный заранее
 		 */
-		if(!same(value, nonce))
+		if(!__nts_same__(value, nonce))
 			// Выводим отказ неповторимого значения
 			return error_t::NONCE;
 	}
@@ -1561,7 +1561,7 @@ nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, co
 		return error_t::MEMORY;
 	}
 	/**
-	 * Выполняем перебор записей цепочки с присланными ответами о состоянии
+	 * Перебираем записи цепочки с присланными ответами о состоянии
 	 */
 	for(size_t i = 0; i < chain.size(); i++){
 		// Пустой ответ о состоянии записи без присланного
@@ -1598,7 +1598,7 @@ nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, co
 		// Запись сертификата издателя записи
 		view_t issuer(nullptr, 0);
 		/**
-		 * Выполняем перебор иных звеньев цепочки в поисках издателя: раздел 4.4.2
+		 * Перебираем иные звенья цепочки в поисках издателя: раздел 4.4.2
 		 * RFC 8446 велит слать издателя следом за сертификатом, но иные стороны шлют
 		 * лист и дважды - издатель разыскивается по имени, а не по месту
 		 */
@@ -1636,7 +1636,7 @@ nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, co
 				issuer = view_t(chain[i].data(), chain[i].size());
 		}
 		/**
-		 * Выполняем перебор запаса доверенных сертификатов в поисках издателя
+		 * Перебираем запас доверенных сертификатов в поисках издателя
 		 */
 		for(size_t j = 0; (j < anchors.size()) && (issuer.data == nullptr); j++){
 			// Объект разбора доверенного сертификата
@@ -1692,7 +1692,7 @@ nts::ocsp::error_t nts::ocsp::verify(const vector <vector <uint8_t>> & chain, co
  */
 nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t & issuer, const digest::hash_t algorithm, const view_t & nonce, vector <uint8_t> & result) noexcept {
 	// Описание алгоритма хеша опознавателя
-	const hash_t * hash = lookup(algorithm);
+	const hash_t * hash = __nts_lookup__(algorithm);
 	// Если алгоритм хеша не поддерживается
 	if(hash == nullptr)
 		// Выводим отказ алгоритма хеша
@@ -1730,7 +1730,7 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 	// Длина хешей
 	size_t size = 0;
 	// Если хеши издателя вычислить не удалось
-	if(!hashes(authority, algorithm, name, key, size))
+	if(!__nts_hashes__(authority, algorithm, name, key, size))
 		// Выводим отказ алгоритма хеша
 		return error_t::HASH;
 	// Опознаватель алгоритма хеша строкой
@@ -1757,31 +1757,31 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 	// Открываем запись запроса
 	if(!writer.open(asn1::tag_t::SEQUENCE))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Открываем подписываемую часть запроса
 	if(!writer.open(asn1::tag_t::SEQUENCE))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Открываем перечень запросов
 	if(!writer.open(asn1::tag_t::SEQUENCE))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Открываем запрос по сертификату
 	if(!writer.open(asn1::tag_t::SEQUENCE))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Открываем опознаватель сертификата
 	if(!writer.open(asn1::tag_t::SEQUENCE))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Открываем опознаватель алгоритма хеша
 	if(!writer.open(asn1::tag_t::SEQUENCE))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Записываем опознаватель алгоритма хеша
 	if(!writer.oid(digested))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	/**
 	 * Раздел 2.1 RFC 5754 велит записывать настройки хешей SHA-2 пустым значением NULL
 	 * ради совместимости, RFC 3279 - у SHA-1, а раздел 3 RFC 9215 велит у «Стрибога»
@@ -1789,35 +1789,35 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 	 */
 	if(hash->nothing && !writer.nothing())
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Закрываем опознаватель алгоритма хеша
 	if(!writer.close())
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Записываем хеш имени издателя
 	if(!writer.octets(view_t(name, size)))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Записываем хеш ключа издателя
 	if(!writer.octets(view_t(key, size)))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Записываем порядковый номер сертификата записью из самого сертификата
 	if(!writer.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), subject.number()))
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Закрываем опознаватель сертификата
 	if(!writer.close())
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Закрываем запрос по сертификату
 	if(!writer.close())
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Закрываем перечень запросов
 	if(!writer.close())
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Если неповторимое значение задано
 	if(nonce.size > 0){
 		// Составитель записи неповторимого значения
@@ -1825,48 +1825,48 @@ nts::ocsp::error_t nts::ocsp::request(const view_t & certificate, const view_t &
 		// Записываем неповторимое значение строкой байтов
 		if(!inner.octets(nonce))
 			// Выводим отказ составления записи
-			return failed(inner);
+			return __nts_failed__(inner);
 		// Открываем обёртку расширений запроса
 		if(!writer.open(asn1::cls_t::CONTEXT, 2))
 			// Выводим отказ составления записи
-			return failed(writer);
+			return __nts_failed__(writer);
 		// Открываем набор расширений запроса
 		if(!writer.open(asn1::tag_t::SEQUENCE))
 			// Выводим отказ составления записи
-			return failed(writer);
+			return __nts_failed__(writer);
 		// Открываем запись расширения неповторимого значения
 		if(!writer.open(asn1::tag_t::SEQUENCE))
 			// Выводим отказ составления записи
-			return failed(writer);
+			return __nts_failed__(writer);
 		// Записываем опознаватель расширения неповторимого значения
 		if(!writer.oid(repeatless))
 			// Выводим отказ составления записи
-			return failed(writer);
+			return __nts_failed__(writer);
 		// Записываем содержимое расширения: строку байтов со строкой байтов значения
 		if(!writer.octets(inner.data()))
 			// Выводим отказ составления записи
-			return failed(writer);
+			return __nts_failed__(writer);
 		// Закрываем запись расширения неповторимого значения
 		if(!writer.close())
 			// Выводим отказ составления записи
-			return failed(writer);
+			return __nts_failed__(writer);
 		// Закрываем набор расширений запроса
 		if(!writer.close())
 			// Выводим отказ составления записи
-			return failed(writer);
+			return __nts_failed__(writer);
 		// Закрываем обёртку расширений запроса
 		if(!writer.close())
 			// Выводим отказ составления записи
-			return failed(writer);
+			return __nts_failed__(writer);
 	}
 	// Закрываем подписываемую часть запроса
 	if(!writer.close())
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	// Закрываем запись запроса
 	if(!writer.close())
 		// Выводим отказ составления записи
-		return failed(writer);
+		return __nts_failed__(writer);
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -1921,7 +1921,7 @@ nts::ocsp::error_t nts::ocsp::responder(const view_t & certificate, string & res
 	// Если перечень способов доступа разобрать не удалось
 	if(!reader.next(asn1::tag_t::SEQUENCE, list))
 		// Выводим отказ кодировки записи
-		return translate(reader.err());
+		return __nts_translate__(reader.err());
 	// Если за перечнем идут лишние поля либо перечень не составной
 	if(!reader.empty() || !list.constructed)
 		// Выводим отказ записи расширения
@@ -1929,7 +1929,7 @@ nts::ocsp::error_t nts::ocsp::responder(const view_t & certificate, string & res
 	// Создаём разборщик перечня способов доступа
 	asn1::reader_t entries(list.content);
 	/**
-	 * Выполняем обход способов доступа
+	 * Обходим способы доступа
 	 */
 	while(!entries.empty()){
 		// Объект разобранной записи способа доступа
@@ -1937,7 +1937,7 @@ nts::ocsp::error_t nts::ocsp::responder(const view_t & certificate, string & res
 		// Если запись способа доступа разобрать не удалось
 		if(!entries.next(asn1::tag_t::SEQUENCE, entry))
 			// Выводим отказ кодировки записи
-			return translate(entries.err());
+			return __nts_translate__(entries.err());
 		// Если запись способа доступа не составная
 		if(!entry.constructed)
 			// Выводим отказ записи расширения
@@ -1949,7 +1949,7 @@ nts::ocsp::error_t nts::ocsp::responder(const view_t & certificate, string & res
 		// Если опознаватель способа доступа разобрать не удалось
 		if(!fields.next(asn1::tag_t::OBJECT, field))
 			// Выводим отказ кодировки записи
-			return translate(fields.err());
+			return __nts_translate__(fields.err());
 		// Опознаватель способа доступа
 		string method;
 		// Отказ извлечения опознавателя способа доступа
@@ -1957,11 +1957,11 @@ nts::ocsp::error_t nts::ocsp::responder(const view_t & certificate, string & res
 		// Если опознаватель способа доступа извлечь не удалось
 		if(failure != asn1::error_t::NONE)
 			// Выводим отказ извлечения опознавателя
-			return translate(failure);
+			return __nts_translate__(failure);
 		// Если адрес доступа разобрать не удалось
 		if(!fields.next(field))
 			// Выводим отказ кодировки записи
-			return translate(fields.err());
+			return __nts_translate__(fields.err());
 		// Если за адресом доступа идут лишние поля
 		if(!fields.empty())
 			// Выводим отказ записи расширения
@@ -1970,7 +1970,7 @@ nts::ocsp::error_t nts::ocsp::responder(const view_t & certificate, string & res
 		 * Раздел 4.2.1.6 RFC 5280: единый указатель ресурса записан меткой [6] строки
 		 * IA5String; адреса иного вида ответчику не годятся и пропускаются
 		 */
-		if((method.compare(ACCESS) != 0) || !alike(field, asn1::cls_t::CONTEXT, false, 6))
+		if((method.compare(ACCESS) != 0) || !__nts_alike__(field, asn1::cls_t::CONTEXT, false, 6))
 			// Переходим к следующему способу доступа
 			continue;
 		/**

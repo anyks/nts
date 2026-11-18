@@ -86,9 +86,9 @@ namespace {
 	 * @return      название поры ключей
 	 *
 	 */
-	const char * title(const flow::epoch_t epoch) noexcept {
+	const char * __nts_title__(const flow::epoch_t epoch) noexcept {
 		/**
-		 * Выполняем определение поры ключей записей
+		 * Определяем поры ключей записей
 		 */
 		switch(static_cast <uint8_t> (epoch)){
 			// Если записи идут без защиты
@@ -109,7 +109,7 @@ namespace {
 	 * @return     признак успешности установки ключевого материала
 	 *
 	 */
-	bool install(Peer & peer, const session::side_t side) noexcept {
+	bool __nts_install__(Peer & peer, const session::side_t side) noexcept {
 		// Корневой ключ направления связи
 		uint8_t key[protect::PROTECT_KEY];
 		// Вектор замены направления связи
@@ -132,7 +132,7 @@ namespace {
 	 * @return     признак успешности передачи сообщения
 	 *
 	 */
-	bool transfer(const handshake::type_t type, const view_t & body, const session::side_t side) noexcept {
+	bool __nts_transfer__(const handshake::type_t type, const view_t & body, const session::side_t side) noexcept {
 		// Объект составителя исходящих сообщений рукопожатия
 		handshake::writer_t writer;
 		// Если сообщение рукопожатия составить не удалось
@@ -155,7 +155,7 @@ namespace {
 				return false;
 			// Получаем нарезанные записи сообщения
 			const view_t data = nested.data();
-			// Выполняем перенос нарезанных записей в накопитель
+			// Переносим нарезанных записей в накопитель
 			wire.assign(data.data, data.data + data.size);
 		// Если записи отправляющей стороны защищены
 		} else {
@@ -168,7 +168,7 @@ namespace {
 		}
 		// Объект сборщика входящих записей принимающей стороны
 		record::reader_t reader;
-		// Выполняем подачу отправленных байтов сборщику
+		// Подаём отправленных байтов сборщику
 		reader.push(view_t(wire.data(), wire.size()));
 		// Заголовок принятой записи
 		record::header_t header;
@@ -222,19 +222,19 @@ int main(int argc, char * argv[]) noexcept {
 	(void) argc;
 	// Не используем параметры приложения
 	(void) argv;
-	// Выполняем заведение хода рукопожатия клиентом
+	// Заводим хода рукопожатия клиентом
 	CLIENT.machine.start(flow::role_t::CLIENT);
-	// Выполняем заведение хода рукопожатия сервером
+	// Заводим хода рукопожатия сервером
 	SERVER.machine.start(flow::role_t::SERVER);
-	// Выполняем начало переписки рукопожатия клиента
+	// Начинаем переписки рукопожатия клиента
 	CLIENT.transcript.start();
-	// Выполняем начало переписки рукопожатия сервера
+	// Начинаем переписки рукопожатия сервера
 	SERVER.transcript.start();
 	// Составляемое приветствие клиента
 	hello::client_t greeting;
 	// Устанавливаем версию протокола приветствия клиента
 	greeting.version = 0x0303;
-	// Выполняем выработку случайного значения приветствия клиента
+	// Вырабатываем случайного значения приветствия клиента
 	entropy::bytes(greeting.random, hello::HELLO_RANDOM);
 	// Устанавливаем предлагаемый набор шифрования
 	greeting.suites = {static_cast <uint16_t> (SUITE)};
@@ -242,42 +242,42 @@ int main(int argc, char * argv[]) noexcept {
 	greeting.methods = {0x00};
 	// Накопитель, в который складывается тело приветствия клиента
 	vector <uint8_t> body;
-	// Выполняем составление тела приветствия клиента
+	// Составляем тела приветствия клиента
 	hello::build(greeting, body);
 	// Если приветствие клиента передать не удалось
-	if(!::transfer(handshake::type_t::CLIENT, view_t(body.data(), body.size()), session::side_t::CLIENT)){
+	if(!::__nts_transfer__(handshake::type_t::CLIENT, view_t(body.data(), body.size()), session::side_t::CLIENT)){
 		// Выводим сообщение об отказе передачи приветствия
 		cout << "Передать приветствие клиента не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим пору ключей записей клиента после приветствия
-	cout << "Приветствие клиента: " << ::title(CLIENT.machine.epoch(session::side_t::CLIENT)) << endl;
+	cout << "Приветствие клиента: " << ::__nts_title__(CLIENT.machine.epoch(session::side_t::CLIENT)) << endl;
 	// Составляемое приветствие сервера
 	hello::server_t answer;
 	// Устанавливаем версию протокола приветствия сервера
 	answer.version = 0x0303;
-	// Выполняем выработку случайного значения приветствия сервера
+	// Вырабатываем случайного значения приветствия сервера
 	entropy::bytes(answer.random, hello::HELLO_RANDOM);
 	// Устанавливаем выбранный набор шифрования
 	answer.suite = static_cast <uint16_t> (SUITE);
-	// Выполняем сброс накопителя тела приветствия
+	// Сбрасываем накопителя тела приветствия
 	body.clear();
-	// Выполняем составление тела приветствия сервера
+	// Составляем тела приветствия сервера
 	hello::build(answer, body);
 	// Если приветствие сервера передать не удалось
-	if(!::transfer(handshake::type_t::SERVER, view_t(body.data(), body.size()), session::side_t::SERVER)){
+	if(!::__nts_transfer__(handshake::type_t::SERVER, view_t(body.data(), body.size()), session::side_t::SERVER)){
 		// Выводим сообщение об отказе передачи приветствия
 		cout << "Передать приветствие сервера не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим пору ключей записей сторон после приветствия сервера
-	cout << "Приветствие сервера: " << ::title(CLIENT.machine.epoch(session::side_t::SERVER)) << endl;
+	cout << "Приветствие сервера: " << ::__nts_title__(CLIENT.machine.epoch(session::side_t::SERVER)) << endl;
 	// Общее значение обмена ключами
 	uint8_t shared[64];
 	/**
-	 * Выполняем выработку общего значения обмена ключами
+	 * Вырабатываем общего значения обмена ключами
 	 *
 	 * @note В настоящей связи оно вычисляется обеими сторонами из открытых частей
 	 *       ключей, объявленных приветствиями, и по связи не передаётся вовсе
@@ -286,18 +286,18 @@ int main(int argc, char * argv[]) noexcept {
 	entropy::bytes(shared, sizeof(shared));
 	// Хеш переписки рукопожатия на миг вывода ключей рукопожатия
 	uint8_t transcript[32];
-	// Выполняем получение хеша переписки рукопожатия
+	// Получаем хеша переписки рукопожатия
 	CLIENT.transcript.digest(transcript);
-	// Выполняем заведение начальной ступени расписания ключей клиента
+	// Заводим начальной ступени расписания ключей клиента
 	CLIENT.secrets.start(view_t(nullptr, 0));
-	// Выполняем заведение начальной ступени расписания ключей сервера
+	// Заводим начальной ступени расписания ключей сервера
 	SERVER.secrets.start(view_t(nullptr, 0));
-	// Выполняем вывод ступени рукопожатия расписания ключей клиента
+	// Выводим ступени рукопожатия расписания ключей клиента
 	CLIENT.secrets.handshake(view_t(shared, sizeof(shared)), view_t(transcript, sizeof(transcript)));
-	// Выполняем вывод ступени рукопожатия расписания ключей сервера
+	// Выводим ступени рукопожатия расписания ключей сервера
 	SERVER.secrets.handshake(view_t(shared, sizeof(shared)), view_t(transcript, sizeof(transcript)));
 	// Если ключевой материал рукопожатия установить не удалось
-	if(!::install(CLIENT, session::side_t::CLIENT) || !::install(CLIENT, session::side_t::SERVER) || !::install(SERVER, session::side_t::CLIENT) || !::install(SERVER, session::side_t::SERVER)){
+	if(!::__nts_install__(CLIENT, session::side_t::CLIENT) || !::__nts_install__(CLIENT, session::side_t::SERVER) || !::__nts_install__(SERVER, session::side_t::CLIENT) || !::__nts_install__(SERVER, session::side_t::SERVER)){
 		// Выводим сообщение об отказе установки ключевого материала
 		cout << "Установить ключевой материал рукопожатия не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -306,7 +306,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Тело сообщения защищённых расширений
 	const uint8_t extensions[2] = {0x00, 0x00};
 	// Если защищённые расширения передать не удалось
-	if(!::transfer(handshake::type_t::EXTENSIONS, view_t(extensions, sizeof(extensions)), session::side_t::SERVER)){
+	if(!::__nts_transfer__(handshake::type_t::EXTENSIONS, view_t(extensions, sizeof(extensions)), session::side_t::SERVER)){
 		// Выводим сообщение об отказе передачи расширений
 		cout << "Передать защищённые расширения не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -317,7 +317,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Тело сообщения цепочки сертификатов сервера
 	const uint8_t certificate[8] = {0x00, 0x00, 0x00, 0x00, 0x03, 0x30, 0x00, 0x00};
 	// Если цепочку сертификатов сервера передать не удалось
-	if(!::transfer(handshake::type_t::CERTIFICATE, view_t(certificate, sizeof(certificate)), session::side_t::SERVER)){
+	if(!::__nts_transfer__(handshake::type_t::CERTIFICATE, view_t(certificate, sizeof(certificate)), session::side_t::SERVER)){
 		// Выводим сообщение об отказе передачи цепочки сертификатов
 		cout << "Передать цепочку сертификатов не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -326,7 +326,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Тело сообщения подписи владения ключом сервера
 	const uint8_t verify[6] = {0x07, 0x09, 0x00, 0x02, 0xAA, 0xBB};
 	// Если подпись владения ключом передать не удалось
-	if(!::transfer(handshake::type_t::VERIFY, view_t(verify, sizeof(verify)), session::side_t::SERVER)){
+	if(!::__nts_transfer__(handshake::type_t::VERIFY, view_t(verify, sizeof(verify)), session::side_t::SERVER)){
 		// Выводим сообщение об отказе передачи подписи владения ключом
 		cout << "Передать подпись владения ключом не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -336,35 +336,35 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Подлинность сервера: цепочка и подпись переданы" << endl;
 	// Ключ завершения рукопожатия сервером
 	uint8_t key[32];
-	// Выполняем вывод ключа завершения рукопожатия сервером
+	// Выводим ключа завершения рукопожатия сервером
 	SERVER.secrets.finished(session::side_t::SERVER, key);
-	// Выполняем получение хеша переписки на миг завершения сервером
+	// Получаем хеша переписки на миг завершения сервером
 	SERVER.transcript.digest(transcript);
 	// Тело сообщения завершения рукопожатия сервером
 	uint8_t completion[32];
-	// Выполняем выработку завершения рукопожатия сервером
+	// Вырабатываем завершения рукопожатия сервером
 	message::finished(view_t(key, sizeof(key)), view_t(transcript, sizeof(transcript)), completion);
 	// Если завершение рукопожатия сервером передать не удалось
-	if(!::transfer(handshake::type_t::FINISHED, view_t(completion, sizeof(completion)), session::side_t::SERVER)){
+	if(!::__nts_transfer__(handshake::type_t::FINISHED, view_t(completion, sizeof(completion)), session::side_t::SERVER)){
 		// Выводим сообщение об отказе передачи завершения
 		cout << "Передать завершение рукопожатия сервером не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим пору ключей записей сервера после его завершения
-	cout << "Завершение сервера : " << ::title(CLIENT.machine.epoch(session::side_t::SERVER)) << endl;
+	cout << "Завершение сервера : " << ::__nts_title__(CLIENT.machine.epoch(session::side_t::SERVER)) << endl;
 	// Выводим пору ключей записей клиента на тот же миг
-	cout << "Записи клиента     : " << ::title(CLIENT.machine.epoch(session::side_t::CLIENT)) << endl;
+	cout << "Записи клиента     : " << ::__nts_title__(CLIENT.machine.epoch(session::side_t::CLIENT)) << endl;
 	// Ключ завершения рукопожатия клиентом
 	uint8_t element[32];
-	// Выполняем вывод ключа завершения рукопожатия клиентом
+	// Выводим ключа завершения рукопожатия клиентом
 	CLIENT.secrets.finished(session::side_t::CLIENT, element);
-	// Выполняем получение хеша переписки на миг завершения клиентом
+	// Получаем хеша переписки на миг завершения клиентом
 	CLIENT.transcript.digest(transcript);
-	// Выполняем выработку завершения рукопожатия клиентом
+	// Вырабатываем завершения рукопожатия клиентом
 	message::finished(view_t(element, sizeof(element)), view_t(transcript, sizeof(transcript)), completion);
 	// Если завершение рукопожатия клиентом передать не удалось
-	if(!::transfer(handshake::type_t::FINISHED, view_t(completion, sizeof(completion)), session::side_t::CLIENT)){
+	if(!::__nts_transfer__(handshake::type_t::FINISHED, view_t(completion, sizeof(completion)), session::side_t::CLIENT)){
 		// Выводим сообщение об отказе передачи завершения
 		cout << "Передать завершение рукопожатия клиентом не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -375,15 +375,15 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим сообщение о завершении рукопожатия
 		cout << "Рукопожатие        : связь установлена обеими сторонами" << endl;
 	// Выводим пору ключей записей клиента после его завершения
-	cout << "Завершение клиента : " << ::title(CLIENT.machine.epoch(session::side_t::CLIENT)) << endl;
-	// Выполняем получение хеша переписки на миг перехода к прикладным данным
+	cout << "Завершение клиента : " << ::__nts_title__(CLIENT.machine.epoch(session::side_t::CLIENT)) << endl;
+	// Получаем хеша переписки на миг перехода к прикладным данным
 	CLIENT.transcript.digest(transcript);
-	// Выполняем вывод ступени прикладных данных расписания ключей клиента
+	// Выводим ступени прикладных данных расписания ключей клиента
 	CLIENT.secrets.application(view_t(transcript, sizeof(transcript)));
-	// Выполняем вывод ступени прикладных данных расписания ключей сервера
+	// Выводим ступени прикладных данных расписания ключей сервера
 	SERVER.secrets.application(view_t(transcript, sizeof(transcript)));
 	// Если ключевой материал прикладных данных установить не удалось
-	if(!::install(CLIENT, session::side_t::SERVER) || !::install(SERVER, session::side_t::SERVER)){
+	if(!::__nts_install__(CLIENT, session::side_t::SERVER) || !::__nts_install__(SERVER, session::side_t::SERVER)){
 		// Выводим сообщение об отказе установки ключевого материала
 		cout << "Установить ключевой материал прикладных данных не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -393,17 +393,17 @@ int main(int argc, char * argv[]) noexcept {
 	const char * text = "Прикладные данные, отправленные по установленной связи";
 	// Накопитель, в который складывается защищённая запись
 	vector <uint8_t> sealed;
-	// Выполняем наложение защиты на запись прикладных данных
+	// Накладываем защиты на запись прикладных данных
 	CLIENT.server.seal(record::type_t::APPLICATION, view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text)), sealed, 0);
 	// Объект сборщика входящих записей
 	record::reader_t reader;
-	// Выполняем подачу защищённой записи сборщику
+	// Подаём защищённой записи сборщику
 	reader.push(view_t(sealed.data(), sealed.size()));
 	// Заголовок принятой защищённой записи
 	record::header_t header;
 	// Содержимое принятой защищённой записи
 	view_t payload;
-	// Выполняем сборку принятой защищённой записи
+	// Собираем принятой защищённой записи
 	reader.next(header, payload);
 	// Истинный вид содержимого принятой записи
 	record::type_t type = record::type_t::NONE;

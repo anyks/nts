@@ -131,7 +131,7 @@ namespace {
 	 * @return разряды расширений, которые у машины есть
 	 *
 	 */
-	static uint16_t detect() noexcept {
+	static uint16_t __nts_detect__() noexcept {
 		// Снятые разряды расширений
 		uint16_t result = 0;
 		// Переменная окружения запрета расширений
@@ -153,7 +153,7 @@ namespace {
 			// Имена признаков расширений и их разряды
 			const char * names[4] = {"hw.optional.arm.FEAT_AES", "hw.optional.arm.FEAT_PMULL", "hw.optional.arm.FEAT_SHA256", "hw.optional.arm.FEAT_SHA512"};
 			/**
-			 * Выполняем перебор признаков
+			 * Перебираем признаки
 			 */
 			for(size_t i = 0; i < 4; i++){
 				// Значение признака
@@ -398,9 +398,9 @@ namespace {
 	 * @return разряды расширений, которые у машины есть
 	 *
 	 */
-	static uint16_t features() noexcept {
+	static uint16_t __nts_features__() noexcept {
 		// Снятые один раз разряды расширений
-		static const uint16_t result = detect();
+		static const uint16_t result = __nts_detect__();
 		// Выводим снятые разряды
 		return result;
 	}
@@ -419,7 +419,7 @@ bool nts::machine::has(const feature_t feature) noexcept {
 		// Выводим отсутствие расширения
 		return false;
 	// Выводим наличие разряда расширения среди снятых
-	return ((features() & static_cast <uint16_t> (feature)) != 0);
+	return ((__nts_features__() & static_cast <uint16_t> (feature)) != 0);
 }
 /**
  * @brief Функция запрета либо разрешения расширений на исполнении

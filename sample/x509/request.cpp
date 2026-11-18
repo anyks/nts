@@ -71,16 +71,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -156,7 +156,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Эталонный запрос
 	x509::request_t reference;
-	// Выполняем разбор записи эталонного запроса
+	// Разбираем записи эталонного запроса
 	if(reference.parse(view_t(der.data(), der.size())) != x509::error_t::NONE){
 		// Выводим сообщение об отказе разбора запроса
 		cout << "Разобрать запрос не удалось: причина " << static_cast <uint32_t> (reference.err()) << endl;
@@ -174,7 +174,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим опознаватель алгоритма подписи запроса
 	cout << "Алгоритм подписи   : " << reference.algorithms() << endl;
 	/**
-	 * Выполняем проверку подписи эталонного запроса
+	 * Проверяем подписи эталонного запроса
 	 *
 	 * @details Подпись запроса проверяется тем открытым ключом, что лежит в
 	 *          сведениях об открытом ключе самого запроса
@@ -212,7 +212,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Записанный запрос в кодировке DER
 	vector <uint8_t> encoded;
 	/**
-	 * Выполняем запись запроса на сертификат
+	 * Записываем запроса на сертификат
 	 *
 	 * @details Собирается CertificationRequestInfo {version, subject, subjectPKInfo,
 	 *          attributes [0]}, подписывается ключом владельца, и оборачивается в
@@ -230,7 +230,7 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Записан запрос     : " << encoded.size() << " байтов" << endl;
 	// Разбираемый записанный запрос
 	x509::request_t request;
-	// Выполняем разбор записанного запроса обратно
+	// Разбираем записанного запроса обратно
 	if(request.parse(view_t(encoded.data(), encoded.size())) != x509::error_t::NONE){
 		// Выводим сообщение об отказе разбора записанного запроса
 		cout << "Разобрать записанный запрос не удалось" << endl;
@@ -244,8 +244,8 @@ int main(int argc, char * argv[]) noexcept {
 	// Извлекаем подпись записанного запроса
 	const view_t & signature = request.sign(unused);
 	// Выводим подпись записанного запроса
-	::print("Подпись запроса    ", signature.data, signature.size);
-	// Выполняем проверку подписи записанного запроса
+	::__nts_print__("Подпись запроса    ", signature.data, signature.size);
+	// Проверяем подписи записанного запроса
 	if(x509::verify(request, request.key()) != x509::error_t::NONE){
 		// Выводим сообщение о несошедшейся подписи
 		cout << "Проверка записи    : подпись записанного запроса не сошлась" << endl;

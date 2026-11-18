@@ -297,11 +297,11 @@ void * sys::Vault::take(const size_t size) noexcept {
 	 */
 	for(uint8_t attempt = 0; attempt < 2; attempt++){
 		/**
-		 * Выполняем перебор кусков
+		 * Перебираем куски
 		 */
 		for(auto & chunk : this->_chunks){
 			/**
-			 * Выполняем перебор свободных участков куска
+			 * Перебираем свободные участки куска
 			 */
 			for(auto i = chunk.spans.begin(); i != chunk.spans.end(); ++i){
 				// Если участок вмещает запрос
@@ -353,7 +353,7 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
 	// Берём замок хранилища
 	const lock_guard <std::mutex> lock(this->_lock);
 	/**
-	 * Выполняем перебор кусков
+	 * Перебираем куски
 	 */
 	for(auto & chunk : this->_chunks){
 		// Если участок принадлежит куску
@@ -413,7 +413,7 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
  */
 void sys::Vault::wipe() noexcept {
 	/**
-	 * Выполняем перебор кусков без замка: зовётся у потомка процесса, где замок мог
+	 * Перебираем куски без замка: зовётся у потомка процесса, где замок мог
 	 * остаться взятым исчезнувшим потоком родителя
 	 */
 	for(auto & chunk : this->_chunks)
@@ -434,7 +434,7 @@ sys::shelter_t sys::Vault::shelter() const noexcept {
 	// Поднимаем признаки
 	result.hidden = result.wired = result.forked = true;
 	/**
-	 * Выполняем перебор кусков
+	 * Перебираем куски
 	 */
 	for(const auto & chunk : this->_chunks){
 		// Опускаем признак укрытия от снимков, если у куска его нет
@@ -464,7 +464,7 @@ bool sys::Vault::owns(const void * data) const noexcept {
 	// Берём замок хранилища
 	const lock_guard <std::mutex> lock(this->_lock);
 	/**
-	 * Выполняем перебор кусков
+	 * Перебираем куски
 	 */
 	for(const auto & chunk : this->_chunks){
 		// Если адрес лежит внутри куска
@@ -524,7 +524,7 @@ sys::Vault::~Vault() noexcept {
 	/**
 	 * @brief Метод затирания участка без возврата
 	 *
-	 * Выполняем перебор кусков: хранилище живёт до завершения процесса, и возврат кусков
+	 * Перебираем куски: хранилище живёт до завершения процесса, и возврат кусков
 	 * системе - забота порядка; затирание - забота тайны
 	 *
 	 */

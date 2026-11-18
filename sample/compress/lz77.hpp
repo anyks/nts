@@ -114,7 +114,7 @@ namespace {
 	 * @return     номер ячейки таблицы розыска
 	 *
 	 */
-	size_t cell(const uint8_t * data) noexcept {
+	size_t __nts_cell__(const uint8_t * data) noexcept {
 		// Выводим свёртку трёх байтов в номер ячейки
 		return ((((static_cast <size_t> (data[0]) << 16) | (static_cast <size_t> (data[1]) << 8) | data[2]) * 2654435761u) % LZ77_CELLS);
 	}
@@ -127,7 +127,7 @@ namespace {
 	 * @param result накопитель сжатого потока
 	 *
 	 */
-	void literal(const uint8_t * source, size_t begin, const size_t end, vector <uint8_t> & result) {
+	void __nts_literal__(const uint8_t * source, size_t begin, const size_t end, vector <uint8_t> & result) {
 		/**
 		 * Выполняем запись ряда кусками не длиннее ста двадцати восьми байтов
 		 */
@@ -143,7 +143,7 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Вызов сжатия цепочки сертификатов повторами
+	 * @brief Функция вызова сжатия цепочки сертификатов повторами
 	 *
 	 * @param source  сжимаемое тело сообщения цепочки
 	 * @param result  накопитель, в который складывается сжатый поток
@@ -153,7 +153,7 @@ namespace {
 	 * @note Вызов не noexcept намеренно: нехватку памяти в накопителе перехватывает связь
 	 *
 	 */
-	bool lz77Compress(const view_t & source, vector <uint8_t> & result, void * context) {
+	bool __nts_lz77_compress__(const view_t & source, vector <uint8_t> & result, void * context) {
 		// Таблица розыска повторов: место последнего появления трёх байтов
 		vector <size_t> heads(LZ77_CELLS, SIZE_MAX);
 		// Начало ещё не записанного ряда буквальных байтов
@@ -171,7 +171,7 @@ namespace {
 			// Если впереди хватает байтов на повтор
 			if((source.size - offset) >= LZ77_LEAST){
 				// Ячейка таблицы розыска для текущих трёх байтов
-				const size_t index = cell(source.data + offset);
+				const size_t index = __nts_cell__(source.data + offset);
 				// Место прежнего появления тех же трёх байтов
 				const size_t previous = heads[index];
 				// Если прежнее появление есть и лежит в окне
@@ -193,7 +193,7 @@ namespace {
 			// Если повтор достаточно длинен
 			if(length >= LZ77_LEAST){
 				// Записываем накопленный ряд буквальных байтов
-				literal(source.data, pending, offset, result);
+				__nts_literal__(source.data, pending, offset, result);
 				// Записываем заголовок повтора: старший разряд единица, длина без наименьшей
 				result.push_back(static_cast <uint8_t> (0x80 | (length - LZ77_LEAST)));
 				// Записываем старший байт смещения
@@ -206,7 +206,7 @@ namespace {
 				 */
 				for(size_t i = 1; (i < length) && ((offset + i + LZ77_LEAST) <= source.size); i++)
 					// Запоминаем появление тройки байтов
-					heads[cell(source.data + offset + i)] = (offset + i);
+					heads[__nts_cell__(source.data + offset + i)] = (offset + i);
 				// Сдвигаем разбор за повтор
 				offset += length;
 				// Новый ряд буквальных байтов начинается за повтором
@@ -217,7 +217,7 @@ namespace {
 				offset++;
 		}
 		// Записываем хвостовой ряд буквальных байтов
-		literal(source.data, pending, source.size, result);
+		__nts_literal__(source.data, pending, source.size, result);
 		// Если счётчик работы кодека передан
 		if(context != nullptr){
 			// Счётчик работы кодека
@@ -233,7 +233,7 @@ namespace {
 		return true;
 	}
 	/**
-	 * @brief Вызов распаковки цепочки сертификатов
+	 * @brief Функция вызова распаковки цепочки сертификатов
 	 *
 	 * @param source   распаковываемый сжатый поток
 	 * @param expected ожидаемая длина тела после распаковки
@@ -244,7 +244,7 @@ namespace {
 	 * @note Вызов не noexcept намеренно: нехватку памяти в накопителе перехватывает связь
 	 *
 	 */
-	bool lz77Decompress(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context) {
+	bool __nts_lz77_decompress__(const view_t & source, const size_t expected, vector <uint8_t> & result, void * context) {
 		// Смещение разбираемого байта потока
 		size_t offset = 0;
 		// Заранее занимаем место под ожидаемую длину

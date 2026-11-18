@@ -101,13 +101,13 @@ namespace {
 	 *          имитовставки - третье целиком
 	 *
 	 */
-	static bool keyring(const view_t & secret, uint8_t * result) noexcept {
+	static bool __nts_keyring__(const view_t & secret, uint8_t * result) noexcept {
 		// Длины частей ключа билетов
 		static const size_t widths[3] = {internal::ticket::TICKET_NAME, internal::ticket::TICKET_KEY, internal::ticket::TICKET_MAC};
 		// Смещение очередной части в месте итога
 		size_t offset = 0;
 		/**
-		 * Выполняем перебор частей ключа билетов
+		 * Перебираем части ключа билетов
 		 */
 		for(size_t i = 0; i < 3; i++){
 			// Если очередную часть вывести не удалось
@@ -128,7 +128,7 @@ namespace {
 	 * @return        отказ составителя полей
 	 *
 	 */
-	static field::error_t compose(const internal::ticket::state_t & state, field::builder_t & builder) noexcept {
+	static field::error_t __nts_compose__(const internal::ticket::state_t & state, field::builder_t & builder) noexcept {
 		// Миг выдачи билета в записи без знака
 		const uint64_t moment = static_cast <uint64_t> (state.moment);
 		// Записываем издание записи состояния
@@ -226,7 +226,7 @@ namespace {
 	 * @return       признак того, что запись сложена по правилам нынешнего издания
 	 *
 	 */
-	static bool decompose(const view_t & data, internal::ticket::state_t & result) noexcept {
+	static bool __nts_decompose__(const view_t & data, internal::ticket::state_t & result) noexcept {
 		// Объект разборщика состояния билета
 		field::scanner_t scanner;
 		// Устанавливаем разбираемое состояние
@@ -366,7 +366,7 @@ bool nts::internal::ticket::Keeper::stash(const view_t & secret) noexcept {
 	// Место, в которое помещается ключ нового поколения
 	uint8_t fresh[TICKET_VAULT];
 	// Если ключ из секрета вывести не удалось
-	if(!keyring(secret, fresh)){
+	if(!__nts_keyring__(secret, fresh)){
 		// Затирание места ключа
 		wipe(fresh, sizeof(fresh));
 		// Выводим отказ заведения ключа
@@ -405,7 +405,7 @@ nts::internal::ticket::error_t nts::internal::ticket::Keeper::mint(const state_t
 	// Объект составителя состояния билета: накопитель затирается им самим
 	field::builder_t builder;
 	// Если состояние в запись сложить не удалось
-	if(compose(state, builder) != field::error_t::NONE)
+	if(__nts_compose__(state, builder) != field::error_t::NONE)
 		// Выводим отказ нехватки памяти: составитель отказывает лишь ею, поля состояния в ширину входят
 		return error_t::MEMORY;
 	// Получаем составленное состояние билета
@@ -516,7 +516,7 @@ bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & resu
 	// Место ключа билетов, которым сложен билет
 	size_t generation = 2;
 	/**
-	 * Выполняем перебор поколений ключей билетов: нынешнего и предыдущего
+	 * Перебираем поколения ключей билетов: нынешнего и предыдущего
 	 */
 	for(size_t i = 0; (i < 2) && (generation == 2); i++){
 		// Если поколение заведено и имя ключа сошлось
@@ -573,7 +573,7 @@ bool nts::internal::ticket::Keeper::redeem(const view_t & ticket, state_t & resu
 			// Если дополнение умещается в открытый текст: разбираем состояние без дополнения
 			if((padding + 1) <= length)
 				// Разбираем запись состояния
-				valid = decompose(view_t(plain.data(), length - padding - 1), result);
+				valid = __nts_decompose__(view_t(plain.data(), length - padding - 1), result);
 		}
 		// Затирание открытого текста
 		wipe(plain.data(), plain.size());

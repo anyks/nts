@@ -68,16 +68,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -87,7 +87,7 @@ namespace {
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр области байтов строки знаков
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
@@ -150,13 +150,13 @@ int main(int argc, char * argv[]) noexcept {
 	// Разобранная цепочка сертификатов
 	vector <vector <uint8_t>> chain;
 	/**
-	 * Выполняем разбор записи PKCS #12 паролем набора
+	 * Разбираем записи PKCS #12 паролем набора
 	 *
 	 * @details Пароль подаётся октетами и обращается в строку BMPString самим
 	 *          разбором; неверный пароль различается имитовставкой записи
 	 *
 	 */
-	if(keys::decodePkcs12(view_t(der.data(), der.size()), ::text("secret"), key, chain) != keys::error_t::NONE){
+	if(keys::decodePkcs12(view_t(der.data(), der.size()), ::__nts_text__("secret"), key, chain) != keys::error_t::NONE){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать запись PKCS #12 не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -169,14 +169,14 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим признак наличия секретной части ключа
 	cout << "Секретная часть    : " << (key.secret() ? "есть" : "нет") << endl;
 	// Выводим первую координату открытого ключа
-	::print("Открытый ключ x    ", key.x.data(), key.x.size());
+	::__nts_print__("Открытый ключ x    ", key.x.data(), key.x.size());
 	// Выводим число сертификатов цепочки
 	cout << "Сертификатов       : " << chain.size() << endl;
 	// Если цепочка не пуста
 	if(!chain.empty()){
 		// Разбираемый сертификат цепочки
 		x509::certificate_t certificate;
-		// Выполняем разбор первого сертификата цепочки
+		// Разбираем первого сертификата цепочки
 		if(certificate.parse(view_t(chain.front().data(), chain.front().size())) == x509::error_t::NONE){
 			// Запись имени владельца сертификата строкой по RFC 4514
 			string subject;
@@ -185,7 +185,7 @@ int main(int argc, char * argv[]) noexcept {
 				// Выводим имя владельца сертификата цепочки
 				cout << "Владелец           : " << subject << endl;
 			// Выводим порядковый номер сертификата цепочки
-			::print("Порядковый номер   ", certificate.number().data, certificate.number().size);
+			::__nts_print__("Порядковый номер   ", certificate.number().data, certificate.number().size);
 		}
 	}
 	// Ключ чужого пароля
@@ -193,9 +193,9 @@ int main(int argc, char * argv[]) noexcept {
 	// Цепочка чужого пароля
 	vector <vector <uint8_t>> foreignChain;
 	/**
-	 * Выполняем разбор записи чужим паролем: имитовставка записи не сходится
+	 * Разбираем записи чужим паролем: имитовставка записи не сходится
 	 */
-	if(keys::decodePkcs12(view_t(der.data(), der.size()), ::text("другой"), foreign, foreignChain) == keys::error_t::PASSWORD)
+	if(keys::decodePkcs12(view_t(der.data(), der.size()), ::__nts_text__("другой"), foreign, foreignChain) == keys::error_t::PASSWORD)
 		// Выводим сообщение об отвержении чужого пароля
 		cout << "Чужой пароль       : отвергнут имитовставкой" << endl;
 	// Выходим из приложения с признаком успеха

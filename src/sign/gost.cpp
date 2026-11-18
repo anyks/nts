@@ -69,7 +69,7 @@ namespace {
 	 * @return       признак успешности приведения хеша сообщения
 	 *
 	 */
-	static bool digest(const math::modulus_t & order, const view_t & value, math::number_t & result) noexcept {
+	static bool __nts_digest__(const math::modulus_t & order, const view_t & value, math::number_t & result) noexcept {
 		// Если хеш сообщения приведению не подлежит
 		if(!order.reduce(value, result))
 			// Выводим отказ приведения хеша сообщения
@@ -278,7 +278,7 @@ bool nts::sign::Gost::key(const view_t & x, const view_t & y) noexcept {
 		// Накопленное различие координат
 		uint8_t difference = 0;
 		/**
-		 * Выполняем сличение координат за постоянное время
+		 * Сличаем координаты за постоянное время
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Накапливаем различие
@@ -331,7 +331,7 @@ bool nts::sign::Gost::make(const view_t & value, const view_t & random, uint8_t 
 	// Приведённый хеш подписываемого сообщения
 	math::number_t item;
 	// Если хеш подписываемого сообщения привести не удалось
-	if(!::digest(order, value, item))
+	if(!::__nts_digest__(order, value, item))
 		// Выводим отказ выработки подписи
 		return false;
 	// Случайное число выработки подписи
@@ -429,7 +429,7 @@ bool nts::sign::Gost::make(const view_t & value, uint8_t * result) const noexcep
 	// Признак успешности выработки подписи
 	bool ok = false;
 	/**
-	 * Выполняем повтор выработки подписи: неудачный выбор случайного числа обращает в
+	 * Повторяем выработку подписи: неудачный выбор случайного числа обращает в
 	 * ноль ту либо иную часть подписи, и раздел 6.1 велит выбрать число заново
 	 */
 	for(size_t i = 0; !ok && (i < ATTEMPTS); i++){
@@ -492,7 +492,7 @@ bool nts::sign::Gost::check(const view_t & value, const view_t & signature) cons
 	// Приведённый хеш подписанного сообщения
 	math::number_t item;
 	// Если хеш подписанного сообщения привести не удалось
-	if(!::digest(order, value, item))
+	if(!::__nts_digest__(order, value, item))
 		// Выводим отказ проверки подписи
 		return false;
 	// Значения в области Монтгомери, участвующие в проверке подписи

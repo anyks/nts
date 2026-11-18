@@ -106,7 +106,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -115,7 +115,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочки сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -149,9 +149,9 @@ namespace {
 	 *
 	 */
 	template <typename T>
-	void drain(T & from, vector <vector <uint8_t>> & result) noexcept {
+	void __nts_drain__(T & from, vector <vector <uint8_t>> & result) noexcept {
 		/**
-		 * Выполняем снятие дейтаграмм по одной: просмотр отдаёт первую из очереди
+		 * Снимаем дейтаграмм по одной: просмотр отдаёт первую из очереди
 		 */
 		while(from.output().size > 0){
 			// Получаем очередную дейтаграмму
@@ -173,17 +173,17 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, path_t & path, const bool losing) noexcept {
+	bool __nts_carry__(A & from, B & to, path_t & path, const bool losing) noexcept {
 		// Снятые дейтаграммы
 		vector <vector <uint8_t>> datagrams;
 		// Снимаем дейтаграммы со стороны
-		drain(from, datagrams);
+		__nts_drain__(from, datagrams);
 		// Если переносить нечего
 		if(datagrams.empty())
 			// Выводим признак того, что дейтаграммы не переносились
 			return false;
 		/**
-		 * Выполняем перебор снятых дейтаграмм
+		 * Перебираем снятых дейтаграмм
 		 */
 		for(size_t i = 0; i < datagrams.size(); i++){
 			// Запоминаем наибольшую длину дейтаграммы
@@ -214,11 +214,11 @@ namespace {
 	 * @return       число кругов, ушедших на перенос
 	 *
 	 */
-	size_t converse(client::context_t & client, server::context_t & server, path_t & path) noexcept {
+	size_t __nts_converse__(client::context_t & client, server::context_t & server, path_t & path) noexcept {
 		// Число пройденных кругов
 		size_t round = 0;
 		/**
-		 * Выполняем перенос дейтаграмм, пока сторонам есть что сказать либо чего ждать
+		 * Переносим дейтаграмм, пока сторонам есть что сказать либо чего ждать
 		 */
 		for(; round < 200; round++){
 			// Если связь одной из сторон оборвана
@@ -226,9 +226,9 @@ namespace {
 				// Прекращаем перенос
 				break;
 			// Переносим дейтаграммы клиента серверу
-			bool moved = carry(client, server, path, true);
+			bool moved = __nts_carry__(client, server, path, true);
 			// Переносим дейтаграммы сервера клиенту
-			moved = (carry(server, client, path, false) || moved);
+			moved = (__nts_carry__(server, client, path, false) || moved);
 			// Если дейтаграммы переносились
 			if(moved)
 				// Переходим к следующему кругу
@@ -270,7 +270,7 @@ namespace {
 	 * @return           признак успешности настройки
 	 *
 	 */
-	bool arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const context::credential_t & credential, const bool legacy) noexcept {
+	bool __nts_arrange__(client::context_t & client, server::context_t & server, const protect::suite_t suite, const context::credential_t & credential, const bool legacy) noexcept {
 		// Перенос дейтаграммами у клиента
 		client.transport(context::transport_t::DATAGRAMS);
 		// Перенос дейтаграммами у сервера
@@ -313,7 +313,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool exchange(client::context_t & client, server::context_t & server, path_t & path) noexcept {
+	bool __nts_exchange__(client::context_t & client, server::context_t & server, path_t & path) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по дейтаграммам";
 		// Прикладные данные, отправляемые сервером
@@ -323,7 +323,7 @@ namespace {
 			// Выводим отказ обмена
 			return false;
 		// Переносим дейтаграммы
-		converse(client, server, path);
+		__nts_converse__(client, server, path);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
 		// Если сервер принял не то, что послал клиент
@@ -349,7 +349,7 @@ namespace {
 	 * @return         признак успешности разбора
 	 *
 	 */
-	bool heading(const vector <uint8_t> & datagram, datagram::fragment_t & fragment) noexcept {
+	bool __nts_heading__(const vector <uint8_t> & datagram, datagram::fragment_t & fragment) noexcept {
 		// Если дейтаграмма короче открытого заголовка с обвязкой куска
 		if(datagram.size() <= (datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER))
 			// Выводим отказ разбора
@@ -375,7 +375,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Подлинность стороны сервера
 	context::credential_t credential;
 	// Если подлинность стороны сервера прочитать не удалось
-	if(!identity("ec256", credential)){
+	if(!__nts_identity__("ec256", credential)){
 		// Выводим сообщение об отказе чтения подлинности
 		cout << "Прочитать подлинность сервера из набора ключей не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -389,7 +389,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить и завести стороны не удалось
-		if(!arrange(client, server, protect::suite_t::AES_128_GCM_SHA256, credential, false) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
+		if(!__nts_arrange__(client, server, protect::suite_t::AES_128_GCM_SHA256, credential, false) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
 			// Выводим сообщение об отказе
 			cout << "Настроить и завести стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -400,17 +400,17 @@ int main(int argc, char * argv[]) noexcept {
 		// Путь между сторонами
 		path_t path;
 		// Переносим приветствие клиента серверу
-		carry(client, server, path, false);
+		__nts_carry__(client, server, path, false);
 		// Дейтаграммы ответа сервера
 		vector <vector <uint8_t>> answer;
 		// Снимаем ответ сервера
-		drain(server, answer);
+		__nts_drain__(server, answer);
 		// Обвязка куска первого сообщения ответа
 		datagram::fragment_t fragment;
 		// Разобранное приветствие сервера
 		hello::server_t reply;
 		// Если ответ сервера не одна дейтаграмма с приветствием сервера
-		if((answer.size() != 1) || !heading(answer[0], fragment) || (fragment.type != handshake::type_t::SERVER) || (hello::parse(view_t(answer[0].data() + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length), reply) != hello::error_t::NONE)){
+		if((answer.size() != 1) || !__nts_heading__(answer[0], fragment) || (fragment.type != handshake::type_t::SERVER) || (hello::parse(view_t(answer[0].data() + datagram::DATAGRAM_PLAIN_HEADER + datagram::DATAGRAM_FRAGMENT_HEADER, fragment.length), reply) != hello::error_t::NONE)){
 			// Выводим сообщение о расхождении
 			cout << "Первый ответ сервера разобрать не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -432,7 +432,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Подаём просьбу клиенту
 		client.push(view_t(answer[0].data(), answer[0].size()));
 		// Доводим рукопожатие до тишины
-		const size_t rounds = converse(client, server, path);
+		const size_t rounds = __nts_converse__(client, server, path);
 		// Если рукопожатие не пройдено
 		if(!client.established() || !server.established()){
 			// Выводим сообщение об отказе
@@ -445,7 +445,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим часы после рукопожатия
 		cout << "Часы                : клиент " << client.timeout() << " мс, сервер " << server.timeout() << " мс - залпы подтверждены" << endl;
 		// Если обмен прикладными данными не удался
-		if(!exchange(client, server, path)){
+		if(!__nts_exchange__(client, server, path)){
 			// Выводим сообщение об отказе обмена
 			cout << "Обмен прикладными данными не удался" << endl;
 			// Выходим из приложения с признаком отказа
@@ -488,7 +488,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить и завести стороны не удалось
-		if(!arrange(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, credential, false) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
+		if(!__nts_arrange__(client, server, protect::suite_t::CHACHA20_POLY1305_SHA256, credential, false) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
 			// Выводим сообщение об отказе
 			cout << "Настроить и завести стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -499,7 +499,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Первая дейтаграмма клиента теряется
 		path.losses = 1;
 		// Переносим приветствие: оно теряется, сервер молчит
-		carry(client, server, path, true);
+		__nts_carry__(client, server, path, true);
 		// Выводим итог потери
 		cout << "Потеря              : приветствие клиента потеряно, сервер молчит, клиент ждёт " << client.timeout() << " мс" << endl;
 		// Извещаем клиента об истечении срока: раздел 5.8.2 RFC 9147
@@ -514,7 +514,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим итог повторной передачи: срок удвоен
 		cout << "Срок истёк          : приветствие повторено новым номером записи, следующий срок " << client.timeout() << " мс" << endl;
 		// Доводим рукопожатие до тишины
-		const size_t rounds = converse(client, server, path);
+		const size_t rounds = __nts_converse__(client, server, path);
 		// Если рукопожатие не пройдено
 		if(!client.established() || !server.established()){
 			// Выводим сообщение об отказе
@@ -527,7 +527,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Путь без потерь
 		path_t clean;
 		// Если обмен прикладными данными не удался
-		if(!exchange(client, server, clean)){
+		if(!__nts_exchange__(client, server, clean)){
 			// Выводим сообщение об отказе обмена
 			cout << "Обмен прикладными данными не удался" << endl;
 			// Выходим из приложения с признаком отказа
@@ -545,7 +545,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим часы билета
 		cout << "Билет               : сервер ждёт подтверждения " << server.timeout() << " мс" << endl;
 		// Доставляем билет и подтверждение
-		converse(client, server, clean);
+		__nts_converse__(client, server, clean);
 		// Выводим итог доставки билета
 		cout << "Билет доставлен     : у клиента " << client.tickets().size() << ", сервер ждёт " << server.timeout() << " мс" << endl;
 	}
@@ -557,7 +557,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить и завести стороны не удалось: наборы издания 1.2 и пределы 0x0303
-		if(!arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, true) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
+		if(!__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, true) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
 			// Выводим сообщение об отказе
 			cout << "Настроить и завести стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -566,15 +566,15 @@ int main(int argc, char * argv[]) noexcept {
 		// Путь между сторонами
 		path_t path;
 		// Переносим приветствие клиента серверу
-		carry(client, server, path, false);
+		__nts_carry__(client, server, path, false);
 		// Дейтаграммы ответа сервера
 		vector <vector <uint8_t>> answer;
 		// Снимаем ответ сервера
-		drain(server, answer);
+		__nts_drain__(server, answer);
 		// Обвязка куска первого сообщения ответа
 		datagram::fragment_t fragment;
 		// Если ответ сервера не просьба подтвердить адрес
-		if((answer.size() != 1) || !heading(answer[0], fragment) || (fragment.type != handshake::type_t::VERIFY_REQUEST)){
+		if((answer.size() != 1) || !__nts_heading__(answer[0], fragment) || (fragment.type != handshake::type_t::VERIFY_REQUEST)){
 			// Выводим сообщение о расхождении
 			cout << "Первый ответ сервера не HelloVerifyRequest" << endl;
 			// Выходим из приложения с признаком отказа
@@ -585,7 +585,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Подаём просьбу клиенту
 		client.push(view_t(answer[0].data(), answer[0].size()));
 		// Доводим рукопожатие до тишины
-		const size_t rounds = converse(client, server, path);
+		const size_t rounds = __nts_converse__(client, server, path);
 		// Если рукопожатие не пройдено
 		if(!client.established() || !server.established() || (client.version() != 0x0303)){
 			// Выводим сообщение об отказе
@@ -596,7 +596,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим итог рукопожатия
 		cout << "Рукопожатие         : пройдено за " << rounds << " круга, издание 0x" << hex << uppercase << client.version() << dec << " (DTLS 1.2), набор 0x" << hex << uppercase << static_cast <uint16_t> (client.suite()) << dec << ", дейтаграмм " << path.moved << endl;
 		// Если обмен прикладными данными не удался
-		if(!exchange(client, server, path)){
+		if(!__nts_exchange__(client, server, path)){
 			// Выводим сообщение об отказе обмена
 			cout << "Обмен прикладными данными не удался" << endl;
 			// Выходим из приложения с признаком отказа
@@ -605,7 +605,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Закрываем связь клиентом
 		client.close();
 		// Доставляем извещение о закрытии
-		converse(client, server, path);
+		__nts_converse__(client, server, path);
 		// Выводим состояние сервера после закрытия
 		cout << "Закрытие связи      : " << ((server.state() == context::state_t::CLOSED) ? "сервер извещён клиентом" : "извещение не дошло") << endl;
 	}
@@ -617,7 +617,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить стороны не удалось
-		if(!arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, true)){
+		if(!__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, true)){
 			// Выводим сообщение об отказе
 			cout << "Настроить стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -635,7 +635,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Путь между сторонами
 		path_t path;
 		// Доводим до обрыва
-		converse(client, server, path);
+		__nts_converse__(client, server, path);
 		// Если сервер не оборвал связь изданием
 		if((server.error() != context::error_t::VERSION) || (server.alert().description != alert::description_t::VERSION)){
 			// Выводим сообщение о расхождении

@@ -472,7 +472,7 @@ namespace {
 	 * @return       количество разрядов перебора: объявленная длина показателя группы либо длина поданного, если он шире
 	 *
 	 */
-	static size_t sweep(const group_t * group, const view_t & secret) noexcept {
+	static size_t __nts_sweep__(const group_t * group, const view_t & secret) noexcept {
 		// Ширина поданного показателя в разрядах
 		const size_t given = (secret.size * 8);
 		// Выводим большую из ширин: своя сторона всегда укладывается в объявленную
@@ -485,9 +485,9 @@ namespace {
 	 * @return     описание группы либо nullptr
 	 *
 	 */
-	static const group_t * lookup(const size_t size) noexcept {
+	static const group_t * __nts_lookup__(const size_t size) noexcept {
 		/**
-		 * Выполняем перебор групп
+		 * Перебираем группы
 		 */
 		for(size_t i = 0; i < (sizeof(GROUPS) / sizeof(GROUPS[0])); i++){
 			// Если длина модуля совпала
@@ -532,9 +532,9 @@ namespace {
 	 * @return     описание группы либо nullptr
 	 *
 	 */
-	static const group3526_t * lookup3526(const uint8_t id) noexcept {
+	static const group3526_t * __nts_lookup3526__(const uint8_t id) noexcept {
 		/**
-		 * Выполняем перебор групп
+		 * Перебираем группы
 		 */
 		for(size_t i = 0; i < (sizeof(GROUPS3526) / sizeof(GROUPS3526[0])); i++){
 			// Если опознаватель совпал
@@ -555,7 +555,7 @@ namespace {
 	 * @return      признак попадания в интервал (1, edge)
 	 *
 	 */
-	static bool inside(const math::integer_t & value, const math::integer_t & one, const math::integer_t & edge) noexcept {
+	static bool __nts_inside__(const math::integer_t & value, const math::integer_t & one, const math::integer_t & edge) noexcept {
 		// Строго больше единицы и строго меньше границы
 		return ((value.compare(one) > 0) && (value.compare(edge) < 0));
 	}
@@ -570,7 +570,7 @@ namespace {
  */
 view_t nts::agreement::prime(const size_t size) noexcept {
 	// Группа по длине модуля
-	const group_t * group = lookup(size);
+	const group_t * group = __nts_lookup__(size);
 	// Выводим модуль либо пустой просмотр
 	return ((group != nullptr) ? view_t(group->modulus, group->size) : view_t(nullptr, 0));
 }
@@ -583,7 +583,7 @@ view_t nts::agreement::prime(const size_t size) noexcept {
  */
 size_t nts::agreement::exponent(const size_t size) noexcept {
 	// Группа по длине модуля
-	const group_t * group = lookup(size);
+	const group_t * group = __nts_lookup__(size);
 	// Выводим длину показателя либо ноль
 	return ((group != nullptr) ? group->exponent : 0);
 }
@@ -598,7 +598,7 @@ size_t nts::agreement::exponent(const size_t size) noexcept {
  */
 bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * result) noexcept {
 	// Группа по длине модуля
-	const group_t * group = lookup(size);
+	const group_t * group = __nts_lookup__(size);
 	// Если группа неведома либо доводы не переданы
 	if((group == nullptr) || (result == nullptr) || (secret.data == nullptr) || (secret.size == 0) || (secret.size > group->size))
 		// Выводим отрицательный результат - доводы не переданы
@@ -621,7 +621,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * r
 	 * разрядов шаги по ширине модуля в 8192 разряда стоили бы секунду на рукопожатие;
 	 * своя сторона ставит старший разряд показателя, и ширина его постоянна
 	 */
-	const bool ok = (value.power(base, power, modulus, sweep(group, secret)) && value.store(result, size));
+	const bool ok = (value.power(base, power, modulus, __nts_sweep__(group, secret)) && value.store(result, size));
 	// Затираем показатель
 	wipe(&power, sizeof(power));
 	// Затираем итог
@@ -641,7 +641,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * r
  */
 bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_t & key, uint8_t * result) noexcept {
 	// Группа по длине модуля
-	const group_t * group = lookup(size);
+	const group_t * group = __nts_lookup__(size);
 	// Если группа неведома либо доводы не переданы
 	if((group == nullptr) || (result == nullptr) || (secret.data == nullptr) || (secret.size == 0) || (secret.size > group->size) || (key.data == nullptr) || (key.size != group->size))
 		// Выводим отрицательный результат - доводы не переданы
@@ -673,7 +673,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_
 	 * на всякое рукопожатие (раздел 4.2.8.1 RFC 8446 требует лишь границ)
 	 */
 	// Возводим ключ встречной стороны в свой показатель: шаги по ширине показателя, выбор окна масками
-	bool ok = value.power(peer, power, modulus, sweep(group, secret));
+	bool ok = value.power(peer, power, modulus, __nts_sweep__(group, secret));
 	// Общее значение в единицу либо в p - 1 негодно: оно означает вырожденный ключ
 	if(ok)
 		// Проверяем вырожденность
@@ -700,7 +700,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_
  */
 bool nts::agreement::pairffdhe(const size_t size, uint8_t * secret, uint8_t * key) noexcept {
 	// Группа по длине модуля
-	const group_t * group = lookup(size);
+	const group_t * group = __nts_lookup__(size);
 	// Если группа неведома либо места не переданы
 	if((group == nullptr) || (secret == nullptr) || (key == nullptr))
 		// Выводим отрицательный результат - место не передано
@@ -735,7 +735,7 @@ bool nts::agreement::pairffdhe(const size_t size, uint8_t * secret, uint8_t * ke
  */
 view_t nts::agreement::prime3526(const uint8_t id) noexcept {
 	// Группа по опознавателю
-	const group3526_t * group = lookup3526(id);
+	const group3526_t * group = __nts_lookup3526__(id);
 	// Выводим модуль либо пустой просмотр
 	return ((group != nullptr) ? view_t(group->modulus, group->size) : view_t(nullptr, 0));
 }
@@ -748,7 +748,7 @@ view_t nts::agreement::prime3526(const uint8_t id) noexcept {
  */
 size_t nts::agreement::exponent3526(const uint8_t id) noexcept {
 	// Группа по опознавателю
-	const group3526_t * group = lookup3526(id);
+	const group3526_t * group = __nts_lookup3526__(id);
 	// Выводим длину показателя либо ноль
 	return ((group != nullptr) ? group->exponent : 0);
 }
@@ -784,7 +784,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Образующая и показатель должны лежать в (1, p − 1)
-	if(!inside(base, one, edge) || !inside(power, one, edge))
+	if(!__nts_inside__(base, one, edge) || !__nts_inside__(power, one, edge))
 		// Выводим отрицательный результат - значения вне границ
 		return false;
 	// Количество разрядов перебора по длине поданного показателя
@@ -794,7 +794,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	// Вырожденный итог (1 либо p − 1) не годится
 	if(ok)
 		// Проверяем итог и записываем его длиной в модуль
-		ok = (inside(value, one, edge) && value.store(result, prime.size));
+		ok = (__nts_inside__(value, one, edge) && value.store(result, prime.size));
 	// Затираем показатель
 	wipe(&power, sizeof(power));
 	// Затираем итог
@@ -839,7 +839,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Образующая, показатель и ключ встречной стороны должны лежать в (1, p − 1)
-	if(!inside(base, one, edge) || !inside(power, one, edge) || !inside(peer, one, edge))
+	if(!__nts_inside__(base, one, edge) || !__nts_inside__(power, one, edge) || !__nts_inside__(peer, one, edge))
 		// Выводим отрицательный результат - значения вне границ
 		return false;
 	// Количество разрядов перебора по длине поданного показателя
@@ -849,7 +849,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	// Вырожденный итог (1 либо p − 1) не годится
 	if(ok)
 		// Проверяем итог и записываем его длиной в модуль
-		ok = (inside(value, one, edge) && value.store(result, prime.size));
+		ok = (__nts_inside__(value, one, edge) && value.store(result, prime.size));
 	// Затираем показатель
 	wipe(&power, sizeof(power));
 	// Затираем итог
@@ -890,7 +890,7 @@ bool nts::agreement::pairffdhe(const view_t & prime, const view_t & generator, c
 	// Значение-единица поля
 	one.word(1);
 	// Граница p − 1
-	if(!edge.subtract(modulus, one) || !inside(base, one, edge))
+	if(!edge.subtract(modulus, one) || !__nts_inside__(base, one, edge))
 		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Если случайные байты показателя получить не удалось
@@ -910,7 +910,7 @@ bool nts::agreement::pairffdhe(const view_t & prime, const view_t & generator, c
 	 * двойки сверху и выхода не бывает. Вышедший за границу показатель уводится внутрь
 	 * снятием разряда - вдвое меньший показатель заведомо меньше модуля своей длины
 	 */
-	if(!exponent.load(view_t(secret, length)) || !inside(exponent, one, edge))
+	if(!exponent.load(view_t(secret, length)) || !__nts_inside__(exponent, one, edge))
 		// Снимаем старший разряд показателя
 		secret[0] &= 0x7F;
 	// Затираем показатель разбора

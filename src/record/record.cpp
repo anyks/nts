@@ -98,9 +98,9 @@ namespace {
 	 * @return        признак того, что версия протокола определена
 	 *
 	 */
-	static bool suitable(const version_t version) noexcept {
+	static bool __nts_suitable__(const version_t version) noexcept {
 		/**
-		 * Выполняем определение версии протокола
+		 * Определяем версию протокола
 		 */
 		switch(static_cast <uint16_t> (version)){
 			// Если это одно из известных изданий протокола
@@ -126,7 +126,7 @@ namespace {
  */
 bool nts::record::known(const type_t type) noexcept {
 	/**
-	 * Выполняем определение вида содержимого записи
+	 * Определяем вид содержимого записи
 	 */
 	switch(static_cast <uint8_t> (type)){
 		// Если это один из известных видов содержимого записи
@@ -218,7 +218,7 @@ nts::record::error_t nts::record::build(const header_t & header, uint8_t * resul
 		// Выводим отказ неизвестности вида содержимого записи
 		return error_t::TYPE;
 	// Если версия протокола неизвестна
-	if(!suitable(header.version))
+	if(!__nts_suitable__(header.version))
 		// Выводим отказ неизвестности версии протокола
 		return error_t::VERSION;
 	// Если длина содержимого записи превышает предел протокола
@@ -489,7 +489,7 @@ nts::record::error_t nts::record::Writer::push(const type_t type, const version_
 		// Выводим отказ неизвестности вида содержимого записи
 		return error_t::TYPE;
 	// Если версия протокола неизвестна
-	if(!suitable(version))
+	if(!__nts_suitable__(version))
 		// Выводим отказ неизвестности версии протокола
 		return error_t::VERSION;
 	// Получаем объём нарезаемых на записи данных
@@ -513,7 +513,7 @@ nts::record::error_t nts::record::Writer::push(const type_t type, const version_
 	 */
 	try {
 		/**
-		 * Выполняем нарезку данных на записи дозволенной длины
+		 * Нарезаем данные на записи дозволенной длины
 		 */
 		do {
 			// Определяем длину содержимого очередной записи

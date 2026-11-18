@@ -67,11 +67,11 @@ namespace {
 	 * @param size  длина области
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Печатаем подпись
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Печатаем байт
@@ -87,9 +87,9 @@ namespace {
 	 * @return     признак того, что все байты области нулевые
 	 *
 	 */
-	bool blank(const uint8_t * data, const size_t size) noexcept {
+	bool __nts_blank__(const uint8_t * data, const size_t size) noexcept {
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Если байт не нулевой
@@ -115,7 +115,7 @@ namespace {
 			// Печатаем отсутствие затираний
 			cout << "ничего";
 		/**
-		 * Выполняем перебор классов
+		 * Перебираем классов
 		 */
 		for(size_t i = 0; i < classes.size(); i++)
 			// Печатаем класс
@@ -126,7 +126,7 @@ namespace {
 };
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы
@@ -153,11 +153,11 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем ключ
-	::print("Ключ до затирания   ", key, 32);
+	::__nts_print__("Ключ до затирания   ", key, 32);
 	// Затираем ключ: ровно тридцать два байта, сторожевые остаются
 	sys::wipe(key, 32);
 	// Печатаем итог затирания
-	cout << "Ключ затёрт         : " << (::blank(key, 32) ? "да" : "нет") << ", сторожевые байты целы: " << (((area[7] == 0xA5) && (area[40] == 0xA5)) ? "да" : "нет") << endl;
+	cout << "Ключ затёрт         : " << (::__nts_blank__(key, 32) ? "да" : "нет") << ", сторожевые байты целы: " << (((area[7] == 0xA5) && (area[40] == 0xA5)) ? "да" : "нет") << endl;
 	/**
 	 * Набор байтов и строка затираются с опустошением: буфер остаётся у контейнера
 	 * нулевым, а ёмкость не меняется - следующая тайна ляжет в тот же буфер
@@ -187,7 +187,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Миг начала замера
 	const auto started = chrono::steady_clock::now();
 	/**
-	 * Выполняем круги затирания
+	 * Гоняем круги затирания
 	 */
 	for(size_t i = 0; i < rounds; i++){
 		// Портим один байт, чтобы затирание было не пустым

@@ -73,7 +73,7 @@ namespace {
 	 * @return       признак успешности зашифрования
 	 *
 	 */
-	static bool encryptMagma(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_encrypt_magma__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Зашифрование блока шифром «Магма»
 		return reinterpret_cast <const magma_t *> (cipher)->encrypt(source, result);
 	}
@@ -86,7 +86,7 @@ namespace {
 	 * @return       признак успешности расшифрования
 	 *
 	 */
-	static bool decryptMagma(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_decrypt_magma__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Расшифрование блока шифром «Магма»
 		return reinterpret_cast <const magma_t *> (cipher)->decrypt(source, result);
 	}
@@ -99,7 +99,7 @@ namespace {
 	 * @return       признак успешности зашифрования
 	 *
 	 */
-	static bool encryptKuznyechik(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_encrypt_kuznyechik__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Зашифрование блока шифром «Кузнечик»
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->encrypt(source, result);
 	}
@@ -112,7 +112,7 @@ namespace {
 	 * @return       признак успешности расшифрования
 	 *
 	 */
-	static bool decryptKuznyechik(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_decrypt_kuznyechik__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Расшифрование блока шифром «Кузнечик»
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->decrypt(source, result);
 	}
@@ -125,7 +125,7 @@ namespace {
 	 * @return       признак успешности зашифрования
 	 *
 	 */
-	static bool encryptAes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_encrypt_aes__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Зашифрование блока шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->encrypt(source, result);
 	}
@@ -138,7 +138,7 @@ namespace {
 	 * @return       признак успешности расшифрования
 	 *
 	 */
-	static bool decryptAes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_decrypt_aes__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Расшифрование блока шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->decrypt(source, result);
 	}
@@ -152,7 +152,7 @@ namespace {
 	 * @return        признак успешности зашифрования
 	 *
 	 */
-	static bool batchMagma(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
+	static bool __nts_batch_magma__(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
 		// Зашифрование блоков шифром «Магма»
 		return reinterpret_cast <const magma_t *> (cipher)->batch(sources, blocks, results);
 	}
@@ -166,7 +166,7 @@ namespace {
 	 * @return        признак успешности зашифрования
 	 *
 	 */
-	static bool batchKuznyechik(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
+	static bool __nts_batch_kuznyechik__(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
 		// Зашифрование блоков шифром «Кузнечик»
 		return reinterpret_cast <const kuznyechik_t *> (cipher)->batch(sources, blocks, results);
 	}
@@ -180,7 +180,7 @@ namespace {
 	 * @return        признак успешности зашифрования
 	 *
 	 */
-	static bool batchAes(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
+	static bool __nts_batch_aes__(const void * cipher, const uint8_t * sources, const size_t blocks, uint8_t * results) noexcept {
 		// Зашифрование блоков шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->batch(sources, blocks, results);
 	}
@@ -195,7 +195,7 @@ namespace {
 	 * @return        признак успешности выработки
 	 *
 	 */
-	static bool streamAes(const void * cipher, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_stream_aes__(const void * cipher, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
 		// Выработка гаммы шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->stream(counter, blocks, source, result);
 	}
@@ -210,7 +210,7 @@ namespace {
 	 * @return       признак успешности зашифрования
 	 *
 	 */
-	static bool chainAes(const void * cipher, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
+	static bool __nts_chain_aes__(const void * cipher, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
 		// Зашифрование цепочкой сцепления шифром AES
 		return reinterpret_cast <const aes_t *> (cipher)->chain(record, source, size, result);
 	}
@@ -223,7 +223,7 @@ namespace {
 	 * @return       признак успешности зашифрования
 	 *
 	 */
-	static bool encryptSm4(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_encrypt_sm4__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Зашифрование блока шифром SM4
 		return reinterpret_cast <const sm4_t *> (cipher)->encrypt(source, result);
 	}
@@ -236,7 +236,7 @@ namespace {
 	 * @return       признак успешности расшифрования
 	 *
 	 */
-	static bool decryptSm4(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_decrypt_sm4__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Расшифрование блока шифром SM4
 		return reinterpret_cast <const sm4_t *> (cipher)->decrypt(source, result);
 	}
@@ -249,7 +249,7 @@ namespace {
 	 * @return       признак успешности зашифрования
 	 *
 	 */
-	static bool encryptDes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_encrypt_des__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Зашифрование блока шифром DES и 3DES
 		return reinterpret_cast <const des_t *> (cipher)->encrypt(source, result);
 	}
@@ -262,7 +262,7 @@ namespace {
 	 * @return       признак успешности расшифрования
 	 *
 	 */
-	static bool decryptDes(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_decrypt_des__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Расшифрование блока шифром DES и 3DES
 		return reinterpret_cast <const des_t *> (cipher)->decrypt(source, result);
 	}
@@ -274,9 +274,9 @@ namespace {
 	 * @param right  место правой половины блока
 	 *
 	 */
-	static void fetchBlowfish(const uint8_t * source, uint32_t * left, uint32_t * right) noexcept {
+	static void __nts_fetch_blowfish__(const uint8_t * source, uint32_t * left, uint32_t * right) noexcept {
 		/**
-		 * Выполняем разбор обеих половин блока от старшего байта к младшему
+		 * Разбираем обе половины блока от старшего байта к младшему
 		 */
 		for(size_t i = 0; i < 4; i++){
 			// Сдвигаем левую половину на байт и дополняем очередным байтом блока
@@ -293,9 +293,9 @@ namespace {
 	 * @param result место, в которое записывается блок в восемь байтов
 	 *
 	 */
-	static void storeBlowfish(const uint32_t left, const uint32_t right, uint8_t * result) noexcept {
+	static void __nts_store_blowfish__(const uint32_t left, const uint32_t right, uint8_t * result) noexcept {
 		/**
-		 * Выполняем запись обеих половин блока от старшего байта к младшему
+		 * Записываем обе половины блока от старшего байта к младшему
 		 */
 		for(size_t i = 0; i < 4; i++){
 			// Записываем очередной байт левой половины
@@ -313,17 +313,17 @@ namespace {
 	 * @return       признак успешности зашифрования
 	 *
 	 */
-	static bool encryptBlowfish(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_encrypt_blowfish__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Левая половина зашифровываемого блока
 		uint32_t left = 0;
 		// Правая половина зашифровываемого блока
 		uint32_t right = 0;
 		// Разбор зашифровываемого блока на две половины
-		fetchBlowfish(source, &left, &right);
+		__nts_fetch_blowfish__(source, &left, &right);
 		// Зашифрование блока шифром Blowfish
 		encipher(reinterpret_cast <const blowfish_t *> (cipher), &left, &right);
 		// Запись зашифрованного блока байтами
-		storeBlowfish(left, right, result);
+		__nts_store_blowfish__(left, right, result);
 		// Выводим успешность зашифрования
 		return true;
 	}
@@ -336,17 +336,17 @@ namespace {
 	 * @return       признак успешности расшифрования
 	 *
 	 */
-	static bool decryptBlowfish(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
+	static bool __nts_decrypt_blowfish__(const void * cipher, const uint8_t * source, uint8_t * result) noexcept {
 		// Левая половина расшифровываемого блока
 		uint32_t left = 0;
 		// Правая половина расшифровываемого блока
 		uint32_t right = 0;
 		// Разбор расшифровываемого блока на две половины
-		fetchBlowfish(source, &left, &right);
+		__nts_fetch_blowfish__(source, &left, &right);
 		// Расшифрование блока шифром Blowfish
 		decipher(reinterpret_cast <const blowfish_t *> (cipher), &left, &right);
 		// Запись расшифрованного блока байтами
-		storeBlowfish(left, right, result);
+		__nts_store_blowfish__(left, right, result);
 		// Выводим успешность расшифрования
 		return true;
 	}
@@ -359,7 +359,7 @@ namespace {
 	 * @return      признак пригодности базового алгоритма блочного шифрования
 	 *
 	 */
-	static bool suitable(const block_t & block) noexcept {
+	static bool __nts_suitable__(const block_t & block) noexcept {
 		// Выводим признак пригодности базового алгоритма блочного шифрования
 		return (
 			(block.cipher != nullptr) && (block.encrypt != nullptr) &&
@@ -378,7 +378,7 @@ namespace {
 	 * @param size   размер записываемого в регистр значения
 	 *
 	 */
-	static void shift(uint8_t * data, const size_t length, const uint8_t * value, const size_t size) noexcept {
+	static void __nts_shift__(uint8_t * data, const size_t length, const uint8_t * value, const size_t size) noexcept {
 		// Если сдвиг не занимает регистр целиком
 		if(size < length)
 			// Сдвиг оставшегося заполнения регистра
@@ -395,9 +395,9 @@ namespace {
 	 * @param size   размер складываемых блоков
 	 *
 	 */
-	static void add(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
+	static void __nts_add__(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
 		/**
-		 * Выполняем перебор байтов складываемых блоков
+		 * Перебираем байты складываемых блоков
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Складываем очередные байты блоков по модулю два
@@ -419,7 +419,7 @@ nts::cipher::Block::Block() noexcept :
  *
  */
 nts::cipher::Block::Block(const magma_t & cipher) noexcept :
-	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&encryptMagma), decrypt(&decryptMagma), stream(nullptr), batch(&batchMagma), chain(nullptr), schedule(nullptr), rounds(0) {}
+	size(MAGMA_BLOCK), cipher(&cipher), encrypt(&__nts_encrypt_magma__), decrypt(&__nts_decrypt_magma__), stream(nullptr), batch(&__nts_batch_magma__), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -427,7 +427,7 @@ nts::cipher::Block::Block(const magma_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
-	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&encryptKuznyechik), decrypt(&decryptKuznyechik), stream(nullptr), batch(&batchKuznyechik), chain(nullptr), schedule(nullptr), rounds(0) {}
+	size(KUZNYECHIK_BLOCK), cipher(&cipher), encrypt(&__nts_encrypt_kuznyechik__), decrypt(&__nts_decrypt_kuznyechik__), stream(nullptr), batch(&__nts_batch_kuznyechik__), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -435,7 +435,7 @@ nts::cipher::Block::Block(const kuznyechik_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const aes_t & cipher) noexcept :
-	size(AES_BLOCK), cipher(&cipher), encrypt(&encryptAes), decrypt(&decryptAes), stream(&streamAes), batch(&batchAes), chain(&chainAes), schedule(cipher.schedule()), rounds(cipher.rounds()) {}
+	size(AES_BLOCK), cipher(&cipher), encrypt(&__nts_encrypt_aes__), decrypt(&__nts_decrypt_aes__), stream(&__nts_stream_aes__), batch(&__nts_batch_aes__), chain(&__nts_chain_aes__), schedule(cipher.schedule()), rounds(cipher.rounds()) {}
 /**
  * @brief Конструктор
  *
@@ -443,7 +443,7 @@ nts::cipher::Block::Block(const aes_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const sm4_t & cipher) noexcept :
-	size(SM4_BLOCK), cipher(&cipher), encrypt(&encryptSm4), decrypt(&decryptSm4), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
+	size(SM4_BLOCK), cipher(&cipher), encrypt(&__nts_encrypt_sm4__), decrypt(&__nts_decrypt_sm4__), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -451,7 +451,7 @@ nts::cipher::Block::Block(const sm4_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const des_t & cipher) noexcept :
-	size(DES_BLOCK), cipher(&cipher), encrypt(&encryptDes), decrypt(&decryptDes), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
+	size(DES_BLOCK), cipher(&cipher), encrypt(&__nts_encrypt_des__), decrypt(&__nts_decrypt_des__), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Конструктор
  *
@@ -459,7 +459,7 @@ nts::cipher::Block::Block(const des_t & cipher) noexcept :
  *
  */
 nts::cipher::Block::Block(const blowfish_t & cipher) noexcept :
-	size(BLOWFISH_BLOCK), cipher(&cipher), encrypt(&encryptBlowfish), decrypt(&decryptBlowfish), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
+	size(BLOWFISH_BLOCK), cipher(&cipher), encrypt(&__nts_encrypt_blowfish__), decrypt(&__nts_decrypt_blowfish__), stream(nullptr), batch(nullptr), chain(nullptr), schedule(nullptr), rounds(0) {}
 /**
  * @brief Метод проверки готовности режима к работе
  *
@@ -481,7 +481,7 @@ bool nts::cipher::Codebook::start(const block_t & block) noexcept {
 	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
-	if(!suitable(block))
+	if(!__nts_suitable__(block))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Запоминаем базовый алгоритм блочного шифрования
@@ -519,7 +519,7 @@ bool nts::cipher::Codebook::encrypt(const view_t & source, uint8_t * result) noe
 		// Выводим отказ зашифрования
 		return false;
 	/**
-	 * Выполняем перебор блоков зашифровываемого сообщения
+	 * Перебираем блоки зашифровываемого сообщения
 	 */
 	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
 		// Зашифрование очередного блока сообщения
@@ -548,7 +548,7 @@ bool nts::cipher::Codebook::decrypt(const view_t & source, uint8_t * result) noe
 		// Выводим отказ расшифрования
 		return false;
 	/**
-	 * Выполняем перебор блоков расшифровываемого шифртекста
+	 * Перебираем блоки расшифровываемого шифртекста
 	 */
 	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
 		// Расшифрование очередного блока шифртекста
@@ -586,16 +586,16 @@ bool nts::cipher::Counter::ready() const noexcept {
  * @brief Метод запуска режима работы
  *
  * @param block базовый алгоритм блочного шифрования
- * @param iv    синхропосылка длиной в половину блока шифра
+ * @param initVector    синхропосылка длиной в половину блока шифра
  * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
  * @return      признак успешности запуска режима работы
  *
  */
-bool nts::cipher::Counter::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+bool nts::cipher::Counter::start(const block_t & block, const view_t & initVector, const size_t size) noexcept {
 	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
-	if(!suitable(block))
+	if(!__nts_suitable__(block))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Определяем требуемый размер блока гаммы
@@ -605,7 +605,7 @@ bool nts::cipher::Counter::start(const block_t & block, const view_t & iv, const
 		// Выводим отказ запуска режима работы
 		return false;
 	// Если синхропосылка не занимает половину блока шифра
-	if((iv.data == nullptr) || (iv.size != (block.size / 2)))
+	if((initVector.data == nullptr) || (initVector.size != (block.size / 2)))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Запоминаем базовый алгоритм блочного шифрования
@@ -616,7 +616,7 @@ bool nts::cipher::Counter::start(const block_t & block, const view_t & iv, const
 	 * Начальным значением счётчика служит синхропосылка, дополненная нулями до
 	 * длины блока шифра: это и есть процедура инициализации In раздела 5.2
 	 */
-	::memcpy(this->_counter, iv.data, iv.size);
+	::memcpy(this->_counter, initVector.data, initVector.size);
 	// Устанавливаем признак готовности режима к работе
 	this->_ready = true;
 	// Выводим успешность запуска режима работы
@@ -669,7 +669,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		// Основание счётчика для ядра: ядро начинает с приращения, оттого младшие четыре байта на единицу меньше
 		uint8_t base[16];
 		/**
-		 * Выполняем покрытие целых блоков вызовами ядра
+		 * Покрываем целые блоки вызовами ядра
 		 */
 		while((source.size - offset) >= 16){
 			// Младшие 32 разряда счётчика от старшего байта
@@ -704,7 +704,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 			// Перенос при продвижении счётчика на выработанные блоки
 			uint64_t carry = static_cast <uint64_t> (count);
 			/**
-			 * Выполняем продвижение счётчика как числа от старшего байта с переносом через все байты
+			 * Продвигаем счётчик как число от старшего байта с переносом через все байты
 			 */
 			for(size_t i = 16; (i > 0) && (carry > 0); i--){
 				// Складываем очередной байт с переносом
@@ -730,13 +730,13 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		// Четыре выхода базового алгоритма блочного шифрования
 		uint8_t buffer[4 * MODE_BLOCK];
 		/**
-		 * Выполняем заполнение четырёх счётчиков
+		 * Заполняем четыре счётчика
 		 */
 		for(size_t k = 0; k < 4; k++){
 			// Записываем текущее значение счётчика
 			::memcpy(counters + (k * this->_block.size), this->_counter, this->_block.size);
 			/**
-			 * Выполняем увеличение счётчика на единицу от младшего байта
+			 * Увеличиваем счётчик на единицу от младшего байта
 			 */
 			for(size_t i = this->_block.size; i > 0; i--){
 				// Если очередной байт счётчика переполнения не даёт
@@ -754,14 +754,14 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 			return false;
 		}
 		/**
-		 * Выполняем наложение четырёх блоков гаммы: от всякого выхода шифра берётся
+		 * Накладываем четыре блока гаммы: от всякого выхода шифра берётся
 		 * усечение до размера блока гаммы
 		 */
 		for(size_t k = 0; k < 4; k++){
 			// Выход шифра очередного счётчика
 			const uint8_t * gamma = (buffer + (k * this->_block.size));
 			/**
-			 * Выполняем наложение блока гаммы
+			 * Накладываем блок гаммы
 			 */
 			for(size_t i = 0; i < this->_size; i++)
 				// Складываем очередные байты по модулю два
@@ -774,7 +774,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		wipe(buffer, sizeof(buffer));
 	}
 	/**
-	 * Выполняем обработку сообщения до его исчерпания
+	 * Обрабатываем сообщение до его исчерпания
 	 */
 	while(offset < source.size){
 		// Если блок гаммы шифра израсходован
@@ -792,7 +792,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 			// Восстанавливаем количество неизрасходованных байтов блока гаммы
 			this->_rest = this->_size;
 			/**
-			 * Выполняем увеличение счётчика на единицу как числа, записанного от
+			 * Увеличиваем счётчик на единицу как числа, записанного от
 			 * старшего байта к младшему
 			 */
 			for(size_t i = this->_block.size; i > 0; i--){
@@ -805,7 +805,7 @@ bool nts::cipher::Counter::encrypt(const view_t & source, uint8_t * result) noex
 		// Определяем количество байтов, обрабатываемых текущим блоком гаммы
 		const size_t count = ((source.size - offset) < this->_rest ? (source.size - offset) : this->_rest);
 		// Сложение куска сообщения с гаммой шифра
-		add(source.data + offset, this->_gamma + (this->_size - this->_rest), result + offset, count);
+		__nts_add__(source.data + offset, this->_gamma + (this->_size - this->_rest), result + offset, count);
 		// Уменьшаем количество неизрасходованных байтов блока гаммы
 		this->_rest -= count;
 		// Увеличиваем количество обработанных байтов сообщения
@@ -858,16 +858,16 @@ bool nts::cipher::Output::ready() const noexcept {
  * @brief Метод запуска режима работы
  *
  * @param block базовый алгоритм блочного шифрования
- * @param iv    синхропосылка длиной в целое число блоков шифра
+ * @param initVector    синхропосылка длиной в целое число блоков шифра
  * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
  * @return      признак успешности запуска режима работы
  *
  */
-bool nts::cipher::Output::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+bool nts::cipher::Output::start(const block_t & block, const view_t & initVector, const size_t size) noexcept {
 	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
-	if(!suitable(block))
+	if(!__nts_suitable__(block))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Определяем требуемый размер блока гаммы
@@ -877,7 +877,7 @@ bool nts::cipher::Output::start(const block_t & block, const view_t & iv, const 
 		// Выводим отказ запуска режима работы
 		return false;
 	// Если синхропосылка не занимает целого количества блоков шифра
-	if((iv.data == nullptr) || (iv.size < block.size) || ((iv.size % block.size) != 0) || (iv.size > MODE_REGISTER))
+	if((initVector.data == nullptr) || (initVector.size < block.size) || ((initVector.size % block.size) != 0) || (initVector.size > MODE_REGISTER))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Запоминаем базовый алгоритм блочного шифрования
@@ -885,9 +885,9 @@ bool nts::cipher::Output::start(const block_t & block, const view_t & iv, const 
 	// Запоминаем размер блока гаммы
 	this->_size = gamma;
 	// Запоминаем длину регистра сдвига
-	this->_length = iv.size;
+	this->_length = initVector.size;
 	// Начальным заполнением регистра сдвига служит синхропосылка
-	::memcpy(this->_register, iv.data, iv.size);
+	::memcpy(this->_register, initVector.data, initVector.size);
 	// Устанавливаем признак готовности режима к работе
 	this->_ready = true;
 	// Выводим успешность запуска режима работы
@@ -929,7 +929,7 @@ bool nts::cipher::Output::encrypt(const view_t & source, uint8_t * result) noexc
 	// Количество уже обработанных байтов сообщения
 	size_t offset = 0;
 	/**
-	 * Выполняем обработку сообщения до его исчерпания
+	 * Обрабатываем сообщение до его исчерпания
 	 */
 	while(offset < source.size){
 		// Если блок гаммы шифра израсходован
@@ -943,7 +943,7 @@ bool nts::cipher::Output::encrypt(const view_t & source, uint8_t * result) noexc
 			// Усечение выхода шифра до размера блока гаммы
 			::memcpy(this->_gamma, buffer, this->_size);
 			// Записываем выход шифра в разряды регистра с меньшими номерами
-			shift(this->_register, this->_length, buffer, this->_block.size);
+			__nts_shift__(this->_register, this->_length, buffer, this->_block.size);
 			// Затирание выхода базового алгоритма блочного шифрования
 			wipe(buffer, sizeof(buffer));
 			// Восстанавливаем количество неизрасходованных байтов блока гаммы
@@ -952,7 +952,7 @@ bool nts::cipher::Output::encrypt(const view_t & source, uint8_t * result) noexc
 		// Определяем количество байтов, обрабатываемых текущим блоком гаммы
 		const size_t count = ((source.size - offset) < this->_rest ? (source.size - offset) : this->_rest);
 		// Сложение куска сообщения с гаммой шифра
-		add(source.data + offset, this->_gamma + (this->_size - this->_rest), result + offset, count);
+		__nts_add__(source.data + offset, this->_gamma + (this->_size - this->_rest), result + offset, count);
 		// Уменьшаем количество неизрасходованных байтов блока гаммы
 		this->_rest -= count;
 		// Увеличиваем количество обработанных байтов сообщения
@@ -1005,27 +1005,27 @@ bool nts::cipher::Chaining::ready() const noexcept {
  * @brief Метод запуска режима работы
  *
  * @param block базовый алгоритм блочного шифрования
- * @param iv    синхропосылка длиной в целое число блоков шифра
+ * @param initVector    синхропосылка длиной в целое число блоков шифра
  * @return      признак успешности запуска режима работы
  *
  */
-bool nts::cipher::Chaining::start(const block_t & block, const view_t & iv) noexcept {
+bool nts::cipher::Chaining::start(const block_t & block, const view_t & initVector) noexcept {
 	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
-	if(!suitable(block))
+	if(!__nts_suitable__(block))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Если синхропосылка не занимает целого количества блоков шифра
-	if((iv.data == nullptr) || (iv.size < block.size) || ((iv.size % block.size) != 0) || (iv.size > MODE_REGISTER))
+	if((initVector.data == nullptr) || (initVector.size < block.size) || ((initVector.size % block.size) != 0) || (initVector.size > MODE_REGISTER))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Запоминаем базовый алгоритм блочного шифрования
 	this->_block = block;
 	// Запоминаем длину регистра сдвига
-	this->_length = iv.size;
+	this->_length = initVector.size;
 	// Начальным заполнением регистра сдвига служит синхропосылка
-	::memcpy(this->_register, iv.data, iv.size);
+	::memcpy(this->_register, initVector.data, initVector.size);
 	// Устанавливаем признак готовности режима к работе
 	this->_ready = true;
 	// Выводим успешность запуска режима работы
@@ -1067,13 +1067,13 @@ bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noe
 		// Выводим успешность зашифрования
 		return true;
 	/**
-	 * Выполняем перебор блоков зашифровываемого сообщения
+	 * Перебираем блоки зашифровываемого сообщения
 	 */
 	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
 		// Блок, подаваемый базовому алгоритму блочного шифрования
 		uint8_t buffer[MODE_BLOCK];
 		// Складываем блок сообщения со старшими разрядами регистра сдвига
-		add(source.data + offset, this->_register, buffer, this->_block.size);
+		__nts_add__(source.data + offset, this->_register, buffer, this->_block.size);
 		// Зашифрование полученного блока
 		if(!this->_block.encrypt(this->_block.cipher, buffer, buffer)){
 			// Затирание блока, подаваемого базовому алгоритму
@@ -1082,7 +1082,7 @@ bool nts::cipher::Chaining::encrypt(const view_t & source, uint8_t * result) noe
 			return false;
 		}
 		// Записываем блок шифртекста в разряды регистра с меньшими номерами
-		shift(this->_register, this->_length, buffer, this->_block.size);
+		__nts_shift__(this->_register, this->_length, buffer, this->_block.size);
 		// Записываем блок шифртекста в место итога
 		::memcpy(result + offset, buffer, this->_block.size);
 		// Затирание блока, подаваемого базовому алгоритму
@@ -1109,7 +1109,7 @@ bool nts::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noe
 		// Выводим отказ расшифрования
 		return false;
 	/**
-	 * Выполняем перебор блоков расшифровываемого шифртекста
+	 * Перебираем блоки расшифровываемого шифртекста
 	 */
 	for(size_t offset = 0; offset < source.size; offset += this->_block.size){
 		// Блок, в который помещается выход базового алгоритма блочного шифрования
@@ -1131,9 +1131,9 @@ bool nts::cipher::Chaining::decrypt(const view_t & source, uint8_t * result) noe
 			return false;
 		}
 		// Складываем выход шифра со старшими разрядами регистра сдвига
-		add(buffer, this->_register, result + offset, this->_block.size);
+		__nts_add__(buffer, this->_register, result + offset, this->_block.size);
 		// Записываем блок шифртекста в разряды регистра с меньшими номерами
-		shift(this->_register, this->_length, item, this->_block.size);
+		__nts_shift__(this->_register, this->_length, item, this->_block.size);
 		// Затирание блока шифртекста
 		wipe(item, sizeof(item));
 		// Затирание выхода базового алгоритма блочного шифрования
@@ -1172,16 +1172,16 @@ bool nts::cipher::Feedback::ready() const noexcept {
  * @brief Метод запуска режима работы
  *
  * @param block базовый алгоритм блочного шифрования
- * @param iv    синхропосылка длиной не менее длины блока шифра
+ * @param initVector    синхропосылка длиной не менее длины блока шифра
  * @param size  размер блока гаммы в байтах, ноль означает длину блока шифра
  * @return      признак успешности запуска режима работы
  *
  */
-bool nts::cipher::Feedback::start(const block_t & block, const view_t & iv, const size_t size) noexcept {
+bool nts::cipher::Feedback::start(const block_t & block, const view_t & initVector, const size_t size) noexcept {
 	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
-	if(!suitable(block))
+	if(!__nts_suitable__(block))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Определяем требуемый размер блока гаммы
@@ -1191,7 +1191,7 @@ bool nts::cipher::Feedback::start(const block_t & block, const view_t & iv, cons
 		// Выводим отказ запуска режима работы
 		return false;
 	// Если синхропосылка короче длины блока шифра
-	if((iv.data == nullptr) || (iv.size < block.size) || (iv.size > MODE_REGISTER))
+	if((initVector.data == nullptr) || (initVector.size < block.size) || (initVector.size > MODE_REGISTER))
 		// Выводим отказ запуска режима работы
 		return false;
 	// Запоминаем базовый алгоритм блочного шифрования
@@ -1199,9 +1199,9 @@ bool nts::cipher::Feedback::start(const block_t & block, const view_t & iv, cons
 	// Запоминаем размер блока гаммы
 	this->_size = gamma;
 	// Запоминаем длину регистра сдвига
-	this->_length = iv.size;
+	this->_length = initVector.size;
 	// Начальным заполнением регистра сдвига служит синхропосылка
-	::memcpy(this->_register, iv.data, iv.size);
+	::memcpy(this->_register, initVector.data, initVector.size);
 	// Устанавливаем признак готовности режима к работе
 	this->_ready = true;
 	// Выводим успешность запуска режима работы
@@ -1243,7 +1243,7 @@ bool nts::cipher::Feedback::encrypt(const view_t & source, uint8_t * result) noe
 		// Выводим отказ зашифрования
 		return false;
 	/**
-	 * Выполняем перебор байтов зашифровываемого сообщения
+	 * Перебираем байты зашифровываемого сообщения
 	 */
 	for(size_t offset = 0; offset < source.size; offset++){
 		// Если блок гаммы шифра израсходован
@@ -1274,7 +1274,7 @@ bool nts::cipher::Feedback::encrypt(const view_t & source, uint8_t * result) noe
 		// Если блок шифртекста собран целиком
 		if(this->_rest == 0)
 			// Записываем блок шифртекста в разряды регистра с меньшими номерами
-			shift(this->_register, this->_length, this->_feedback, this->_size);
+			__nts_shift__(this->_register, this->_length, this->_feedback, this->_size);
 	}
 	// Выводим успешность зашифрования
 	return true;
@@ -1293,7 +1293,7 @@ bool nts::cipher::Feedback::decrypt(const view_t & source, uint8_t * result) noe
 		// Выводим отказ расшифрования
 		return false;
 	/**
-	 * Выполняем перебор байтов расшифровываемого шифртекста
+	 * Перебираем байты расшифровываемого шифртекста
 	 */
 	for(size_t offset = 0; offset < source.size; offset++){
 		// Если блок гаммы шифра израсходован
@@ -1322,7 +1322,7 @@ bool nts::cipher::Feedback::decrypt(const view_t & source, uint8_t * result) noe
 		// Если блок шифртекста собран целиком
 		if(this->_rest == 0)
 			// Записываем блок шифртекста в разряды регистра с меньшими номерами
-			shift(this->_register, this->_length, this->_feedback, this->_size);
+			__nts_shift__(this->_register, this->_length, this->_feedback, this->_size);
 	}
 	// Выводим успешность расшифрования
 	return true;
@@ -1368,7 +1368,7 @@ bool nts::cipher::Imitation::start(const block_t & block) noexcept {
 	// Сброс прежнего состояния режима работы
 	this->clear();
 	// Если базовый алгоритм блочного шифрования непригоден
-	if(!suitable(block))
+	if(!__nts_suitable__(block))
 		// Выводим отказ запуска режима работы
 		return false;
 	/**
@@ -1377,7 +1377,7 @@ bool nts::cipher::Imitation::start(const block_t & block) noexcept {
 	 */
 	uint8_t constant = 0;
 	/**
-	 * Выполняем выбор константы Bn по длине блока шифра
+	 * Выбираем константу Bn по длине блока шифра
 	 */
 	switch(block.size){
 		// Если длина блока шифра составляет 64 разряда
@@ -1407,7 +1407,7 @@ bool nts::cipher::Imitation::start(const block_t & block) noexcept {
 		return false;
 	}
 	/**
-	 * Выполняем выработку обоих вспомогательных ключей: каждый следующий получается
+	 * Вырабатываем оба вспомогательных ключа: каждый следующий получается
 	 * сдвигом предыдущего на один разряд влево со сложением с константой Bn, если
 	 * старший разряд сдвигаемого значения был единичным
 	 */
@@ -1415,7 +1415,7 @@ bool nts::cipher::Imitation::start(const block_t & block) noexcept {
 		// Запоминаем старший разряд сдвигаемого значения
 		const uint8_t senior = static_cast <uint8_t> (buffer[0] >> 7);
 		/**
-		 * Выполняем сдвиг значения на один разряд влево
+		 * Сдвигаем значение на один разряд влево
 		 */
 		for(size_t j = 0; j < block.size; j++){
 			// Сдвигаем очередной байт значения, перенося старший разряд следующего байта
@@ -1472,7 +1472,7 @@ bool nts::cipher::Imitation::update(const view_t & source) noexcept {
 	// Количество уже добавленных байтов куска сообщения
 	size_t offset = 0;
 	/**
-	 * Выполняем добавление куска сообщения до его исчерпания
+	 * Добавляем кусок сообщения до его исчерпания
 	 */
 	while(offset < source.size){
 		/**
@@ -1482,7 +1482,7 @@ bool nts::cipher::Imitation::update(const view_t & source) noexcept {
 		 */
 		if(this->_size == this->_block.size){
 			// Складываем накопленный блок с результатом зашифрования на предыдущем шаге
-			add(this->_buffer, this->_state, this->_buffer, this->_block.size);
+			__nts_add__(this->_buffer, this->_state, this->_buffer, this->_block.size);
 			// Зашифрование полученного блока
 			if(!this->_block.encrypt(this->_block.cipher, this->_buffer, this->_state))
 				// Выводим отказ добавления куска сообщения
@@ -1518,7 +1518,7 @@ bool nts::cipher::Imitation::finish(uint8_t * result, const size_t size) noexcep
 	// Если последний блок сообщения оказался неполным
 	if(this->_size < this->_block.size){
 		/**
-		 * Выполняем дополнение последнего блока по процедуре 3 раздела 4.1.3: за
+		 * Дополняем последний блок по процедуре 3 раздела 4.1.3: за
 		 * последним байтом сообщения ставится единичный разряд, а остаток блока
 		 * заполняется нулями
 		 */
@@ -1526,13 +1526,13 @@ bool nts::cipher::Imitation::finish(uint8_t * result, const size_t size) noexcep
 		// Заполняем нулями остаток последнего блока сообщения
 		::memset(this->_buffer + this->_size + 1, 0, this->_block.size - this->_size - 1);
 		// Складываем последний блок со вторым вспомогательным ключом
-		add(this->_buffer, this->_second, this->_buffer, this->_block.size);
+		__nts_add__(this->_buffer, this->_second, this->_buffer, this->_block.size);
 	// Если последний блок сообщения оказался полным
 	} else
 		// Складываем последний блок с первым вспомогательным ключом
-		add(this->_buffer, this->_first, this->_buffer, this->_block.size);
+		__nts_add__(this->_buffer, this->_first, this->_buffer, this->_block.size);
 	// Складываем последний блок с результатом зашифрования на предыдущем шаге
-	add(this->_buffer, this->_state, this->_buffer, this->_block.size);
+	__nts_add__(this->_buffer, this->_state, this->_buffer, this->_block.size);
 	// Зашифрование последнего блока сообщения
 	if(!this->_block.encrypt(this->_block.cipher, this->_buffer, this->_state))
 		// Выводим отказ снятия имитовставки

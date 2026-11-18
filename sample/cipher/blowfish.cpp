@@ -69,16 +69,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -88,9 +88,9 @@ namespace {
 	 * @param result место, в которое записывается блок в восемь байтов
 	 *
 	 */
-	void store(const uint32_t * words, uint8_t * result) noexcept {
+	void __nts_store__(const uint32_t * words, uint8_t * result) noexcept {
 		/**
-		 * Выполняем запись обеих половин блока от старшего байта к младшему
+		 * Записываем обеих половин блока от старшего байта к младшему
 		 */
 		for(size_t i = 0; i < 4; i++){
 			// Записываем очередной байт левой половины блока
@@ -117,16 +117,16 @@ int main(int argc, char * argv[]) noexcept {
 	// Ключ шифрования Blowfish образца
 	uint8_t secret[16];
 	/**
-	 * Выполняем перебор байтов ключа шифрования
+	 * Перебираем байтов ключа шифрования
 	 */
 	for(size_t i = 0; i < sizeof(secret); i++)
 		// Заполняем очередной байт ключа шифрования
 		secret[i] = static_cast <uint8_t> ((i * 7) + 1);
 	// Контекст блочного шифра Blowfish
 	cipher::blowfish_t base;
-	// Выполняем инициализацию контекста константами числа π
+	// Инициализируем контекст константами числа π
 	cipher::init(&base);
-	// Выполняем расширение ключа без соли
+	// Расширяем ключ без соли
 	cipher::expand0(&base, secret, sizeof(secret));
 	// Преобразуемый блок открытого текста
 	uint8_t block[cipher::BLOWFISH_BLOCK] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
@@ -135,7 +135,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Обе половины преобразуемого блока словами от старшего байта
 	uint32_t words[2] = {0, 0};
 	/**
-	 * Выполняем разбор блока на две половины словами от старшего байта к младшему
+	 * Разбираем блока на две половины словами от старшего байта к младшему
 	 */
 	for(size_t i = 0; i < 4; i++){
 		// Дополняем левую половину очередным байтом блока
@@ -143,18 +143,18 @@ int main(int argc, char * argv[]) noexcept {
 		// Дополняем правую половину очередным байтом блока
 		words[1] = static_cast <uint32_t> ((words[1] << 8) | block[i + 4]);
 	}
-	// Выполняем зашифрование блока шифром Blowfish
+	// Зашифровываем блока шифром Blowfish
 	cipher::encrypt(&base, words, 1);
-	// Выполняем запись зашифрованных половин блока байтами от старшего
-	::store(words, result);
+	// Записываем зашифрованных половин блока байтами от старшего
+	::__nts_store__(words, result);
 	// Выводим зашифрованный блок
-	::print("Блок зашифрованный ", result, sizeof(result));
-	// Выполняем расшифрование того же блока
+	::__nts_print__("Блок зашифрованный ", result, sizeof(result));
+	// Расшифровываем того же блока
 	cipher::decrypt(&base, words, 1);
-	// Выполняем запись расшифрованных половин блока байтами от старшего
-	::store(words, result);
+	// Записываем расшифрованных половин блока байтами от старшего
+	::__nts_store__(words, result);
 	// Выводим расшифрованный блок
-	::print("Блок расшифрованный", result, sizeof(result));
+	::__nts_print__("Блок расшифрованный", result, sizeof(result));
 	/**
 	 * Описываем базовый алгоритм блочного шифрования для режимов работы
 	 *
@@ -165,11 +165,11 @@ int main(int argc, char * argv[]) noexcept {
 	const cipher::block_t descriptor(base);
 	// Место, в которое помещается блок, преобразованный через описатель
 	uint8_t sealed[cipher::BLOWFISH_BLOCK];
-	// Выполняем зашифрование блока через описатель базового шифра
+	// Зашифровываем блока через описатель базового шифра
 	descriptor.encrypt(descriptor.cipher, block, sealed);
 	// Выводим блок, зашифрованный через описатель
-	::print("Блок через описатель", sealed, sizeof(sealed));
-	// Выполняем расшифрование блока через описатель базового шифра
+	::__nts_print__("Блок через описатель", sealed, sizeof(sealed));
+	// Расшифровываем блока через описатель базового шифра
 	descriptor.decrypt(descriptor.cipher, sealed, result);
 	// Выводим признак схождения расшифрованного блока с исходным
 	cout << "Обращение блока    : " << ((::memcmp(result, block, sizeof(block)) == 0) ? "сошлось" : "разошлось") << endl;
@@ -186,7 +186,7 @@ int main(int argc, char * argv[]) noexcept {
 	const uint8_t sync[cipher::BLOWFISH_BLOCK / 2] = {0xFE, 0xDC, 0xBA, 0x98};
 	// Объект режима гаммирования
 	cipher::counter_t counter;
-	// Выполняем запуск режима гаммирования
+	// Запускаем режима гаммирования
 	if(!counter.start(descriptor, view_t(sync, sizeof(sync)))){
 		// Выводим сообщение об отказе запуска режима гаммирования
 		cout << "Запустить режим гаммирования не удалось" << endl;
@@ -194,7 +194,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	/**
-	 * Выполняем зашифрование сообщения кусками по семь байтов
+	 * Зашифровываем сообщения кусками по семь байтов
 	 *
 	 * @note Состояние гаммы переносится между вызовами, оттого нарезка сообщения на
 	 *       итог не влияет: куски вправе быть любой длины
@@ -203,16 +203,16 @@ int main(int argc, char * argv[]) noexcept {
 	for(size_t offset = 0; offset < length; offset += 7){
 		// Определяем длину очередного куска сообщения
 		const size_t count = (((length - offset) < 7) ? (length - offset) : 7);
-		// Выполняем зашифрование очередного куска сообщения
+		// Зашифровываем очередного куска сообщения
 		counter.encrypt(view_t(reinterpret_cast <const uint8_t *> (message) + offset, count), buffer + offset);
 	}
 	// Выводим зашифрованное кусками сообщение
-	::print("Шифртекст CTR      ", buffer, length);
+	::__nts_print__("Шифртекст CTR      ", buffer, length);
 	// Объект режима снятия гаммирования
 	cipher::counter_t opener;
-	// Выполняем запуск режима снятия гаммирования на той же синхропосылке
+	// Запускаем режима снятия гаммирования на той же синхропосылке
 	opener.start(descriptor, view_t(sync, sizeof(sync)));
-	// Выполняем расшифрование сообщения одним куском на месте
+	// Расшифровываем сообщения одним куском на месте
 	opener.decrypt(view_t(buffer, length), buffer);
 	// Выводим расшифрованное сообщение
 	cout << "Открытый текст     : " << string(reinterpret_cast <const char *> (buffer), length) << endl;
@@ -225,23 +225,23 @@ int main(int argc, char * argv[]) noexcept {
 	uint8_t tag[cipher::BLOWFISH_BLOCK];
 	// Объект режима шифрования с проверкой целостности
 	cipher::galois_t galois;
-	// Выполняем запуск режима MGM
+	// Запускаем режима MGM
 	galois.start(descriptor, view_t(nonce, sizeof(nonce)));
-	// Выполняем зашифрование сообщения с выработкой метки целостности
+	// Зашифровываем сообщения с выработкой метки целостности
 	galois.encrypt(view_t(sync, sizeof(sync)), view_t(reinterpret_cast <const uint8_t *> (message), length), buffer, tag);
 	// Выводим метку целостности режима MGM
-	::print("Метка MGM          ", tag, sizeof(tag));
+	::__nts_print__("Метка MGM          ", tag, sizeof(tag));
 	// Объект режима снятия шифрования с проверкой целостности
 	cipher::galois_t checker;
-	// Выполняем запуск режима MGM на стороне проверки
+	// Запускаем режима MGM на стороне проверки
 	checker.start(descriptor, view_t(nonce, sizeof(nonce)));
-	// Выполняем расшифрование сообщения с проверкой метки целостности
+	// Расшифровываем сообщения с проверкой метки целостности
 	const bool trusted = checker.decrypt(view_t(sync, sizeof(sync)), view_t(buffer, length), buffer, view_t(tag, sizeof(tag)));
 	// Выводим признак подлинности расшифрованного сообщения
 	cout << "Метка MGM сошлась  : " << (trusted ? "да" : "нет") << endl;
-	// Выполняем затирание контекста шифра, держащего развёрнутый ключ
+	// Затираем контекста шифра, держащего развёрнутый ключ
 	sys::wipe(&base, sizeof(base));
-	// Выполняем затирание ключа шифрования
+	// Затираем ключа шифрования
 	sys::wipe(secret, sizeof(secret));
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;

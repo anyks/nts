@@ -88,7 +88,7 @@ namespace {
 	 * @return        длина заголовка элемента в байтах
 	 *
 	 */
-	static size_t header(const size_t content) noexcept {
+	static size_t __nts_header__(const size_t content) noexcept {
 		// Если длина укладывается в короткую форму
 		if(content < 128)
 			// Выводим длину метки и одного байта длины
@@ -116,7 +116,7 @@ namespace {
 	 * @return       количество байтов усечённого потока
 	 *
 	 */
-	static size_t truncate(const view_t & data, const size_t bits, uint8_t * result) noexcept {
+	static size_t __nts_truncate__(const view_t & data, const size_t bits, uint8_t * result) noexcept {
 		// Количество байтов, вмещающих оставляемые разряды
 		size_t count = ((bits + 7) / 8);
 		// Если поток короче оставляемых разрядов
@@ -124,7 +124,7 @@ namespace {
 			// Берём поток целиком
 			count = data.size;
 		/**
-		 * Выполняем перебор оставляемых байтов потока
+		 * Перебираем оставляемые байты потока
 		 */
 		for(size_t i = 0; i < count; i++)
 			// Переписываем очередной байт потока
@@ -134,7 +134,7 @@ namespace {
 			// Количество лишних младших разрядов
 			const size_t shift = ((count * 8) - bits);
 			/**
-			 * Выполняем сдвиг усечённого потока вправо от младшего байта к старшему
+			 * Сдвигаем усечённый поток вправо от младшего байта к старшему
 			 */
 			for(size_t i = count; i > 0; i--){
 				// Разряды, переходящие из старшего соседнего байта
@@ -156,7 +156,7 @@ namespace {
 	 * @return       признак успешности обращения хеша сообщения
 	 *
 	 */
-	static bool digest(const math::modulus_t & order, const size_t bits, const view_t & value, math::number_t & result) noexcept {
+	static bool __nts_digest__(const math::modulus_t & order, const size_t bits, const view_t & value, math::number_t & result) noexcept {
 		// Если хеш сообщения не передан
 		if((value.data == nullptr) || (value.size == 0))
 			// Выводим отказ обращения хеша сообщения
@@ -164,7 +164,7 @@ namespace {
 		// Место, в которое помещается усечённый хеш сообщения
 		uint8_t buffer[math::NUMBER_SIZE];
 		// Усечение хеша до разрядности порядка
-		const size_t count = truncate(value, bits, buffer);
+		const size_t count = __nts_truncate__(value, bits, buffer);
 		// Выводим итог приведения усечённого хеша по порядку подгруппы
 		return order.reduce(view_t(buffer, count), result);
 	}
@@ -177,7 +177,7 @@ namespace {
 	 * @return       признак успешности разбора
 	 *
 	 */
-	static bool integer(asn1::reader_t & reader, uint8_t * result, const size_t size) noexcept {
+	static bool __nts_integer__(asn1::reader_t & reader, uint8_t * result, const size_t size) noexcept {
 		// Разбираемый элемент
 		asn1::element_t element;
 		// Если очередной элемент не целое число
@@ -206,13 +206,13 @@ namespace {
 			// Выводим отказ разбора
 			return false;
 		/**
-		 * Выполняем дополнение места нулями спереди
+		 * Дополняем место нулями спереди
 		 */
 		for(size_t i = 0; i < (size - content.size); i++)
 			// Записываем очередной ноль дополнения
 			result[i] = 0x00;
 		/**
-		 * Выполняем перебор байтов содержимого числа
+		 * Перебираем байты содержимого числа
 		 */
 		for(size_t i = 0; i < content.size; i++)
 			// Переписываем очередной байт числа в конец места
@@ -263,9 +263,9 @@ size_t nts::sign::Ecdsa::limit() const noexcept {
 	 * Наихудший случай записи числа INTEGER - взведённый старший разряд: тогда
 	 * число получает ведущий нулевой байт, и содержимое длиннее порядка на байт
 	 */
-	const size_t integer = (header(size + 1) + size + 1);
+	const size_t integer = (__nts_header__(size + 1) + size + 1);
 	// Выводим длину последовательности из двух наихудших чисел с её заголовком
-	return (header(integer * 2) + (integer * 2));
+	return (__nts_header__(integer * 2) + (integer * 2));
 }
 /**
  * @brief Метод установки эллиптической кривой
@@ -306,7 +306,7 @@ bool nts::sign::Ecdsa::start(const curve::curve_t & curve) noexcept {
 	// Разрядность порядка подгруппы точек кривой
 	size_t bits = 0;
 	/**
-	 * Выполняем поиск старшего взведённого разряда наибольшего числа порядка
+	 * Ищем старший взведённый разряд наибольшего числа порядка
 	 */
 	for(size_t i = 0; (bits == 0) && (i < order.size()); i++){
 		// Если очередной байт числа нулевой
@@ -316,7 +316,7 @@ bool nts::sign::Ecdsa::start(const curve::curve_t & curve) noexcept {
 		// Разрядность байтов ниже найденного
 		bits = ((order.size() - i - 1) * 8);
 		/**
-		 * Выполняем счёт разрядов найденного байта
+		 * Считаем разряды найденного байта
 		 */
 		for(uint8_t value = buffer[i]; value != 0; value = static_cast <uint8_t> (value >> 1))
 			// Учитываем очередной разряд байта
@@ -477,7 +477,7 @@ bool nts::sign::Ecdsa::key(const view_t & x, const view_t & y) noexcept {
 		// Накопленное различие координат
 		uint8_t difference = 0;
 		/**
-		 * Выполняем сличение координат за постоянное время
+		 * Сличаем координаты за постоянное время
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Накапливаем различие
@@ -530,7 +530,7 @@ bool nts::sign::Ecdsa::make(const view_t & digest, const view_t & random, uint8_
 	// Хеш подписываемого сообщения в виде числа
 	math::number_t item;
 	// Если хеш подписываемого сообщения обратить в число не удалось
-	if(!::digest(order, this->_bits, digest, item))
+	if(!::__nts_digest__(order, this->_bits, digest, item))
 		// Выводим отказ выработки подписи
 		return false;
 	// Случайное число выработки подписи
@@ -638,7 +638,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 	// Хеш сообщения в виде числа по порядку подгруппы
 	math::number_t item;
 	// Если хеш сообщения обратить в число не удалось
-	if(!::digest(order, this->_bits, digest, item))
+	if(!::__nts_digest__(order, this->_bits, digest, item))
 		// Выводим отказ выработки подписи
 		return false;
 	// Запись ключа подписи и запись хеша сообщения длиной в порядок подгруппы
@@ -657,7 +657,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 	// Байт-разделитель, подаваемый между значениями
 	uint8_t separator = 0x00;
 	/**
-	 * Выполняем начальное заполнение: V из единиц, K из нулей
+	 * Заполняем начально: V из единиц, K из нулей
 	 */
 	for(size_t i = 0; i < length; i++){
 		// Записываем очередной байт заполнения V
@@ -668,7 +668,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 	// Признак успешности выработки подписи
 	bool ok = true;
 	/**
-	 * Выполняем два шага заведения: K = HMAC_K(V || 0x00 || x || h) и V = HMAC_K(V),
+	 * Проходим два шага заведения: K = HMAC_K(V || 0x00 || x || h) и V = HMAC_K(V),
 	 * затем то же с разделителем 0x01 - шаги d, e, f и g раздела 3.2 RFC 6979
 	 */
 	for(uint8_t step = 0; ok && (step < 2); step++){
@@ -708,7 +708,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 	// Место, в которое помещается усечённое значение T
 	uint8_t candidate[math::NUMBER_SIZE];
 	/**
-	 * Выполняем повтор вывода случайного числа: число вне отрезка [1, n-1] либо
+	 * Повторяем вывод случайного числа: число вне отрезка [1, n-1] либо
 	 * обращающее в ноль часть подписи отбрасывается, а K и V перезаводятся - шаг h
 	 * раздела 3.2 RFC 6979
 	 */
@@ -716,7 +716,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 		// Количество собранных байтов значения T
 		size_t collected = 0;
 		/**
-		 * Выполняем сбор значения T длиной в порядок подгруппы: V = HMAC_K(V), T = T || V
+		 * Собираем значение T длиной в порядок подгруппы: V = HMAC_K(V), T = T || V
 		 */
 		while(ok && (collected < order.size())){
 			// Установка ключа K
@@ -729,7 +729,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 				ok = mac.finish(v, length);
 			}
 			/**
-			 * Выполняем дописывание значения V в собираемое значение T
+			 * Дописываем значение V в собираемое значение T
 			 */
 			for(size_t i = 0; ok && (i < length) && (collected < order.size()); i++)
 				// Дописываем очередной байт значения V
@@ -738,7 +738,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 		// Если значение T собрано
 		if(ok){
 			// Усечение значения T до разрядности порядка
-			const size_t count = truncate(view_t(t, order.size()), this->_bits, candidate);
+			const size_t count = __nts_truncate__(view_t(t, order.size()), this->_bits, candidate);
 			// Случайное число выработки подписи
 			math::number_t number;
 			/**
@@ -835,7 +835,7 @@ bool nts::sign::Ecdsa::check(const view_t & digest, const view_t & signature) co
 	// Хеш подписанного сообщения в виде числа
 	math::number_t item;
 	// Если хеш подписанного сообщения обратить в число не удалось
-	if(!::digest(order, this->_bits, digest, item))
+	if(!::__nts_digest__(order, this->_bits, digest, item))
 		// Выводим отказ проверки подписи
 		return false;
 	// Значения в области Монтгомери, участвующие в проверке подписи
@@ -921,13 +921,13 @@ bool nts::sign::encode(const view_t & raw, uint8_t * der, size_t & size) noexcep
 	// Длина содержимого последовательности
 	size_t content = 0;
 	/**
-	 * Выполняем перебор чисел подписи
+	 * Перебираем числа подписи
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Смещение первого значащего байта числа
 		size_t skip = 0;
 		/**
-		 * Выполняем пропуск ведущих нулевых байтов, оставляя хотя бы один байт
+		 * Пропускаем ведущие нулевые байты, оставляя хотя бы один байт
 		 */
 		while((skip < (half - 1)) && (raw.data[offsets[i] + skip] == 0))
 			// Пропускаем очередной нулевой байт
@@ -963,7 +963,7 @@ bool nts::sign::encode(const view_t & raw, uint8_t * der, size_t & size) noexcep
 		der[offset++] = static_cast <uint8_t> (content);
 	}
 	/**
-	 * Выполняем запись чисел подписи
+	 * Записываем числа подписи
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Записываем метку целого числа
@@ -1048,11 +1048,11 @@ bool nts::sign::decode(const view_t & der, uint8_t * raw, const size_t size) noe
 	// Разбирающий объект содержимого последовательности
 	asn1::reader_t inner = reader.enter(element);
 	// Если первую часть подписи разобрать не удалось
-	if(!::integer(inner, raw, half))
+	if(!::__nts_integer__(inner, raw, half))
 		// Выводим отказ разбора подписи
 		return false;
 	// Если вторую часть подписи разобрать не удалось
-	if(!::integer(inner, raw + half, half))
+	if(!::__nts_integer__(inner, raw + half, half))
 		// Выводим отказ разбора подписи
 		return false;
 	// Выводим признак того, что внутри последовательности данных не осталось

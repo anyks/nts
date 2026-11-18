@@ -97,7 +97,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static constexpr uint64_t spin(const uint64_t word, const size_t count, const bool wide) noexcept {
+	static constexpr uint64_t __nts_spin__(const uint64_t word, const size_t count, const bool wide) noexcept {
 		// Если слово широкое
 		if(wide)
 			// Выводим сдвиг в 64 разрядах
@@ -115,11 +115,11 @@ namespace {
 	 * @return     слово
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t fetch(const uint8_t * data, const bool wide) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_fetch__(const uint8_t * data, const bool wide) noexcept {
 		// Собираемое слово
 		uint64_t result = 0;
 		/**
-		 * Выполняем перебор байтов слова
+		 * Перебираем байты слова
 		 */
 		for(size_t i = 0; i < (wide ? 8 : 4); i++)
 			// Складываем байт на своё место
@@ -140,7 +140,7 @@ namespace {
 	 * @param wide признак ширины в 64 разряда
 	 *
 	 */
-	static __NTS_INLINE__ void mix(uint64_t * v, const size_t a, const size_t b, const size_t c, const size_t d, const uint64_t x, const uint64_t y, const bool wide) noexcept {
+	static __NTS_INLINE__ void __nts_mix__(uint64_t * v, const size_t a, const size_t b, const size_t c, const size_t d, const uint64_t x, const uint64_t y, const bool wide) noexcept {
 		// Маска ширины слова
 		const uint64_t mask = (wide ? 0xFFFFFFFFFFFFFFFFULL : 0xFFFFFFFFULL);
 		// Сдвиги разновидности
@@ -148,19 +148,19 @@ namespace {
 		// Первое сложение
 		v[a] = ((v[a] + v[b] + x) & mask);
 		// Первый сдвиг
-		v[d] = spin(v[d] ^ v[a], r1, wide);
+		v[d] = __nts_spin__(v[d] ^ v[a], r1, wide);
 		// Второе сложение
 		v[c] = ((v[c] + v[d]) & mask);
 		// Второй сдвиг
-		v[b] = spin(v[b] ^ v[c], r2, wide);
+		v[b] = __nts_spin__(v[b] ^ v[c], r2, wide);
 		// Третье сложение
 		v[a] = ((v[a] + v[b] + y) & mask);
 		// Третий сдвиг
-		v[d] = spin(v[d] ^ v[a], r3, wide);
+		v[d] = __nts_spin__(v[d] ^ v[a], r3, wide);
 		// Четвёртое сложение
 		v[c] = ((v[c] + v[d]) & mask);
 		// Четвёртый сдвиг
-		v[b] = spin(v[b] ^ v[c], r4, wide);
+		v[b] = __nts_spin__(v[b] ^ v[c], r4, wide);
 	}
 };
 
@@ -178,15 +178,15 @@ void nts::digest::Blake2::compress(const bool last) noexcept {
 	// Слова сообщения
 	uint64_t m[16];
 	/**
-	 * Выполняем чтение слов блока
+	 * Читаем слова блока
 	 */
 	for(size_t i = 0; i < 16; i++)
 		// Читаем слово от младшего байта
-		m[i] = fetch(this->_block + (i * (wide ? 8 : 4)), wide);
+		m[i] = __nts_fetch__(this->_block + (i * (wide ? 8 : 4)), wide);
 	// Рабочий вектор
 	uint64_t v[16];
 	/**
-	 * Выполняем заполнение рабочего вектора состоянием и начальными значениями
+	 * Заполняем рабочий вектор состоянием и начальными значениями
 	 */
 	for(size_t i = 0; i < 8; i++){
 		// Состояние из цепочки хеша
@@ -203,24 +203,24 @@ void nts::digest::Blake2::compress(const bool last) noexcept {
 		// Обращаем слово завершения
 		v[14] ^= mask;
 	/**
-	 * Выполняем круги смешивания
+	 * Проходим круги смешивания
 	 */
 	for(size_t round = 0; round < (wide ? 12 : 10); round++){
 		// Перестановка круга
 		const uint8_t * s = SIGMA[round];
 		// Перемешивание столбцов
-		mix(v, 0, 4, 8, 12, m[s[0]], m[s[1]], wide);
-		mix(v, 1, 5, 9, 13, m[s[2]], m[s[3]], wide);
-		mix(v, 2, 6, 10, 14, m[s[4]], m[s[5]], wide);
-		mix(v, 3, 7, 11, 15, m[s[6]], m[s[7]], wide);
+		__nts_mix__(v, 0, 4, 8, 12, m[s[0]], m[s[1]], wide);
+		__nts_mix__(v, 1, 5, 9, 13, m[s[2]], m[s[3]], wide);
+		__nts_mix__(v, 2, 6, 10, 14, m[s[4]], m[s[5]], wide);
+		__nts_mix__(v, 3, 7, 11, 15, m[s[6]], m[s[7]], wide);
 		// Перемешивание диагоналей
-		mix(v, 0, 5, 10, 15, m[s[8]], m[s[9]], wide);
-		mix(v, 1, 6, 11, 12, m[s[10]], m[s[11]], wide);
-		mix(v, 2, 7, 8, 13, m[s[12]], m[s[13]], wide);
-		mix(v, 3, 4, 9, 14, m[s[14]], m[s[15]], wide);
+		__nts_mix__(v, 0, 5, 10, 15, m[s[8]], m[s[9]], wide);
+		__nts_mix__(v, 1, 6, 11, 12, m[s[10]], m[s[11]], wide);
+		__nts_mix__(v, 2, 7, 8, 13, m[s[12]], m[s[13]], wide);
+		__nts_mix__(v, 3, 4, 9, 14, m[s[14]], m[s[15]], wide);
 	}
 	/**
-	 * Выполняем сложение половин рабочего вектора с состоянием
+	 * Складываем половины рабочего вектора с состоянием
 	 */
 	for(size_t i = 0; i < 8; i++)
 		// Складываем состояние
@@ -294,7 +294,7 @@ bool nts::digest::Blake2::start(const blake_t type, const size_t length, const v
 	// Признак ширины слов
 	const bool wide = (type == blake_t::BLAKE2B);
 	/**
-	 * Выполняем заполнение состояния начальными значениями
+	 * Заполняем состояние начальными значениями
 	 */
 	for(size_t i = 0; i < 8; i++)
 		// Начальное значение
@@ -336,7 +336,7 @@ bool nts::digest::Blake2::update(const view_t & data) noexcept {
 	// Размер блока
 	const size_t width = this->block();
 	/**
-	 * Выполняем перебор байтов куска
+	 * Перебираем байты куска
 	 */
 	for(size_t i = 0; i < data.size; i++){
 		// Если накопитель полон: следующий байт пришёл, блок не последний
@@ -384,7 +384,7 @@ bool nts::digest::Blake2::finish(uint8_t * result, const size_t size) noexcept {
 	// Признак ширины слов
 	const bool wide = (this->_type == blake_t::BLAKE2B);
 	/**
-	 * Выполняем запись итога от младшего байта
+	 * Записываем итог от младшего байта
 	 */
 	for(size_t i = 0; i < size; i++)
 		// Байт слова состояния

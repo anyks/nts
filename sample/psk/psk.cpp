@@ -91,7 +91,7 @@ namespace {
 		return vector <uint8_t> (reinterpret_cast <const uint8_t *> (text), reinterpret_cast <const uint8_t *> (text) + ::strlen(text));
 	}
 	/**
-	 * @brief Вызов сервера: ключ по опознавателю клиента
+	 * @brief Функция вызова сервера: ключ по опознавателю клиента
 	 *
 	 * @param identity опознаватель, предъявленный клиентом
 	 * @param key      накопитель, в который помещается ключ
@@ -101,7 +101,7 @@ namespace {
 	 * @note Вызов не noexcept намеренно: нехватку памяти в накопителе перехватывает связь
 	 *
 	 */
-	bool responding(const view_t & identity, vector <uint8_t> & key, void * context) {
+	bool __nts_responding__(const view_t & identity, vector <uint8_t> & key, void * context) {
 		// Связка сервера
 		keyring_t * ring = reinterpret_cast <keyring_t *> (context);
 		// Запоминаем увиденный опознаватель
@@ -124,7 +124,7 @@ namespace {
 		return false;
 	}
 	/**
-	 * @brief Вызов клиента: опознаватель и ключ по подсказке сервера
+	 * @brief Функция вызова клиента: опознаватель и ключ по подсказке сервера
 	 *
 	 * @param hint     подсказка psk_identity_hint сервера
 	 * @param identity накопитель, в который помещается опознаватель
@@ -135,7 +135,7 @@ namespace {
 	 * @note Вызов не noexcept намеренно: нехватку памяти в накопителе перехватывает связь
 	 *
 	 */
-	bool advising(const view_t & hint, vector <uint8_t> & identity, vector <uint8_t> & key, void * context) {
+	bool __nts_advising__(const view_t & hint, vector <uint8_t> & identity, vector <uint8_t> & key, void * context) {
 		// Связка клиента
 		keyring_t * ring = reinterpret_cast <keyring_t *> (context);
 		// Запоминаем подсказку сервера
@@ -160,18 +160,18 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		// Получаем байты, отправляемые клиентом
 		view_t data = client.output();
 		// Если клиенту есть что отправить серверу
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя клиента
 			client.consume(buffer.size());
-			// Выполняем подачу отправленных байтов серверу
+			// Подаём отправленных байтов серверу
 			server.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -180,11 +180,11 @@ namespace {
 		data = server.output();
 		// Если серверу есть что отправить клиенту
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя сервера
 			server.consume(buffer.size());
-			// Выполняем подачу отправленных байтов клиенту
+			// Подаём отправленных байтов клиенту
 			client.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -199,11 +199,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байтов между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	}
@@ -220,7 +220,7 @@ namespace {
 	 * @return         признак успешности настройки
 	 *
 	 */
-	bool presharing(client::context_t & client, server::context_t & server, const protect::suite_t suite, keyring_t & theirs, keyring_t & ours, const char * hint, const bool disclose) noexcept {
+	bool __nts_presharing__(client::context_t & client, server::context_t & server, const protect::suite_t suite, keyring_t & theirs, keyring_t & ours, const char * hint, const bool disclose) noexcept {
 		// Набор шифрования клиента
 		client.suites(vector <protect::suite_t> {suite});
 		// Набор шифрования сервера
@@ -232,7 +232,7 @@ namespace {
 		// Настройки заранее разделённого ключа сервера
 		context::psk_t mine;
 		// Вызов ключа по опознавателю
-		mine.respond = responding;
+		mine.respond = __nts_responding__;
 		// Связка сервера
 		mine.context = &theirs;
 		// Подсказка psk_identity_hint
@@ -248,7 +248,7 @@ namespace {
 		// Ключ клиента
 		yours.key.assign(ours.key.begin(), ours.key.end());
 		// Вызов выбора по подсказке
-		yours.advise = advising;
+		yours.advise = __nts_advising__;
 		// Связка клиента
 		yours.context = &ours;
 		// Устанавливаем настройки клиенту
@@ -264,7 +264,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по связи заранее разделённым ключом";
 		// Прикладные данные, отправляемые сервером
@@ -273,8 +273,8 @@ namespace {
 		if((client.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())) != context::error_t::NONE) || (server.write(view_t(reinterpret_cast <const uint8_t *> (answer.data()), answer.size())) != context::error_t::NONE))
 			// Выводим отказ обмена
 			return false;
-		// Выполняем передачу байтов между сторонами связи
-		converse(client, server);
+		// Передаём байтов между сторонами связи
+		__nts_converse__(client, server);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
 		// Если сервер принял не то, что послал клиент
@@ -299,9 +299,9 @@ namespace {
 	 * @return      название набора шифрования
 	 *
 	 */
-	const char * naming(const protect::suite_t suite) noexcept {
+	const char * __nts_naming__(const protect::suite_t suite) noexcept {
 		/**
-		 * Выполняем определение набора шифрования
+		 * Определяем набора шифрования
 		 */
 		switch(static_cast <uint16_t> (suite)){
 			// Если набор чистого PSK с AES-128-CBC
@@ -344,7 +344,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим заголовок первого прогона
 	cout << "== Связь заранее разделённым ключом ==" << endl;
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборов шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Связка сервера
@@ -364,7 +364,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить стороны не удалось
-		if(!presharing(client, server, SUITES[s], theirs, ours, "anyks realm", false)){
+		if(!__nts_presharing__(client, server, SUITES[s], theirs, ours, "anyks realm", false)){
 			// Выводим сообщение об отказе настройки
 			cout << "Настроить стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -378,16 +378,16 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Если рукопожатие не пройдено
 		if(!client.established() || !server.established()){
 			// Выводим сообщение об отказе рукопожатия
-			cout << "Рукопожатие " << naming(SUITES[s]) << " не прошло: отказы " << static_cast <int> (client.error()) << " и " << static_cast <int> (server.error()) << endl;
+			cout << "Рукопожатие " << __nts_naming__(SUITES[s]) << " не прошло: отказы " << static_cast <int> (client.error()) << " и " << static_cast <int> (server.error()) << endl;
 			// Выходим из приложения с признаком отказа
 			return EXIT_FAILURE;
 		}
 		// Выводим набор и отсутствие сертификатов
-		cout << "Набор               : " << naming(client.suite()) << ", сертификатов у клиента " << client.peer().size() << ", издание 0x" << hex << uppercase << client.version() << dec << endl;
+		cout << "Набор               : " << __nts_naming__(client.suite()) << ", сертификатов у клиента " << client.peer().size() << ", издание 0x" << hex << uppercase << client.version() << dec << endl;
 		// Выводим опознаватель, увиденный сервером
 		cout << "Сервер увидел       : «" << string(theirs.seen.begin(), theirs.seen.end()) << "»" << endl;
 		// Выводим подсказку, увиденную клиентом
@@ -395,7 +395,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим порядок RFC 7366 у наборов CBC
 		cout << "Порядок RFC 7366    : " << (client.etm() ? "encrypt_then_mac" : "не применим, набор AEAD") << endl;
 		// Если обмен прикладными данными не удался
-		if(!barter(client, server)){
+		if(!__nts_barter__(client, server)){
 			// Выводим сообщение об отказе обмена
 			cout << "Обмен прикладными данными не удался" << endl;
 			// Выходим из приложения с признаком отказа
@@ -430,14 +430,14 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить стороны не удалось: подсказка велит взять запасную пару
-		if(!presharing(client, server, protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, theirs, ours, "use-spare", false) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
+		if(!__nts_presharing__(client, server, protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, theirs, ours, "use-spare", false) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
 			// Выводим сообщение об отказе настройки
 			cout << "Настроить стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
 			return EXIT_FAILURE;
 		}
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Если рукопожатие не пройдено либо сервер увидел не запасной опознаватель
 		if(!client.established() || !server.established() || (theirs.seen != ours.alternative)){
 			// Выводим сообщение об отказе
@@ -451,7 +451,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим заголовок прогона с неизвестным опознавателем
 	cout << endl << "== Неизвестный опознаватель: ручка disclose ==" << endl;
 	/**
-	 * Выполняем перебор ручки disclose: без раскрытия и с раскрытием
+	 * Перебираем ручки disclose: без раскрытия и с раскрытием
 	 */
 	for(size_t disclose = 0; disclose < 2; disclose++){
 		// Связка сервера
@@ -471,14 +471,14 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить стороны не удалось
-		if(!presharing(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "", disclose == 1) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
+		if(!__nts_presharing__(client, server, protect::suite_t::PSK_AES_128_CBC_SHA, theirs, ours, "", disclose == 1) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
 			// Выводим сообщение об отказе настройки
 			cout << "Настроить стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
 			return EXIT_FAILURE;
 		}
 		// Проводим рукопожатие до обрыва
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Если связь установилась: опознаватель неизвестен, этого быть не должно
 		if(client.established() || server.established()){
 			// Выводим сообщение о расхождении
@@ -530,14 +530,14 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если настроить стороны не удалось
-		if(!presharing(client, server, protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, theirs, ours, "", true) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
+		if(!__nts_presharing__(client, server, protect::suite_t::ECDHE_PSK_CHACHA20_POLY1305_SHA256, theirs, ours, "", true) || (server.start() != context::error_t::NONE) || (client.start() != context::error_t::NONE)){
 			// Выводим сообщение об отказе настройки
 			cout << "Настроить стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
 			return EXIT_FAILURE;
 		}
 		// Проводим рукопожатие до обрыва
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Если связь установилась либо оборвана не на завершении
 		if(client.established() || (server.error() != context::error_t::PROTECTION) || (client.error() != context::error_t::ALERT)){
 			// Выводим сообщение о расхождении
@@ -557,7 +557,7 @@ int main(int argc, char * argv[]) noexcept {
 		context::psk_t wide;
 		// Опознаватель в 129 байтов
 		wide.identity.assign(129, 'a');
-		// Ключ
+		// Назначаем ключ
 		wide.key.assign(secret.begin(), secret.end());
 		// Устанавливаем настройки
 		client.psk(wide);

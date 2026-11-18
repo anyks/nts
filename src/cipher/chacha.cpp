@@ -37,9 +37,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "cipher/chacha.hpp"
-#include "sys/machine.hpp"
 #include "sys/wipe.hpp"
+#include "sys/machine.hpp"
+
+/**
+ * Подключаем заголовочные файлы модуля
+ */
+#include "cipher/chacha.hpp"
 #include "internal/cipher/chacha.hpp"
 
 /**
@@ -174,13 +178,14 @@ namespace {
 	 */
 	using namespace nts;
 	/**
-	 * Затирание областей памяти берётся из открытого API библиотеки
-	 */
-	using nts::sys::wipe;
-	/**
 	 * Пространство имён модуля
 	 */
 	using namespace nts::cipher;
+
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
 
 	/**
 	 * @brief Постоянные слова состояния: запись «expand 32-byte k» от младшего байта
@@ -189,24 +194,13 @@ namespace {
 	static constexpr uint32_t CONSTNTS[4] = {0x61707865, 0x3320646E, 0x79622D32, 0x6B206574};
 
 	/**
-	 * @brief Функция чтения слова в 32 разряда от младшего байта
-	 *
-	 * @param data читаемые байты
-	 * @return     прочитанное слово
-	 *
-	 */
-	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
-		// Выводим слово, собранное от младшего байта
-		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) | (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
-	}
-	/**
 	 * @brief Функция записи слова в 32 разряда от младшего байта
 	 *
 	 * @param value записываемое слово
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void __nts_store__(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем младший байт
 		data[0] = static_cast <uint8_t> (value);
 		// Записываем второй байт
@@ -217,6 +211,17 @@ namespace {
 		data[3] = static_cast <uint8_t> (value >> 24);
 	}
 	/**
+	 * @brief Функция чтения слова в 32 разряда от младшего байта
+	 *
+	 * @param data читаемые байты
+	 * @return     прочитанное слово
+	 *
+	 */
+	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
+		// Выводим слово, собранное от младшего байта
+		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) | (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
+	}
+	/**
 	 * @brief Функция циклического вращения слова влево
 	 *
 	 * @param value вращаемое слово
@@ -224,7 +229,7 @@ namespace {
 	 * @return      вращённое слово
 	 *
 	 */
-	static constexpr uint32_t rotate(const uint32_t value, const unsigned count) noexcept {
+	static constexpr uint32_t __nts_rotate__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, вращённое влево
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -234,7 +239,6 @@ namespace {
 	 *
 	 */
 	static constexpr size_t PACK4 = 4;
-
 	/**
 	 * @brief Количество блоков гаммы в пачке из двух четвёрок NEON либо векторов в 256 разрядов
 	 *
@@ -250,7 +254,11 @@ namespace {
 		 *
 		 */
 		static constexpr size_t PACK10 = 10;
-
+		/**
+		 * @brief Приращения счётчика четырёх блоков пачки
+		 *
+		 */
+		static const uint32_t STEPS4[4] = {0, 1, 2, 3};
 		/**
 		 * @brief Перестановка байтов вращения четырёх слов влево на восемь разрядов
 		 *
@@ -258,16 +266,10 @@ namespace {
 		static const uint8_t ROTATE8[16] = {3, 0, 1, 2, 7, 4, 5, 6, 11, 8, 9, 10, 15, 12, 13, 14};
 
 		/**
-		 * @brief Приращения счётчика четырёх блоков пачки
-		 *
-		 */
-		static const uint32_t STEPS4[4] = {0, 1, 2, 3};
-
-		/**
 		 * @brief Функция четвертьраунда над четырьмя блоками разом командами NEON
 		 *
 		 * @details Вращения на 16 и 8 разрядов - перестановкой байтов, на 12 и 7 - парой
-		 *          сдвигов со вставкой
+		 *          сдвигов со вставкой.
 		 *
 		 * @param a     первые слова четырёх блоков, заменяемые итогом
 		 * @param b     вторые слова четырёх блоков, заменяемые итогом
@@ -276,7 +278,7 @@ namespace {
 		 * @param table перестановка байтов вращения на восемь разрядов
 		 *
 		 */
-		static __NTS_INLINE__ void quarterNeon(uint32x4_t & a, uint32x4_t & b, uint32x4_t & c, uint32x4_t & d, const uint8x16_t table) noexcept {
+		static __NTS_INLINE__ void __nts_quarter_neon__(uint32x4_t & a, uint32x4_t & b, uint32x4_t & c, uint32x4_t & d, const uint8x16_t table) noexcept {
 			// Складываем первые слова со вторыми
 			a = vaddq_u32(a, b);
 			// Складываем четвёртые слова с первыми по модулю два
@@ -311,19 +313,19 @@ namespace {
 		 * @param d четвёртый вектор: заменяется четырьмя словами четвёртого блока
 		 *
 		 */
-		static __NTS_INLINE__ void transposeNeon(uint32x4_t & a, uint32x4_t & b, uint32x4_t & c, uint32x4_t & d) noexcept {
+		static __NTS_INLINE__ void __nts_transpose_neon__(uint32x4_t & a, uint32x4_t & b, uint32x4_t & c, uint32x4_t & d) noexcept {
 			// Чередование слов первой пары векторов
-			const uint32x4x2_t ab = vtrnq_u32(a, b);
+			const uint32x4x2_t abPair = vtrnq_u32(a, b);
 			// Чередование слов второй пары векторов
-			const uint32x4x2_t cd = vtrnq_u32(c, d);
+			const uint32x4x2_t cdPair = vtrnq_u32(c, d);
 			// Собираем слова первого блока
-			a = vcombine_u32(vget_low_u32(ab.val[0]), vget_low_u32(cd.val[0]));
+			a = vcombine_u32(vget_low_u32(abPair.val[0]), vget_low_u32(cdPair.val[0]));
 			// Собираем слова второго блока
-			b = vcombine_u32(vget_low_u32(ab.val[1]), vget_low_u32(cd.val[1]));
+			b = vcombine_u32(vget_low_u32(abPair.val[1]), vget_low_u32(cdPair.val[1]));
 			// Собираем слова третьего блока
-			c = vcombine_u32(vget_high_u32(ab.val[0]), vget_high_u32(cd.val[0]));
+			c = vcombine_u32(vget_high_u32(abPair.val[0]), vget_high_u32(cdPair.val[0]));
 			// Собираем слова четвёртого блока
-			d = vcombine_u32(vget_high_u32(ab.val[1]), vget_high_u32(cd.val[1]));
+			d = vcombine_u32(vget_high_u32(abPair.val[1]), vget_high_u32(cdPair.val[1]));
 		}
 		/**
 		 * @brief Функция покрытия гаммой четырёх целых блоков разом командами NEON
@@ -331,14 +333,14 @@ namespace {
 		 * @details Каждый из шестнадцати векторов несёт одно слово состояния четырёх
 		 *          блоков со счётчиками от текущего до текущего плюс три; раунды идут
 		 *          над всеми четырьмя блоками разом, а перед записью слова переставляются
-		 *          по блокам
+		 *          по блокам.
 		 *
 		 * @param state  состояние шифра: постоянные, ключ, счётчик, заполнение
 		 * @param source покрываемые данные в 256 байтов
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static void streamNeon(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static void __nts_stream_neon__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков четырёх блоков
 			const uint32x4_t steps = vld1q_u32(STEPS4);
 			// Перестановка байтов вращения на восемь разрядов
@@ -346,50 +348,50 @@ namespace {
 			// Рабочие слова четырёх блоков
 			uint32x4_t work[16];
 			/**
-			 * Выполняем размножение слов состояния на четыре блока
+			 * Размножаем слова состояния на четыре блока
 			 */
 			for(size_t i = 0; i < 16; i++)
-			// Размножаем очередное слово
-			work[i] = vdupq_n_u32(state[i]);
+				// Размножаем очередное слово
+				work[i] = vdupq_n_u32(state[i]);
 			// Продвигаем счётчики второго, третьего и четвёртого блоков
 			work[12] = vaddq_u32(work[12], steps);
 			/**
-			 * Выполняем десять двойных раундов: столбцами и диагоналями
+			 * Прогоняем десять двойных раундов: столбцами и диагоналями
 			 */
 			for(size_t i = 0; i < 10; i++){
 				// Четвертьраунд первого столбца
-				quarterNeon(work[0], work[4], work[8], work[12], table);
+				__nts_quarter_neon__(work[0], work[4], work[8], work[12], table);
 				// Четвертьраунд второго столбца
-				quarterNeon(work[1], work[5], work[9], work[13], table);
+				__nts_quarter_neon__(work[1], work[5], work[9], work[13], table);
 				// Четвертьраунд третьего столбца
-				quarterNeon(work[2], work[6], work[10], work[14], table);
+				__nts_quarter_neon__(work[2], work[6], work[10], work[14], table);
 				// Четвертьраунд четвёртого столбца
-				quarterNeon(work[3], work[7], work[11], work[15], table);
+				__nts_quarter_neon__(work[3], work[7], work[11], work[15], table);
 				// Четвертьраунд первой диагонали
-				quarterNeon(work[0], work[5], work[10], work[15], table);
+				__nts_quarter_neon__(work[0], work[5], work[10], work[15], table);
 				// Четвертьраунд второй диагонали
-				quarterNeon(work[1], work[6], work[11], work[12], table);
+				__nts_quarter_neon__(work[1], work[6], work[11], work[12], table);
 				// Четвертьраунд третьей диагонали
-				quarterNeon(work[2], work[7], work[8], work[13], table);
+				__nts_quarter_neon__(work[2], work[7], work[8], work[13], table);
 				// Четвертьраунд четвёртой диагонали
-				quarterNeon(work[3], work[4], work[9], work[14], table);
+				__nts_quarter_neon__(work[3], work[4], work[9], work[14], table);
 			}
 			/**
-			 * Выполняем сложение рабочих слов с исходными, взятыми из состояния заново
+			 * Складываем рабочие слова с исходными, взятыми из состояния заново
 			 */
 			for(size_t i = 0; i < 16; i++)
-			// Складываем очередное слово
-			work[i] = vaddq_u32(work[i], vdupq_n_u32(state[i]));
+				// Складываем очередное слово
+				work[i] = vaddq_u32(work[i], vdupq_n_u32(state[i]));
 			// Складываем счётчики с приращениями второго, третьего и четвёртого блоков
 			work[12] = vaddq_u32(work[12], steps);
 			/**
-			 * Выполняем перестановку по блокам и наложение гаммы четвёрками слов
+			 * Переставляем по блокам и накладываем гамму четвёрками слов
 			 */
 			for(size_t i = 0; i < 4; i++){
 				// Переставляем четвёрку слов по блокам
-				transposeNeon(work[i * 4], work[(i * 4) + 1], work[(i * 4) + 2], work[(i * 4) + 3]);
+				__nts_transpose_neon__(work[i * 4], work[(i * 4) + 1], work[(i * 4) + 2], work[(i * 4) + 3]);
 				/**
-				 * Выполняем наложение гаммы на очередную четвёрку слов каждого блока
+				 * Накладываем гамму на очередную четвёрку слов каждого блока
 				 */
 				for(size_t j = 0; j < PACK4; j++){
 					// Смещение четвёрки слов внутри данных
@@ -406,14 +408,14 @@ namespace {
 		 *          четвертьраундами другой, и в полёте восемь независимых цепочек вместо
 		 *          четырёх. Четырёх цепочек машине с четырьмя векторными устройствами и
 		 *          задержкой команды в два такта не хватало: четвёрка упиралась в задержку,
-		 *          а не в число устройств
+		 *          а не в число устройств.
 		 *
 		 * @param state  состояние шифра: постоянные, ключ, счётчик, заполнение
 		 * @param source покрываемые данные в 512 байтов
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static void streamNeon8(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static void __nts_stream_neon8__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков четырёх блоков
 			const uint32x4_t steps = vld1q_u32(STEPS4);
 			// Сдвиг счётчиков второй четвёрки на четыре блока
@@ -423,7 +425,7 @@ namespace {
 			// Рабочие слова первой и второй четвёрок блоков
 			uint32x4_t first[16], second[16];
 			/**
-			 * Выполняем размножение слов состояния на обе четвёрки
+			 * Размножаем слова состояния на обе четвёрки
 			 */
 			for(size_t i = 0; i < 16; i++){
 				// Размножаем очередное слово на первую четвёрку
@@ -436,36 +438,36 @@ namespace {
 			// Продвигаем счётчики второй четвёрки: следующие четыре блока
 			second[12] = vaddq_u32(vaddq_u32(second[12], steps), shift);
 			/**
-			 * Выполняем десять двойных раундов над обеими четвёрками вперемешку
+			 * Прогоняем десять двойных раундов над обеими четвёрками вперемешку
 			 */
 			for(size_t i = 0; i < 10; i++){
 				// Четвертьраунды первого столбца обеих четвёрок
-				quarterNeon(first[0], first[4], first[8], first[12], table);
-				quarterNeon(second[0], second[4], second[8], second[12], table);
+				__nts_quarter_neon__(first[0], first[4], first[8], first[12], table);
+				__nts_quarter_neon__(second[0], second[4], second[8], second[12], table);
 				// Четвертьраунды второго столбца обеих четвёрок
-				quarterNeon(first[1], first[5], first[9], first[13], table);
-				quarterNeon(second[1], second[5], second[9], second[13], table);
+				__nts_quarter_neon__(first[1], first[5], first[9], first[13], table);
+				__nts_quarter_neon__(second[1], second[5], second[9], second[13], table);
 				// Четвертьраунды третьего столбца обеих четвёрок
-				quarterNeon(first[2], first[6], first[10], first[14], table);
-				quarterNeon(second[2], second[6], second[10], second[14], table);
+				__nts_quarter_neon__(first[2], first[6], first[10], first[14], table);
+				__nts_quarter_neon__(second[2], second[6], second[10], second[14], table);
 				// Четвертьраунды четвёртого столбца обеих четвёрок
-				quarterNeon(first[3], first[7], first[11], first[15], table);
-				quarterNeon(second[3], second[7], second[11], second[15], table);
+				__nts_quarter_neon__(first[3], first[7], first[11], first[15], table);
+				__nts_quarter_neon__(second[3], second[7], second[11], second[15], table);
 				// Четвертьраунды первой диагонали обеих четвёрок
-				quarterNeon(first[0], first[5], first[10], first[15], table);
-				quarterNeon(second[0], second[5], second[10], second[15], table);
+				__nts_quarter_neon__(first[0], first[5], first[10], first[15], table);
+				__nts_quarter_neon__(second[0], second[5], second[10], second[15], table);
 				// Четвертьраунды второй диагонали обеих четвёрок
-				quarterNeon(first[1], first[6], first[11], first[12], table);
-				quarterNeon(second[1], second[6], second[11], second[12], table);
+				__nts_quarter_neon__(first[1], first[6], first[11], first[12], table);
+				__nts_quarter_neon__(second[1], second[6], second[11], second[12], table);
 				// Четвертьраунды третьей диагонали обеих четвёрок
-				quarterNeon(first[2], first[7], first[8], first[13], table);
-				quarterNeon(second[2], second[7], second[8], second[13], table);
+				__nts_quarter_neon__(first[2], first[7], first[8], first[13], table);
+				__nts_quarter_neon__(second[2], second[7], second[8], second[13], table);
 				// Четвертьраунды четвёртой диагонали обеих четвёрок
-				quarterNeon(first[3], first[4], first[9], first[14], table);
-				quarterNeon(second[3], second[4], second[9], second[14], table);
+				__nts_quarter_neon__(first[3], first[4], first[9], first[14], table);
+				__nts_quarter_neon__(second[3], second[4], second[9], second[14], table);
 			}
 			/**
-			 * Выполняем сложение рабочих слов с исходными, взятыми из состояния заново
+			 * Складываем рабочие слова с исходными, взятыми из состояния заново
 			 */
 			for(size_t i = 0; i < 16; i++){
 				// Исходное слово состояния
@@ -480,15 +482,15 @@ namespace {
 			// Складываем счётчики второй четвёрки с приращениями и сдвигом
 			second[12] = vaddq_u32(vaddq_u32(second[12], steps), shift);
 			/**
-			 * Выполняем перестановку по блокам и наложение гаммы четвёрками слов
+			 * Переставляем по блокам и накладываем гамму четвёрками слов
 			 */
 			for(size_t i = 0; i < 4; i++){
 				// Переставляем четвёрку слов первой четвёрки по блокам
-				transposeNeon(first[i * 4], first[(i * 4) + 1], first[(i * 4) + 2], first[(i * 4) + 3]);
+				__nts_transpose_neon__(first[i * 4], first[(i * 4) + 1], first[(i * 4) + 2], first[(i * 4) + 3]);
 				// Переставляем четвёрку слов второй четвёрки по блокам
-				transposeNeon(second[i * 4], second[(i * 4) + 1], second[(i * 4) + 2], second[(i * 4) + 3]);
+				__nts_transpose_neon__(second[i * 4], second[(i * 4) + 1], second[(i * 4) + 2], second[(i * 4) + 3]);
 				/**
-				 * Выполняем наложение гаммы на очередную четвёрку слов каждого блока
+				 * Накладываем гамму на очередную четвёрку слов каждого блока
 				 */
 				for(size_t j = 0; j < PACK4; j++){
 					// Смещение четвёрки слов внутри первых четырёх блоков
@@ -511,15 +513,15 @@ namespace {
 		 * @param d четвёртое слово, заменяемое итогом
 		 *
 		 */
-		static __NTS_INLINE__ void quarterWord(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d) noexcept {
+		static __NTS_INLINE__ void __nts_quarter_word__(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d) noexcept {
 			// Первая половина четвертьраунда: вращения на шестнадцать и двенадцать
-			a += b; d ^= a; d = rotate(d, 16);
+			a += b; d ^= a; d = __nts_rotate__(d, 16);
 			// Завершение первой половины четвертьраунда
-			c += d; b ^= c; b = rotate(b, 12);
+			c += d; b ^= c; b = __nts_rotate__(b, 12);
 			// Вторая половина четвертьраунда: вращения на восемь и семь
-			a += b; d ^= a; d = rotate(d, 8);
+			a += b; d ^= a; d = __nts_rotate__(d, 8);
 			// Завершение второй половины четвертьраунда
-			c += d; b ^= c; b = rotate(b, 7);
+			c += d; b ^= c; b = __nts_rotate__(b, 7);
 		}
 		/**
 		 * @brief Функция заведения скалярного блока пачки
@@ -529,13 +531,13 @@ namespace {
 		 * @param words   место, в которое помещаются рабочие слова блока
 		 *
 		 */
-		static __NTS_INLINE__ void beginWord(const uint32_t * state, const uint32_t counter, uint32_t * words) noexcept {
+		static __NTS_INLINE__ void __nts_begin_word__(const uint32_t * state, const uint32_t counter, uint32_t * words) noexcept {
 			/**
-			 * Выполняем перенос слов состояния в рабочие
+			 * Переносим слова состояния в рабочие
 			 */
 			for(size_t i = 0; i < 16; i++)
-			// Переносим очередное слово состояния
-			words[i] = state[i];
+				// Переносим очередное слово состояния
+				words[i] = state[i];
 			// Ставим счётчик блока
 			words[12] = counter;
 		}
@@ -549,15 +551,15 @@ namespace {
 		 * @param result  место, в которое записываются покрытые данные
 		 *
 		 */
-		static __NTS_INLINE__ void finishWord(const uint32_t * state, const uint32_t counter, uint32_t * words, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_INLINE__ void __nts_finish_word__(const uint32_t * state, const uint32_t counter, uint32_t * words, const uint8_t * source, uint8_t * result) noexcept {
 			/**
-			 * Выполняем сложение рабочих слов с исходными
+			 * Складываем рабочие слова с исходными
 			 */
 			for(size_t i = 0; i < 16; i++)
-			// Складываем очередное слово с исходным, у счётчика - со счётчиком блока
-			words[i] += ((i == 12) ? counter : state[i]);
+				// Складываем очередное слово с исходным, у счётчика - со счётчиком блока
+				words[i] += ((i == 12) ? counter : state[i]);
 			/**
-			 * Выполняем наложение гаммы словами: чтение слов гаммы вектором заставило бы
+			 * Накладываем гамму словами: чтение слов гаммы вектором заставило бы
 			 * собирателя держать рабочие слова в векторных регистрах и вынимать их по
 			 * дорожкам на всяком раунде (mov.s) - скалярный путь обязан оставаться скалярным
 			 */
@@ -586,47 +588,47 @@ namespace {
 		 * @param table  перестановка байтов вращения на восемь
 		 *
 		 */
-		static __NTS_INLINE__ void roundNeon10(uint32x4_t * first, uint32x4_t * second, uint32_t * words, const uint8x16_t table) noexcept {
+		static __NTS_INLINE__ void __nts_round_neon10__(uint32x4_t * first, uint32x4_t * second, uint32_t * words, const uint8x16_t table) noexcept {
 			// Первые два столбца четвёрок
-			quarterNeon(first[0], first[4], first[8], first[12], table);
-			quarterNeon(second[0], second[4], second[8], second[12], table);
-			quarterNeon(first[1], first[5], first[9], first[13], table);
-			quarterNeon(second[1], second[5], second[9], second[13], table);
+			__nts_quarter_neon__(first[0], first[4], first[8], first[12], table);
+			__nts_quarter_neon__(second[0], second[4], second[8], second[12], table);
+			__nts_quarter_neon__(first[1], first[5], first[9], first[13], table);
+			__nts_quarter_neon__(second[1], second[5], second[9], second[13], table);
 			// Столбцы скалярного блока: первый двойной раунд
-			quarterWord(words[0], words[4], words[8], words[12]);
-			quarterWord(words[1], words[5], words[9], words[13]);
-			quarterWord(words[2], words[6], words[10], words[14]);
-			quarterWord(words[3], words[7], words[11], words[15]);
+			__nts_quarter_word__(words[0], words[4], words[8], words[12]);
+			__nts_quarter_word__(words[1], words[5], words[9], words[13]);
+			__nts_quarter_word__(words[2], words[6], words[10], words[14]);
+			__nts_quarter_word__(words[3], words[7], words[11], words[15]);
 			// Вторые два столбца четвёрок
-			quarterNeon(first[2], first[6], first[10], first[14], table);
-			quarterNeon(second[2], second[6], second[10], second[14], table);
-			quarterNeon(first[3], first[7], first[11], first[15], table);
-			quarterNeon(second[3], second[7], second[11], second[15], table);
+			__nts_quarter_neon__(first[2], first[6], first[10], first[14], table);
+			__nts_quarter_neon__(second[2], second[6], second[10], second[14], table);
+			__nts_quarter_neon__(first[3], first[7], first[11], first[15], table);
+			__nts_quarter_neon__(second[3], second[7], second[11], second[15], table);
 			// Диагонали скалярного блока: первый двойной раунд
-			quarterWord(words[0], words[5], words[10], words[15]);
-			quarterWord(words[1], words[6], words[11], words[12]);
-			quarterWord(words[2], words[7], words[8], words[13]);
-			quarterWord(words[3], words[4], words[9], words[14]);
+			__nts_quarter_word__(words[0], words[5], words[10], words[15]);
+			__nts_quarter_word__(words[1], words[6], words[11], words[12]);
+			__nts_quarter_word__(words[2], words[7], words[8], words[13]);
+			__nts_quarter_word__(words[3], words[4], words[9], words[14]);
 			// Первые две диагонали четвёрок
-			quarterNeon(first[0], first[5], first[10], first[15], table);
-			quarterNeon(second[0], second[5], second[10], second[15], table);
-			quarterNeon(first[1], first[6], first[11], first[12], table);
-			quarterNeon(second[1], second[6], second[11], second[12], table);
+			__nts_quarter_neon__(first[0], first[5], first[10], first[15], table);
+			__nts_quarter_neon__(second[0], second[5], second[10], second[15], table);
+			__nts_quarter_neon__(first[1], first[6], first[11], first[12], table);
+			__nts_quarter_neon__(second[1], second[6], second[11], second[12], table);
 			// Столбцы скалярного блока: второй двойной раунд
-			quarterWord(words[0], words[4], words[8], words[12]);
-			quarterWord(words[1], words[5], words[9], words[13]);
-			quarterWord(words[2], words[6], words[10], words[14]);
-			quarterWord(words[3], words[7], words[11], words[15]);
+			__nts_quarter_word__(words[0], words[4], words[8], words[12]);
+			__nts_quarter_word__(words[1], words[5], words[9], words[13]);
+			__nts_quarter_word__(words[2], words[6], words[10], words[14]);
+			__nts_quarter_word__(words[3], words[7], words[11], words[15]);
 			// Вторые две диагонали четвёрок
-			quarterNeon(first[2], first[7], first[8], first[13], table);
-			quarterNeon(second[2], second[7], second[8], second[13], table);
-			quarterNeon(first[3], first[4], first[9], first[14], table);
-			quarterNeon(second[3], second[4], second[9], second[14], table);
+			__nts_quarter_neon__(first[2], first[7], first[8], first[13], table);
+			__nts_quarter_neon__(second[2], second[7], second[8], second[13], table);
+			__nts_quarter_neon__(first[3], first[4], first[9], first[14], table);
+			__nts_quarter_neon__(second[3], second[4], second[9], second[14], table);
 			// Диагонали скалярного блока: второй двойной раунд
-			quarterWord(words[0], words[5], words[10], words[15]);
-			quarterWord(words[1], words[6], words[11], words[12]);
-			quarterWord(words[2], words[7], words[8], words[13]);
-			quarterWord(words[3], words[4], words[9], words[14]);
+			__nts_quarter_word__(words[0], words[5], words[10], words[15]);
+			__nts_quarter_word__(words[1], words[6], words[11], words[12]);
+			__nts_quarter_word__(words[2], words[7], words[8], words[13]);
+			__nts_quarter_word__(words[3], words[4], words[9], words[14]);
 		}
 		/**
 		 * @brief Функция покрытия гаммой десяти целых блоков разом: восемь двумя четвёрками NEON и два скалярно
@@ -634,14 +636,14 @@ namespace {
 		 * @details Восемь блоков двумя четвёрками занимают все векторные устройства, и два
 		 *          скалярных блока идут на целочисленных устройствах в те же такты: первый
 		 *          скалярный блок (счётчик плюс восемь) проходит свои двадцать раундов за
-		 *          первые пять двойных раундов четвёрок, второй (плюс девять) - за вторые
+		 *          первые пять двойных раундов четвёрок, второй (плюс девять) - за вторые.
 		 *
 		 * @param state  состояние шифра: постоянные, ключ, счётчик, заполнение
 		 * @param source покрываемые данные в 640 байтов
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static void streamNeon10(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static void __nts_stream_neon10__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков четвёрки и сдвиг второй четвёрки
 			const uint32x4_t steps = vld1q_u32(STEPS4);
 			// Сдвиг счётчиков второй четвёрки на четыре блока
@@ -651,7 +653,7 @@ namespace {
 			// Рабочие слова обеих четвёрок
 			uint32x4_t first[16], second[16];
 			/**
-			 * Выполняем размножение слов состояния на обе четвёрки
+			 * Размножаем слова состояния на обе четвёрки
 			 */
 			for(size_t i = 0; i < 16; i++){
 				// Размножаем очередное слово на первую четвёрку
@@ -666,27 +668,27 @@ namespace {
 			// Рабочие слова скалярного блока
 			uint32_t words[16];
 			// Заводим первый скалярный блок: счётчик плюс восемь
-			beginWord(state, (state[12] + static_cast <uint32_t> (PACK8)), words);
+			__nts_begin_word__(state, (state[12] + static_cast <uint32_t> (PACK8)), words);
 			/**
-			 * Выполняем первые пять двойных раундов четвёрок вперемешку с первым скалярным блоком
+			 * Прогоняем первые пять двойных раундов четвёрок вперемешку с первым скалярным блоком
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Двойной раунд четвёрок и два двойных раунда скалярного блока
-			roundNeon10(first, second, words, table);
+				// Двойной раунд четвёрок и два двойных раунда скалярного блока
+				__nts_round_neon10__(first, second, words, table);
 			// Завершаем первый скалярный блок: блок с восьмым смещением пачки
-			finishWord(state, (state[12] + static_cast <uint32_t> (PACK8)), words, source + (PACK8 * CHACHA_BLOCK), result + (PACK8 * CHACHA_BLOCK));
+			__nts_finish_word__(state, (state[12] + static_cast <uint32_t> (PACK8)), words, source + (PACK8 * CHACHA_BLOCK), result + (PACK8 * CHACHA_BLOCK));
 			// Заводим второй скалярный блок: счётчик плюс девять
-			beginWord(state, (state[12] + static_cast <uint32_t> (PACK8 + 1)), words);
+			__nts_begin_word__(state, (state[12] + static_cast <uint32_t> (PACK8 + 1)), words);
 			/**
-			 * Выполняем вторые пять двойных раундов четвёрок вперемешку со вторым скалярным блоком
+			 * Прогоняем вторые пять двойных раундов четвёрок вперемешку со вторым скалярным блоком
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Двойной раунд четвёрок и два двойных раунда скалярного блока
-			roundNeon10(first, second, words, table);
+				// Двойной раунд четвёрок и два двойных раунда скалярного блока
+				__nts_round_neon10__(first, second, words, table);
 			// Завершаем второй скалярный блок: блок с девятым смещением пачки
-			finishWord(state, (state[12] + static_cast <uint32_t> (PACK8 + 1)), words, source + ((PACK8 + 1) * CHACHA_BLOCK), result + ((PACK8 + 1) * CHACHA_BLOCK));
+			__nts_finish_word__(state, (state[12] + static_cast <uint32_t> (PACK8 + 1)), words, source + ((PACK8 + 1) * CHACHA_BLOCK), result + ((PACK8 + 1) * CHACHA_BLOCK));
 			/**
-			 * Выполняем сложение рабочих слов четвёрок с исходными, взятыми из состояния заново
+			 * Складываем рабочие слова четвёрок с исходными, взятыми из состояния заново
 			 */
 			for(size_t i = 0; i < 16; i++){
 				// Исходное слово состояния
@@ -701,15 +703,15 @@ namespace {
 			// Складываем счётчики второй четвёрки
 			second[12] = vaddq_u32(vaddq_u32(second[12], steps), shift);
 			/**
-			 * Выполняем перестановку по блокам и наложение гаммы четвёрками слов
+			 * Переставляем по блокам и накладываем гамму четвёрками слов
 			 */
 			for(size_t i = 0; i < 4; i++){
 				// Переставляем очередные четыре слова первой четвёрки по блокам
-				transposeNeon(first[i * 4], first[(i * 4) + 1], first[(i * 4) + 2], first[(i * 4) + 3]);
+				__nts_transpose_neon__(first[i * 4], first[(i * 4) + 1], first[(i * 4) + 2], first[(i * 4) + 3]);
 				// Переставляем те же слова второй четвёрки
-				transposeNeon(second[i * 4], second[(i * 4) + 1], second[(i * 4) + 2], second[(i * 4) + 3]);
+				__nts_transpose_neon__(second[i * 4], second[(i * 4) + 1], second[(i * 4) + 2], second[(i * 4) + 3]);
 				/**
-				 * Выполняем наложение гаммы на очередную четвёрку слов каждого блока
+				 * Накладываем гамму на очередную четвёрку слов каждого блока
 				 */
 				for(size_t j = 0; j < PACK4; j++){
 					// Смещение четвёрки слов блока первой четвёрки
@@ -738,7 +740,6 @@ namespace {
 			2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13,
 			2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13
 		};
-
 		/**
 		 * @brief Перестановка байтов вращения слов влево на восемь разрядов
 		 *
@@ -748,7 +749,6 @@ namespace {
 			3, 0, 1, 2, 7, 4, 5, 6, 11, 8, 9, 10, 15, 12, 13, 14,
 			3, 0, 1, 2, 7, 4, 5, 6, 11, 8, 9, 10, 15, 12, 13, 14
 		};
-
 		/**
 		 * @brief Приращения счётчика восьми блоков пачки
 		 *
@@ -761,7 +761,7 @@ namespace {
 		 * @details Тело общее двум ветвям: вращения на 16 и 8 разрядов подставляются
 		 *          доводами - парой сдвигов у SSE2 и перестановкой байтов у SSSE3, -
 		 *          вращения на 12 и 7 везде парой сдвигов. Внутри макроса допустимы
-		 *          лишь блочные пояснения: строчные срезали бы продолжение строки
+		 *          лишь блочные пояснения: строчные срезали бы продолжение строки.
 		 *
 		 * @param a   первые слова четырёх блоков, заменяемые итогом
 		 * @param b   вторые слова четырёх блоков, заменяемые итогом
@@ -803,7 +803,7 @@ namespace {
 		 * @details Каждый из шестнадцати векторов несёт одно слово состояния четырёх
 		 *          блоков со счётчиками от текущего до текущего плюс три; раунды идут
 		 *          над всеми четырьмя блоками разом, а перед записью слова переставляются
-		 *          по блокам чередованием. Тело общее ветвям SSE2 и SSSE3
+		 *          по блокам чередованием. Тело общее ветвям SSE2 и SSSE3.
 		 *
 		 * @param state  состояние шифра: постоянные, ключ, счётчик, заполнение
 		 * @param source покрываемые данные в 256 байтов
@@ -866,7 +866,8 @@ namespace {
 			work[(i * 4) + 2] = _mm_unpacklo_epi64(t2, t3); \
 			/* Собираем слова четвёртого блока */ \
 			work[(i * 4) + 3] = _mm_unpackhi_epi64(t2, t3); \
-			/* Выполняем наложение гаммы на очередную четвёрку слов каждого блока */ for(size_t j = 0; j < PACK4; j++){ \
+			/* Накладываем гамму на очередную четвёрку слов каждого блока */ \
+			for(size_t j = 0; j < PACK4; j++){ \
 				/* Смещение четвёрки слов внутри данных */ \
 				const size_t offset = ((j * CHACHA_BLOCK) + (i * 16)); \
 				/* Данные, сложенные с гаммой по модулю два */ \
@@ -883,7 +884,7 @@ namespace {
 		 * @return      вращённые слова
 		 *
 		 */
-		static __NTS_INLINE__ __NTS_CHACHA_SSE2_TARGET__ __m128i rotate16Sse2(const __m128i value) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_SSE2_TARGET__ __m128i __nts_rotate16_sse2__(const __m128i value) noexcept {
 			// Выводим слова, вращённые парой сдвигов
 			return _mm_or_si128(_mm_slli_epi32(value, 16), _mm_srli_epi32(value, 16));
 		}
@@ -894,7 +895,7 @@ namespace {
 		 * @return      вращённые слова
 		 *
 		 */
-		static __NTS_INLINE__ __NTS_CHACHA_SSE2_TARGET__ __m128i rotate8Sse2(const __m128i value) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_SSE2_TARGET__ __m128i __nts_rotate8_sse2__(const __m128i value) noexcept {
 			// Выводим слова, вращённые парой сдвигов
 			return _mm_or_si128(_mm_slli_epi32(value, 8), _mm_srli_epi32(value, 24));
 		}
@@ -905,7 +906,7 @@ namespace {
 		 * @return      вращённые слова
 		 *
 		 */
-		static __NTS_INLINE__ __NTS_CHACHA_SSSE3_TARGET__ __m128i rotate16Ssse3(const __m128i value) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_SSSE3_TARGET__ __m128i __nts_rotate16_ssse3__(const __m128i value) noexcept {
 			// Выводим слова, вращённые перестановкой байтов
 			return _mm_shuffle_epi8(value, _mm_load_si128(reinterpret_cast <const __m128i *> (ROTATE16)));
 		}
@@ -916,7 +917,7 @@ namespace {
 		 * @return      вращённые слова
 		 *
 		 */
-		static __NTS_INLINE__ __NTS_CHACHA_SSSE3_TARGET__ __m128i rotate8Ssse3(const __m128i value) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_SSSE3_TARGET__ __m128i __nts_rotate8_ssse3__(const __m128i value) noexcept {
 			// Выводим слова, вращённые перестановкой байтов
 			return _mm_shuffle_epi8(value, _mm_load_si128(reinterpret_cast <const __m128i *> (ROTATE8)));
 		}
@@ -928,9 +929,9 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __NTS_CHACHA_SSE2_TARGET__ void streamSse2(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_CHACHA_SSE2_TARGET__ void __nts_stream_sse2__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Тело покрытия с вращениями парой сдвигов
-			__NTS_CHACHA_STREAM_X86__(state, source, result, rotate16Sse2, rotate8Sse2)
+			__NTS_CHACHA_STREAM_X86__(state, source, result, __nts_rotate16_sse2__, __nts_rotate8_sse2__)
 		}
 		/**
 		 * @brief Функция покрытия гаммой четырёх целых блоков разом командами SSSE3
@@ -940,9 +941,9 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __NTS_CHACHA_SSSE3_TARGET__ void streamSsse3(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_CHACHA_SSSE3_TARGET__ void __nts_stream_ssse3__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Тело покрытия с вращениями перестановкой байтов
-			__NTS_CHACHA_STREAM_X86__(state, source, result, rotate16Ssse3, rotate8Ssse3)
+			__NTS_CHACHA_STREAM_X86__(state, source, result, __nts_rotate16_ssse3__, __nts_rotate8_ssse3__)
 		}
 		/**
 		 * @brief Функция четвертьраунда над восемью блоками разом командами AVX2
@@ -955,7 +956,7 @@ namespace {
 		 * @param r8  перестановка байтов вращения на восемь разрядов
 		 *
 		 */
-		static __NTS_INLINE__ __NTS_CHACHA_AVX2_TARGET__ void quarterAvx2(__m256i & a, __m256i & b, __m256i & c, __m256i & d, const __m256i r16, const __m256i r8) noexcept {
+		static __NTS_INLINE__ __NTS_CHACHA_AVX2_TARGET__ void __nts_quarter_avx2__(__m256i & a, __m256i & b, __m256i & c, __m256i & d, const __m256i r16, const __m256i r8) noexcept {
 			// Складываем первые слова со вторыми
 			a = _mm256_add_epi32(a, b);
 			// Складываем четвёртые слова с первыми по модулю два
@@ -988,14 +989,14 @@ namespace {
 		 *          блоков: младшая половина вектора - блоки с первого по четвёртый,
 		 *          старшая - с пятого по восьмой. Чередование слов у AVX2 идёт внутри
 		 *          половин, оттого после перестановки половина вектора - это четвёрка
-		 *          слов одного блока
+		 *          слов одного блока.
 		 *
 		 * @param state  состояние шифра: постоянные, ключ, счётчик, заполнение
 		 * @param source покрываемые данные в 512 байтов
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __NTS_CHACHA_AVX2_TARGET__ void streamAvx2(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_CHACHA_AVX2_TARGET__ void __nts_stream_avx2__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков восьми блоков
 			const __m256i steps = _mm256_load_si256(reinterpret_cast <const __m256i *> (STEPS8));
 			// Перестановка байтов вращения на шестнадцать разрядов
@@ -1005,44 +1006,44 @@ namespace {
 			// Рабочие слова восьми блоков
 			__m256i work[16];
 			/**
-			 * Выполняем размножение слов состояния на восемь блоков
+			 * Размножаем слова состояния на восемь блоков
 			 */
 			for(size_t i = 0; i < 16; i++)
-			// Размножаем очередное слово
-			work[i] = _mm256_set1_epi32(static_cast <int> (state[i]));
+				// Размножаем очередное слово
+				work[i] = _mm256_set1_epi32(static_cast <int> (state[i]));
 			// Продвигаем счётчики блоков со второго по восьмой
 			work[12] = _mm256_add_epi32(work[12], steps);
 			/**
-			 * Выполняем десять двойных раундов: столбцами и диагоналями
+			 * Прогоняем десять двойных раундов: столбцами и диагоналями
 			 */
 			for(size_t i = 0; i < 10; i++){
 				// Четвертьраунд первого столбца
-				quarterAvx2(work[0], work[4], work[8], work[12], r16, r8);
+				__nts_quarter_avx2__(work[0], work[4], work[8], work[12], r16, r8);
 				// Четвертьраунд второго столбца
-				quarterAvx2(work[1], work[5], work[9], work[13], r16, r8);
+				__nts_quarter_avx2__(work[1], work[5], work[9], work[13], r16, r8);
 				// Четвертьраунд третьего столбца
-				quarterAvx2(work[2], work[6], work[10], work[14], r16, r8);
+				__nts_quarter_avx2__(work[2], work[6], work[10], work[14], r16, r8);
 				// Четвертьраунд четвёртого столбца
-				quarterAvx2(work[3], work[7], work[11], work[15], r16, r8);
+				__nts_quarter_avx2__(work[3], work[7], work[11], work[15], r16, r8);
 				// Четвертьраунд первой диагонали
-				quarterAvx2(work[0], work[5], work[10], work[15], r16, r8);
+				__nts_quarter_avx2__(work[0], work[5], work[10], work[15], r16, r8);
 				// Четвертьраунд второй диагонали
-				quarterAvx2(work[1], work[6], work[11], work[12], r16, r8);
+				__nts_quarter_avx2__(work[1], work[6], work[11], work[12], r16, r8);
 				// Четвертьраунд третьей диагонали
-				quarterAvx2(work[2], work[7], work[8], work[13], r16, r8);
+				__nts_quarter_avx2__(work[2], work[7], work[8], work[13], r16, r8);
 				// Четвертьраунд четвёртой диагонали
-				quarterAvx2(work[3], work[4], work[9], work[14], r16, r8);
+				__nts_quarter_avx2__(work[3], work[4], work[9], work[14], r16, r8);
 			}
 			/**
-			 * Выполняем сложение рабочих слов с исходными, взятыми из состояния заново
+			 * Складываем рабочие слова с исходными, взятыми из состояния заново
 			 */
 			for(size_t i = 0; i < 16; i++)
-			// Складываем очередное слово
-			work[i] = _mm256_add_epi32(work[i], _mm256_set1_epi32(static_cast <int> (state[i])));
+				// Складываем очередное слово
+				work[i] = _mm256_add_epi32(work[i], _mm256_set1_epi32(static_cast <int> (state[i])));
 			// Складываем счётчики с приращениями блоков со второго по восьмой
 			work[12] = _mm256_add_epi32(work[12], steps);
 			/**
-			 * Выполняем перестановку по блокам и наложение гаммы четвёрками слов
+			 * Переставляем по блокам и накладываем гамму четвёрками слов
 			 */
 			for(size_t i = 0; i < 4; i++){
 				// Чередование младших слов первой пары векторов внутри половин
@@ -1062,7 +1063,7 @@ namespace {
 				// Собираем слова четвёртого и восьмого блоков
 				work[(i * 4) + 3] = _mm256_unpackhi_epi64(t2, t3);
 				/**
-				 * Выполняем наложение гаммы на очередную четвёрку слов каждой пары блоков
+				 * Накладываем гамму на очередную четвёрку слов каждой пары блоков
 				 */
 				for(size_t j = 0; j < PACK4; j++){
 					// Смещение четвёрки слов внутри данных младшего блока пары
@@ -1102,25 +1103,25 @@ void nts::cipher::Chacha::quarter(uint32_t & a, uint32_t & b, uint32_t & c, uint
 	// Складываем четвёртое слово с первым по модулю два
 	d ^= a;
 	// Вращаем четвёртое слово на шестнадцать разрядов
-	d = rotate(d, 16);
+	d = ::__nts_rotate__(d, 16);
 	// Складываем третье слово с четвёртым
 	c += d;
 	// Складываем второе слово с третьим по модулю два
 	b ^= c;
 	// Вращаем второе слово на двенадцать разрядов
-	b = rotate(b, 12);
+	b = ::__nts_rotate__(b, 12);
 	// Складываем первое слово со вторым
 	a += b;
 	// Складываем четвёртое слово с первым по модулю два
 	d ^= a;
 	// Вращаем четвёртое слово на восемь разрядов
-	d = rotate(d, 8);
+	d = ::__nts_rotate__(d, 8);
 	// Складываем третье слово с четвёртым
 	c += d;
 	// Складываем второе слово с третьим по модулю два
 	b ^= c;
 	// Вращаем второе слово на семь разрядов
-	b = rotate(b, 7);
+	b = ::__nts_rotate__(b, 7);
 }
 /**
  * @brief Метод выработки блока гаммы на текущем счётчике
@@ -1134,7 +1135,7 @@ void nts::cipher::Chacha::generate(uint8_t * result) const noexcept {
 	// Переносим состояние в рабочее
 	::memcpy(work, this->_state, sizeof(work));
 	/**
-	 * Выполняем десять двойных раундов: столбцами и диагоналями
+	 * Прогоняем десять двойных раундов: столбцами и диагоналями
 	 */
 	for(size_t i = 0; i < 10; i++){
 		// Четвертьраунд первого столбца
@@ -1155,11 +1156,11 @@ void nts::cipher::Chacha::generate(uint8_t * result) const noexcept {
 		quarter(work[3], work[4], work[9], work[14]);
 	}
 	/**
-	 * Выполняем сложение рабочего состояния с исходным и запись от младшего байта
+	 * Складываем рабочее состояние с исходным и записываем от младшего байта
 	 */
 	for(size_t i = 0; i < 16; i++)
 		// Записываем очередное слово блока гаммы
-		store(work[i] + this->_state[i], result + (i * 4));
+		::__nts_store__(work[i] + this->_state[i], result + (i * 4));
 	// Затирание рабочего состояния
 	wipe(work, sizeof(work));
 }
@@ -1208,7 +1209,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 			// Признак того, что ядро вызывалось и кадр требует затирания
 			bool used = false;
 			/**
-			 * Выполняем покрытие пачками: по восемь блоков у AVX2, затем хвост по четыре
+			 * Покрываем пачками: по восемь блоков у AVX2, затем хвост по четыре
 			 */
 			for(size_t pack = (avx2 ? PACK8 : PACK4); pack >= PACK4; pack -= PACK4){
 				// Количество блоков до переполнения счётчика: не меньше одного
@@ -1217,20 +1218,20 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				size_t count = (left / (pack * CHACHA_BLOCK));
 				// Если пачек больше, чем умещается в счётчик
 				if(count > (room / pack))
-				// Ограничиваем число пачек счётчиком
-				count = static_cast <size_t> (room / pack);
+					// Ограничиваем число пачек счётчиком
+					count = static_cast <size_t> (room / pack);
 				// Если пачек нет
 				if(count == 0)
-				// Переходим к меньшей пачке
-				continue;
+					// Переходим к меньшей пачке
+					continue;
 				// Если пачка восьмёрка
 				if(pack == PACK8)
-				// Покрытие ядром AVX2
-				kernel::chacha8xavx2(this->_state, frame, cursor, output, count);
+					// Покрытие ядром AVX2
+					kernel::chacha8xavx2(this->_state, frame, cursor, output, count);
 				// Если перестановка байтов есть
 				else if(shuffle)
-				// Покрытие ядром SSSE3
-				kernel::chacha4xssse3(this->_state, frame, cursor, output, count);
+					// Покрытие ядром SSSE3
+					kernel::chacha4xssse3(this->_state, frame, cursor, output, count);
 				// Иначе обходимся сдвигами
 				else kernel::chacha4xsse2(this->_state, frame, cursor, output, count);
 				// Количество покрытых блоков: не больше умещающихся в счётчик
@@ -1239,8 +1240,8 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				this->_state[12] = static_cast <uint32_t> (this->_state[12] + blocks);
 				// Если счётчик исчерпан
 				if(blocks == room)
-				// Запоминаем переполнение счётчика
-				this->_exhausted = true;
+					// Запоминаем переполнение счётчика
+					this->_exhausted = true;
 				// Сдвигаем позицию чтения
 				cursor += (blocks * CHACHA_BLOCK);
 				// Сдвигаем позицию записи
@@ -1251,13 +1252,13 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				used = true;
 				// Если счётчик исчерпан
 				if(this->_exhausted)
-				// Выходим из цикла
-				break;
+					// Выходим из цикла
+					break;
 			}
 			// Если ядро вызывалось
 			if(used)
-			// Затирание кадра: в столе лежат слова ключа
-			wipe(frame, sizeof(frame));
+				// Затирание кадра: в столе лежат слова ключа
+				wipe(frame, sizeof(frame));
 		}
 	/**
 	 * Если есть ветви команд x86-64 на интринсиках
@@ -1266,17 +1267,17 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 		// Если машина несёт векторы в 256 разрядов
 		if(machine::has(machine::feature_t::AVX2)){
 			/**
-			 * Выполняем покрытие пачками по восемь блоков, пока счётчики умещаются
+			 * Покрываем пачками по восемь блоков, пока счётчики умещаются
 			 */
 			while(!this->_exhausted && (left >= (PACK8 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK8 - 1)))){
 				// Покрытие восьми блоков разом
-				streamAvx2(this->_state, cursor, output);
+				__nts_stream_avx2__(this->_state, cursor, output);
 				// Продвигаем счётчик на восемь блоков
 				this->_state[12] += PACK8;
 				// Если счётчик обратился в ноль
 				if(this->_state[12] == 0)
-				// Запоминаем переполнение счётчика
-				this->_exhausted = true;
+					// Запоминаем переполнение счётчика
+					this->_exhausted = true;
 				// Сдвигаем позицию чтения
 				cursor += (PACK8 * CHACHA_BLOCK);
 				// Сдвигаем позицию записи
@@ -1293,18 +1294,18 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 		// Если машина несёт векторы в 128 разрядов
 		if(machine::has(machine::feature_t::VECTOR)){
 			/**
-			 * Выполняем покрытие пачками по десять блоков: восемь двумя четвёрками NEON и два
+			 * Покрываем пачками по десять блоков: восемь двумя четвёрками NEON и два
 			 * скалярно вперемешку, пока счётчики умещаются
 			 */
 			while(!this->_exhausted && (left >= (PACK10 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK10 - 1)))){
 				// Покрытие пачки
-				streamNeon10(this->_state, cursor, output);
+				__nts_stream_neon10__(this->_state, cursor, output);
 				// Сдвигаем счётчик блоков на пачку
 				this->_state[12] += PACK10;
 				// Если счётчик переполнился, гамма исчерпана
 				if(this->_state[12] == 0)
-				// Отмечаем исчерпание гаммы
-				this->_exhausted = true;
+					// Отмечаем исчерпание гаммы
+					this->_exhausted = true;
 				// Сдвигаем данные на пачку
 				cursor += (PACK10 * CHACHA_BLOCK);
 				// Сдвигаем место записи на пачку
@@ -1313,17 +1314,17 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				left -= (PACK10 * CHACHA_BLOCK);
 			}
 			/**
-			 * Выполняем покрытие пачками по восемь блоков двумя четвёрками вперемешку, пока счётчики умещаются
+			 * Покрываем пачками по восемь блоков двумя четвёрками вперемешку, пока счётчики умещаются
 			 */
 			while(!this->_exhausted && (left >= (PACK8 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK8 - 1)))){
 				// Покрытие восьми блоков разом командами NEON
-				streamNeon8(this->_state, cursor, output);
+				__nts_stream_neon8__(this->_state, cursor, output);
 				// Продвигаем счётчик на восемь блоков
 				this->_state[12] += PACK8;
 				// Если счётчик обратился в ноль
 				if(this->_state[12] == 0)
-				// Запоминаем переполнение счётчика
-				this->_exhausted = true;
+					// Запоминаем переполнение счётчика
+					this->_exhausted = true;
 				// Сдвигаем позицию чтения
 				cursor += (PACK8 * CHACHA_BLOCK);
 				// Сдвигаем позицию записи
@@ -1347,7 +1348,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				const bool shuffle = machine::has(machine::feature_t::SSSE3);
 			#endif
 			/**
-			 * Выполняем покрытие пачками по четыре блока, пока счётчики умещаются
+			 * Покрываем пачками по четыре блока, пока счётчики умещаются
 			 */
 			while(!this->_exhausted && (left >= (PACK4 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK4 - 1)))){
 				/**
@@ -1355,24 +1356,24 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				 */
 				#if defined(__NTS_CHACHA_NEON__)
 					// Покрытие четырёх блоков разом командами NEON
-					streamNeon(this->_state, cursor, output);
+					__nts_stream_neon__(this->_state, cursor, output);
 				/**
 				 * Если есть ветви команд x86-64
 				 */
 				#else
 					// Если перестановка байтов есть
 					if(shuffle)
-					// Покрытие четырёх блоков разом командами SSSE3
-					streamSsse3(this->_state, cursor, output);
+						// Покрытие четырёх блоков разом командами SSSE3
+						__nts_stream_ssse3__(this->_state, cursor, output);
 					// Иначе обходимся сдвигами
-					else streamSse2(this->_state, cursor, output);
+					else __nts_stream_sse2__(this->_state, cursor, output);
 				#endif
 				// Продвигаем счётчик на четыре блока
 				this->_state[12] += PACK4;
 				// Если счётчик обратился в ноль
 				if(this->_state[12] == 0)
-				// Запоминаем переполнение счётчика
-				this->_exhausted = true;
+					// Запоминаем переполнение счётчика
+					this->_exhausted = true;
 				// Сдвигаем позицию чтения
 				cursor += (PACK4 * CHACHA_BLOCK);
 				// Сдвигаем позицию записи
@@ -1441,25 +1442,25 @@ bool nts::cipher::Chacha::start(const view_t & key, const view_t & nonce, const 
 		return started;
 	}
 	/**
-	 * Выполняем запись постоянных слов состояния
+	 * Записываем постоянные слова состояния
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Записываем очередное постоянное слово
 		this->_state[i] = CONSTNTS[i];
 	/**
-	 * Выполняем запись слов ключа от младшего байта
+	 * Записываем слова ключа от младшего байта
 	 */
 	for(size_t i = 0; i < 8; i++)
 		// Записываем очередное слово ключа
-		this->_state[4 + i] = load(key.data + (i * 4));
+		this->_state[4 + i] = ::__nts_load__(key.data + (i * 4));
 	// Записываем счётчик блока
 	this->_state[12] = counter;
 	/**
-	 * Выполняем запись слов заполнения от младшего байта
+	 * Записываем слова заполнения от младшего байта
 	 */
 	for(size_t i = 0; i < 3; i++)
 		// Записываем очередное слово заполнения
-		this->_state[13 + i] = load(nonce.data + (i * 4));
+		this->_state[13 + i] = ::__nts_load__(nonce.data + (i * 4));
 	// Запоминаем готовность шифра
 	this->_ready = true;
 	// Выводим успешность запуска
@@ -1534,7 +1535,7 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 		// Позиция остатка внутри блока гаммы
 		const size_t index = (CHACHA_BLOCK - this->_rest);
 		/**
-		 * Выполняем наложение остатка гаммы
+		 * Накладываем остаток гаммы
 		 */
 		for(size_t i = 0; i < taken; i++)
 			// Складываем очередной байт с гаммой
@@ -1553,7 +1554,7 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 		// Покрытие пачек целых блоков векторными командами
 		this->pack(cursor, output, left);
 	/**
-	 * Выполняем покрытие данных гаммой по блокам
+	 * Покрываем данные гаммой по блокам
 	 */
 	while(left > 0){
 		// Если счётчик блока переполнен
@@ -1567,7 +1568,7 @@ bool nts::cipher::Chacha::encrypt(const view_t & source, uint8_t * result) noexc
 		// Количество байтов, покрываемых выработанным блоком
 		const size_t taken = ((left < CHACHA_BLOCK) ? left : CHACHA_BLOCK);
 		/**
-		 * Выполняем наложение гаммы
+		 * Накладываем гамму
 		 */
 		for(size_t i = 0; i < taken; i++)
 			// Складываем очередной байт с гаммой
@@ -1597,25 +1598,6 @@ bool nts::cipher::Chacha::decrypt(const view_t & source, uint8_t * result) noexc
 	return this->encrypt(source, result);
 }
 /**
- * @brief Конструктор
- *
- */
-nts::cipher::Chacha::Chacha() noexcept : _ready(false), _exhausted(false), _rest(0) {
-	// Затирание состояния
-	wipe(this->_state, sizeof(this->_state));
-	// Затирание остатка блока гаммы
-	wipe(this->_gamma, sizeof(this->_gamma));
-}
-/**
- * @brief Деструктор
- *
- */
-nts::cipher::Chacha::~Chacha() noexcept {
-	// Сброс шифра
-	this->clear();
-}
-
-/**
  * @brief Метод вывода подключа HChaCha20 (draft-irtf-cfrg-xchacha, раздел 2.2)
  *
  * @param key    ключ в 32 байта
@@ -1632,25 +1614,25 @@ bool nts::cipher::Chacha::hchacha(const view_t & key, const view_t & nonce, uint
 	// Состояние: константы, ключ, заполнение целиком на месте счётчика и заполнения
 	uint32_t work[16];
 	/**
-	 * Выполняем заполнение констант
+	 * Заполняем константы
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Константы ядра потока
 		work[i] = CONSTNTS[i];
 	/**
-	 * Выполняем заполнение ключа
+	 * Заполняем ключ
 	 */
 	for(size_t i = 0; i < 8; i++)
 		// Слово ключа
-		work[4 + i] = load(key.data + (i * 4));
+		work[4 + i] = __nts_load__(key.data + (i * 4));
 	/**
-	 * Выполняем заполнение начального заполнения
+	 * Записываем слова начального заполнения
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Слово заполнения
-		work[12 + i] = load(nonce.data + (i * 4));
+		work[12 + i] = __nts_load__(nonce.data + (i * 4));
 	/**
-	 * Выполняем двадцать кругов
+	 * Прогоняем двадцать кругов
 	 */
 	for(size_t i = 0; i < 10; i++){
 		// Четвертьраунд первого столбца
@@ -1668,12 +1650,30 @@ bool nts::cipher::Chacha::hchacha(const view_t & key, const view_t & nonce, uint
 	 */
 	for(size_t i = 0; i < 4; i++){
 		// Первая половина
-		store(work[i], result + (i * 4));
+		::__nts_store__(work[i], result + (i * 4));
 		// Вторая половина
-		store(work[12 + i], result + 16 + (i * 4));
+		::__nts_store__(work[12 + i], result + 16 + (i * 4));
 	}
 	// Затирание рабочих слов потока
 	wipe(work, sizeof(work));
 	// Сообщаем об успешном выводе подключа
 	return true;
+}
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cipher::Chacha::Chacha() noexcept : _ready(false), _exhausted(false), _rest(0) {
+	// Затирание состояния
+	wipe(this->_state, sizeof(this->_state));
+	// Затирание остатка блока гаммы
+	wipe(this->_gamma, sizeof(this->_gamma));
+}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cipher::Chacha::~Chacha() noexcept {
+	// Сброс шифра
+	this->clear();
 }

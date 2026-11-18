@@ -378,7 +378,7 @@ namespace {
 	 * @return     строка base64
 	 *
 	 */
-	string base64Encode(const uint8_t * data, const size_t size) noexcept {
+	string __nts_base64_encode__(const uint8_t * data, const size_t size) noexcept {
 		// Накопитель строки base64
 		string result;
 		// Кодируем данные кодеком: нехватка памяти отвечает пустой строкой
@@ -394,7 +394,7 @@ namespace {
 	 * @return     признак успешности
 	 *
 	 */
-	bool base64Decode(const string & text, vector <uint8_t> & data) noexcept {
+	bool __nts_base64_decode__(const string & text, vector <uint8_t> & data) noexcept {
 		// Выводим итог разбора кодеком: нехватка памяти отвечает отказом
 		return codec::decode(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), data);
 	}
@@ -407,7 +407,7 @@ namespace {
 	 * @return        признак успешности
 	 *
 	 */
-	bool parsePrivate(reader_t & reader, keys::key_t & key, string & comment) noexcept {
+	bool __nts_parse_private__(reader_t & reader, keys::key_t & key, string & comment) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -486,7 +486,7 @@ namespace {
 	 * @param comment комментарий
 	 *
 	 */
-	void writePrivate(writer_t & writer, const keys::key_t & key, const string & comment) noexcept {
+	void __nts_write_private__(writer_t & writer, const keys::key_t & key, const string & comment) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -609,7 +609,7 @@ string nts::keys::ssh::publish(const key_t & key, const string & comment) noexce
 		// Начало строки: тип ключа
 		string result = "ssh-ed25519 ";
 		// Дописываем ключ в base64
-		result += ::base64Encode(pubblock.data(), pubblock.size());
+		result += ::__nts_base64_encode__(pubblock.data(), pubblock.size());
 		// Если комментарий задан
 		if(!comment.empty()){
 			// Дописываем разделитель
@@ -729,7 +729,7 @@ bool nts::keys::ssh::knownHosts(const string & line, known_host_t & result) noex
 				// Выводим отказ разбора
 				return false;
 			// Если соль либо хеш из base64 записать не удалось
-			if(!::base64Decode(marker.substr(3, separator - 3), result.salt) || !::base64Decode(marker.substr(separator + 1), result.hash))
+			if(!::__nts_base64_decode__(marker.substr(3, separator - 3), result.salt) || !::__nts_base64_decode__(marker.substr(separator + 1), result.hash))
 				// Выводим отказ разбора
 				return false;
 			// Если соль либо хеш пусты
@@ -754,7 +754,7 @@ bool nts::keys::ssh::knownHosts(const string & line, known_host_t & result) noex
 		// Открытый ключ из base64
 		string encoded = "";
 		// Если поле ключа прочитать либо декодировать не удалось
-		if(!field(offset, encoded) || !::base64Decode(encoded, result.key))
+		if(!field(offset, encoded) || !::__nts_base64_decode__(encoded, result.key))
 			// Выводим отказ разбора
 			return false;
 		// Если ключ пуст
@@ -823,14 +823,14 @@ bool nts::keys::ssh::knownHosts(const string & host, const key_t & key, const st
 				return false;
 			}
 			// Собираем маркер хеширования
-			beginning = ("|1|" + ::base64Encode(salt, sizeof(salt)) + "|" + ::base64Encode(hash, sizeof(hash)));
+			beginning = ("|1|" + ::__nts_base64_encode__(salt, sizeof(salt)) + "|" + ::__nts_base64_encode__(hash, sizeof(hash)));
 			// Затирание рабочих областей
 			::wipe(salt, sizeof(salt));
 			::wipe(hash, sizeof(hash));
 		// Иначе хозяин открытым текстом, запоминаем хозяина
 		} else beginning = host;
 		// Собираем строку
-		result = (beginning + " ssh-ed25519 " + ::base64Encode(pubblock.data(), pubblock.size()));
+		result = (beginning + " ssh-ed25519 " + ::__nts_base64_encode__(pubblock.data(), pubblock.size()));
 		// Если комментарий задан
 		if(!comment.empty())
 			// Дописываем комментарий
@@ -991,7 +991,7 @@ bool nts::keys::ssh::decode(const view_t & data, const view_t & password, key_t 
 	// Заводим разборщик секретного блока
 	reader_t privreader(privblock.data(), privblock.size());
 	// Разбираем секретный блок
-	const bool result = ::parsePrivate(privreader, key, comment);
+	const bool result = ::__nts_parse_private__(privreader, key, comment);
 	// Затирание секретного блока
 	::wipe(privblock.data(), privblock.size());
 	// Выводим признак успешности разбора
@@ -1075,7 +1075,7 @@ bool nts::keys::ssh::encode(const key_t & key, const string & comment, const vie
 			// Заводим записыватель секретного блока
 			writer_t privwriter(privblock);
 			// Записываем секретный блок
-			writePrivate(privwriter, key, comment);
+			__nts_write_private__(privwriter, key, comment);
 		}
 		// Если шифрование есть
 		if(encrypted){

@@ -62,11 +62,11 @@ namespace {
 	 * @param result место нонса в NONCE байтов
 	 *
 	 */
-	static void fill(const nts::noise::aead_t aead, const uint64_t nonce, uint8_t * result) noexcept {
+	static void __nts_fill__(const nts::noise::aead_t aead, const uint64_t nonce, uint8_t * result) noexcept {
 		// Четыре нулевых байта
 		::memset(result, 0, 4);
 		/**
-		 * Выполняем запись счётчика по восьми байтам
+		 * Записываем счётчик по восьми байтам
 		 */
 		for(size_t i = 0; i < 8; i++){
 			// У ChaChaPoly от младшего, у AESGCM от старшего
@@ -97,7 +97,7 @@ bool nts::noise::Cipher::seal(const uint64_t nonce, const view_t & associated, c
 	// Нонс шифра
 	uint8_t iv[NONCE];
 	// Заполняем нонс
-	fill(this->_aead, nonce, iv);
+	__nts_fill__(this->_aead, nonce, iv);
 	// Признак успешности
 	bool status = false;
 	/**
@@ -143,7 +143,7 @@ bool nts::noise::Cipher::open(const uint64_t nonce, const view_t & associated, c
 	// Нонс шифра
 	uint8_t iv[NONCE];
 	// Заполняем нонс
-	fill(this->_aead, nonce, iv);
+	__nts_fill__(this->_aead, nonce, iv);
 	// Признак успешности
 	bool status = false;
 	/**
@@ -369,7 +369,7 @@ bool nts::noise::Cipher::rekey() noexcept {
 	// Нонс запретного значения: заполняется напрямую, минуя запрет счётчика
 	uint8_t iv[NONCE];
 	// Заполняем нонс
-	fill(this->_aead, FORBIDDEN, iv);
+	__nts_fill__(this->_aead, FORBIDDEN, iv);
 	// Признак успешности
 	bool status = false;
 	/**

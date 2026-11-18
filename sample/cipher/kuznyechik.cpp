@@ -61,16 +61,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -91,7 +91,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Ключ шифрования образца
 	uint8_t key[cipher::KUZNYECHIK_KEY];
 	/**
-	 * Выполняем перебор байтов ключа шифрования
+	 * Перебираем байтов ключа шифрования
 	 */
 	for(size_t i = 0; i < sizeof(key); i++)
 		// Заполняем очередной байт ключа шифрования
@@ -113,14 +113,14 @@ int main(int argc, char * argv[]) noexcept {
 	};
 	// Место, в которое помещается преобразованный блок
 	uint8_t result[cipher::KUZNYECHIK_BLOCK];
-	// Выполняем зашифрование одного блока
+	// Зашифровываем одного блока
 	cipher.encrypt(block, result);
 	// Выводим зашифрованный блок
-	::print("Блок зашифрованный ", result, sizeof(result));
-	// Выполняем расшифрование того же блока
+	::__nts_print__("Блок зашифрованный ", result, sizeof(result));
+	// Расшифровываем того же блока
 	cipher.decrypt(result, result);
 	// Выводим расшифрованный блок
-	::print("Блок расшифрованный", result, sizeof(result));
+	::__nts_print__("Блок расшифрованный", result, sizeof(result));
 	/**
 	 * Описываем базовый алгоритм блочного шифрования для режимов работы
 	 *
@@ -140,7 +140,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Объект режима гаммирования со счётчиком
 	cipher::counter_t counter;
 	/**
-	 * Выполняем запуск режима гаммирования со счётчиком
+	 * Запускаем режима гаммирования со счётчиком
 	 *
 	 * @note Гаммирование сообщения длиной не в целое число блоков не дополняет: длина
 	 *       шифртекста равна длине открытого текста
@@ -152,24 +152,24 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем зашифрование сообщения гаммированием
+	// Зашифровываем сообщения гаммированием
 	counter.encrypt(view_t(reinterpret_cast <const uint8_t *> (message), length), buffer);
 	// Выводим зашифрованное гаммированием сообщение
-	::print("Гаммирование       ", buffer, length);
+	::__nts_print__("Гаммирование       ", buffer, length);
 	// Объект выработки имитовставки сообщения
 	cipher::imitation_t imitation;
-	// Выполняем запуск выработки имитовставки сообщения
+	// Запускаем выработки имитовставки сообщения
 	imitation.start(base);
-	// Выполняем подачу сообщения выработке имитовставки
+	// Подаём сообщения выработке имитовставки
 	imitation.update(view_t(reinterpret_cast <const uint8_t *> (message), length));
-	// Выполняем завершение выработки имитовставки сообщения
+	// Завершаем выработки имитовставки сообщения
 	imitation.finish(result, sizeof(result));
 	// Выводим имитовставку сообщения
-	::print("Имитовставка OMAC1 ", result, sizeof(result));
+	::__nts_print__("Имитовставка OMAC1 ", result, sizeof(result));
 	// Одноразовое значение режима шифрования с проверкой целостности
 	uint8_t single[cipher::KUZNYECHIK_BLOCK];
 	/**
-	 * Выполняем перебор байтов одноразового значения
+	 * Перебираем байтов одноразового значения
 	 *
 	 * @note Старший разряд одноразового значения занят самим режимом и обязан быть
 	 *       нулевым: им разделяются ветвь выработки гаммы и ветвь выработки метки
@@ -191,18 +191,18 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем зашифрование сообщения с выработкой метки целостности
+	// Зашифровываем сообщения с выработкой метки целостности
 	galois.encrypt(view_t(reinterpret_cast <const uint8_t *> (associated), ::strlen(associated)), view_t(reinterpret_cast <const uint8_t *> (message), length), buffer, tag);
 	// Выводим зашифрованное режимом MGM сообщение
-	::print("Шифртекст MGM      ", buffer, length);
+	::__nts_print__("Шифртекст MGM      ", buffer, length);
 	// Выводим метку целостности сообщения
-	::print("Метка целостности  ", tag, sizeof(tag));
+	::__nts_print__("Метка целостности  ", tag, sizeof(tag));
 	// Объект режима снятия шифрования с проверкой целостности
 	cipher::galois_t opener;
-	// Выполняем запуск режима снятия шифрования
+	// Запускаем режима снятия шифрования
 	opener.start(base, view_t(single, sizeof(single)));
 	/**
-	 * Выполняем расшифрование сообщения с проверкой метки целостности
+	 * Расшифровываем сообщения с проверкой метки целостности
 	 *
 	 * @note Открытый текст записывается лишь после того, как метка сошлась: расходящаяся
 	 *       метка означает, что сообщение подменили, и выдавать наверх нечего
@@ -220,7 +220,7 @@ int main(int argc, char * argv[]) noexcept {
 	tag[0] = static_cast <uint8_t> (tag[0] ^ 0x01);
 	// Объект режима снятия шифрования с испорченной меткой
 	cipher::galois_t broken;
-	// Выполняем запуск режима снятия шифрования
+	// Запускаем режима снятия шифрования
 	broken.start(base, view_t(single, sizeof(single)));
 	// Если испорченная метка целостности отвергнута
 	if(!broken.decrypt(view_t(reinterpret_cast <const uint8_t *> (associated), ::strlen(associated)), view_t(buffer, length), buffer, view_t(tag, sizeof(tag))))

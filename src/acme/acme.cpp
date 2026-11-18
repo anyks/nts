@@ -135,7 +135,7 @@ namespace nts {
 					// Признак экранировок в строке
 					bool escaped = false;
 					/**
-					 * Выполняем поиск закрывающей кавычки
+					 * Ищем закрывающую кавычку
 					 */
 					while(this->_position < this->_text.size){
 						// Символ строки
@@ -173,7 +173,7 @@ namespace nts {
 						// Занимаем место под итог
 						result.text.reserve(this->_position - start);
 						/**
-						 * Выполняем разбор строки с экранировками
+						 * Разбираем строку с экранировками
 						 */
 						for(size_t position = start; position < this->_position; position++){
 							// Символ строки
@@ -218,7 +218,7 @@ namespace nts {
 									// Значение кода
 									uint32_t code = 0;
 									/**
-									 * Выполняем разбор четырёх разрядов кода
+									 * Разбираем четыре разряда кода
 									 */
 									for(size_t digit = 0; digit < 4; digit++){
 										// Символ разряда
@@ -315,7 +315,7 @@ namespace nts {
 								return true;
 							}
 							/**
-							 * Выполняем разбор членов объекта
+							 * Разбираем члены объекта
 							 */
 							while(true){
 								// Имя члена
@@ -375,7 +375,7 @@ namespace nts {
 								return true;
 							}
 							/**
-							 * Выполняем разбор значений массива
+							 * Разбираем значения массива
 							 */
 							while(true){
 								// Значение массива
@@ -463,7 +463,7 @@ namespace nts {
 							// Начало числа
 							const size_t start = this->_position;
 							/**
-							 * Выполняем поиск конца числа
+							 * Ищем конец числа
 							 */
 							while(this->_position < this->_text.size){
 								// Символ числа
@@ -529,13 +529,13 @@ namespace nts {
 		 * @return       указатель на значение члена либо пустой указатель
 		 *
 		 */
-		static const json_t::value_t * member(const json_t::value_t & object, const char * name) noexcept {
+		static const json_t::value_t * __nts_member__(const json_t::value_t & object, const char * name) noexcept {
 			// Если значение не объект
 			if(object.kind != json_t::kind_t::OBJECT)
 				// Выводим отсутствие члена
 				return nullptr;
 			/**
-			 * Выполняем обход членов объекта
+			 * Обходим члены объекта
 			 */
 			for(size_t position = 0; position < object.members.size(); position++){
 				// Если имя члена совпало
@@ -553,7 +553,7 @@ namespace nts {
 		 * @return      строка значения, пустая у значения иного вида
 		 *
 		 */
-		static string text(const json_t::value_t & value) {
+		static string __nts_text__(const json_t::value_t & value) {
 			// Если значение не строка
 			if(value.kind != json_t::kind_t::STRING)
 				// Выводим пустую строку
@@ -574,15 +574,15 @@ namespace nts {
 		 * @return       признак того, что член найден и строков
 		 *
 		 */
-		static bool member(const json_t::value_t & object, const char * name, string & result) {
+		static bool __nts_member__(const json_t::value_t & object, const char * name, string & result) {
 			// Значение члена
-			const json_t::value_t * value = member(object, name);
+			const json_t::value_t * value = __nts_member__(object, name);
 			// Если член не найден либо не строков
 			if((value == nullptr) || (value->kind != json_t::kind_t::STRING))
 				// Выводим отсутствие члена
 				return false;
 			// Запоминаем строку значения
-			result = text(*value);
+			result = __nts_text__(*value);
 			// Выводим найденность члена
 			return true;
 		}
@@ -594,7 +594,7 @@ namespace nts {
 		 * @return       признак того, что значение числово
 		 *
 		 */
-		static bool number(const json_t::value_t & value, uint32_t & result) noexcept {
+		static bool __nts_number__(const json_t::value_t & value, uint32_t & result) noexcept {
 			// Если значение не число
 			if(value.kind != json_t::kind_t::NUMBER)
 				// Выводим отсутствие числа
@@ -602,7 +602,7 @@ namespace nts {
 			// Разобранное число
 			uint32_t outcome = 0;
 			/**
-			 * Выполняем разбор записи числа
+			 * Разбираем запись числа
 			 */
 			for(size_t position = 0; position < value.view.size; position++){
 				// Символ числа
@@ -627,7 +627,7 @@ namespace nts {
 		 * @return       признак того, что значение булево
 		 *
 		 */
-		static bool boolean(const json_t::value_t & value, bool & result) noexcept {
+		static bool __nts_boolean__(const json_t::value_t & value, bool & result) noexcept {
 			// Если значение не булево
 			if(value.kind != json_t::kind_t::VALUE)
 				// Выводим отсутствие значения
@@ -657,7 +657,7 @@ namespace nts {
 		 * @return       признак того, что значение массив строк
 		 *
 		 */
-		static bool strings(const json_t::value_t & value, vector <string> & result) {
+		static bool __nts_strings__(const json_t::value_t & value, vector <string> & result) {
 			// Если значение не массив
 			if(value.kind != json_t::kind_t::ARRAY)
 				// Выводим отсутствие массива
@@ -665,7 +665,7 @@ namespace nts {
 			// Очищаем набор извлекаемых строк
 			result.clear();
 			/**
-			 * Выполняем обход значений массива
+			 * Обходим значения массива
 			 */
 			for(size_t position = 0; position < value.items.size(); position++){
 				// Если значение не строка
@@ -673,7 +673,7 @@ namespace nts {
 					// Выводим отказ массива
 					return false;
 				// Запоминаем строку значения
-				result.emplace_back(text(value.items[position]));
+				result.emplace_back(__nts_text__(value.items[position]));
 			}
 			// Выводим успешность извлечения
 			return true;
@@ -685,7 +685,7 @@ namespace nts {
 		 * @return     вид идентификатора, identifier_t::NONE у неизвестного имени
 		 *
 		 */
-		static acme::identifier_t identifierKind(const string & type) noexcept {
+		static acme::identifier_t __nts_identifier_kind__(const string & type) noexcept {
 			// Идентификатор доменного имени
 			if(type.compare("dns") == 0)
 				// Выводим вид идентификатора
@@ -704,9 +704,9 @@ namespace nts {
 		 * @return           имя вида идентификатора, пустое у неустановленного
 		 *
 		 */
-		static const char * identifierName(const acme::identifier_t identifier) noexcept {
+		static const char * __nts_identifier_name__(const acme::identifier_t identifier) noexcept {
 			/**
-			 * Выполняем определение вида идентификатора
+			 * Определяем вид идентификатора
 			 */
 			switch(identifier){
 				// Идентификатор доменного имени
@@ -724,17 +724,17 @@ namespace nts {
 		 * @param result строка, к которой дописывается запись
 		 *
 		 */
-		static void write(const string & text, string & result) {
+		static void __nts_write__(const string & text, string & result) {
 			// Дописываем открывающую кавычку
 			result += '"';
 			/**
-			 * Выполняем обход символов строки
+			 * Обходим символы строки
 			 */
 			for(size_t position = 0; position < text.size(); position++){
 				// Символ строки
 				const char symbol = text[position];
 				/**
-				 * Выполняем определение символа
+				 * Определяем символ
 				 */
 				switch(symbol){
 					// Экранированная кавычка
@@ -799,7 +799,7 @@ namespace nts {
 				// Дописываем член kid
 				header += "\"kid\":";
 				// Выводим адрес учётной записи
-				write(kid, header);
+				__nts_write__(kid, header);
 			// Иначе заголовок несёт jwk
 			} else {
 				// Собираем запись ключа JWK
@@ -823,11 +823,11 @@ namespace nts {
 			// Дописываем член nonce
 			header += ",\"nonce\":";
 			// Выводим метку новизны
-			write(nonce, header);
+			__nts_write__(nonce, header);
 			// Дописываем член url
 			header += ",\"url\":";
 			// Выводим адрес ресурса
-			write(url, header);
+			__nts_write__(url, header);
 			// Дописываем закрывающую скобку
 			header += '}';
 			// Собираем запись JWS
@@ -863,15 +863,15 @@ namespace nts {
 			// Собираем тело запроса: записи заголовка и полезной нагрузки указывают внутрь записи JWS
 			result.assign("{\"protected\":");
 			// Выводим запись заголовка
-			write(string(reinterpret_cast <const char *> (jws.data()), jws.find('.')), result);
+			__nts_write__(string(reinterpret_cast <const char *> (jws.data()), jws.find('.')), result);
 			// Дописываем полезную нагрузку
 			result += ",\"payload\":";
 			// Выводим запись полезной нагрузки
-			write(string(reinterpret_cast <const char *> (jws.data()) + jws.find('.') + 1, jws.rfind('.') - jws.find('.') - 1), result);
+			__nts_write__(string(reinterpret_cast <const char *> (jws.data()) + jws.find('.') + 1, jws.rfind('.') - jws.find('.') - 1), result);
 			// Дописываем подпись
 			result += ",\"signature\":";
 			// Выводим запись подписи
-			write(tail, result);
+			__nts_write__(tail, result);
 			// Дописываем закрывающую скобку
 			result += '}';
 			// Выводим успешность сборки
@@ -909,7 +909,7 @@ namespace nts {
 		// Дописываем член contact
 		result += "\"contact\":[";
 		/**
-		 * Выполняем обход адресов связи
+		 * Обходим адреса связи
 		 */
 		for(size_t position = 0; position < contacts.size(); position++){
 			// Если адрес не первый
@@ -917,7 +917,7 @@ namespace nts {
 				// Дописываем разделитель
 				result += ',';
 			// Дописываем адрес
-			write(contacts[position], result);
+			__nts_write__(contacts[position], result);
 		}
 		// Дописываем закрывающую скобку массива
 		result += ']';
@@ -948,11 +948,11 @@ namespace nts {
 		// Дописываем член identifiers
 		result += "\"identifiers\":[";
 		/**
-		 * Выполняем обход идентификаторов заказа
+		 * Обходим идентификаторы заказа
 		 */
 		for(size_t position = 0; position < identifiers.size(); position++){
 			// Имя вида идентификатора
-			const char * type = identifierName(identifiers[position].first);
+			const char * type = __nts_identifier_name__(identifiers[position].first);
 			// Если вид идентификатора не установлен
 			if(type[0] == '\0')
 				// Выводим отказ записи
@@ -968,7 +968,7 @@ namespace nts {
 			// Дописываем разделитель значения
 			result += "\",\"value\":";
 			// Выводим значение идентификатора
-			write(identifiers[position].second, result);
+			__nts_write__(identifiers[position].second, result);
 			// Закрываем запись идентификатора
 			result += '}';
 		}
@@ -1143,25 +1143,25 @@ namespace nts {
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем адрес ресурса выдачи метки новизны
-			if(!member(answer, "newNonce", this->newNonce))
+			if(!__nts_member__(answer, "newNonce", this->newNonce))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем адрес ресурса заведения учётной записи
-			if(!member(answer, "newAccount", this->newAccount))
+			if(!__nts_member__(answer, "newAccount", this->newAccount))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем адрес ресурса заведения заказа
-			if(!member(answer, "newOrder", this->newOrder))
+			if(!__nts_member__(answer, "newOrder", this->newOrder))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем адрес ресурса отзыва сертификата
-			if(!member(answer, "revokeCert", this->revokeCert))
+			if(!__nts_member__(answer, "revokeCert", this->revokeCert))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем необязательные адреса ресурсов
-			member(answer, "newAuthz", this->newAuthz);
-			member(answer, "keyChange", this->keyChange);
-			member(answer, "renewalInfo", this->renewalInfo);
+			__nts_member__(answer, "newAuthz", this->newAuthz);
+			__nts_member__(answer, "keyChange", this->keyChange);
+			__nts_member__(answer, "renewalInfo", this->renewalInfo);
 			// Выводим успешность разбора
 			return error_t::NONE;
 		/**
@@ -1220,23 +1220,23 @@ namespace nts {
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем состояние записи
-			if(!member(answer, "status", this->status))
+			if(!__nts_member__(answer, "status", this->status))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем набор адресов заказов записи
-			const json_t::value_t * orders = member(answer, "orders");
+			const json_t::value_t * orders = __nts_member__(answer, "orders");
 			// Если набор задан
 			if(orders != nullptr){
 				// Если набор массив строк: запись по разделу 7.1.2 RFC 8555
 				if(orders->kind == json_t::kind_t::ARRAY){
 					// Если набор не массив строк
-					if(!strings(*orders, this->orders))
+					if(!__nts_strings__(*orders, this->orders))
 						// Выводим отказ записи
 						return error_t::STRUCTURE;
 				// Иначе набор строкой: службы пишут и единственный адрес строкой
 				} else if(orders->kind == json_t::kind_t::STRING)
 					// Запоминаем единственный адрес
-					this->orders.emplace_back(text(*orders));
+					this->orders.emplace_back(__nts_text__(*orders));
 				// Набор чужого вида
 				else
 					// Выводим отказ записи
@@ -1290,19 +1290,19 @@ namespace nts {
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем состояние заказа
-			if(!member(answer, "status", this->status))
+			if(!__nts_member__(answer, "status", this->status))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем срок действия заказа
-			member(answer, "expires", this->expires);
+			__nts_member__(answer, "expires", this->expires);
 			// Извлекаем набор идентификаторов заказа
-			const json_t::value_t * identifiers = member(answer, "identifiers");
+			const json_t::value_t * identifiers = __nts_member__(answer, "identifiers");
 			// Если набор не задан либо не массив
 			if((identifiers == nullptr) || (identifiers->kind != json_t::kind_t::ARRAY) || identifiers->items.empty())
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			/**
-			 * Выполняем обход идентификаторов заказа
+			 * Обходим идентификаторы заказа
 			 */
 			for(size_t position = 0; position < identifiers->items.size(); position++){
 				// Запись идентификатора
@@ -1310,11 +1310,11 @@ namespace nts {
 				// Вид и значение идентификатора
 				string type, value;
 				// Если члены записи не найдены
-				if(!member(entry, "type", type) || !member(entry, "value", value))
+				if(!__nts_member__(entry, "type", type) || !__nts_member__(entry, "value", value))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Вид идентификатора
-				const identifier_t kind = identifierKind(type);
+				const identifier_t kind = __nts_identifier_kind__(type);
 				// Если вид неизвестен
 				if(kind == identifier_t::NONE)
 					// Выводим отказ записи
@@ -1323,17 +1323,17 @@ namespace nts {
 				this->identifiers.emplace_back(kind, value);
 			}
 			// Извлекаем набор адресов записей полномочий
-			const json_t::value_t * authorizations = member(answer, "authorizations");
+			const json_t::value_t * authorizations = __nts_member__(answer, "authorizations");
 			// Если набор не задан либо не массив строк
-			if((authorizations == nullptr) || !strings(*authorizations, this->authorizations))
+			if((authorizations == nullptr) || !__nts_strings__(*authorizations, this->authorizations))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем адрес ресурса завершения заказа
-			if(!member(answer, "finalize", this->finalize))
+			if(!__nts_member__(answer, "finalize", this->finalize))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем адрес ресурса выданного сертификата
-			member(answer, "certificate", this->certificate);
+			__nts_member__(answer, "certificate", this->certificate);
 			// Выводим успешность разбора
 			return error_t::NONE;
 		/**
@@ -1407,13 +1407,13 @@ namespace nts {
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем состояние записи
-			if(!member(answer, "status", this->status))
+			if(!__nts_member__(answer, "status", this->status))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем срок действия записи
-			member(answer, "expires", this->expires);
+			__nts_member__(answer, "expires", this->expires);
 			// Извлекаем идентификатор записи
-			const json_t::value_t * identity = member(answer, "identifier");
+			const json_t::value_t * identity = __nts_member__(answer, "identifier");
 			// Если идентификатор не задан
 			if(identity == nullptr)
 				// Выводим отказ записи
@@ -1421,11 +1421,11 @@ namespace nts {
 			// Вид и значение идентификатора
 			string type, value;
 			// Если члены записи не найдены
-			if(!member(*identity, "type", type) || !member(*identity, "value", value))
+			if(!__nts_member__(*identity, "type", type) || !__nts_member__(*identity, "value", value))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Вид идентификатора
-			const identifier_t kind = identifierKind(type);
+			const identifier_t kind = __nts_identifier_kind__(type);
 			// Если вид неизвестен
 			if(kind == identifier_t::NONE)
 				// Выводим отказ записи
@@ -1433,22 +1433,22 @@ namespace nts {
 			// Запоминаем идентификатор
 			this->identifier = std::make_pair(kind, value);
 			// Извлекаем признак записи с маской
-			const json_t::value_t * wildcard = member(answer, "wildcard");
+			const json_t::value_t * wildcard = __nts_member__(answer, "wildcard");
 			// Если признак задан
 			if(wildcard != nullptr){
 				// Если признак не булев
-				if(!boolean(*wildcard, this->wildcard))
+				if(!__nts_boolean__(*wildcard, this->wildcard))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 			}
 			// Извлекаем набор испытаний записи
-			const json_t::value_t * challenges = member(answer, "challenges");
+			const json_t::value_t * challenges = __nts_member__(answer, "challenges");
 			// Если набор не задан либо не массив
 			if((challenges == nullptr) || (challenges->kind != json_t::kind_t::ARRAY))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			/**
-			 * Выполняем обход испытаний записи
+			 * Обходим испытания записи
 			 */
 			for(size_t position = 0; position < challenges->items.size(); position++){
 				// Запись испытания
@@ -1456,13 +1456,13 @@ namespace nts {
 				// Разобранное испытание
 				challenge_t challenge;
 				// Если обязательные члены записи не найдены
-				if(!member(entry, "type", challenge.type) || !member(entry, "url", challenge.url) || !member(entry, "status", challenge.status))
+				if(!__nts_member__(entry, "type", challenge.type) || !__nts_member__(entry, "url", challenge.url) || !__nts_member__(entry, "status", challenge.status))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Извлекаем метку испытания: новые виды испытаний её не несут
-				member(entry, "token", challenge.token);
+				__nts_member__(entry, "token", challenge.token);
 				// Извлекаем дату проверки испытания
-				member(entry, "validated", challenge.validated);
+				__nts_member__(entry, "validated", challenge.validated);
 				// Запоминаем испытание
 				this->challenges.emplace_back(std::move(challenge));
 			}
@@ -1525,17 +1525,17 @@ namespace nts {
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем опознаватель вида отказа
-			if(!member(answer, "type", this->type))
+			if(!__nts_member__(answer, "type", this->type))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Извлекаем краткое описание отказа
-			member(answer, "detail", this->detail);
+			__nts_member__(answer, "detail", this->detail);
 			// Извлекаем состояние ответа
-			const json_t::value_t * status = member(answer, "status");
+			const json_t::value_t * status = __nts_member__(answer, "status");
 			// Если состояние задано
 			if(status != nullptr){
 				// Если состояние не числово
-				if(!number(*status, this->status))
+				if(!__nts_number__(*status, this->status))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 			}

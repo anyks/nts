@@ -59,11 +59,11 @@ namespace {
 	 * @param size  длина области
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Печатаем подпись
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Печатаем байт
@@ -78,14 +78,14 @@ namespace {
 	 * @return     просмотр
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр текста
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
 };
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы
@@ -106,37 +106,37 @@ int main(int argc, char * argv[]) noexcept {
 	// Подписи разрядностей
 	static const char * TITLES[] = {"SHA3-224", "SHA3-256", "SHA3-384", "SHA3-512"};
 	/**
-	 * Выполняем перебор разрядностей
+	 * Перебираем разрядностей
 	 */
 	for(size_t i = 0; i < 4; i++){
 		// Длина хеша разрядности
 		const size_t size = digest::length(KINDS[i]);
 		// Если захешировать не удалось
-		if(!digest::sha3(KINDS[i], ::text(message), result, size)){
+		if(!digest::sha3(KINDS[i], ::__nts_text__(message), result, size)){
 			// Печатаем отказ
 			cout << "Захешировать сообщение " << TITLES[i] << " не удалось" << endl;
 			// Выходим с отказом
 			return EXIT_FAILURE;
 		}
 		// Печатаем хеш
-		::print(TITLES[i], result, size);
+		::__nts_print__(TITLES[i], result, size);
 	}
 	// SHAKE128 с выходом в 16 байтов и SHAKE256 с выходом в 64 байта: длину задаёт вызывающий
-	if(!digest::sha3(digest::sha3_t::SHAKE128, ::text(message), result, 16))
+	if(!digest::sha3(digest::sha3_t::SHAKE128, ::__nts_text__(message), result, 16))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем выход SHAKE128
-	::print("SHAKE128 (16)", result, 16);
+	::__nts_print__("SHAKE128 (16)", result, 16);
 	// Если выход SHAKE256 выработать не удалось
-	if(!digest::sha3(digest::sha3_t::SHAKE256, ::text(message), result, 64))
+	if(!digest::sha3(digest::sha3_t::SHAKE256, ::__nts_text__(message), result, 64))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем выход SHAKE256
-	::print("SHAKE256 (64)", result, 64);
+	::__nts_print__("SHAKE256 (64)", result, 64);
 	// Хеширование потоком через губку Keccak: SHA3-256 по одному байту
 	digest::keccak_t hasher(digest::sha3_t::SHA3_256);
 	/**
-	 * Выполняем перебор байтов сообщения
+	 * Перебираем байтов сообщения
 	 */
 	for(const char * item = message; *item != '\0'; item++)
 		// Подаём байт хешу
@@ -148,44 +148,44 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Если хеш потоком разошёлся с хешем разом
-	if(!digest::sha3(digest::sha3_t::SHA3_256, ::text(message), result, 32) || (::memcmp(result, streamed, 32) != 0)){
+	if(!digest::sha3(digest::sha3_t::SHA3_256, ::__nts_text__(message), result, 32) || (::memcmp(result, streamed, 32) != 0)){
 		// Печатаем отказ
 		cout << "Хеш потоком разошёлся с хешем разом" << endl;
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	}
 	// Печатаем хеш потока
-	::print("SHA3-256 потоком", streamed, 32);
+	::__nts_print__("SHA3-256 потоком", streamed, 32);
 	// BLAKE2b с ключом (RFC 7693): ключ до 64 байтов, выход до 64 байтов; BLAKE2s - до 32 и 32
 	const char * key = "ключ имитовставки";
 	// Если BLAKE2b с ключом выработать не удалось
-	if(!digest::blake2(digest::blake_t::BLAKE2B, ::text(key), ::text(message), result, 64))
+	if(!digest::blake2(digest::blake_t::BLAKE2B, ::__nts_text__(key), ::__nts_text__(message), result, 64))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем BLAKE2b
-	::print("BLAKE2b-512 с ключом", result, 64);
+	::__nts_print__("BLAKE2b-512 с ключом", result, 64);
 	// Если BLAKE2s без ключа выработать не удалось
-	if(!digest::blake2(digest::blake_t::BLAKE2S, view_t(), ::text(message), result, 32))
+	if(!digest::blake2(digest::blake_t::BLAKE2S, view_t(), ::__nts_text__(message), result, 32))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем BLAKE2s
-	::print("BLAKE2s-256 без ключа", result, 32);
+	::__nts_print__("BLAKE2s-256 без ключа", result, 32);
 	// SipHash-2-4: ключевая хеш-функция коротких меток, ключ ровно 16 байтов
 	static const uint8_t SIPKEY[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 	// Метка числом
 	uint64_t mark = 0;
 	// Если метку выработать не удалось
-	if(!digest::siphash(view_t(SIPKEY, sizeof(SIPKEY)), ::text(message), mark))
+	if(!digest::siphash(view_t(SIPKEY, sizeof(SIPKEY)), ::__nts_text__(message), mark))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем метку
 	cout << "SipHash-2-4 (64): 0x" << hex << mark << dec << endl;
 	// Если 128-разрядную метку выработать не удалось
-	if(!digest::siphash(view_t(SIPKEY, sizeof(SIPKEY)), ::text(message), result, 16))
+	if(!digest::siphash(view_t(SIPKEY, sizeof(SIPKEY)), ::__nts_text__(message), result, 16))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем метку
-	::print("SipHash-2-4 (128)", result, 16);
+	::__nts_print__("SipHash-2-4 (128)", result, 16);
 	// Выходим успешно
 	return EXIT_SUCCESS;
 }

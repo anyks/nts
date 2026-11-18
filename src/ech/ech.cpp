@@ -51,7 +51,7 @@ namespace {
 	 * @return     признак годного имени: метки LDH через точку, без дефиса на краях метки, не литерал IPv4 (раздел 4 RFC 9849)
 	 *
 	 */
-	static bool named(const string & name) noexcept {
+	static bool __nts_named__(const string & name) noexcept {
 		// Пустое либо чрезмерное имя негодно
 		if(name.empty() || (name.size() > 253))
 			// Выводим негодность имени
@@ -61,7 +61,7 @@ namespace {
 		// Признак литерала IPv4: все знаки имени - цифры и точки
 		bool digits = true;
 		/**
-		 * Выполняем перебор знаков имени метка за меткой
+		 * Перебираем знаки имени метка за меткой
 		 */
 		for(size_t i = 0; i <= name.size(); i++){
 			// Если метка кончилась
@@ -138,7 +138,7 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static uint16_t twain(const uint8_t * data) noexcept {
+	static uint16_t __nts_twain__(const uint8_t * data) noexcept {
 		// Выводим число из двух байтов
 		return static_cast <uint16_t> ((static_cast <uint16_t> (data[0]) << 8) | static_cast <uint16_t> (data[1]));
 	}
@@ -150,9 +150,9 @@ namespace {
 	 * @param result накопитель
 	 *
 	 */
-	static void inscribe(const size_t value, const size_t width, vector <uint8_t> & result) {
+	static void __nts_inscribe__(const size_t value, const size_t width, vector <uint8_t> & result) {
 		/**
-		 * Выполняем перебор байтов числа от старшего к младшему
+		 * Перебираем байты числа от старшего к младшему
 		 */
 		for(size_t i = width; i > 0; i--)
 			// Дописываем очередной байт числа
@@ -166,7 +166,7 @@ namespace {
 	 * @param length записываемая длина
 	 *
 	 */
-	static void backfill(vector <uint8_t> & result, const size_t place, const size_t length) noexcept {
+	static void __nts_backfill__(vector <uint8_t> & result, const size_t place, const size_t length) noexcept {
 		// Записываем старший байт длины
 		result[place] = static_cast <uint8_t> (length >> 8);
 		// Записываем младший байт длины
@@ -180,7 +180,7 @@ namespace {
 	 * @return       отказ разбора
 	 *
 	 */
-	static ech::error_t contents(const view_t & data, ech::config_t & result) {
+	static ech::error_t __nts_contents__(const view_t & data, ech::config_t & result) {
 		// Смещение внутри содержимого
 		size_t offset = 0;
 		// Если заголовок ключа не помещается: опознаватель, способ, длина ключа
@@ -190,11 +190,11 @@ namespace {
 		// Читаем опознаватель конфигурации
 		result.id = data.data[offset++];
 		// Читаем способ инкапсуляции ключа
-		result.kem = static_cast <hpke::kem_t> (twain(data.data + offset));
+		result.kem = static_cast <hpke::kem_t> (__nts_twain__(data.data + offset));
 		// Переходим за способ
 		offset += 2;
 		// Длина открытой части ключа
-		size_t length = twain(data.data + offset);
+		size_t length = __nts_twain__(data.data + offset);
 		// Переходим за длину
 		offset += 2;
 		// Если ключ пуст
@@ -210,7 +210,7 @@ namespace {
 		// Переходим за ключ
 		offset += length;
 		// Длина перечня наборов
-		length = twain(data.data + offset);
+		length = __nts_twain__(data.data + offset);
 		// Переходим за длину
 		offset += 2;
 		// Если перечень наборов пуст, нечётной ширины либо в содержимое не входит
@@ -218,11 +218,11 @@ namespace {
 			// Выводим отказ записи
 			return ech::error_t::FORMAT;
 		/**
-		 * Выполняем перебор наборов
+		 * Перебираем наборы
 		 */
 		for(size_t i = 0; i < length; i += 4)
 			// Добавляем набор в перечень
-			result.suites.push_back(ech::suite_t(static_cast <hpke::kdf_t> (twain(data.data + offset + i)), static_cast <hpke::aead_t> (twain(data.data + offset + i + 2))));
+			result.suites.push_back(ech::suite_t(static_cast <hpke::kdf_t> (__nts_twain__(data.data + offset + i)), static_cast <hpke::aead_t> (__nts_twain__(data.data + offset + i + 2))));
 		// Переходим за перечень наборов
 		offset += length;
 		// Читаем наибольшую длину имени
@@ -242,7 +242,7 @@ namespace {
 		// Переходим за имя
 		offset += length;
 		// Длина расширений конфигурации
-		length = twain(data.data + offset);
+		length = __nts_twain__(data.data + offset);
 		// Переходим за длину
 		offset += 2;
 		// Если расширения в содержимое не входят
@@ -260,7 +260,7 @@ namespace {
 				// Выводим отказ разбора
 				return ech::error_t::FORMAT;
 			// Длина тела расширения
-			const size_t body = twain(data.data + offset + at + 2);
+			const size_t body = __nts_twain__(data.data + offset + at + 2);
 			// Если тело выходит за перечень
 			if((at + 4 + body) > length)
 				// Выводим отказ разбора
@@ -282,7 +282,7 @@ namespace {
 	 * @return        отказ разбора: VERSION у чужого издания (конфигурация пропущена по длине)
 	 *
 	 */
-	static ech::error_t solitary(const view_t & data, ech::config_t & result, size_t & consumed) {
+	static ech::error_t __nts_solitary__(const view_t & data, ech::config_t & result, size_t & consumed) {
 		// Сбрасываем конфигурацию
 		result = ech::config_t();
 		// Если заголовок конфигурации не помещается
@@ -290,9 +290,9 @@ namespace {
 			// Выводим отказ обрыва
 			return ech::error_t::HUNGRY;
 		// Издание конфигурации
-		const uint16_t version = twain(data.data);
+		const uint16_t version = __nts_twain__(data.data);
 		// Длина содержимого
-		const size_t length = twain(data.data + 2);
+		const size_t length = __nts_twain__(data.data + 2);
 		// Если содержимое не помещается
 		if((4 + length) > data.size)
 			// Выводим отказ обрыва
@@ -304,7 +304,7 @@ namespace {
 			// Выводим отказ издания
 			return ech::error_t::VERSION;
 		// Отказ разбора содержимого
-		const ech::error_t failure = contents(view_t(data.data + 4, length), result);
+		const ech::error_t failure = __nts_contents__(view_t(data.data + 4, length), result);
 		// Если содержимое разобрать не удалось
 		if(failure != ech::error_t::NONE)
 			// Выводим отказ разбора
@@ -322,7 +322,7 @@ namespace {
 	 * @return       отказ измерения
 	 *
 	 */
-	static ech::error_t measure(const view_t & data, const bool datagram, size_t & length) noexcept {
+	static ech::error_t __nts_measure__(const view_t & data, const bool datagram, size_t & length) noexcept {
 		// Смещение внутри байтов: издание и случайное значение
 		size_t offset = (2 + hello::HELLO_RANDOM);
 		// Если заголовок приветствия не помещается
@@ -345,7 +345,7 @@ namespace {
 			// Выводим отказ обрыва
 			return ech::error_t::HUNGRY;
 		// Переходим за перечень наборов
-		offset += (2 + twain(data.data + offset));
+		offset += (2 + __nts_twain__(data.data + offset));
 		// Если перечень способов сжатия не помещается
 		if((offset + 1) > data.size)
 			// Выводим отказ обрыва
@@ -357,7 +357,7 @@ namespace {
 			// Выводим отказ обрыва
 			return ech::error_t::HUNGRY;
 		// Переходим за перечень расширений
-		offset += (2 + twain(data.data + offset));
+		offset += (2 + __nts_twain__(data.data + offset));
 		// Если тело в байты не входит
 		if(offset > data.size)
 			// Выводим отказ обрыва
@@ -389,7 +389,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			// Выводим отказ обрыва
 			return error_t::HUNGRY;
 		// Длина перечня
-		const size_t length = twain(data.data);
+		const size_t length = __nts_twain__(data.data);
 		// Если перечень пуст либо в байты не входит
 		if((length < 4) || ((2 + length) != data.size))
 			// Выводим отказ записи
@@ -397,7 +397,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 		// Смещение внутри перечня
 		size_t offset = 2;
 		/**
-		 * Выполняем перебор конфигураций перечня
+		 * Перебираем конфигурации перечня
 		 */
 		while(offset < data.size){
 			// Конфигурация ECH
@@ -405,7 +405,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			// Количество прочитанных байтов
 			size_t consumed = 0;
 			// Отказ разбора конфигурации
-			const error_t failure = solitary(view_t(data.data + offset, data.size - offset), config, consumed);
+			const error_t failure = __nts_solitary__(view_t(data.data + offset, data.size - offset), config, consumed);
 			// Если конфигурация оборвана либо сложена не по правилам
 			if((failure != error_t::NONE) && (failure != error_t::VERSION)){
 				// Сбрасываем перечень
@@ -422,7 +422,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			// Признак наличия признаваемого набора
 			bool usable = false;
 			/**
-			 * Выполняем перебор наборов конфигурации
+			 * Перебираем наборы конфигурации
 			 */
 			for(size_t i = 0; (i < config.suites.size()) && !usable; i++)
 				// Запоминаем признаваемость набора
@@ -433,7 +433,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			 * ключ обязан быть длиной ключа KEM, иначе отправителя HPKE не завести и
 			 * следующая годная конфигурация перечня осталась бы непопробованной
 			 */
-			for(size_t at = 0; usable && ((at + 4) <= config.extensions.size()); at += (4 + twain(config.extensions.data() + at + 2)))
+			for(size_t at = 0; usable && ((at + 4) <= config.extensions.size()); at += (4 + __nts_twain__(config.extensions.data() + at + 2)))
 				// Обязательное расширение делает конфигурацию негодной
 				usable = ((config.extensions[at] & 0x80) == 0);
 			// Если ключ не длиной ключа KEM способа конфигурации
@@ -441,7 +441,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 				// Конфигурация негодна
 				usable = false;
 			// Раздел 4 RFC 9849: конфигурация с публичным именем не вида DNS пропускается
-			if(usable && !named(config.name))
+			if(usable && !__nts_named__(config.name))
 				// Конфигурация негодна
 				usable = false;
 			// Если конфигурация исполнима
@@ -481,7 +481,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, config_t & result) noexce
 			// Выводим отказ обрыва
 			return error_t::HUNGRY;
 		// Отказ разбора конфигурации
-		const error_t failure = solitary(data, result, consumed);
+		const error_t failure = __nts_solitary__(data, result, consumed);
 		// Если конфигурация не разобрана
 		if(failure != error_t::NONE){
 			// Сбрасываем конфигурацию
@@ -532,29 +532,29 @@ nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & re
 		// Начало конфигурации в накопителе
 		const size_t start = result.size();
 		// Дописываем издание
-		inscribe(ECH_VERSION, 2, result);
+		__nts_inscribe__(ECH_VERSION, 2, result);
 		// Место длины содержимого
 		const size_t place = result.size();
 		// Занимаем место под длину содержимого
-		inscribe(0, 2, result);
+		__nts_inscribe__(0, 2, result);
 		// Дописываем опознаватель
 		result.push_back(config.id);
 		// Дописываем способ инкапсуляции
-		inscribe(static_cast <uint16_t> (config.kem), 2, result);
+		__nts_inscribe__(static_cast <uint16_t> (config.kem), 2, result);
 		// Дописываем длину ключа
-		inscribe(config.key.size(), 2, result);
+		__nts_inscribe__(config.key.size(), 2, result);
 		// Дописываем ключ
 		result.insert(result.end(), config.key.begin(), config.key.end());
 		// Дописываем длину перечня наборов
-		inscribe(config.suites.size() * 4, 2, result);
+		__nts_inscribe__(config.suites.size() * 4, 2, result);
 		/**
-		 * Выполняем перебор наборов
+		 * Перебираем наборы
 		 */
 		for(size_t i = 0; i < config.suites.size(); i++){
 			// Дописываем функцию вывода
-			inscribe(static_cast <uint16_t> (config.suites[i].kdf), 2, result);
+			__nts_inscribe__(static_cast <uint16_t> (config.suites[i].kdf), 2, result);
 			// Дописываем шифр
-			inscribe(static_cast <uint16_t> (config.suites[i].aead), 2, result);
+			__nts_inscribe__(static_cast <uint16_t> (config.suites[i].aead), 2, result);
 		}
 		// Дописываем наибольшую длину имени
 		result.push_back(config.length);
@@ -563,7 +563,7 @@ nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & re
 		// Дописываем имя
 		result.insert(result.end(), config.name.begin(), config.name.end());
 		// Дописываем длину расширений
-		inscribe(config.extensions.size(), 2, result);
+		__nts_inscribe__(config.extensions.size(), 2, result);
 		// Дописываем расширения
 		result.insert(result.end(), config.extensions.begin(), config.extensions.end());
 		// Длина содержимого
@@ -576,7 +576,7 @@ nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & re
 			return error_t::LENGTH;
 		}
 		// Записываем длину содержимого
-		backfill(result, place, length);
+		__nts_backfill__(result, place, length);
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
@@ -609,9 +609,9 @@ nts::ech::error_t nts::ech::build(const vector <config_t> & configs, vector <uin
 		// Место длины перечня
 		const size_t place = result.size();
 		// Занимаем место под длину перечня
-		inscribe(0, 2, result);
+		__nts_inscribe__(0, 2, result);
 		/**
-		 * Выполняем перебор конфигураций
+		 * Перебираем конфигурации
 		 */
 		for(size_t i = 0; i < configs.size(); i++){
 			// Отказ составления конфигурации
@@ -634,7 +634,7 @@ nts::ech::error_t nts::ech::build(const vector <config_t> & configs, vector <uin
 			return error_t::LENGTH;
 		}
 		// Записываем длину перечня
-		backfill(result, place, length);
+		__nts_backfill__(result, place, length);
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
@@ -686,15 +686,15 @@ nts::ech::error_t nts::ech::parse(const view_t & data, hello_t & result) noexcep
 			// Выводим отказ обрыва
 			return error_t::HUNGRY;
 		// Читаем функцию вывода ключа из двух байтов набора
-		result.suite.kdf = static_cast <hpke::kdf_t> (twain(data.data + offset));
+		result.suite.kdf = static_cast <hpke::kdf_t> (__nts_twain__(data.data + offset));
 		// Читаем шифр
-		result.suite.aead = static_cast <hpke::aead_t> (twain(data.data + offset + 2));
+		result.suite.aead = static_cast <hpke::aead_t> (__nts_twain__(data.data + offset + 2));
 		// Переходим за набор
 		offset += 4;
 		// Читаем опознаватель конфигурации
 		result.id = data.data[offset++];
 		// Длина инкапсулированного ключа
-		size_t length = twain(data.data + offset);
+		size_t length = __nts_twain__(data.data + offset);
 		// Переходим за длину
 		offset += 2;
 		// Если ключ в тело не входит
@@ -706,7 +706,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, hello_t & result) noexcep
 		// Переходим за ключ
 		offset += length;
 		// Длина шифротекста
-		length = twain(data.data + offset);
+		length = __nts_twain__(data.data + offset);
 		// Переходим за длину
 		offset += 2;
 		// Если шифротекст пуст
@@ -762,17 +762,17 @@ nts::ech::error_t nts::ech::build(const hello_t & hello, vector <uint8_t> & resu
 		// Дописываем вид
 		result.push_back(OUTER);
 		// Дописываем функцию вывода
-		inscribe(static_cast <uint16_t> (hello.suite.kdf), 2, result);
+		__nts_inscribe__(static_cast <uint16_t> (hello.suite.kdf), 2, result);
 		// Дописываем шифр
-		inscribe(static_cast <uint16_t> (hello.suite.aead), 2, result);
+		__nts_inscribe__(static_cast <uint16_t> (hello.suite.aead), 2, result);
 		// Дописываем опознаватель
 		result.push_back(hello.id);
 		// Дописываем длину инкапсулированного ключа
-		inscribe(hello.enc.size(), 2, result);
+		__nts_inscribe__(hello.enc.size(), 2, result);
 		// Дописываем инкапсулированный ключ
 		result.insert(result.end(), hello.enc.begin(), hello.enc.end());
 		// Дописываем длину шифротекста
-		inscribe(hello.payload.size(), 2, result);
+		__nts_inscribe__(hello.payload.size(), 2, result);
 		// Дописываем шифротекст
 		result.insert(result.end(), hello.payload.begin(), hello.payload.end());
 		// Выводим успешность составления
@@ -892,7 +892,7 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 			// Дописываем длину перечня
 			references.push_back(static_cast <uint8_t> (outsourced.size() * 2));
 			/**
-			 * Выполняем перебор вынесенных расширений
+			 * Перебираем вынесенные расширения
 			 */
 			for(size_t i = 0; i < outsourced.size(); i++){
 				// Раздел 5.1 RFC 9849: само encrypted_client_hello и ech_outer_extensions выносить нельзя
@@ -900,7 +900,7 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 					// Выводим отказ ссылок
 					return error_t::OUTER;
 				// Дописываем вид расширения
-				inscribe(outsourced[i], 2, references);
+				__nts_inscribe__(outsourced[i], 2, references);
 			}
 		}
 		// Место вынесенных расширений во внутреннем приветствии
@@ -908,13 +908,13 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 		// Количество вынесенных расширений, встреченных подряд
 		size_t carried = 0;
 		/**
-		 * Выполняем перебор расширений внутреннего приветствия
+		 * Перебираем расширения внутреннего приветствия
 		 */
 		for(size_t i = 0; i < inner.extensions.size(); i++){
 			// Признак того, что расширение выносится
 			bool outsource = false;
 			/**
-			 * Выполняем перебор вынесенных видов
+			 * Перебираем вынесенные виды
 			 */
 			for(size_t j = 0; (j < outsourced.size()) && !outsource; j++)
 				// Запоминаем совпадение вида
@@ -1004,13 +1004,13 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 		// Длина тела без заполнения
 		size_t length = 0;
 		// Отказ измерения тела
-		const error_t measured = measure(encoded, datagram, length);
+		const error_t measured = __nts_measure__(encoded, datagram, length);
 		// Если тело измерить не удалось
 		if(measured != error_t::NONE)
 			// Выводим отказ измерения
 			return measured;
 		/**
-		 * Выполняем перебор байтов заполнения
+		 * Перебираем байты заполнения
 		 */
 		for(size_t i = length; i < encoded.size; i++){
 			// Раздел 5.1 RFC 9849: заполнение обязано быть нулевым
@@ -1047,7 +1047,7 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 		// Признак встречи ech_outer_extensions
 		bool referenced = false;
 		/**
-		 * Выполняем перебор расширений закодированного приветствия
+		 * Перебираем расширения закодированного приветствия
 		 */
 		for(size_t i = 0; i < inner.extensions.size(); i++){
 			// Если расширение не есть ech_outer_extensions
@@ -1072,28 +1072,28 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 			// Место последнего взятого расширения внешнего приветствия
 			size_t position = 0;
 			/**
-			 * Выполняем перебор ссылок
+			 * Перебираем ссылки
 			 */
 			for(size_t j = 1; j < data.size; j += 2){
 				// Вид расширения по ссылке
-				const uint16_t type = twain(data.data + j);
+				const uint16_t type = __nts_twain__(data.data + j);
 				// Разделы 5.1 и 7.1 RFC 9849: ссылка на само encrypted_client_hello либо на ech_outer_extensions негодна - во внутреннем приветствии их быть не вправе
 				if((type == ECH_EXTENSION) || (type == ECH_OUTER))
 					// Выводим отказ ссылок
 					return error_t::OUTER;
 				/**
-				 * Выполняем перебор ссылок, идущих раньше
+				 * Перебираем ссылки, идущие раньше
 				 */
 				for(size_t k = 1; k < j; k += 2){
 					// Раздел 7.1 RFC 9849: повторная ссылка негодна
-					if(twain(data.data + k) == type)
+					if(__nts_twain__(data.data + k) == type)
 						// Выводим отказ ссылок
 						return error_t::OUTER;
 				}
 				// Признак того, что расширение найдено во внешнем приветствии
 				bool found = false;
 				/**
-				 * Выполняем перебор расширений внешнего приветствия от последнего взятого
+				 * Перебираем расширения внешнего приветствия от последнего взятого
 				 */
 				for(size_t k = position; (k < outer.extensions.size()) && !found; k++){
 					// Если расширение найдено

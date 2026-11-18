@@ -78,7 +78,7 @@ namespace nts {
 		 * @return    размер числа кривой в байтах, ноль у чужой кривой
 		 *
 		 */
-		static size_t curveSize(const string & oid) noexcept {
+		static size_t __nts_curve_size__(const string & oid) noexcept {
 			// Кривая P-256
 			if(oid.compare(OID_P256) == 0)
 				// Выводим размер числа кривой
@@ -101,7 +101,7 @@ namespace nts {
 		 * @return    имя кривой («P-256» и прочие), пустое у чужой кривой
 		 *
 		 */
-		static const char * curveName(const string & oid) noexcept {
+		static const char * __nts_curve_name__(const string & oid) noexcept {
 			// Кривая P-256
 			if(oid.compare(OID_P256) == 0)
 				// Выводим имя кривой
@@ -124,7 +124,7 @@ namespace nts {
 		 * @return     опознаватель кривой, пустой у чужого имени
 		 *
 		 */
-		static const char * curveOid(const view_t & name) noexcept {
+		static const char * __nts_curve_oid__(const view_t & name) noexcept {
 			// Кривая P-256
 			if((name.size == 5) && (::memcmp(name.data, "P-256", 5) == 0))
 				// Выводим опознаватель кривой
@@ -154,13 +154,13 @@ namespace nts {
 		 *          в строках отвергаются — имена и значения членов JWS и JWK их не несут
 		 *
 		 */
-		static bool member(const view_t & text, const char * name, view_t & result) noexcept {
+		static bool __nts_member__(const view_t & text, const char * name, view_t & result) noexcept {
 			// Длина имени члена
 			const size_t length = ::strlen(name);
 			// Позиция разбора записи
 			size_t position = 0;
 			/**
-			 * Выполняем обход записи в поисках имени члена
+			 * Обходим запись в поисках имени члена
 			 */
 			while(position + length + 3 < text.size){
 				// Ищем открывающую кавычку имени
@@ -232,7 +232,7 @@ namespace nts {
 		 *          отвергаются: раздел 2 RFC 7515 велит запись без них
 		 *
 		 */
-		static bool decode(const view_t & text, vector <uint8_t> & result){
+		static bool __nts_decode__(const view_t & text, vector <uint8_t> & result){
 			// Выводим итог разбора кодеком с пробросом нехватки памяти вызывающему
 			return codec::rawDecode(text, result, codec::alphabet_t::URL, false, false);
 		}
@@ -248,7 +248,7 @@ namespace nts {
 		 *          исключение перехватывает и отвечает усечённым итогом
 		 *
 		 */
-		static void encodeBase64url(const view_t & data, string & result){
+		static void __nts_encode_base64url__(const view_t & data, string & result){
 			// Кодирование кодеком с пробросом нехватки памяти вызывающему
 			codec::rawEncode(data, result, false, codec::alphabet_t::URL);
 		}
@@ -260,9 +260,9 @@ namespace nts {
 		 * @return          алгоритм хеша, hash_t::NONE у подписи без хеша
 		 *
 		 */
-		static digest::hash_t hashOf(const jws::algorithm_t algorithm) noexcept {
+		static digest::hash_t __nts_hash_of__(const jws::algorithm_t algorithm) noexcept {
 			/**
-			 * Выполняем определение алгоритма подписи
+			 * Определяем алгоритм подписи
 			 */
 			switch(algorithm){
 				// RS256 и ES256 идут с SHA-256
@@ -295,9 +295,9 @@ namespace nts {
 		 * @return          признак согласованности алгоритма и ключа
 		 *
 		 */
-		static bool suitable(const jws::algorithm_t algorithm, const keys::kind_t kind, const string & oid) noexcept {
+		static bool __nts_suitable__(const jws::algorithm_t algorithm, const keys::kind_t kind, const string & oid) noexcept {
 			/**
-			 * Выполняем определение алгоритма подписи
+			 * Определяем алгоритм подписи
 			 */
 			switch(algorithm){
 				// Подписи RSA идут ключом RSA
@@ -339,13 +339,13 @@ namespace nts {
 		 * @return          отказ выработки подписи
 		 *
 		 */
-		static jws::error_t makeSignature(const jws::algorithm_t algorithm, const keys::signer_t & signer, const view_t & content, vector <uint8_t> & signature) noexcept {
+		static jws::error_t __nts_make_signature__(const jws::algorithm_t algorithm, const keys::signer_t & signer, const view_t & content, vector <uint8_t> & signature) noexcept {
 			/**
 			 * Выполняем перехват ошибок
 			 */
 			try {
 				/**
-				 * Выполняем определение алгоритма подписи
+				 * Определяем алгоритм подписи
 				 */
 				switch(algorithm){
 					// Подпись RSA
@@ -355,7 +355,7 @@ namespace nts {
 						// Модуль подписи RSA
 						const sign::rsa_t & rsa = signer.rsa();
 						// Алгоритм хеша подписи
-						const digest::hash_t hash = hashOf(algorithm);
+						const digest::hash_t hash = __nts_hash_of__(algorithm);
 						// Место, в которое помещается хеш содержимого
 						uint8_t digest[64];
 						// Если хеш содержимого выработать не удалось
@@ -376,7 +376,7 @@ namespace nts {
 						// Модуль подписи ECDSA
 						const sign::ecdsa_t & ecdsa = signer.ecdsa();
 						// Алгоритм хеша подписи
-						const digest::hash_t hash = hashOf(algorithm);
+						const digest::hash_t hash = __nts_hash_of__(algorithm);
 						// Место, в которое помещается хеш содержимого
 						uint8_t digest[64];
 						// Если хеш содержимого выработать не удалось
@@ -426,9 +426,9 @@ namespace nts {
 		 * @return          отказ проверки подписи
 		 *
 		 */
-		static jws::error_t checkSignature(const jws::algorithm_t algorithm, const keys::key_t & key, const view_t & content, const view_t & signature) noexcept {
+		static jws::error_t __nts_check_signature__(const jws::algorithm_t algorithm, const keys::key_t & key, const view_t & content, const view_t & signature) noexcept {
 			/**
-			 * Выполняем определение алгоритма подписи
+			 * Определяем алгоритм подписи
 			 */
 			switch(algorithm){
 				// Подпись RSA
@@ -442,7 +442,7 @@ namespace nts {
 						// Выводим отказ ключа
 						return jws::error_t::ALGORITHM;
 					// Алгоритм хеша подписи
-					const digest::hash_t hash = hashOf(algorithm);
+					const digest::hash_t hash = __nts_hash_of__(algorithm);
 					// Место, в которое помещается хеш содержимого
 					uint8_t digest[64];
 					// Если хеш содержимого выработать не удалось
@@ -459,7 +459,7 @@ namespace nts {
 				case jws::algorithm_t::ES384:
 				case jws::algorithm_t::ES512: {
 					// Размер числа кривой ключа
-					const size_t size = curveSize(key.oid);
+					const size_t size = __nts_curve_size__(key.oid);
 					// Если кривая ключа чужая либо подпись не отвечает её размеру
 					if((size == 0) || (signature.size != size * 2))
 						// Выводим отказ подписи
@@ -481,7 +481,7 @@ namespace nts {
 						// Выводим отказ ключа
 						return jws::error_t::ALGORITHM;
 					// Алгоритм хеша подписи
-					const digest::hash_t hash = hashOf(algorithm);
+					const digest::hash_t hash = __nts_hash_of__(algorithm);
 					// Место, в которое помещается хеш содержимого
 					uint8_t digest[64];
 					// Если хеш содержимого выработать не удалось
@@ -529,7 +529,7 @@ namespace nts {
 		 */
 		try {
 			// Кодирование записи
-			encodeBase64url(data, result);
+			__nts_encode_base64url__(data, result);
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -552,7 +552,7 @@ namespace nts {
 		 */
 		try {
 			// Декодирование записи
-			return decode(text, result);
+			return __nts_decode__(text, result);
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -571,7 +571,7 @@ namespace nts {
 	 */
 	const char * jws::name(const algorithm_t algorithm) noexcept {
 		/**
-		 * Выполняем определение алгоритма подписи
+		 * Определяем алгоритм подписи
 		 */
 		switch(algorithm){
 			// Подпись RS256
@@ -640,7 +640,7 @@ namespace nts {
 	 */
 	jws::algorithm_t jws::algorithm(const keys::key_t & key) noexcept {
 		/**
-		 * Выполняем определение вида ключа
+		 * Определяем вид ключа
 		 */
 		switch(key.kind){
 			// Ключ RSA идёт подписью RS256
@@ -683,7 +683,7 @@ namespace nts {
 	 */
 	jws::algorithm_t jws::algorithm(const keys::signer_t & signer) noexcept {
 		/**
-		 * Выполняем определение вида ключа
+		 * Определяем вид ключа
 		 */
 		switch(signer.kind()){
 			// Ключ RSA идёт подписью RS256
@@ -787,19 +787,19 @@ namespace nts {
 				whole += "\"}";
 			}
 			// Кодируем заголовок в base64url
-			encodeBase64url(view_t(reinterpret_cast <const uint8_t *> (whole.data()), whole.size()), result);
+			__nts_encode_base64url__(view_t(reinterpret_cast <const uint8_t *> (whole.data()), whole.size()), result);
 			// Дописываем разделитель
 			result += '.';
 			// Кодируем полезную нагрузку в base64url
 			string body;
 			// Кодирование полезной нагрузки
-			encodeBase64url(payload, body);
+			__nts_encode_base64url__(payload, body);
 			// Дописываем полезную нагрузку
 			result += body;
 			// Подписываем запись ASCII(protected '.' payload)
 			vector <uint8_t> signature;
 			// Если подпись выработать не удалось
-			const error_t outcome = makeSignature(algorithm, signer, view_t(reinterpret_cast <const uint8_t *> (result.data()), result.size()), signature);
+			const error_t outcome = __nts_make_signature__(algorithm, signer, view_t(reinterpret_cast <const uint8_t *> (result.data()), result.size()), signature);
 			// Если выработка отказала
 			if(outcome != error_t::NONE)
 				// Выводим причину отказа
@@ -809,7 +809,7 @@ namespace nts {
 			// Кодируем подпись в base64url
 			string tail;
 			// Кодирование подписи
-			encodeBase64url(view_t(signature.data(), signature.size()), tail);
+			__nts_encode_base64url__(view_t(signature.data(), signature.size()), tail);
 			// Дописываем подпись
 			result += tail;
 			// Затираем подпись
@@ -841,7 +841,7 @@ namespace nts {
 			// Очищаем строку текста ключа перед сборкой
 			result.clear();
 			/**
-			 * Выполняем определение вида ключа
+			 * Определяем вид ключа
 			 */
 			switch(key.kind){
 				// Ключ RSA
@@ -851,42 +851,42 @@ namespace nts {
 						// Выводим отказ ключа
 						return error_t::EMPTY;
 					// Кодируем модуль
-					string n;
+					string modulus;
 					// Кодирование модуля
-					encodeBase64url(view_t(key.n.data(), key.n.size()), n);
+					__nts_encode_base64url__(view_t(key.n.data(), key.n.size()), modulus);
 					// Кодируем показатель
-					string e;
+					string exponent;
 					// Кодирование показателя
-					encodeBase64url(view_t(key.e.data(), key.e.size()), e);
+					__nts_encode_base64url__(view_t(key.e.data(), key.e.size()), exponent);
 					// Собираем запись: члены в порядке словаря, как у канонической записи отпечатка
 					result.assign("{\"e\":\"");
 					// Дописываем показатель
-					result += e;
+					result += exponent;
 					// Дописываем вид ключа и начало модуля
 					result += "\",\"kty\":\"RSA\",\"n\":\"";
 					// Дописываем модуль
-					result += n;
+					result += modulus;
 					// Дописываем конец записи
 					result += "\"}";
 				} break;
 				// Ключ EC
 				case keys::kind_t::EC: {
 					// Имя кривой ключа
-					const char * curve = curveName(key.oid);
+					const char * curve = __nts_curve_name__(key.oid);
 					// Размер числа кривой
-					const size_t size = curveSize(key.oid);
+					const size_t size = __nts_curve_size__(key.oid);
 					// Если кривая чужая либо координаты ей не отвечают
 					if((size == 0) || (key.x.size() != size) || (key.y.size() != size))
 						// Выводим отказ ключа
 						return error_t::EMPTY;
 					// Кодируем первую координату
-					string x;
+					string memberX;
 					// Кодирование первой координаты
-					encodeBase64url(view_t(key.x.data(), key.x.size()), x);
+					__nts_encode_base64url__(view_t(key.x.data(), key.x.size()), memberX);
 					// Кодируем вторую координату
-					string y;
+					string memberY;
 					// Кодирование второй координаты
-					encodeBase64url(view_t(key.y.data(), key.y.size()), y);
+					__nts_encode_base64url__(view_t(key.y.data(), key.y.size()), memberY);
 					// Собираем запись: члены в порядке словаря
 					result.assign("{\"crv\":\"");
 					// Дописываем имя кривой
@@ -894,11 +894,11 @@ namespace nts {
 					// Дописываем вид ключа и начало первой координаты
 					result += "\",\"kty\":\"EC\",\"x\":\"";
 					// Дописываем первую координату
-					result += x;
+					result += memberX;
 					// Дописываем начало второй координаты
 					result += "\",\"y\":\"";
 					// Дописываем вторую координату
-					result += y;
+					result += memberY;
 					// Дописываем конец записи
 					result += "\"}";
 				} break;
@@ -909,13 +909,13 @@ namespace nts {
 						// Выводим отказ ключа
 						return error_t::EMPTY;
 					// Кодируем ключ
-					string x;
+					string memberX;
 					// Кодирование ключа
-					encodeBase64url(view_t(key.key.data(), key.key.size()), x);
+					__nts_encode_base64url__(view_t(key.key.data(), key.key.size()), memberX);
 					// Собираем запись: члены в порядке словаря
 					result.assign("{\"crv\":\"Ed25519\",\"kty\":\"OKP\",\"x\":\"");
 					// Дописываем ключ
-					result += x;
+					result += memberX;
 					// Дописываем конец записи
 					result += "\"}";
 				} break;
@@ -956,23 +956,23 @@ namespace nts {
 			// Просмотр значения члена kty
 			view_t kty;
 			// Если член kty не найден
-			if(!member(text, "kty", kty))
+			if(!__nts_member__(text, "kty", kty))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Ключ RSA
 			if((kty.size == 3) && (::memcmp(kty.data, "RSA", 3) == 0)){
 				// Просмотры значений членов
-				view_t n, e;
+				view_t modulus, exponent;
 				// Если члены ключа не найдены
-				if(!member(text, "n", n) || !member(text, "e", e))
+				if(!__nts_member__(text, "n", modulus) || !__nts_member__(text, "e", exponent))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Декодируем модуль
-				if(!decode(n, result.n) || result.n.empty())
+				if(!__nts_decode__(modulus, result.n) || result.n.empty())
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Декодируем показатель
-				if(!decode(e, result.e) || result.e.empty())
+				if(!__nts_decode__(exponent, result.e) || result.e.empty())
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Запоминаем вид ключа
@@ -980,13 +980,13 @@ namespace nts {
 			// Ключ EC
 			} else if((kty.size == 2) && (::memcmp(kty.data, "EC", 2) == 0)){
 				// Просмотры значений членов
-				view_t crv, x, y;
+				view_t crv, memberX, memberY;
 				// Если члены ключа не найдены
-				if(!member(text, "crv", crv) || !member(text, "x", x) || !member(text, "y", y))
+				if(!__nts_member__(text, "crv", crv) || !__nts_member__(text, "x", memberX) || !__nts_member__(text, "y", memberY))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Опознаватель кривой по её имени
-				const char * oid = curveOid(crv);
+				const char * oid = __nts_curve_oid__(crv);
 				// Если кривая чужая
 				if(oid[0] == '\0')
 					// Выводим отказ алгоритма
@@ -994,15 +994,15 @@ namespace nts {
 				// Запоминаем опознаватель кривой
 				result.oid.assign(oid);
 				// Декодируем первую координату
-				if(!decode(x, result.x))
+				if(!__nts_decode__(memberX, result.x))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Декодируем вторую координату
-				if(!decode(y, result.y))
+				if(!__nts_decode__(memberY, result.y))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Если координаты кривой не отвечают
-				if((result.x.size() != curveSize(result.oid)) || (result.y.size() != curveSize(result.oid)))
+				if((result.x.size() != __nts_curve_size__(result.oid)) || (result.y.size() != __nts_curve_size__(result.oid)))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Запоминаем вид ключа
@@ -1010,9 +1010,9 @@ namespace nts {
 			// Ключ Ed25519
 			} else if((kty.size == 3) && (::memcmp(kty.data, "OKP", 3) == 0)){
 				// Просмотры значений членов
-				view_t crv, x;
+				view_t crv, memberX;
 				// Если члены ключа не найдены
-				if(!member(text, "crv", crv) || !member(text, "x", x))
+				if(!__nts_member__(text, "crv", crv) || !__nts_member__(text, "x", memberX))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Если кривая не Ed25519
@@ -1020,7 +1020,7 @@ namespace nts {
 					// Выводим отказ алгоритма
 					return error_t::ALGORITHM;
 				// Декодируем ключ
-				if(!decode(x, result.key) || (result.key.size() != sign::ed25519_t::KEY_SIZE))
+				if(!__nts_decode__(memberX, result.key) || (result.key.size() != sign::ed25519_t::KEY_SIZE))
 					// Выводим отказ записи
 					return error_t::STRUCTURE;
 				// Запоминаем вид ключа
@@ -1069,7 +1069,7 @@ namespace nts {
 				// Выводим отказ памяти
 				return error_t::MEMORY;
 			// Кодируем отпечаток в base64url
-			encodeBase64url(view_t(digest, sizeof(digest)), result);
+			__nts_encode_base64url__(view_t(digest, sizeof(digest)), result);
 			// Выводим успешность выработки
 			return error_t::NONE;
 		/**
@@ -1130,19 +1130,19 @@ namespace nts {
 			// Декодируем заголовок
 			vector <uint8_t> header;
 			// Декодирование заголовка
-			if(!decode(this->_protected, header) || header.empty())
+			if(!__nts_decode__(this->_protected, header) || header.empty())
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
 			// Запоминаем текст заголовка
 			this->_header.assign(reinterpret_cast <const char *> (header.data()), header.size());
 			// Декодируем подпись
-			if(!decode(view_t(data.data + middle + 1, data.size - middle - 1), this->_signature) || this->_signature.empty())
+			if(!__nts_decode__(view_t(data.data + middle + 1, data.size - middle - 1), this->_signature) || this->_signature.empty())
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
 			// Извлекаем член alg заголовка
 			view_t alg;
 			// Извлечение члена алгоритма
-			if(!member(view_t(reinterpret_cast <const uint8_t *> (this->_header.data()), this->_header.size()), "alg", alg))
+			if(!__nts_member__(view_t(reinterpret_cast <const uint8_t *> (this->_header.data()), this->_header.size()), "alg", alg))
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
 			// Определяем алгоритм подписи по имени
@@ -1233,7 +1233,7 @@ namespace nts {
 				// Выводим отказ записи
 				return error_t::EMPTY;
 			// Если полезную нагрузку декодировать не удалось
-			if(!decode(this->_payload, result))
+			if(!__nts_decode__(this->_payload, result))
 				// Выводим отказ записи
 				return error_t::STRUCTURE;
 			// Выводим успешность извлечения
@@ -1273,7 +1273,7 @@ namespace nts {
 				// Выводим отказ записи
 				return error_t::EMPTY;
 			// Если ключ алгоритму не отвечает
-			if(!suitable(this->_algorithm, key.kind, key.oid))
+			if(!__nts_suitable__(this->_algorithm, key.kind, key.oid))
 				// Выводим отказ алгоритма
 				return error_t::ALGORITHM;
 			// Собираем подписываемую запись ASCII(protected '.' payload)
@@ -1287,7 +1287,7 @@ namespace nts {
 			// Дописываем полезную нагрузку
 			content.append(reinterpret_cast <const char *> (this->_payload.data), this->_payload.size);
 			// Проверяем подпись
-			return checkSignature(this->_algorithm, key, view_t(reinterpret_cast <const uint8_t *> (content.data()), content.size()), view_t(this->_signature.data(), this->_signature.size()));
+			return __nts_check_signature__(this->_algorithm, key, view_t(reinterpret_cast <const uint8_t *> (content.data()), content.size()), view_t(this->_signature.data(), this->_signature.size()));
 		/**
 		 * Выполняем перехват ошибок
 		 */

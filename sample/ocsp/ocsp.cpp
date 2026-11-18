@@ -126,7 +126,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -135,7 +135,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочки сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -148,18 +148,18 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		// Получаем байты, отправляемые клиентом
 		view_t data = client.output();
 		// Если клиенту есть что отправить серверу
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя клиента
 			client.consume(buffer.size());
-			// Выполняем подачу отправленных байтов серверу
+			// Подаём отправленных байтов серверу
 			server.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -168,11 +168,11 @@ namespace {
 		data = server.output();
 		// Если серверу есть что отправить клиенту
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя сервера
 			server.consume(buffer.size());
-			// Выполняем подачу отправленных байтов клиенту
+			// Подаём отправленных байтов клиенту
 			client.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -187,11 +187,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байтов между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу байтов между сторонами связи
 			continue;
 	}
@@ -202,9 +202,9 @@ namespace {
 	 * @return       название состояния сертификата
 	 *
 	 */
-	const char * naming(const ocsp::status_t status) noexcept {
+	const char * __nts_naming__(const ocsp::status_t status) noexcept {
 		/**
-		 * Выполняем определение состояния сертификата
+		 * Определяем состояния сертификата
 		 */
 		switch(static_cast <uint8_t> (status)){
 			// Если сертификат не отозван
@@ -233,7 +233,7 @@ namespace {
 	 * @return           признак того, что стороны заведены и переписка проведена
 	 *
 	 */
-	bool stapled(const context::credential_t & credential, const vector <uint8_t> & answer, client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_stapled__(const context::credential_t & credential, const vector <uint8_t> & answer, client::context_t & client, server::context_t & server) noexcept {
 		// Пустой запас доверия: издатель самоподписанного сертификата - он сам
 		const trust::store_t store;
 		// Подлинность сервера
@@ -251,7 +251,7 @@ namespace {
 			// Выводим отказ заведения связи
 			return false;
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Выводим успешность проведения связи
 		return true;
 	}
@@ -273,7 +273,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Подлинность стороны сервера: самоподписанный лист, он же свой издатель
 	context::credential_t credential;
 	// Если подлинность стороны сервера прочитать не удалось
-	if(!identity("ec256", credential)){
+	if(!__nts_identity__("ec256", credential)){
 		// Выводим сообщение об отказе чтения подлинности
 		cout << "Прочитать подлинность сервера из набора ключей не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -298,7 +298,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если связь провести не удалось
-		if(!stapled(credential, good, client, server) || !client.established() || !server.established()){
+		if(!__nts_stapled__(credential, good, client, server) || !client.established() || !server.established()){
 			// Выводим сообщение об отказе
 			cout << "Рукопожатие со сшитым ответом не прошло: отказы " << static_cast <int> (client.error()) << " и " << static_cast <int> (server.error()) << endl;
 			// Выходим из приложения с признаком отказа
@@ -307,12 +307,12 @@ int main(int argc, char * argv[]) noexcept {
 		// Если ответ дошёл не байт в байт либо состояние не проверено
 		if((client.status() != good) || (client.certified() != ocsp::status_t::GOOD)){
 			// Выводим сообщение о расхождении
-			cout << "Ответ дошёл не байт в байт либо состояние не GOOD: " << naming(client.certified()) << endl;
+			cout << "Ответ дошёл не байт в байт либо состояние не GOOD: " << __nts_naming__(client.certified()) << endl;
 			// Выходим из приложения с признаком отказа
 			return EXIT_FAILURE;
 		}
 		// Выводим итог сшивки
-		cout << "Ответ у клиента     : " << client.status().size() << " байт, дошёл байт в байт, состояние по проверке " << naming(client.certified()) << endl;
+		cout << "Ответ у клиента     : " << client.status().size() << " байт, дошёл байт в байт, состояние по проверке " << __nts_naming__(client.certified()) << endl;
 		// Разобранный ответ: потребитель волен разобрать его сам
 		ocsp::response_t response;
 		// Если ответ разобрать не удалось
@@ -325,7 +325,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Ответ по сертификату
 		const ocsp::single_t & single = response.responses()[0];
 		// Выводим сведения разобранного ответа
-		cout << "Разбор ответа       : составлен " << response.produced() << ", состояние " << naming(single.status) << ", верно с " << single.updated << " до " << single.next << ", алгоритм подписи " << response.algorithms() << endl;
+		cout << "Разбор ответа       : составлен " << response.produced() << ", состояние " << __nts_naming__(single.status) << ", верно с " << single.updated << " до " << single.next << ", алгоритм подписи " << response.algorithms() << endl;
 		// Прикладные данные, отправляемые клиентом
 		const string request = "Запрос по связи со сшитым ответом";
 		// Если прикладные данные отправить не удалось
@@ -336,10 +336,10 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Передаём запись серверу
-		pump(client, server);
+		__nts_pump__(client, server);
 		// Накопитель, в который помещаются принятые прикладные данные
 		vector <uint8_t> received;
-		// Выполняем получение принятых сервером прикладных данных
+		// Получаем принятых сервером прикладных данных
 		server.read(received);
 		// Выводим принятые сервером прикладные данные
 		cout << "Сервер принял       : " << string(received.begin(), received.end()) << endl;
@@ -352,7 +352,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Связь стороны сервера
 		server::context_t server;
 		// Если связь провести не удалось
-		if(!stapled(credential, revoked, client, server)){
+		if(!__nts_stapled__(credential, revoked, client, server)){
 			// Выводим сообщение об отказе
 			cout << "Завести стороны не удалось" << endl;
 			// Выходим из приложения с признаком отказа
@@ -361,12 +361,12 @@ int main(int argc, char * argv[]) noexcept {
 		// Если связь установилась либо оборвана не тем
 		if(client.established() || (client.error() != context::error_t::STATUS) || (client.alert().description != alert::description_t::STATUS) || (client.certified() != ocsp::status_t::REVOKED)){
 			// Выводим сообщение о расхождении
-			cout << "Отозванный сертификат не отвергнут: отказ " << static_cast <int> (client.error()) << ", состояние " << naming(client.certified()) << endl;
+			cout << "Отозванный сертификат не отвергнут: отказ " << static_cast <int> (client.error()) << ", состояние " << __nts_naming__(client.certified()) << endl;
 			// Выходим из приложения с признаком отказа
 			return EXIT_FAILURE;
 		}
 		// Выводим итог: ответ проверен успешно, состояние REVOKED, связь оборвана
-		cout << "Клиент              : отказ STATUS, состояние " << naming(client.certified()) << ", извещение bad_certificate_status_response (" << static_cast <int> (client.alert().description) << ")" << endl;
+		cout << "Клиент              : отказ STATUS, состояние " << __nts_naming__(client.certified()) << ", извещение bad_certificate_status_response (" << static_cast <int> (client.alert().description) << ")" << endl;
 		// Выводим итог у сервера
 		cout << "Сервер              : " << ((server.error() == context::error_t::ALERT) ? "принял извещение клиента" : "извещения не получил") << ", описание " << static_cast <int> (server.alert().description) << endl;
 	}
@@ -391,7 +391,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Проводим рукопожатие
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Если связь не установилась либо ответ не отдан
 		if(!client.established() || (client.status() != revoked) || (client.certified() != ocsp::status_t::NONE)){
 			// Выводим сообщение о расхождении
@@ -400,7 +400,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Выводим итог: суждение об ответе остаётся за потребителем
-		cout << "Связь установлена   : ответ в " << client.status().size() << " байт отдан как принят, состояние по проверке " << naming(client.certified()) << " - судить о нём потребителю" << endl;
+		cout << "Связь установлена   : ответ в " << client.status().size() << " байт отдан как принят, состояние по проверке " << __nts_naming__(client.certified()) << " - судить о нём потребителю" << endl;
 		// Разобранный ответ
 		ocsp::response_t response;
 		// Состояние сертификата по своей проверке
@@ -415,7 +415,7 @@ int main(int argc, char * argv[]) noexcept {
 			return EXIT_FAILURE;
 		}
 		// Выводим итог своей проверки
-		cout << "Своя проверка       : ocsp::verify отвечает NONE, состояние " << naming(status) << ", отозван с " << response.responses()[0].revocation << endl;
+		cout << "Своя проверка       : ocsp::verify отвечает NONE, состояние " << __nts_naming__(status) << ", отозван с " << response.responses()[0].revocation << endl;
 	}
 	// Выводим заголовок прогона составления запроса
 	cout << endl << "== Запрос ответчику и его адрес ==" << endl;

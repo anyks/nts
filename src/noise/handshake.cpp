@@ -56,11 +56,11 @@ namespace {
 	 * @return      признак совпадения
 	 *
 	 */
-	static bool alike(const uint8_t * one, const uint8_t * two, const size_t size) noexcept {
+	static bool __nts_alike__(const uint8_t * one, const uint8_t * two, const size_t size) noexcept {
 		// Накопитель различий
 		uint8_t diff = 0;
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байты
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Накапливаем различие
@@ -86,7 +86,7 @@ bool nts::noise::Handshake::ready() noexcept {
 	// Число положений заранее разделённых ключей
 	size_t positions = 0;
 	/**
-	 * Выполняем счёт положений
+	 * Считаем положения
 	 */
 	for(size_t i = 0; i < PSKS_MAX; i++)
 		// Считаем положение
@@ -100,7 +100,7 @@ bool nts::noise::Handshake::ready() noexcept {
 	// Количество знаков
 	size_t count = 0;
 	/**
-	 * Выполняем проверку, что свой постоянный ключ есть, если узор велит его слать либо принимать skem
+	 * Проверяем, что свой постоянный ключ есть, если узор велит его слать либо принимать skem
 	 */
 	for(size_t i = 0; i < this->_count; i++){
 		// Признак нашего сообщения
@@ -110,7 +110,7 @@ bool nts::noise::Handshake::ready() noexcept {
 			// Выводим отрицательный результат - знаки не получены
 			return false;
 		/**
-		 * Выполняем перебор знаков
+		 * Перебираем знаки
 		 */
 		for(size_t j = 0; j < count; j++){
 			// Признак того, что знак требует своего постоянного ключа
@@ -128,7 +128,7 @@ bool nts::noise::Handshake::ready() noexcept {
 		}
 	}
 	/**
-	 * Выполняем проверку предсообщений обеих сторон до всякого хеширования: отказ
+	 * Проверяем предсообщения обеих сторон до всякого хеширования: отказ
 	 * на второй стороне после примешивания первой оставил бы h изменённым, и повтор
 	 * после дозаведения ключей разошёлся бы с h собеседника
 	 */
@@ -140,7 +140,7 @@ bool nts::noise::Handshake::ready() noexcept {
 			// Выводим отрицательный результат - знаки предсообщения не получены
 			return false;
 		/**
-		 * Выполняем перебор знаков
+		 * Перебираем знаки
 		 */
 		for(size_t j = 0; j < count; j++){
 			// Если знак не постоянный ключ
@@ -154,7 +154,7 @@ bool nts::noise::Handshake::ready() noexcept {
 		}
 	}
 	/**
-	 * Выполняем поглощение предсообщений: сперва инициатора, затем отвечающего
+	 * Поглощаем предсообщения: сперва инициатора, затем отвечающего
 	 */
 	for(uint8_t side = 0; side < 2; side++){
 		// Признак предсообщения инициатора
@@ -164,7 +164,7 @@ bool nts::noise::Handshake::ready() noexcept {
 			// Выводим отрицательный результат - знаки второго предсообщения не получены
 			return false;
 		/**
-		 * Выполняем перебор знаков
+		 * Перебираем знаки
 		 */
 		for(size_t j = 0; j < count; j++){
 			// Признак того, что ключ наш
@@ -510,7 +510,7 @@ bool nts::noise::Handshake::psks(const view_t * keys, const size_t count) noexce
 		// Выводим отрицательный результат - предразделённые ключи не приняты
 		return false;
 	/**
-	 * Выполняем проверку каждого ключа
+	 * Проверяем каждый ключ
 	 */
 	for(size_t i = 0; i < count; i++){
 		// Если ключ негоден
@@ -521,7 +521,7 @@ bool nts::noise::Handshake::psks(const view_t * keys, const size_t count) noexce
 	// Затираем прежние ключи
 	wipe(this->_psk, sizeof(this->_psk));
 	/**
-	 * Выполняем запись ключей
+	 * Записываем ключи
 	 */
 	for(size_t i = 0; i < count; i++)
 		// Записываем ключ
@@ -549,7 +549,7 @@ bool nts::noise::Handshake::coinsDeterministic(const view_t * coins, const size_
 		// Выводим отрицательный результат - случайности не приняты
 		return false;
 	/**
-	 * Выполняем проверку каждой случайности
+	 * Проверяем каждую случайность
 	 */
 	for(size_t i = 0; i < count; i++){
 		// Если случайность негодна
@@ -560,7 +560,7 @@ bool nts::noise::Handshake::coinsDeterministic(const view_t * coins, const size_
 	// Затираем прежние случайности
 	wipe(this->_coin, sizeof(this->_coin));
 	/**
-	 * Выполняем запись случайностей
+	 * Записываем случайности
 	 */
 	for(size_t i = 0; i < count; i++)
 		// Записываем случайность
@@ -629,7 +629,7 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 		// Примешиваем ключ
 		status = this->psk();
 	/**
-	 * Выполняем перебор знаков
+	 * Перебираем знаки
 	 */
 	for(size_t i = 0; status && (i < count); i++){
 		/**
@@ -774,7 +774,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 		// Примешиваем ключ
 		status = this->psk();
 	/**
-	 * Выполняем перебор знаков
+	 * Перебираем знаки
 	 */
 	for(size_t i = 0; status && (i < count); i++){
 		/**
@@ -820,7 +820,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 					// Если ключ задан заранее, он обязан совпасть
 					if(status && this->_hasRS)
 						// Сличаем ключи
-						status = alike(key, this->_rs, this->_public);
+						status = __nts_alike__(key, this->_rs, this->_public);
 					// Иначе запоминаем принятый
 					else if(status){
 						// Запоминаем ключ

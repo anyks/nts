@@ -93,9 +93,9 @@ namespace {
 	 * @return       строковое представление состояния
 	 *
 	 */
-	const char * status(const ocsp::status_t status) noexcept {
+	const char * __nts_status__(const ocsp::status_t status) noexcept {
 		/**
-		 * Выполняем разбор состояния сертификата
+		 * Разбираем состояния сертификата
 		 */
 		switch(status){
 			// Сертификат годен
@@ -174,7 +174,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Состояния сертификатов по местам цепочки
 	vector <ocsp::status_t> results;
 	/**
-	 * Выполняем проверку ответов OCSP цепочки
+	 * Проверяем ответов OCSP цепочки
 	 *
 	 * @details Для каждого места с непустым ответом издатель разыскивается по имени
 	 *          сперва в остальных звеньях цепочки, потом самим сертификатом, если он
@@ -194,11 +194,11 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим состояния сертификатов по местам цепочки
-	cout << "Состояние листа        : " << ::status(results[0]) << endl;
+	cout << "Состояние листа        : " << ::__nts_status__(results[0]) << endl;
 	// Выводим состояние промежуточного сертификата
-	cout << "Состояние промежуточного: " << ::status(results[1]) << endl;
+	cout << "Состояние промежуточного: " << ::__nts_status__(results[1]) << endl;
 	// Выводим состояние корневого сертификата
-	cout << "Состояние корневого     : " << ::status(results[2]) << endl;
+	cout << "Состояние корневого     : " << ::__nts_status__(results[2]) << endl;
 	// Если все состояния годные
 	if((results[0] == ocsp::status_t::GOOD) && (results[1] == ocsp::status_t::GOOD) && (results[2] == ocsp::status_t::NONE))
 		// Выводим сообщение об успешной проверке цепочки

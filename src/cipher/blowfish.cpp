@@ -295,20 +295,20 @@ uint32_t nts::cipher::stream2word(const uint8_t * data, const size_t datalen, si
 	// Накопитель собираемого слова
 	uint32_t temp = 0;
 	// Текущее смещение в потоке
-	size_t j = *current;
+	size_t offset = *current;
 	/**
 	 * Набираем слово из четырёх байтов
 	 */
-	for(size_t i = 0; i < 4; ++i, ++j){
+	for(size_t i = 0; i < 4; ++i, ++offset){
 		// Зацикливаем смещение на длине потока
-		if(j >= datalen)
+		if(offset >= datalen)
 			// Возвращаем смещение в начало потока
-			j = 0;
+			offset = 0;
 		// Приписываем очередной байт к слову
-		temp = (temp << 8) | data[j];
+		temp = (temp << 8) | data[offset];
 	}
 	// Запоминаем итоговое смещение
-	*current = j;
+	*current = offset;
 	// Выводим собранное слово
 	return temp;
 }
@@ -469,13 +469,13 @@ void nts::cipher::decrypt(const blowfish_t * ctx, uint32_t * data, const size_t 
  */
 void nts::cipher::expand0(blowfish_t * ctx, const uint8_t * key, const size_t keylen) noexcept {
 	// Смещение внутри ключа
-	size_t j = 0;
+	size_t offset = 0;
 	/**
 	 * Накладываем ключ на массив
 	 */
 	for(size_t i = 0; i < 18; ++i)
 		// Подмешиваем очередное слово ключа
-		ctx->P[i] ^= stream2word(key, keylen, &j);
+		ctx->P[i] ^= stream2word(key, keylen, &offset);
 	// Левая половина рабочего блока
 	uint32_t datal = 0;
 	// Правая половина рабочего блока
@@ -521,15 +521,15 @@ void nts::cipher::expand0(blowfish_t * ctx, const uint8_t * key, const size_t ke
  */
 void nts::cipher::expand(blowfish_t * ctx, const uint8_t * data, const size_t datalen, const uint8_t * key, const size_t keylen) noexcept {
 	// Смещение внутри ключа
-	size_t j = 0;
+	size_t offset = 0;
 	/**
 	 * Накладываем ключ на массив
 	 */
 	for(size_t i = 0; i < 18; ++i)
 		// Подмешиваем очередное слово ключа
-		ctx->P[i] ^= stream2word(key, keylen, &j);
+		ctx->P[i] ^= stream2word(key, keylen, &offset);
 	// Сбрасываем смещение для соли
-	j = 0;
+	offset = 0;
 	// Левая половина рабочего блока
 	uint32_t datal = 0;
 	// Правая половина рабочего блока
@@ -539,9 +539,9 @@ void nts::cipher::expand(blowfish_t * ctx, const uint8_t * data, const size_t da
 	 */
 	for(size_t i = 0; i < 18; i += 2){
 		// Подмешиваем слово соли в левую половину
-		datal ^= stream2word(data, datalen, &j);
+		datal ^= stream2word(data, datalen, &offset);
 		// Подмешиваем слово соли в правую половину
-		datar ^= stream2word(data, datalen, &j);
+		datar ^= stream2word(data, datalen, &offset);
 		// Шифруем рабочий блок
 		encipher(ctx, &datal, &datar);
 		// Запоминаем левую половину
@@ -558,9 +558,9 @@ void nts::cipher::expand(blowfish_t * ctx, const uint8_t * data, const size_t da
 		 */
 		for(size_t k = 0; k < 256; k += 2){
 			// Подмешиваем слово соли в левую половину
-			datal ^= stream2word(data, datalen, &j);
+			datal ^= stream2word(data, datalen, &offset);
 			// Подмешиваем слово соли в правую половину
-			datar ^= stream2word(data, datalen, &j);
+			datar ^= stream2word(data, datalen, &offset);
 			// Шифруем рабочий блок
 			encipher(ctx, &datal, &datar);
 			// Запоминаем левую половину

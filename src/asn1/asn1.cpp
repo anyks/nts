@@ -34,10 +34,14 @@
 #include <climits>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "asn1/asn1.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -53,7 +57,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -69,37 +72,36 @@ namespace {
 	 *       находит прежде глобального, и двусмысленности не возникает
 	 *
 	 */
-	typedef asn1::error_t error_t;
+	using error_t = asn1::error_t;
 
 	/**
 	 * @brief Функция перевода даты в число суток от начала эпохи
-	 *
-	 * @param year  год
-	 * @param month месяц
-	 * @param day   день
-	 * @return      число суток от 1 января 1970 года
 	 *
 	 * @note Перевод выполняется вычислением, а не средствами системы: timegm есть не
 	 *       у всякой системы, mktime работает в местном часовом поясе, а оба они
 	 *       зависят от настроек окружения. Время сертификата от окружения зависеть
 	 *       не может: срок действия обязан читаться одинаково везде
 	 *
+	 * @param year  год
+	 * @param month месяц
+	 * @param day   день
+	 * @return      число суток от 1 января 1970 года
+	 *
 	 */
-	static int64_t civil(const int64_t year, const uint32_t month, const uint32_t day) noexcept {
+	static constexpr int64_t __nts_civil__(const int64_t year, const uint32_t month, const uint32_t day) noexcept {
 		// Сдвигаем начало года на март, чем избавляемся от особого положения високосного дня
 		const int64_t shifted = (year - static_cast <int64_t> (month <= 2));
 		// Определяем номер четырёхсотлетия
 		const int64_t era = ((shifted >= 0 ? shifted : (shifted - 399)) / 400);
 		// Определяем номер года внутри четырёхсотлетия
-		const uint64_t yoe = static_cast <uint64_t> (shifted - (era * 400));
+		const uint64_t yearOfEra = static_cast <uint64_t> (shifted - (era * 400));
 		// Определяем номер дня внутри года, начинающегося с марта
-		const uint64_t doy = ((((153 * (month + (month > 2 ? -3 : 9))) + 2) / 5) + day - 1);
+		const uint64_t dayOfYear = ((((153 * (month + (month > 2 ? -3 : 9))) + 2) / 5) + day - 1);
 		// Определяем номер дня внутри четырёхсотлетия
-		const uint64_t doe = ((yoe * 365) + (yoe / 4) - (yoe / 100) + doy);
+		const uint64_t dayOfEra = ((yearOfEra * 365) + (yearOfEra / 4) - (yearOfEra / 100) + dayOfYear);
 		// Выводим число суток от начала эпохи
-		return ((era * 146097) + static_cast <int64_t> (doe) - 719468);
+		return ((era * 146097) + static_cast <int64_t> (dayOfEra) - 719468);
 	}
-
 	/**
 	 * @brief Функция перевода числа суток от начала эпохи в дату
 	 *
@@ -109,27 +111,26 @@ namespace {
 	 * @param day   день
 	 *
 	 */
-	static void civil(const int64_t days, int64_t & year, uint32_t & month, uint32_t & day) noexcept {
+	static constexpr void __nts_civil__(const int64_t days, int64_t & year, uint32_t & month, uint32_t & day) noexcept {
 		// Сдвигаем начало отсчёта к началу четырёхсотлетия
 		const int64_t shifted = (days + 719468);
 		// Определяем номер четырёхсотлетия
 		const int64_t era = ((shifted >= 0 ? shifted : (shifted - 146096)) / 146097);
 		// Определяем номер дня внутри четырёхсотлетия
-		const uint64_t doe = static_cast <uint64_t> (shifted - (era * 146097));
+		const uint64_t dayOfEra = static_cast <uint64_t> (shifted - (era * 146097));
 		// Определяем номер года внутри четырёхсотлетия
-		const uint64_t yoe = ((doe - (doe / 1460) + (doe / 36524) - (doe / 146096)) / 365);
+		const uint64_t yearOfEra = ((dayOfEra - (dayOfEra / 1460) + (dayOfEra / 36524) - (dayOfEra / 146096)) / 365);
 		// Определяем номер дня внутри года, начинающегося с марта
-		const uint64_t doy = (doe - ((365 * yoe) + (yoe / 4) - (yoe / 100)));
+		const uint64_t dayOfYear = (dayOfEra - ((365 * yearOfEra) + (yearOfEra / 4) - (yearOfEra / 100)));
 		// Определяем номер месяца внутри года, начинающегося с марта
-		const uint64_t mp = (((5 * doy) + 2) / 153);
+		const uint64_t monthIndex = (((5 * dayOfYear) + 2) / 153);
 		// Запоминаем день месяца
-		day = static_cast <uint32_t> (doy - (((153 * mp) + 2) / 5) + 1);
+		day = static_cast <uint32_t> (dayOfYear - (((153 * monthIndex) + 2) / 5) + 1);
 		// Запоминаем месяц
-		month = static_cast <uint32_t> (mp + (mp < 10 ? 3 : -9));
+		month = static_cast <uint32_t> (monthIndex + (monthIndex < 10 ? 3 : -9));
 		// Запоминаем год
-		year = (static_cast <int64_t> (yoe) + (era * 400) + static_cast <int64_t> (month <= 2));
+		year = (static_cast <int64_t> (yearOfEra) + (era * 400) + static_cast <int64_t> (month <= 2));
 	}
-
 	/**
 	 * @brief Функция извлечения числа из записи десятичными знаками
 	 *
@@ -139,11 +140,11 @@ namespace {
 	 * @return       признак успешности извлечения
 	 *
 	 */
-	static bool digits(const uint8_t * data, const size_t count, uint32_t & result) noexcept {
+	static __NTS_INLINE__ bool __nts_digits__(const uint8_t * data, const size_t count, uint32_t & result) noexcept {
 		// Обнуляем накопитель извлекаемого числа
 		result = 0;
 		/**
-		 * Выполняем обход знаков записи числа
+		 * Обходим знаки записи числа
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Если знак записи не является десятичным
@@ -156,23 +157,22 @@ namespace {
 		// Выводим успешность извлечения
 		return true;
 	}
-
 	/**
 	 * @brief Функция проверки записи в кодировке UTF-8 с извлечением знаков
-	 *
-	 * @param view   просмотр проверяемой записи
-	 * @param result набор знаков, в который помещается результат, либо nullptr
-	 * @return       причина отказа либо error_t::NONE
 	 *
 	 * @note Проверка строгая: длинная запись знака, знак из области суррогатов и
 	 *       знак за пределом области Юникода отвергаются. Послабления здесь дают
 	 *       две разные записи одного знака, а на сличении имён держится проверка
 	 *       принадлежности сертификата
 	 *
+	 * @param view   просмотр проверяемой записи
+	 * @param result набор знаков, в который помещается результат, либо nullptr
+	 * @return       причина отказа либо error_t::NONE
+	 *
 	 */
-	static error_t utf8(const view_t & view, vector <uint32_t> * result) {
+	static __NTS_INLINE__ error_t __nts_utf8__(const view_t & view, vector <uint32_t> * result) {
 		/**
-		 * Выполняем обход записи
+		 * Обходим запись
 		 */
 		for(size_t i = 0; i < view.size;){
 			// Извлекаем первый байт записи знака
@@ -220,7 +220,7 @@ namespace {
 				// Выводим причину отказа
 				return error_t::VALUE;
 			/**
-			 * Выполняем обход продолжающих байтов записи знака
+			 * Обходим продолжающие байты записи знака
 			 */
 			for(size_t j = 1; j < count; j++){
 				// Извлекаем очередной байт записи знака
@@ -250,7 +250,6 @@ namespace {
 		// Выводим успешность проверки
 		return error_t::NONE;
 	}
-
 	/**
 	 * @brief Функция записи знака в кодировке UTF-8
 	 *
@@ -258,7 +257,7 @@ namespace {
 	 * @param result строка, в которую производится запись
 	 *
 	 */
-	static void utf8(const uint32_t code, string & result) {
+	static __NTS_INLINE__ void __nts_utf8__(const uint32_t code, string & result) {
 		// Если знак записывается одним байтом
 		if(code < 0x80)
 			// Записываем единственный байт знака
@@ -289,7 +288,6 @@ namespace {
 			result.append(1, static_cast <char> (0x80 | (code & 0x3F)));
 		}
 	}
-
 	/**
 	 * @brief Функция проверки принадлежности знака набору знаков печатной строки
 	 *
@@ -297,7 +295,7 @@ namespace {
 	 * @return     признак принадлежности знака набору
 	 *
 	 */
-	static bool printable(const uint8_t byte) noexcept {
+	static constexpr bool __nts_printable__(const uint8_t byte) noexcept {
 		// Если знак является буквой либо десятичным знаком
 		if(((byte >= 0x41) && (byte <= 0x5A)) || ((byte >= 0x61) && (byte <= 0x7A)) || ((byte >= 0x30) && (byte <= 0x39)))
 			// Выводим принадлежность знака набору
@@ -316,6 +314,13 @@ namespace {
 		return false;
 	}
 };
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::asn1::Element::Element() noexcept :
+ constructed(false), cls(cls_t::UNIVERSAL), tag(0) {}
 
 /**
  * @brief Метод разбора очередного элемента
@@ -361,7 +366,7 @@ bool nts::asn1::Reader::next(element_t & element) noexcept {
 		// Количество разобранных байтов номера метки
 		size_t count = 0;
 		/**
-		 * Выполняем разбор номера метки
+		 * Разбираем номер метки
 		 */
 		while(next){
 			// Если данные оборваны
@@ -462,7 +467,7 @@ bool nts::asn1::Reader::next(element_t & element) noexcept {
 			return false;
 		}
 		/**
-		 * Выполняем сборку длины содержимого
+		 * Собираем длину содержимого
 		 */
 		for(size_t i = 0; i < count; i++)
 			// Дополняем длину очередным байтом записи
@@ -476,11 +481,13 @@ bool nts::asn1::Reader::next(element_t & element) noexcept {
 		}
 	}
 	/**
-	 * Заслон этот стоит ради 32-разрядных целей: на 64-разрядной машине длина из восьми
-	 * байтов входит в size_t по самому своему виду, и охват там его не задевает. Количество
-	 * байтов длины сверх восьми отвергается выше, ещё до сложения
+	 * @brief Если длина содержимого не умещается в разрядную сетку машины
+	 *
+	 * @details Заслон этот стоит ради 32-разрядных целей: на 64-разрядной машине длина из восьми
+	 *          байтов входит в size_t по самому своему виду, и охват там его не задевает. Количество
+	 *          байтов длины сверх восьми отвергается выше, ещё до сложения.
+	 *
 	 */
-	// Если длина содержимого не умещается в разрядную сетку машины
 	if(length > static_cast <uint64_t> (SIZE_MAX)){
 		// Запоминаем причину отказа
 		this->_error = error_t::HUGE_SIZE;
@@ -506,7 +513,6 @@ bool nts::asn1::Reader::next(element_t & element) noexcept {
 	// Выводим успешность разбора
 	return true;
 }
-
 /**
  * @brief Метод разбора очередного элемента с проверкой ожидаемой метки
  *
@@ -530,7 +536,6 @@ bool nts::asn1::Reader::next(const tag_t tag, element_t & element) noexcept {
 	// Выводим успешность разбора
 	return true;
 }
-
 /**
  * @brief Метод получения разборщика содержимого составного элемента
  *
@@ -548,7 +553,6 @@ nts::asn1::Reader nts::asn1::Reader::enter(const element_t & element) const noex
 	// Выводим разборщик содержимого составного элемента
 	return result;
 }
-
 /**
  * @brief Метод извлечения причины последнего отказа
  *
@@ -559,7 +563,6 @@ nts::asn1::error_t nts::asn1::Reader::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
-
 /**
  * @brief Метод проверки наличия неразобранных данных
  *
@@ -570,7 +573,6 @@ bool nts::asn1::Reader::empty() const noexcept {
 	// Выводим признак наличия неразобранных данных
 	return (this->_offset >= this->_view.size);
 }
-
 /**
  * @brief Метод извлечения размера ещё не разобранных данных
  *
@@ -581,23 +583,22 @@ size_t nts::asn1::Reader::size() const noexcept {
 	// Выводим размер ещё не разобранных данных
 	return (this->_offset < this->_view.size ? (this->_view.size - this->_offset) : 0);
 }
-
 /**
  * @brief Конструктор пустого разборщика
  * @param data указатель на начало разбираемой области данных
  * @param size размер разбираемой области данных
  *
  */
-nts::asn1::Reader::Reader() noexcept : _offset(0), _error(error_t::NONE) {}
-
+nts::asn1::Reader::Reader() noexcept :
+ _offset(0), _error(error_t::NONE) {}
 /**
  * @brief Конструктор разборщика области данных
  *
  * @param view просмотр разбираемой области данных
  *
  */
-nts::asn1::Reader::Reader(const view_t & view) noexcept : _view(view), _offset(0), _error(error_t::NONE) {}
-
+nts::asn1::Reader::Reader(const view_t & view) noexcept :
+ _view(view), _offset(0), _error(error_t::NONE) {}
 /**
  * @brief Конструктор разборщика области данных
  *
@@ -605,7 +606,13 @@ nts::asn1::Reader::Reader(const view_t & view) noexcept : _view(view), _offset(0
  * @param size размер разбираемой области данных
  *
  */
-nts::asn1::Reader::Reader(const uint8_t * data, const size_t size) noexcept : _view(data, size), _offset(0), _error(error_t::NONE) {}
+nts::asn1::Reader::Reader(const uint8_t * data, const size_t size) noexcept :
+ _view(data, size), _offset(0), _error(error_t::NONE) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::asn1::Reader::~Reader() noexcept = default;
 
 /**
  * @brief Функция извлечения логического значения
@@ -646,7 +653,6 @@ nts::asn1::error_t nts::asn1::boolean(const element_t & element, bool & result) 
 	// Выводим причину отказа
 	return error_t::VALUE;
 }
-
 /**
  * @brief Функция извлечения целого числа произвольной разрядности
  *
@@ -684,7 +690,6 @@ nts::asn1::error_t nts::asn1::integer(const element_t & element, view_t & result
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения целого числа
  *
@@ -709,7 +714,7 @@ nts::asn1::error_t nts::asn1::integer(const element_t & element, int64_t & resul
 	// Определяем знак числа по старшему разряду старшего байта
 	uint64_t value = (((view.data[0] & 0x80) != 0) ? UINT64_MAX : 0);
 	/**
-	 * Выполняем сборку числа
+	 * Собираем число
 	 */
 	for(size_t i = 0; i < view.size; i++)
 		// Дополняем число очередным байтом записи
@@ -719,7 +724,6 @@ nts::asn1::error_t nts::asn1::integer(const element_t & element, int64_t & resul
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения строки битов
  *
@@ -765,7 +769,6 @@ nts::asn1::error_t nts::asn1::bits(const element_t & element, view_t & result, u
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения опознавателя объекта
  *
@@ -878,7 +881,6 @@ nts::asn1::error_t nts::asn1::oid(const element_t & element, string & result) no
 		return error_t::MEMORY;
 	}
 }
-
 /**
  * @brief Функция извлечения времени
  *
@@ -914,7 +916,7 @@ nts::asn1::error_t nts::asn1::time(const element_t & element, const tag_t type, 
 	// Определяем место начала записи месяца
 	const size_t offset = (shortly ? 2 : 4);
 	// Извлечение года
-	if(!digits(element.content.data, offset, year))
+	if(!__nts_digits__(element.content.data, offset, year))
 		// Выводим причину отказа
 		return error_t::VALUE;
 	/**
@@ -927,11 +929,11 @@ nts::asn1::error_t nts::asn1::time(const element_t & element, const tag_t type, 
 	// Значения месяца, дня, часа, минуты и секунды
 	uint32_t month = 0, day = 0, hour = 0, minute = 0, second = 0;
 	// Извлечение остальных составляющих записи времени
-	if(!digits(element.content.data + offset, 2, month) ||
-	   !digits(element.content.data + offset + 2, 2, day) ||
-	   !digits(element.content.data + offset + 4, 2, hour) ||
-	   !digits(element.content.data + offset + 6, 2, minute) ||
-	   !digits(element.content.data + offset + 8, 2, second))
+	if(!__nts_digits__(element.content.data + offset, 2, month) ||
+	   !__nts_digits__(element.content.data + offset + 2, 2, day) ||
+	   !__nts_digits__(element.content.data + offset + 4, 2, hour) ||
+	   !__nts_digits__(element.content.data + offset + 6, 2, minute) ||
+	   !__nts_digits__(element.content.data + offset + 8, 2, second))
 		// Выводим причину отказа
 		return error_t::VALUE;
 	// Число суток в каждом месяце года
@@ -951,13 +953,12 @@ nts::asn1::error_t nts::asn1::time(const element_t & element, const tag_t type, 
 		// Выводим причину отказа
 		return error_t::VALUE;
 	// Собираем число секунд от начала эпохи
-	result = ((civil(static_cast <int64_t> (year), month, day) * 86400) +
+	result = ((__nts_civil__(static_cast <int64_t> (year), month, day) * 86400) +
 	          (static_cast <int64_t> (hour) * 3600) +
 	          (static_cast <int64_t> (minute) * 60) + static_cast <int64_t> (second));
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения строки
  *
@@ -985,7 +986,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 			// Если строка записана знаками кодировки UTF-8
 			case static_cast <uint32_t> (tag_t::UTF8_STRING): {
 				// Проверка записи строки
-				const error_t error = utf8(element.content, nullptr);
+				const error_t error = __nts_utf8__(element.content, nullptr);
 				// Если запись строки не отвечает правилам кодировки
 				if(error != error_t::NONE)
 					// Выводим причину отказа
@@ -996,11 +997,11 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 			// Если строка записана знаками печатного набора
 			case static_cast <uint32_t> (tag_t::PRINTABLE_STRING): {
 				/**
-				 * Выполняем обход знаков строки
+				 * Обходим знаки строки
 				 */
 				for(size_t i = 0; i < element.content.size; i++){
 					// Если знак не принадлежит печатному набору
-					if(!printable(element.content.data[i]))
+					if(!__nts_printable__(element.content.data[i]))
 						// Выводим причину отказа
 						return error_t::VALUE;
 				}
@@ -1010,7 +1011,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 			// Если строка записана знаками набора IA5
 			case static_cast <uint32_t> (tag_t::IA5_STRING): {
 				/**
-				 * Выполняем обход знаков строки
+				 * Обходим знаки строки
 				 */
 				for(size_t i = 0; i < element.content.size; i++){
 					// Если знак не принадлежит набору IA5
@@ -1024,7 +1025,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 			// Если строка записана видимыми знаками
 			case static_cast <uint32_t> (tag_t::VISIBLE_STRING): {
 				/**
-				 * Выполняем обход знаков строки
+				 * Обходим знаки строки
 				 */
 				for(size_t i = 0; i < element.content.size; i++){
 					// Если знак не является видимым
@@ -1042,7 +1043,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 					// Выводим причину отказа
 					return error_t::VALUE;
 				/**
-				 * Выполняем обход знаков строки
+				 * Обходим знаки строки
 				 */
 				for(size_t i = 0; i < element.content.size; i += 2){
 					// Собираем значение знака из пары байтов
@@ -1056,7 +1057,7 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 						// Выводим причину отказа
 						return error_t::VALUE;
 					// Записываем знак в кодировке UTF-8
-					utf8(code, result);
+					__nts_utf8__(code, result);
 				}
 			} break;
 			// Если строка записана знаками кодировки UCS-4
@@ -1066,29 +1067,32 @@ nts::asn1::error_t nts::asn1::text(const element_t & element, const tag_t type, 
 					// Выводим причину отказа
 					return error_t::VALUE;
 				/**
-				 * Выполняем обход знаков строки
+				 * Обходим знаки строки
 				 */
 				for(size_t i = 0; i < element.content.size; i += 4){
 					// Собираем значение знака из четвёрки байтов
-					const uint32_t code = ((static_cast <uint32_t> (element.content.data[i]) << 24) |
-					                       (static_cast <uint32_t> (element.content.data[i + 1]) << 16) |
-					                       (static_cast <uint32_t> (element.content.data[i + 2]) << 8) |
-					                       static_cast <uint32_t> (element.content.data[i + 3]));
+					const uint32_t code = (
+						(static_cast <uint32_t> (element.content.data[i]) << 24) |
+						(static_cast <uint32_t> (element.content.data[i + 1]) << 16) |
+						(static_cast <uint32_t> (element.content.data[i + 2]) << 8) |
+						static_cast <uint32_t> (element.content.data[i + 3])
+					);
 					// Если знак принадлежит области суррогатов либо выходит за пределы области Юникода
 					if(((code >= 0xD800) && (code <= 0xDFFF)) || (code > 0x10FFFF))
 						// Выводим причину отказа
 						return error_t::VALUE;
 					// Записываем знак в кодировке UTF-8
-					utf8(code, result);
+					__nts_utf8__(code, result);
 				}
 			} break;
 			/**
-			 * Строка кодировки T.61 отдаётся как есть
+			 * @brief Строка кодировки T.61 отдаётся как есть
 			 *
-			 * Набор знаков её задан переключаемыми таблицами, единого толкования у
-			 * него нет, и на деле в сертификатах ей записывают то Latin-1, то UTF-8.
-			 * Всякое приведение здесь было бы догадкой, а догадка в имени - это
-			 * расхождение при сличении имён
+			 * @details Набор знаков её задан переключаемыми таблицами, единого толкования у
+			 *          него нет, и на деле в сертификатах ей записывают то Latin-1, то UTF-8.
+			 *          Всякое приведение здесь было бы догадкой, а догадка в имени - это
+			 *          расхождение при сличении имён.
+			 *
 			 */
 			case static_cast <uint32_t> (tag_t::T61_STRING):
 				// Запоминаем содержимое строки T.61 без перекодировки
@@ -1146,7 +1150,7 @@ bool nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, cons
 			// Увеличиваем количество значащих семёрок разрядов
 			count++;
 		/**
-		 * Выполняем запись номера метки от старших разрядов к младшим
+		 * Записываем номер метки от старших разрядов к младшим
 		 */
 		for(size_t i = count; i > 0; i--)
 			// Записываем очередные семь разрядов номера метки
@@ -1161,7 +1165,6 @@ bool nts::asn1::Writer::identifier(const cls_t cls, const bool constructed, cons
 	// Выводим успешность записи
 	return true;
 }
-
 /**
  * @brief Метод обеспечения места под запись с затиранием прежнего буфера
  *
@@ -1206,7 +1209,6 @@ bool nts::asn1::Writer::grow(const size_t extra) noexcept {
 	// Выводим успешность выделения места
 	return true;
 }
-
 /**
  * @brief Метод записи длины содержимого
  *
@@ -1246,7 +1248,7 @@ bool nts::asn1::Writer::length(const size_t offset, const size_t length) noexcep
 		// Записываем первый байт с числом байтов записи длины
 		result.push_back(static_cast <uint8_t> (0x80 | static_cast <uint8_t> (count)));
 		/**
-		 * Выполняем запись длины от старших байтов к младшим
+		 * Записываем длину от старших байтов к младшим
 		 */
 		for(size_t i = count; i > 0; i--)
 			// Записываем очередной байт записи длины
@@ -1263,7 +1265,6 @@ bool nts::asn1::Writer::length(const size_t offset, const size_t length) noexcep
 	// Выводим успешность записи
 	return true;
 }
-
 /**
  * @brief Метод извлечения причины последнего отказа
  *
@@ -1274,7 +1275,6 @@ nts::asn1::error_t nts::asn1::Writer::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
-
 /**
  * @brief Метод извлечения собранной записи
  *
@@ -1292,7 +1292,6 @@ nts::view_t nts::asn1::Writer::data() const noexcept {
 	// Выводим просмотр собранной записи
 	return view_t(this->_buffer.data(), this->_buffer.size());
 }
-
 /**
  * @brief Метод извлечения накопителя записи целиком
  *
@@ -1303,7 +1302,6 @@ nts::view_t nts::asn1::Writer::buffer() const noexcept {
 	// Выводим просмотр накопителя записи целиком
 	return view_t(this->_buffer.data(), this->_buffer.size());
 }
-
 /**
  * @brief Метод очистки собранной записи
  *
@@ -1316,7 +1314,6 @@ void nts::asn1::Writer::clear() noexcept {
 	// Сбрасываем причину последнего отказа
 	this->_error = error_t::NONE;
 }
-
 /**
  * @brief Метод открытия составного элемента
  *
@@ -1355,7 +1352,6 @@ bool nts::asn1::Writer::open(const cls_t cls, const uint32_t tag) noexcept {
 	// Выводим успешность записи
 	return true;
 }
-
 /**
  * @brief Метод открытия составного элемента
  *
@@ -1367,7 +1363,6 @@ bool nts::asn1::Writer::open(const tag_t tag) noexcept {
 	// Открытие составного элемента универсального класса
 	return this->open(cls_t::UNIVERSAL, static_cast <uint32_t> (tag));
 }
-
 /**
  * @brief Метод закрытия последнего открытого составного элемента
  *
@@ -1413,7 +1408,6 @@ bool nts::asn1::Writer::close() noexcept {
 	// Выводим успешность записи
 	return true;
 }
-
 /**
  * @brief Метод записи произвольного элемента
  *
@@ -1464,7 +1458,6 @@ bool nts::asn1::Writer::element(const cls_t cls, const bool constructed, const u
 	// Выводим успешность записи
 	return true;
 }
-
 /**
  * @brief Метод записи логического значения
  *
@@ -1478,7 +1471,6 @@ bool nts::asn1::Writer::boolean(const bool value) noexcept {
 	// Запись логического значения
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::BOOLEAN), view_t(&content, 1));
 }
-
 /**
  * @brief Метод записи отсутствия значения
  *
@@ -1489,7 +1481,6 @@ bool nts::asn1::Writer::nothing() noexcept {
 	// Запись отсутствия значения
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::NOTHING), view_t());
 }
-
 /**
  * @brief Метод записи целого числа
  *
@@ -1503,7 +1494,7 @@ bool nts::asn1::Writer::integer(const int64_t value) noexcept {
 	// Получаем двоичное представление числа в дополнительном коде
 	const uint64_t binary = static_cast <uint64_t> (value);
 	/**
-	 * Выполняем разбор числа на байты от старшего к младшему
+	 * Разбираем число на байты от старшего к младшему
 	 */
 	for(size_t i = 0; i < sizeof(int64_t); i++)
 		// Записываем очередной байт числа
@@ -1522,7 +1513,6 @@ bool nts::asn1::Writer::integer(const int64_t value) noexcept {
 	// Запись целого числа
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::INTEGER), view_t(content + offset, sizeof(int64_t) - offset));
 }
-
 /**
  * @brief Метод записи строки байтов
  *
@@ -1534,7 +1524,6 @@ bool nts::asn1::Writer::octets(const view_t & value) noexcept {
 	// Запись строки байтов
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (tag_t::OCTET_STRING), value);
 }
-
 /**
  * @brief Метод записи строки битов
  *
@@ -1588,7 +1577,6 @@ bool nts::asn1::Writer::bits(const view_t & value, const uint8_t unused) noexcep
 		return false;
 	}
 }
-
 /**
  * @brief Метод записи опознавателя объекта
  *
@@ -1637,7 +1625,7 @@ bool nts::asn1::Writer::oid(const string & value) noexcept {
 		// Признак наличия знаков у очередной составляющей
 		bool filled = false;
 		/**
-		 * Выполняем обход записи опознавателя объекта
+		 * Обходим запись опознавателя объекта
 		 */
 		for(size_t i = 0; i <= value.size(); i++){
 			// Если разбор дошёл до разделителя составляющих либо до конца записи
@@ -1701,7 +1689,7 @@ bool nts::asn1::Writer::oid(const string & value) noexcept {
 		// Сводим первые две составляющие в одно число
 		parts[1] += (parts[0] * 40);
 		/**
-		 * Выполняем обход составляющих опознавателя объекта
+		 * Обходим составляющие опознавателя объекта
 		 */
 		for(size_t i = 1; i < parts.size(); i++){
 			// Извлекаем значение очередной составляющей
@@ -1715,7 +1703,7 @@ bool nts::asn1::Writer::oid(const string & value) noexcept {
 				// Увеличиваем количество значащих семёрок разрядов
 				count++;
 			/**
-			 * Выполняем запись составляющей от старших разрядов к младшим
+			 * Записываем составляющую от старших разрядов к младшим
 			 */
 			for(size_t j = count; j > 0; j--)
 				// Записываем очередные семь разрядов составляющей
@@ -1733,7 +1721,6 @@ bool nts::asn1::Writer::oid(const string & value) noexcept {
 		return false;
 	}
 }
-
 /**
  * @brief Метод записи времени
  *
@@ -1765,7 +1752,7 @@ bool nts::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
 	// Значения месяца и дня
 	uint32_t month = 0, day = 0;
 	// Перевод числа суток в дату
-	civil(days, year, month, day);
+	__nts_civil__(days, year, month, day);
 	/**
 	 * Запись с двузначным годом различает лишь сто лет: правилом RFC 5280 это
 	 * промежуток с 1950 по 2049 год, за его пределами двузначный год толкуется
@@ -1791,7 +1778,7 @@ bool nts::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
 	// Определяем записываемое значение года
 	const uint32_t written = static_cast <uint32_t> (shortly ? (year % 100) : year);
 	/**
-	 * Выполняем запись года
+	 * Записываем год
 	 */
 	for(size_t i = 0; i < offset; i++)
 		// Записываем очередной знак года
@@ -1805,7 +1792,7 @@ bool nts::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
 		static_cast <uint32_t> (rest % 60)
 	};
 	/**
-	 * Выполняем запись оставшихся составляющих
+	 * Записываем оставшиеся составляющие
 	 */
 	for(size_t i = 0; i < 5; i++){
 		// Записываем старший знак составляющей
@@ -1818,7 +1805,6 @@ bool nts::asn1::Writer::time(const tag_t type, const int64_t value) noexcept {
 	// Запись времени
 	return this->element(cls_t::UNIVERSAL, false, static_cast <uint32_t> (type), view_t(content, offset + 11));
 }
-
 /**
  * @brief Метод записи строки
  *
@@ -1845,7 +1831,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 			// Если строка записывается знаками кодировки UTF-8
 			case static_cast <uint32_t> (tag_t::UTF8_STRING): {
 				// Проверка записи строки
-				const error_t error = utf8(view, nullptr);
+				const error_t error = __nts_utf8__(view, nullptr);
 				// Если запись строки не отвечает правилам кодировки
 				if(error != error_t::NONE){
 					// Запоминаем причину отказа
@@ -1861,7 +1847,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 			case static_cast <uint32_t> (tag_t::IA5_STRING):
 			case static_cast <uint32_t> (tag_t::VISIBLE_STRING): {
 				/**
-				 * Выполняем обход знаков строки
+				 * Обходим знаки строки
 				 */
 				for(size_t i = 0; i < view.size; i++){
 					// Признак принадлежности знака набору знаков строки
@@ -1871,7 +1857,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 					 */
 					switch(static_cast <uint32_t> (type)){
 						// Если строка записывается знаками печатного набора
-						case static_cast <uint32_t> (tag_t::PRINTABLE_STRING): allowed = printable(view.data[i]); break;
+						case static_cast <uint32_t> (tag_t::PRINTABLE_STRING): allowed = __nts_printable__(view.data[i]); break;
 						// Если строка записывается знаками набора IA5
 						case static_cast <uint32_t> (tag_t::IA5_STRING): allowed = (view.data[i] <= 0x7F); break;
 						// Если строка записывается видимыми знаками
@@ -1894,7 +1880,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 				// Набор знаков записываемой строки
 				vector <uint32_t> codes;
 				// Проверка записи строки с извлечением знаков
-				const error_t error = utf8(view, &codes);
+				const error_t error = __nts_utf8__(view, &codes);
 				// Если запись строки не отвечает правилам кодировки
 				if(error != error_t::NONE){
 					// Запоминаем причину отказа
@@ -1909,7 +1895,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 				// Резервируем место под содержимое строки
 				content.reserve(codes.size() * width);
 				/**
-				 * Выполняем обход знаков строки
+				 * Обходим знаки строки
 				 */
 				for(size_t i = 0; i < codes.size(); i++){
 					/**
@@ -1924,7 +1910,7 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 						return false;
 					}
 					/**
-					 * Выполняем запись знака от старших байтов к младшим
+					 * Записываем знак от старших байтов к младшим
 					 */
 					for(size_t j = width; j > 0; j--)
 						// Записываем очередной байт знака
@@ -1955,27 +1941,13 @@ bool nts::asn1::Writer::text(const tag_t type, const string & value) noexcept {
 		return false;
 	}
 }
-
 /**
  * @brief Конструктор записчика
  *
  */
 nts::asn1::Writer::Writer() noexcept : _error(error_t::NONE) {}
-
-/**
- * @brief Конструктор
- *
- */
-nts::asn1::Element::Element() noexcept : constructed(false), cls(cls_t::UNIVERSAL), tag(0) {}
-
 /**
  * @brief Деструктор
  *
  */
-nts::asn1::Reader::~Reader() noexcept {}
-
-/**
- * @brief Деструктор
- *
- */
-nts::asn1::Writer::~Writer() noexcept {}
+nts::asn1::Writer::~Writer() noexcept = default;

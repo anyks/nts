@@ -60,11 +60,11 @@ namespace {
 	 * @param size  длина области
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Печатаем подпись
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Печатаем байт
@@ -75,7 +75,7 @@ namespace {
 };
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы
@@ -101,7 +101,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Печатаем начало ключа упаковки
-	::print("Ключ упаковки (начало)", key, 16);
+	::__nts_print__("Ключ упаковки (начало)", key, 16);
 	// Шифртекст упаковки: 1088 байтов
 	uint8_t cipher[1088];
 	// Общий секрет у отправителя и у получателя
@@ -115,8 +115,8 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем секреты сторон
-	::print("Секрет отправителя", mine, sizeof(mine));
-	::print("Секрет получателя ", theirs, sizeof(theirs));
+	::__nts_print__("Секрет отправителя", mine, sizeof(mine));
+	::__nts_print__("Секрет получателя ", theirs, sizeof(theirs));
 	// Если секреты разошлись
 	if(::memcmp(mine, theirs, sizeof(mine)) != 0)
 		// Выходим с отказом
@@ -150,7 +150,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем гибридный секрет
-	::print("Гибрид X25519MLKEM768", hybrid, sizeof(hybrid));
+	::__nts_print__("Гибрид X25519MLKEM768", hybrid, sizeof(hybrid));
 	// Итог сличения гибридных секретов
 	const bool same = (::memcmp(hybrid, mirror, sizeof(hybrid)) == 0);
 	// Печатаем итог

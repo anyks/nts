@@ -181,11 +181,11 @@ namespace {
 	 * @param left признак увеличения старшей половины блока
 	 *
 	 */
-	static void increment(uint8_t * data, const size_t size, const bool left) noexcept {
+	static void __nts_increment__(uint8_t * data, const size_t size, const bool left) noexcept {
 		// Определяем место половины блока, увеличиваемой на единицу
 		uint8_t * half = (left ? data : (data + (size / 2)));
 		/**
-		 * Выполняем увеличение половины блока на единицу
+		 * Увеличиваем половину блока на единицу
 		 */
 		for(size_t i = (size / 2); i > 0; i--){
 			// Если очередной байт половины блока переполнения не даёт
@@ -210,7 +210,7 @@ namespace {
 		 *       ни ветвления, ни обращения к памяти по значению в ней нет
 		 *
 		 */
-		static void carryless(const uint64_t first, const uint64_t second, uint64_t & hi, uint64_t & lo) noexcept {
+		static void __nts_carryless__(const uint64_t first, const uint64_t second, uint64_t & hi, uint64_t & lo) noexcept {
 			/**
 			 * Если умножение ведётся командой PMULL
 			 */
@@ -255,7 +255,7 @@ namespace {
 		 * @return     число с обращённым порядком разрядов
 		 *
 		 */
-		static uint64_t reverse(const uint64_t value) noexcept {
+		static uint64_t __nts_reverse__(const uint64_t value) noexcept {
 			// Число с обращённым порядком разрядов
 			uint64_t item = value;
 			// Меняем местами соседние разряды
@@ -295,7 +295,7 @@ namespace {
 		 * @return       младшие шестьдесят четыре разряда произведения без переносов
 		 *
 		 */
-		static uint64_t spread(const uint64_t first, const uint64_t second) noexcept {
+		static uint64_t __nts_spread__(const uint64_t first, const uint64_t second) noexcept {
 			// Слой разрядов с остатком ноль у первого сомножителя
 			const uint64_t a0 = (first & 0x1111111111111111);
 			// Слой разрядов с остатком один у первого сомножителя
@@ -335,11 +335,11 @@ namespace {
 	 *       лежит старшим разрядом первого байта блока
 	 *
 	 */
-	static uint64_t load(const uint8_t * data) noexcept {
+	static uint64_t __nts_load__(const uint8_t * data) noexcept {
 		// Собираемое число записи
 		uint64_t result = 0;
 		/**
-		 * Выполняем перебор всех байтов записи числа
+		 * Перебираем все байты записи числа
 		 */
 		for(size_t i = 0; i < 8; i++)
 			// Добавляем очередной байт записи в собираемое число
@@ -354,9 +354,9 @@ namespace {
 	 * @param data  место, в которое помещается запись числа
 	 *
 	 */
-	static void store(const uint64_t value, uint8_t * data) noexcept {
+	static void __nts_store__(const uint64_t value, uint8_t * data) noexcept {
 		/**
-		 * Выполняем перебор всех байтов записи числа
+		 * Перебираем все байты записи числа
 		 */
 		for(size_t i = 0; i < 8; i++)
 			// Записываем очередной байт числа от старшего к младшему
@@ -378,9 +378,9 @@ namespace {
 	 * @param size   размер складываемых областей в байтах, кратен восьми
 	 *
 	 */
-	static void combine(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
+	static void __nts_combine__(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
 		/**
-		 * Выполняем перебор слов складываемых областей
+		 * Перебираем слова складываемых областей
 		 */
 		for(size_t i = 0; i < size; i += sizeof(uint64_t)){
 			// Очередное слово первой области
@@ -413,7 +413,7 @@ namespace {
 	 *       арифметика без ветвлений, оттого время работы от сомножителей не зависит
 	 *
 	 */
-	static void product(const uint64_t first, const uint64_t second, uint64_t & hi, uint64_t & lo) noexcept {
+	static void __nts_product__(const uint64_t first, const uint64_t second, uint64_t & hi, uint64_t & lo) noexcept {
 		/**
 		 * Если умножение без переносов делает сама машина
 		 */
@@ -425,23 +425,23 @@ namespace {
 				// Если машина умножение без переносов своей командой не несёт
 				if(!machine::has(machine::feature_t::CARRYLESS)){
 					// Умножение сомножителей произведениями слоёв разрядов
-					lo = spread(first, second);
+					lo = __nts_spread__(first, second);
 					// Обращение порядка разрядов: старшая половина произведения обращённых сомножителей стоит на месте младшей
-					hi = (reverse(spread(reverse(first), reverse(second))) >> 1);
+					hi = (__nts_reverse__(__nts_spread__(__nts_reverse__(first), __nts_reverse__(second))) >> 1);
 					// Выходим из умножения без переносов
 					return;
 				}
 			#endif
 			// Умножение без переносов машинной командой
-			carryless(first, second, hi, lo);
+			__nts_carryless__(first, second, hi, lo);
 		/**
 		 * Если умножение без переносов делается целочисленными умножениями
 		 */
 		#else
 			// Умножение сомножителей произведениями слоёв разрядов
-			lo = spread(first, second);
+			lo = __nts_spread__(first, second);
 			// Обращение порядка разрядов: старшая половина произведения обращённых сомножителей стоит на месте младшей
-			hi = (reverse(spread(reverse(first), reverse(second))) >> 1);
+			hi = (__nts_reverse__(__nts_spread__(__nts_reverse__(first), __nts_reverse__(second))) >> 1);
 		#endif
 	}
 	/**
@@ -457,66 +457,66 @@ namespace {
 	 * @param result место, в которое помещается произведение
 	 *
 	 */
-	static void multiply128(const uint8_t * first, const uint8_t * second, uint8_t * result) noexcept {
+	static void __nts_multiply128__(const uint8_t * first, const uint8_t * second, uint8_t * result) noexcept {
 		// Остаток многочлена поля, которому равен разряд w^128
 		static constexpr uint64_t REMAINDER = 0x87;
 		// Читаем старшую половину первого сомножителя
-		const uint64_t a1 = load(first);
+		const uint64_t a1 = __nts_load__(first);
 		// Читаем младшую половину первого сомножителя
-		const uint64_t a0 = load(first + 8);
+		const uint64_t a0 = __nts_load__(first + 8);
 		// Читаем старшую половину второго сомножителя
-		const uint64_t b1 = load(second);
+		const uint64_t b1 = __nts_load__(second);
 		// Читаем младшую половину второго сомножителя
-		const uint64_t b0 = load(second + 8);
+		const uint64_t b0 = __nts_load__(second + 8);
 		// Половины произведения младших половин сомножителей
-		uint64_t lh = 0, ll = 0;
+		uint64_t lowHigh = 0, lowLow = 0;
 		// Умножение младших половин сомножителей
-		product(a0, b0, lh, ll);
+		__nts_product__(a0, b0, lowHigh, lowLow);
 		// Половины произведения старших половин сомножителей
-		uint64_t hh = 0, hl = 0;
+		uint64_t highHigh = 0, highLow = 0;
 		// Умножение старших половин сомножителей
-		product(a1, b1, hh, hl);
+		__nts_product__(a1, b1, highHigh, highLow);
 		// Половины произведения сумм половин сомножителей
-		uint64_t mh = 0, ml = 0;
+		uint64_t midHigh = 0, midLow = 0;
 		// Умножение сумм половин сомножителей
-		product(a0 ^ a1, b0 ^ b1, mh, ml);
+		__nts_product__(a0 ^ a1, b0 ^ b1, midHigh, midLow);
 		// Убираем из среднего произведения крайние произведения
-		ml ^= (ll ^ hl);
+		midLow ^= (lowLow ^ highLow);
 		// Убираем из среднего произведения крайние произведения
-		mh ^= (lh ^ hh);
+		midHigh ^= (lowHigh ^ highHigh);
 		// Собираем разряды произведения с 192 по 255
-		const uint64_t z3 = hh;
+		const uint64_t z3 = highHigh;
 		// Собираем разряды произведения со 128 по 191
-		const uint64_t z2 = (hl ^ mh);
+		const uint64_t z2 = (highLow ^ midHigh);
 		// Собираем разряды произведения с 64 по 127
-		uint64_t z1 = (lh ^ ml);
+		uint64_t z1 = (lowHigh ^ midLow);
 		// Собираем разряды произведения с 0 по 63
-		uint64_t z0 = ll;
+		uint64_t z0 = lowLow;
 		// Половины произведения младшей части старшей половины на остаток многочлена
-		uint64_t uh = 0, ul = 0;
+		uint64_t reduceHigh = 0, reduceLow = 0;
 		// Умножение младшей части старшей половины на остаток многочлена
-		product(z2, REMAINDER, uh, ul);
+		__nts_product__(z2, REMAINDER, reduceHigh, reduceLow);
 		// Половины произведения старшей части старшей половины на остаток многочлена
-		uint64_t vh = 0, vl = 0;
+		uint64_t reduce2High = 0, reduce2Low = 0;
 		// Умножение старшей части старшей половины на остаток многочлена
-		product(z3, REMAINDER, vh, vl);
+		__nts_product__(z3, REMAINDER, reduce2High, reduce2Low);
 		// Складываем приведённую старшую половину с разрядами с 64 по 127
-		z1 ^= (vl ^ uh);
+		z1 ^= (reduce2Low ^ reduceHigh);
 		// Складываем приведённую старшую половину с разрядами с 0 по 63
-		z0 ^= ul;
+		z0 ^= reduceLow;
 		// Половины произведения остатка приведения на остаток многочлена
-		uint64_t wh = 0, wl = 0;
+		uint64_t reduce3High = 0, reduce3Low = 0;
 		/**
 		 * Приведение вышло длиннее поля на семь разрядов: складываем и их, умноженные
 		 * на остаток многочлена, - вторым разом приведение уже завершается
 		 */
-		product(vh, REMAINDER, wh, wl);
+		__nts_product__(reduce2High, REMAINDER, reduce3High, reduce3Low);
 		// Складываем остаток приведения с разрядами с 0 по 63
-		z0 ^= wl;
+		z0 ^= reduce3Low;
 		// Записываем старшую половину произведения
-		store(z1, result);
+		__nts_store__(z1, result);
 		// Записываем младшую половину произведения
-		store(z0, result + 8);
+		__nts_store__(z0, result + 8);
 	}
 	/**
 	 * @brief Функция умножения блоков длиной 64 разряда в поле GF(2^64)
@@ -528,27 +528,27 @@ namespace {
 	 * @param result место, в которое помещается произведение
 	 *
 	 */
-	static void multiply64(const uint8_t * first, const uint8_t * second, uint8_t * result) noexcept {
+	static void __nts_multiply64__(const uint8_t * first, const uint8_t * second, uint8_t * result) noexcept {
 		// Остаток многочлена поля, которому равен разряд w^64
 		static constexpr uint64_t REMAINDER = 0x1B;
 		// Половины произведения сомножителей
 		uint64_t hi = 0, lo = 0;
 		// Умножение сомножителей без переносов
-		product(load(first), load(second), hi, lo);
+		__nts_product__(__nts_load__(first), __nts_load__(second), hi, lo);
 		// Половины произведения старшей половины на остаток многочлена
-		uint64_t uh = 0, ul = 0;
+		uint64_t reduceHigh = 0, reduceLow = 0;
 		// Умножение старшей половины на остаток многочлена
-		product(hi, REMAINDER, uh, ul);
+		__nts_product__(hi, REMAINDER, reduceHigh, reduceLow);
 		// Складываем приведённую старшую половину с произведением
-		lo ^= ul;
+		lo ^= reduceLow;
 		// Половины произведения остатка приведения на остаток многочлена
-		uint64_t wh = 0, wl = 0;
+		uint64_t reduce3High = 0, reduce3Low = 0;
 		// Умножение остатка приведения на остаток многочлена
-		product(uh, REMAINDER, wh, wl);
+		__nts_product__(reduceHigh, REMAINDER, reduce3High, reduce3Low);
 		// Складываем остаток приведения с произведением
-		lo ^= wl;
+		lo ^= reduce3Low;
 		// Записываем произведение сомножителей
-		store(lo, result);
+		__nts_store__(lo, result);
 	}
 	/**
 	 * @brief Функция умножения блоков в поле GF(2^n)
@@ -562,15 +562,15 @@ namespace {
 	 *       блок, и оставленное вызовом оно стоит полосе около пяти сотых доли
 	 *
 	 */
-	static __NTS_INLINE__ void multiply(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_multiply__(const uint8_t * first, const uint8_t * second, uint8_t * result, const size_t size) noexcept {
 		// Если перемножаются блоки длиной 128 разрядов
 		if(size == 16)
 			// Умножение блоков в поле GF(2^128)
-			multiply128(first, second, result);
+			__nts_multiply128__(first, second, result);
 		// Если перемножаются блоки длиной 64 разряда
 		else if(size == 8)
 			// Умножение блоков в поле GF(2^64)
-			multiply64(first, second, result);
+			__nts_multiply64__(first, second, result);
 	}
 	/**
 	 * @brief Функция проверки того, что длины укладываются в блок длин метки
@@ -591,7 +591,7 @@ namespace {
 	 *       равен 2^61 байту и достижим не бывает
 	 *
 	 */
-	static bool measurable(const uint64_t associated, const uint64_t source, const size_t block) noexcept {
+	static bool __nts_measurable__(const uint64_t associated, const uint64_t source, const size_t block) noexcept {
 		// Предел длины части сообщения в байтах: половина блока держит длину в разрядах
 		const uint64_t limit = (static_cast <uint64_t> (1) << ((block * 4) - 3));
 		// Если длина связанных данных сама по себе предел превзошла
@@ -616,11 +616,11 @@ namespace {
 	 * @param half длина половины блока длин в байтах
 	 *
 	 */
-	static void length(const uint64_t size, uint8_t * data, const size_t half) noexcept {
+	static void __nts_length__(const uint64_t size, uint8_t * data, const size_t half) noexcept {
 		// Получаем длину строки в разрядах
 		uint64_t value = (size * 8);
 		/**
-		 * Выполняем запись длины строки от младшего байта к старшему
+		 * Записываем длину строки от младшего байта к старшему
 		 */
 		for(size_t i = half; i > 0; i--){
 			// Записываем очередной байт длины строки
@@ -638,11 +638,11 @@ namespace {
 	 * @return       признак совпадения областей
 	 *
 	 */
-	static bool same(const uint8_t * first, const uint8_t * second, const size_t size) noexcept {
+	static bool __nts_same__(const uint8_t * first, const uint8_t * second, const size_t size) noexcept {
 		// Накопленное различие областей
 		uint8_t difference = 0;
 		/**
-		 * Выполняем перебор байтов областей
+		 * Перебираем байты областей
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Накапливаем различие очередных байтов
@@ -686,7 +686,7 @@ bool nts::cipher::Galois::reset() noexcept {
 		// Выводим отказ сброса состояния потока
 		return false;
 	/**
-	 * Выполняем выработку начального значения счётчика гаммы: им служит зашифрованное
+	 * Вырабатываем начальное значение счётчика гаммы: им служит зашифрованное
 	 * начальное заполнение с нулевым старшим разрядом
 	 */
 	if(!this->_block.encrypt(this->_block.cipher, this->_nonce, this->_counter))
@@ -711,7 +711,7 @@ bool nts::cipher::Galois::reset() noexcept {
  */
 bool nts::cipher::Galois::proceed(const uint8_t direction) noexcept {
 	/**
-	 * Выполняем разбор ступени потока
+	 * Разбираем ступень потока
 	 */
 	switch(this->_stage){
 		// Если поток на связанных данных либо ещё не начат
@@ -786,11 +786,11 @@ bool nts::cipher::Galois::mark(const uint8_t * data) noexcept {
 		return false;
 	}
 	// Умножение блока на выход шифра
-	multiply(data, item, item, this->_block.size);
+	__nts_multiply__(data, item, item, this->_block.size);
 	// Сложение накапливаемой суммы с полученным произведением
-	combine(this->_sum, item, this->_sum, this->_block.size);
+	__nts_combine__(this->_sum, item, this->_sum, this->_block.size);
 	// Увеличение старшей половины счётчика метки на единицу
-	increment(this->_marked, this->_block.size, true);
+	__nts_increment__(this->_marked, this->_block.size, true);
 	// Затирание текущего значения множителя
 	wipe(item, sizeof(item));
 	// Выводим успешность умножения
@@ -848,26 +848,26 @@ bool nts::cipher::Galois::absorb(const uint8_t * data, const size_t size) noexce
 		// Четыре множителя выработки метки целостности
 		uint8_t factors[4 * MODE_BLOCK];
 		/**
-		 * Выполняем заполнение четырёх счётчиков
+		 * Заполняем четыре счётчика
 		 */
 		for(size_t k = 0; k < 4; k++){
 			// Записываем текущее значение счётчика
 			::memcpy(counters + (k * step), this->_marked, step);
 			// Увеличение старшей половины счётчика на единицу
-			increment(this->_marked, step, true);
+			__nts_increment__(this->_marked, step, true);
 		}
 		// Зашифрование четырёх счётчиков разом
 		ok = this->_block.batch(this->_block.cipher, counters, 4, factors);
 		/**
-		 * Выполняем умножение четырёх блоков на множители
+		 * Умножаем четыре блока на множители
 		 */
 		for(size_t k = 0; ok && (k < 4); k++){
 			// Множитель очередного блока
 			uint8_t * factor = factors + (k * step);
 			// Умножение блока на выход шифра
-			multiply(data + offset + (k * step), factor, factor, step);
+			__nts_multiply__(data + offset + (k * step), factor, factor, step);
 			// Сложение накапливаемой суммы с полученным произведением
-			combine(this->_sum, factor, this->_sum, step);
+			__nts_combine__(this->_sum, factor, this->_sum, step);
 		}
 		// Сдвигаем позицию чтения поглощаемых байтов
 		offset += (4 * step);
@@ -877,7 +877,7 @@ bool nts::cipher::Galois::absorb(const uint8_t * data, const size_t size) noexce
 		wipe(factors, sizeof(factors));
 	}
 	/**
-	 * Выполняем перебор оставшихся целых блоков
+	 * Перебираем оставшиеся целые блоки
 	 */
 	while(ok && ((size - offset) >= step)){
 		// Умножение очередного целого блока на выход шифра
@@ -927,7 +927,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 		// Позиция остатка внутри блока гаммы
 		const size_t index = (step - this->_rest);
 		/**
-		 * Выполняем наложение остатка гаммы
+		 * Накладываем остаток гаммы
 		 */
 		for(size_t i = 0; i < taken; i++)
 			// Складываем очередной байт с гаммой
@@ -951,20 +951,20 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 		// Четыре блока гаммы
 		uint8_t gamma[4 * MODE_BLOCK];
 		/**
-		 * Выполняем заполнение четырёх счётчиков
+		 * Заполняем четыре счётчика
 		 */
 		for(size_t k = 0; k < 4; k++){
 			// Записываем текущее значение счётчика
 			::memcpy(counters + (k * step), this->_counter, step);
 			// Увеличение младшей половины счётчика на единицу
-			increment(this->_counter, step, false);
+			__nts_increment__(this->_counter, step, false);
 		}
 		// Зашифрование четырёх счётчиков разом
 		ok = this->_block.batch(this->_block.cipher, counters, 4, gamma);
 		// Если зашифрование четырёх счётчиков прошло успешно
 		if(ok)
 			// Наложение четырёх блоков гаммы словами по восемь байтов
-			combine(cursor, gamma, output, 4 * step);
+			__nts_combine__(cursor, gamma, output, 4 * step);
 		// Сдвигаем позицию чтения
 		cursor += (4 * step);
 		// Сдвигаем позицию записи
@@ -977,7 +977,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 		wipe(gamma, sizeof(gamma));
 	}
 	/**
-	 * Выполняем перебор оставшихся блоков куска
+	 * Перебираем оставшиеся блоки куска
 	 */
 	while(ok && (left > 0)){
 		// Зашифрование текущего значения счётчика
@@ -987,7 +987,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 			// Определяем размер очередного блока куска
 			const size_t count = ((left < step) ? left : step);
 			/**
-			 * Выполняем сложение очередного блока куска с гаммой шифра
+			 * Складываем очередной блок куска с гаммой шифра
 			 */
 			for(size_t i = 0; i < count; i++)
 				// Складываем очередные байты по модулю два
@@ -1000,7 +1000,7 @@ bool nts::cipher::Galois::cover(const view_t & source, uint8_t * result) noexcep
 				this->_rest = (step - count);
 			}
 			// Увеличение младшей половины счётчика на единицу
-			increment(this->_counter, step, false);
+			__nts_increment__(this->_counter, step, false);
 			// Сдвигаем позицию чтения
 			cursor += count;
 			// Сдвигаем позицию записи
@@ -1026,7 +1026,7 @@ bool nts::cipher::Galois::authenticate(uint8_t * result) noexcept {
 	 * Раздел 4.1 RFC 9058 держит суммарную длину связанных данных и сообщения ниже
 	 * 2^(n/2) разрядов: длины эти пишутся в метку целостности половинами блока
 	 */
-	if(!measurable(this->_associated, this->_sealed, this->_block.size))
+	if(!__nts_measurable__(this->_associated, this->_sealed, this->_block.size))
 		// Выводим отказ замыкания метки целостности
 		return false;
 	/**
@@ -1047,17 +1047,17 @@ bool nts::cipher::Galois::authenticate(uint8_t * result) noexcept {
 	// Обнуление блока длин связанных данных и шифртекста
 	wipe(buffer, sizeof(buffer));
 	// Записываем длину связанных данных в старшую половину блока
-	length(this->_associated, buffer, this->_block.size / 2);
+	__nts_length__(this->_associated, buffer, this->_block.size / 2);
 	// Записываем длину шифртекста в младшую половину блока
-	length(this->_sealed, buffer + (this->_block.size / 2), this->_block.size / 2);
+	__nts_length__(this->_sealed, buffer + (this->_block.size / 2), this->_block.size / 2);
 	// Зашифрование текущего значения счётчика метки
 	bool ok = this->_block.encrypt(this->_block.cipher, this->_marked, item);
 	// Если множитель блока длин выработан
 	if(ok){
 		// Умножение блока длин на выход шифра
-		multiply(buffer, item, item, this->_block.size);
+		__nts_multiply__(buffer, item, item, this->_block.size);
 		// Сложение накапливаемой суммы с полученным произведением
-		combine(this->_sum, item, this->_sum, this->_block.size);
+		__nts_combine__(this->_sum, item, this->_sum, this->_block.size);
 		// Переносим накопленную сумму произведений в место метки
 		::memcpy(result, this->_sum, this->_block.size);
 		// Зашифрование накопленной суммы произведений
@@ -1214,7 +1214,7 @@ bool nts::cipher::Galois::associate(const view_t & associated) noexcept {
 	 * длина шифртекста к этому часу ещё не известна, оттого здесь сверяется лишь длина
 	 * связанных данных, а их сумма с длиной шифртекста - при замыкании метки
 	 */
-	if(!measurable(this->_associated + static_cast <uint64_t> (associated.size), 0, this->_block.size))
+	if(!__nts_measurable__(this->_associated + static_cast <uint64_t> (associated.size), 0, this->_block.size))
 		// Выводим отказ подачи
 		return false;
 	// Переводим поток на связанные данные
@@ -1253,7 +1253,7 @@ bool nts::cipher::Galois::encrypt(const view_t & source, uint8_t * result) noexc
 	 * длина связанных данных к этому часу уже известна, оттого здесь сверяется лишь
 	 * длина шифртекста, а их сумма - при замыкании метки
 	 */
-	if(!measurable(0, this->_sealed + static_cast <uint64_t> (source.size), this->_block.size)){
+	if(!__nts_measurable__(0, this->_sealed + static_cast <uint64_t> (source.size), this->_block.size)){
 		// Закрываем поток
 		this->_stage = 3;
 		// Выводим отказ зашифрования
@@ -1304,7 +1304,7 @@ bool nts::cipher::Galois::decrypt(const view_t & source, uint8_t * result) noexc
 	 * длина связанных данных к этому часу уже известна, оттого здесь сверяется лишь
 	 * длина шифртекста, а их сумма - при замыкании метки
 	 */
-	if(!measurable(0, this->_sealed + static_cast <uint64_t> (source.size), this->_block.size)){
+	if(!__nts_measurable__(0, this->_sealed + static_cast <uint64_t> (source.size), this->_block.size)){
 		// Закрываем поток
 		this->_stage = 3;
 		// Выводим отказ расшифрования
@@ -1401,7 +1401,7 @@ bool nts::cipher::Galois::verify(const view_t & tag) noexcept {
 		return false;
 	}
 	// Признак схождения метки целостности за постоянное время
-	const bool matched = same(buffer, tag.data, this->_size);
+	const bool matched = __nts_same__(buffer, tag.data, this->_size);
 	// Затирание выработанной метки целостности
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак схождения метки целостности
@@ -1449,7 +1449,7 @@ bool nts::cipher::Galois::encrypt(const view_t & associated, const view_t & sour
 	 * Раздел 4.1 RFC 9058 держит суммарную длину связанных данных и сообщения ниже
 	 * 2^(n/2) разрядов: длины эти пишутся в метку целостности половинами блока
 	 */
-	if(!measurable(associated.size, source.size, this->_block.size))
+	if(!__nts_measurable__(associated.size, source.size, this->_block.size))
 		// Выводим отказ зашифрования
 		return false;
 	// Сброс состояния потока: разовый вызов не зависит от прежнего
@@ -1498,7 +1498,7 @@ bool nts::cipher::Galois::decrypt(const view_t & associated, const view_t & sour
 	 * Раздел 4.1 RFC 9058 держит суммарную длину связанных данных и шифртекста ниже
 	 * 2^(n/2) разрядов: длины эти пишутся в метку целостности половинами блока
 	 */
-	if(!measurable(associated.size, source.size, this->_block.size))
+	if(!__nts_measurable__(associated.size, source.size, this->_block.size))
 		// Выводим отказ расшифрования
 		return false;
 	// Сброс состояния потока: разовый вызов не зависит от прежнего

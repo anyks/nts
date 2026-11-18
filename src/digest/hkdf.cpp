@@ -118,7 +118,7 @@ bool nts::digest::expand(const hash_t algorithm, const view_t & key, const view_
 	// Признак успешности развёртывания
 	bool ok = true;
 	/**
-	 * Выполняем вывод блоков материала, пока его не хватает
+	 * Выводим блоки материала, пока его не хватает
 	 */
 	for(uint8_t index = 1; ok && (produced < size); index++){
 		// Начало выработки очередного блока

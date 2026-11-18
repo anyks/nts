@@ -65,9 +65,9 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static void store(const uint64_t value, uint8_t * data) noexcept {
+	static void __nts_store__(const uint64_t value, uint8_t * data) noexcept {
 		/**
-		 * Выполняем перебор байтов слова
+		 * Перебираем байты слова
 		 */
 		for(size_t i = 0; i < 8; i++)
 			// Записываем очередной байт от младшего
@@ -82,11 +82,11 @@ namespace {
 	 * @return       признак совпадения областей
 	 *
 	 */
-	static bool same(const uint8_t * first, const uint8_t * second, const size_t size) noexcept {
+	static bool __nts_same__(const uint8_t * first, const uint8_t * second, const size_t size) noexcept {
 		// Накопленное различие
 		uint8_t difference = 0;
 		/**
-		 * Выполняем перебор байтов областей
+		 * Перебираем байты областей
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Накапливаем различие байтов
@@ -130,9 +130,9 @@ bool nts::cipher::Chachapoly::authenticate(uint8_t * result) noexcept {
 	// Блок длин: связанные данные и шифртекст в байтах от младшего байта
 	uint8_t lengths[16];
 	// Записываем длину связанных данных
-	store(this->_associated, lengths);
+	__nts_store__(this->_associated, lengths);
 	// Записываем длину шифртекста
-	store(this->_sealed, lengths + 8);
+	__nts_store__(this->_sealed, lengths + 8);
 	// Если блок длин подать не удалось
 	if(!this->_mac.update(view_t(lengths, sizeof(lengths))))
 		// Выводим отказ вычисления
@@ -193,7 +193,7 @@ bool nts::cipher::Chachapoly::reset() noexcept {
  */
 bool nts::cipher::Chachapoly::proceed(const uint8_t direction) noexcept {
 	/**
-	 * Выполняем разбор ступени потока
+	 * Разбираем ступень потока
 	 */
 	switch(this->_stage){
 		// Если поток на связанных данных либо ещё не начат
@@ -487,7 +487,7 @@ bool nts::cipher::Chachapoly::verify(const view_t & tag) noexcept {
 		return false;
 	}
 	// Признак схождения метки за постоянное время
-	const bool matched = same(buffer, tag.data, CHACHAPOLY_TAG);
+	const bool matched = __nts_same__(buffer, tag.data, CHACHAPOLY_TAG);
 	// Затирание вычисленной метки
 	wipe(buffer, sizeof(buffer));
 	// Выводим признак схождения метки

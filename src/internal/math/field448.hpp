@@ -364,11 +364,11 @@ namespace nts {
 						 */
 						for(size_t i = ((k > (LIMBS - 1)) ? (k - (LIMBS - 1)) : 0); i <= (k / 2); i++){
 							// Номер встречной конечности пары
-							const size_t j = (k - i);
+							const size_t opposite = (k - i);
 							// Удвоенное произведение строгой пары
-							const wide_t item = (static_cast <wide_t> (value.limbs[i]) * value.limbs[j]);
+							const wide_t item = (static_cast <wide_t> (value.limbs[i]) * value.limbs[opposite]);
 							// Прибавляем произведение дважды: пара входит двумя порядками
-							if(i < j){
+							if(i < opposite){
 								// Прибавляем первое вхождение пары
 								sum += item;
 								// Прибавляем второе вхождение пары

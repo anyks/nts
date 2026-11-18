@@ -101,7 +101,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool identity(const char * name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем секретный ключ набора в записи PEM
 		result.secret = corpus((string(name) + ".pem").c_str());
 		// Читаем сертификат набора в записи PEM
@@ -110,7 +110,7 @@ namespace {
 		if(result.secret.empty() || text.empty())
 			// Выводим отказ составления подлинности
 			return false;
-		// Выполняем сброс цепочки сертификатов
+		// Сбрасываем цепочки сертификатов
 		result.chain.clear();
 		// Выводим итог разбора цепочки сертификатов из записи PEM
 		return (pem::certificates(string(text.begin(), text.end()), result.chain) == pem::error_t::NONE);
@@ -126,9 +126,9 @@ namespace {
 	 * @return      название уровня защиты
 	 *
 	 */
-	const char * naming(const context::level_t level) noexcept {
+	const char * __nts_naming__(const context::level_t level) noexcept {
 		/**
-		 * Выполняем определение уровня защиты
+		 * Определяем уровня защиты
 		 */
 		switch(static_cast <uint8_t> (level)){
 			// Если уровень начальный
@@ -159,13 +159,13 @@ namespace {
 	 * @return     первые восемь байтов записью и многоточие
 	 *
 	 */
-	string glimpse(const uint8_t * data, const size_t size) noexcept {
+	string __nts_glimpse__(const uint8_t * data, const size_t size) noexcept {
 		// Знаки шестнадцатеричной записи
 		static const char DIGITS[] = "0123456789ABCDEF";
 		// Составляемая запись
 		string result;
 		/**
-		 * Выполняем перебор первых восьми байтов области
+		 * Перебираем первых восьми байтов области
 		 */
 		for(size_t i = 0; (i < size) && (i < 8); i++){
 			// Добавляем старший полубайт
@@ -187,20 +187,20 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to, const context::level_t level, const char * name) noexcept {
+	bool __nts_carry__(A & from, B & to, const context::level_t level, const char * name) noexcept {
 		// Получаем сообщения, отправляемые на уровне
 		const view_t data = from.output(level);
 		// Если отправлять на уровне нечего
 		if(data.size == 0)
 			// Выводим признак того, что сообщения не переносились
 			return false;
-		// Выполняем перенос отправляемых сообщений
+		// Переносим отправляемых сообщений
 		const vector <uint8_t> buffer(data.data, data.data + data.size);
 		// Снимаем отправленные сообщения с накопителя уровня
 		from.consume(level, buffer.size());
 		// Выводим ход переноса
-		cout << "  " << name << " → " << naming(level) << " : " << setw(5) << buffer.size() << " байт данных CRYPTO" << endl;
-		// Выполняем подачу сообщений принимающей стороне на том же уровне
+		cout << "  " << name << " → " << __nts_naming__(level) << " : " << setw(5) << buffer.size() << " байт данных CRYPTO" << endl;
+		// Подаём сообщений принимающей стороне на том же уровне
 		to.push(level, view_t(buffer.data(), buffer.size()));
 		// Выводим признак того, что сообщения переносились
 		return true;
@@ -213,21 +213,21 @@ namespace {
 	 * @return       признак того, что сообщения между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что сообщения между сторонами передавались
 		bool moved = false;
 		/**
-		 * Выполняем перебор уровней защиты в порядке их следования
+		 * Перебираем уровней защиты в порядке их следования
 		 */
 		for(size_t i = 0; i < (sizeof(LEVELS) / sizeof(LEVELS[0])); i++)
 			// Переносим сообщения уровня от клиента к серверу
-			moved = (carry(client, server, LEVELS[i], "клиент") || moved);
+			moved = (__nts_carry__(client, server, LEVELS[i], "клиент") || moved);
 		/**
-		 * Выполняем перебор уровней защиты в порядке их следования
+		 * Перебираем уровней защиты в порядке их следования
 		 */
 		for(size_t i = 0; i < (sizeof(LEVELS) / sizeof(LEVELS[0])); i++)
 			// Переносим сообщения уровня от сервера к клиенту
-			moved = (carry(server, client, LEVELS[i], "сервер") || moved);
+			moved = (__nts_carry__(server, client, LEVELS[i], "сервер") || moved);
 		// Выводим признак того, что сообщения между сторонами передавались
 		return moved;
 	}
@@ -242,7 +242,7 @@ namespace {
 	 *
 	 */
 	template <typename T>
-	bool reveal(const T & context, const context::level_t level, const context::direction_t direction, const char * name) noexcept {
+	bool __nts_reveal__(const T & context, const context::level_t level, const context::direction_t direction, const char * name) noexcept {
 		// Место, в которое помещается секрет: не короче самого широкого хеша
 		uint8_t buffer[schedule::SCHEDULE_WIDEST];
 		// Длина секрета
@@ -250,12 +250,12 @@ namespace {
 		// Если секрет уровня ещё не выведен
 		if(!context.secret(level, direction, buffer, size)){
 			// Выводим отсутствие секрета
-			cout << "  " << name << " " << naming(level) << " : не выведен" << endl;
+			cout << "  " << name << " " << __nts_naming__(level) << " : не выведен" << endl;
 			// Выводим отсутствие секрета
 			return false;
 		}
 		// Выводим усечённый секрет уровня
-		cout << "  " << name << " " << naming(level) << " : " << size << " байт, " << glimpse(buffer, size) << endl;
+		cout << "  " << name << " " << __nts_naming__(level) << " : " << size << " байт, " << __nts_glimpse__(buffer, size) << endl;
 		// Выводим наличие секрета
 		return true;
 	}
@@ -285,7 +285,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Подлинность стороны сервера
 	context::credential_t credential;
 	// Если подлинность стороны сервера прочитать не удалось
-	if(!identity("ec256", credential)){
+	if(!__nts_identity__("ec256", credential)){
 		// Выводим сообщение об отказе чтения подлинности
 		cout << "Прочитать подлинность сервера из набора ключей не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -344,13 +344,13 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим уровни ключей до рукопожатия
-	cout << "Ключи клиента       : запись " << naming(client.level(context::direction_t::WRITE)) << ", чтение " << naming(client.level(context::direction_t::READ)) << endl;
+	cout << "Ключи клиента       : запись " << __nts_naming__(client.level(context::direction_t::WRITE)) << ", чтение " << __nts_naming__(client.level(context::direction_t::READ)) << endl;
 	// Число кругов передачи сообщений между сторонами
 	size_t rounds = 0;
 	/**
-	 * Выполняем передачу сообщений между сторонами, пока им есть что сказать
+	 * Передаём сообщений между сторонами, пока им есть что сказать
 	 */
-	while((rounds < 16) && pump(client, server))
+	while((rounds < 16) && __nts_pump__(client, server))
 		// Считаем круги передачи сообщений
 		rounds++;
 	// Если рукопожатие не пройдено
@@ -363,7 +363,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим итог рукопожатия
 	cout << "Рукопожатие         : пройдено за " << rounds << " круга, прикладной протокол «" << client.protocol() << "»" << endl;
 	// Выводим уровни ключей после рукопожатия
-	cout << "Ключи клиента       : запись " << naming(client.level(context::direction_t::WRITE)) << ", чтение " << naming(client.level(context::direction_t::READ)) << endl;
+	cout << "Ключи клиента       : запись " << __nts_naming__(client.level(context::direction_t::WRITE)) << ", чтение " << __nts_naming__(client.level(context::direction_t::READ)) << endl;
 	// Если параметры переноса собеседника не приняты
 	if(!client.acquired() || !server.acquired() || (client.parameters() != SERVER_PARAMETERS) || (server.parameters() != CLIENT_PARAMETERS)){
 		// Выводим сообщение о расхождении
@@ -372,33 +372,33 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим параметры переноса собеседника
-	cout << "Параметры сервера   : у клиента " << client.parameters().size() << " байт, " << glimpse(client.parameters().data(), client.parameters().size()) << endl;
+	cout << "Параметры сервера   : у клиента " << client.parameters().size() << " байт, " << __nts_glimpse__(client.parameters().data(), client.parameters().size()) << endl;
 	// Выводим параметры переноса клиента
-	cout << "Параметры клиента   : у сервера " << server.parameters().size() << " байт, " << glimpse(server.parameters().data(), server.parameters().size()) << endl;
+	cout << "Параметры клиента   : у сервера " << server.parameters().size() << " байт, " << __nts_glimpse__(server.parameters().data(), server.parameters().size()) << endl;
 	// Выводим заголовок секретов уровней
 	cout << endl << "== Секреты уровней (раздел 7.1 RFC 8446, из них выводятся ключи пакетов QUIC) ==" << endl;
 	// Уровни, секреты которых выдаются
 	static const context::level_t SECRETS[] = {context::level_t::HANDSHAKE, context::level_t::APPLICATION};
 	/**
-	 * Выполняем перебор уровней, секреты которых выдаются
+	 * Перебираем уровней, секреты которых выдаются
 	 */
 	for(size_t i = 0; i < (sizeof(SECRETS) / sizeof(SECRETS[0])); i++){
 		// Если секрет записи клиента не выведен
-		if(!reveal(client, SECRETS[i], context::direction_t::WRITE, "клиент, запись ")){
+		if(!__nts_reveal__(client, SECRETS[i], context::direction_t::WRITE, "клиент, запись ")){
 			// Выводим сообщение о расхождении
 			cout << "Секрет уровня записи клиента не выведен" << endl;
 			// Выходим из приложения с признаком отказа
 			return EXIT_FAILURE;
 		}
 		// Выводим секрет чтения сервера: он же секрет записи клиента
-		reveal(server, SECRETS[i], context::direction_t::READ, "сервер, чтение ");
+		__nts_reveal__(server, SECRETS[i], context::direction_t::READ, "сервер, чтение ");
 		// Выводим секрет записи сервера
-		reveal(server, SECRETS[i], context::direction_t::WRITE, "сервер, запись ");
+		__nts_reveal__(server, SECRETS[i], context::direction_t::WRITE, "сервер, запись ");
 		// Выводим секрет чтения клиента: он же секрет записи сервера
-		reveal(client, SECRETS[i], context::direction_t::READ, "клиент, чтение ");
+		__nts_reveal__(client, SECRETS[i], context::direction_t::READ, "клиент, чтение ");
 	}
 	// Секрет упреждающих данных: билета не было, потому его нет
-	reveal(client, context::level_t::EARLY, context::direction_t::WRITE, "клиент, запись ");
+	__nts_reveal__(client, context::level_t::EARLY, context::direction_t::WRITE, "клиент, запись ");
 	// Выводим заголовок прогона подачи не на своём уровне
 	cout << endl << "== Подача не тем способом переноса ==" << endl;
 	{

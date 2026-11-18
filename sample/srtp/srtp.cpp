@@ -62,16 +62,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -81,7 +81,7 @@ namespace {
 	 * @return     просмотр области байтов набора
 	 *
 	 */
-	view_t view(const vector <uint8_t> & data) noexcept {
+	view_t __nts_view__(const vector <uint8_t> & data) noexcept {
 		// Выводим просмотр области байтов набора
 		return view_t(data.data(), data.size());
 	}
@@ -105,7 +105,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Мастер-соль направления потока — четырнадцать байтов
 	vector <uint8_t> masterSalt(14);
 	/**
-	 * Выполняем заполнение мастер-ключа и мастер-соли значениями образца
+	 * Заполняем мастер-ключа и мастер-соли значениями образца
 	 *
 	 * @note В связи настоящей мастер-ключ с мастер-солью раскладываются из ключевого
 	 *       материала экспорта DTLS вызовом pair по разделу 4.2 RFC 5764; здесь же
@@ -116,7 +116,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Заполняем очередной байт мастер-ключа
 		masterKey[i] = static_cast <uint8_t> (i * 7 + 1);
 	/**
-	 * Выполняем заполнение мастер-соли значениями образца
+	 * Заполняем мастер-соли значениями образца
 	 */
 	for(size_t i = 0; i < masterSalt.size(); i++)
 		// Заполняем очередной байт мастер-соли
@@ -124,28 +124,28 @@ int main(int argc, char * argv[]) noexcept {
 	// Сессионные ключи направления потока
 	srtp::keys_t keys;
 	/**
-	 * Выполняем вывод сессионных ключей из мастер-ключа и мастер-соли
+	 * Выводим сессионных ключей из мастер-ключа и мастер-соли
 	 *
 	 * @details Вывод по разделу 4.3 RFC 3711: PRF на AES-CM с мастер-ключом, вход
 	 *          из метки ключа и мастер-соли; частота вывода нулевая - вывод начальный,
 	 *          один раз на мастер-ключ
 	 *
 	 */
-	if(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, ::view(masterKey), ::view(masterSalt), keys) != srtp::error_t::NONE){
+	if(srtp::keys(srtp::profile_t::AES128_CM_SHA1_80, ::__nts_view__(masterKey), ::__nts_view__(masterSalt), keys) != srtp::error_t::NONE){
 		// Выводим сообщение об отказе вывода сессионных ключей
 		cout << "Вывести сессионные ключи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим сессионный ключ шифрования
-	::print("Ключ шифрования    ", keys.cipher.data(), keys.cipher.size());
+	::__nts_print__("Ключ шифрования    ", keys.cipher.data(), keys.cipher.size());
 	// Выводим сессионный ключ имитовставки
-	::print("Ключ имитовставки  ", keys.auth.data(), keys.auth.size());
+	::__nts_print__("Ключ имитовставки  ", keys.auth.data(), keys.auth.size());
 	// Выводим сессионную соль
-	::print("Сессионная соль    ", keys.salt.data(), keys.salt.size());
+	::__nts_print__("Сессионная соль    ", keys.salt.data(), keys.salt.size());
 	// Полусессии отправителя и получателя направления потока
 	srtp::session_t sender, receiver;
-	// Выполняем установку сессионных ключей полусессиям
+	// Устанавливаем сессионных ключей полусессиям
 	if(!sender.start(srtp::profile_t::AES128_CM_SHA1_80, keys) || !receiver.start(srtp::profile_t::AES128_CM_SHA1_80, keys)){
 		// Выводим сообщение об отказе установки ключей
 		cout << "Установить сессионные ключи не удалось" << endl;
@@ -167,31 +167,31 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается защищённый пакет
 	vector <uint8_t> protectedPacket;
 	/**
-	 * Выполняем защиту пакета RTP отправителем
+	 * Защищаем пакета RTP отправителем
 	 *
 	 * @details Порядковый номер и SSRC берутся из заголовка пакета; полезная нагрузка
 	 *          шифруется гаммой AES-CM, имитовставка HMAC-SHA1-80 ставится над пакетом
 	 *          и счётчиком ROC и приписывается за пакетом
 	 *
 	 */
-	if(sender.protect(::view(packet), protectedPacket) != srtp::error_t::NONE){
+	if(sender.protect(::__nts_view__(packet), protectedPacket) != srtp::error_t::NONE){
 		// Выводим сообщение об отказе защиты пакета
 		cout << "Защитить пакет RTP не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим защищённый пакет целиком
-	::print("Защищённый пакет   ", protectedPacket.data(), protectedPacket.size());
+	::__nts_print__("Защищённый пакет   ", protectedPacket.data(), protectedPacket.size());
 	// Место, в которое помещается открытый пакет
 	vector <uint8_t> plain;
 	/**
-	 * Выполняем снятие защиты пакета получателем
+	 * Снимаем защиты пакета получателем
 	 *
 	 * @details Имитовставка сверяется постоянной сверкой до расшифрования; повтор
 	 *          пакета отсекается окном приёма в шестьдесят четыре индекса
 	 *
 	 */
-	if(receiver.unprotect(::view(protectedPacket), plain) != srtp::error_t::NONE){
+	if(receiver.unprotect(::__nts_view__(protectedPacket), plain) != srtp::error_t::NONE){
 		// Выводим сообщение об отказе снятия защиты
 		cout << "Снять защиту с пакета не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -209,7 +209,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Повторяем приём того же защищённого пакета
-	if(receiver.unprotect(::view(protectedPacket), plain) == srtp::error_t::REPLAY)
+	if(receiver.unprotect(::__nts_view__(protectedPacket), plain) == srtp::error_t::REPLAY)
 		// Выводим сообщение об отсечении повтора
 		cout << "Повтор пакета      : отсечён окном приёма" << endl;
 	// Портим последний байт метки имитовставки
@@ -217,7 +217,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Порядковый номер подделанного пакета наращиваем, чтобы не угодить в повтор
 	protectedPacket[3] = 0x7C;
 	// Проверяем подделанный пакет
-	if(receiver.unprotect(::view(protectedPacket), plain) == srtp::error_t::SIGNATURE)
+	if(receiver.unprotect(::__nts_view__(protectedPacket), plain) == srtp::error_t::SIGNATURE)
 		// Выводим сообщение об отвержении подделки
 		cout << "Подделка пакета    : имитовставка не сошлась, пакет отвергнут" << endl;
 	// Пакет RTCP образца: отчёт отправителя с именем участника
@@ -233,25 +233,25 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается защищённый пакет SRTCP
 	vector <uint8_t> protectedControl;
 	/**
-	 * Выполняем защиту пакета RTCP отправителем
+	 * Защищаем пакета RTCP отправителем
 	 *
 	 * @details Полезная нагрузка с девятого байта шифруется, за пакетом ставятся
 	 *          слово ESRTCP с флагом шифрования и индексом SRTCP и имитовставка
 	 *          над пакетом со словом
 	 *
 	 */
-	if(sender.protectControl(::view(control), protectedControl) != srtp::error_t::NONE){
+	if(sender.protectControl(::__nts_view__(control), protectedControl) != srtp::error_t::NONE){
 		// Выводим сообщение об отказе защиты пакета RTCP
 		cout << "Защитить пакет RTCP не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим защищённый пакет SRTCP целиком
-	::print("Защищённый SRTCP   ", protectedControl.data(), protectedControl.size());
+	::__nts_print__("Защищённый SRTCP   ", protectedControl.data(), protectedControl.size());
 	// Место, в которое помещается открытый пакет RTCP
 	vector <uint8_t> plainControl;
-	// Выполняем снятие защиты пакета SRTCP получателем
-	if(receiver.unprotectControl(::view(protectedControl), plainControl) != srtp::error_t::NONE){
+	// Снимаем защиты пакета SRTCP получателем
+	if(receiver.unprotectControl(::__nts_view__(protectedControl), plainControl) != srtp::error_t::NONE){
 		// Выводим сообщение об отказе снятия защиты
 		cout << "Снять защиту с пакета SRTCP не удалось" << endl;
 		// Выходим из приложения с признаком отказа

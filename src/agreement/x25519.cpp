@@ -193,7 +193,7 @@ namespace {
 	 * @param result место, в которое помещается первая координата кратной точки
 	 *
 	 */
-	static void ladder(const uint8_t * scalar, const element_t & point, element_t & result) noexcept {
+	static void __nts_ladder__(const uint8_t * scalar, const element_t & point, element_t & result) noexcept {
 		/**
 		 * Если шаг лестницы идёт одной вставкой (решение 9 шапки)
 		 */
@@ -228,7 +228,7 @@ namespace {
 		// Накопленный признак обмена точек лестницы
 		uint64_t swapped = 0;
 		/**
-		 * Выполняем обход разрядов скаляра от 254-го к нулевому. Порядок действий шага -
+		 * Обходим разряды скаляра от 254-го к нулевому. Порядок действий шага -
 		 * по образцу x25519_scalar_mult OpenSSL: независимые умножения и квадраты идут
 		 * рядом, и машина перекрывает их (решение 6 шапки)
 		 */
@@ -343,7 +343,7 @@ namespace {
 		 * @param result место, в которое помещается запись первой координаты кратной точки
 		 *
 		 */
-		static void ladderWords(const uint8_t * scalar, const uint8_t * point, uint8_t * result) noexcept {
+		static void __nts_ladder_words__(const uint8_t * scalar, const uint8_t * point, uint8_t * result) noexcept {
 			// Первая координата множимой точки и координаты двух точек лестницы
 			words::element_t x1, x2, z2, x3, z3;
 			// Промежуточные значения шага лестницы: живут вне цикла и затираются один раз после него
@@ -371,7 +371,7 @@ namespace {
 			// Накопленный признак обмена точек лестницы
 			uint64_t swapped = 0;
 			/**
-			 * Выполняем обход разрядов скаляра от 254-го к нулевому
+			 * Обходим разряды скаляра от 254-го к нулевому
 			 */
 			for(size_t i = 255; i > 0; i--){
 				// Номер очередного разряда скаляра
@@ -458,11 +458,11 @@ namespace {
 	 * @return       признак того, что кратная точка не обратилась в ноль
 	 *
 	 */
-	static bool multiply(const uint8_t * secret, const uint8_t * point, uint8_t * result) noexcept {
+	static bool __nts_multiply__(const uint8_t * secret, const uint8_t * point, uint8_t * result) noexcept {
 		// Зажатый секретный ключ
 		uint8_t scalar[agreement::X25519_SIZE];
 		/**
-		 * Выполняем перенос секретного ключа в место зажима
+		 * Переносим секретный ключ в место зажима
 		 */
 		for(size_t i = 0; i < agreement::X25519_SIZE; i++)
 			// Переносим очередной байт секретного ключа
@@ -482,14 +482,14 @@ namespace {
 			// Если у машины есть MULX и ADCX/ADOX
 			if(machine::has(machine::feature_t::ADX))
 			// Умножение точки на зажатый скаляр лестницей на словах
-			ladderWords(scalar, point, result);
+			__nts_ladder_words__(scalar, point, result);
 			// Иначе лестница идёт на конечностях
 			else {
 			#endif
 			// Разбор первой координаты точки с отбрасыванием старшего разряда
 			load(point, item);
 			// Умножение точки на зажатый скаляр
-			ladder(scalar, item, value);
+			__nts_ladder__(scalar, item, value);
 			// Запись первой координаты кратной точки
 			store(value, result);
 			/**
@@ -501,7 +501,7 @@ namespace {
 		// Накопленное значение всех байтов итога
 		uint8_t accumulated = 0;
 		/**
-		 * Выполняем перебор байтов итога: раздел 6.1 RFC 7748 велит проверять ноль
+		 * Перебираем байты итога: раздел 6.1 RFC 7748 велит проверять ноль
 		 * накоплением всех байтов по ИЛИ
 		 */
 		for(size_t i = 0; i < agreement::X25519_SIZE; i++)
@@ -541,7 +541,7 @@ bool nts::agreement::x25519(const view_t & secret, const view_t & point, uint8_t
 		// Выводим отказ выработки общего значения
 		return false;
 	// Умножение открытого ключа на секретный
-	const bool ok = multiply(secret.data, point.data, result);
+	const bool ok = __nts_multiply__(secret.data, point.data, result);
 	// Если общее значение обратилось в ноль
 	if(!ok)
 		// Затирание места общего значения
@@ -569,7 +569,7 @@ bool nts::agreement::x25519(const view_t & secret, uint8_t * result) noexcept {
 	// Точка основания кривой: первая координата девять
 	uint8_t base[X25519_SIZE] = {9};
 	// Умножение точки основания на секретный ключ
-	const bool ok = multiply(secret.data, base, result);
+	const bool ok = __nts_multiply__(secret.data, base, result);
 	// Если открытый ключ обратился в ноль
 	if(!ok)
 		// Затирание места открытого ключа

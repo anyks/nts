@@ -73,7 +73,7 @@ namespace {
 	 * @return    короткое обозначение признака либо сам опознаватель
 	 *
 	 */
-	static const char * shorten(const string & oid) noexcept {
+	static const char * __nts_shorten__(const string & oid) noexcept {
 		/**
 		 * @brief Соответствие опознавателя признака его короткому обозначению
 		 *
@@ -96,7 +96,7 @@ namespace {
 			{"UID", "0.9.2342.19200300.100.1.1"}
 		};
 		/**
-		 * Выполняем перебор набора коротких обозначений признаков
+		 * Перебираем набор коротких обозначений признаков
 		 */
 		for(size_t i = 0; i < (sizeof(names) / sizeof(names[0])); i++){
 			// Если опознаватель признака найден в наборе
@@ -114,7 +114,7 @@ namespace {
 	 * @return           признак хеша SHA-1: явно записанного либо подразумеваемого умолчанием
 	 *
 	 */
-	static bool pssweak(const view_t & parameters) noexcept {
+	static bool __nts_pssweak__(const view_t & parameters) noexcept {
 		// Без настроек умолчание по разделу 3.1 RFC 4055 - SHA-1
 		if((parameters.data == nullptr) || (parameters.size == 0))
 			// Выводим признак слабого хеша
@@ -170,7 +170,7 @@ namespace {
 	 *       же строго, как и в поле subject
 	 *
 	 */
-	static nts::x509::error_t distinguished(const asn1::element_t & element, name_t & result) noexcept {
+	static nts::x509::error_t __nts_distinguished__(const asn1::element_t & element, name_t & result) noexcept {
 		// Если запись имени имеет простой вид метки
 		if(!element.constructed)
 			// Выводим причину отказа
@@ -184,7 +184,7 @@ namespace {
 			// Создаём разборщик содержимого записи имени
 			asn1::reader_t reader(element.content);
 			/**
-			 * Выполняем обход составляющих имени
+			 * Обходим составляющие имени
 			 */
 			while(!reader.empty()){
 				// Объект разобранной составляющей имени
@@ -209,7 +209,7 @@ namespace {
 				// Набор признаков составляющей имени
 				vector <attribute_t> part;
 				/**
-				 * Выполняем обход признаков составляющей имени
+				 * Обходим признаки составляющей имени
 				 */
 				while(!items.empty()){
 					// Объект разобранного признака
@@ -357,7 +357,7 @@ nts::x509::error_t nts::x509::Certificate::identifier(const asn1::element_t & el
  */
 nts::x509::error_t nts::x509::Certificate::name(const asn1::element_t & element, name_t & result) noexcept {
 	// Выводим итог разбора отличительного имени вынесенным разборщиком
-	return distinguished(element, result);
+	return __nts_distinguished__(element, result);
 }
 
 /**
@@ -523,7 +523,7 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 		// Набор границ срока действия сертификата
 		int64_t * bounds[2] = {&this->_before, &this->_after};
 		/**
-		 * Выполняем обход границ срока действия сертификата
+		 * Обходим границы срока действия сертификата
 		 */
 		for(size_t i = 0; i < 2; i++){
 			// Объект разобранной границы срока действия
@@ -611,7 +611,7 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 		// Номер метки последнего разобранного необязательного поля
 		uint32_t last = 0;
 		/**
-		 * Выполняем обход необязательных полей подписываемой части
+		 * Обходим необязательные поля подписываемой части
 		 */
 		while(!inner.empty()){
 			// Разбор необязательного поля
@@ -693,7 +693,7 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 						// Запоминаем причину отказа
 						return (this->_error = error_t::EXTENSION);
 					/**
-					 * Выполняем обход расширений сертификата
+					 * Обходим расширения сертификата
 					 */
 					while(!items.empty()){
 						// Объект разобранного расширения
@@ -760,7 +760,7 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 							// Запоминаем причину отказа
 							return (this->_error = error_t::STRUCTURE);
 						/**
-						 * Выполняем обход разобранных расширений
+						 * Обходим разобранные расширения
 						 */
 						for(size_t i = 0; i < this->_extensions.size(); i++){
 							/**
@@ -979,7 +979,7 @@ const vector <nts::x509::extension_t> & nts::x509::Certificate::extension() cons
  */
 const nts::x509::extension_t * nts::x509::Certificate::extension(const string & oid) const noexcept {
 	/**
-	 * Выполняем обход набора расширений сертификата
+	 * Обходим набор расширений сертификата
 	 */
 	for(size_t i = 0; i < this->_extensions.size(); i++){
 		// Если опознаватель расширения совпал с разыскиваемым
@@ -1004,7 +1004,7 @@ const nts::x509::extension_t * nts::x509::Certificate::extension(const char * oi
 		// Выводим отсутствие расширения
 		return nullptr;
 	/**
-	 * Выполняем обход набора расширений сертификата
+	 * Обходим набор расширений сертификата
 	 */
 	for(size_t i = 0; i < this->_extensions.size(); i++){
 		// Если опознаватель расширения совпал с разыскиваемым (сличение без построения строки)
@@ -1033,11 +1033,11 @@ nts::x509::Certificate::Certificate() noexcept :
  */
 const nts::x509::attribute_t * nts::x509::attribute(const name_t & name, const string & oid) noexcept {
 	/**
-	 * Выполняем обход составляющих имени
+	 * Обходим составляющие имени
 	 */
 	for(size_t i = 0; i < name.parts.size(); i++){
 		/**
-		 * Выполняем обход признаков составляющей имени
+		 * Обходим признаки составляющей имени
 		 */
 		for(size_t j = 0; j < name.parts[i].size(); j++){
 			// Если опознаватель признака совпал с разыскиваемым
@@ -1066,7 +1066,7 @@ nts::x509::error_t nts::x509::text(const name_t & name, string & result) noexcep
 		// Очищаем строку результата
 		result.clear();
 		/**
-		 * Выполняем обход составляющих имени от последней к первой
+		 * Обходим составляющие имени от последней к первой
 		 */
 		for(size_t i = name.parts.size(); i > 0; i--){
 			// Если собираемая запись не пустая
@@ -1074,7 +1074,7 @@ nts::x509::error_t nts::x509::text(const name_t & name, string & result) noexcep
 				// Записываем разделитель составляющих имени
 				result.append(1, ',');
 			/**
-			 * Выполняем обход признаков составляющей имени
+			 * Обходим признаки составляющей имени
 			 */
 			for(size_t j = 0; j < name.parts[i - 1].size(); j++){
 				// Получаем разбираемый признак имени
@@ -1096,11 +1096,11 @@ nts::x509::error_t nts::x509::text(const name_t & name, string & result) noexcep
 				 * Расхождение это намеренное и проверено сличением: из 128 корневых
 				 * сертификатов доверенного набора оно затрагивает четыре записи
 				 */
-				result.append(shorten(item.oid));
+				result.append(__nts_shorten__(item.oid));
 				// Записываем разделитель обозначения и значения признака
 				result.append(1, '=');
 				/**
-				 * Выполняем обход знаков значения признака
+				 * Обходим знаки значения признака
 				 */
 				for(size_t k = 0; k < item.value.size(); k++){
 					// Извлекаем очередной знак значения признака
@@ -1310,7 +1310,7 @@ nts::x509::error_t nts::x509::purpose(const extension_t & extension, vector <str
 			// Выводим причину отказа
 			return error_t::EXTENSION;
 		/**
-		 * Выполняем обход опознавателей назначения ключа
+		 * Обходим опознаватели назначения ключа
 		 */
 		while(!items.empty()){
 			// Объект разобранного опознавателя назначения ключа
@@ -1382,7 +1382,7 @@ nts::x509::error_t nts::x509::alternatives(const extension_t & extension, vector
 			// Выводим причину отказа
 			return error_t::EXTENSION;
 		/**
-		 * Выполняем обход дополнительных имён
+		 * Обходим дополнительные имена
 		 */
 		while(!items.empty()){
 			// Объект разобранного дополнительного имени
@@ -1462,7 +1462,7 @@ nts::x509::error_t nts::x509::alternatives(const extension_t & extension, vector
 					// Разобранное имя: набор признаков наружу не выдаётся, важна лишь годность записи
 					name_t parsed;
 					// Итог разбора имени тем же разборщиком, что и у поля subject
-					const error_t named = distinguished(inner, parsed);
+					const error_t named = __nts_distinguished__(inner, parsed);
 					// Если имя не разобралось
 					if(named != error_t::NONE)
 						// Выводим причину отказа
@@ -1542,7 +1542,7 @@ nts::x509::error_t nts::x509::authorityKey(const extension_t & extension, view_t
 	// Номер метки последнего разобранного поля
 	uint32_t last = 0;
 	/**
-	 * Выполняем обход полей записи опознавателя ключа издателя
+	 * Обходим поля записи опознавателя ключа издателя
 	 */
 	while(!fields.empty()){
 		// Объект разобранного поля
@@ -1586,7 +1586,7 @@ bool nts::x509::recognized(const certificate_t & certificate) noexcept {
 	// Расширения сертификата
 	const vector <extension_t> & extensions = certificate.extension();
 	/**
-	 * Выполняем перебор расширений сертификата
+	 * Перебираем расширения сертификата
 	 */
 	for(size_t i = 0; i < extensions.size(); i++){
 		// Если расширение не критично
@@ -1596,7 +1596,7 @@ bool nts::x509::recognized(const certificate_t & certificate) noexcept {
 		// Признак известности
 		bool known = false;
 		/**
-		 * Выполняем перебор известных расширений
+		 * Перебираем известные расширения
 		 */
 		for(size_t j = 0; !known && (j < (sizeof(RECOGNIZED) / sizeof(RECOGNIZED[0]))); j++)
 			// Сличаем опознаватель
@@ -1622,7 +1622,7 @@ bool nts::x509::weak(const string & algorithm, const view_t & parameters) noexce
 	// Подписи с хешами MD2/MD4/MD5/SHA-1: RSA (RFC 3279, RFC 8017), ECDSA (RFC 3279), DSA
 	static const char * const HASHES[] = {"1.2.840.113549.1.1.2", "1.2.840.113549.1.1.3", "1.2.840.113549.1.1.4", "1.2.840.113549.1.1.5", "1.3.14.3.2.29", "1.2.840.10045.4.1", "1.2.840.10040.4.3"};
 	/**
-	 * Выполняем перебор слабых алгоритмов
+	 * Перебираем слабые алгоритмы
 	 */
 	for(size_t i = 0; i < (sizeof(HASHES) / sizeof(HASHES[0])); i++){
 		// Если алгоритм подписи слаб
@@ -1631,7 +1631,7 @@ bool nts::x509::weak(const string & algorithm, const view_t & parameters) noexce
 			return true;
 	}
 	// Подпись RSASSA-PSS: хеш из настроек, без настроек - SHA-1 (раздел 3.1 RFC 4055)
-	return ((algorithm.compare("1.2.840.113549.1.1.10") == 0) && pssweak(parameters));
+	return ((algorithm.compare("1.2.840.113549.1.1.10") == 0) && __nts_pssweak__(parameters));
 }
 
 /**
@@ -1705,7 +1705,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 		// Разборщик поддеревьев
 		asn1::reader_t parts(item.content);
 		/**
-		 * Выполняем перебор частей: [0] permittedSubtrees, [1] excludedSubtrees
+		 * Перебираем части: [0] permittedSubtrees, [1] excludedSubtrees
 		 */
 		while(!parts.empty()){
 			// Часть имени
@@ -1727,7 +1727,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 				// Выводим причину отказа
 				return error_t::EXTENSION;
 			/**
-			 * Выполняем перебор поддеревьев GeneralSubtree
+			 * Перебираем поддеревья GeneralSubtree
 			 */
 			while(!trees.empty()){
 				// Поддерево имён
@@ -1761,7 +1761,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 				// Запись имени целиком
 				alternative.element = base.element;
 				/**
-				 * Выполняем определение вида имени
+				 * Определяем вид имени
 				 */
 				switch(base.tag){
 					// Адрес почты, доменное имя, указатель ресурса
@@ -1813,7 +1813,7 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, vector 
 						// Разобранное имя: важна лишь годность записи
 						name_t parsed;
 						// Итог разбора имени тем же разборщиком, что и у поля subject
-						const error_t named = distinguished(inner, parsed);
+						const error_t named = __nts_distinguished__(inner, parsed);
 						// Если имя не разобралось
 						if(named != error_t::NONE)
 							// Выводим причину отказа

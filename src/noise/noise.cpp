@@ -39,24 +39,24 @@ namespace {
 	 */
 	using namespace nts::noise;
 	/**
-	 * @brief Имя функции обмена ключами в протоколе
+	 * @brief Функция возврата имени обмена ключами в протоколе
 	 *
-	 * @param dh функция обмена ключами
+	 * @param dhKind функция обмена ключами
 	 * @return   имя либо пустая строка
 	 *
 	 */
-	static const char * dhname(const dh_t dh) noexcept {
+	static const char * __nts_dhname__(const dh_t dhKind) noexcept {
 		// Выводим имя по функции
-		return ((dh == dh_t::X25519) ? "25519" : "");
+		return ((dhKind == dh_t::X25519) ? "25519" : "");
 	}
 	/**
-	 * @brief Имя механизма упаковки ключа в протоколе
+	 * @brief Функция возврата имени механизма упаковки ключа в протоколе
 	 *
 	 * @param kem механизм
 	 * @return    имя либо пустая строка
 	 *
 	 */
-	static const char * kemname(const kem_t kem) noexcept {
+	static const char * __nts_kemname__(const kem_t kem) noexcept {
 		/**
 		 * Определяем механизм
 		 */
@@ -70,13 +70,13 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Имя функции шифрования в протоколе
+	 * @brief Функция возврата имени шифрования в протоколе
 	 *
 	 * @param aead функция шифрования
 	 * @return     имя либо пустая строка
 	 *
 	 */
-	static const char * aeadname(const aead_t aead) noexcept {
+	static const char * __nts_aeadname__(const aead_t aead) noexcept {
 		/**
 		 * Определяем функцию
 		 */
@@ -90,13 +90,13 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Имя функции хеширования в протоколе
+	 * @brief Функция возврата имени хеширования в протоколе
 	 *
-	 * @param hash функция хеширования
+	 * @param hash   функция хеширования
 	 * @return     имя либо пустая строка
 	 *
 	 */
-	static const char * hashname(const nts::digest::hash_t hash) noexcept {
+	static const char * __nts_hashname__(const nts::digest::hash_t hash) noexcept {
 		/**
 		 * Определяем функцию
 		 */
@@ -123,7 +123,7 @@ namespace {
 	 * @return       признак того, что строка уместилась
 	 *
 	 */
-	static bool append(const char * text, char * result, const size_t size, size_t & offset) noexcept {
+	static bool __nts_append__(const char * text, char * result, const size_t size, size_t & offset) noexcept {
 		// Длина строки
 		const size_t length = ::strlen(text);
 		// Если строка не умещается
@@ -148,7 +148,7 @@ namespace {
 	 * @return       признак совпадения
 	 *
 	 */
-	static bool same(const uint8_t * data, const size_t size, const char * text) noexcept {
+	static bool __nts_same__(const uint8_t * data, const size_t size, const char * text) noexcept {
 		// Выводим итог сличения при равной длине
 		return ((::strlen(text) == size) && (::memcmp(data, text, size) == 0));
 	}
@@ -163,7 +163,7 @@ namespace {
  */
 bool nts::noise::valid(const suite_t & suite) noexcept {
 	// Ровно одно из двух: DH классики либо KEM PQNoise, и оба имени шифра и хеша
-	return (((suite.dh == dh_t::X25519) != (kemname(suite.kem)[0] != 0)) && ((suite.dh == dh_t::X25519) || (suite.dh == dh_t::NONE)) && (aeadname(suite.aead)[0] != 0) && (hashname(suite.hash)[0] != 0));
+	return (((suite.dh == dh_t::X25519) != (__nts_kemname__(suite.kem)[0] != 0)) && ((suite.dh == dh_t::X25519) || (suite.dh == dh_t::NONE)) && (__nts_aeadname__(suite.aead)[0] != 0) && (__nts_hashname__(suite.hash)[0] != 0));
 }
 /**
  * @brief Функция составления имени протокола вида «Noise_XXpsk3_25519_ChaChaPoly_SHA256»
@@ -178,19 +178,19 @@ bool nts::noise::valid(const suite_t & suite) noexcept {
  */
 bool nts::noise::name(const pattern_t pattern, const psk_t psks, const suite_t & suite, char * result, size_t & size) noexcept {
 	// Признак PQNoise у узора
-	const bool pq = postquantum(pattern);
+	const bool postQuantum = postquantum(pattern);
 	// Если место либо узор негодны, узор и набор разных семейств, либо psk у PQNoise
-	if((result == nullptr) || (size == 0) || (title(pattern)[0] == 0) || !valid(suite) || ((psks >> PSKS_MAX) != 0) || (pq != (suite.kem != kem_t::NONE)) || (pq && (psks != 0)))
+	if((result == nullptr) || (size == 0) || (title(pattern)[0] == 0) || !valid(suite) || ((psks >> PSKS_MAX) != 0) || (postQuantum != (suite.kem != kem_t::NONE)) || (postQuantum && (psks != 0)))
 		// Выводим отрицательный результат - имя не составлено
 		return false;
 	// Текущая длина имени
 	size_t offset = 0;
 	// Признак успешности
-	bool status = (append(pq ? "PQNoise_" : "Noise_", result, size, offset) && append(title(pattern), result, size, offset));
+	bool status = (__nts_append__(postQuantum ? "PQNoise_" : "Noise_", result, size, offset) && __nts_append__(title(pattern), result, size, offset));
 	// Признак первого видоизменения
 	bool first = true;
 	/**
-	 * Выполняем перебор положений заранее разделённых ключей
+	 * Перебираем положения заранее разделённых ключей
 	 */
 	for(size_t i = 0; status && (i < PSKS_MAX); i++){
 		// Если положение занято
@@ -198,13 +198,13 @@ bool nts::noise::name(const pattern_t pattern, const psk_t psks, const suite_t &
 			// Строка видоизменения
 			char text[] = {'+', 'p', 's', 'k', static_cast <char> ('0' + i), 0};
 			// Дописываем видоизменение: у первого без знака сложения
-			status = append(first ? (text + 1) : text, result, size, offset);
+			status = __nts_append__(first ? (text + 1) : text, result, size, offset);
 			// Снимаем признак первого
 			first = false;
 		}
 	}
 	// Дописываем набор примитивов: DH классики либо KEM PQNoise
-	status = (status && append("_", result, size, offset) && append(pq ? kemname(suite.kem) : dhname(suite.dh), result, size, offset) && append("_", result, size, offset) && append(aeadname(suite.aead), result, size, offset) && append("_", result, size, offset) && append(hashname(suite.hash), result, size, offset));
+	status = (status && __nts_append__("_", result, size, offset) && __nts_append__(postQuantum ? __nts_kemname__(suite.kem) : __nts_dhname__(suite.dh), result, size, offset) && __nts_append__("_", result, size, offset) && __nts_append__(__nts_aeadname__(suite.aead), result, size, offset) && __nts_append__("_", result, size, offset) && __nts_append__(__nts_hashname__(suite.hash), result, size, offset));
 	// Выводим длину имени
 	size = (status ? offset : 0);
 	// Возвращаем итог составления имени
@@ -234,7 +234,7 @@ bool nts::noise::parse(const view_t & text, pattern_t & pattern, psk_t & psks, s
 	// Границы пяти отрезков имени
 	size_t begin[5], length[5], count = 0, offset = 0;
 	/**
-	 * Выполняем разбиение имени по подчёркиваниям
+	 * Разбиваем имя по подчёркиваниям
 	 */
 	for(size_t i = 0; i <= text.size; i++){
 		// Если достигнут разделитель либо конец
@@ -254,9 +254,9 @@ bool nts::noise::parse(const view_t & text, pattern_t & pattern, psk_t & psks, s
 		}
 	}
 	// Признак PQNoise по префиксу
-	const bool pq = same(text.data, length[0], "PQNoise");
+	const bool postQuantum = __nts_same__(text.data, length[0], "PQNoise");
 	// Если отрезков не пять либо первый не «Noise» и не «PQNoise»
-	if((count != 5) || (!pq && !same(text.data, length[0], "Noise")))
+	if((count != 5) || (!postQuantum && !__nts_same__(text.data, length[0], "Noise")))
 		// Выводим отрицательный результат - отрезков не пять
 		return false;
 	// Отрезок узора с видоизменениями
@@ -264,11 +264,11 @@ bool nts::noise::parse(const view_t & text, pattern_t & pattern, psk_t & psks, s
 	// Длина найденного имени узора
 	size_t found = 0;
 	/**
-	 * Выполняем перебор узоров: берётся самое длинное имя, за которым конец либо «psk»
+	 * Перебираем узоры: берётся самое длинное имя, за которым конец либо «psk»
 	 */
 	for(uint8_t i = 1; i <= static_cast <uint8_t> (pattern_t::PQIX); i++){
 		// Узоры семейства другого префикса не рассматриваются
-		if(postquantum(static_cast <pattern_t> (i)) != pq)
+		if(postquantum(static_cast <pattern_t> (i)) != postQuantum)
 			// Пропускаем маркер конца
 			continue;
 		// Имя узора
@@ -290,7 +290,7 @@ bool nts::noise::parse(const view_t & text, pattern_t & pattern, psk_t & psks, s
 	// Положение разбора видоизменений
 	offset = found;
 	/**
-	 * Выполняем разбор видоизменений вида psk0+psk3
+	 * Разбираем видоизменения вида psk0+psk3
 	 */
 	while(offset < length[1]){
 		// Если не первое видоизменение, требуется знак сложения
@@ -313,52 +313,52 @@ bool nts::noise::parse(const view_t & text, pattern_t & pattern, psk_t & psks, s
 		offset += 4;
 	}
 	// Определяем функцию хеширования по имени пятого отрезка
-	if(same(text.data + begin[4], length[4], "SHA256"))
+	if(__nts_same__(text.data + begin[4], length[4], "SHA256"))
 	// Назначаем SHA256
 		suite.hash = digest::hash_t::SHA256;
-	else if(same(text.data + begin[4], length[4], "SHA512"))
+	else if(__nts_same__(text.data + begin[4], length[4], "SHA512"))
 	// Иначе назначаем SHA512
 		suite.hash = digest::hash_t::SHA512;
-	else if(same(text.data + begin[4], length[4], "BLAKE2s"))
+	else if(__nts_same__(text.data + begin[4], length[4], "BLAKE2s"))
 	// Иначе назначаем BLAKE2s
 		suite.hash = digest::hash_t::BLAKE2S256;
-	else if(same(text.data + begin[4], length[4], "BLAKE2b"))
+	else if(__nts_same__(text.data + begin[4], length[4], "BLAKE2b"))
 	// Иначе назначаем BLAKE2b
 		suite.hash = digest::hash_t::BLAKE2B512;
 	// Определяем шифр по имени четвёртого отрезка
-	if(same(text.data + begin[3], length[3], "ChaChaPoly"))
+	if(__nts_same__(text.data + begin[3], length[3], "ChaChaPoly"))
 	// Назначаем ChaChaPoly
 		suite.aead = aead_t::CHACHAPOLY;
-	else if(same(text.data + begin[3], length[3], "AESGCM"))
+	else if(__nts_same__(text.data + begin[3], length[3], "AESGCM"))
 	// Иначе назначаем AESGCM
 		suite.aead = aead_t::AESGCM;
 	// Разбираем функцию обмена ключами: 448 распознаётся, но не поддержана
-	if(!pq && same(text.data + begin[2], length[2], "25519"))
+	if(!postQuantum && __nts_same__(text.data + begin[2], length[2], "25519"))
 	// Берём X25519
 		suite.dh = dh_t::X25519;
 	// Разбираем механизм упаковки ключа у PQNoise
-	else if(pq && same(text.data + begin[2], length[2], "X25519MLKEM768"))
+	else if(postQuantum && __nts_same__(text.data + begin[2], length[2], "X25519MLKEM768"))
 	// Назначаем смешанную упаковку
 		suite.kem = kem_t::X25519MLKEM768;
-	else if(pq && same(text.data + begin[2], length[2], "MLKEM768"))
+	else if(postQuantum && __nts_same__(text.data + begin[2], length[2], "MLKEM768"))
 	// Иначе назначаем чистую упаковку MLKEM768
 		suite.kem = kem_t::MLKEM768;
 	// Выводим итог: набор поддержан целиком; у PQNoise psk не заведён
-	return (valid(suite) && !(pq && (psks != 0)));
+	return (valid(suite) && !(postQuantum && (psks != 0)));
 }
 /**
  * @brief Функция вычисления DH
  *
- * @param dh     функция обмена ключами
+ * @param dhKind функция обмена ключами
  * @param secret свой закрытый ключ в KEY байтов
  * @param point  чужой открытый ключ в KEY байтов
  * @param result место общего секрета в KEY байтов
  * @return       признак того, что секрет вычислен и не состоит из нулей
  *
  */
-bool nts::noise::agree(const dh_t dh, const view_t & secret, const view_t & point, uint8_t * result) noexcept {
+bool nts::noise::agree(const dh_t dhKind, const view_t & secret, const view_t & point, uint8_t * result) noexcept {
 	// Если функция не X25519 либо длины чужие
-	if((dh != dh_t::X25519) || (secret.size != KEY) || (point.size != KEY))
+	if((dhKind != dh_t::X25519) || (secret.size != KEY) || (point.size != KEY))
 		// Выводим отрицательный результат - пара не порождена
 		return false;
 	// Выводим итог X25519: точка малого порядка отвергается им самим
@@ -367,15 +367,15 @@ bool nts::noise::agree(const dh_t dh, const view_t & secret, const view_t & poin
 /**
  * @brief Функция вывода открытого ключа из закрытого
  *
- * @param dh     функция обмена ключами
+ * @param dhKind функция обмена ключами
  * @param secret закрытый ключ в KEY байтов
  * @param result место открытого ключа в KEY байтов
  * @return       признак того, что ключ выведен
  *
  */
-bool nts::noise::derive(const dh_t dh, const view_t & secret, uint8_t * result) noexcept {
+bool nts::noise::derive(const dh_t dhKind, const view_t & secret, uint8_t * result) noexcept {
 	// Если функция не X25519 либо длина чужая
-	if((dh != dh_t::X25519) || (secret.size != KEY))
+	if((dhKind != dh_t::X25519) || (secret.size != KEY))
 		// Выводим отрицательный результат - согласование невозможно
 		return false;
 	// Выводим итог X25519 по основной точке
@@ -384,15 +384,15 @@ bool nts::noise::derive(const dh_t dh, const view_t & secret, uint8_t * result) 
 /**
  * @brief Функция выработки пары ключей из энтропии
  *
- * @param dh     функция обмена ключами
+ * @param dhKind функция обмена ключами
  * @param secret место закрытого ключа в KEY байтов
  * @param result место открытого ключа в KEY байтов
  * @return       признак того, что пара выработана
  *
  */
-bool nts::noise::generate(const dh_t dh, uint8_t * secret, uint8_t * result) noexcept {
+bool nts::noise::generate(const dh_t dhKind, uint8_t * secret, uint8_t * result) noexcept {
 	// Если функция не X25519
-	if(dh != dh_t::X25519)
+	if(dhKind != dh_t::X25519)
 		// Выводим отрицательный результат - вывод ключа невозможен
 		return false;
 	// Выводим итог выработки X25519
@@ -408,19 +408,19 @@ nts::noise::Suite::Suite() noexcept : dh(dh_t::NONE), aead(aead_t::NONE), hash(d
 /**
  * @brief Конструктор
  *
- * @param dh   функция обмена ключами
- * @param aead функция шифрования с подлинностью
- * @param hash функция хеширования
+ * @param dhKind функция обмена ключами
+ * @param aead   функция шифрования с подлинностью
+ * @param hash   функция хеширования
  *
  */
-nts::noise::Suite::Suite(const dh_t dh, const aead_t aead, const digest::hash_t hash) noexcept : dh(dh), aead(aead), hash(hash), kem(kem_t::NONE) {}
+nts::noise::Suite::Suite(const dh_t dhKind, const aead_t aead, const digest::hash_t hash) noexcept : dh(dhKind), aead(aead), hash(hash), kem(kem_t::NONE) {}
 
 /**
  * @brief Конструктор набора PQNoise
  *
  * @param kem  механизм упаковки ключа
- * @param aead функция шифрования с подлинностью
- * @param hash функция хеширования
+ * @param aead   функция шифрования с подлинностью
+ * @param hash   функция хеширования
  *
  */
 nts::noise::Suite::Suite(const kem_t kem, const aead_t aead, const digest::hash_t hash) noexcept : dh(dh_t::NONE), aead(aead), hash(hash), kem(kem) {}

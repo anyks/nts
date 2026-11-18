@@ -125,9 +125,9 @@ namespace {
 	 * @return        строка либо nullptr
 	 *
 	 */
-	static const row_t * row(const pattern_t pattern) noexcept {
+	static const row_t * __nts_row__(const pattern_t pattern) noexcept {
 		/**
-		 * Выполняем перебор таблицы
+		 * Перебираем таблицу
 		 */
 		for(size_t i = 0; i < (sizeof(ROWS) / sizeof(ROWS[0])); i++){
 			// Если узор совпал
@@ -146,11 +146,11 @@ namespace {
 	 * @return      количество знаков
 	 *
 	 */
-	static size_t measure(const token_t * list, const size_t limit) noexcept {
+	static size_t __nts_measure__(const token_t * list, const size_t limit) noexcept {
 		// Количество знаков
 		size_t count = 0;
 		/**
-		 * Выполняем счёт знаков
+		 * Считаем знаки
 		 */
 		while((count < limit) && (list[count] != token_t::NONE))
 			// Считаем знак
@@ -169,7 +169,7 @@ namespace {
  */
 size_t nts::noise::messages(const pattern_t pattern) noexcept {
 	// Строка узора
-	const row_t * item = row(pattern);
+	const row_t * item = __nts_row__(pattern);
 	// Выводим число сообщений
 	return ((item != nullptr) ? item->count : 0);
 }
@@ -185,7 +185,7 @@ size_t nts::noise::messages(const pattern_t pattern) noexcept {
  */
 bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token_t *& result, size_t & count) noexcept {
 	// Строка узора
-	const row_t * item = row(pattern);
+	const row_t * item = __nts_row__(pattern);
 	// Если узора либо сообщения нет
 	if((item == nullptr) || (index >= item->count)){
 		// Сбрасываем указатель на знаки сообщения
@@ -198,7 +198,7 @@ bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token
 	// Выводим знаки сообщения
 	result = item->messages[index];
 	// Выводим количество знаков сообщения
-	count = measure(result, TOKENS_MAX);
+	count = __nts_measure__(result, TOKENS_MAX);
 	// Количество знаков сообщения выведено
 	return true;
 }
@@ -214,7 +214,7 @@ bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token
  */
 bool nts::noise::premessage(const pattern_t pattern, const bool initiator, const token_t *& result, size_t & count) noexcept {
 	// Строка узора
-	const row_t * item = row(pattern);
+	const row_t * item = __nts_row__(pattern);
 	// Если узора нет
 	if(item == nullptr){
 		// Сбрасываем указатель на знаки предсообщения
@@ -227,7 +227,7 @@ bool nts::noise::premessage(const pattern_t pattern, const bool initiator, const
 	// Выводим знаки предсообщения
 	result = (initiator ? item->initiator : item->responder);
 	// Выводим количество знаков предсообщения
-	count = measure(result, 2);
+	count = __nts_measure__(result, 2);
 	// Количество знаков предсообщения выведено
 	return true;
 }
@@ -240,7 +240,7 @@ bool nts::noise::premessage(const pattern_t pattern, const bool initiator, const
  */
 const char * nts::noise::title(const pattern_t pattern) noexcept {
 	// Строка узора
-	const row_t * item = row(pattern);
+	const row_t * item = __nts_row__(pattern);
 	// Выводим имя
 	return ((item != nullptr) ? item->title : "");
 }

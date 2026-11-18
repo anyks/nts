@@ -161,7 +161,7 @@ namespace {
 	 * @return       признак того, что имя узла есть адрес сети
 	 *
 	 */
-	static bool address(const string & name, uint8_t * result) noexcept {
+	static bool __nts_address__(const string & name, uint8_t * result) noexcept {
 		// Если имя узла содержит точки и не содержит двоеточий: адрес IPv4
 		if((name.find(':') == string::npos) && (name.find('.') != string::npos)){
 			// Количество разобранных частей адреса
@@ -171,7 +171,7 @@ namespace {
 			// Количество знаков разбираемой части адреса
 			size_t digits = 0;
 			/**
-			 * Выполняем перебор знаков адреса
+			 * Перебираем знаки адреса
 			 */
 			for(size_t i = 0; i <= name.size(); i++){
 				// Если знак кончает часть адреса
@@ -211,7 +211,7 @@ namespace {
 			// Количество знаков разбираемой части адреса
 			size_t digits = 0;
 			/**
-			 * Выполняем перебор знаков адреса
+			 * Перебираем знаки адреса
 			 */
 			for(size_t i = 0; i <= name.size(); i++){
 				// Если знак кончает часть адреса
@@ -275,7 +275,7 @@ namespace {
 				// Выводим отказ разбора
 				return false;
 			/**
-			 * Выполняем запись половин адреса с нулями сжатия между ними
+			 * Записываем половины адреса с нулями сжатия между ними
 			 */
 			for(size_t i = 0; i < 8; i++){
 				// Значение очередной части адреса
@@ -301,13 +301,13 @@ namespace {
 	 *       адрес сети под них не подпадают (так же поступает OpenSSL)
 	 *
 	 */
-	static bool hostlike(const string & name) noexcept {
+	static bool __nts_hostlike__(const string & name) noexcept {
 		// Пустое имя узлом не является
 		if(name.empty())
 			// Выводим признак: имя узлом не является
 			return false;
 		/**
-		 * Выполняем перебор знаков имени
+		 * Перебираем знаки имени
 		 */
 		for(size_t i = 0; i < name.size(); i++){
 			// Знак имени
@@ -320,14 +320,14 @@ namespace {
 		// Байты адреса сети
 		uint8_t bytes[16];
 		// Адрес сети именем узла не является
-		return !address(name, bytes);
+		return !__nts_address__(name, bytes);
 	}
 	/**
 	 * Опознаватели расширений, которые проверка доверия понимает: раздел 4.2 RFC 5280
 	 * велит отвергать сертификат с неизвестным расширением, объявленным критичным
 	 */
 	// Приведение имени к нижнему регистру определено ниже
-	static error_t lower(const string & name, string & result) noexcept;
+	static error_t __nts_lower__(const string & name, string & result) noexcept;
 	/**
 	 * @brief Функция снятия хвостовой точки доменного имени (решение 7)
 	 *
@@ -335,7 +335,7 @@ namespace {
 	 * @return     признак годности имени: имя из одной точки либо с двумя точками на конце негодно
 	 *
 	 */
-	static bool rooted(string & name) noexcept;
+	static bool __nts_rooted__(string & name) noexcept;
 	/**
 	 * @brief Функция проверки назначения ключа сертификата по роли собеседника
 	 *
@@ -348,7 +348,7 @@ namespace {
 	 *          Windows применяют extendedKeyUsage ко всей цепочке
 	 *
 	 */
-	static error_t intended(const x509::certificate_t & certificate, const role_t role) noexcept {
+	static error_t __nts_intended__(const x509::certificate_t & certificate, const role_t role) noexcept {
 		// Расширение назначения
 		const x509::extension_t * extension = certificate.extension(EXTENDED);
 		// Если назначения нет - годится любое
@@ -370,7 +370,7 @@ namespace {
 		// Признак пригодности
 		bool suitable = false;
 		/**
-		 * Выполняем перебор назначений: serverAuth годен серверу, clientAuth клиенту, anyExtendedKeyUsage обоим; без роли - любое из трёх
+		 * Перебираем назначения: serverAuth годен серверу, clientAuth клиенту, anyExtendedKeyUsage обоим; без роли - любое из трёх
 		 */
 		for(size_t i = 0; !suitable && (i < purposes.size()); i++)
 			// Отмечаем годность любого из назначений по роли
@@ -385,7 +385,7 @@ namespace {
 	 * @return        содержимое записи либо пустой просмотр без данных
 	 *
 	 */
-	static view_t contents(const view_t & element) noexcept {
+	static view_t __nts_contents__(const view_t & element) noexcept {
 		// Разборщик записи
 		asn1::reader_t reader(element);
 		// Элемент проверки
@@ -411,13 +411,13 @@ namespace {
 	 *       не лежало бы ни в одном поддереве, и ограничение обходилось бы порчей записи
 	 *
 	 */
-	static bool folded(const view_t & rdns, vector <string> & result) {
+	static bool __nts_folded__(const view_t & rdns, vector <string> & result) {
 		// Разборщик последовательности RDN
 		asn1::reader_t reader(rdns);
 		// Очередной RDN
 		asn1::element_t rdn;
 		/**
-		 * Выполняем перебор RDN
+		 * Перебираем RDN
 		 */
 		while(!reader.empty()){
 			// Если очередной RDN не прочитался - запись негодна
@@ -431,7 +431,7 @@ namespace {
 			// Очередной признак
 			asn1::element_t attribute;
 			/**
-			 * Выполняем перебор признаков RDN
+			 * Перебираем признаки RDN
 			 */
 			while(!inner.empty()){
 				// Если очередной признак не прочитался - запись негодна
@@ -463,7 +463,7 @@ namespace {
 				// Признак пробела перед знаком
 				bool space = true;
 				/**
-				 * Выполняем перебор знаков значения
+				 * Перебираем знаки значения
 				 */
 				for(size_t i = 0; i < text.size(); i++){
 					// Знак значения
@@ -494,7 +494,7 @@ namespace {
 				// Разделители экранируются: значение с «;» либо «=» не должно читаться как два признака
 				string guarded;
 				/**
-				 * Выполняем экранирование разделителей в приведённом значении
+				 * Экранируем разделители в приведённом значении
 				 */
 				for(size_t i = 0; i < canon.size(); i++){
 					// Если знак разделителем является
@@ -511,7 +511,7 @@ namespace {
 			// Собираем RDN в одну строку
 			string joined;
 			/**
-			 * Выполняем сборку RDN в одну строку
+			 * Собираем RDN в одну строку
 			 */
 			for(size_t i = 0; i < attributes.size(); i++)
 				// Дописываем очередной признак с разделителем
@@ -531,9 +531,9 @@ namespace {
 	 * @return         признак того, что имя лежит в поддереве, минус один при нехватке памяти
 	 *
 	 */
-	static int within(const x509::alternative_t & name, const x509::alternative_t & tree, const bool excluded) noexcept {
+	static int __nts_within__(const x509::alternative_t & name, const x509::alternative_t & tree, const bool excluded) noexcept {
 		/**
-		 * Выполняем определение вида имени
+		 * Определяем вид имени
 		 */
 		switch(name.kind){
 			// Доменное имя: раздел 4.2.1.10 RFC 5280 - «example.com» кроет себя и подчинённые, «.example.com» лишь подчинённые
@@ -541,7 +541,7 @@ namespace {
 				// Имя и поддерево без учёта регистра
 				string host, base;
 				// Приводим к нижнему регистру
-				if((lower(name.value, host) != error_t::NONE) || (lower(tree.value, base) != error_t::NONE))
+				if((__nts_lower__(name.value, host) != error_t::NONE) || (__nts_lower__(tree.value, base) != error_t::NONE))
 					// Нехватка памяти не обращается в «вне поддерева»
 					return -1;
 				// Если поддерево пусто - кроет всё
@@ -549,11 +549,11 @@ namespace {
 					// Пустое поддерево кроет всякое имя
 					return 1;
 				// Если имя с хвостовой точкой негодно (решение 7) - ни в одном поддереве не лежит
-				if(!rooted(host))
+				if(!__nts_rooted__(host))
 					// Негодное имя ни в одном поддереве не лежит
 					return 0;
 				// Если основание с хвостовой точкой негодно (решение 7) - ничего не кроет
-				if(!rooted(base))
+				if(!__nts_rooted__(base))
 					// Негодное поддерево ничего не кроет
 					return 0;
 				/**
@@ -586,7 +586,7 @@ namespace {
 				// Имя и поддерево без учёта регистра
 				string mail, base;
 				// Приводим к нижнему регистру
-				if((lower(name.value, mail) != error_t::NONE) || (lower(tree.value, base) != error_t::NONE))
+				if((__nts_lower__(name.value, mail) != error_t::NONE) || (__nts_lower__(tree.value, base) != error_t::NONE))
 					// Нехватка памяти не обращается в «вне поддерева»
 					return -1;
 				// Если поддерево - сам адрес
@@ -594,19 +594,19 @@ namespace {
 					// Сличаем адрес с поддеревом записью
 					return ((mail.compare(base) == 0) ? 1 : 0);
 				// Место разделителя адреса
-				const size_t at = mail.find('@');
+				const size_t atPos = mail.find('@');
 				// Если разделителя нет - не адрес
-				if(at == string::npos)
+				if(atPos == string::npos)
 					// Без разделителя адресом не является
 					return 0;
 				// Длина узла адреса: сличение по месту, без копии - выделений в noexcept не заводим
-				const size_t host = (mail.size() - at - 1);
+				const size_t host = (mail.size() - atPos - 1);
 				// Если поддерево - подчинённые узлы
 				if(!base.empty() && (base[0] == '.'))
 					// Кроем лишь подчинённые узлы
 					return (((host > base.size()) && (mail.compare(mail.size() - base.size(), base.size(), base) == 0)) ? 1 : 0);
 				// Сам узел
-				return (((host == base.size()) && (mail.compare(at + 1, host, base) == 0)) ? 1 : 0);
+				return (((host == base.size()) && (mail.compare(atPos + 1, host, base) == 0)) ? 1 : 0);
 			}
 			// Адрес сети: поддерево несёт адрес и маску той же длины
 			case x509::kind_t::ADDRESS: {
@@ -615,7 +615,7 @@ namespace {
 					// Длины адреса и маски не сходятся
 					return 0;
 				/**
-				 * Выполняем перебор байтов адреса под маской
+				 * Перебираем байты адреса под маской
 				 */
 				for(size_t i = 0; i < name.value.size(); i++){
 					// Байт маски
@@ -636,7 +636,7 @@ namespace {
 				 */
 				const bool tagged = ((name.element.size > 0) && (name.element.data[0] == 0xA4));
 				// Содержимое имени и основания
-				const view_t subject = (tagged ? contents(contents(name.element)) : contents(name.element)), base = contents(contents(tree.element));
+				const view_t subject = (tagged ? __nts_contents__(__nts_contents__(name.element)) : __nts_contents__(name.element)), base = __nts_contents__(__nts_contents__(tree.element));
 				// Если содержимое не разобралось
 				if((subject.data == nullptr) || (base.data == nullptr))
 					// Содержимое имени либо основания не разобралось
@@ -652,7 +652,7 @@ namespace {
 					// Приведённые RDN имени и основания
 					vector <string> first, second;
 					// Если имя либо основание не разобрались
-					if(!folded(subject, first) || !folded(base, second))
+					if(!__nts_folded__(subject, first) || !__nts_folded__(base, second))
 						// Имя либо основание не разобрались
 						return 0;
 					// Если основание длиннее имени
@@ -660,7 +660,7 @@ namespace {
 						// Основание длиннее имени
 						return 0;
 					/**
-					 * Выполняем сличение RDN основания с началом имени (раздел 7.1 RFC 5280)
+					 * Сличаем RDN основания с началом имени (раздел 7.1 RFC 5280)
 					 */
 					for(size_t i = 0; i < second.size(); i++){
 						// Если RDN разошлись
@@ -696,7 +696,7 @@ namespace {
 	 *          отвергают цепочку - терпимость здесь была бы обходом ограничения
 	 *
 	 */
-	static error_t constrained(const x509::certificate_t & certificate, const x509::certificate_t & issuer) noexcept {
+	static error_t __nts_constrained__(const x509::certificate_t & certificate, const x509::certificate_t & issuer) noexcept {
 		// Расширение ограничений
 		const x509::extension_t * extension = issuer.extension(BOUNDS);
 		// Если ограничений нет
@@ -735,7 +735,7 @@ namespace {
 		// Признаки наличия имён вида DNS и почты в subjectAltName
 		bool hosted = false, mailed = false;
 		/**
-		 * Выполняем перебор имён на виды
+		 * Перебираем имена на виды
 		 */
 		for(size_t i = 0; i < names.size(); i++){
 			// Отмечаем имя вида DNS встреченным
@@ -757,7 +757,7 @@ namespace {
 				// Общее имя владельца
 				const x509::attribute_t * common = x509::attribute(certificate.subjects(), COMMON);
 				// Если общее имя есть и по виду есть имя узла, а не адрес сети и не имя человека
-				if((common != nullptr) && hostlike(common->value)){
+				if((common != nullptr) && __nts_hostlike__(common->value)){
 					// Имя вида DNS
 					x509::alternative_t name;
 					// Устанавливаем вид имени
@@ -807,20 +807,20 @@ namespace {
 			return error_t::MEMORY;
 		}
 		/**
-		 * Выполняем перебор имён подчинённого
+		 * Перебираем имена подчинённого
 		 */
 		for(size_t i = 0; i < names.size(); i++){
 			// Признак того, что вид имени сличается
 			const bool comparable = ((names[i].kind == x509::kind_t::DNS) || (names[i].kind == x509::kind_t::EMAIL) || (names[i].kind == x509::kind_t::ADDRESS) || (names[i].kind == x509::kind_t::DIRECTORY));
 			/**
-			 * Выполняем перебор запрещённых поддеревьев
+			 * Перебираем запрещённые поддеревья
 			 */
 			for(size_t j = 0; j < excluded.size(); j++){
 				// Если вид не тот
 				if(excluded[j].kind != names[i].kind)
 					continue;
 				// Итог сличения с запрещённым поддеревом
-				const int inside = (comparable ? within(names[i], excluded[j], true) : 0);
+				const int inside = (comparable ? __nts_within__(names[i], excluded[j], true) : 0);
 				// Если памяти на сличение не хватило
 				if(inside < 0)
 					// Выводим отказ нехватки памяти
@@ -833,7 +833,7 @@ namespace {
 			// Признак наличия дозволенных поддеревьев этого вида и вхождения в одно из них
 			bool ruled = false, allowed = false;
 			/**
-			 * Выполняем перебор дозволенных поддеревьев
+			 * Перебираем дозволенные поддеревья
 			 */
 			for(size_t j = 0; j < permitted.size(); j++){
 				// Если вид не тот
@@ -842,7 +842,7 @@ namespace {
 				// Дозволенные этого вида есть
 				ruled = true;
 				// Итог сличения с дозволенным поддеревом
-				const int inside = (comparable ? within(names[i], permitted[j], false) : 0);
+				const int inside = (comparable ? __nts_within__(names[i], permitted[j], false) : 0);
 				// Если памяти на сличение не хватило
 				if(inside < 0)
 					// Выводим отказ нехватки памяти
@@ -867,7 +867,7 @@ namespace {
 	 * @return            отказ назначения ключа листа либо нехватки памяти под разбор
 	 *
 	 */
-	static error_t signer(const x509::certificate_t & certificate, const role_t role) noexcept {
+	static error_t __nts_signer__(const x509::certificate_t & certificate, const role_t role) noexcept {
 		// Получаем расширение назначения ключа
 		const x509::extension_t * extension = certificate.extension(USAGE);
 		// Если назначение ключа объявлено
@@ -894,7 +894,7 @@ namespace {
 		}
 		// Получаем расширение расширенного назначения ключа
 		// Назначение ключа по роли
-		return intended(certificate, role);
+		return __nts_intended__(certificate, role);
 	}
 
 	/**
@@ -908,7 +908,7 @@ namespace {
 	 * @return       отказ приведения имени узла
 	 *
 	 */
-	static error_t lower(const string & name, string & result) noexcept {
+	static error_t __nts_lower__(const string & name, string & result) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -916,7 +916,7 @@ namespace {
 			// Копирование имени
 			result = name;
 			/**
-			 * Выполняем перебор символов приводимого имени узла
+			 * Перебираем символы приводимого имени узла
 			 */
 			for(size_t i = 0; i < result.size(); i++){
 				// Если символ записан в верхнем регистре
@@ -945,7 +945,7 @@ namespace {
 	 * @return     признак годности имени
 	 *
 	 */
-	static bool rooted(string & name) noexcept {
+	static bool __nts_rooted__(string & name) noexcept {
 		// Если имя пусто - снимать нечего, а пустое имя судится вызывающим
 		if(name.empty())
 			// Выводим признак годности имени
@@ -965,7 +965,7 @@ namespace {
 	 * @return        признак того, что имя узла имени сертификата отвечает
 	 *
 	 */
-	static bool matches(const string & pattern, const string & name) noexcept {
+	static bool __nts_matches__(const string & pattern, const string & name) noexcept {
 		/**
 		 * Слагаемое name.empty() ложно всегда: пустое имя узла отвергается сличением
 		 * сертификата ещё до перебора имён владельца. Слагаемое оставлено ради
@@ -1004,7 +1004,7 @@ namespace {
 	 * @return            отказ проверки права издавать сертификаты
 	 *
 	 */
-	static error_t authority(const x509::certificate_t & certificate, const size_t depth) noexcept {
+	static error_t __nts_authority__(const x509::certificate_t & certificate, const size_t depth) noexcept {
 		// Разыскиваем расширение основных ограничений сертификата
 		const x509::extension_t * extension = certificate.extension(CONSTRAINTS);
 		/**
@@ -1072,7 +1072,7 @@ namespace {
 	 * @return            отказ проверки срока действия сертификата
 	 *
 	 */
-	static error_t validity(const x509::certificate_t & certificate, const int64_t moment) noexcept {
+	static error_t __nts_validity__(const x509::certificate_t & certificate, const int64_t moment) noexcept {
 		// Начало срока действия сертификата
 		int64_t before = 0;
 		// Окончание срока действия сертификата
@@ -1096,7 +1096,7 @@ namespace {
 	 * @return       отказ проверки отзыва звена
 	 *
 	 */
-	static error_t revoking(const x509::certificate_t & item, const x509::certificate_t & issuer, const store_t & store, const int64_t moment) noexcept {
+	static error_t __nts_revoking__(const x509::certificate_t & item, const x509::certificate_t & issuer, const store_t & store, const int64_t moment) noexcept {
 		/**
 		 * Запас без списков отзыва отзыва не проверяет вовсе: списков не подали, и вменять
 		 * звену чужую провину нечем
@@ -1117,7 +1117,7 @@ namespace {
 			// Выводим отказ разбора имени
 			return error_t::PARSE;
 		/**
-		 * Выполняем перебор списков отзыва запаса
+		 * Перебираем списки отзыва запаса
 		 */
 		for(size_t i = 0; i < store.lists(); i++){
 			// Объект разбора очередного списка отзыва
@@ -1171,7 +1171,7 @@ namespace {
 				// Выводим отказ просрочки списка отзыва
 				return error_t::OUTDATED;
 			/**
-			 * Выполняем перебор отозванных списком серийных номеров: списание ведётся номером
+			 * Перебираем отозванные списком серийные номера: списание ведётся номером
 			 * записи сертификата, отозванной издателем списка
 			 */
 			for(size_t j = 0; j < list.revoked().size(); j++){
@@ -1376,7 +1376,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 	// Место звена, замкнувшего цепочку из запаса: за пределами цепочки, пока такого нет
 	size_t closing = chain.size();
 	/**
-	 * Выполняем перебор сертификатов проверяемой цепочки
+	 * Перебираем сертификаты проверяемой цепочки
 	 */
 	for(size_t i = 0; i < chain.size(); i++){
 		// Итог разбора, о нехватке памяти под который отвечает свой отказ
@@ -1394,7 +1394,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Выводим отказ неизвестного критичного расширения
 			return error_t::CRITICAL;
 		// Проверка срока действия сертификата цепочки
-		const error_t error = validity(items[i], moment);
+		const error_t error = __nts_validity__(items[i], moment);
 		// Если срок действия сертификата на этот миг не идёт
 		if(error != error_t::NONE)
 			// Выводим отказ истечения срока действия сертификата
@@ -1408,7 +1408,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Признак того, что звено доверено
 			bool trusted = false;
 			/**
-			 * Выполняем перебор запаса
+			 * Перебираем запас
 			 */
 			for(size_t j = 0; !trusted && (j < store.size()); j++){
 				// Доверенный сертификат
@@ -1428,13 +1428,13 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		}
 	}
 	// Итог проверки назначения ключа листа цепочки
-	const error_t purposed = signer(items[0], role);
+	const error_t purposed = __nts_signer__(items[0], role);
 	// Если ключ листа цепочки подпись владения ставить не вправе либо памяти не хватило
 	if(purposed != error_t::NONE)
 		// Выводим отказ назначения ключа листа либо нехватки памяти
 		return purposed;
 	/**
-	 * Выполняем перебор звеньев проверяемой цепочки сертификатов
+	 * Перебираем звенья проверяемой цепочки сертификатов
 	 */
 	for(size_t i = 0; (i + 1) < items.size(); i++){
 		// Имя издателя сертификата звена цепочки
@@ -1472,13 +1472,13 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Выводим отказ несовпадения издателя с владельцем
 			return error_t::ISSUER;
 		// Проверка права издавать другие сертификаты
-		const error_t error = authority(items[i + 1], i);
+		const error_t error = __nts_authority__(items[i + 1], i);
 		// Если сертификат издавать другие сертификаты не вправе
 		if(error != error_t::NONE)
 			// Выводим отказ отсутствия права издавать сертификаты
 			return error;
 		// Назначение ключа издателя по роли (раздел 4.2.1.12 RFC 5280)
-		const error_t intent = intended(items[i + 1], role);
+		const error_t intent = __nts_intended__(items[i + 1], role);
 		// Если назначение ключа издателя по роли не сошлось
 		if(intent != error_t::NONE)
 			// Выводим отказ назначения ключа
@@ -1488,7 +1488,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		 */
 		for(size_t j = 0; j <= i; j++){
 			// Отказ ограничений имени звена издателем
-			const error_t bounded = constrained(items[j], items[i + 1]);
+			const error_t bounded = __nts_constrained__(items[j], items[i + 1]);
 			// Если ограничения нарушены
 			if(bounded != error_t::NONE)
 				// Выводим отказ ограничений
@@ -1509,7 +1509,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Выводим отказ схождения подписи сертификата
 			return error_t::SIGNATURE;
 		// Итог проверки отзыва звена списком его издателя
-		const error_t recalled = revoking(items[i], items[i + 1], store, moment);
+		const error_t recalled = __nts_revoking__(items[i], items[i + 1], store, moment);
 		// Если звено отозвано либо список его издателя негоден
 		if(recalled != error_t::NONE)
 			// Выводим отказ отзыва звена цепочки
@@ -1532,7 +1532,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 		// Выводим отказ разбора имени издателя сертификата
 		return error_t::PARSE;
 	/**
-	 * Выполняем перебор доверенных сертификатов запаса
+	 * Перебираем доверенные сертификаты запаса
 	 */
 	for(size_t i = 0; i < store.size(); i++){
 		// Получаем запись очередного доверенного сертификата запаса
@@ -1577,24 +1577,24 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Если срок действия доверенного сертификата на этот миг не идёт
-		if(validity(anchor, moment) != error_t::NONE)
+		if(__nts_validity__(anchor, moment) != error_t::NONE)
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Если доверенный сертификат издавать другие сертификаты не вправе
-		if(authority(anchor, items.size() - 1) != error_t::NONE)
+		if(__nts_authority__(anchor, items.size() - 1) != error_t::NONE)
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Назначение ключа якоря по роли и его ограничения имён кроют всю цепочку (разделы 4.2.1.10, 4.2.1.12 RFC 5280 - как у openssl и NSS)
-		if(intended(anchor, role) != error_t::NONE)
+		if(__nts_intended__(anchor, role) != error_t::NONE)
 			continue;
 		// Признак нарушения ограничений якоря
 		bool bounded = false;
 		/**
-		 * Выполняем перебор звеньев цепочки под ограничениями якоря
+		 * Перебираем звенья цепочки под ограничениями якоря
 		 */
 		for(size_t j = 0; (j < items.size()) && !bounded; j++){
 			// Отказ ограничений
-			const error_t limit = constrained(items[j], anchor);
+			const error_t limit = __nts_constrained__(items[j], anchor);
 			// Если памяти не хватило
 			if(limit == error_t::MEMORY)
 				// Выводим отказ нехватки памяти
@@ -1624,7 +1624,7 @@ nts::trust::error_t nts::trust::verify(const vector <vector <uint8_t>> & chain, 
 			// Переходим к следующему доверенному сертификату запаса
 			continue;
 		// Итог проверки отзыва последнего звена списком его издателя-якоря
-		const error_t recalled = revoking(last, anchor, store, moment);
+		const error_t recalled = __nts_revoking__(last, anchor, store, moment);
 		// Если последнее звено отозвано либо список его издателя негоден
 		if(recalled != error_t::NONE)
 			// Выводим отказ отзыва последнего звена цепочки
@@ -1663,17 +1663,17 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 	// Приведённое к нижнему регистру имя узла
 	string requested;
 	// Если привести имя узла к нижнему регистру не удалось
-	if(lower(name, requested) != error_t::NONE)
+	if(__nts_lower__(name, requested) != error_t::NONE)
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
 	// Если имя узла с хвостовой точкой негодно (решение 7)
-	if(!rooted(requested))
+	if(!__nts_rooted__(requested))
 		// Выводим отказ несовпадения имени узла
 		return error_t::NAME;
 	// Байты адреса сети, если имя узла им записано
 	uint8_t bytes[16] = {0};
 	// Признак имени узла, записанного адресом сети
-	const bool numeric = address(name, bytes);
+	const bool numeric = __nts_address__(name, bytes);
 	// Длина адреса сети: четыре байта у IPv4 и шестнадцать у IPv6
 	const size_t width = ((name.find(':') != string::npos) ? 16 : 4);
 	// Разыскиваем расширение дополнительных имён владельца
@@ -1693,7 +1693,7 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 			// Выводим отказ разбора дополнительных имён владельца
 			return error_t::PARSE;
 		/**
-		 * Выполняем перебор дополнительных имён владельца сертификата
+		 * Перебираем дополнительные имена владельца сертификата
 		 */
 		for(size_t i = 0; i < alternatives.size(); i++){
 			/**
@@ -1720,15 +1720,15 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 			// Приведённое к нижнему регистру имя владельца сертификата
 			string pattern;
 			// Если привести имя владельца сертификата к нижнему регистру не удалось
-			if(lower(alternatives[i].value, pattern) != error_t::NONE)
+			if(__nts_lower__(alternatives[i].value, pattern) != error_t::NONE)
 				// Выводим отказ нехватки памяти
 				return error_t::MEMORY;
 			// Если имя владельца с хвостовой точкой негодно (решение 7)
-			if(!rooted(pattern))
+			if(!__nts_rooted__(pattern))
 				// Переходим к следующему имени владельца сертификата
 				continue;
 			// Если имя узла имени сертификата отвечает
-			if(matches(pattern, requested))
+			if(__nts_matches__(pattern, requested))
 				// Выводим успешность сличения имени узла
 				return error_t::NONE;
 		}
@@ -1752,15 +1752,15 @@ nts::trust::error_t nts::trust::belongs(const view_t & certificate, const string
 	// Приведённое к нижнему регистру общее имя владельца сертификата
 	string pattern;
 	// Если привести общее имя владельца к нижнему регистру не удалось
-	if(lower(attribute->value, pattern) != error_t::NONE)
+	if(__nts_lower__(attribute->value, pattern) != error_t::NONE)
 		// Выводим отказ нехватки памяти
 		return error_t::MEMORY;
 	// Если общее имя владельца с хвостовой точкой негодно (решение 7)
-	if(!rooted(pattern))
+	if(!__nts_rooted__(pattern))
 		// Выводим отказ несовпадения имени узла
 		return error_t::NAME;
 	// Если имя узла общему имени владельца отвечает
-	if(matches(pattern, requested))
+	if(__nts_matches__(pattern, requested))
 		// Выводим успешность сличения имени узла
 		return error_t::NONE;
 	// Выводим отказ несовпадения имени узла

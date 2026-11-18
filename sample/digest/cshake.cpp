@@ -59,16 +59,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -78,7 +78,7 @@ namespace {
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр области байтов строки знаков
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
@@ -102,41 +102,41 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается выход функции в тридцать два байта
 	uint8_t result[32];
 	/**
-	 * Выполняем хеширование сообщения функцией cSHAKE128 с меткой назначения
+	 * Хешируем сообщения функцией cSHAKE128 с меткой назначения
 	 *
 	 * @note Метка назначения входит в выход наравне со входом: тот же вход с иной
 	 *       меткой даёт иной выход, и связать их между собою нельзя
 	 *
 	 */
-	if(!digest::cshake(digest::sha3_t::SHAKE128, ::text(message), ::text("метка назначения"), view_t(), result, sizeof(result))){
+	if(!digest::cshake(digest::sha3_t::SHAKE128, ::__nts_text__(message), ::__nts_text__("метка назначения"), view_t(), result, sizeof(result))){
 		// Выводим сообщение об отказе хеширования
 		cout << "Захешировать сообщение не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим выход функции cSHAKE128
-	::print("cSHAKE128 метка", result, sizeof(result));
-	// Выполняем хеширование того же сообщения с иной меткой назначения
-	digest::cshake(digest::sha3_t::SHAKE128, ::text(message), ::text("иная метка"), view_t(), result, sizeof(result));
+	::__nts_print__("cSHAKE128 метка", result, sizeof(result));
+	// Хешируем того же сообщения с иной меткой назначения
+	digest::cshake(digest::sha3_t::SHAKE128, ::__nts_text__(message), ::__nts_text__("иная метка"), view_t(), result, sizeof(result));
 	// Выводим выход функции cSHAKE128 с иной меткой
-	::print("cSHAKE128 иная ", result, sizeof(result));
+	::__nts_print__("cSHAKE128 иная ", result, sizeof(result));
 	// Ключ выработки имитовставки образца
 	const char * secret = "ключ выработки имитовставки";
 	/**
-	 * Выполняем выработку имитовставки сообщения функцией KMAC128
+	 * Вырабатываем имитовставки сообщения функцией KMAC128
 	 *
 	 * @note KMAC стоит на cSHAKE и служит имитовставкой с ключом: без ключа итог не
 	 *       сойдётся, как и у HMAC над обычным хешем
 	 *
 	 */
-	if(!digest::kmac(digest::sha3_t::SHAKE128, ::text(secret), ::text(message), view_t(), result, sizeof(result))){
+	if(!digest::kmac(digest::sha3_t::SHAKE128, ::__nts_text__(secret), ::__nts_text__(message), view_t(), result, sizeof(result))){
 		// Выводим сообщение об отказе выработки имитовставки
 		cout << "Выработать имитовставку не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим имитовставку сообщения
-	::print("Имитовставка KMAC", result, sizeof(result));
+	::__nts_print__("Имитовставка KMAC", result, sizeof(result));
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;
 }

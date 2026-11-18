@@ -130,7 +130,7 @@ namespace {
 	 */
 	#if defined(__e2k__)
 		// Читаем байт из выровненного слова с очисткой метки
-		static uint8_t peek(const uint8_t * data) noexcept {
+		static uint8_t __nts_peek__(const uint8_t * data) noexcept {
 			// Берём адрес байта
 			const uintptr_t address = reinterpret_cast <uintptr_t> (data);
 			// Читаем выровненное слово с очисткой метки
@@ -149,7 +149,7 @@ namespace {
 			#endif
 		#endif
 		// Читаем байт напрямую
-		static inline uint8_t peek(const uint8_t * data) noexcept {
+		static inline uint8_t __nts_peek__(const uint8_t * data) noexcept {
 			// Возвращаем байт напрямую
 			return *data;
 		}
@@ -171,7 +171,7 @@ namespace {
 		// Накапливаем различия байтов
 		uint8_t diff = 0;
 		/** Перебираем байты блока, накапливая различия с образцом */
-		for(size_t i = 0; i < size; i++) diff |= static_cast <uint8_t> (peek(data + i) ^ key[i]);
+		for(size_t i = 0; i < size; i++) diff |= static_cast <uint8_t> (__nts_peek__(data + i) ^ key[i]);
 		// Блоки совпадают, если различий нет
 		return (diff == 0);
 	}
@@ -190,7 +190,7 @@ namespace {
 		// Приводим источник к массиву байтов
 		const uint8_t * data = static_cast <const uint8_t *> (from);
 		/** Перебираем байты блока, переписывая их в журнал */
-		for(size_t i = 0; i < size; i++) to[i] = peek(data + i);
+		for(size_t i = 0; i < size; i++) to[i] = __nts_peek__(data + i);
 	}
 	/**
 	 * Снятие блока с учёта с переписыванием содержимого в журнал

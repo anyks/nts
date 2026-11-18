@@ -62,11 +62,11 @@ namespace {
 	 * @param size  длина области
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Печатаем подпись
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Печатаем байт
@@ -81,14 +81,14 @@ namespace {
 	 * @return     просмотр
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр текста
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
 };
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы
@@ -100,8 +100,8 @@ int main(int argc, char * argv[]) noexcept {
 	(void) argc;
 	// Не используем параметры приложения
 	(void) argv;
-	// Сообщение
-	const view_t message = ::text("сырой поток без имитовставки: целостность на подписи");
+	// Готовим сообщение образца
+	const view_t message = ::__nts_text__("сырой поток без имитовставки: целостность на подписи");
 	// Ключ и 24-байтовое заполнение XChaCha20: заполнение такой длины позволяет брать его случайно
 	uint8_t key[32], nonce[24];
 	// Если ключ и заполнение выработать не удалось
@@ -121,7 +121,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем шифртекст
-	::print("XChaCha20", cipher, message.size);
+	::__nts_print__("XChaCha20", cipher, message.size);
 	// Снимаем гамму верным ключом: тот же шифр с тем же заполнением и счётчиком
 	cipher::chacha_t opener;
 	// Если снять гамму не удалось
@@ -139,7 +139,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем мусор
-	::print("Неверный ключ дал", plain, message.size);
+	::__nts_print__("Неверный ключ дал", plain, message.size);
 	// Возвращаем ключ
 	key[0] ^= 0x01;
 	// Подключ HChaCha20 - тот, что XChaCha20 выводит из ключа и первых 16 байтов заполнения
@@ -149,7 +149,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем подключ
-	::print("HChaCha20", subkey, sizeof(subkey));
+	::__nts_print__("HChaCha20", subkey, sizeof(subkey));
 	// AES-256-CTR без GCM: блочный шифр под счётчиком, синхропосылка в половину блока - 8 байтов
 	cipher::aes_t aes;
 	// Если ключ AES установить не удалось
@@ -167,7 +167,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем шифртекст
-	::print("AES-256-CTR", cipher, message.size);
+	::__nts_print__("AES-256-CTR", cipher, message.size);
 	// Снимаем гамму
 	cipher::counter_t reverse;
 	// Если снять гамму не удалось

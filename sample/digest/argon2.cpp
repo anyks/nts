@@ -59,11 +59,11 @@ namespace {
 	 * @param size  длина области
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Печатаем подпись
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Печатаем байт
@@ -78,14 +78,14 @@ namespace {
 	 * @return     просмотр
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр текста
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
 };
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы
@@ -110,14 +110,14 @@ int main(int argc, char * argv[]) noexcept {
 	// Место под ключ
 	uint8_t key[32];
 	// Если ключ выработать не удалось: память под 64 МиБ отвечает отказом, а не падением
-	if(!digest::argon2(params, ::text(password), view_t(salt, sizeof(salt)), view_t(), view_t(), key, sizeof(key))){
+	if(!digest::argon2(params, ::__nts_text__(password), view_t(salt, sizeof(salt)), view_t(), view_t(), key, sizeof(key))){
 		// Печатаем отказ
 		cout << "Выработать ключ Argon2id не удалось" << endl;
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	}
 	// Печатаем ключ
-	::print("Ключ Argon2id (64 МиБ, t=3, p=4)", key, sizeof(key));
+	::__nts_print__("Ключ Argon2id (64 МиБ, t=3, p=4)", key, sizeof(key));
 	// Запись для хранения: параметры, соль и тег - всё, что нужно для проверки
 	digest::argon_record_t record;
 	// Устанавливаем параметры записи
@@ -143,7 +143,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место под проверочный тег
 	uint8_t probe[32];
 	// Если тег по разобранным параметрам выработать не удалось
-	if(!digest::argon2(parsed.params, ::text(password), view_t(parsed.salt.data(), parsed.salt.size()), view_t(), view_t(), probe, sizeof(probe)))
+	if(!digest::argon2(parsed.params, ::__nts_text__(password), view_t(parsed.salt.data(), parsed.salt.size()), view_t(), view_t(), probe, sizeof(probe)))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Сличаем теги: в настоящем хранилище - за постоянное время
@@ -151,7 +151,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Печатаем итог проверки
 	cout << "Проверка верного пароля: " << (same ? "сошлось" : "разошлось") << endl;
 	// Если неверный пароль дал тот же тег
-	if(digest::argon2(parsed.params, ::text("неверный пароль"), view_t(parsed.salt.data(), parsed.salt.size()), view_t(), view_t(), probe, sizeof(probe)) && (::memcmp(probe, parsed.tag.data(), sizeof(probe)) == 0)){
+	if(digest::argon2(parsed.params, ::__nts_text__("неверный пароль"), view_t(parsed.salt.data(), parsed.salt.size()), view_t(), view_t(), probe, sizeof(probe)) && (::memcmp(probe, parsed.tag.data(), sizeof(probe)) == 0)){
 		// Печатаем отказ
 		cout << "Неверный пароль сошёлся - так быть не должно" << endl;
 		// Выходим с отказом

@@ -71,16 +71,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -92,7 +92,7 @@ namespace {
 	 * @return       признак успешности составления сообщения приветствия
 	 *
 	 */
-	bool greeting(const handshake::type_t type, const uint16_t suite, vector <uint8_t> & result) noexcept {
+	bool __nts_greeting__(const handshake::type_t type, const uint16_t suite, vector <uint8_t> & result) noexcept {
 		// Накопитель, в который складывается тело приветствия
 		vector <uint8_t> body;
 		// Если составляется приветствие клиента
@@ -101,7 +101,7 @@ namespace {
 			hello::client_t hello;
 			// Устанавливаем версию протокола приветствия клиента
 			hello.version = 0x0303;
-			// Выполняем выработку случайного значения приветствия
+			// Вырабатываем случайного значения приветствия
 			entropy::bytes(hello.random, hello::HELLO_RANDOM);
 			// Устанавливаем предлагаемый набор шифрования
 			hello.suites = {suite};
@@ -117,7 +117,7 @@ namespace {
 			hello::server_t hello;
 			// Устанавливаем версию протокола приветствия сервера
 			hello.version = 0x0303;
-			// Выполняем выработку случайного значения приветствия
+			// Вырабатываем случайного значения приветствия
 			entropy::bytes(hello.random, hello::HELLO_RANDOM);
 			// Устанавливаем выбранный набор шифрования
 			hello.suite = suite;
@@ -134,7 +134,7 @@ namespace {
 			return false;
 		// Получаем составленное сообщение приветствия
 		const view_t data = writer.data();
-		// Выполняем перенос составленного сообщения в накопитель
+		// Переносим составленного сообщения в накопитель
 		result.assign(data.data, data.data + data.size);
 		// Выводим успешность составления сообщения приветствия
 		return true;
@@ -159,7 +159,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Сообщение приветствия сервера
 	vector <uint8_t> server;
 	// Если приветствия сторон составить не удалось
-	if(!::greeting(handshake::type_t::CLIENT, static_cast <uint16_t> (SUITE), client) || !::greeting(handshake::type_t::SERVER, static_cast <uint16_t> (SUITE), server)){
+	if(!::__nts_greeting__(handshake::type_t::CLIENT, static_cast <uint16_t> (SUITE), client) || !::__nts_greeting__(handshake::type_t::SERVER, static_cast <uint16_t> (SUITE), server)){
 		// Выводим сообщение об отказе составления приветствий
 		cout << "Составить приветствия сторон не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -177,9 +177,9 @@ int main(int argc, char * argv[]) noexcept {
 	session::transcript_t sending;
 	// Объект переписки рукопожатия принимающей стороны
 	session::transcript_t receiving;
-	// Выполняем начало переписки рукопожатия отправляющей стороны
+	// Начинаем переписки рукопожатия отправляющей стороны
 	sending.start();
-	// Выполняем начало переписки рукопожатия принимающей стороны
+	// Начинаем переписки рукопожатия принимающей стороны
 	receiving.start();
 	// Добавляем приветствие клиента в переписку отправляющей стороны
 	sending.update(view_t(client.data(), client.size()));
@@ -193,12 +193,12 @@ int main(int argc, char * argv[]) noexcept {
 	uint8_t first[32];
 	// Хеш переписки рукопожатия принимающей стороны
 	uint8_t second[32];
-	// Выполняем получение хеша переписки отправляющей стороны
+	// Получаем хеша переписки отправляющей стороны
 	sending.digest(first);
-	// Выполняем получение хеша переписки принимающей стороны
+	// Получаем хеша переписки принимающей стороны
 	receiving.digest(second);
 	// Выводим хеш переписки рукопожатия сторон
-	::print("Хеш переписки      ", first, sizeof(first));
+	::__nts_print__("Хеш переписки      ", first, sizeof(first));
 	// Если переписки сторон разошлись
 	if(::memcmp(first, second, sizeof(first)) != 0){
 		// Выводим сообщение о расхождении переписок сторон
@@ -209,7 +209,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Общее значение обмена ключами
 	uint8_t shared[64];
 	/**
-	 * Выполняем выработку общего значения обмена ключами
+	 * Вырабатываем общего значения обмена ключами
 	 *
 	 * @note В настоящей связи это значение вычисляют обе стороны сами, умножая открытую
 	 *       часть ключа собеседника на свою закрытую: по связи оно не передаётся вовсе
@@ -220,21 +220,21 @@ int main(int argc, char * argv[]) noexcept {
 	session::secrets_t outgoing;
 	// Объект значений расписания ключей принимающей стороны
 	session::secrets_t incoming;
-	// Выполняем заведение начальной ступени расписания обеих сторон
+	// Заводим начальной ступени расписания обеих сторон
 	if((outgoing.start(view_t(nullptr, 0)) != session::error_t::NONE) || (incoming.start(view_t(nullptr, 0)) != session::error_t::NONE)){
 		// Выводим сообщение об отказе заведения расписания ключей
 		cout << "Завести расписание ключей не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем вывод ступени рукопожатия расписания отправляющей стороны
+	// Выводим ступени рукопожатия расписания отправляющей стороны
 	if(outgoing.handshake(view_t(shared, sizeof(shared)), view_t(first, sizeof(first))) != session::error_t::NONE){
 		// Выводим сообщение об отказе вывода ступени рукопожатия
 		cout << "Вывести ступень рукопожатия не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем вывод ступени рукопожатия расписания принимающей стороны
+	// Выводим ступени рукопожатия расписания принимающей стороны
 	incoming.handshake(view_t(shared, sizeof(shared)), view_t(second, sizeof(second)));
 	// Выводим пройденную ступень расписания ключей
 	cout << "Ступень расписания : рукопожатие" << endl;
@@ -242,7 +242,7 @@ int main(int argc, char * argv[]) noexcept {
 	uint8_t key[protect::PROTECT_KEY];
 	// Вектор замены направления связи от сервера
 	uint8_t replacement[protect::PROTECT_VECTOR];
-	// Выполняем вывод ключевого материала направления связи от сервера
+	// Выводим ключевого материала направления связи от сервера
 	if(outgoing.material(session::side_t::SERVER, SUITE, key, replacement) != session::error_t::NONE){
 		// Выводим сообщение об отказе вывода ключевого материала
 		cout << "Вывести ключевой материал не удалось" << endl;
@@ -250,22 +250,22 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим корневой ключ направления связи от сервера
-	::print("Ключ сервера       ", key, sizeof(key));
+	::__nts_print__("Ключ сервера       ", key, sizeof(key));
 	// Выводим вектор замены направления связи от сервера
-	::print("Вектор замены      ", replacement, protect::block(SUITE));
+	::__nts_print__("Вектор замены      ", replacement, protect::block(SUITE));
 	// Объект защиты записей отправляющей стороны
 	protect::protection_t sender;
-	// Выполняем установку ключевого материала отправляющей стороны
+	// Устанавливаем ключевого материала отправляющей стороны
 	sender.start(SUITE, view_t(key, sizeof(key)), view_t(replacement, protect::block(SUITE)));
 	// Корневой ключ направления связи, выведенный принимающей стороной
 	uint8_t peer[protect::PROTECT_KEY];
 	// Вектор замены направления связи, выведенный принимающей стороной
 	uint8_t element[protect::PROTECT_VECTOR];
-	// Выполняем вывод ключевого материала принимающей стороной
+	// Выводим ключевого материала принимающей стороной
 	incoming.material(session::side_t::SERVER, SUITE, peer, element);
 	// Объект защиты записей принимающей стороны
 	protect::protection_t receiver;
-	// Выполняем установку ключевого материала принимающей стороны
+	// Устанавливаем ключевого материала принимающей стороны
 	receiver.start(SUITE, view_t(peer, sizeof(peer)), view_t(element, protect::block(SUITE)));
 	// Передаваемое сообщение рукопожатия
 	const char * text = "Защищённые расширения, отправленные ключами рукопожатия";
@@ -282,13 +282,13 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Защищённая запись  : " << sealed.size() << " байтов" << endl;
 	// Объект сборщика входящих записей
 	record::reader_t reader;
-	// Выполняем подачу защищённой записи сборщику
+	// Подаём защищённой записи сборщику
 	reader.push(view_t(sealed.data(), sealed.size()));
 	// Заголовок принятой защищённой записи
 	record::header_t header;
 	// Содержимое принятой защищённой записи
 	view_t payload;
-	// Выполняем сборку принятой защищённой записи
+	// Собираем принятой защищённой записи
 	reader.next(header, payload);
 	// Истинный вид содержимого принятой записи
 	record::type_t type = record::type_t::NONE;
@@ -307,17 +307,17 @@ int main(int argc, char * argv[]) noexcept {
 	uint8_t outgoingKey[32];
 	// Ключ завершения рукопожатия принимающей стороны
 	uint8_t incomingKey[32];
-	// Выполняем вывод ключа завершения рукопожатия обеих сторон
+	// Выводим ключа завершения рукопожатия обеих сторон
 	outgoing.finished(session::side_t::SERVER, outgoingKey);
-	// Выполняем вывод ключа завершения рукопожатия принимающей стороной
+	// Выводим ключа завершения рукопожатия принимающей стороной
 	incoming.finished(session::side_t::SERVER, incomingKey);
 	// Тело сообщения завершения рукопожатия отправляющей стороны
 	uint8_t outgoingFinished[32];
 	// Тело сообщения завершения рукопожатия принимающей стороны
 	uint8_t incomingFinished[32];
-	// Выполняем выработку завершения рукопожатия отправляющей стороной
+	// Вырабатываем завершения рукопожатия отправляющей стороной
 	message::finished(view_t(outgoingKey, sizeof(outgoingKey)), view_t(first, sizeof(first)), outgoingFinished);
-	// Выполняем выработку завершения рукопожатия принимающей стороной
+	// Вырабатываем завершения рукопожатия принимающей стороной
 	message::finished(view_t(incomingKey, sizeof(incomingKey)), view_t(second, sizeof(second)), incomingFinished);
 	// Если завершения рукопожатия сторон сошлись
 	if(message::compare(view_t(outgoingFinished, sizeof(outgoingFinished)), view_t(incomingFinished, sizeof(incomingFinished))))
@@ -327,7 +327,7 @@ int main(int argc, char * argv[]) noexcept {
 	uint8_t transcript[32];
 	// Добавляем защищённое сообщение в переписку рукопожатия
 	sending.update(view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text)));
-	// Выполняем получение хеша переписки рукопожатия
+	// Получаем хеша переписки рукопожатия
 	sending.digest(transcript);
 	// Если ступень прикладных данных расписания вывести не удалось
 	if(outgoing.application(view_t(transcript, sizeof(transcript))) != session::error_t::NONE){
@@ -336,10 +336,10 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем вывод ключевого материала прикладных данных
+	// Выводим ключевого материала прикладных данных
 	outgoing.material(session::side_t::SERVER, SUITE, peer, element);
 	// Выводим корневой ключ направления связи на поре прикладных данных
-	::print("Ключ прикладной    ", peer, sizeof(peer));
+	::__nts_print__("Ключ прикладной    ", peer, sizeof(peer));
 	/**
 	 * Ключ прикладных данных с ключом рукопожатия не совпадает и из него не выводится
 	 * обратно: раскрытие позднего ключа раннего не выдаёт

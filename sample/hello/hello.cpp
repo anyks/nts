@@ -67,7 +67,7 @@ namespace {
 	 * @param extensions перечень расширений приветствия
 	 *
 	 */
-	void append(const extension::type_t type, const vector <uint8_t> & body, vector <vector <uint8_t>> & bodies, vector <hello::extension_t> & extensions) noexcept {
+	void __nts_append__(const extension::type_t type, const vector <uint8_t> & body, vector <vector <uint8_t>> & bodies, vector <hello::extension_t> & extensions) noexcept {
 		// Добавляем тело расширения в накопитель тел расширений
 		bodies.push_back(body);
 		// Добавляем расширение в перечень расширений приветствия
@@ -80,9 +80,9 @@ namespace {
 	 * @return     название вида расширения приветствия
 	 *
 	 */
-	const char * title(const uint16_t type) noexcept {
+	const char * __nts_title__(const uint16_t type) noexcept {
 		/**
-		 * Выполняем определение вида расширения приветствия
+		 * Определяем вида расширения приветствия
 		 */
 		switch(type){
 			// Если это расширение имени запрашиваемого узла
@@ -122,14 +122,14 @@ int main(int argc, char * argv[]) noexcept {
 	vector <uint8_t> body;
 	// Имя запрашиваемого у сервера узла
 	const char * host = "gost.example.com";
-	// Выполняем составление тела расширения имени узла
+	// Составляем тела расширения имени узла
 	extension::name(view_t(reinterpret_cast <const uint8_t *> (host), ::strlen(host)), body);
 	// Добавляем расширение имени узла в перечень расширений
-	::append(extension::type_t::NAME, body, bodies, extensions);
-	// Выполняем сброс тела составляемого расширения
+	::__nts_append__(extension::type_t::NAME, body, bodies, extensions);
+	// Сбрасываем тела составляемого расширения
 	body.clear();
 	/**
-	 * Выполняем составление тела расширения поддерживаемых изданий протокола
+	 * Составляем тела расширения поддерживаемых изданий протокола
 	 *
 	 * @note Издание TLS 1.3 объявляется именно расширением, а не полем приветствия: поле
 	 *       приветствия досталось от предыдущих изданий и своего назначения не имеет
@@ -137,27 +137,27 @@ int main(int argc, char * argv[]) noexcept {
 	 */
 	extension::versions(vector <uint16_t> {0x0304}, body);
 	// Добавляем расширение поддерживаемых изданий в перечень расширений
-	::append(extension::type_t::VERSIONS, body, bodies, extensions);
-	// Выполняем сброс тела составляемого расширения
+	::__nts_append__(extension::type_t::VERSIONS, body, bodies, extensions);
+	// Сбрасываем тела составляемого расширения
 	body.clear();
 	// Предлагаемые сервером группы обмена ключами
 	const vector <extension::group_t> groups = {extension::group_t::GC256A, extension::group_t::GC512C};
-	// Выполняем составление тела расширения поддерживаемых групп обмена
+	// Составляем тела расширения поддерживаемых групп обмена
 	extension::groups(groups, body);
 	// Добавляем расширение поддерживаемых групп в перечень расширений
-	::append(extension::type_t::GROUPS, body, bodies, extensions);
-	// Выполняем сброс тела составляемого расширения
+	::__nts_append__(extension::type_t::GROUPS, body, bodies, extensions);
+	// Сбрасываем тела составляемого расширения
 	body.clear();
-	// Выполняем составление тела расширения поддерживаемых схем подписи
+	// Составляем тела расширения поддерживаемых схем подписи
 	extension::schemes(vector <extension::scheme_t> {extension::scheme_t::S256A, extension::scheme_t::S512C}, body);
 	// Добавляем расширение поддерживаемых схем подписи в перечень расширений
-	::append(extension::type_t::SCHEMES, body, bodies, extensions);
-	// Выполняем сброс тела составляемого расширения
+	::__nts_append__(extension::type_t::SCHEMES, body, bodies, extensions);
+	// Сбрасываем тела составляемого расширения
 	body.clear();
 	// Открытая часть ключа обмена на кривой длиной 256 разрядов
 	uint8_t share[64];
 	/**
-	 * Выполняем выработку открытой части ключа обмена
+	 * Вырабатываем открытой части ключа обмена
 	 *
 	 * @note В настоящей связи открытая часть ключа не берётся случайной, а вычисляется
 	 *       из закрытой умножением точки кривой: здесь она случайна лишь затем, чтобы
@@ -165,10 +165,10 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 */
 	entropy::bytes(share, sizeof(share));
-	// Выполняем составление тела расширения открытой части ключа обмена
+	// Составляем тела расширения открытой части ключа обмена
 	extension::shares(vector <extension::share_t> {extension::share_t(extension::group_t::GC256A, view_t(share, sizeof(share)))}, body);
 	// Добавляем расширение открытой части ключа обмена в перечень расширений
-	::append(extension::type_t::SHARE, body, bodies, extensions);
+	::__nts_append__(extension::type_t::SHARE, body, bodies, extensions);
 	// Составляемое приветствие клиента
 	hello::client_t hello;
 	/**
@@ -179,7 +179,7 @@ int main(int argc, char * argv[]) noexcept {
 	 *
 	 */
 	hello.version = 0x0303;
-	// Выполняем выработку случайного значения приветствия клиента
+	// Вырабатываем случайного значения приветствия клиента
 	entropy::bytes(hello.random, hello::HELLO_RANDOM);
 	// Устанавливаем предлагаемые наборы шифрования
 	hello.suites = {0xC103, 0xC104, 0xC105, 0xC106};
@@ -198,7 +198,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Объект составителя исходящих сообщений рукопожатия
 	handshake::writer_t writer;
-	// Выполняем составление сообщения приветствия клиента
+	// Составляем сообщения приветствия клиента
 	if(writer.push(handshake::type_t::CLIENT, view_t(composed.data(), composed.size())) != handshake::error_t::NONE){
 		// Выводим сообщение об отказе составления сообщения
 		cout << "Составить сообщение рукопожатия не удалось" << endl;
@@ -212,16 +212,16 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим первые байты составленного сообщения приветствия
 	cout << "Начало сообщения   : ";
 	/**
-	 * Выполняем перебор первых байтов составленного сообщения
+	 * Перебираем первых байтов составленного сообщения
 	 */
 	for(size_t i = 0; i < 16; i++)
 		// Выводим очередной байт сообщения шестнадцатеричной записью
 		cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (message.data[i]);
-	// Выполняем перевод строки за первыми байтами сообщения
+	// Переводим строки за первыми байтами сообщения
 	cout << dec << endl;
 	// Обвязка разбираемого сообщения рукопожатия
 	handshake::header_t header;
-	// Выполняем разбор обвязки сообщения рукопожатия
+	// Разбираем обвязки сообщения рукопожатия
 	if(handshake::parse(message, header) != handshake::error_t::NONE){
 		// Выводим сообщение об отказе разбора обвязки
 		cout << "Разобрать обвязку сообщения не удалось" << endl;
@@ -242,11 +242,11 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим число объявленных расширений приветствия
 	cout << "Расширений         : " << parsed.extensions.size() << endl;
 	/**
-	 * Выполняем перебор расширений разобранного приветствия
+	 * Перебираем расширений разобранного приветствия
 	 */
 	for(auto & item : parsed.extensions)
 		// Выводим вид и длину тела очередного расширения приветствия
-		cout << "  " << ::title(item.type) << ": " << item.data.size << " байтов" << endl;
+		cout << "  " << ::__nts_title__(item.type) << ": " << item.data.size << " байтов" << endl;
 	// Разобранное имя запрашиваемого узла
 	view_t name;
 	// Получаем расширение имени запрашиваемого узла
@@ -262,7 +262,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Если расширение поддерживаемых групп обмена объявлено
 	if((extension != nullptr) && (extension::groups(extension->data, parsedGroups) == extension::error_t::NONE)){
 		/**
-		 * Выполняем перебор разобранных групп обмена ключами
+		 * Перебираем разобранных групп обмена ключами
 		 */
 		for(auto & item : parsedGroups)
 			// Выводим опознаватель кривой очередной группы обмена ключами

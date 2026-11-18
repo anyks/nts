@@ -57,9 +57,9 @@ namespace {
 	 * @return     название вида содержимого записи
 	 *
 	 */
-	const char * title(const record::type_t type) noexcept {
+	const char * __nts_title__(const record::type_t type) noexcept {
 		/**
-		 * Выполняем определение вида содержимого записи
+		 * Определяем вида содержимого записи
 		 */
 		switch(static_cast <uint8_t> (type)){
 			// Если это извещение о смене набора шифрования
@@ -106,14 +106,14 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Нарезаемое на записи сообщение рукопожатия
 	const char * message = "Сообщение рукопожатия, которое в одну запись не помещается";
-	// Выполняем нарезку сообщения рукопожатия на записи
+	// Нарезаем сообщения рукопожатия на записи
 	if(writer.push(record::type_t::HANDSHAKE, record::version_t::TLS12, view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message))) != record::error_t::NONE){
 		// Выводим сообщение об отказе нарезки сообщения
 		cout << "Нарезать сообщение на записи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем нарезку извещения о смене набора шифрования
+	// Нарезаем извещения о смене набора шифрования
 	writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(reinterpret_cast <const uint8_t *> ("\x01"), 1));
 	// Получаем готовый поток нарезанных записей
 	const view_t data = writer.data();
@@ -132,7 +132,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Длина очередного подаваемого куска потока
 	size_t chunk = 1;
 	/**
-	 * Выполняем подачу потока байтов кусками разной длины
+	 * Подаём потока байтов кусками разной длины
 	 *
 	 * @note Длина куска нарочно берётся всякий раз иною: слой записей обязан вести себя
 	 *       одинаково и когда запись приходит целиком, и когда она приходит по байту
@@ -141,7 +141,7 @@ int main(int argc, char * argv[]) noexcept {
 	while(offset < stream.size()){
 		// Определяем длину очередного подаваемого куска
 		const size_t size = ((stream.size() - offset) < chunk ? (stream.size() - offset) : chunk);
-		// Выполняем подачу очередного куска потока байтов
+		// Подаём очередного куска потока байтов
 		if(reader.push(view_t(stream.data() + offset, size)) != record::error_t::NONE){
 			// Выводим сообщение об отказе подачи куска потока
 			cout << "Подать кусок потока сборщику не удалось" << endl;
@@ -157,15 +157,15 @@ int main(int argc, char * argv[]) noexcept {
 		// Содержимое очередной собранной записи
 		view_t payload;
 		/**
-		 * Выполняем выборку всех собранных на этот миг записей
+		 * Выбираем всех собранных на этот миг записей
 		 */
 		while(reader.next(header, payload) == record::error_t::NONE){
 			// Увеличиваем число уже собранных записей
 			count++;
 			// Выводим вид содержимого и длину очередной собранной записи
-			cout << "Запись " << count << ": " << ::title(header.type) << ", длина " << header.size << endl;
+			cout << "Запись " << count << ": " << ::__nts_title__(header.type) << ", длина " << header.size << endl;
 			/**
-			 * Выполняем склейку содержимого собранной записи рукопожатия
+			 * Склеиваем содержимого собранной записи рукопожатия
 			 *
 			 * @note Границы записей границам сообщения не подчиняются: запись вправе
 			 *       оборваться посреди знака, и печатать её содержимое поштучно
@@ -173,7 +173,7 @@ int main(int argc, char * argv[]) noexcept {
 			 *
 			 */
 			if(header.type == record::type_t::HANDSHAKE)
-				// Выполняем склейку содержимого очередной записи рукопожатия
+				// Склеиваем содержимого очередной записи рукопожатия
 				assembled.insert(assembled.end(), payload.data, payload.data + payload.size);
 		}
 	}

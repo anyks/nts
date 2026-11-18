@@ -66,16 +66,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -85,7 +85,7 @@ namespace {
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
-	view_t text(const string & text) noexcept {
+	view_t __nts_text__(const string & text) noexcept {
 		// Выводим просмотр области байтов строки знаков
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -96,7 +96,7 @@ namespace {
 	 * @return     просмотр области байтов набора
 	 *
 	 */
-	view_t view(const vector <uint8_t> & data) noexcept {
+	view_t __nts_view__(const vector <uint8_t> & data) noexcept {
 		// Выводим просмотр области байтов набора
 		return view_t(data.data(), data.size());
 	}
@@ -107,7 +107,7 @@ namespace {
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
-	string corpus(const char * name) noexcept {
+	string __nts_corpus__(const char * name) noexcept {
 		// Содержимое файла
 		string result;
 		/**
@@ -139,17 +139,17 @@ namespace {
 	 * @return      признак успешности разбора
 	 *
 	 */
-	bool certified(const char * name, vector <uint8_t> & der, x509::certificate_t & result) noexcept {
+	bool __nts_certified__(const char * name, vector <uint8_t> & der, x509::certificate_t & result) noexcept {
 		// Блоки записи PEM
 		vector <pem::block_t> blocks;
 		// Если запись PEM не разобрана
-		if(pem::decode(corpus(name), blocks) != pem::error_t::NONE)
+		if(pem::decode(__nts_corpus__(name), blocks) != pem::error_t::NONE)
 			// Выводим отказ разбора
 			return false;
 		// Запоминаем запись сертификата в кодировке DER
 		der = blocks[0].data;
 		// Выводим итог разбора сертификата
-		return (result.parse(::view(der)) == x509::error_t::NONE);
+		return (result.parse(::__nts_view__(der)) == x509::error_t::NONE);
 	}
 };
 
@@ -171,7 +171,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Сертификат подписывающего
 	x509::certificate_t certificate;
 	// Если сертификат набора не разобран
-	if(!::certified("leaf-rsa.crt", der, certificate)){
+	if(!::__nts_certified__("leaf-rsa.crt", der, certificate)){
 		// Выводим сообщение об отказе разбора сертификата
 		cout << "Разобрать сертификат набора не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -179,8 +179,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Подготовленный секретный ключ подписи
 	keys::signer_t signer;
-	// Выполняем подготовку ключа подписи из записи набора
-	if(signer.prepare(::text(::corpus("leaf-rsa.key"))) != keys::error_t::NONE){
+	// Готовим ключа подписи из записи набора
+	if(signer.prepare(::__nts_text__(::__nts_corpus__("leaf-rsa.key"))) != keys::error_t::NONE){
 		// Выводим сообщение об отказе подготовки ключа
 		cout << "Подготовить ключ подписи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -191,7 +191,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается запись ContentInfo
 	vector <uint8_t> record;
 	/**
-	 * Выполняем сборку подписанного сообщения
+	 * Собираем подписанного сообщения
 	 *
 	 * @details Собирается SignedData с подписанными атрибутами contentType и
 	 *          messageDigest по разделу 11 RFC 5652: подпись ставится под записью
@@ -199,16 +199,16 @@ int main(int argc, char * argv[]) noexcept {
 	 *          сертификат подписывающего
 	 *
 	 */
-	if(cms::sign({::view(der)}, certificate.issuers().element, certificate.number(), ::text(content), signer, digest::hash_t::SHA256, record) != cms::error_t::NONE){
+	if(cms::sign({::__nts_view__(der)}, certificate.issuers().element, certificate.number(), ::__nts_text__(content), signer, digest::hash_t::SHA256, record) != cms::error_t::NONE){
 		// Выводим сообщение об отказе сборки подписанного сообщения
 		cout << "Собрать подписанное сообщение не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим начало записи ContentInfo
-	::print("Запись SignedData  ", record.data(), (record.size() < 32) ? record.size() : 32);
+	::__nts_print__("Запись SignedData  ", record.data(), (record.size() < 32) ? record.size() : 32);
 	// Если вид записи не id-signedData
-	if(cms::content(::view(record)) != cms::content_t::SIGNED){
+	if(cms::content(::__nts_view__(record)) != cms::content_t::SIGNED){
 		// Выводим сообщение о чужом виде записи
 		cout << "Вид записи не id-signedData" << endl;
 		// Выходим из приложения с признаком отказа
@@ -216,8 +216,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Разбираемое подписанное сообщение
 	cms::signed_t parsed;
-	// Выполняем разбор записи
-	if(parsed.parse(::view(record)) != cms::error_t::NONE){
+	// Разбираем записи
+	if(parsed.parse(::__nts_view__(record)) != cms::error_t::NONE){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать подписанное сообщение не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -228,7 +228,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим алгоритмы подписывающего
 	cout << "Подписывающий      : хеш " << parsed.signers()[0].digest << ", подпись " << parsed.signers()[0].algorithm << endl;
 	/**
-	 * Выполняем проверку подписи записи
+	 * Проверяем подписи записи
 	 *
 	 * @details Сперва сверяется хеш содержимого из атрибута messageDigest, затем
 	 *          проверяется подпись под записью атрибутов по разделу 5.4 RFC 5652;
@@ -250,25 +250,25 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается зашифрованная запись ContentInfo
 	vector <uint8_t> enveloped;
 	/**
-	 * Выполняем сборку зашифрованного сообщения с передачей ключа по RSA
+	 * Собираем зашифрованного сообщения с передачей ключа по RSA
 	 *
 	 * @details Содержимое зашифровывается AES-256-CBC со случайным ключом, ключ
 	 *          передаётся получателю в KeyTransRecipientInfo по схеме RSA PKCS #1 v1.5
 	 *          (раздел 6.2.1 RFC 5652)
 	 *
 	 */
-	if(cms::envelop(::text(content), certificate.issuers().element, certificate.number(), certificate.key(), enveloped) != cms::error_t::NONE){
+	if(cms::envelop(::__nts_text__(content), certificate.issuers().element, certificate.number(), certificate.key(), enveloped) != cms::error_t::NONE){
 		// Выводим сообщение об отказе сборки зашифрованного сообщения
 		cout << "Собрать зашифрованное сообщение не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим начало зашифрованной записи ContentInfo
-	::print("Запись Enveloped   ", enveloped.data(), (enveloped.size() < 32) ? enveloped.size() : 32);
+	::__nts_print__("Запись Enveloped   ", enveloped.data(), (enveloped.size() < 32) ? enveloped.size() : 32);
 	// Разбираемое зашифрованное сообщение
 	cms::enveloped_t sealed;
-	// Выполняем разбор записи
-	if(sealed.parse(::view(enveloped)) != cms::error_t::NONE){
+	// Разбираем записи
+	if(sealed.parse(::__nts_view__(enveloped)) != cms::error_t::NONE){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать зашифрованное сообщение не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -278,8 +278,8 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Разбор             : шифр содержимого " << sealed.algorithm() << ", получателей " << sealed.recipients().size() << endl;
 	// Секретный ключ получателя
 	keys::key_t key;
-	// Выполняем разбор ключа получателя из записи набора
-	if(keys::decode(::corpus("leaf-rsa.key"), view_t(), key) != keys::error_t::NONE){
+	// Разбираем ключа получателя из записи набора
+	if(keys::decode(::__nts_corpus__("leaf-rsa.key"), view_t(), key) != keys::error_t::NONE){
 		// Выводим сообщение об отказе разбора ключа
 		cout << "Разобрать ключ получателя не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -287,7 +287,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Место, в которое помещается расшифрованное содержимое
 	vector <uint8_t> opened;
-	// Выполняем расшифрование содержимого ключом получателя
+	// Расшифровываем содержимого ключом получателя
 	if(cms::unenvelop(sealed, key, opened) != cms::error_t::NONE){
 		// Выводим сообщение об отказе расшифрования
 		cout << "Расшифровать сообщение не удалось" << endl;

@@ -63,16 +63,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -104,7 +104,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Мимолётная пара ключей кривой стороны сервера
 	uint8_t secretB[32] = {0}, pointB[64] = {0};
 	/**
-	 * Выполняем выработку мимолётных пар ключей кривой обеих сторон
+	 * Вырабатываем мимолётных пар ключей кривой обеих сторон
 	 *
 	 * @details Открытый ключ кривой записывается двумя координатами точки подряд,
 	 *          каждая младшим байтом вперёд; у записи протокола впереди идёт знак 0x04
@@ -116,7 +116,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем выработку мимолётной пары ключей кривой сервера
+	// Вырабатываем мимолётной пары ключей кривой сервера
 	if(!agreement::generate(curve, secretB, pointB)){
 		// Выводим сообщение об отказе выработки пары сервера
 		cout << "Выработать пару кривой сервера не удалось" << endl;
@@ -125,14 +125,14 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Общие значения кривой, выработанные обеими сторонами
 	uint8_t curveA[32] = {0}, curveB[32] = {0};
-	// Выполняем выработку общего значения кривой стороной клиента
+	// Вырабатываем общего значения кривой стороной клиента
 	if(!agreement::ecdhe(curve, view_t(secretA, sizeof(secretA)), view_t(pointB, sizeof(pointB)), curveA)){
 		// Выводим сообщение об отказе выработки общего значения
 		cout << "Выработать общее значение кривой клиента не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем выработку общего значения кривой стороной сервера
+	// Вырабатываем общего значения кривой стороной сервера
 	if(!agreement::ecdhe(curve, view_t(secretB, sizeof(secretB)), view_t(pointA, sizeof(pointA)), curveB)){
 		// Выводим сообщение об отказе выработки общего значения
 		cout << "Выработать общее значение кривой сервера не удалось" << endl;
@@ -147,7 +147,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начало общего значения кривой
-	::print("Половина кривой    ", curveA, 16);
+	::__nts_print__("Половина кривой    ", curveA, 16);
 	// Длины ключа инкапсуляции, ключа декапсуляции и шифртекста ML-KEM-768
 	const size_t opened = agreement::encapsulation(agreement::kem_t::MLKEM768);
 	// Запоминаем длину ключа декапсуляции ML-KEM-768
@@ -157,7 +157,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Пара ключей ML-KEM-768 стороны клиента
 	vector <uint8_t> kemKey(opened), kemSecret(closed);
 	/**
-	 * Выполняем выработку пары ключей ML-KEM-768 стороны клиента
+	 * Вырабатываем пары ключей ML-KEM-768 стороны клиента
 	 *
 	 * @details Ключ инкапсуляции уходит серверу долей клиента, ключ декапсуляции
 	 *          остаётся у клиента до завершения обмена
@@ -173,14 +173,14 @@ int main(int argc, char * argv[]) noexcept {
 	vector <uint8_t> kemCipher(cipher);
 	// Места общих секретов ML-KEM сервера и клиента
 	uint8_t kemServer[agreement::MLKEM_SHARED], kemClient[agreement::MLKEM_SHARED];
-	// Выполняем инкапсуляцию секрета сервером на ключе клиента
+	// Инкапсулируем секрета сервером на ключе клиента
 	if(!agreement::encapsulate(agreement::kem_t::MLKEM768, view_t(kemKey.data(), kemKey.size()), kemCipher.data(), kemServer)){
 		// Выводим сообщение об отказе инкапсуляции
 		cout << "Выработать инкапсуляцию ML-KEM не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем декапсуляцию секрета клиентом своим ключом
+	// Декапсулируем секрет клиентом своим ключом
 	if(!agreement::decapsulate(agreement::kem_t::MLKEM768, view_t(kemSecret.data(), kemSecret.size()), view_t(kemCipher.data(), kemCipher.size()), kemClient)){
 		// Выводим сообщение об отказе декапсуляции
 		cout << "Выработать декапсуляцию ML-KEM не удалось" << endl;
@@ -195,7 +195,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начало общего секрета ML-KEM
-	::print("Половина ML-KEM    ", kemServer, 16);
+	::__nts_print__("Половина ML-KEM    ", kemServer, 16);
 	// Общий секрет гибрида у обеих сторон: сложение половин, кривая впереди
 	uint8_t sharedA[64], sharedB[64];
 	// Складываем общий секрет гибрида стороны A: кривая впереди
@@ -204,7 +204,7 @@ int main(int argc, char * argv[]) noexcept {
 	::memcpy(sharedB, curveB, sizeof(curveB));
 	::memcpy(sharedB + sizeof(curveB), kemServer, sizeof(kemServer));
 	// Выводим начало общего секрета гибрида
-	::print("Гибрид общий       ", sharedA, 16);
+	::__nts_print__("Гибрид общий       ", sharedA, 16);
 	// Если общие секреты гибрида разошлись
 	if(::memcmp(sharedA, sharedB, sizeof(sharedA)) != 0){
 		// Выводим сообщение о расхождении общих секретов гибрида

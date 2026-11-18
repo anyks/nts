@@ -90,7 +90,7 @@ namespace {
  */
 bool nts::handshake::known(const type_t type) noexcept {
 	/**
-	 * Выполняем определение вида сообщения рукопожатия
+	 * Определяем вид сообщения рукопожатия
 	 */
 	switch(static_cast <uint8_t> (type)){
 		// Если это один из известных видов сообщения рукопожатия

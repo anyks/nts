@@ -59,16 +59,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -89,7 +89,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Ключ шифрования 3DES образца (три ключа DES)
 	uint8_t key[cipher::DES3_KEY];
 	/**
-	 * Выполняем перебор байтов ключа шифрования
+	 * Перебираем байтов ключа шифрования
 	 */
 	for(size_t i = 0; i < sizeof(key); i++)
 		// Заполняем очередной байт ключа шифрования
@@ -107,14 +107,14 @@ int main(int argc, char * argv[]) noexcept {
 	uint8_t block[cipher::DES_BLOCK] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
 	// Место, в которое помещается преобразованный блок
 	uint8_t result[cipher::DES_BLOCK];
-	// Выполняем зашифрование одного блока
+	// Зашифровываем одного блока
 	cipher.encrypt(block, result);
 	// Выводим зашифрованный блок
-	::print("Блок зашифрованный ", result, sizeof(result));
-	// Выполняем расшифрование того же блока
+	::__nts_print__("Блок зашифрованный ", result, sizeof(result));
+	// Расшифровываем того же блока
 	cipher.decrypt(result, result);
 	// Выводим расшифрованный блок
-	::print("Блок расшифрованный", result, sizeof(result));
+	::__nts_print__("Блок расшифрованный", result, sizeof(result));
 	/**
 	 * Описываем базовый алгоритм блочного шифрования для режимов работы
 	 *
@@ -134,7 +134,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Объект режима зацепления блоков
 	cipher::chaining_t chaining;
 	/**
-	 * Выполняем запуск режима зацепления блоков
+	 * Запускаем режима зацепления блоков
 	 *
 	 * @note Зацепление сообщения длиной не в целое число блоков не дополняет: дополнение
 	 *       до блока - забота протокола, как и у 3des-cbc у SSH
@@ -146,15 +146,15 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем зашифрование сообщения зацеплением блоков
+	// Зашифровываем сообщения зацеплением блоков
 	chaining.encrypt(view_t(reinterpret_cast <const uint8_t *> (message), length), buffer);
 	// Выводим зашифрованное зацеплением блоков сообщение
-	::print("Шифртекст CBC      ", buffer, length);
+	::__nts_print__("Шифртекст CBC      ", buffer, length);
 	// Объект режима снятия шифрования зацеплением блоков
 	cipher::chaining_t opener;
-	// Выполняем запуск режима снятия шифрования
+	// Запускаем режима снятия шифрования
 	opener.start(base, view_t(iv, sizeof(iv)));
-	// Выполняем расшифрование сообщения зацеплением блоков
+	// Расшифровываем сообщения зацеплением блоков
 	opener.decrypt(view_t(buffer, length), buffer);
 	// Выводим расшифрованное зацеплением блоков сообщение
 	cout << "Открытый текст     : " << string(reinterpret_cast <const char *> (buffer), length) << endl;

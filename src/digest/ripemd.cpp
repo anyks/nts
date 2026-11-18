@@ -131,7 +131,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -145,7 +145,7 @@ namespace {
 	 * @return      значение функции круга
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t fn(const size_t round, const uint32_t x, const uint32_t y, const uint32_t z) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_fn__(const size_t round, const uint32_t x, const uint32_t y, const uint32_t z) noexcept {
 		/**
 		 * Выбираем функцию по номеру круга
 		 */
@@ -169,7 +169,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
 		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) |
 		        (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
@@ -181,7 +181,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void __nts_store__(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем младший байт слова
 		data[0] = static_cast <uint8_t> (value);
 		// Записываем второй байт слова
@@ -203,15 +203,15 @@ namespace {
 	 *
 	 */
 	template <size_t STEP>
-	static __NTS_INLINE__ void leftStep(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
+	static __NTS_INLINE__ void __nts_left_step__(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
 		// Номер круга шага
 		constexpr size_t round = (STEP / 16);
 		// Временное слово: сумма первого рабочего слова, функции круга, слова сообщения и константы круга
-		uint32_t item = (first + fn(round, second, third, fourth) + message[LEFT_ORDER[STEP]] + LEFT_K[round]);
+		uint32_t item = (first + __nts_fn__(round, second, third, fourth) + message[LEFT_ORDER[STEP]] + LEFT_K[round]);
 		// Прибавляем к сдвинутому временному слову пятое рабочее слово
-		item = (rotl(item, LEFT_SHIFT[STEP]) + fifth);
+		item = (__nts_rotl__(item, LEFT_SHIFT[STEP]) + fifth);
 		// Передвигаем рабочие слова потока на один шаг
-		first = fifth; fifth = fourth; fourth = rotl(third, 10); third = second; second = item;
+		first = fifth; fifth = fourth; fourth = __nts_rotl__(third, 10); third = second; second = item;
 	}
 	/**
 	 * @brief Шаг правого потока с номером шага в шаблоне
@@ -227,39 +227,39 @@ namespace {
 	 *
 	 */
 	template <size_t STEP>
-	static __NTS_INLINE__ void rightStep(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
+	static __NTS_INLINE__ void __nts_right_step__(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
 		// Номер круга шага
 		constexpr size_t round = (STEP / 16);
 		// Временное слово: сумма первого рабочего слова, функции круга, слова сообщения и константы круга
-		uint32_t item = (first + fn(4 - round, second, third, fourth) + message[RIGHT_ORDER[STEP]] + RIGHT_K[round]);
+		uint32_t item = (first + __nts_fn__(4 - round, second, third, fourth) + message[RIGHT_ORDER[STEP]] + RIGHT_K[round]);
 		// Прибавляем к сдвинутому временному слову пятое рабочее слово
-		item = (rotl(item, RIGHT_SHIFT[STEP]) + fifth);
+		item = (__nts_rotl__(item, RIGHT_SHIFT[STEP]) + fifth);
 		// Передвигаем рабочие слова потока на один шаг
-		first = fifth; fifth = fourth; fourth = rotl(third, 10); third = second; second = item;
+		first = fifth; fifth = fourth; fourth = __nts_rotl__(third, 10); third = second; second = item;
 	}
 	/**
 	 * @brief Проход восьмидесяти шагов обоих потоков развёрткой по номеру шага
 	 *
-	 * @param al      первое рабочее слово левого потока
-	 * @param bl      второе рабочее слово левого потока
-	 * @param cl      третье рабочее слово левого потока
-	 * @param dl      четвёртое рабочее слово левого потока
-	 * @param el      пятое рабочее слово левого потока
-	 * @param ar      первое рабочее слово правого потока
-	 * @param br      второе рабочее слово правого потока
-	 * @param cr      третье рабочее слово правого потока
-	 * @param dr      четвёртое рабочее слово правого потока
-	 * @param er      пятое рабочее слово правого потока
+	 * @param leftA      первое рабочее слово левого потока
+	 * @param leftB      второе рабочее слово левого потока
+	 * @param leftC      третье рабочее слово левого потока
+	 * @param leftD      четвёртое рабочее слово левого потока
+	 * @param leftE      пятое рабочее слово левого потока
+	 * @param rightA      первое рабочее слово правого потока
+	 * @param rightB      второе рабочее слово правого потока
+	 * @param rightC      третье рабочее слово правого потока
+	 * @param rightD      четвёртое рабочее слово правого потока
+	 * @param rightE      пятое рабочее слово правого потока
 	 * @param message слова блока сообщения
 	 * @param steps   перечень номеров шагов
 	 *
 	 */
 	template <size_t... STEP>
-	static __NTS_INLINE__ void passSteps(uint32_t & al, uint32_t & bl, uint32_t & cl, uint32_t & dl, uint32_t & el,
-	                                      uint32_t & ar, uint32_t & br, uint32_t & cr, uint32_t & dr, uint32_t & er,
+	static __NTS_INLINE__ void passSteps(uint32_t & leftA, uint32_t & leftB, uint32_t & leftC, uint32_t & leftD, uint32_t & leftE,
+	                                      uint32_t & rightA, uint32_t & rightB, uint32_t & rightC, uint32_t & rightD, uint32_t & rightE,
 	                                      const uint32_t * message, const std::index_sequence <STEP...> &) noexcept {
 		// Шаг обоих потоков для каждого номера шага: потоки независимы и идут вперемежку
-		((leftStep <STEP> (al, bl, cl, dl, el, message), rightStep <STEP> (ar, br, cr, dr, er, message)), ...);
+		((__nts_left_step__ <STEP> (leftA, leftB, leftC, leftD, leftE, message), __nts_right_step__ <STEP> (rightA, rightB, rightC, rightD, rightE, message)), ...);
 	}
 };
 
@@ -273,29 +273,29 @@ void nts::digest::Ripemd::compress(const uint8_t * block) noexcept {
 	// Слова блока сообщения
 	uint32_t m[16];
 	/**
-	 * Выполняем чтение шестнадцати слов блока
+	 * Читаем шестнадцать слов блока
 	 */
 	for(size_t i = 0; i < 16; i++)
 		// Читаем очередное слово блока от младшего байта
-		m[i] = load(block + (i * 4));
+		m[i] = __nts_load__(block + (i * 4));
 	// Рабочие переменные левого потока
-	uint32_t al = this->_hash[0], bl = this->_hash[1], cl = this->_hash[2], dl = this->_hash[3], el = this->_hash[4];
+	uint32_t leftA = this->_hash[0], leftB = this->_hash[1], leftC = this->_hash[2], leftD = this->_hash[3], leftE = this->_hash[4];
 	// Рабочие переменные правого потока
-	uint32_t ar = this->_hash[0], br = this->_hash[1], cr = this->_hash[2], dr = this->_hash[3], er = this->_hash[4];
+	uint32_t rightA = this->_hash[0], rightB = this->_hash[1], rightC = this->_hash[2], rightD = this->_hash[3], rightE = this->_hash[4];
 	/**
-	 * Выполняем восемьдесят шагов двух потоков
+	 * Проходим восемьдесят шагов двух потоков
 	 */
-	passSteps(al, bl, cl, dl, el, ar, br, cr, dr, er, m, std::make_index_sequence <80> ());
+	passSteps(leftA, leftB, leftC, leftD, leftE, rightA, rightB, rightC, rightD, rightE, m, std::make_index_sequence <80> ());
 	// Итоги потоков сходятся перекрёстным сложением
-	const uint32_t t = (this->_hash[1] + cl + dr);
+	const uint32_t t = (this->_hash[1] + leftC + rightD);
 	// Складываем итоги потоков в значение хеша
-	this->_hash[1] = (this->_hash[2] + dl + er);
+	this->_hash[1] = (this->_hash[2] + leftD + rightE);
 	// Складываем итоги потоков в третье слово хеша
-	this->_hash[2] = (this->_hash[3] + el + ar);
+	this->_hash[2] = (this->_hash[3] + leftE + rightA);
 	// Складываем итоги потоков в четвёртое слово хеша
-	this->_hash[3] = (this->_hash[4] + al + br);
+	this->_hash[3] = (this->_hash[4] + leftA + rightB);
 	// Складываем итоги потоков в пятое слово хеша
-	this->_hash[4] = (this->_hash[0] + bl + cr);
+	this->_hash[4] = (this->_hash[0] + leftB + rightC);
 	// Складываем итоги потоков в первое слово хеша
 	this->_hash[0] = t;
 	// Затираем слова блока сообщения
@@ -313,7 +313,7 @@ void nts::digest::Ripemd::reset() noexcept {
 	// Сбрасываем количество разобранных байтов
 	this->_count = 0;
 	/**
-	 * Выполняем перенос начальных значений хеша
+	 * Переносим начальные значения хеша
 	 */
 	for(size_t i = 0; i < 5; i++)
 		// Переносим очередное начальное значение
@@ -352,7 +352,7 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 		// Количество байтов, переносимых в накопитель из куска
 		const size_t taken = ((left < needed) ? left : needed);
 		/**
-		 * Выполняем перенос байтов куска в накопитель
+		 * Переносим байты куска в накопитель
 		 */
 		for(size_t i = 0; i < taken; i++)
 			// Переносим очередной байт куска
@@ -373,7 +373,7 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 		} else return;
 	}
 	/**
-	 * Выполняем разбор целых блоков куска прямо из него
+	 * Разбираем целые блоки куска прямо из него
 	 */
 	while(left >= 64){
 		// Разбор очередного блока куска
@@ -384,7 +384,7 @@ void nts::digest::Ripemd::update(const view_t & data) noexcept {
 		left -= 64;
 	}
 	/**
-	 * Выполняем перенос хвоста куска в накопитель
+	 * Переносим хвост куска в накопитель
 	 */
 	for(size_t i = 0; i < left; i++)
 		// Переносим очередной байт хвоста
@@ -412,7 +412,7 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 	// Если места под поле длины в этом блоке не осталось
 	if(this->_size > 56){
 		/**
-		 * Выполняем дополнение блока нулями до конца
+		 * Дополняем блок нулями до конца
 		 */
 		for(size_t i = this->_size; i < 64; i++)
 			// Записываем очередной нулевой байт
@@ -423,23 +423,23 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 		this->_size = 0;
 	}
 	/**
-	 * Выполняем дополнение блока нулями до поля длины
+	 * Дополняем блок нулями до поля длины
 	 */
 	for(size_t i = this->_size; i < 56; i++)
 		// Записываем очередной нулевой байт
 		this->_block[i] = 0;
 	// Записываем младшую половину длины сообщения от младшего байта
-	store(static_cast <uint32_t> (bits), this->_block + 56);
+	__nts_store__(static_cast <uint32_t> (bits), this->_block + 56);
 	// Записываем старшую половину длины сообщения от младшего байта
-	store(static_cast <uint32_t> (bits >> 32), this->_block + 60);
+	__nts_store__(static_cast <uint32_t> (bits >> 32), this->_block + 60);
 	// Разбор последнего блока
 	this->compress(this->_block);
 	/**
-	 * Выполняем запись слов хеша от младшего байта
+	 * Записываем слова хеша от младшего байта
 	 */
 	for(size_t i = 0; i < 5; i++)
 		// Записываем очередное слово хеша
-		store(this->_hash[i], result + (i * 4));
+		__nts_store__(this->_hash[i], result + (i * 4));
 	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
 	// Затирание накопителя незавершённого блока

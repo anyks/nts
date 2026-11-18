@@ -43,7 +43,7 @@ using namespace std;
 using namespace nts;
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы

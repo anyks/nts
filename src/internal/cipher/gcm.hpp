@@ -127,9 +127,9 @@
 						::memcpy(frame + 16, &middle, sizeof(middle));
 						::memcpy(frame + 32, accumulator, 16);
 						// Позиция ключа круга, количество средних кругов, половины блока и младшее слово счётчика
-						const uint8_t * kp = nullptr;
+						const uint8_t * keyPointer = nullptr;
 						// Количество средних кругов
-						size_t n = 0;
+						size_t middleRounds = 0;
 						// Половины блока и младшее слово счётчика
 						uint64_t t0 = 0, t1 = 0, tail = 0;
 						// Сшитое ядро: гамма счётчика AES и хеш прежних восьмёрок
@@ -376,10 +376,10 @@
 						"vpxor %%xmm13, %%xmm10, %%xmm10\n\t"
 						"vpclmulqdq $0x10, 168(%[pow]), %%xmm12, %%xmm13\n\t"
 						"vpxor %%xmm13, %%xmm9, %%xmm9\n\t"
-						"leaq 144(%[keys]), %[kp]\n\t"
-						"movq 16(%[tab]), %[n]\n\t"
+						"leaq 144(%[keys]), %[keyPointer]\n\t"
+						"movq 16(%[tab]), %[middleRounds]\n\t"
 						"3:\n\t"
-						"vmovdqu 0(%[kp]), %%xmm14\n\t"
+						"vmovdqu 0(%[keyPointer]), %%xmm14\n\t"
 						"vaesenc %%xmm14, %%xmm0, %%xmm0\n\t"
 						"vaesenc %%xmm14, %%xmm1, %%xmm1\n\t"
 						"vaesenc %%xmm14, %%xmm2, %%xmm2\n\t"
@@ -388,9 +388,9 @@
 						"vaesenc %%xmm14, %%xmm5, %%xmm5\n\t"
 						"vaesenc %%xmm14, %%xmm6, %%xmm6\n\t"
 						"vaesenc %%xmm14, %%xmm7, %%xmm7\n\t"
-						"addq $16, %[kp]\n\t"
-						"decq %[n]\n\t" "jnz 3b\n\t"
-						"vmovdqu 0(%[kp]), %%xmm14\n\t"
+						"addq $16, %[keyPointer]\n\t"
+						"decq %[middleRounds]\n\t" "jnz 3b\n\t"
+						"vmovdqu 0(%[keyPointer]), %%xmm14\n\t"
 						"vaesenclast %%xmm14, %%xmm0, %%xmm0\n\t"
 						"vaesenclast %%xmm14, %%xmm1, %%xmm1\n\t"
 						"vaesenclast %%xmm14, %%xmm2, %%xmm2\n\t"
@@ -444,7 +444,7 @@
 						"vpshufb %%xmm11, %%xmm15, %%xmm15\n\t"
 						"vmovdqu %%xmm15, 32(%[tab])\n\t"
 						"vzeroupper\n\t"
-						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [kp] "=&r" (kp), [n] "=&r" (n), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
+						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [keyPointer] "=&r" (keyPointer), [middleRounds] "=&r" (middleRounds), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
 						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTNTS)
 						: "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15", "cc", "memory");
 						// Забираем продвинутый счётчик и накопитель
@@ -484,9 +484,9 @@
 						::memcpy(frame + 16, &middle, sizeof(middle));
 						::memcpy(frame + 32, accumulator, 16);
 						// Позиция ключа круга, количество средних кругов, половины блока и младшее слово счётчика
-						const uint8_t * kp = nullptr;
+						const uint8_t * keyPointer = nullptr;
 						// Количество средних кругов
-						size_t n = 0;
+						size_t middleRounds = 0;
 						// Половины блока и младшее слово счётчика
 						uint64_t t0 = 0, t1 = 0, tail = 0;
 						// Сшитое ядро: гамма счётчика AES и хеш прежних восьмёрок
@@ -782,10 +782,10 @@
 						"eor v16.16b, v16.16b, v13.16b\n\t"
 						"eor v17.16b, v17.16b, v14.16b\n\t"
 						"eor v18.16b, v18.16b, v15.16b\n\t"
-						"add %[kp], %[keys], #128\n\t"
-						"ldr %[n], [%[tab], #16]\n\t"
+						"add %[keyPointer], %[keys], #128\n\t"
+						"ldr %[middleRounds], [%[tab], #16]\n\t"
 						"3:\n\t"
-						"ldr q8, [%[kp]]\n\t"
+						"ldr q8, [%[keyPointer]]\n\t"
 						"aese v0.16b, v8.16b\n\t"
 						"aesmc v0.16b, v0.16b\n\t"
 						"aese v1.16b, v8.16b\n\t"
@@ -802,9 +802,9 @@
 						"aesmc v6.16b, v6.16b\n\t"
 						"aese v7.16b, v8.16b\n\t"
 						"aesmc v7.16b, v7.16b\n\t"
-						"add %[kp], %[kp], #16\n\t"
-						"subs %[n], %[n], #1\n\t" "b.ne 3b\n\t"
-						"ldr q8, [%[kp]]\n\t"
+						"add %[keyPointer], %[keyPointer], #16\n\t"
+						"subs %[middleRounds], %[middleRounds], #1\n\t" "b.ne 3b\n\t"
+						"ldr q8, [%[keyPointer]]\n\t"
 						"aese v0.16b, v8.16b\n\t"
 						"aese v1.16b, v8.16b\n\t"
 						"aese v2.16b, v8.16b\n\t"
@@ -813,7 +813,7 @@
 						"aese v5.16b, v8.16b\n\t"
 						"aese v6.16b, v8.16b\n\t"
 						"aese v7.16b, v8.16b\n\t"
-						"ldr q8, [%[kp], #16]\n\t"
+						"ldr q8, [%[keyPointer], #16]\n\t"
 						"ldr q9, [%[src]]\n\t"
 						"eor3 v0.16b, v0.16b, v8.16b, v9.16b\n\t"
 						"str q0, [%[dst]]\n\t"
@@ -859,7 +859,7 @@
 						"rbit v28.16b, v28.16b\n\t"
 						"str q28, [%[tab], #32]\n\t"
 						"str q23, [%[tab]]\n\t"
-						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [kp] "=&r" (kp), [n] "=&r" (n), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
+						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [keyPointer] "=&r" (keyPointer), [middleRounds] "=&r" (middleRounds), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
 						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTNTS)
 						: "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31", "cc", "memory");
 						// Забираем продвинутый счётчик и накопитель
@@ -899,9 +899,9 @@
 						::memcpy(frame + 16, &middle, sizeof(middle));
 						::memcpy(frame + 32, accumulator, 16);
 						// Позиция ключа круга, количество средних кругов, половины блока и младшее слово счётчика
-						const uint8_t * kp = nullptr;
+						const uint8_t * keyPointer = nullptr;
 						// Количество средних кругов
-						size_t n = 0;
+						size_t middleRounds = 0;
 						// Половины блока и младшее слово счётчика
 						uint64_t t0 = 0, t1 = 0, tail = 0;
 						// Сшитое ядро: гамма счётчика AES и хеш прежних восьмёрок
@@ -1208,10 +1208,10 @@
 						"eor v16.16b, v16.16b, v13.16b\n\t"
 						"eor v17.16b, v17.16b, v14.16b\n\t"
 						"eor v18.16b, v18.16b, v15.16b\n\t"
-						"add %[kp], %[keys], #128\n\t"
-						"ldr %[n], [%[tab], #16]\n\t"
+						"add %[keyPointer], %[keys], #128\n\t"
+						"ldr %[middleRounds], [%[tab], #16]\n\t"
 						"3:\n\t"
-						"ldr q8, [%[kp]]\n\t"
+						"ldr q8, [%[keyPointer]]\n\t"
 						"aese v0.16b, v8.16b\n\t"
 						"aesmc v0.16b, v0.16b\n\t"
 						"aese v1.16b, v8.16b\n\t"
@@ -1228,9 +1228,9 @@
 						"aesmc v6.16b, v6.16b\n\t"
 						"aese v7.16b, v8.16b\n\t"
 						"aesmc v7.16b, v7.16b\n\t"
-						"add %[kp], %[kp], #16\n\t"
-						"subs %[n], %[n], #1\n\t" "b.ne 3b\n\t"
-						"ldr q8, [%[kp]]\n\t"
+						"add %[keyPointer], %[keyPointer], #16\n\t"
+						"subs %[middleRounds], %[middleRounds], #1\n\t" "b.ne 3b\n\t"
+						"ldr q8, [%[keyPointer]]\n\t"
 						"aese v0.16b, v8.16b\n\t"
 						"aese v1.16b, v8.16b\n\t"
 						"aese v2.16b, v8.16b\n\t"
@@ -1239,7 +1239,7 @@
 						"aese v5.16b, v8.16b\n\t"
 						"aese v6.16b, v8.16b\n\t"
 						"aese v7.16b, v8.16b\n\t"
-						"ldr q8, [%[kp], #16]\n\t"
+						"ldr q8, [%[keyPointer], #16]\n\t"
 						"ldr q9, [%[src]]\n\t"
 						"eor v0.16b, v0.16b, v8.16b\n\t"
 						"eor v0.16b, v0.16b, v9.16b\n\t"
@@ -1295,7 +1295,7 @@
 						"rbit v28.16b, v28.16b\n\t"
 						"str q28, [%[tab], #32]\n\t"
 						"str q23, [%[tab]]\n\t"
-						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [kp] "=&r" (kp), [n] "=&r" (n), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
+						: [src] "+r" (source), [dst] "+r" (result), [hash] "+r" (hash), [cnt] "+r" (count), [keyPointer] "=&r" (keyPointer), [middleRounds] "=&r" (middleRounds), [t0] "=&r" (t0), [t1] "=&r" (t1), [tail] "=&r" (tail)
 						: [keys] "r" (keys), [pow] "r" (powers), [tab] "r" (frame), [cst] "r" (CONSTNTS)
 						: "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31", "cc", "memory");
 						// Забираем продвинутый счётчик и накопитель

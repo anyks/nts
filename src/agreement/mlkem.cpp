@@ -1368,7 +1368,7 @@ namespace {
 	 * @return таблицы, заполненные при первом обращении
 	 *
 	 */
-	static const tables_t & tables() noexcept {
+	static const tables_t & __nts_tables__() noexcept {
 		// Таблицы степеней, заполняемые при первом обращении
 		static const tables_t result;
 		// Выводим таблицы
@@ -1391,7 +1391,7 @@ namespace {
 			// Коэффициенты многочлена
 			int16_t * values = poly.values;
 			// Таблицы степеней
-			const tables_t & table = tables();
+			const tables_t & table = __nts_tables__();
 			/**
 			 * Перебираем длины бабочек от 128 до 8
 			 */
@@ -1456,7 +1456,7 @@ namespace {
 			// Коэффициенты многочлена: между слоями держатся со знаком, растут не более чем на q за слой
 			int16_t * values = poly.values;
 			// Таблица степеней ζ в форме Монтгомери
-			const int16_t * table = tables().montgomery;
+			const int16_t * table = __nts_tables__().montgomery;
 			/**
 			 * Перебираем длины бабочек
 			 */
@@ -1504,7 +1504,7 @@ namespace {
 			// Коэффициенты многочлена
 			int16_t * values = poly.values;
 			// Таблицы степеней
-			const tables_t & table = tables();
+			const tables_t & table = __nts_tables__();
 			/**
 			 * Перебираем шестнадцатки коэффициентов: слои длины 2 и 4
 			 */
@@ -1577,7 +1577,7 @@ namespace {
 			// Коэффициенты многочлена
 			int16_t * values = poly.values;
 			// Таблица степеней ζ в форме Монтгомери
-			const tables_t & table = tables();
+			const tables_t & table = __nts_tables__();
 			/**
 			 * Перебираем длины бабочек
 			 */
@@ -1652,7 +1652,7 @@ namespace {
 	 */
 	static void __nts_prepare__(const poly_t & poly, twisted_t & result) noexcept {
 		// Таблицы степеней
-		const tables_t & table = tables();
+		const tables_t & table = __nts_tables__();
 		/**
 		 * Векторный путь: умножение Монтгомери восьми коэффициентов за шаг
 		 */
@@ -2550,7 +2550,7 @@ namespace {
 	 * @return       место k² многочленов матрицы A по строкам
 	 *
 	 */
-	static const poly_t * expanded(const sample_t & sample, const uint8_t * rho) noexcept {
+	static const poly_t * __nts_expanded__(const sample_t & sample, const uint8_t * rho) noexcept {
 		// Слот кеша матрицы потока
 		static thread_local matrix_t cache;
 		// Если матрица того же зерна развёрнута до нужной размерности
@@ -2699,7 +2699,7 @@ namespace {
 		// Вектор u
 		poly_t u[K];
 		// Развёрнутая матрица A: строка i произведения берёт элементы A[j][i]
-		const poly_t * matrix = expanded(sample, rho);
+		const poly_t * matrix = __nts_expanded__(sample, rho);
 		/**
 		 * Вычисляем u = A^T r + e1
 		 */
@@ -3001,7 +3001,7 @@ bool nts::agreement::generate(const kem_t kem, const view_t & seed, uint8_t * ke
 	// Длина ключа инкапсуляции
 	const size_t length = encapsulation(kem);
 	// Развёрнутая матрица A: строка i произведения берёт элементы A[i][j]
-	const poly_t * matrix = ::expanded(sample, rho);
+	const poly_t * matrix = ::__nts_expanded__(sample, rho);
 	/**
 	 * Вычисляем t = A s + e
 	 */

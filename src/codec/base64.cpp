@@ -81,17 +81,17 @@ namespace {
 	 * @return        таблица двухсот пятидесяти шести номеров: посторонний знак - 255
 	 *
 	 */
-	constexpr Table reverse(const char (&alphabet)[65]) noexcept {
+	constexpr Table __nts_reverse__(const char (&alphabet)[65]) noexcept {
 		// Заполняемая таблица
 		Table table = {};
 		/**
-		 * Выполняем перебор знаков таблицы
+		 * Перебираем знаки таблицы
 		 */
 		for(uint32_t i = 0; i < 256; i++)
 			// Помечаем всякий знак посторонним
 			table.items[i] = 255;
 		/**
-		 * Выполняем перебор знаков основания
+		 * Перебираем знаки основания
 		 */
 		for(uint32_t i = 0; i < 64; i++)
 			// Запоминаем номер знака основания
@@ -104,12 +104,12 @@ namespace {
 	 * @brief Таблица обратных номеров знаков основания, вычисленная при компиляции
 	 *
 	 */
-	static constexpr Table NUMBERS = reverse(ALPHABET);
+	static constexpr Table NUMBERS = __nts_reverse__(ALPHABET);
 	/**
 	 * @brief Таблица обратных номеров знаков основания URL, вычисленная при компиляции
 	 *
 	 */
-	static constexpr Table POINTERS = reverse(WANTED);
+	static constexpr Table POINTERS = __nts_reverse__(WANTED);
 
 	/**
 	 * @brief Функция проверки того, что знак является пробельным
@@ -118,7 +118,7 @@ namespace {
 	 * @return       признак того, что знак является пробельным
 	 *
 	 */
-	static bool space(const char letter) noexcept {
+	static bool __nts_space__(const char letter) noexcept {
 		// Выводим признак принадлежности знака к пробельным
 		return ((letter == ' ') || (letter == '\t') || (letter == '\r') || (letter == '\n') || (letter == '\v') || (letter == '\f'));
 	}
@@ -132,7 +132,7 @@ namespace {
  * @return количество байтов шага: двадцать четыре либо двенадцать
  *
  */
-static size_t stepping() noexcept {
+static size_t __nts_stepping__() noexcept {
 	/**
 	 * x86-64 спрашивает команды AVX2 у машины на исполнении
 	 */
@@ -160,7 +160,7 @@ static size_t stepping() noexcept {
  * @param alphabet алфавит записи
  *
  */
-static void dispatchBlocks(const size_t step, const uint8_t * data, uint8_t * result, const size_t blocks, const codec::alphabet_t alphabet) noexcept {
+static void __nts_dispatch_blocks__(const size_t step, const uint8_t * data, uint8_t * result, const size_t blocks, const codec::alphabet_t alphabet) noexcept {
 	/**
 	 * Шаг двадцать четыре байта достаётся лишь векторному ядру AVX2
 	 */
@@ -174,7 +174,7 @@ static void dispatchBlocks(const size_t step, const uint8_t * data, uint8_t * re
 		}
 	#endif
 	/**
-	 * Выполняем перебор полных блоков: блок кодирует выбранное ядро
+	 * Перебираем полные блоки: блок кодирует выбранное ядро
 	 */
 	for(size_t i = 0; i < blocks; i++)
 		// Кодируем блок выбранным ядром
@@ -200,14 +200,14 @@ bool nts::codec::encode(const view_t & data, string & result, const bool padding
 		// Выводим отказ кодирования
 		return false;
 	/**
-	 * Выполняем перебор попыток кодирования
+	 * Перебираем попытки кодирования
 	 */
 	try {
 		// Выводим итог служебного кодирования
 		return rawEncode(data, result, padding, alphabet);
 	}
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Перехватываем нехватку памяти
 	 */
 	catch(const std::bad_alloc &){
 		// Затираем недописанную запись
@@ -233,7 +233,7 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 	// Очистка прежней записи
 	result.clear();
 	// Шаг полных блоков: двадцать четыре байта при векторном ядре AVX2, иначе двенадцать
-	const size_t step = stepping();
+	const size_t step = __nts_stepping__();
 	// Количество полных блоков шага
 	const size_t blocks = (data.size / step);
 	// Количество байтов хвоста
@@ -245,19 +245,19 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 	// Запись заводится точной длиной: знаки пишутся прямо в неё
 	result.resize(total);
 	// Кодируем очередь полных блоков выбранным ядром
-	dispatchBlocks(step, data.data, reinterpret_cast <uint8_t *> (result.data()), blocks, alphabet);
+	__nts_dispatch_blocks__(step, data.data, reinterpret_cast <uint8_t *> (result.data()), blocks, alphabet);
 	// Счётчик знаков записи: знаки полных блоков уже записаны
 	size_t written = (blocks * ((step * 4) / 3));
 	// Хвост входа до двадцати трёх байтов переносимым ходом
 	const uint8_t * tail = data.data + (step * blocks);
 		/**
-		 * Выполняем перебор полных троек хвоста
+		 * Перебираем полные тройки хвоста
 		 */
 		for(size_t i = 0; i < (rest / 3); i++){
 			// Слово из тройки байтов старшим вперёд
 			const uint32_t word = ((static_cast <uint32_t> (tail[3 * i]) << 16) | (static_cast <uint32_t> (tail[(3 * i) + 1]) << 8) | tail[(3 * i) + 2]);
 			/**
-			 * Выполняем перебор знаков тройки
+			 * Перебираем знаки тройки
 			 */
 			for(size_t j = 0; j < 4; j++)
 				// Дописываем очередной знак из шести разрядов тройки
@@ -270,7 +270,7 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 			// Количество знаков куска: два на байт без одного
 			const size_t signs = (odd + 1);
 			/**
-			 * Выполняем перебор знаков куска
+			 * Перебираем знаки куска
 			 */
 			for(size_t j = 0; j < signs; j++)
 				// Дописываем очередной знак из шести разрядов куска
@@ -278,7 +278,7 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 			// Заполнение заказано
 			if(padding)
 				/**
-				 * Выполняем добор заполнения знаками «=» до кратности четырём
+				 * Добираем заполнение знаками «=» до кратности четырём
 				 */
 				for(size_t j = signs; j < 4; j++)
 					// Дописываем знак заполнения
@@ -324,14 +324,14 @@ bool nts::codec::decode(const view_t & text, vector <uint8_t> & result, const al
 		// Выводим отказ разбора
 		return false;
 	/**
-	 * Выполняем перебор попыток разбора
+	 * Перебираем попытки разбора
 	 */
 	try {
 		// Выводим итог служебного разбора
 		return rawDecode(text, result, alphabet, spaces, padding);
 	}
 	/**
-	 * Выполняем перехват нехватки памяти
+	 * Перехватываем нехватку памяти
 	 */
 	catch(const std::bad_alloc &){
 		// Затираем недоразобранные байты
@@ -368,7 +368,7 @@ bool nts::codec::rawDecode(const view_t & text, vector <uint8_t> & result, const
 		// Количество знаков заполнения
 		size_t filled = 0;
 		/**
-		 * Выполняем перебор знаков записи
+		 * Перебираем знаки записи
 		 */
 		for(size_t i = 0; i < text.size; i++){
 			// Очередной знак записи
@@ -381,7 +381,7 @@ bool nts::codec::rawDecode(const view_t & text, vector <uint8_t> & result, const
 				continue;
 			}
 			// Пробельный знак при заказанном пропуске
-			if(spaces && space(letter))
+			if(spaces && __nts_space__(letter))
 				// Продолжаем перебор
 				continue;
 			// Номер знака основания из таблицы

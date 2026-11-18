@@ -83,7 +83,7 @@ namespace {
 	 * @return       результат составления
 	 *
 	 */
-	static bool chromelike(vector <uint8_t> & result) noexcept {
+	static bool __nts_chromelike__(vector <uint8_t> & result) noexcept {
 		// Составляемое приветствие
 		hello::client_t greeting;
 		// Издание приветствия
@@ -132,7 +132,7 @@ namespace {
 		status = {0x01, 0x00, 0x00, 0x00, 0x00};
 		// Безопасное пересогласование
 		renegotiation = {0x00};
-		// Заполнение
+		// Заполняем дополнение нулями
 		padding.assign(180, 0x00);
 		// Заглушка второго GREASE
 		stub = {0x00};
@@ -178,7 +178,7 @@ namespace {
 	 * @return        результат печати
 	 *
 	 */
-	static bool report(const char * title, const fingerprint::profile_t & profile) noexcept {
+	static bool __nts_report__(const char * title, const fingerprint::profile_t & profile) noexcept {
 		// Отпечатки профиля
 		fingerprint::imprint_t imprint;
 		// Если отпечатки вычислить не удалось
@@ -210,7 +210,7 @@ namespace {
 	 * @return       признак того, что байты передавались
 	 *
 	 */
-	static bool pump(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак передачи
 		bool moved = false;
 		// Байты клиента
@@ -245,7 +245,7 @@ namespace {
 }
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы: путь к снимку приветствия (запись рукопожатия либо снимок `fingerprint::dump`)
@@ -260,7 +260,7 @@ int main(const int argc, const char * argv[]){
 		// Читаем снимок из файла
 		capture = slurp(argv[1]);
 	// Если снимка нет: складываем приветствие, похожее на приветствие Chrome
-	if(capture.empty() && !chromelike(capture)){
+	if(capture.empty() && !__nts_chromelike__(capture)){
 		// Сообщаем об отказе
 		cerr << "Приветствие составить не удалось" << endl;
 		// Выходим с отказом
@@ -282,7 +282,7 @@ int main(const int argc, const char * argv[]){
 		// Выводим печать
 		cout << text << endl;
 	// Печатаем отпечатки снимка
-	if(!report("Снимок:", source))
+	if(!__nts_report__("Снимок:", source))
 		// Выходим с отказом
 		return 1;
 	// Переносимый снимок профиля
@@ -333,11 +333,11 @@ int main(const int argc, const char * argv[]){
 	// Снимаем сложенное приветствие до отправки
 	if(fingerprint::parse(client.output(), made) == fingerprint::error_t::NONE)
 		// Печатаем отпечатки сложенного приветствия
-		report("Приветствие, сложенное по профилю:", made);
+		__nts_report__("Приветствие, сложенное по профилю:", made);
 	/**
-	 * Выполняем рукопожатие
+	 * Проводим рукопожатие
 	 */
-	for(size_t i = 0; (i < 16) && pump(client, server); i++)
+	for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 		// Продолжаем передачу
 		continue;
 	// Если связь не установилась
@@ -352,7 +352,7 @@ int main(const int argc, const char * argv[]){
 	// Снимаем профиль на сервере
 	if(server.profile(seen) == context::error_t::NONE)
 		// Печатаем отпечатки, увиденные сервером
-		report("Приветствие, принятое сервером:", seen);
+		__nts_report__("Приветствие, принятое сервером:", seen);
 	// Печатаем итог связи
 	cout << "Связь установлена: набор 0x" << hex << static_cast <int> (client.suite()) << dec << ", протокол " << client.protocol() << endl;
 	// Выходим успешно

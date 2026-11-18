@@ -300,15 +300,15 @@ namespace {
 	 * @return вычисленная таблица преобразования
 	 *
 	 */
-	static constexpr tables_t compute() noexcept {
+	static constexpr tables_t __nts_compute__() noexcept {
 		// Вычисляемая таблица преобразования
 		tables_t result = {};
 		/**
-		 * Выполняем перебор номеров байтов внутри слова
+		 * Перебираем номера байтов внутри слова
 		 */
 		for(size_t i = 0; i < 8; i++){
 			/**
-			 * Выполняем перебор возможных значений байта
+			 * Перебираем возможные значения байта
 			 */
 			for(size_t j = 0; j < 256; j++){
 				// Подстановка значения байта
@@ -316,7 +316,7 @@ namespace {
 				// Собираемое слагаемое преобразования
 				uint64_t item = 0;
 				/**
-				 * Выполняем перебор разрядов подставленного значения
+				 * Перебираем разряды подставленного значения
 				 */
 				for(size_t k = 0; k < 8; k++){
 					// Если разряд подставленного значения установлен
@@ -336,7 +336,7 @@ namespace {
 	 * @brief Таблица совмещённого преобразования LPS
 	 *
 	 */
-	static constexpr tables_t TABLES = compute();
+	static constexpr tables_t TABLES = __nts_compute__();
 
 	/**
 	 * Скалярный путь сжатия: все собиратели, кроме x86-64
@@ -350,23 +350,23 @@ namespace {
 		 * @param result вектор, в который помещается итог преобразования
 		 *
 		 */
-		static __NTS_INLINE__ void transform(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+		static __NTS_INLINE__ void __nts_transform__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 			// Сумма слагаемых по исключающему ИЛИ
 			uint64_t value[8];
 			/**
-			 * Выполняем сложение векторов по исключающему ИЛИ
+			 * Складываем векторы по исключающему ИЛИ
 			 */
 			for(size_t i = 0; i < 8; i++)
 			// Складываем очередные слова векторов
 			value[i] = (first[i] ^ second[i]);
 			/**
-			 * Выполняем перебор слов итога преобразования
+			 * Перебираем слова итога преобразования
 			 */
 			for(size_t i = 0; i < 8; i++){
 				// Собираемое слово итога преобразования
 				uint64_t item = 0;
 				/**
-				 * Выполняем перебор слов преобразуемого вектора
+				 * Перебираем слова преобразуемого вектора
 				 */
 				for(size_t j = 0; j < 8; j++)
 				// Дополняем слово слагаемым, отвечающим байту преобразуемого слова
@@ -388,19 +388,19 @@ namespace {
 		 * @param result  вектор, в который помещается итог шифрования
 		 *
 		 */
-		static void encrypt(const uint64_t * key, const uint64_t * message, uint64_t * result) noexcept {
+		static void __nts_encrypt__(const uint64_t * key, const uint64_t * message, uint64_t * result) noexcept {
 			// Вырабатываемый ключ очередной итерации
 			uint64_t item[8];
 			// Состояние шифруемого блока
 			uint64_t state[8];
 			/**
-			 * Выполняем перенос ключа шифрования
+			 * Переносим ключ шифрования
 			 */
 			for(size_t i = 0; i < 8; i++)
 			// Переносим очередное слово ключа шифрования
 			item[i] = key[i];
 			// Первое применение преобразования к блоку сообщения
-			transform(message, item, state);
+			__nts_transform__(message, item, state);
 			/**
 			 * Оставшиеся одиннадцать применений преобразования развёрнуты вручную лишь у
 			 * clang: он тело в две таблицы сам не разворачивает, а развёрнутое оно идёт на
@@ -410,13 +410,13 @@ namespace {
 			 */
 			#if !defined(__clang__)
 				/**
-				 * Выполняем оставшиеся одиннадцать применений преобразования
+				 * Проходим оставшиеся одиннадцать применений преобразования
 				 */
 				for(size_t i = 0; i < 11; i++){
 					// Вырабатываем ключ очередной итерации
-					transform(item, CONSTNTS[i], item);
+					__nts_transform__(item, CONSTNTS[i], item);
 					// Применяем преобразование к состоянию шифруемого блока
-					transform(state, item, state);
+					__nts_transform__(state, item, state);
 				}
 			/**
 			 * Иначе оставшиеся одиннадцать применений преобразования разворачиваются вручную:
@@ -426,7 +426,7 @@ namespace {
 				/**
 				 * Круг: выработка ключа очередной итерации и применение преобразования к состоянию
 				 */
-				#define __NTS_STREEBOG_ROUND__(N) transform(item, CONSTNTS[N], item); transform(state, item, state);
+				#define __NTS_STREEBOG_ROUND__(N) __nts_transform__(item, CONSTNTS[N], item); __nts_transform__(state, item, state);
 				// Разворачиваем применения преобразования вручную, круг за кругом
 				__NTS_STREEBOG_ROUND__(0) __NTS_STREEBOG_ROUND__(1) __NTS_STREEBOG_ROUND__(2) __NTS_STREEBOG_ROUND__(3)
 				__NTS_STREEBOG_ROUND__(4) __NTS_STREEBOG_ROUND__(5) __NTS_STREEBOG_ROUND__(6) __NTS_STREEBOG_ROUND__(7)
@@ -434,9 +434,9 @@ namespace {
 				#undef __NTS_STREEBOG_ROUND__
 			#endif
 			// Вырабатываем ключ последней итерации
-			transform(item, CONSTNTS[11], item);
+			__nts_transform__(item, CONSTNTS[11], item);
 			/**
-			 * Выполняем сложение состояния с ключом последней итерации
+			 * Складываем состояние с ключом последней итерации
 			 */
 			for(size_t i = 0; i < 8; i++)
 			// Складываем очередные слова состояния и ключа
@@ -453,17 +453,17 @@ namespace {
 		 * @param message сжимаемый блок сообщения
 		 *
 		 */
-		static void compress(uint64_t * hash, const uint64_t * counter, const uint64_t * message) noexcept {
+		static void __nts_compress__(uint64_t * hash, const uint64_t * counter, const uint64_t * message) noexcept {
 			// Ключ шифрования блока сообщения
 			uint64_t key[8];
 			// Итог шифрования блока сообщения
 			uint64_t value[8];
 			// Вырабатываем ключ шифрования блока сообщения
-			transform(hash, counter, key);
+			__nts_transform__(hash, counter, key);
 			// Шифрование блока сообщения
-			encrypt(key, message, value);
+			__nts_encrypt__(key, message, value);
 			/**
-			 * Выполняем сложение итога шифрования с хешем и блоком сообщения
+			 * Складываем итог шифрования с хешем и блоком сообщения
 			 */
 			for(size_t i = 0; i < 8; i++)
 			// Складываем очередные слова итога, хеша и блока сообщения
@@ -488,7 +488,7 @@ namespace {
 		 *
 		 */
 		template <int ROW>
-		static __NTS_INLINE__ __m128i gather(const __m128i x0, const __m128i x1, const __m128i x2, const __m128i x3) noexcept {
+		static __NTS_INLINE__ __m128i __nts_gather__(const __m128i x0, const __m128i x1, const __m128i x2, const __m128i x3) noexcept {
 			// Пара байтов преобразуемого слова
 			unsigned pair = 0;
 			// Собираемые слова итога
@@ -557,7 +557,7 @@ namespace {
 		 * @param k3 шестое и седьмое слова складываемого вектора
 		 *
 		 */
-		static __NTS_INLINE__ void lpsx(__m128i & s0, __m128i & s1, __m128i & s2, __m128i & s3, const __m128i k0, const __m128i k1, const __m128i k2, const __m128i k3) noexcept {
+		static __NTS_INLINE__ void __nts_lpsx__(__m128i & s0, __m128i & s1, __m128i & s2, __m128i & s3, const __m128i k0, const __m128i k1, const __m128i k2, const __m128i k3) noexcept {
 			// Сложение состояния с вектором по исключающему ИЛИ
 			s0 = _mm_xor_si128(s0, k0);
 			// Складываем вторую пару слов состояния с вектором по исключающему ИЛИ
@@ -567,13 +567,13 @@ namespace {
 			// Складываем четвёртую пару слов состояния с вектором по исключающему ИЛИ
 			s3 = _mm_xor_si128(s3, k3);
 			// Собираем слова итога преобразования по парам
-			const __m128i t0 = gather <0> (s0, s1, s2, s3);
+			const __m128i t0 = __nts_gather__ <0> (s0, s1, s2, s3);
 			// Собираем вторую пару слов итога преобразования
-			const __m128i t1 = gather <1> (s0, s1, s2, s3);
+			const __m128i t1 = __nts_gather__ <1> (s0, s1, s2, s3);
 			// Собираем третью пару слов итога преобразования
-			const __m128i t2 = gather <2> (s0, s1, s2, s3);
+			const __m128i t2 = __nts_gather__ <2> (s0, s1, s2, s3);
 			// Собираем четвёртую пару слов итога преобразования
-			const __m128i t3 = gather <3> (s0, s1, s2, s3);
+			const __m128i t3 = __nts_gather__ <3> (s0, s1, s2, s3);
 			// Записываем итог состоянием
 			s0 = t0;
 			// Записываем вторую пару слов итогом состояния
@@ -593,7 +593,7 @@ namespace {
 		 * @param x3    шестое и седьмое слова
 		 *
 		 */
-		static __NTS_INLINE__ void fetch(const uint64_t * value, __m128i & x0, __m128i & x1, __m128i & x2, __m128i & x3) noexcept {
+		static __NTS_INLINE__ void __nts_fetch__(const uint64_t * value, __m128i & x0, __m128i & x1, __m128i & x2, __m128i & x3) noexcept {
 			// Читаем слова вектора парами
 			x0 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (value));
 			// Читаем вторую пару слов вектора
@@ -614,7 +614,7 @@ namespace {
 		 * @param message сжимаемый блок сообщения
 		 *
 		 */
-		static void compress(uint64_t * hash, const uint64_t * counter, const uint64_t * message) noexcept {
+		static void __nts_compress__(uint64_t * hash, const uint64_t * counter, const uint64_t * message) noexcept {
 			// Ключ очередной итерации
 			__m128i k0, k1, k2, k3;
 			// Состояние шифруемого блока
@@ -622,29 +622,29 @@ namespace {
 			// Складываемый вектор: количество разрядов, затем величины итераций
 			__m128i c0, c1, c2, c3;
 			// Читаем хеш и количество разрядов
-			fetch(hash, k0, k1, k2, k3);
-			fetch(counter, c0, c1, c2, c3);
+			__nts_fetch__(hash, k0, k1, k2, k3);
+			__nts_fetch__(counter, c0, c1, c2, c3);
 			// Вырабатываем ключ первой итерации
-			lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
+			__nts_lpsx__(k0, k1, k2, k3, c0, c1, c2, c3);
 			// Читаем блок сообщения
-			fetch(message, s0, s1, s2, s3);
+			__nts_fetch__(message, s0, s1, s2, s3);
 			// Первое применение преобразования к блоку сообщения
-			lpsx(s0, s1, s2, s3, k0, k1, k2, k3);
+			__nts_lpsx__(s0, s1, s2, s3, k0, k1, k2, k3);
 			/**
-			 * Выполняем оставшиеся одиннадцать применений преобразования
+			 * Проходим оставшиеся одиннадцать применений преобразования
 			 */
 			for(size_t i = 0; i < 11; i++){
 				// Читаем величину очередной итерации
-				fetch(CONSTNTS[i], c0, c1, c2, c3);
+				__nts_fetch__(CONSTNTS[i], c0, c1, c2, c3);
 				// Вырабатываем ключ очередной итерации
-				lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
+				__nts_lpsx__(k0, k1, k2, k3, c0, c1, c2, c3);
 				// Применяем преобразование к состоянию шифруемого блока
-				lpsx(s0, s1, s2, s3, k0, k1, k2, k3);
+				__nts_lpsx__(s0, s1, s2, s3, k0, k1, k2, k3);
 			}
 			// Читаем величину последней итерации
-			fetch(CONSTNTS[11], c0, c1, c2, c3);
+			__nts_fetch__(CONSTNTS[11], c0, c1, c2, c3);
 			// Вырабатываем ключ последней итерации
-			lpsx(k0, k1, k2, k3, c0, c1, c2, c3);
+			__nts_lpsx__(k0, k1, k2, k3, c0, c1, c2, c3);
 			// Складываем состояние с ключом последней итерации
 			s0 = _mm_xor_si128(s0, k0);
 			// Складываем вторую пару слов состояния с ключом последней итерации
@@ -654,8 +654,8 @@ namespace {
 			// Складываем четвёртую пару слов состояния с ключом последней итерации
 			s3 = _mm_xor_si128(s3, k3);
 			// Читаем хеш и блок сообщения
-			fetch(hash, k0, k1, k2, k3);
-			fetch(message, c0, c1, c2, c3);
+			__nts_fetch__(hash, k0, k1, k2, k3);
+			__nts_fetch__(message, c0, c1, c2, c3);
 			// Складываем итог шифрования с хешем и блоком сообщения
 			s0 = _mm_xor_si128(_mm_xor_si128(s0, k0), c0);
 			// Складываем вторую пару слов итога с хешем и блоком сообщения
@@ -679,11 +679,11 @@ namespace {
 	 * @param addend прибавляемый вектор
 	 *
 	 */
-	static __NTS_INLINE__ void increase(uint64_t * value, const uint64_t * addend) noexcept {
+	static __NTS_INLINE__ void __nts_increase__(uint64_t * value, const uint64_t * addend) noexcept {
 		// Перенос из младшего слова в старшее
 		uint64_t carry = 0;
 		/**
-		 * Выполняем перебор слов складываемых векторов от младшего к старшему
+		 * Перебираем слова складываемых векторов от младшего к старшему
 		 */
 		for(size_t i = 0; i < 8; i++){
 			// Сложение очередных слов вместе с переносом
@@ -705,7 +705,7 @@ namespace {
 	 * @param result вектор, в который помещаются разобранные слова
 	 *
 	 */
-	static __NTS_INLINE__ void load(const uint8_t * data, uint64_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_load__(const uint8_t * data, uint64_t * result) noexcept {
 		/**
 		 * Порядок байтов машины совпадает с порядком байтов в словах блока лишь
 		 * на машинах с младшим байтом вперёд: блок там читается одной копией
@@ -722,13 +722,13 @@ namespace {
 		 */
 		#else
 			/**
-			 * Выполняем перебор слов блока сообщения
+			 * Перебираем слова блока сообщения
 			 */
 			for(size_t i = 0; i < 8; i++){
 				// Собираемое слово блока сообщения
 				uint64_t item = 0;
 				/**
-				 * Выполняем перебор байтов очередного слова
+				 * Перебираем байты очередного слова
 				 */
 				for(size_t j = 0; j < 8; j++)
 					// Дополняем слово очередным байтом блока сообщения
@@ -769,7 +769,7 @@ void nts::digest::Streebog::reset(const type_t type) noexcept {
 	 */
 	const uint64_t initial = ((type == type_t::SHORT) ? 0x0101010101010101ULL : 0x0000000000000000ULL);
 	/**
-	 * Выполняем перебор слов состояния хеширования
+	 * Перебираем слова состояния хеширования
 	 */
 	for(size_t i = 0; i < 8; i++){
 		// Устанавливаем начальное значение хеша
@@ -807,7 +807,7 @@ void nts::digest::Streebog::update(const view_t & data) noexcept {
 	// Количество разобранных байтов куска сообщения
 	size_t offset = 0;
 	/**
-	 * Выполняем разбор куска сообщения по блокам
+	 * Разбираем кусок сообщения по блокам
 	 */
 	while(offset < data.size){
 		/**
@@ -816,13 +816,13 @@ void nts::digest::Streebog::update(const view_t & data) noexcept {
 		 */
 		if((this->_size == 0) && ((data.size - offset) >= sizeof(this->_block))){
 			// Разбор блока сообщения прямо из подаваемого куска
-			load(data.data + offset, message);
+			__nts_load__(data.data + offset, message);
 			// Сжатие блока сообщения
-			compress(this->_hash, this->_count, message);
+			__nts_compress__(this->_hash, this->_count, message);
 			// Увеличиваем количество разобранных разрядов сообщения
-			increase(this->_count, width);
+			__nts_increase__(this->_count, width);
 			// Дополняем контрольную сумму разобранных блоков сообщения
-			increase(this->_sum, message);
+			__nts_increase__(this->_sum, message);
 			// Сдвигаем место разбора куска сообщения
 			offset += sizeof(this->_block);
 			// Переходим к разбору следующего блока сообщения
@@ -843,13 +843,13 @@ void nts::digest::Streebog::update(const view_t & data) noexcept {
 			// Прекращаем разбор куска сообщения
 			break;
 		// Разбор заполненного блока сообщения на слова
-		load(this->_block, message);
+		__nts_load__(this->_block, message);
 		// Сжатие блока сообщения
-		compress(this->_hash, this->_count, message);
+		__nts_compress__(this->_hash, this->_count, message);
 		// Увеличиваем количество разобранных разрядов сообщения
-		increase(this->_count, width);
+		__nts_increase__(this->_count, width);
 		// Дополняем контрольную сумму разобранных блоков сообщения
-		increase(this->_sum, message);
+		__nts_increase__(this->_sum, message);
 		// Обнуляем количество байтов, накопленных в блоке
 		this->_size = 0;
 	}
@@ -887,17 +887,17 @@ bool nts::digest::Streebog::finish(uint8_t * result, const size_t size, const or
 	// Устанавливаем единичный разряд дополнения
 	this->_block[this->_size] = 0x01;
 	// Разбор дополненного блока сообщения на слова
-	load(this->_block, message);
+	__nts_load__(this->_block, message);
 	// Сжатие дополненного блока сообщения
-	compress(this->_hash, this->_count, message);
+	__nts_compress__(this->_hash, this->_count, message);
 	// Увеличиваем количество разобранных разрядов сообщения
-	increase(this->_count, width);
+	__nts_increase__(this->_count, width);
 	// Дополняем контрольную сумму разобранных блоков сообщения
-	increase(this->_sum, message);
+	__nts_increase__(this->_sum, message);
 	// Сжатие количества разобранных разрядов сообщения
-	compress(this->_hash, zero, this->_count);
+	__nts_compress__(this->_hash, zero, this->_count);
 	// Сжатие контрольной суммы разобранных блоков сообщения
-	compress(this->_hash, zero, this->_sum);
+	__nts_compress__(this->_hash, zero, this->_sum);
 	/**
 	 * Вектор записывается от старшего байта к младшему, а хеш длиной 256 разрядов
 	 * берётся старшей половиной вектора - оттого обоим длинам отвечает один обход.

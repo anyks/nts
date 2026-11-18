@@ -62,16 +62,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -98,7 +98,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Объект электронной подписи Ed25519 для порождения пары
 	sign::ed25519_t sign;
 	/**
-	 * Выполняем порождение пары ключей Ed25519
+	 * Порождаем пары ключей Ed25519
 	 *
 	 * @details Зерно ключа подписи берётся из источника случайности, открытый ключ
 	 *          проверки вырабатывается из него сразу же
@@ -110,7 +110,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем получение открытого ключа проверки подписи
+	// Получаем открытого ключа проверки подписи
 	key.key.assign(32, 0);
 	// Если открытый ключ проверки получить не удалось
 	if(!sign.key(key.key.data(), key.key.size())){
@@ -120,11 +120,11 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим открытый ключ проверки подписи
-	::print("Открытый ключ      ", key.key.data(), key.key.size());
+	::__nts_print__("Открытый ключ      ", key.key.data(), key.key.size());
 	// Место, в которое помещается запись ключа openssh-key-v1
 	vector <uint8_t> record;
 	/**
-	 * Выполняем запись ключа в формате openssh-key-v1 без пароля
+	 * Записываем ключа в формате openssh-key-v1 без пароля
 	 *
 	 * @details При пустом пароле ciphername и kdfname равны «none», и блок секретных
 	 *          ключей идёт открытым текстом
@@ -137,12 +137,12 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начало записи ключа openssh-key-v1
-	::print("Запись ключа       ", record.data(), 16);
+	::__nts_print__("Запись ключа       ", record.data(), 16);
 	// Разобранный ключ и его комментарий
 	keys::key_t parsed;
 	// Комментарий записи ключа
 	string comment;
-	// Выполняем разбор записи ключа openssh-key-v1
+	// Разбираем записи ключа openssh-key-v1
 	if(!keys::ssh::decode(view_t(record.data(), record.size()), view_t(), parsed, comment)){
 		// Выводим сообщение об отказе разбора ключа
 		cout << "Разобрать ключ openssh-key-v1 не удалось" << endl;
@@ -165,7 +165,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается строка known_hosts
 	string line;
 	/**
-	 * Выполняем сборку открытой записи known_hosts
+	 * Собираем открытой записи known_hosts
 	 *
 	 * @details Открытая запись есть «хозяин тип ключ комментарий»: хозяин идёт
 	 *          открытым текстом, как у всякой записи до OpenSSH 4.0
@@ -181,7 +181,7 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "known_hosts открытая  : " << line << endl;
 	// Сведения о разобранной записи known_hosts
 	keys::ssh::known_host_t host;
-	// Выполняем разбор открытой записи known_hosts
+	// Разбираем открытой записи known_hosts
 	if(!keys::ssh::knownHosts(line, host)){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать запись known_hosts не удалось" << endl;
@@ -196,7 +196,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	/**
-	 * Выполняем сборку хешированной записи known_hosts
+	 * Собираем хешированной записи known_hosts
 	 *
 	 * @details Хешированная запись есть «|1|base64(соль)|base64(HMAC-SHA1(соль, хозяин))
 	 *          тип ключ»: хозяин открытым текстом в ней не идёт, и перечень узлов
@@ -213,7 +213,7 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "known_hosts хешем     : " << line << endl;
 	// Сведения о разобранной хешированной записи
 	keys::ssh::known_host_t hashed;
-	// Выполняем разбор хешированной записи known_hosts
+	// Разбираем хешированной записи known_hosts
 	if(!keys::ssh::knownHosts(line, hashed)){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать хешированную запись не удалось" << endl;

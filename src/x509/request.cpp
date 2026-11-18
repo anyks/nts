@@ -208,7 +208,7 @@ namespace {
 	 * @return      отказ модуля
 	 *
 	 */
-	static nts::x509::error_t translate(const asn1::error_t error) noexcept {
+	static nts::x509::error_t __nts_translate__(const asn1::error_t error) noexcept {
 		// Выводим отказ модуля: нехватка памяти отдаётся своим отказом, всё прочее - отказом устройства
 		return ((error == asn1::error_t::MEMORY) ? nts::x509::error_t::MEMORY : nts::x509::error_t::STRUCTURE);
 	}
@@ -220,11 +220,11 @@ namespace {
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
-	static nts::x509::error_t oidOf(const asn1::element_t & element, string & result) noexcept {
+	static nts::x509::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
 		// Итог разбора опознавателя
 		const asn1::error_t outcome = asn1::oid(element, result);
 		// Выводим переведённый отказ разбора, если он есть
-		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(outcome));
+		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : __nts_translate__(outcome));
 	}
 	/**
 	 * @brief Функция разбора малого целого числа
@@ -234,11 +234,11 @@ namespace {
 	 * @return        отказ разбора числа
 	 *
 	 */
-	static nts::x509::error_t smallInteger(const asn1::element_t & element, int64_t & result) noexcept {
+	static nts::x509::error_t __nts_small_integer__(const asn1::element_t & element, int64_t & result) noexcept {
 		// Итог разбора целого числа
 		const asn1::error_t outcome = asn1::integer(element, result);
 		// Выводим переведённый отказ разбора, если он есть
-		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(outcome));
+		return ((outcome == asn1::error_t::NONE) ? nts::x509::error_t::NONE : __nts_translate__(outcome));
 	}
 	/**
 	 * @brief Функция разбора записи опознавателя алгоритма
@@ -250,7 +250,7 @@ namespace {
 	 * @return       отказ разбора записи
 	 *
 	 */
-	static nts::x509::error_t algorithmIdentifier(asn1::reader_t & reader, string & oid, asn1::element_t & params, bool & present) noexcept {
+	static nts::x509::error_t __nts_algorithm_identifier__(asn1::reader_t & reader, string & oid, asn1::element_t & params, bool & present) noexcept {
 		// Сбрасываем признак наличия настроек
 		present = false;
 		// Набор алгоритма
@@ -258,15 +258,15 @@ namespace {
 		// Если набор алгоритма разобрать не удалось
 		if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed)
 			// Выводим переведённый отказ разбора
-			return translate(reader.err());
+			return __nts_translate__(reader.err());
 		// Разборщик содержимого набора алгоритма
 		asn1::reader_t items = reader.enter(element);
 		// Если опознаватель алгоритма разобрать не удалось
 		if(!items.next(asn1::tag_t::OBJECT, element))
 			// Выводим переведённый отказ разбора
-			return translate(items.err());
+			return __nts_translate__(items.err());
 		// Итог разбора опознавателя алгоритма
-		const nts::x509::error_t outcome = oidOf(element, oid);
+		const nts::x509::error_t outcome = __nts_oid_of__(element, oid);
 		// Если опознаватель алгоритма разобрать не удалось
 		if(outcome != nts::x509::error_t::NONE)
 			// Выводим отказ разбора
@@ -276,7 +276,7 @@ namespace {
 			// Если настройки алгоритма разобрать не удалось
 			if(!items.next(params))
 				// Выводим переведённый отказ разбора
-				return translate(items.err());
+				return __nts_translate__(items.err());
 			// Устанавливаем признак наличия настроек
 			present = true;
 			// Если после настроек остался хвост
@@ -295,7 +295,7 @@ namespace {
 	 * @return       отказ записи опознавателя
 	 *
 	 */
-	static nts::x509::error_t object(asn1::writer_t & writer, const char * value) noexcept {
+	static nts::x509::error_t __nts_object__(asn1::writer_t & writer, const char * value) noexcept {
 		// Опознаватель строкой
 		string oid;
 		/**
@@ -315,7 +315,7 @@ namespace {
 		// Записываем опознаватель объекта
 		writer.oid(oid);
 		// Выводим итог записи
-		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
+		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : __nts_translate__(writer.err()));
 	}
 	/**
 	 * @brief Функция записи набора алгоритма ключа
@@ -325,19 +325,19 @@ namespace {
 	 * @return       отказ записи набора алгоритма
 	 *
 	 */
-	static nts::x509::error_t keyAlgorithm(asn1::writer_t & writer, const nts::x509::key_t & key) noexcept {
+	static nts::x509::error_t __nts_key_algorithm__(asn1::writer_t & writer, const nts::x509::key_t & key) noexcept {
 		// Открываем набор алгоритма
 		writer.open(asn1::tag_t::SEQUENCE);
 		// Если ключ RSA
 		if(key.algorithm.compare(OID_RSA) == 0){
 			// Записываем опознаватель алгоритма
-			object(writer, OID_RSA);
+			__nts_object__(writer, OID_RSA);
 			// Записываем пустые настройки: раздел 2.3.1 RFC 3279
 			writer.nothing();
 		// Если ключ EC
 		} else if(key.algorithm.compare(OID_EC) == 0){
 			// Записываем опознаватель алгоритма
-			object(writer, OID_EC);
+			__nts_object__(writer, OID_EC);
 			// Записываем именованную кривую из настроек ключа
 			if((key.parameters.data != nullptr) && (key.parameters.size != 0)){
 				// Разборщик настроек ключа
@@ -351,7 +351,7 @@ namespace {
 				// Опознаватель кривой
 				string oid;
 				// Итог разбора опознавателя кривой
-				const nts::x509::error_t outcome = oidOf(element, oid);
+				const nts::x509::error_t outcome = __nts_oid_of__(element, oid);
 				// Если опознаватель кривой разобрать не удалось
 				if(outcome != nts::x509::error_t::NONE)
 					// Выводим отказ разбора
@@ -363,11 +363,11 @@ namespace {
 		// Если ключ Ed25519
 		} else if(key.algorithm.compare(OID_ED25519) == 0){
 			// Записываем опознаватель алгоритма: настроек у него нет
-			object(writer, OID_ED25519);
+			__nts_object__(writer, OID_ED25519);
 		// Если ключ SM2
 		} else if(key.algorithm.compare(OID_SM2) == 0){
 			// Записываем опознаватель алгоритма: настроек у него нет
-			object(writer, OID_SM2);
+			__nts_object__(writer, OID_SM2);
 		// Если ключ ML-DSA
 		} else if((key.algorithm.compare(OID_MLDSA44) == 0) || (key.algorithm.compare(OID_MLDSA65) == 0) || (key.algorithm.compare(OID_MLDSA87) == 0)){
 			// Записываем опознаватель алгоритма ключа: настроек у него нет
@@ -391,7 +391,7 @@ namespace {
 				// Опознаватель кривой
 				string oid;
 				// Итог разбора опознавателя кривой
-				const nts::x509::error_t outcome = oidOf(element, oid);
+				const nts::x509::error_t outcome = __nts_oid_of__(element, oid);
 				// Если опознаватель кривой разобрать не удалось
 				if(outcome != nts::x509::error_t::NONE)
 					// Выводим отказ разбора
@@ -407,7 +407,7 @@ namespace {
 					// Опознаватель хеша
 					string digest;
 					// Итог разбора опознавателя хеша
-					const nts::x509::error_t extracted = oidOf(element, digest);
+					const nts::x509::error_t extracted = __nts_oid_of__(element, digest);
 					// Если опознаватель хеша разобрать не удалось
 					if(extracted != nts::x509::error_t::NONE)
 						// Выводим отказ разбора
@@ -424,7 +424,7 @@ namespace {
 		// Закрываем набор алгоритма
 		writer.close();
 		// Выводим итог записи
-		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
+		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : __nts_translate__(writer.err()));
 	}
 	/**
 	 * @brief Функция записи тела открытого ключа
@@ -434,7 +434,7 @@ namespace {
 	 * @return       отказ записи тела ключа
 	 *
 	 */
-	static nts::x509::error_t keyBody(const nts::x509::key_t & key, asn1::writer_t & writer) noexcept {
+	static nts::x509::error_t __nts_key_body__(const nts::x509::key_t & key, asn1::writer_t & writer) noexcept {
 		// Если ключ RSA
 		if(key.algorithm.compare(OID_RSA) == 0){
 			// Если запись ключа не передана
@@ -470,7 +470,7 @@ namespace {
 		// Если алгоритм ключа неизвестен
 		} else return nts::x509::error_t::KEY;
 		// Выводим итог записи
-		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
+		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : __nts_translate__(writer.err()));
 	}
 	/**
 	 * @brief Функция разбора отличительного имени
@@ -483,7 +483,7 @@ namespace {
 	 *       по тем же правилам X.501, и негодная запись отвергается так же строго
 	 *
 	 */
-	static nts::x509::error_t distinguished(const asn1::element_t & element, nts::x509::name_t & result) noexcept {
+	static nts::x509::error_t __nts_distinguished__(const asn1::element_t & element, nts::x509::name_t & result) noexcept {
 		// Если запись имени имеет простой вид метки
 		if(!element.constructed)
 			// Выводим причину отказа
@@ -497,7 +497,7 @@ namespace {
 			// Создаём разборщик содержимого записи имени
 			asn1::reader_t reader(element.content);
 			/**
-			 * Выполняем обход составляющих имени
+			 * Обходим составляющие имени
 			 */
 			while(!reader.empty()){
 				// Объект разобранной составляющей имени
@@ -522,7 +522,7 @@ namespace {
 				// Набор признаков составляющей имени
 				vector <nts::x509::attribute_t> part;
 				/**
-				 * Выполняем обход признаков составляющей имени
+				 * Обходим признаки составляющей имени
 				 */
 				while(!items.empty()){
 					// Объект разобранного признака
@@ -613,7 +613,7 @@ namespace {
 	 * @return       отказ записи имени
 	 *
 	 */
-	static nts::x509::error_t nameBody(asn1::writer_t & writer, const nts::x509::name_t & name) noexcept {
+	static nts::x509::error_t __nts_name_body__(asn1::writer_t & writer, const nts::x509::name_t & name) noexcept {
 		// Если имя пусто
 		if(name.parts.empty())
 			// Выводим отказ имени
@@ -621,7 +621,7 @@ namespace {
 		// Открываем набор имени
 		writer.open(asn1::tag_t::SEQUENCE);
 		/**
-		 * Выполняем перебор составляющих имени
+		 * Перебираем составляющие имени
 		 */
 		for(size_t i = 0; i < name.parts.size(); i++){
 			// Если составляющая пуста
@@ -631,7 +631,7 @@ namespace {
 			// Открываем составляющую имени
 			writer.open(asn1::tag_t::SET);
 			/**
-			 * Выполняем перебор признаков составляющей
+			 * Перебираем признаки составляющей
 			 */
 			for(size_t j = 0; j < name.parts[i].size(); j++){
 				// Открываем признак
@@ -649,7 +649,7 @@ namespace {
 		// Закрываем набор имени
 		writer.close();
 		// Выводим итог записи
-		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
+		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : __nts_translate__(writer.err()));
 	}
 	/**
 	 * @brief Функция записи набора расширений
@@ -659,11 +659,11 @@ namespace {
 	 * @return           отказ записи набора расширений
 	 *
 	 */
-	static nts::x509::error_t extensionsBody(asn1::writer_t & writer, const vector <nts::x509::extension_t> & extensions) noexcept {
+	static nts::x509::error_t __nts_extensions_body__(asn1::writer_t & writer, const vector <nts::x509::extension_t> & extensions) noexcept {
 		// Открываем набор расширений
 		writer.open(asn1::tag_t::SEQUENCE);
 		/**
-		 * Выполняем перебор расширений
+		 * Перебираем расширения
 		 */
 		for(size_t i = 0; i < extensions.size(); i++){
 			// Открываем расширение
@@ -682,7 +682,7 @@ namespace {
 		// Закрываем набор расширений
 		writer.close();
 		// Выводим итог записи
-		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : translate(writer.err()));
+		return ((writer.err() == asn1::error_t::NONE) ? nts::x509::error_t::NONE : __nts_translate__(writer.err()));
 	}
 	/**
 	 * @brief Функция выработки подписи содержимого ключом
@@ -694,13 +694,13 @@ namespace {
 	 * @return          отказ выработки подписи
 	 *
 	 */
-	static nts::x509::error_t makeSignature(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
+	static nts::x509::error_t __nts_make_signature__(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
 		try {
 			/**
-			 * Выполняем определение вида ключа подписи
+			 * Определяем вид ключа подписи
 			 */
 			switch(signer.kind()){
 				// Ключ RSA
@@ -799,11 +799,11 @@ namespace {
 				// Ключ SM2
 				case keys::kind_t::SM2: {
 					// Модуль подписи SM2
-					const sign::sm2_t & sm2 = signer.sm2();
+					const sign::sm2_t & sm2ctx = signer.sm2();
 					// Опознаватель подписи сертификата по RFC 8998
 					static const char * ID = "1234567812345678";
 					// Если опознаватель подписи установить не удалось
-					if(!sm2.reidentify(view_t(reinterpret_cast <const uint8_t *> (ID), 16)))
+					if(!sm2ctx.reidentify(view_t(reinterpret_cast <const uint8_t *> (ID), 16)))
 						// Выводим отказ подписи
 						return nts::x509::error_t::SIGNATURE;
 					// Место, в которое помещается подпись в сыром виде
@@ -821,7 +821,7 @@ namespace {
 							// Выводим отказ подписи
 							return nts::x509::error_t::SIGNATURE;
 						// Выработка подписи
-						made = sm2.make(content, view_t(random, sizeof(random)), raw);
+						made = sm2ctx.make(content, view_t(random, sizeof(random)), raw);
 					}
 					// Затирание случайного числа
 					nts::sys::wipe(random, sizeof(random));
@@ -864,9 +864,9 @@ namespace {
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 */
-	static const char * signatureAlgorithm(const keys::signer_t & signer, const digest::hash_t hash) noexcept {
+	static const char * __nts_signature_algorithm__(const keys::signer_t & signer, const digest::hash_t hash) noexcept {
 		/**
-		 * Выполняем определение вида ключа подписи
+		 * Определяем вид ключа подписи
 		 */
 		switch(signer.kind()){
 			// Ключ RSA
@@ -974,7 +974,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 		// Признак наличия настроек алгоритма подписи
 		bool present = false;
 		// Извлечение опознавателя алгоритма подписи
-		this->_error = algorithmIdentifier(top, this->_algorithm, params, present);
+		this->_error = __nts_algorithm_identifier__(top, this->_algorithm, params, present);
 		// Если извлечение опознавателя алгоритма подписи не удалось
 		if(this->_error != error_t::NONE)
 			// Выводим причину отказа
@@ -1004,7 +1004,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 		// Издание запроса
 		int64_t version = -1;
 		// Извлечение издания запроса
-		if(smallInteger(item, version) != error_t::NONE)
+		if(__nts_small_integer__(item, version) != error_t::NONE)
 			// Запоминаем причину отказа
 			return (this->_error = error_t::STRUCTURE);
 		// Если издание запроса не первое: раздел 4 RFC 2986
@@ -1016,7 +1016,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
 		// Извлечение имени владельца запрашиваемого сертификата
-		this->_error = distinguished(item, this->_subject);
+		this->_error = __nts_distinguished__(item, this->_subject);
 		// Если извлечение имени владельца не удалось
 		if(this->_error != error_t::NONE)
 			// Выводим причину отказа
@@ -1037,7 +1037,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			// Объект разобранного поля сведений об открытом ключе
 			asn1::element_t field;
 			// Извлечение опознавателя алгоритма ключа
-			this->_error = algorithmIdentifier(info, this->_key.algorithm, params, present);
+			this->_error = __nts_algorithm_identifier__(info, this->_key.algorithm, params, present);
 			// Если извлечение опознавателя алгоритма ключа не удалось
 			if(this->_error != error_t::NONE)
 				// Выводим причину отказа
@@ -1071,7 +1071,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 		// Создаём разборщик содержимого атрибутов
 		asn1::reader_t attrs(item.content);
 		/**
-		 * Выполняем перебор атрибутов запроса
+		 * Перебираем атрибуты запроса
 		 */
 		while(!attrs.empty()){
 			// Объект разобранного атрибута
@@ -1095,7 +1095,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			// Опознаватель атрибута
 			string oid;
 			// Итог извлечения опознавателя атрибута
-			const error_t named = oidOf(field, oid);
+			const error_t named = __nts_oid_of__(field, oid);
 			// Если извлечение опознавателя атрибута не удалось
 			if(named != error_t::NONE)
 				// Запоминаем причину отказа
@@ -1125,7 +1125,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 				// Создаём разборщик содержимого Extensions
 				asn1::reader_t items(value.content);
 				/**
-				 * Выполняем перебор расширений
+				 * Перебираем расширения
 				 */
 				while(!items.empty()){
 					// Объект разобранного расширения
@@ -1149,7 +1149,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 						// Запоминаем причину отказа
 						return (this->_error = error_t::ENCODING);
 					// Итог извлечения опознавателя расширения
-					const error_t status = oidOf(extField, extension.oid);
+					const error_t status = __nts_oid_of__(extField, extension.oid);
 					// Если извлечение опознавателя расширения не удалось
 					if(status != error_t::NONE)
 						// Запоминаем причину отказа
@@ -1342,7 +1342,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 		// Выводим отказ ключа
 		return error_t::KEY;
 	// Получаем опознаватель алгоритма подписи
-	const char * algorithm = signatureAlgorithm(signer, hash);
+	const char * algorithm = __nts_signature_algorithm__(signer, hash);
 	// Если алгоритм подписи не определён
 	if(algorithm == nullptr)
 		// Выводим отказ подписи
@@ -1354,7 +1354,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Записываем издание запроса: v1
 	body.integer(0);
 	// Итог записи имени владельца
-	error_t outcome = nameBody(body, subject);
+	error_t outcome = __nts_name_body__(body, subject);
 	// Если имя записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
@@ -1362,13 +1362,13 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Открываем набор сведений об открытом ключе
 	body.open(asn1::tag_t::SEQUENCE);
 	// Итог записи набора алгоритма ключа
-	outcome = keyAlgorithm(body, key);
+	outcome = __nts_key_algorithm__(body, key);
 	// Если набор алгоритма записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
 		return outcome;
 	// Итог записи тела открытого ключа
-	outcome = keyBody(key, body);
+	outcome = __nts_key_body__(key, body);
 	// Если тело ключа записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
@@ -1380,11 +1380,11 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Открываем атрибут extensionRequest
 	body.open(asn1::tag_t::SEQUENCE);
 	// Записываем опознаватель атрибута
-	object(body, OID_EXTENSION_REQUEST);
+	__nts_object__(body, OID_EXTENSION_REQUEST);
 	// Открываем набор значений атрибута
 	body.open(asn1::tag_t::SET);
 	// Итог записи набора расширений
-	outcome = extensionsBody(body, extensions);
+	outcome = __nts_extensions_body__(body, extensions);
 	// Если набор расширений записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
@@ -1400,11 +1400,11 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Если подписываемую часть записать не удалось
 	if(body.err() != asn1::error_t::NONE)
 		// Выводим переведённый отказ записи
-		return translate(body.err());
+		return __nts_translate__(body.err());
 	// Подпись запроса
 	vector <uint8_t> signature;
 	// Итог выработки подписи
-	outcome = makeSignature(signer, hash, body.data(), signature);
+	outcome = __nts_make_signature__(signer, hash, body.data(), signature);
 	// Если подпись выработать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ подписи
@@ -1414,7 +1414,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Открываем набор алгоритма подписи
 	tail.open(asn1::tag_t::SEQUENCE);
 	// Записываем опознаватель алгоритма подписи
-	object(tail, algorithm);
+	__nts_object__(tail, algorithm);
 	// Если алгоритм подписи несёт настройки NULL (RSA)
 	if(signer.kind() == keys::kind_t::RSA)
 		// Записываем пустые настройки
@@ -1426,7 +1426,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Если хвост записи запроса записать не удалось
 	if(tail.err() != asn1::error_t::NONE)
 		// Выводим переведённый отказ записи
-		return translate(tail.err());
+		return __nts_translate__(tail.err());
 	// Получаем просмотр подписываемой части
 	const view_t signedPart = body.data();
 	// Получаем просмотр хвоста записи
@@ -1458,7 +1458,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Если запись запроса записать не удалось
 	if(writer.err() != asn1::error_t::NONE)
 		// Выводим переведённый отказ записи
-		return translate(writer.err());
+		return __nts_translate__(writer.err());
 	// Получаем просмотр собранной записи
 	const view_t data = writer.data();
 	/**

@@ -60,16 +60,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -92,7 +92,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Закрытый ключ подписи — пятьдесят семь байтов зерна
 	uint8_t secret[sign::ed448_t::KEY_SIZE];
 	/**
-	 * Выполняем порождение ключевой пары
+	 * Порождаем ключевой пары
 	 *
 	 * @details Зерно берётся из источника случайности целиком по разделу 5.2.5
 	 *          RFC 8032: пятьдесят семь случайных байтов без всякого приведения,
@@ -107,10 +107,10 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим зерно ключа подписи
-	::print("Зерно ключа        ", secret, sizeof(secret));
+	::__nts_print__("Зерно ключа        ", secret, sizeof(secret));
 	// Открытый ключ проверки подписи — пятьдесят семь байтов сжатой точки
 	uint8_t key[sign::ed448_t::KEY_SIZE];
-	// Выполняем получение открытого ключа проверки подписи
+	// Получаем открытого ключа проверки подписи
 	if(!sign.key(key, sizeof(key))){
 		// Выводим сообщение об отказе получения ключа
 		cout << "Получить ключ проверки не удалось" << endl;
@@ -118,13 +118,13 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим открытый ключ проверки подписи
-	::print("Открытый ключ      ", key, sizeof(key));
+	::__nts_print__("Открытый ключ      ", key, sizeof(key));
 	// Подписываемое сообщение образца
 	const char * message = "Сообщение, которое требуется подписать";
 	// Место, в которое помещается подпись сообщения — сто четырнадцать байтов
 	uint8_t signature[sign::ed448_t::SIGNATURE_SIZE];
 	/**
-	 * Выполняем подписание сообщения
+	 * Подписываем сообщения
 	 *
 	 * @details Подпись детерминирована: случайного числа она не требует, а повтор
 	 *          выработки на одном ключе и сообщении выдаёт ту же подпись. Подписывается
@@ -139,7 +139,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим подпись сообщения
-	::print("Подпись            ", signature, sizeof(signature));
+	::__nts_print__("Подпись            ", signature, sizeof(signature));
 	// Если подпись сообщения не сошлась
 	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(signature, sizeof(signature)))){
 		// Выводим сообщение об отказе проверки подписи

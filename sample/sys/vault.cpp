@@ -59,11 +59,11 @@ namespace {
 	 * @param size  длина области
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Печатаем подпись
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Печатаем байт
@@ -77,7 +77,7 @@ namespace {
 	 * @param shelter сведения об укрытии
 	 *
 	 */
-	void report(const sys::shelter_t & shelter) noexcept {
+	void __nts_report__(const sys::shelter_t & shelter) noexcept {
 		// Печатаем, что состоялось на деле
 		cout << "Укрытие: подкачка запрещена - " << (shelter.wired ? "да" : "нет")
 		     // Продолжаем сведения об укрытии: снимки памяти
@@ -88,7 +88,7 @@ namespace {
 };
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы
@@ -119,9 +119,9 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем ключ
-	::print("Ключ в укрытой памяти", key.data(), key.size());
+	::__nts_print__("Ключ в укрытой памяти", key.data(), key.size());
 	// Печатаем, что состоялось на деле: понижение не отказ, но и не молчание
-	::report(vault.shelter());
+	::__nts_report__(vault.shelter());
 	// Адрес участка: понадобится показать затирание
 	const uint8_t * address = key.data();
 	// Переносим владение: прежний владелец пуст, участок тот же

@@ -55,13 +55,13 @@ static double best(F && f, size_t n, int reps = 7){
 	// Начинаем с заведомо большого времени
 	double result = 1e30;
 	/**
-	 * Выполняем заданное число прогонов
+	 * Проходим заданное число прогонов
 	 */
 	for(int r = 0; r < reps; r++){
 		// Запоминаем момент начала прогона
 		auto t0 = chrono::steady_clock::now();
 		/**
-		 * Выполняем заданное число повторов
+		 * Проходим заданное число повторов
 		 */
 		for(size_t i = 0; i < n; i++) f();
 		// Запоминаем момент конца прогона
@@ -73,14 +73,17 @@ static double best(F && f, size_t n, int reps = 7){
 	return result;
 }
 // Печатаем время одного действия в наносекундах
-static void show(const char * name, double ns){ printf("%-48s %10.1f нс\n", name, ns); }
+static void show(const char * name, double ns){
+	// Печатаем имя замера и время в наносекундах
+	printf("%-48s %10.1f нс\n", name, ns);
+}
 // Точка входа щупа
 int main(){
 	// Набор параметров ML-KEM-768
 	const agreement::kem_t kem = agreement::kem_t::MLKEM768;
 	// Места ключей, шифртекста и общих секретов
 	uint8_t key[1184], secret[2400], cipher[1088], shared1[32], shared2[32];
-	// Выполняем полный цикл ML-KEM и сличаем общие секреты
+	// Проходим полный цикл ML-KEM и сличаем общие секреты
 	if(!agreement::generate(kem, key, secret) || !agreement::encapsulate(kem, view_t(key, sizeof(key)), cipher, shared1) || !agreement::decapsulate(kem, view_t(secret, sizeof(secret)), view_t(cipher, sizeof(cipher)), shared2) || ::memcmp(shared1, shared2, 32) != 0){ printf("ML-KEM не сошёлся\n"); return 1; }
 	// Число повторов замера
 	const size_t N1 = 2000;
@@ -88,31 +91,31 @@ int main(){
 	show("ML-KEM-768 generate (наш)", best([&]{ agreement::generate(kem, key, secret); }, N1));
 	show("ML-KEM-768 encapsulate (наш)", best([&]{ agreement::encapsulate(kem, view_t(key, sizeof(key)), cipher, shared1); }, N1));
 	show("ML-KEM-768 decapsulate (наш)", best([&]{ agreement::decapsulate(kem, view_t(secret, sizeof(secret)), view_t(cipher, sizeof(cipher)), shared2); }, N1));
-	// Составляющие
-	const sample_t sample = describe(kem);
+	// Получаем составляющие образца
+	const sample_t sample = __nts_describe__(kem);
 	// Вынимаем зерно матрицы и шум из ключей
 	uint8_t rho[32], sigma[32]; ::memcpy(rho, key + 1152, 32); ::memcpy(sigma, secret, 32);
 	// Многочлены матрицы, шума и произведения
 	poly_t a, b, c;
 	// Замеряем выборку многочлена матрицы
-	show("sampling (матрица, один многочлен, SHAKE128)", best([&]{ sampling(rho, 0, 1, a); }, N1 * 5));
-	show("binomial eta=2 (SHAKE256, 128 байт)", best([&]{ binomial(sigma, 3, 2, b); }, N1 * 5));
-	show("forward NTT", best([&]{ forward(a); }, N1 * 20));
-	show("inverse NTT", best([&]{ inverse(a); }, N1 * 20));
+	show("sampling (матрица, один многочлен, SHAKE128)", best([&]{ __nts_sampling__(rho, 0, 1, a); }, N1 * 5));
+	show("binomial eta=2 (SHAKE256, 128 байт)", best([&]{ __nts_binomial__(sigma, 3, 2, b); }, N1 * 5));
+	show("forward NTT", best([&]{ __nts_forward__(a); }, N1 * 20));
+	show("inverse NTT", best([&]{ __nts_inverse__(a); }, N1 * 20));
 	// Готовим сомножитель и накопитель произведения
 	twisted_t prepared; wide_t wide; ::memset(wide.values, 0, sizeof(wide.values));
 	// Замеряем подготовку сомножителя
-	show("prepare (сомножитель к умножению)", best([&]{ prepare(b, prepared); }, N1 * 20));
-	show("multiply (умножение в NTT с накоплением)", best([&]{ multiply(a, prepared, wide); ::memset(wide.values, 0, sizeof(wide.values)); }, N1 * 20));
-	show("settle (приведение накопителя)", best([&]{ settle(wide, c); }, N1 * 20));
+	show("prepare (сомножитель к умножению)", best([&]{ __nts_prepare__(b, prepared); }, N1 * 20));
+	show("multiply (умножение в NTT с накоплением)", best([&]{ __nts_multiply__(a, prepared, wide); ::memset(wide.values, 0, sizeof(wide.values)); }, N1 * 20));
+	show("settle (приведение накопителя)", best([&]{ __nts_settle__(wide, c); }, N1 * 20));
 	// Замеряем скалярное произведение на подготовленном сомножителе
-	show("multiply ×3 + settle (скалярное произведение k=3)", best([&]{ ::memset(wide.values, 0, sizeof(wide.values)); multiply(a, prepared, wide); multiply(b, prepared, wide); multiply(c, prepared, wide); settle(wide, c); }, N1 * 20));
+	show("multiply ×3 + settle (скалярное произведение k=3)", best([&]{ ::memset(wide.values, 0, sizeof(wide.values)); __nts_multiply__(a, prepared, wide); __nts_multiply__(b, prepared, wide); __nts_multiply__(c, prepared, wide); __nts_settle__(wide, c); }, N1 * 20));
 	// Место упакованного многочлена
 	uint8_t out[384];
 	// Замеряем кодирование многочлена
-	show("encode", best([&]{ encode(a, out); }, N1 * 20));
-	show("decode", best([&]{ decode(out, a); }, N1 * 20));
-	show("pack du=10", best([&]{ pack(a, 10, out); }, N1 * 20));
+	show("encode", best([&]{ __nts_encode__(a, out); }, N1 * 20));
+	show("decode", best([&]{ __nts_decode__(out, a); }, N1 * 20));
+	show("pack du=10", best([&]{ __nts_pack__(a, 10, out); }, N1 * 20));
 	// Место сводки хеша
 	uint8_t h[64];
 	// Замеряем хеш ключа
@@ -149,7 +152,7 @@ int main(){
 		EVP_PKEY_encapsulate_init(ectx, nullptr);
 		// Отводим места шифртекста и общих секретов эталона
 		size_t clen = 1088, slen = 32; uint8_t oc[1088], os[32], os2[32];
-		// Выполняем инкапсуляцию эталона
+		// Инкапсулируем эталона
 		EVP_PKEY_encapsulate(ectx, oc, &clen, os, &slen);
 		// Замеряем инкапсуляцию эталона
 		show("ML-KEM-768 encaps (OpenSSL)", best([&]{ size_t cl = 1088, sl = 32; EVP_PKEY_encapsulate(ectx, oc, &cl, os, &sl); }, N1));
@@ -160,11 +163,11 @@ int main(){
 		// Замеряем декапсуляцию эталона
 		show("ML-KEM-768 decaps (OpenSSL)", best([&]{ size_t sl = 32; EVP_PKEY_decapsulate(dctx, os2, &sl, oc, 1088); }, N1));
 		// Заводим контекст хеширования эталона
-		EVP_MD_CTX * md = EVP_MD_CTX_new();
+		EVP_MD_CTX * digest = EVP_MD_CTX_new();
 		// Замеряем хеширование эталоном
 		show("SHA3-256 1184 байт (OpenSSL)", best([&]{ unsigned l = 0; EVP_Digest(key, 1184, h, &l, EVP_sha3_256(), nullptr); }, N1 * 5));
 		// Освобождаем контекст хеширования эталона
-		EVP_MD_CTX_free(md);
+		EVP_MD_CTX_free(digest);
 	#endif
 	// Возвращаем успех
 	return 0;

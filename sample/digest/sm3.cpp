@@ -57,16 +57,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -76,7 +76,7 @@ namespace {
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр области байтов строки знаков
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
@@ -99,31 +99,31 @@ int main(int argc, char * argv[]) noexcept {
 	const char * message = "Сообщение, которое требуется захешировать";
 	// Место, в которое помещается хеш в тридцать два байта
 	uint8_t result[32];
-	// Выполняем хеширование сообщения разом
-	if(!digest::sm3(::text(message), result, sizeof(result))){
+	// Хешируем сообщения разом
+	if(!digest::sm3(::__nts_text__(message), result, sizeof(result))){
 		// Выводим сообщение об отказе хеширования
 		cout << "Захешировать сообщение не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	// Выводим хеш сообщения
-	::print("Хеш разом ", result, sizeof(result));
+	::__nts_print__("Хеш разом ", result, sizeof(result));
 	// Объект хеширования сообщения потоком
 	digest::sm3_t hash;
 	/**
-	 * Выполняем перебор знаков хешируемого сообщения
+	 * Перебираем знаков хешируемого сообщения
 	 *
 	 * @note Сообщение подаётся по одному знаку нарочно: хеш обязан выйти тем же, что
 	 *       и у хеширования разом, - разбиение на куски на итог не влияет
 	 *
 	 */
 	for(const char * item = message; *item != '\0'; item++)
-		// Выполняем подачу очередного знака сообщения
+		// Подаём очередного знака сообщения
 		hash.update(view_t(reinterpret_cast <const uint8_t *> (item), 1));
-	// Выполняем завершение хеширования сообщения
+	// Завершаем хеширования сообщения
 	hash.finish(result, sizeof(result));
 	// Выводим хеш сообщения, захешированного потоком
-	::print("Хеш потоком", result, sizeof(result));
+	::__nts_print__("Хеш потоком", result, sizeof(result));
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;
 }

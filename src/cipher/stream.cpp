@@ -89,7 +89,7 @@ bool nts::cipher::Stream::pass(const view_t & source, vector <uint8_t> & result)
 	// Признак успешности пропуска
 	bool passed = false;
 	/**
-	 * Выполняем разбор режима потока
+	 * Разбираем режим потока
 	 */
 	switch(static_cast <uint8_t> (this->_mode)){
 		// Если режим гаммирования с обратной связью
@@ -123,7 +123,7 @@ bool nts::cipher::Stream::pass(const view_t & source, vector <uint8_t> & result)
  */
 bool nts::cipher::Stream::launch() noexcept {
 	/**
-	 * Выполняем разбор режима потока
+	 * Разбираем режим потока
 	 */
 	switch(static_cast <uint8_t> (this->_mode)){
 		// Если режим гаммирования с обратной связью

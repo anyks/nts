@@ -94,17 +94,17 @@ namespace {
 	 * @return     количество разобранных байтов
 	 *
 	 */
-	static size_t bytes(const char * text, uint8_t * data) noexcept {
+	static size_t __nts_bytes__(const char * text, uint8_t * data) noexcept {
 		// Количество разобранных байтов
 		size_t result = 0;
 		/**
-		 * Выполняем перебор пар знаков разбираемой записи
+		 * Перебираем пары знаков разбираемой записи
 		 */
 		for(size_t i = 0; text[i * 2] != '\0'; i++){
 			// Собираемое значение байта
 			uint8_t value = 0;
 			/**
-			 * Выполняем перебор знаков очередной пары
+			 * Перебираем знаки очередной пары
 			 */
 			for(size_t j = 0; j < 2; j++){
 				// Извлекаем очередной знак записи
@@ -429,19 +429,19 @@ namespace {
 	 * @return       признак успешности заведения кривой
 	 *
 	 */
-	static bool setup(const sample_t & sample, curve::curve_t & result) noexcept {
+	static bool __nts_setup__(const sample_t & sample, curve::curve_t & result) noexcept {
 		// Места, в которые помещаются разобранные значения параметров
 		uint8_t modulus[math::NUMBER_SIZE], first[math::NUMBER_SIZE], second[math::NUMBER_SIZE];
 		// Места, в которые помещаются разобранные значения параметров
 		uint8_t order[math::NUMBER_SIZE], x[math::NUMBER_SIZE], y[math::NUMBER_SIZE];
 		// Выводим итог установки параметров кривой
 		return result.start(
-			view_t(modulus, bytes(sample.modulus, modulus)),
-			view_t(first, bytes(sample.first, first)),
-			view_t(second, bytes(sample.second, second)),
-			view_t(order, bytes(sample.order, order)),
-			view_t(x, bytes(sample.x, x)),
-			view_t(y, bytes(sample.y, y)),
+			view_t(modulus, __nts_bytes__(sample.modulus, modulus)),
+			view_t(first, __nts_bytes__(sample.first, first)),
+			view_t(second, __nts_bytes__(sample.second, second)),
+			view_t(order, __nts_bytes__(sample.order, order)),
+			view_t(x, __nts_bytes__(sample.x, x)),
+			view_t(y, __nts_bytes__(sample.y, y)),
 			sample.cofactor
 		);
 	}
@@ -471,11 +471,11 @@ namespace {
 		 */
 		Prepared() noexcept {
 			/**
-			 * Выполняем заведение кривых всех известных наборов
+			 * Заводим кривые всех известных наборов
 			 */
 			for(size_t i = 0; i < (sizeof(SAMPLES) / sizeof(sample_t)); i++)
 				// Заводим кривую очередного набора
-				this->ready[i] = setup(SAMPLES[i], this->curves[i]);
+				this->ready[i] = __nts_setup__(SAMPLES[i], this->curves[i]);
 		}
 	} prepared_t;
 	/**
@@ -484,7 +484,7 @@ namespace {
 	 * @return заведённые кривые: строятся при первом обращении
 	 *
 	 */
-	static const prepared_t & prepared() noexcept {
+	static const prepared_t & __nts_prepared__() noexcept {
 		// Заведённые кривые известных наборов: местная статика заводится потокобезопасно
 		static const prepared_t instance;
 		// Выводим заведённые кривые
@@ -519,7 +519,7 @@ bool nts::curve::parameters(const char * oid, curve_t & result) noexcept {
 		// Выводим отказ установки кривой
 		return false;
 	/**
-	 * Выполняем перебор известных опознавателей наборов параметров
+	 * Перебираем известные опознаватели наборов параметров
 	 */
 	for(size_t i = 0; i < (sizeof(RECORDS) / sizeof(record_t)); i++){
 		// Если опознаватель набора параметров не совпал с искомым (сличение без построения строки)
@@ -529,7 +529,7 @@ bool nts::curve::parameters(const char * oid, curve_t & result) noexcept {
 		// Место набора значений параметров кривой
 		const size_t index = RECORDS[i].index;
 		// Получаем кривые известных наборов, заведённые один раз на процесс
-		const prepared_t & cache = prepared();
+		const prepared_t & cache = __nts_prepared__();
 		// Если кривая набора заведена
 		if(cache.ready[index]){
 			// Отдаём копию заведённой кривой
@@ -538,7 +538,7 @@ bool nts::curve::parameters(const char * oid, curve_t & result) noexcept {
 			return true;
 		}
 		// Иначе заводим кривую по значениям набора заново
-		return setup(SAMPLES[index], result);
+		return __nts_setup__(SAMPLES[index], result);
 	}
 	// Выводим отказ установки кривой: набор параметров неизвестен
 	return false;

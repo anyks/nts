@@ -112,7 +112,7 @@ namespace {
 	 * @param value приводимый элемент
 	 *
 	 */
-	static void reduce(element_t & value) noexcept {
+	static void __nts_reduce__(element_t & value) noexcept {
 		// Первую волну переносов
 		kernel::wave(value);
 		// Вторую волну переносов: после первой конечности могли подрасти
@@ -138,7 +138,7 @@ namespace {
 		// Прибавляем признак к пятой конечности: вычитание модуля есть прибавление 2^224
 		value.limbs[4] += flag;
 		/**
-		 * Выполняем волну переносов без сворачивания: разряд 2^448 здесь сбрасывается,
+		 * Проводим волну переносов без сворачивания: разряд 2^448 здесь сбрасывается,
 		 * а не возвращается в младшие конечности, иначе модуль вычелся бы дважды
 		 */
 		for(size_t i = 0; i < (LIMBS - 1); i++){
@@ -158,11 +158,11 @@ namespace {
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void power(const element_t & value, const size_t count, element_t & result) noexcept {
+	static void __nts_power__(const element_t & value, const size_t count, element_t & result) noexcept {
 		// Переносим возводимый элемент в место итога
 		result = value;
 		/**
-		 * Выполняем возведение в квадрат заданное число раз
+		 * Возводим в квадрат заданное число раз
 		 */
 		for(size_t i = 0; i < count; i++)
 			// Возводим накопленное значение в квадрат
@@ -180,11 +180,11 @@ namespace {
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void ones(const element_t & value, element_t & result) noexcept {
+	static void __nts_ones__(const element_t & value, element_t & result) noexcept {
 		// Начинаем с самого элемента: показатель из одной единицы
 		result = value;
 		/**
-		 * Выполняем приписывание тридцати шести разрядов
+		 * Приписываем тридцать шесть разрядов
 		 */
 		for(size_t i = 0; i < 36; i++){
 			// Возводим накопленное в квадрат: сдвиг показателя на разряд
@@ -206,28 +206,28 @@ namespace {
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void chain(const element_t & value, element_t & result) noexcept {
+	static void __nts_chain__(const element_t & value, element_t & result) noexcept {
 		// Блок с единичным показателем 2^37 - 1
 		element_t block;
 		// Вырабатываем блок возведением в степень 2^37 - 1
-		ones(value, block);
+		__nts_ones__(value, block);
 		// Накопитель степени 2^222 - 1
 		element_t item = block;
 		/**
-		 * Выполняем приписывание пяти блоков по тридцать семь разрядов
+		 * Приписываем пять блоков по тридцать семь разрядов
 		 */
 		for(size_t i = 0; i < 5; i++){
 			// Сдвигаем накопитель на ширину блока
-			power(item, 37, item);
+			__nts_power__(item, 37, item);
 			// Приписываем блок к показателю накопителя
 			mul(item, block, item);
 		}
 		// Вырабатываем x^(2^223 - 1) удвоением показателя и приписыванием единицы
-		power(item, 1, result);
+		__nts_power__(item, 1, result);
 		// Приписываем единицу показателя умножением на исходный элемент
 		mul(result, value, result);
 		// Сдвигаем показатель на двести двадцать три разряда
-		power(result, 223, result);
+		__nts_power__(result, 223, result);
 		// Прибавляем показатель накопителя: выходит 2^446 - 2^222 - 1
 		mul(result, item, result);
 	}
@@ -241,7 +241,7 @@ namespace {
  */
 void nts::math::field448::zero(element_t & result) noexcept {
 	/**
-	 * Выполняем перебор конечностей элемента
+	 * Перебираем конечности элемента
 	 */
 	for(size_t i = 0; i < LIMBS; i++)
 		// Обнуляем очередную конечность
@@ -270,13 +270,13 @@ void nts::math::field448::load(const uint8_t * data, element_t & result) noexcep
 	// Слова разбираемой записи
 	uint64_t words[7];
 	/**
-	 * Выполняем перебор слов записи
+	 * Перебираем слова записи
 	 */
 	for(size_t i = 0; i < 7; i++){
 		// Обнуляем очередное слово
 		words[i] = 0;
 		/**
-		 * Выполняем перебор байтов очередного слова от старшего к младшему
+		 * Перебираем байты очередного слова от старшего к младшему
 		 */
 		for(size_t j = 8; j > 0; j--)
 			// Дописываем очередной байт в слово
@@ -299,7 +299,7 @@ void nts::math::field448::load(const uint8_t * data, element_t & result) noexcep
 	// Выделяем старшую конечность из седьмого слова
 	result.limbs[7] = ((words[6] >> 8) & MASK);
 	// Приведение записи, не меньшей модуля
-	reduce(result);
+	__nts_reduce__(result);
 }
 /**
  * @brief Функция записи элемента поля в пятьдесят шесть байтов
@@ -312,7 +312,7 @@ void nts::math::field448::store(const element_t & value, uint8_t * data) noexcep
 	// Приводимая копия элемента
 	element_t item = value;
 	// Полное приведение элемента
-	reduce(item);
+	__nts_reduce__(item);
 	// Слова записываемого элемента
 	uint64_t words[7];
 	// Собираем первое слово из нулевой и первой конечностей
@@ -330,11 +330,11 @@ void nts::math::field448::store(const element_t & value, uint8_t * data) noexcep
 	// Собираем седьмое слово из шестой и старшей конечностей
 	words[6] = ((item.limbs[6] >> 48) | (item.limbs[7] << 8));
 	/**
-	 * Выполняем перебор слов записи
+	 * Перебираем слова записи
 	 */
 	for(size_t i = 0; i < 7; i++){
 		/**
-		 * Выполняем перебор байтов очередного слова от младшего к старшему
+		 * Перебираем байты очередного слова от младшего к старшему
 		 */
 		for(size_t j = 0; j < 8; j++)
 			// Записываем очередной байт слова
@@ -351,7 +351,7 @@ void nts::math::field448::store(const element_t & value, uint8_t * data) noexcep
  */
 void nts::math::field448::add(const element_t & first, const element_t & second, element_t & result) noexcept {
 	/**
-	 * Выполняем перебор конечностей слагаемых
+	 * Перебираем конечности слагаемых
 	 */
 	for(size_t i = 0; i < LIMBS; i++)
 		// Складываем очередные конечности
@@ -419,7 +419,7 @@ void nts::math::field448::invert(const element_t & value, element_t & result) no
 	// Степень 2^446 - 2^222 - 1
 	element_t item;
 	// Общую часть цепочки степеней
-	chain(value, item);
+	__nts_chain__(value, item);
 	// Вырабатываем x^(2^447 - 2^223 - 2)
 	square(item, item);
 	// Вырабатываем x^(2^448 - 2^224 - 4)
@@ -438,7 +438,7 @@ void nts::math::field448::root(const element_t & value, element_t & result) noex
 	// Степень 2^446 - 2^222 - 1
 	element_t item;
 	// Общую часть цепочки степеней
-	chain(value, item);
+	__nts_chain__(value, item);
 	// Вырабатываем x^(2^446 - 2^222) умножением на исходный элемент
 	mul(item, value, result);
 }
@@ -460,7 +460,7 @@ bool nts::math::field448::equal(const element_t & first, const element_t & secon
 	// Накопленная разность записей
 	uint8_t item = 0;
 	/**
-	 * Выполняем перебор байтов записей
+	 * Перебираем байты записей
 	 */
 	for(size_t i = 0; i < SIZE; i++)
 		// Накапливаем разность очередных байтов
@@ -493,7 +493,7 @@ void nts::math::field448::swap(element_t & first, element_t & second, const uint
 	// Маска обмена: все разряды по признаку
 	const uint64_t mask = (0 - (flag & 1));
 	/**
-	 * Выполняем перебор конечностей элементов
+	 * Перебираем конечности элементов
 	 */
 	for(size_t i = 0; i < LIMBS; i++){
 		// Разность конечностей под маской

@@ -93,16 +93,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -134,11 +134,11 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начало открытого ключа контрольного примера
-	::print("Открытый ключ      ", key.data(), 16);
+	::__nts_print__("Открытый ключ      ", key.data(), 16);
 	// Выводим начало подписи контрольного примера
-	::print("Подпись HSS        ", signature.data(), 16);
+	::__nts_print__("Подпись HSS        ", signature.data(), 16);
 	/**
-	 * Выполняем проверку подписи HSS контрольного примера
+	 * Проверяем подписи HSS контрольного примера
 	 *
 	 * @details Алгоритмы 4б, 6 и 6а RFC 8554: по подписи LM-OTS вычисляется ключ-кандидат
 	 *          цепочками Винтерница, по нему и пути Меркла - корень-кандидат дерева, который

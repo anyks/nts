@@ -85,7 +85,7 @@ namespace {
 	 * @return      отказ связи, отвечающий отказу модуля
 	 *
 	 */
-	static context::error_t translate(const field::error_t error) noexcept {
+	static context::error_t __nts_translate__(const field::error_t error) noexcept {
 		// Если отказа у модуля нет
 		if(error == field::error_t::NONE)
 			// Выводим отсутствие отказа связи
@@ -101,9 +101,9 @@ namespace {
 	 * @return        отказ записи поля
 	 *
 	 */
-	static context::error_t field(field::builder_t & builder, const view_t & data) noexcept {
+	static context::error_t __nts_field__(field::builder_t & builder, const view_t & data) noexcept {
 		// Отказ занятия места под длину поля
-		context::error_t failure = translate(builder.open(2));
+		context::error_t failure = __nts_translate__(builder.open(2));
 		// Если место под длину поля занять не удалось
 		if(failure != context::error_t::NONE)
 			// Выводим отказ записи поля
@@ -111,14 +111,14 @@ namespace {
 		// Если содержимое поля не пусто
 		if(data.size > 0){
 			// Отказ записи содержимого поля
-			failure = translate(builder.bytes(data));
+			failure = __nts_translate__(builder.bytes(data));
 			// Если содержимое поля записать не удалось
 			if(failure != context::error_t::NONE)
 				// Выводим отказ записи поля
 				return failure;
 		}
 		// Выводим итог проставления длины поля
-		return translate(builder.close());
+		return __nts_translate__(builder.close());
 	}
 };
 
@@ -295,13 +295,13 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	// Объект составителя записи билета
 	field::builder_t builder;
 	// Отказ записи издания записи билета
-	error_t failure = translate(builder.number(EDITION, 1));
+	error_t failure = __nts_translate__(builder.number(EDITION, 1));
 	// Если издание записи билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи набора шифрования билета
-	failure = translate(builder.number(static_cast <uint32_t> (ticket.suite), 2));
+	failure = __nts_translate__(builder.number(static_cast <uint32_t> (ticket.suite), 2));
 	// Если набор шифрования билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
@@ -309,43 +309,43 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	// Миг выдачи билета в записи без знака
 	const uint64_t moment = static_cast <uint64_t> (ticket.moment);
 	// Отказ записи старшей половины мига выдачи билета
-	failure = translate(builder.number(static_cast <uint32_t> (moment >> 32), 4));
+	failure = __nts_translate__(builder.number(static_cast <uint32_t> (moment >> 32), 4));
 	// Если старшую половину мига выдачи записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи младшей половины мига выдачи билета
-	failure = translate(builder.number(static_cast <uint32_t> (moment & 0xFFFFFFFF), 4));
+	failure = __nts_translate__(builder.number(static_cast <uint32_t> (moment & 0xFFFFFFFF), 4));
 	// Если младшую половину мига выдачи записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи срока жизни билета
-	failure = translate(builder.number(ticket.lifetime, 4));
+	failure = __nts_translate__(builder.number(ticket.lifetime, 4));
 	// Если срок жизни билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи предела упреждающих данных билета
-	failure = translate(builder.number(ticket.advance, 4));
+	failure = __nts_translate__(builder.number(ticket.advance, 4));
 	// Если предел упреждающих данных записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи добавки к возрасту билета
-	failure = translate(builder.number(ticket.age, 4));
+	failure = __nts_translate__(builder.number(ticket.age, 4));
 	// Если добавку к возрасту билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи признака порядка «шифрование, затем имитовставка»
-	failure = translate(builder.number((ticket.etm ? 1 : 0), 1));
+	failure = __nts_translate__(builder.number((ticket.etm ? 1 : 0), 1));
 	// Если признак порядка записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи признака издания выдавшей связи
-	failure = translate(builder.number((ticket.ancient ? 1 : 0), 1));
+	failure = __nts_translate__(builder.number((ticket.ancient ? 1 : 0), 1));
 	// Если признак издания записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
@@ -353,53 +353,53 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	// Миг первичного удостоверения в записи
 	const uint64_t authenticated = static_cast <uint64_t> (ticket.authenticated);
 	// Отказ записи старшей половины мига удостоверения
-	failure = translate(builder.number(static_cast <uint32_t> (authenticated >> 32), 4));
+	failure = __nts_translate__(builder.number(static_cast <uint32_t> (authenticated >> 32), 4));
 	// Если старшая половина записана
 	if(failure == error_t::NONE)
 		// Отказ записи младшей половины мига удостоверения
-		failure = translate(builder.number(static_cast <uint32_t> (authenticated & 0xFFFFFFFF), 4));
+		failure = __nts_translate__(builder.number(static_cast <uint32_t> (authenticated & 0xFFFFFFFF), 4));
 	// Если миг удостоверения записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи прикладного протокола билета
-	failure = ::field(builder, view_t(reinterpret_cast <const uint8_t *> (ticket.protocol.data()), ticket.protocol.size()));
+	failure = ::__nts_field__(builder, view_t(reinterpret_cast <const uint8_t *> (ticket.protocol.data()), ticket.protocol.size()));
 	// Если прикладной протокол билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи тела билета
-	failure = ::field(builder, view_t(ticket.identity.data(), ticket.identity.size()));
+	failure = ::__nts_field__(builder, view_t(ticket.identity.data(), ticket.identity.size()));
 	// Если тело билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи ключа билета
-	failure = ::field(builder, view_t(ticket.secret.data(), ticket.secret.size()));
+	failure = ::__nts_field__(builder, view_t(ticket.secret.data(), ticket.secret.size()));
 	// Если ключ билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи параметров переноса собеседника
-	failure = ::field(builder, view_t(ticket.parameters.data(), ticket.parameters.size()));
+	failure = ::__nts_field__(builder, view_t(ticket.parameters.data(), ticket.parameters.size()));
 	// Если параметры переноса собеседника записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи признака согласования прикладных настроек ALPS
-	failure = translate(builder.number((ticket.settled ? 1 : 0), 1));
+	failure = __nts_translate__(builder.number((ticket.settled ? 1 : 0), 1));
 	// Если признак согласования записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи своих прикладных настроек
-	failure = ::field(builder, view_t(ticket.settings.data(), ticket.settings.size()));
+	failure = ::__nts_field__(builder, view_t(ticket.settings.data(), ticket.settings.size()));
 	// Если свои прикладные настройки записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи прикладных настроек собеседника
-	failure = ::field(builder, view_t(ticket.obtained.data(), ticket.obtained.size()));
+	failure = ::__nts_field__(builder, view_t(ticket.obtained.data(), ticket.obtained.size()));
 	// Если прикладные настройки собеседника записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета

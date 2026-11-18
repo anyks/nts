@@ -64,7 +64,7 @@ namespace {
 	 * @return     просмотр области байтов строки знаков
 	 *
 	 */
-	view_t text(const string & text) noexcept {
+	view_t __nts_text__(const string & text) noexcept {
 		// Выводим просмотр области байтов строки знаков
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -75,7 +75,7 @@ namespace {
 	 * @return     содержимое файла, пустое при отказе чтения
 	 *
 	 */
-	string corpus(const char * name) noexcept {
+	string __nts_corpus__(const char * name) noexcept {
 		// Содержимое файла
 		string result;
 		/**
@@ -126,13 +126,13 @@ int main(int argc, char * argv[]) noexcept {
 	// Разбираемая запись каталога службы
 	acme::directory_t directory;
 	/**
-	 * Выполняем разбор ответа ресурса directory
+	 * Разбираем ответа ресурса directory
 	 *
 	 * @details Ответ несёт адреса ресурсов службы: у него на месте обязаны быть
 	 *          newNonce, newAccount, newOrder и revokeCert
 	 *
 	 */
-	if(directory.parse(::text(ANSWER)) != acme::error_t::NONE){
+	if(directory.parse(::__nts_text__(ANSWER)) != acme::error_t::NONE){
 		// Выводим сообщение об отказе разбора ответа
 		cout << "Разобрать ответ directory не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -146,8 +146,8 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "                   : newOrder " << directory.newOrder << endl;
 	// Ключ учётной записи
 	keys::key_t key;
-	// Выполняем разбор ключа учётной записи из записи набора
-	if(keys::decode(::corpus("ca-ec.key"), view_t(), key) != keys::error_t::NONE){
+	// Разбираем ключа учётной записи из записи набора
+	if(keys::decode(::__nts_corpus__("ca-ec.key"), view_t(), key) != keys::error_t::NONE){
 		// Выводим сообщение об отказе разбора ключа
 		cout << "Разобрать ключ учётной записи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -155,8 +155,8 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Подготовленный секретный ключ учётной записи
 	keys::signer_t signer;
-	// Выполняем подготовку ключа подписи из записи набора
-	if(signer.prepare(::text(::corpus("ca-ec.key"))) != keys::error_t::NONE){
+	// Готовим ключа подписи из записи набора
+	if(signer.prepare(::__nts_text__(::__nts_corpus__("ca-ec.key"))) != keys::error_t::NONE){
 		// Выводим сообщение об отказе подготовки ключа
 		cout << "Подготовить ключ учётной записи не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -165,7 +165,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Полезная нагрузка заведения учётной записи
 	string payload;
 	/**
-	 * Выполняем сборку полезной нагрузки запроса newAccount по разделу 7.3 RFC 8555
+	 * Собираем полезной нагрузки запроса newAccount по разделу 7.3 RFC 8555
 	 */
 	acme::newAccount({"mailto:admin@example.org"}, true, false, payload);
 	// Выводим собранную полезную нагрузку
@@ -173,13 +173,13 @@ int main(int argc, char * argv[]) noexcept {
 	// Тело запроса application/jose+json
 	string body;
 	/**
-	 * Выполняем сборку запроса newAccount
+	 * Собираем запроса newAccount
 	 *
 	 * @details Адрес учётной записи пуст, оттого заголовок JWS несёт запись ключа
 	 *          jwk целиком, как велит раздел 6.2 RFC 8555 для запросов newAccount
 	 *
 	 */
-	if(acme::request(directory.newAccount, "6S8IqOGY7eL2lsGoTZYifg", "", key, ::text(payload), signer, body) != acme::error_t::NONE){
+	if(acme::request(directory.newAccount, "6S8IqOGY7eL2lsGoTZYifg", "", key, ::__nts_text__(payload), signer, body) != acme::error_t::NONE){
 		// Выводим сообщение об отказе сборки запроса
 		cout << "Собрать запрос newAccount не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -208,13 +208,13 @@ int main(int argc, char * argv[]) noexcept {
 	// Разбираемая запись JWS
 	jws::signature_t signature;
 	/**
-	 * Выполняем разбор компактной записи JWS
+	 * Разбираем компактной записи JWS
 	 *
 	 * @details Запись разбирается по разделу 7.2.2 RFC 7515: заголовок декодируется,
 	 *          просмотры полезной нагрузки и подписи указывают внутрь текста записи
 	 *
 	 */
-	if(signature.parse(::text(compact)) != jws::error_t::NONE){
+	if(signature.parse(::__nts_text__(compact)) != jws::error_t::NONE){
 		// Выводим сообщение об отказе разбора записи
 		cout << "Разобрать запись JWS не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -222,7 +222,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Выводим заголовок записи
 	cout << "Заголовок JWS      : " << signature.header() << endl;
-	// Выполняем проверку подписи записи ключом учётной записи
+	// Проверяем подписи записи ключом учётной записи
 	if(signature.verify(key) != jws::error_t::NONE){
 		// Выводим сообщение об отказе проверки подписи
 		cout << "Подпись запроса не сошлась" << endl;
@@ -233,7 +233,7 @@ int main(int argc, char * argv[]) noexcept {
 	cout << "Проверка подписи   : подпись сошлась" << endl;
 	// Извлечённая полезная нагрузка записи
 	vector <uint8_t> extracted;
-	// Выполняем извлечение полезной нагрузки записи
+	// Извлекаем полезной нагрузки записи
 	if(signature.payload(extracted) != jws::error_t::NONE){
 		// Выводим сообщение об отказе извлечения нагрузки
 		cout << "Извлечь полезную нагрузку не удалось" << endl;

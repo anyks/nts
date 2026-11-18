@@ -56,7 +56,7 @@ namespace {
 	 * @details K = SHA-512(K_PQ ‖ K_CL)
 	 *
 	 */
-	static void combine(const uint8_t * pq, const uint8_t * cl, uint8_t * shared) noexcept {
+	static void __nts_combine__(const uint8_t * pq, const uint8_t * cl, uint8_t * shared) noexcept {
 		// Объект хеширования
 		digest::hasher_t hasher(digest::hash_t::SHA512);
 		// Подаём общий секрет sntrup761
@@ -134,7 +134,7 @@ bool nts::agreement::encapsSntrup761x25519(const view_t & key, uint8_t * cipher,
 		return false;
 	}
 	// Склеиваем общий секрет гибрида
-	combine(pq, cl, shared);
+	__nts_combine__(pq, cl, shared);
 	// Затирание рабочих областей
 	wipe(pq, sizeof(pq));
 	wipe(cl, sizeof(cl));
@@ -176,7 +176,7 @@ bool nts::agreement::decapsSntrup761x25519(const view_t & cipher, const view_t &
 		return false;
 	}
 	// Склеиваем общий секрет гибрида
-	combine(pq, cl, shared);
+	__nts_combine__(pq, cl, shared);
 	// Затирание рабочих областей
 	wipe(pq, sizeof(pq));
 	wipe(cl, sizeof(cl));

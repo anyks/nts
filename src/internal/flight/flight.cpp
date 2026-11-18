@@ -156,7 +156,7 @@ namespace {
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 */
-	static context::error_t translate(const protect::error_t error, const context::error_t fallback) noexcept {
+	static context::error_t __nts_translate__(const protect::error_t error, const context::error_t fallback) noexcept {
 		// Если отказа у модуля нет
 		if(error == protect::error_t::NONE)
 			// Выводим отсутствие отказа связи
@@ -171,7 +171,7 @@ namespace {
 	 * @return      причина отброса записи
 	 *
 	 */
-	static datagram::reason_t reason(const datagram::error_t error) noexcept {
+	static datagram::reason_t __nts_reason__(const datagram::error_t error) noexcept {
 		/**
 		 * Определяем отказ разбора заголовка
 		 */
@@ -267,7 +267,7 @@ nts::internal::era_t * nts::internal::Flight::era(const size_t direction, const 
 		// Выводим нулевую пору направления
 		return &this->_plains[direction];
 	/**
-	 * Выполняем перебор мест пор ключей направления от текущего к прежнему
+	 * Перебираем места пор ключей направления от текущего к прежнему
 	 */
 	for(size_t i = 0; i < 2; i++){
 		// Пора ключей очередного места
@@ -360,7 +360,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 				// Номер записи в связанных данных: пора и порядковый номер (раздел 4.1.2.1 RFC 6347)
 				const uint64_t number = ((static_cast <uint64_t> (era.epoch) << 48) | era.next);
 				// Отказ наложения защиты на запись
-				const context::error_t failure = translate(era.protection.wrap(number, (ancient ? record::version_t::DTLS10 : record::version_t::DTLS12), type, data, result), context::error_t::PROTECTION);
+				const context::error_t failure = __nts_translate__(era.protection.wrap(number, (ancient ? record::version_t::DTLS10 : record::version_t::DTLS12), type, data, result), context::error_t::PROTECTION);
 				// Если защиту на запись наложить не удалось
 				if(failure != context::error_t::NONE){
 					// Возвращаем накопитель к прежней длине
@@ -421,7 +421,7 @@ context::error_t nts::internal::Flight::shield(const record::type_t type, const 
 		// Складываем объединённый заголовок в накопитель
 		result.insert(result.end(), buffer, buffer + length);
 		// Отказ наложения защиты на запись: заголовок служит связанными данными
-		const context::error_t failure = translate(era.protection.seal(view_t(buffer, length), era.next, type, data, result, 0), context::error_t::PROTECTION);
+		const context::error_t failure = __nts_translate__(era.protection.seal(view_t(buffer, length), era.next, type, data, result, 0), context::error_t::PROTECTION);
 		// Если защиту на запись наложить не удалось
 		if(failure != context::error_t::NONE){
 			// Возвращаем накопитель к прежней длине
@@ -490,7 +490,7 @@ bool nts::internal::Flight::unveil(const datagram::header_t & header, const view
 	// Пора ключей чтения, отвечающая младшим разрядам заголовка
 	era_t * keys = nullptr;
 	/**
-	 * Выполняем перебор пор ключей чтения от текущей к прежней
+	 * Перебираем поры ключей чтения от текущей к прежней
 	 */
 	for(size_t i = 0; (i < 2) && (keys == nullptr); i++){
 		// Пора ключей очередного места
@@ -580,7 +580,7 @@ bool nts::internal::Flight::unveil(const datagram::header_t & header, const view
 		return false;
 	}
 	// Отказ снятия защиты с записи
-	const context::error_t opened = translate(keys->protection.open(view_t(associated, header.length), sequence, payload, result.type, result.content), context::error_t::PROTECTION);
+	const context::error_t opened = __nts_translate__(keys->protection.open(view_t(associated, header.length), sequence, payload, result.type, result.content), context::error_t::PROTECTION);
 	// Нехватка памяти к защите записи не относится и пропуском не лечится
 	if(opened == context::error_t::MEMORY){
 		// Запоминаем отказ нехватки памяти
@@ -682,7 +682,7 @@ bool nts::internal::Flight::uncover(const datagram::header_t & header, const vie
 	// Номер записи в связанных данных: пора и порядковый номер (раздел 4.1.2.1 RFC 6347)
 	const uint64_t number = ((static_cast <uint64_t> (header.epoch) << 48) | header.sequence);
 	// Отказ снятия защиты с записи
-	const context::error_t opened = translate(keys->protection.unwrap(number, version, header.type, payload, result.content), context::error_t::PROTECTION);
+	const context::error_t opened = __nts_translate__(keys->protection.unwrap(number, version, header.type, payload, result.content), context::error_t::PROTECTION);
 	// Нехватка памяти к защите записи не относится и пропуском не лечится
 	if(opened == context::error_t::MEMORY){
 		// Запоминаем отказ нехватки памяти
@@ -842,7 +842,7 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 		 */
 		bool pending = true;
 		/**
-		 * Выполняем нарезку области на куски по размеру дейтаграммы
+		 * Нарезаем область на куски по размеру дейтаграммы
 		 */
 		while((done < length) || pending){
 			// Кусок уходит
@@ -963,7 +963,7 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
 	 */
 	for(size_t i = 1; listed && (i < this->_acknowledgeable.size()); i++){
 		/**
-		 * Выполняем сдвиг номера к своему месту по возрастанию поры и номера
+		 * Сдвигаем номер к своему месту по возрастанию поры и номера
 		 */
 		for(size_t j = i; (j > 0) && ((this->_acknowledgeable[j].epoch < this->_acknowledgeable[j - 1].epoch) || ((this->_acknowledgeable[j].epoch == this->_acknowledgeable[j - 1].epoch) && (this->_acknowledgeable[j].sequence < this->_acknowledgeable[j - 1].sequence))); j--){
 			// Переставляемый номер
@@ -995,7 +995,7 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
 	// Количество записей подтверждения: пустое подтверждение - одна запись
 	const size_t records = (numbers.empty() ? 1 : ((numbers.size() + portion - 1) / portion));
 	/**
-	 * Выполняем составление записей подтверждения: перечень дробится по месту в дейтаграмме
+	 * Составляем записи подтверждения: перечень дробится по месту в дейтаграмме
 	 * (раздел 4.4 RFC 9147: дейтаграмма не шире PMTU), каждая порция - своей дейтаграммой
 	 */
 	for(size_t i = 0; i < records; i++){
@@ -1049,11 +1049,11 @@ context::error_t nts::internal::Flight::acknowledge(const bool settled) noexcept
  * @param suite     набор шифрования связи
  * @param key       ключ защиты записей поры
  * @param vector    вектор замены защиты записей поры
- * @param sn        ключ шифрования номера записи поры
+ * @param snKey     ключ шифрования номера записи поры
  * @return          отказ заведения поры ключей
  *
  */
-context::error_t nts::internal::Flight::adopt(const bool incoming, const bool handshake, const protect::suite_t suite, const view_t & key, const view_t & vector, const view_t & sn) noexcept {
+context::error_t nts::internal::Flight::adopt(const bool incoming, const bool handshake, const protect::suite_t suite, const view_t & key, const view_t & vector, const view_t & snKey) noexcept {
 	// Место направления: запись у своей стороны, чтение у собеседника
 	const size_t direction = (incoming ? 1 : 0);
 	// Текущая пора ключей направления
@@ -1068,7 +1068,7 @@ context::error_t nts::internal::Flight::adopt(const bool incoming, const bool ha
 		// Выводим отказ вывода ключевого материала
 		return context::error_t::SCHEDULE;
 	// Если ключ шифрования номера не сходится длиной с ключом набора
-	if((sn.data == nullptr) || (sn.size != protect::key(suite)))
+	if((snKey.data == nullptr) || (snKey.size != protect::key(suite)))
 		// Выводим отказ вывода ключевого материала
 		return context::error_t::SCHEDULE;
 	// Место новой поры: прежняя пора остаётся ради запоздалых записей и повторов
@@ -1082,7 +1082,7 @@ context::error_t nts::internal::Flight::adopt(const bool incoming, const bool ha
 		// Выводим отказ установки ключевого материала
 		return context::error_t::SCHEDULE;
 	// Переносим ключ шифрования номера записи
-	::memcpy(fresh.sn, sn.data, sn.size);
+	::memcpy(fresh.sn, snKey.data, snKey.size);
 	// Запоминаем набор шифрования связи
 	this->_suite = suite;
 	// Запоминаем номер новой поры ключей
@@ -1252,7 +1252,7 @@ context::error_t nts::internal::Flight::emit(const record::type_t type, const vi
 	// Смещение очередной записи в содержимом
 	size_t offset = 0;
 	/**
-	 * Выполняем нарезку содержимого на записи по размеру дейтаграммы
+	 * Нарезаем содержимое на записи по размеру дейтаграммы
 	 */
 	do {
 		// Длина содержимого очередной записи
@@ -1304,7 +1304,7 @@ context::error_t nts::internal::Flight::dispatch(const bool resend) noexcept {
 			// Куски залпа, подтверждённые собеседником
 			vector <piece_t> settled;
 			/**
-			 * Выполняем перебор кусков залпа
+			 * Перебираем куски залпа
 			 */
 			for(size_t i = 0; i < this->_pieces.size(); i++){
 				// Если кусок подтверждён собеседником
@@ -1344,7 +1344,7 @@ context::error_t nts::internal::Flight::dispatch(const bool resend) noexcept {
 			}
 		}
 		/**
-		 * Выполняем перебор сообщений залпа
+		 * Перебираем сообщения залпа
 		 */
 		for(size_t i = 0; i < this->_flight.size(); i++){
 			// Если сообщение уже нарезано на записи
@@ -1386,7 +1386,7 @@ context::error_t nts::internal::Flight::dispatch(const bool resend) noexcept {
 		// Признак того, что залп ждёт подтверждения
 		bool waiting = false;
 		/**
-		 * Выполняем перебор кусков залпа
+		 * Перебираем куски залпа
 		 */
 		for(size_t i = 0; (i < this->_pieces.size()) && !waiting; i++)
 			// Запоминаем наличие неподтверждённого куска
@@ -1475,7 +1475,7 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
 		// Смещение очередной записи в дейтаграмме
 		size_t offset = 0;
 		/**
-		 * Выполняем перебор записей дейтаграммы
+		 * Перебираем записи дейтаграммы
 		 */
 		while(offset < data.size){
 			// Заголовок очередной записи
@@ -1490,7 +1490,7 @@ context::error_t nts::internal::Flight::receive(const view_t & data, vector <ope
 			 */
 			if(parsed != datagram::error_t::NONE){
 				// Считаем отброшенный остаток дейтаграммы
-				this->discard(reason(parsed));
+				this->discard(__nts_reason__(parsed));
 				// Прекращаем разбор дейтаграммы
 				break;
 			}
@@ -1601,7 +1601,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 		// Смещение очередного куска в содержимом записи
 		size_t offset = 0;
 		/**
-		 * Выполняем перебор кусков сообщений записи
+		 * Перебираем куски сообщений записи
 		 */
 		while(offset < content.size){
 			// Обвязка очередного куска
@@ -1668,7 +1668,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 				continue;
 			}
 			/**
-			 * Выполняем снятие чужой сборки того же номера, вытесняемой целым приветствием
+			 * Снимаем чужую сборку того же номера, вытесняемую целым приветствием
 			 */
 			for(size_t i = this->_assemblies.size(); fresh && (fragment.offset == 0) && (fragment.length == fragment.size) && (i > 0); i--){
 				// Если сборка ведёт сообщение того же номера
@@ -1745,7 +1745,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 			// Сборка сообщения куска
 			assembly_t * assembly = nullptr;
 			/**
-			 * Выполняем перебор сборок принимаемых сообщений
+			 * Перебираем сборки принимаемых сообщений
 			 */
 			for(size_t i = 0; (i < this->_assemblies.size()) && (assembly == nullptr); i++){
 				// Если сборка ведёт сообщение куска
@@ -1773,7 +1773,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 					// Место старейшей сборки приветствия
 					size_t eldest = this->_assemblies.size();
 					/**
-					 * Выполняем счёт сборок приветствий: перечень растёт в конец, старейшая - первая
+					 * Считаем сборки приветствий: перечень растёт в конец, старейшая - первая
 					 */
 					for(size_t i = 0; i < this->_assemblies.size(); i++){
 						// Если сборка ведёт приветствие до подтверждения адреса
@@ -1861,7 +1861,7 @@ context::error_t nts::internal::Flight::fragments(const view_t & content, const 
 			// Покрытие сообщения после слияния областей
 			vector <span_t> merged;
 			/**
-			 * Выполняем перебор областей покрытия по возрастанию смещения
+			 * Перебираем области покрытия по возрастанию смещения
 			 */
 			for(size_t i = 0; i < assembly->spans.size(); i++){
 				// Если область примыкает к последней слитой либо перекрывает её
@@ -1909,7 +1909,7 @@ bool nts::internal::Flight::deliver(handshake::type_t & type, vector <uint8_t> &
 	// Место сборки ожидаемого сообщения
 	size_t place = this->_assemblies.size();
 	/**
-	 * Выполняем перебор сборок принимаемых сообщений
+	 * Перебираем сборки принимаемых сообщений
 	 */
 	for(size_t i = 0; (i < this->_assemblies.size()) && (place == this->_assemblies.size()); i++){
 		// Решение 13: сборка приветствия чужого адреса выдаче не подлежит - метка сверяется по адресу принятой дейтаграммы
@@ -2060,11 +2060,11 @@ context::error_t nts::internal::Flight::acknowledged(const view_t & body, const 
 		return context::error_t::NONE;
 	}
 	/**
-	 * Выполняем перебор подтверждённых номеров записей
+	 * Перебираем подтверждённые номера записей
 	 */
 	for(size_t i = 0; i < numbers.size(); i++){
 		/**
-		 * Выполняем перебор кусков залпа
+		 * Перебираем куски залпа
 		 */
 		for(size_t j = 0; j < this->_pieces.size(); j++){
 			// Если кусок ушёл подтверждённой записью: нынешней либо прежней, до повтора
@@ -2077,13 +2077,13 @@ context::error_t nts::internal::Flight::acknowledged(const view_t & body, const 
 	// Признак того, что залп подтверждён целиком
 	bool whole = !this->_flight.empty();
 	/**
-	 * Выполняем перебор сообщений залпа
+	 * Перебираем сообщения залпа
 	 */
 	for(size_t i = 0; (i < this->_flight.size()) && whole; i++)
 		// Запоминаем, нарезано ли сообщение на записи
 		whole = this->_flight[i].dispatched;
 	/**
-	 * Выполняем перебор кусков залпа
+	 * Перебираем куски залпа
 	 */
 	for(size_t i = 0; (i < this->_pieces.size()) && whole; i++)
 		// Запоминаем, подтверждён ли кусок
@@ -2370,7 +2370,7 @@ bool nts::internal::Flight::attest(const uint8_t generation, const uint8_t * dig
 	// Расхождение имитовставок
 	uint8_t difference = 0;
 	/**
-	 * Выполняем сличение имитовставок за постоянное время
+	 * Сличаем имитовставки за постоянное время
 	 */
 	for(size_t i = 0; i < sizeof(expected); i++)
 		// Накапливаем расхождение очередного байта
@@ -2493,7 +2493,7 @@ bool nts::internal::Flight::verify(const view_t & label) const noexcept {
 	// Расхождение хешей приветствия
 	uint8_t difference = 0;
 	/**
-	 * Выполняем сличение хеша приветствия с выданным: метка чужой связи с того же
+	 * Сличаем хеш приветствия с выданным: метка чужой связи с того же
 	 * адреса сходится имитовставкой, но не хешем
 	 */
 	for(size_t i = 0; i < sizeof(this->_digest); i++)
@@ -2726,7 +2726,7 @@ uint64_t nts::internal::Flight::discarded() const noexcept {
 	// Число отброшенного по всем причинам
 	uint64_t result = 0;
 	/**
-	 * Выполняем перебор причин отброса
+	 * Перебираем причины отброса
 	 */
 	for(size_t i = 0; i < datagram::DATAGRAM_REASONS; i++)
 		// Прибавляем отброшенное по очередной причине
@@ -2771,11 +2771,11 @@ void nts::internal::Flight::consume() noexcept {
  */
 void nts::internal::Flight::shred() noexcept {
 	/**
-	 * Выполняем перебор направлений связи
+	 * Перебираем направления связи
 	 */
 	for(size_t i = 0; i < 2; i++){
 		/**
-		 * Выполняем перебор мест пор ключей направления
+		 * Перебираем места пор ключей направления
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Сброс защиты записей поры
@@ -2793,11 +2793,11 @@ void nts::internal::Flight::clear() noexcept {
 	// Затирание ключевого материала пор
 	this->shred();
 	/**
-	 * Выполняем перебор направлений связи
+	 * Перебираем направления связи
 	 */
 	for(size_t i = 0; i < 2; i++){
 		/**
-		 * Выполняем перебор мест пор ключей направления
+		 * Перебираем места пор ключей направления
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Сброс окна повторов поры

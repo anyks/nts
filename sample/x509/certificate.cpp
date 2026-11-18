@@ -69,16 +69,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -157,7 +157,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Разбираемый сертификат
 	x509::certificate_t certificate;
 	/**
-	 * Выполняем разбор записи сертификата
+	 * Разбираем записи сертификата
 	 *
 	 * @details Просмотры разобранных полей указывают внутрь записи der, поэтому
 	 *          запись обязана пережить объект сертификата
@@ -172,7 +172,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим издание сертификата: нулём записано третье
 	cout << "Издание            : v" << (static_cast <uint32_t> (certificate.release()) + 1) << endl;
 	// Выводим порядковый номер сертификата
-	::print("Порядковый номер   ", certificate.number().data, certificate.number().size);
+	::__nts_print__("Порядковый номер   ", certificate.number().data, certificate.number().size);
 	// Запись имени издателя строкой по RFC 4514
 	string issuer;
 	// Собираем запись имени издателя
@@ -196,9 +196,9 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим опознаватель алгоритма открытого ключа
 	cout << "Алгоритм ключа     : " << certificate.key().algorithm << endl;
 	// Выводим запись открытого ключа
-	::print("Открытый ключ      ", certificate.key().key.data, certificate.key().key.size);
+	::__nts_print__("Открытый ключ      ", certificate.key().key.data, certificate.key().key.size);
 	/**
-	 * Выполняем перебор расширений сертификата
+	 * Перебираем расширений сертификата
 	 */
 	for(size_t i = 0; i < certificate.extension().size(); i++){
 		// Расширение сертификата
@@ -220,7 +220,7 @@ int main(int argc, char * argv[]) noexcept {
 			cout << "Основные ограничения: издатель " << (authority ? "да" : "нет") << ", глубина " << depth << endl;
 	}
 	/**
-	 * Выполняем проверку подписи сертификата
+	 * Проверяем подписи сертификата
 	 *
 	 * @details Сертификат набора самоподписанный, поэтому проверяется он
 	 *          собственными сведениями об открытом ключе

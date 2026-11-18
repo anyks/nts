@@ -66,7 +66,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -78,7 +78,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
 		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
@@ -91,7 +91,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void __nts_store__(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем старший байт слова
 		data[0] = static_cast <uint8_t> (value >> 24);
 		// Записываем второй байт слова
@@ -113,21 +113,21 @@ void nts::digest::Sha1::compress(const uint8_t * block) noexcept {
 	// Расписание слов сообщения
 	uint32_t w[80];
 	/**
-	 * Выполняем чтение шестнадцати слов блока
+	 * Читаем шестнадцать слов блока
 	 */
 	for(size_t i = 0; i < 16; i++)
 		// Читаем очередное слово блока от старшего байта
-		w[i] = load(block + (i * 4));
+		w[i] = __nts_load__(block + (i * 4));
 	/**
-	 * Выполняем расширение расписания до 80 слов
+	 * Расширяем расписание до 80 слов
 	 */
 	for(size_t i = 16; i < 80; i++)
 		// Складываем очередное слово расписания круговым сдвигом суммы
-		w[i] = rotl((w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]), 1);
+		w[i] = __nts_rotl__((w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]), 1);
 	// Рабочие переменные круга
 	uint32_t a = this->_hash[0], b = this->_hash[1], c = this->_hash[2], d = this->_hash[3], e = this->_hash[4];
 	/**
-	 * Выполняем 80 кругов преобразования
+	 * Проходим 80 кругов преобразования
 	 */
 	for(size_t i = 0; i < 80; i++){
 		// Значение функции круга
@@ -160,13 +160,13 @@ void nts::digest::Sha1::compress(const uint8_t * block) noexcept {
 			k = 0xCA62C1D6;
 		}
 		// Временное значение круга
-		const uint32_t t = (rotl(a, 5) + f + e + k + w[i]);
+		const uint32_t t = (__nts_rotl__(a, 5) + f + e + k + w[i]);
 		// Сдвигаем рабочие переменные
 		e = d;
 		// Сдвигаем рабочие переменные
 		d = c;
 		// Сдвигаем рабочие переменные с круговым сдвигом
-		c = rotl(b, 30);
+		c = __nts_rotl__(b, 30);
 		// Сдвигаем рабочие переменные
 		b = a;
 		// Складываем новое значение переменной a
@@ -195,7 +195,7 @@ void nts::digest::Sha1::reset() noexcept {
 	// Сбрасываем количество разобранных байтов
 	this->_count = 0;
 	/**
-	 * Выполняем перенос начальных значений хеша
+	 * Переносим начальные значения хеша
 	 */
 	for(size_t i = 0; i < 5; i++)
 		// Переносим очередное начальное значение
@@ -234,7 +234,7 @@ void nts::digest::Sha1::update(const view_t & data) noexcept {
 		// Количество байтов, переносимых в накопитель из куска
 		const size_t taken = ((left < needed) ? left : needed);
 		/**
-		 * Выполняем перенос байтов куска в накопитель
+		 * Переносим байты куска в накопитель
 		 */
 		for(size_t i = 0; i < taken; i++)
 			// Переносим очередной байт куска
@@ -255,7 +255,7 @@ void nts::digest::Sha1::update(const view_t & data) noexcept {
 		} else return;
 	}
 	/**
-	 * Выполняем разбор целых блоков куска прямо из него
+	 * Разбираем целые блоки куска прямо из него
 	 */
 	while(left >= 64){
 		// Разбор очередного блока куска
@@ -266,7 +266,7 @@ void nts::digest::Sha1::update(const view_t & data) noexcept {
 		left -= 64;
 	}
 	/**
-	 * Выполняем перенос хвоста куска в накопитель
+	 * Переносим хвост куска в накопитель
 	 */
 	for(size_t i = 0; i < left; i++)
 		// Переносим очередной байт хвоста
@@ -294,7 +294,7 @@ bool nts::digest::Sha1::finish(uint8_t * result, const size_t size) noexcept {
 	// Если места под поле длины в этом блоке не осталось
 	if(this->_size > 56){
 		/**
-		 * Выполняем дополнение блока нулями до конца
+		 * Дополняем блок нулями до конца
 		 */
 		for(size_t i = this->_size; i < 64; i++)
 			// Записываем очередной нулевой байт
@@ -305,23 +305,23 @@ bool nts::digest::Sha1::finish(uint8_t * result, const size_t size) noexcept {
 		this->_size = 0;
 	}
 	/**
-	 * Выполняем дополнение блока нулями до поля длины
+	 * Дополняем блок нулями до поля длины
 	 */
 	for(size_t i = this->_size; i < 56; i++)
 		// Записываем очередной нулевой байт
 		this->_block[i] = 0;
 	// Записываем старшую половину длины сообщения
-	store(static_cast <uint32_t> (bits >> 32), this->_block + 56);
+	__nts_store__(static_cast <uint32_t> (bits >> 32), this->_block + 56);
 	// Записываем младшую половину длины сообщения
-	store(static_cast <uint32_t> (bits), this->_block + 60);
+	__nts_store__(static_cast <uint32_t> (bits), this->_block + 60);
 	// Разбор последнего блока
 	this->compress(this->_block);
 	/**
-	 * Выполняем запись слов хеша от старшего байта
+	 * Записываем слова хеша от старшего байта
 	 */
 	for(size_t i = 0; i < 5; i++)
 		// Записываем очередное слово хеша
-		store(this->_hash[i], result + (i * 4));
+		__nts_store__(this->_hash[i], result + (i * 4));
 	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
 	// Затирание накопителя незавершённого блока

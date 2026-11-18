@@ -83,7 +83,7 @@ namespace {
 	 * @return       признак того, что байты передавались
 	 *
 	 */
-	static bool pump(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак передачи
 		bool moved = false;
 		// Байты клиента
@@ -125,7 +125,7 @@ namespace {
 	 * @return           результат заведения сторон
 	 *
 	 */
-	static bool converse(const char * title, client::context_t & client, server::context_t & server, const context::credential_t & credential) noexcept {
+	static bool __nts_converse__(const char * title, client::context_t & client, server::context_t & server, const context::credential_t & credential) noexcept {
 		// Подлинность сервера
 		server.credential(credential);
 		// Тайное имя узла у клиента
@@ -141,7 +141,7 @@ namespace {
 		// Если приветствие разобрано
 		if(fingerprint::parse(client.output(), outer) == fingerprint::error_t::NONE){
 			/**
-			 * Выполняем перебор расширений
+			 * Перебираем расширений
 			 */
 			for(size_t i = 0; i < outer.extensions.size(); i++){
 				// Если расширение есть имя узла
@@ -151,9 +151,9 @@ namespace {
 			}
 		}
 		/**
-		 * Выполняем рукопожатие
+		 * Проводим рукопожатие
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			// Продолжаем передачу
 			continue;
 		// Печатаем итог случая
@@ -180,7 +180,7 @@ namespace {
 }
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @return код завершения
  *
@@ -232,7 +232,7 @@ int main(){
 			return 1;
 		}
 		// Проводим связь: ECH принимается
-		if(!converse("Случай 1: сервер с тем же ключом - ECH принят", client, served, credential))
+		if(!__nts_converse__("Случай 1: сервер с тем же ключом - ECH принят", client, served, credential))
 			// Выходим с отказом
 			return 1;
 	}
@@ -250,7 +250,7 @@ int main(){
 			// Выходим с отказом
 			return 1;
 		// Проводим связь: ECH отвергается, приходят запасные конфигурации, связь обрывается ech_required
-		if(!converse("Случай 2: сервер с чужим ключом - ECH отвергнут, retry_configs", client, foreign, credential))
+		if(!__nts_converse__("Случай 2: сервер с чужим ключом - ECH отвергнут, retry_configs", client, foreign, credential))
 			// Выходим с отказом
 			return 1;
 		// Повтор с запасными конфигурациями
@@ -264,7 +264,7 @@ int main(){
 		// Сервер с ключом, отвечающим присланным конфигурациям: тот же сервер после сброса
 		foreign.clear();
 		// Проводим связь заново с тем же сервером
-		if(!converse("Случай 3: повтор с присланными конфигурациями - ECH принят", again, foreign, credential))
+		if(!__nts_converse__("Случай 3: повтор с присланными конфигурациями - ECH принят", again, foreign, credential))
 			// Выходим с отказом
 			return 1;
 	}
@@ -276,7 +276,7 @@ int main(){
 		// Включаем GREASE
 		client.grease(true);
 		// Проводим связь: на проводе значение GREASE ECH, связь обычная
-		if(!converse("Случай 4: клиент без конфигураций с GREASE ECH, сервер без ECH", client, plain, credential))
+		if(!__nts_converse__("Случай 4: клиент без конфигураций с GREASE ECH, сервер без ECH", client, plain, credential))
 			// Выходим с отказом
 			return 1;
 	}

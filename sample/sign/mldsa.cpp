@@ -60,16 +60,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -96,7 +96,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается закрытый ключ подписи
 	vector <uint8_t> secret(sign::mldsa_t::secretSize(set));
 	/**
-	 * Выполняем порождение ключевой пары
+	 * Порождаем ключевой пары
 	 *
 	 * @details Зерно берётся из источника случайности целиком по разделу 6.1 FIPS 204:
 	 *          из него расширяются и ключ проверки, и ключ подписи, оттого на одном
@@ -110,13 +110,13 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начало открытого ключа проверки подписи
-	::print("Открытый ключ      ", key.data(), 32);
+	::__nts_print__("Открытый ключ      ", key.data(), 32);
 	// Подписываемое сообщение образца
 	const char * message = "Сообщение, которое требуется подписать";
 	// Место, в которое помещается подпись сообщения
 	vector <uint8_t> signature(sign::mldsa_t::signatureSize(set));
 	/**
-	 * Выполняем подписание сообщения
+	 * Подписываем сообщения
 	 *
 	 * @details Подпись хеджированная: случайность берётся из источника, оттого повтор
 	 *          выработки на одном ключе и сообщении даёт иную подпись. Контекст в TLS
@@ -130,7 +130,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начало подписи сообщения
-	::print("Подпись            ", signature.data(), 32);
+	::__nts_print__("Подпись            ", signature.data(), 32);
 	// Если подпись сообщения не сошлась
 	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(), view_t(signature.data(), signature.size()))){
 		// Выводим сообщение об отказе проверки подписи

@@ -60,16 +60,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -107,7 +107,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Секретные показатели и открытые ключи обеих сторон
 	vector <uint8_t> secretA(length), keyA(prime.size), secretB(length), keyB(prime.size);
 	/**
-	 * Выполняем порождение пары ключей первой стороны
+	 * Порождаем пары ключей первой стороны
 	 *
 	 * @details Показатель берётся случайными байтами длиной exponent3526(18), старший
 	 *          разряд выставляется; открытый ключ есть 2^x mod p длиной в модуль
@@ -119,7 +119,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем порождение пары ключей второй стороны
+	// Порождаем пары ключей второй стороны
 	if(!agreement::pairffdhe(prime, generator, length, secretB.data(), keyB.data())){
 		// Выводим сообщение об отказе порождения пары
 		cout << "Породить пару второй стороны не удалось" << endl;
@@ -127,11 +127,11 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начало открытого ключа первой стороны
-	::print("Открытый ключ A    ", keyA.data(), 16);
+	::__nts_print__("Открытый ключ A    ", keyA.data(), 16);
 	// Общие значения у первой и у второй стороны
 	vector <uint8_t> sharedA(prime.size), sharedB(prime.size);
 	/**
-	 * Выполняем выработку общего значения первой стороной
+	 * Вырабатываем общего значения первой стороной
 	 *
 	 * @details Общее значение есть Y^x mod p: встречный открытый ключ возводится в свой
 	 *          показатель, и у обеих сторон выходит одно значение. Встречный ключ сверяется
@@ -144,7 +144,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем выработку общего значения второй стороной
+	// Вырабатываем общего значения второй стороной
 	if(!agreement::ffdhe(prime, generator, view_t(secretB.data(), secretB.size()), view_t(keyA.data(), keyA.size()), sharedB.data())){
 		// Выводим сообщение об отказе выработки общего значения
 		cout << "Выработать общее значение второй стороны не удалось" << endl;
@@ -152,8 +152,8 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим начала общих значений сторон
-	::print("Общее значение A   ", sharedA.data(), 16);
-	::print("Общее значение B   ", sharedB.data(), 16);
+	::__nts_print__("Общее значение A   ", sharedA.data(), 16);
+	::__nts_print__("Общее значение B   ", sharedB.data(), 16);
 	// Если общие значения сторон разошлись
 	if(::memcmp(sharedA.data(), sharedB.data(), sharedA.size()) != 0){
 		// Выводим сообщение о расхождении общих значений

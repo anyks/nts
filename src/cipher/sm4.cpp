@@ -115,7 +115,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t rotl(const uint32_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -127,7 +127,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t load(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
 		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
@@ -140,7 +140,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __NTS_INLINE__ void store(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void __nts_store__(const uint32_t value, uint8_t * data) noexcept {
 		// Записываем старший байт слова
 		data[0] = static_cast <uint8_t> (value >> 24);
 		// Записываем второй байт слова
@@ -161,7 +161,7 @@ namespace {
 	 * @return      преобразованное слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t tau(const uint32_t value) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_tau__(const uint32_t value) noexcept {
 		// Выводим слово с подставленными байтами
 		return ((static_cast <uint32_t> (SBOX[(value >> 24) & 0xFF]) << 24) |
 		        (static_cast <uint32_t> (SBOX[(value >> 16) & 0xFF]) << 16) |
@@ -178,9 +178,9 @@ namespace {
 	 * @return      преобразованное слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t linear(const uint32_t value) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_linear__(const uint32_t value) noexcept {
 		// Выводим слово, преобразованное по правилу L
-		return (value ^ rotl(value, 2) ^ rotl(value, 10) ^ rotl(value, 18) ^ rotl(value, 24));
+		return (value ^ __nts_rotl__(value, 2) ^ __nts_rotl__(value, 10) ^ __nts_rotl__(value, 18) ^ __nts_rotl__(value, 24));
 	}
 
 	/**
@@ -192,9 +192,9 @@ namespace {
 	 * @return      преобразованное слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t linearKey(const uint32_t value) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_linear_key__(const uint32_t value) noexcept {
 		// Выводим слово, преобразованное по правилу L'
-		return (value ^ rotl(value, 13) ^ rotl(value, 23));
+		return (value ^ __nts_rotl__(value, 13) ^ __nts_rotl__(value, 23));
 	}
 
 	/**
@@ -204,9 +204,9 @@ namespace {
 	 * @return      итог раундового преобразования
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t round(const uint32_t value) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_round__(const uint32_t value) noexcept {
 		// Выводим итог совмещённого преобразования: подстановка и линейная часть
-		return linear(tau(value));
+		return __nts_linear__(__nts_tau__(value));
 	}
 
 	/**
@@ -216,9 +216,9 @@ namespace {
 	 * @return      итог раундового преобразования
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t roundKey(const uint32_t value) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_round_key__(const uint32_t value) noexcept {
 		// Выводим итог совмещённого преобразования: подстановка и линейная часть
-		return linearKey(tau(value));
+		return __nts_linear_key__(__nts_tau__(value));
 	}
 };
 
@@ -250,17 +250,17 @@ bool nts::cipher::Sm4::key(const view_t & key) noexcept {
 	// Промежуточные слова развёртывания
 	uint32_t k[36];
 	/**
-	 * Выполняем чтение четырёх слов ключа с постоянными развёртывания
+	 * Читаем четыре слова ключа с постоянными развёртывания
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Читаем очередное слово ключа и складываем с постоянной
-		k[i] = (load(key.data + (i * 4)) ^ FK[i]);
+		k[i] = (__nts_load__(key.data + (i * 4)) ^ FK[i]);
 	/**
-	 * Выполняем выработку 32 раундовых ключей
+	 * Вырабатываем 32 раундовых ключа
 	 */
 	for(size_t i = 0; i < 32; i++){
 		// Вырабатываем очередное промежуточное слово
-		k[i + 4] = (k[i] ^ roundKey(k[i + 1] ^ k[i + 2] ^ k[i + 3] ^ CK[i]));
+		k[i + 4] = (k[i] ^ __nts_round_key__(k[i + 1] ^ k[i + 2] ^ k[i + 3] ^ CK[i]));
 		// Запоминаем очередной раундовый ключ
 		this->_keys[i] = k[i + 4];
 	}
@@ -297,23 +297,23 @@ bool nts::cipher::Sm4::encrypt(const uint8_t * source, uint8_t * result) const n
 	// Рабочие слова преобразования
 	uint32_t x[36];
 	/**
-	 * Выполняем чтение четырёх слов блока
+	 * Читаем четыре слова блока
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Читаем очередное слово блока от старшего байта
-		x[i] = load(source + (i * 4));
+		x[i] = __nts_load__(source + (i * 4));
 	/**
-	 * Выполняем 32 круга преобразования
+	 * Проходим 32 круга преобразования
 	 */
 	for(size_t i = 0; i < 32; i++)
 		// Складываем очередное рабочее слово круга
-		x[i + 4] = (x[i] ^ round(x[i + 1] ^ x[i + 2] ^ x[i + 3] ^ this->_keys[i]));
+		x[i + 4] = (x[i] ^ __nts_round__(x[i + 1] ^ x[i + 2] ^ x[i + 3] ^ this->_keys[i]));
 	/**
-	 * Выполняем запись слов итога в обратном порядке
+	 * Записываем слова итога в обратном порядке
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Записываем очередное слово итога от старшего байта
-		store(x[35 - i], result + (i * 4));
+		__nts_store__(x[35 - i], result + (i * 4));
 	// Затирание рабочих слов преобразования
 	wipe(x, sizeof(x));
 	// Выводим успешность зашифрования
@@ -335,23 +335,23 @@ bool nts::cipher::Sm4::decrypt(const uint8_t * source, uint8_t * result) const n
 	// Рабочие слова преобразования
 	uint32_t x[36];
 	/**
-	 * Выполняем чтение четырёх слов блока
+	 * Читаем четыре слова блока
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Читаем очередное слово блока от старшего байта
-		x[i] = load(source + (i * 4));
+		x[i] = __nts_load__(source + (i * 4));
 	/**
-	 * Выполняем 32 круга преобразования с ключами в обратном порядке
+	 * Проходим 32 круга преобразования с ключами в обратном порядке
 	 */
 	for(size_t i = 0; i < 32; i++)
 		// Складываем очередное рабочее слово круга
-		x[i + 4] = (x[i] ^ round(x[i + 1] ^ x[i + 2] ^ x[i + 3] ^ this->_keys[31 - i]));
+		x[i + 4] = (x[i] ^ __nts_round__(x[i + 1] ^ x[i + 2] ^ x[i + 3] ^ this->_keys[31 - i]));
 	/**
-	 * Выполняем запись слов итога в обратном порядке
+	 * Записываем слова итога в обратном порядке
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Записываем очередное слово итога от старшего байта
-		store(x[35 - i], result + (i * 4));
+		__nts_store__(x[35 - i], result + (i * 4));
 	// Затирание рабочих слов преобразования
 	wipe(x, sizeof(x));
 	// Выводим успешность расшифрования

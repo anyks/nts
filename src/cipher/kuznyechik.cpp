@@ -45,10 +45,14 @@
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "cipher/kuznyechik.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Если сборка ведётся под x86-64: векторное сложение итогов таблицы идёт SSE2,
@@ -59,6 +63,7 @@
 	 * Подключаем заголовочный файл внутренних функций x86-64
 	 */
 	#include <immintrin.h>
+
 	/**
 	 * Объявляем наличие векторного пути SSE2
 	 */
@@ -71,6 +76,7 @@
 	 * Подключаем заголовочный файл команд ARM
 	 */
 	#include <arm_neon.h>
+
 	/**
 	 * Объявляем наличие векторного пути NEON
 	 */
@@ -91,11 +97,15 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
 	using namespace nts::cipher;
+
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
 
 	/**
 	 * @brief Нелинейное биективное преобразование множества двоичных векторов
@@ -103,7 +113,7 @@ namespace {
 	 * @details Подстановка Pi' по разделу 4.1 ГОСТ Р 34.12-2015. Таблица эта совпадает
 	 *          с таблицей Стрибога - совпадение сличено при переносе, - но взята из
 	 *          своего стандарта и своей копией здесь и остаётся: стандарты разные и
-	 *          вправе разойтись, а общая таблица связала бы два модуля без нужды
+	 *          вправе разойтись, а общая таблица связала бы два модуля без нужды.
 	 *
 	 */
 	static constexpr uint8_t PI[256] = {
@@ -141,12 +151,11 @@ namespace {
 		0x59, 0xA6, 0x74, 0xD2, 0xE6, 0xF4, 0xB4, 0xC0,
 		0xD1, 0x66, 0xAF, 0xC2, 0x39, 0x4B, 0x63, 0xB6
 	};
-
 	/**
 	 * @brief Множители линейного преобразования
 	 *
 	 * @details Постоянные множители функции l по разделу 4.2 ГОСТ Р 34.12-2015,
-	 *          записанные от старшего байта вектора к младшему
+	 *          записанные от старшего байта вектора к младшему.
 	 *
 	 */
 	static constexpr uint8_t FACTORS[16] = {
@@ -154,18 +163,19 @@ namespace {
 		0x94, 0x20, 0x85, 0x10, 0xC2, 0xC0, 0x01, 0xFB,
 		0x01, 0xC0, 0xC2, 0x10, 0x85, 0x20, 0x94, 0x01
 	};
+
 	/**
 	 * @brief Функция умножения в поле Галуа
 	 *
 	 * @details Поле задано неприводимым многочленом x^8 + x^7 + x^6 + x + 1 по
-	 *          разделу 3 ГОСТ Р 34.12-2015
+	 *          разделу 3 ГОСТ Р 34.12-2015.
 	 *
 	 * @param first  первый множитель
 	 * @param second второй множитель
 	 * @return       произведение множителей в поле
 	 *
 	 */
-	static constexpr uint8_t multiply(const uint8_t first, const uint8_t second) noexcept {
+	static constexpr uint8_t __nts_multiply__(const uint8_t first, const uint8_t second) noexcept {
 		// Накапливаемое произведение
 		uint8_t result = 0;
 		// Текущее значение первого множителя
@@ -173,7 +183,7 @@ namespace {
 		// Оставшиеся разряды второго множителя
 		uint8_t rest = second;
 		/**
-		 * Выполняем перебор разрядов второго множителя
+		 * Перебираем разряды второго множителя
 		 */
 		while(rest != 0){
 			// Если разряд второго множителя установлен
@@ -210,29 +220,28 @@ namespace {
 	 * @return вычисленные таблицы умножения
 	 *
 	 */
-	static constexpr tables_t compute() noexcept {
+	static constexpr tables_t __nts_compute__() noexcept {
 		// Вычисляемые таблицы умножения
 		tables_t result = {};
 		/**
-		 * Выполняем перебор постоянных множителей
+		 * Перебираем постоянные множители
 		 */
 		for(size_t i = 0; i < 16; i++){
 			/**
-			 * Выполняем перебор возможных значений байта
+			 * Перебираем возможные значения байта
 			 */
 			for(size_t j = 0; j < 256; j++)
 				// Вычисляем произведение множителя на значение байта
-				result.values[i][j] = multiply(FACTORS[i], static_cast <uint8_t> (j));
+				result.values[i][j] = __nts_multiply__(FACTORS[i], static_cast <uint8_t> (j));
 		}
 		// Выводим вычисленные таблицы умножения
 		return result;
 	}
-
 	/**
 	 * @brief Таблицы умножения на постоянные множители
 	 *
 	 */
-	static constexpr tables_t TABLES = compute();
+	static constexpr tables_t TABLES = __nts_compute__();
 
 	/**
 	 * @brief Обратная подстановка
@@ -249,11 +258,11 @@ namespace {
 	 * @return вычисленная обратная подстановка
 	 *
 	 */
-	static constexpr reversed_t reverse() noexcept {
+	static constexpr reversed_t __nts_reverse__() noexcept {
 		// Вычисляемая обратная подстановка
 		reversed_t result = {};
 		/**
-		 * Выполняем перебор возможных значений байта
+		 * Перебираем возможные значения байта
 		 *
 		 * @note Обратная подстановка вычисляется обращением прямой, а не переносится
 		 *       из текста стандарта: так она обратна ей заведомо, а не по недосмотру
@@ -265,27 +274,26 @@ namespace {
 		// Выводим вычисленную обратную подстановку
 		return result;
 	}
-
 	/**
 	 * @brief Обратная подстановка
 	 *
 	 */
-	static constexpr reversed_t REVERSED = reverse();
+	static constexpr reversed_t REVERSED = __nts_reverse__();
 
 	/**
 	 * @brief Функция линейного преобразования одного байта
 	 *
-	 * @details Функция l по разделу 4.2 ГОСТ Р 34.12-2015
+	 * @details Функция l по разделу 4.2 ГОСТ Р 34.12-2015.
 	 *
 	 * @param block преобразуемый блок
 	 * @return      значение линейного преобразования
 	 *
 	 */
-	static uint8_t linear(const uint8_t * block) noexcept {
+	static __NTS_INLINE__ uint8_t __nts_linear__(const uint8_t * block) noexcept {
 		// Накапливаемое значение преобразования
 		uint8_t result = 0;
 		/**
-		 * Выполняем перебор байтов преобразуемого блока
+		 * Перебираем байты преобразуемого блока
 		 */
 		for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
 			// Дополняем значение произведением байта на его множитель
@@ -296,16 +304,16 @@ namespace {
 	/**
 	 * @brief Функция преобразования R
 	 *
-	 * @details Преобразование R по разделу 4.3 ГОСТ Р 34.12-2015
+	 * @details Преобразование R по разделу 4.3 ГОСТ Р 34.12-2015.
 	 *
 	 * @param block преобразуемый блок
 	 *
 	 */
-	static void shift(uint8_t * block) noexcept {
+	static __NTS_INLINE__ void __nts_shift__(uint8_t * block) noexcept {
 		// Вычисляем значение линейного преобразования блока
-		const uint8_t value = linear(block);
+		const uint8_t value = __nts_linear__(block);
 		/**
-		 * Выполняем сдвиг байтов блока от конца к началу
+		 * Сдвигаем байты блока от конца к началу
 		 */
 		for(size_t i = KUZNYECHIK_BLOCK - 1; i > 0; i--)
 			// Переносим очередной байт блока
@@ -319,11 +327,11 @@ namespace {
 	 * @param block преобразуемый блок
 	 *
 	 */
-	static void unshift(uint8_t * block) noexcept {
+	static __NTS_INLINE__ void __nts_unshift__(uint8_t * block) noexcept {
 		// Запоминаем старший байт блока
 		const uint8_t value = block[0];
 		/**
-		 * Выполняем сдвиг байтов блока от начала к концу
+		 * Сдвигаем байты блока от начала к концу
 		 */
 		for(size_t i = 0; i < (KUZNYECHIK_BLOCK - 1); i++)
 			// Переносим очередной байт блока
@@ -335,23 +343,23 @@ namespace {
 		 */
 		block[KUZNYECHIK_BLOCK - 1] = value;
 		// Записываем значение линейного преобразования младшим байтом блока
-		block[KUZNYECHIK_BLOCK - 1] = linear(block);
+		block[KUZNYECHIK_BLOCK - 1] = __nts_linear__(block);
 	}
 	/**
 	 * @brief Функция преобразования L
 	 *
-	 * @details Преобразование L по разделу 4.3 ГОСТ Р 34.12-2015
+	 * @details Преобразование L по разделу 4.3 ГОСТ Р 34.12-2015.
 	 *
 	 * @param block преобразуемый блок
 	 *
 	 */
-	static void spread(uint8_t * block) noexcept {
+	static __NTS_INLINE__ void __nts_spread__(uint8_t * block) noexcept {
 		/**
-		 * Выполняем шестнадцать применений преобразования R
+		 * Применяем преобразование R шестнадцать раз
 		 */
 		for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
 			// Применяем преобразование R к блоку
-			shift(block);
+			__nts_shift__(block);
 	}
 	/**
 	 * @brief Функция обратного преобразования L
@@ -359,25 +367,25 @@ namespace {
 	 * @param block преобразуемый блок
 	 *
 	 */
-	static void unspread(uint8_t * block) noexcept {
+	static __NTS_INLINE__ void __nts_unspread__(uint8_t * block) noexcept {
 		/**
-		 * Выполняем шестнадцать применений обратного преобразования R
+		 * Применяем обратное преобразование R шестнадцать раз
 		 */
 		for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
 			// Применяем обратное преобразование R к блоку
-			unshift(block);
+			__nts_unshift__(block);
 	}
 	/**
 	 * @brief Функция подстановки байтов блока
 	 *
-	 * @details Преобразование S по разделу 4.3 ГОСТ Р 34.12-2015
+	 * @details Преобразование S по разделу 4.3 ГОСТ Р 34.12-2015.
 	 *
 	 * @param block преобразуемый блок
 	 *
 	 */
-	static void substitute(uint8_t * block) noexcept {
+	static __NTS_INLINE__ void __nts_substitute__(uint8_t * block) noexcept {
 		/**
-		 * Выполняем перебор байтов преобразуемого блока
+		 * Перебираем байты преобразуемого блока
 		 */
 		for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
 			// Подстановка очередного байта блока
@@ -389,14 +397,15 @@ namespace {
 	 * @param block преобразуемый блок
 	 *
 	 */
-	static void unsubstitute(uint8_t * block) noexcept {
+	static __NTS_INLINE__ void __nts_unsubstitute__(uint8_t * block) noexcept {
 		/**
-		 * Выполняем перебор байтов преобразуемого блока
+		 * Перебираем байты преобразуемого блока
 		 */
 		for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
 			// Обратную подстановку очередного байта блока
 			block[i] = REVERSED.values[block[i]];
 	}
+
 	/**
 	 * Если шифр работает развёрнутыми таблицами преобразования
 	 */
@@ -406,7 +415,7 @@ namespace {
 		 *
 		 * @details Таблица хранит итог преобразования блока, у которого значащим оставлен
 		 *          один-единственный байт: преобразование линейно, и итог целого блока
-		 *          складывается из шестнадцати таких итогов
+		 *          складывается из шестнадцати таких итогов.
 		 *
 		 */
 		typedef struct Spread {
@@ -417,25 +426,25 @@ namespace {
 		/**
 		 * @brief Функция построения развёрнутой таблицы преобразования
 		 *
-		 * @param straight признак построения таблицы прямого преобразования
-		 * @return         построенная развёрнутая таблица преобразования
-		 *
 		 * @note Таблица строится не перебором всех значений байта, а восемью основаниями
 		 *       на каждое место: преобразование линейно над полем из двух элементов, и
 		 *       итог всякого значения складывается из итогов его разрядов
 		 *
+		 * @param straight признак построения таблицы прямого преобразования
+		 * @return         построенная развёрнутая таблица преобразования
+		 *
 		 */
-		static spread_t compose(const bool straight) noexcept {
+		static __NTS_INLINE__ spread_t __nts_compose__(const bool straight) noexcept {
 			// Строимая развёрнутая таблица преобразования
 			spread_t result = {};
 			// Основания преобразования по месту байта и разряду его значения
 			uint64_t basis[KUZNYECHIK_BLOCK][8][2] = {};
 			/**
-			 * Выполняем перебор мест байта в блоке
+			 * Перебираем места байта в блоке
 			 */
 			for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
 				/**
-				 * Выполняем перебор разрядов значения байта
+				 * Перебираем разряды значения байта
 				 */
 				for(size_t j = 0; j < 8; j++){
 					// Преобразуемый блок основания
@@ -447,9 +456,9 @@ namespace {
 					// Если строится таблица прямого преобразования
 					if(straight)
 						// Линейное преобразование блока основания
-						spread(block);
+						__nts_spread__(block);
 					// Обратное линейное преобразование блока основания
-					else unspread(block);
+					else __nts_unspread__(block);
 					// Переносим младшую половину итога преобразования
 					::memcpy(&basis[i][j][0], block, sizeof(uint64_t));
 					// Переносим старшую половину итога преобразования
@@ -457,11 +466,11 @@ namespace {
 				}
 			}
 			/**
-			 * Выполняем перебор мест байта в блоке
+			 * Перебираем места байта в блоке
 			 */
 			for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
 				/**
-				 * Выполняем перебор возможных значений байта
+				 * Перебираем возможные значения байта
 				 */
 				for(size_t j = 0; j < 256; j++){
 					/**
@@ -471,7 +480,7 @@ namespace {
 					 */
 					const uint8_t value = (straight ? PI[j] : static_cast <uint8_t> (j));
 					/**
-					 * Выполняем перебор разрядов значения байта
+					 * Перебираем разряды значения байта
 					 */
 					for(size_t k = 0; k < 8; k++){
 						// Если очередной разряд значения байта нулевой
@@ -491,15 +500,15 @@ namespace {
 		/**
 		 * @brief Функция получения развёрнутой таблицы прямого преобразования
 		 *
-		 * @return развёрнутая таблица прямого преобразования
-		 *
 		 * @note Таблица строится при первом обращении, а не при сборке: постоянным
 		 *       выражением такой объём собиратели считать отказываются
 		 *
+		 * @return развёрнутая таблица прямого преобразования
+		 *
 		 */
-		static const spread_t & forward() noexcept {
+		static __NTS_INLINE__ const spread_t & __nts_forward__() noexcept {
 			// Развёрнутая таблица прямого преобразования
-			static const spread_t result = compose(true);
+			static const spread_t result = __nts_compose__(true);
 			// Выводим развёрнутую таблицу прямого преобразования
 			return result;
 		}
@@ -509,9 +518,9 @@ namespace {
 		 * @return развёрнутая таблица обратного преобразования
 		 *
 		 */
-		static const spread_t & backward() noexcept {
+		static __NTS_INLINE__ const spread_t & __nts_backward__() noexcept {
 			// Развёрнутая таблица обратного преобразования
-			static const spread_t result = compose(false);
+			static const spread_t result = __nts_compose__(false);
 			// Выводим развёрнутую таблицу обратного преобразования
 			return result;
 		}
@@ -522,7 +531,7 @@ namespace {
 		 * @param table развёрнутая таблица преобразования
 		 *
 		 */
-		static void translate(uint8_t * block, const spread_t & table) noexcept {
+		static __NTS_INLINE__ void __nts_translate__(uint8_t * block, const spread_t & table) noexcept {
 			/**
 			 * Если есть векторный путь SSE2: итог места байта - шестнадцать байтов,
 			 * они складываются одной векторной операцией вместо двух скалярных
@@ -531,7 +540,7 @@ namespace {
 				// Накопитель итога преобразования
 				__m128i acc = _mm_setzero_si128();
 				/**
-				 * Выполняем перебор байтов преобразуемого блока
+				 * Перебираем байты преобразуемого блока
 				 */
 				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
 					// Складываем вектор итога места байта
@@ -545,7 +554,7 @@ namespace {
 				// Накопитель итога преобразования
 				uint8x16_t acc = vdupq_n_u8(0);
 				/**
-				 * Выполняем перебор байтов преобразуемого блока
+				 * Перебираем байты преобразуемого блока
 				 */
 				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
 					// Складываем вектор итога места байта
@@ -561,7 +570,7 @@ namespace {
 				// Собираемая старшая половина итога преобразования
 				uint64_t high = 0;
 				/**
-				 * Выполняем перебор байтов преобразуемого блока
+				 * Перебираем байты преобразуемого блока
 				 */
 				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
 					// Складываем младшую половину итога места байта
@@ -580,7 +589,7 @@ namespace {
 	/**
 	 * @brief Функция сложения блока с ключом
 	 *
-	 * @details Преобразование X по разделу 4.3 ГОСТ Р 34.12-2015
+	 * @details Преобразование X по разделу 4.3 ГОСТ Р 34.12-2015.
 	 *
 	 * @param block преобразуемый блок
 	 * @param key   складываемый ключ
@@ -592,7 +601,7 @@ namespace {
 		 *
 		 * @details Четыре независимых блока идут одним телом: шестьдесят четыре чтения
 		 *          развёрнутой таблицы на круг не зависят друг от друга, и процессор
-		 *          исполняет их внахлёст, тогда как один блок ждёт всякое чтение
+		 *          исполняет их внахлёст, тогда как один блок ждёт всякое чтение.
 		 *
 		 * @param first  первый преобразуемый блок
 		 * @param second второй преобразуемый блок
@@ -601,7 +610,7 @@ namespace {
 		 * @param table  развёрнутая таблица преобразования
 		 *
 		 */
-		static void translate4(uint8_t * first, uint8_t * second, uint8_t * third, uint8_t * fourth, const spread_t & table) noexcept {
+		static __NTS_INLINE__ void __nts_translate4__(uint8_t * first, uint8_t * second, uint8_t * third, uint8_t * fourth, const spread_t & table) noexcept {
 			/**
 			 * Если есть векторный путь SSE2: четыре независимых накопителя, чтения
 			 * таблицы по байтам блоков не зависят друг от друга и идут внахлёст
@@ -612,7 +621,7 @@ namespace {
 				// Накопители итогов третьего и четвёртого блоков
 				__m128i c = _mm_setzero_si128(), d = _mm_setzero_si128();
 				/**
-				 * Выполняем перебор байтов блоков
+				 * Перебираем байты блоков
 				 */
 				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
 					// Складываем вектор итога места байта первого блока
@@ -641,7 +650,7 @@ namespace {
 				// Накопители итогов третьего и четвёртого блоков
 				uint8x16_t c = vdupq_n_u8(0), d = vdupq_n_u8(0);
 				/**
-				 * Выполняем перебор байтов блоков
+				 * Перебираем байты блоков
 				 */
 				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
 					// Складываем вектор итога места байта первого блока
@@ -666,54 +675,59 @@ namespace {
 			 */
 			#else
 				// Накопители половин четырёх блоков
-				uint64_t al = 0, ah = 0, bl = 0, bh = 0, cl = 0, ch = 0, dl = 0, dh = 0;
+				uint64_t firstLow = 0, firstHigh = 0, secondLow = 0, secondHigh = 0, thirdLow = 0, thirdHigh = 0, fourthLow = 0, fourthHigh = 0;
 				/**
-				 * Выполняем перебор байтов блоков
+				 * Перебираем байты блоков
 				 */
 				for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++){
 					// Складываем строки таблицы по байтам первого блока
-					al ^= table.values[i][first[i]][0];
+					firstLow ^= table.values[i][first[i]][0];
 					// Складываем старшую половину итога первого блока
-					ah ^= table.values[i][first[i]][1];
+					firstHigh ^= table.values[i][first[i]][1];
 					// Складываем строки таблицы по байтам второго блока
-					bl ^= table.values[i][second[i]][0];
+					secondLow ^= table.values[i][second[i]][0];
 					// Складываем старшую половину итога второго блока
-					bh ^= table.values[i][second[i]][1];
+					secondHigh ^= table.values[i][second[i]][1];
 					// Складываем строки таблицы по байтам третьего блока
-					cl ^= table.values[i][third[i]][0];
+					thirdLow ^= table.values[i][third[i]][0];
 					// Складываем старшую половину итога третьего блока
-					ch ^= table.values[i][third[i]][1];
+					thirdHigh ^= table.values[i][third[i]][1];
 					// Складываем строки таблицы по байтам четвёртого блока
-					dl ^= table.values[i][fourth[i]][0];
+					fourthLow ^= table.values[i][fourth[i]][0];
 					// Складываем старшую половину итога четвёртого блока
-					dh ^= table.values[i][fourth[i]][1];
+					fourthHigh ^= table.values[i][fourth[i]][1];
 				}
 				// Записываем половины первого блока
-				::memcpy(first, &al, sizeof(al));
-				::memcpy(first + sizeof(al), &ah, sizeof(ah));
+				::memcpy(first, &firstLow, sizeof(firstLow));
+				::memcpy(first + sizeof(firstLow), &firstHigh, sizeof(firstHigh));
 				// Записываем половины второго блока
-				::memcpy(second, &bl, sizeof(bl));
-				::memcpy(second + sizeof(bl), &bh, sizeof(bh));
+				::memcpy(second, &secondLow, sizeof(secondLow));
+				::memcpy(second + sizeof(secondLow), &secondHigh, sizeof(secondHigh));
 				// Записываем половины третьего блока
-				::memcpy(third, &cl, sizeof(cl));
-				::memcpy(third + sizeof(cl), &ch, sizeof(ch));
+				::memcpy(third, &thirdLow, sizeof(thirdLow));
+				::memcpy(third + sizeof(thirdLow), &thirdHigh, sizeof(thirdHigh));
 				// Записываем половины четвёртого блока
-				::memcpy(fourth, &dl, sizeof(dl));
-				::memcpy(fourth + sizeof(dl), &dh, sizeof(dh));
+				::memcpy(fourth, &fourthLow, sizeof(fourthLow));
+				::memcpy(fourth + sizeof(fourthLow), &fourthHigh, sizeof(fourthHigh));
 			#endif
 		}
 	#endif
-	// Метод сложения блока с ключом
-	static void add(uint8_t * block, const uint8_t * key) noexcept {
+
+	/**
+	 * @brief Функция сложения блока с ключом
+	 *
+	 * @param block преобразуемый блок
+	 * @param key   ключ сложения
+	 *
+	 */
+	static __NTS_INLINE__ void __nts_add__(uint8_t * block, const uint8_t * key) noexcept {
 		/**
-		 * Выполняем перебор байтов преобразуемого блока
+		 * Перебираем байты преобразуемого блока
 		 */
 		for(size_t i = 0; i < KUZNYECHIK_BLOCK; i++)
 			// Складываем очередной байт блока с байтом ключа
 			block[i] ^= key[i];
 	}
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 };
 
 /**
@@ -750,11 +764,11 @@ bool nts::cipher::Kuznyechik::key(const view_t & key) noexcept {
 	::memcpy(this->_keys[0], pair[0], KUZNYECHIK_BLOCK);
 	::memcpy(this->_keys[1], pair[1], KUZNYECHIK_BLOCK);
 	/**
-	 * Выполняем выработку оставшихся четырёх пар раундовых ключей
+	 * Вырабатываем оставшиеся четыре пары раундовых ключей
 	 */
 	for(size_t i = 0; i < 4; i++){
 		/**
-		 * Выполняем восемь применений преобразования Фейстеля
+		 * Применяем преобразование Фейстеля восемь раз
 		 */
 		for(size_t j = 0; j < 8; j++){
 			// Постоянная величина итерации
@@ -764,19 +778,19 @@ bool nts::cipher::Kuznyechik::key(const view_t & key) noexcept {
 			// Записываем номер итерации младшим байтом постоянной величины
 			constant[KUZNYECHIK_BLOCK - 1] = static_cast <uint8_t> ((i * 8) + j + 1);
 			// Вырабатываем постоянную величину итерации
-			spread(constant);
+			::__nts_spread__(constant);
 			// Преобразуемая половина пары ключей
 			uint8_t item[KUZNYECHIK_BLOCK];
 			// Переносим преобразуемую половину пары ключей
 			::memcpy(item, pair[0], KUZNYECHIK_BLOCK);
 			// Складываем половину пары с постоянной величиной итерации
-			add(item, constant);
+			::__nts_add__(item, constant);
 			// Подстановка байтов половины пары
-			substitute(item);
+			::__nts_substitute__(item);
 			// Линейное преобразование половины пары
-			spread(item);
+			::__nts_spread__(item);
 			// Складываем итог преобразования со второй половиной пары
-			add(item, pair[1]);
+			::__nts_add__(item, pair[1]);
 			// Переносим прежнюю первую половину пары во вторую
 			::memcpy(pair[1], pair[0], KUZNYECHIK_BLOCK);
 			// Запоминаем итог преобразования первой половиной пары
@@ -827,34 +841,34 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
 	 */
 	#if !defined(NTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу прямого преобразования
-		const spread_t & table = forward();
+		const spread_t & table = __nts_forward__();
 		/**
-		 * Выполняем девять раундов зашифрования
+		 * Прогоняем девять раундов зашифрования
 		 */
 		for(size_t i = 0; i < 9; i++){
 			// Складываем блок с раундовым ключом
-			add(block, this->_keys[i]);
+			::__nts_add__(block, this->_keys[i]);
 			// Подстановка и линейное преобразование блока
-			translate(block, table);
+			__nts_translate__(block, table);
 		}
 	/**
 	 * Если шифр работает малыми таблицами умножения
 	 */
 	#else
 		/**
-		 * Выполняем девять раундов зашифрования
+		 * Прогоняем девять раундов зашифрования
 		 */
 		for(size_t i = 0; i < 9; i++){
 			// Складываем блок с раундовым ключом
-			add(block, this->_keys[i]);
+			::__nts_add__(block, this->_keys[i]);
 			// Подстановка байтов блока
-			substitute(block);
+			::__nts_substitute__(block);
 			// Линейное преобразование блока
-			spread(block);
+			::__nts_spread__(block);
 		}
 	#endif
 	// Складываем блок с последним раундовым ключом
-	add(block, this->_keys[9]);
+	::__nts_add__(block, this->_keys[9]);
 	// Переносим зашифрованный блок
 	::memcpy(result, block, KUZNYECHIK_BLOCK);
 	// Затирание преобразуемого блока
@@ -883,32 +897,32 @@ bool nts::cipher::Kuznyechik::batch(const uint8_t * sources, const size_t blocks
 	 */
 	#if !defined(NTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу прямого преобразования
-		const spread_t & table = forward();
+		const spread_t & table = __nts_forward__();
 		// Четыре преобразуемых блока
 		uint8_t block[4][KUZNYECHIK_BLOCK];
 		/**
-		 * Выполняем шифрование по четыре блока разом
+		 * Шифруем по четыре блока разом
 		 */
 		while(left >= 4){
 			// Переносим четыре зашифровываемых блока
 			::memcpy(block, sources, sizeof(block));
 			/**
-			 * Выполняем девять кругов над четырьмя блоками
+			 * Прогоняем девять кругов над четырьмя блоками
 			 */
 			for(size_t i = 0; i < 9; i++){
 				// Складываем блоки с раундовым ключом
-				add(block[0], this->_keys[i]);
-				add(block[1], this->_keys[i]);
-				add(block[2], this->_keys[i]);
-				add(block[3], this->_keys[i]);
+				::__nts_add__(block[0], this->_keys[i]);
+				::__nts_add__(block[1], this->_keys[i]);
+				::__nts_add__(block[2], this->_keys[i]);
+				::__nts_add__(block[3], this->_keys[i]);
 				// Подстановка и линейное преобразование четырёх блоков разом
-				translate4(block[0], block[1], block[2], block[3], table);
+				__nts_translate4__(block[0], block[1], block[2], block[3], table);
 			}
 			// Складываем блоки с последним раундовым ключом
-			add(block[0], this->_keys[9]);
-			add(block[1], this->_keys[9]);
-			add(block[2], this->_keys[9]);
-			add(block[3], this->_keys[9]);
+			::__nts_add__(block[0], this->_keys[9]);
+			::__nts_add__(block[1], this->_keys[9]);
+			::__nts_add__(block[2], this->_keys[9]);
+			::__nts_add__(block[3], this->_keys[9]);
 			// Переносим зашифрованные блоки
 			::memcpy(results, block, sizeof(block));
 			// Сдвигаем исходные блоки
@@ -922,7 +936,7 @@ bool nts::cipher::Kuznyechik::batch(const uint8_t * sources, const size_t blocks
 		wipe(block, sizeof(block));
 	#endif
 	/**
-	 * Выполняем шифрование хвоста по блоку
+	 * Шифруем хвост по блоку
 	 */
 	for(size_t i = 0; i < left; i++)
 		// Шифруем очередной блок
@@ -952,9 +966,9 @@ bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) 
 	 */
 	#if !defined(NTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу обратного преобразования
-		const spread_t & table = backward();
+		const spread_t & table = __nts_backward__();
 		/**
-		 * Выполняем девять раундов расшифрования
+		 * Прогоняем девять раундов расшифрования
 		 *
 		 * @note Обратная подстановка идёт своим проходом: раунд расшифрования применяет
 		 *       её после обратного линейного преобразования, и в таблицу его она бы легла
@@ -963,30 +977,30 @@ bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) 
 		 */
 		for(size_t i = 9; i > 0; i--){
 			// Складываем блок с раундовым ключом
-			add(block, this->_keys[i]);
+			::__nts_add__(block, this->_keys[i]);
 			// Обратное линейное преобразование блока
-			translate(block, table);
+			__nts_translate__(block, table);
 			// Обратную подстановку байтов блока
-			unsubstitute(block);
+			::__nts_unsubstitute__(block);
 		}
 	/**
 	 * Если шифр работает малыми таблицами умножения
 	 */
 	#else
 		/**
-		 * Выполняем девять раундов расшифрования
+		 * Прогоняем девять раундов расшифрования
 		 */
 		for(size_t i = 9; i > 0; i--){
 			// Складываем блок с раундовым ключом
-			add(block, this->_keys[i]);
+			::__nts_add__(block, this->_keys[i]);
 			// Обратное линейное преобразование блока
-			unspread(block);
+			::__nts_unspread__(block);
 			// Обратную подстановку байтов блока
-			unsubstitute(block);
+			::__nts_unsubstitute__(block);
 		}
 	#endif
 	// Складываем блок с первым раундовым ключом
-	add(block, this->_keys[0]);
+	::__nts_add__(block, this->_keys[0]);
 	// Переносим расшифрованный блок
 	::memcpy(result, block, KUZNYECHIK_BLOCK);
 	// Затирание преобразуемого блока

@@ -58,16 +58,16 @@ namespace {
 	 * @return       признак успешности передачи извещения
 	 *
 	 */
-	static bool transfer(const alert::alert_t & alert, alert::alert_t & result) noexcept {
+	static bool __nts_transfer__(const alert::alert_t & alert, alert::alert_t & result) noexcept {
 		// Место для записи извещения
 		uint8_t buffer[alert::ALERT_LENGTH] = {0};
-		// Выполняем запись извещения
+		// Записываем извещения
 		if(alert::build(alert, buffer) != alert::error_t::NONE)
 			// Выводим признак неудачной передачи извещения
 			return false;
 		// Объект сборщика записей передающей стороны
 		record::writer_t writer;
-		// Выполняем упаковку извещения в запись протокола
+		// Упаковываем извещение в запись протокола
 		if(writer.push(record::type_t::ALERT, record::version_t::TLS12, view_t(buffer, sizeof(buffer))) != record::error_t::NONE)
 			// Выводим признак неудачной передачи извещения
 			return false;
@@ -81,7 +81,7 @@ namespace {
 		record::header_t header;
 		// Содержимое принятой записи
 		view_t payload;
-		// Выполняем получение принятой записи
+		// Получаем принятой записи
 		if(reader.next(header, payload) != record::error_t::NONE)
 			// Выводим признак неудачной передачи извещения
 			return false;
@@ -99,7 +99,7 @@ namespace {
 	 * @param alert полученное извещение
 	 *
 	 */
-	static void decide(const char * title, const alert::alert_t & alert) noexcept {
+	static void __nts_decide__(const char * title, const alert::alert_t & alert) noexcept {
 		// Выводим заголовок принятого решения
 		cout << title << ": " << alert::name(alert.description);
 		// Если описание извещения протоколом не определено
@@ -126,36 +126,36 @@ int main(int argc, char * argv[]) noexcept {
 	(void) argv;
 	// Принятое встречной стороной извещение
 	alert::alert_t result;
-	// Выполняем передачу извещения о завершении передачи данных
-	if(!transfer(alert::alert_t(alert::level_t::WARNING, alert::description_t::CLOSE), result)){
+	// Передаём извещения о завершении передачи данных
+	if(!__nts_transfer__(alert::alert_t(alert::level_t::WARNING, alert::description_t::CLOSE), result)){
 		// Выводим сообщение об ошибке
 		cout << "Передать извещение о завершении передачи данных не удалось" << endl;
 		// Выходим из приложения
 		return EXIT_FAILURE;
 	}
 	// Выводим решение по извещению о завершении передачи данных
-	decide("Завершение передачи   ", result);
-	// Выполняем передачу извещения об отказе проверки целостности записи
-	if(!transfer(alert::alert_t(alert::level_t::FATAL, alert::description_t::MAC), result)){
+	__nts_decide__("Завершение передачи   ", result);
+	// Передаём извещения об отказе проверки целостности записи
+	if(!__nts_transfer__(alert::alert_t(alert::level_t::FATAL, alert::description_t::MAC), result)){
 		// Выводим сообщение об ошибке
 		cout << "Передать извещение об отказе целостности не удалось" << endl;
 		// Выходим из приложения
 		return EXIT_FAILURE;
 	}
 	// Выводим решение по извещению об отказе проверки целостности записи
-	decide("Целостность записи    ", result);
-	// Выполняем передачу смертельного отказа под уровнем предупреждения
-	if(!transfer(alert::alert_t(alert::level_t::WARNING, alert::description_t::PARAMETER), result)){
+	__nts_decide__("Целостность записи    ", result);
+	// Передаём смертельного отказа под уровнем предупреждения
+	if(!__nts_transfer__(alert::alert_t(alert::level_t::WARNING, alert::description_t::PARAMETER), result)){
 		// Выводим сообщение об ошибке
 		cout << "Передать извещение о недозволенном значении поля не удалось" << endl;
 		// Выходим из приложения
 		return EXIT_FAILURE;
 	}
 	// Выводим решение по извещению о недозволенном значении поля
-	decide("Значение поля         ", result);
+	__nts_decide__("Значение поля         ", result);
 	// Извещение с описанием, протоколом не определённым
 	const uint8_t unknown[alert::ALERT_LENGTH] = {0x02, 0xFF};
-	// Выполняем разбор извещения с неизвестным описанием
+	// Разбираем извещения с неизвестным описанием
 	if(alert::parse(view_t(unknown, sizeof(unknown)), result) != alert::error_t::NONE){
 		// Выводим сообщение об ошибке
 		cout << "Разобрать извещение с неизвестным описанием не удалось" << endl;
@@ -163,7 +163,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим решение по извещению с неизвестным описанием
-	decide("Неизвестное извещение ", result);
+	__nts_decide__("Неизвестное извещение ", result);
 	// Выводим результат
 	return EXIT_SUCCESS;
 }

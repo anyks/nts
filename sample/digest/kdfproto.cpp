@@ -60,16 +60,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -94,7 +94,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается локализованный ключ пользователя
 	uint8_t localized[32];
 	/**
-	 * Выполняем выработку локализованного ключа пользователя SNMPv3 на хеше SHA-1
+	 * Вырабатываем локализованного ключа пользователя SNMPv3 на хеше SHA-1
 	 *
 	 * @details Приложение A RFC 3414: сперва пароль повторяется до одного мегабайта
 	 *          и хешируется (ключ Ku), затем локализуется хешем строки Ku ‖ engineID ‖ Ku.
@@ -108,9 +108,9 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим локализованный ключ пользователя SNMPv3 на хеше SHA-1
-	::print("Ключ SNMPv3 SHA-1  ", localized, 20);
+	::__nts_print__("Ключ SNMPv3 SHA-1  ", localized, 20);
 	/**
-	 * Выполняем выработку локализованного ключа пользователя SNMPv3 на хеше MD5
+	 * Вырабатываем локализованного ключа пользователя SNMPv3 на хеше MD5
 	 *
 	 * @note Тот же пароль и тот же движок с иным хешем дают иной ключ: алгоритм
 	 *       входит в выработку наравне с паролем
@@ -123,7 +123,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим локализованный ключ пользователя SNMPv3 на хеше MD5
-	::print("Ключ SNMPv3 MD5    ", localized, 16);
+	::__nts_print__("Ключ SNMPv3 MD5    ", localized, 16);
 	// Ключ псевдослучайной функции протокола IKEv2
 	const uint8_t key[] = {0x01, 0x02, 0x03, 0x04};
 	// Затравка выработки ключевого материала
@@ -131,7 +131,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Место, в которое помещается ключевой материал в шестьдесят четыре байта
 	uint8_t material[64];
 	/**
-	 * Выполняем выработку ключевого материала prf+ протокола IKEv2
+	 * Вырабатываем ключевого материала prf+ протокола IKEv2
 	 *
 	 * @details Раздел 2.13 RFC 7296: T1 = prf(K, S ‖ 0x01), T2 = prf(K, T1 ‖ S ‖ 0x02),
 	 *          и так далее, пока не наберётся требуемой длины; материал берётся из слитной
@@ -145,7 +145,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим ключевой материал prf+ протокола IKEv2
-	::print("Материал prf+ IKEv2", material, sizeof(material));
+	::__nts_print__("Материал prf+ IKEv2", material, sizeof(material));
 	// Выходим из приложения с признаком успеха
 	return EXIT_SUCCESS;
 }

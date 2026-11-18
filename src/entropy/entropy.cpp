@@ -170,7 +170,7 @@ namespace {
 		 * @brief Функция Обработчик разветвления процесса у потомка
 		 *
 		 */
-		static void forked() noexcept {
+		static void __nts_forked__() noexcept {
 			// Открываем новое поколение процесса
 			generation.fetch_add(1, memory_order_relaxed);
 		}
@@ -185,7 +185,7 @@ namespace {
 		 * @return  признак того, что обработчик заведён
 		 *
 		 */
-		static bool guard() noexcept {
+		static bool __nts_guard__() noexcept {
 			// Признак того, что обработчик заведён
 			static atomic <bool> guarded{false};
 			// Если обработчик уже заведён
@@ -193,7 +193,7 @@ namespace {
 				// Сообщаем, что обработчик заведён
 				return true;
 			// Если обработчик разветвления завести не удалось
-			if(::pthread_atfork(nullptr, nullptr, &forked) != 0)
+			if(::pthread_atfork(nullptr, nullptr, &__nts_forked__) != 0)
 				// Сообщаем об отказе заведения
 				return false;
 			// Запоминаем, что обработчик заведён
@@ -211,7 +211,7 @@ namespace {
 		 * @return признак того, что обработчик заведён: разветвления у Windows нет
 		 *
 		 */
-		static bool guard() noexcept {
+		static bool __nts_guard__() noexcept {
 			// Разветвления у системы нет, стеречь нечего
 			return true;
 		}
@@ -234,21 +234,21 @@ namespace {
 		 * @return     признак успешности чтения случайных байтов
 		 *
 		 */
-		static bool device(uint8_t * data, const size_t size) noexcept {
+		static bool __nts_device__(uint8_t * data, const size_t size) noexcept {
 			// Открытие устройства случайных байтов
-			const int32_t fd = ::open("/dev/urandom", O_RDONLY);
+			const int32_t descriptor = ::open("/dev/urandom", O_RDONLY);
 			// Если устройство случайных байтов открыть не удалось
-			if(fd < 0)
+			if(descriptor < 0)
 				// Выводим отказ чтения случайных байтов
 				return false;
 			// Количество уже прочитанных случайных байтов
 			size_t offset = 0;
 			/**
-			 * Выполняем чтение случайных байтов до их набора
+			 * Читаем случайные байты до их набора
 			 */
 			while(offset < size){
 				// Чтение очередной части случайных байтов
-				const ssize_t count = ::read(fd, data + offset, size - offset);
+				const ssize_t count = ::read(descriptor, data + offset, size - offset);
 				// Если чтение прервано сигналом
 				if((count < 0) && (errno == EINTR))
 					// Повторное чтение случайных байтов
@@ -256,7 +256,7 @@ namespace {
 				// Если чтение случайных байтов не удалось
 				if(count <= 0){
 					// Закрытие устройства случайных байтов
-					::close(fd);
+					::close(descriptor);
 					// Выводим отказ чтения случайных байтов
 					return false;
 				}
@@ -264,7 +264,7 @@ namespace {
 				offset += static_cast <size_t> (count);
 			}
 			// Закрытие устройства случайных байтов
-			::close(fd);
+			::close(descriptor);
 			// Выводим успешность чтения случайных байтов
 			return true;
 		}
@@ -280,7 +280,7 @@ namespace {
 	 * @return     признак успешности получения случайных байтов
 	 *
 	 */
-	static bool seed(uint8_t * data, const size_t size) noexcept {
+	static bool __nts_seed__(uint8_t * data, const size_t size) noexcept {
 		/**
 		 * Определяем платформу, под которую ведётся сборка
 		 */
@@ -309,7 +309,7 @@ namespace {
 			 */
 			#elif !defined(__NTS_ENTROPY_CALL__)
 				// Выводим итог чтения случайных байтов из устройства системы
-				return device(data, size);
+				return __nts_device__(data, size);
 			/**
 			 * Иначе выполняется прямой вызов ядра, выдающего случайные байты
 			 */
@@ -317,7 +317,7 @@ namespace {
 				// Количество уже полученных случайных байтов
 				size_t offset = 0;
 				/**
-				 * Выполняем получение случайных байтов до их набора
+				 * Получаем случайные байты до их набора
 				 */
 				while(offset < size){
 					/**
@@ -332,7 +332,7 @@ namespace {
 							// Повторное получение случайных байтов
 							continue;
 						// Выводим итог чтения случайных байтов из устройства системы
-						return device(data, size);
+						return __nts_device__(data, size);
 					}
 					// Увеличиваем количество полученных случайных байтов
 					offset += count;
@@ -353,7 +353,7 @@ namespace {
 	 * @return          признак успешности наполнения
 	 *
 	 */
-	static bool refill(internal::generator_t & generator) noexcept {
+	static bool __nts_refill__(internal::generator_t & generator) noexcept {
 		// Объект шифра ChaCha20
 		cipher::chacha_t cipher;
 		// Если шифр на текущих ключе и заполнении запустить не удалось
@@ -397,15 +397,15 @@ namespace {
 	 * @return          признак успешности переналивки
 	 *
 	 */
-	static bool stir(internal::generator_t & generator) noexcept {
+	static bool __nts_stir__(internal::generator_t & generator) noexcept {
 		// Свежие байты системы
 		uint8_t fresh[internal::generator_t::KEY];
 		// Если свежих байтов у системы получить не удалось
-		if(!seed(fresh, sizeof(fresh)))
+		if(!__nts_seed__(fresh, sizeof(fresh)))
 			// Выводим отказ переналивки
 			return false;
 		/**
-		 * Выполняем примешивание свежих байтов к ключу
+		 * Примешиваем свежие байты к ключу
 		 */
 		for(size_t i = 0; i < sizeof(fresh); i++)
 			// Складываем очередной байт ключа со свежим
@@ -423,7 +423,7 @@ namespace {
 		// Считаем переналивку
 		generator.stirs++;
 		// Порождатель наполнен, если наполнен и запас
-		generator.seeded = refill(generator);
+		generator.seeded = __nts_refill__(generator);
 		// Выводим итог переналивки
 		return generator.seeded;
 	}
@@ -493,20 +493,20 @@ bool nts::entropy::bytes(uint8_t * data, const size_t size) noexcept {
 	 */
 	if(!generator.seeded || (generator.generation != generation.load(memory_order_relaxed))){
 		// Если обработчик разветвления завести либо порождатель переналить не удалось
-		if(!guard() || !stir(generator))
+		if(!__nts_guard__() || !__nts_stir__(generator))
 			// Выводим отказ получения случайных байтов
 			return false;
 	}
 	// Количество уже выданных случайных байтов
 	size_t offset = 0;
 	/**
-	 * Выполняем выдачу случайных байтов из запаса до их набора
+	 * Выдаём случайные байты из запаса до их набора
 	 */
 	while(offset < size){
 		// Если запас израсходован
 		if(generator.rest == 0){
 			// Каждые RESEED наполнений - переналивка от системы, прочие - наполнение своей гаммой
-			const bool filled = ((generator.refills >= internal::generator_t::RESEED) ? stir(generator) : refill(generator));
+			const bool filled = ((generator.refills >= internal::generator_t::RESEED) ? __nts_stir__(generator) : __nts_refill__(generator));
 			// Если наполнить запас не удалось
 			if(!filled)
 				// Выводим отказ получения случайных байтов
@@ -566,14 +566,14 @@ bool nts::entropy::number(const math::modulus_t & modulus, math::number_t & resu
 			// Выводим отказ получения случайного числа
 			return false;
 		/**
-		 * Выполняем подбор маски: наименьшая маска, не меньшая старшего байта модуля
+		 * Подбираем маску: наименьшая маска, не меньшая старшего байта модуля
 		 */
 		while(((mask >> 1) >= buffer[0]) && (mask > 1))
 			// Сужаем маску
 			mask >>= 1;
 	}
 	/**
-	 * Выполняем отбор случайного числа
+	 * Отбираем случайное число
 	 */
 	for(size_t i = 0; i < ATTEMPTS; i++){
 		// Если случайные байты получить не удалось

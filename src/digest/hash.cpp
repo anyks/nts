@@ -37,7 +37,7 @@ using namespace std;
  */
 size_t nts::digest::length(const hash_t algorithm) noexcept {
 	/**
-	 * Выполняем определение длины хеша по алгоритму
+	 * Определяем длину хеша по алгоритму
 	 */
 	switch(static_cast <uint8_t> (algorithm)){
 		// Если выбран MD5
@@ -74,7 +74,7 @@ size_t nts::digest::length(const hash_t algorithm) noexcept {
  */
 size_t nts::digest::block(const hash_t algorithm) noexcept {
 	/**
-	 * Выполняем определение размера блока по алгоритму
+	 * Определяем размер блока по алгоритму
 	 */
 	switch(static_cast <uint8_t> (algorithm)){
 		// Если выбран алгоритм с блоком в 64 байта
@@ -118,7 +118,7 @@ void nts::digest::Hasher::reset(const hash_t algorithm) noexcept {
 	// Сбрасываем признак порченой подачи
 	this->_spoiled = false;
 	/**
-	 * Выполняем сброс объекта выбранного алгоритма
+	 * Сбрасываем объект выбранного алгоритма
 	 */
 	switch(static_cast <uint8_t> (algorithm)){
 		// Если выбран MD5
@@ -163,7 +163,7 @@ void nts::digest::Hasher::update(const view_t & data) noexcept {
 		return;
 	}
 	/**
-	 * Выполняем передачу куска объекту выбранного алгоритма
+	 * Передаём кусок объекту выбранного алгоритма
 	 */
 	switch(static_cast <uint8_t> (this->_type)){
 		// Если выбран MD5
@@ -203,7 +203,7 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
 		// Выводим отказ снятия хеша
 		return false;
 	/**
-	 * Выполняем снятие хеша с объекта выбранного алгоритма
+	 * Снимаем хеш с объекта выбранного алгоритма
 	 */
 	switch(static_cast <uint8_t> (this->_type)){
 		// Если выбран MD5

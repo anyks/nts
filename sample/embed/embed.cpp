@@ -63,11 +63,11 @@ namespace {
 	 * @param size  длина области
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Печатаем подпись
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байтов
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Печатаем байт
@@ -82,14 +82,14 @@ namespace {
 	 * @return     просмотр
 	 *
 	 */
-	view_t text(const char * text) noexcept {
+	view_t __nts_text__(const char * text) noexcept {
 		// Выводим просмотр текста
 		return view_t(reinterpret_cast <const uint8_t *> (text), ::strlen(text));
 	}
 };
 
 /**
- * @brief Точка входа образца
+ * @brief Функция точки входа образца
  *
  * @param argc число доводов
  * @param argv доводы
@@ -111,7 +111,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	/**
-	 * Выполняем заполнение материала условными байтами
+	 * Заполняем материала условными байтами
 	 */
 	for(size_t i = 0; i < material.size(); i++)
 		// Кладём очередной байт
@@ -124,7 +124,7 @@ int main(int argc, char * argv[]) noexcept {
 	 */
 	uint8_t context[32];
 	// Если хеш участка образа вычислить не удалось
-	if(!digest::hash(digest::hash_t::SHA256, ::text("участок образа: код носителя"), context, sizeof(context)))
+	if(!digest::hash(digest::hash_t::SHA256, ::__nts_text__("участок образа: код носителя"), context, sizeof(context)))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Версия ключа: смена версии даёт иной ключ из того же материала
@@ -136,32 +136,32 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Если ключ вывести не удалось
-	if(!embed::key(digest::hash_t::SHA256, view_t(material.data(), material.size()), ::text(salt), view_t(context, sizeof(context)), version, key.data(), key.size())){
+	if(!embed::key(digest::hash_t::SHA256, view_t(material.data(), material.size()), ::__nts_text__(salt), view_t(context, sizeof(context)), version, key.data(), key.size())){
 		// Печатаем отказ
 		cout << "Вывести ключ из материала не удалось" << endl;
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	}
 	// Печатаем ключ
-	::print("Ключ из материала (версия 1)", key.data(), key.size());
+	::__nts_print__("Ключ из материала (версия 1)", key.data(), key.size());
 	// Ключ следующей версии из того же материала
 	uint8_t next[32];
 	// Если ключ вывести не удалось
-	if(!embed::key(digest::hash_t::SHA256, view_t(material.data(), material.size()), ::text(salt), view_t(context, sizeof(context)), version + 1, next, sizeof(next)))
+	if(!embed::key(digest::hash_t::SHA256, view_t(material.data(), material.size()), ::__nts_text__(salt), view_t(context, sizeof(context)), version + 1, next, sizeof(next)))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем ключ
-	::print("Ключ из материала (версия 2)", next, sizeof(next));
+	::__nts_print__("Ключ из материала (версия 2)", next, sizeof(next));
 	// Хеш подменённого участка образа
 	uint8_t tampered[32];
 	// Если хеш подменённого участка вычислить не удалось
-	if(!digest::hash(digest::hash_t::SHA256, ::text("участок образа: код носителя, подправленный"), tampered, sizeof(tampered)))
+	if(!digest::hash(digest::hash_t::SHA256, ::__nts_text__("участок образа: код носителя, подправленный"), tampered, sizeof(tampered)))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Ключ по подменённому участку
 	uint8_t foreign[32];
 	// Если ключ вывести не удалось
-	if(!embed::key(digest::hash_t::SHA256, view_t(material.data(), material.size()), ::text(salt), view_t(tampered, sizeof(tampered)), version, foreign, sizeof(foreign)))
+	if(!embed::key(digest::hash_t::SHA256, view_t(material.data(), material.size()), ::__nts_text__(salt), view_t(tampered, sizeof(tampered)), version, foreign, sizeof(foreign)))
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	// Печатаем итог подмены
@@ -174,14 +174,14 @@ int main(int argc, char * argv[]) noexcept {
 	// Ключ из пароля
 	uint8_t stretched[32];
 	// Если ключ вывести не удалось
-	if(!embed::secret(params, ::text("правильная лошадь батарея скрепка"), ::text(salt), view_t(context, sizeof(context)), version, stretched, sizeof(stretched))){
+	if(!embed::secret(params, ::__nts_text__("правильная лошадь батарея скрепка"), ::__nts_text__(salt), view_t(context, sizeof(context)), version, stretched, sizeof(stretched))){
 		// Печатаем отказ
 		cout << "Вывести ключ из пароля не удалось" << endl;
 		// Выходим с отказом
 		return EXIT_FAILURE;
 	}
 	// Печатаем ключ
-	::print("Ключ из пароля (Argon2id, 8 МиБ)", stretched, sizeof(stretched));
+	::__nts_print__("Ключ из пароля (Argon2id, 8 МиБ)", stretched, sizeof(stretched));
 	// Затираем ключи, жившие на стеке
 	sys::wipe(next, sizeof(next));
 	sys::wipe(foreign, sizeof(foreign));

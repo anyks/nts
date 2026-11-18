@@ -75,11 +75,11 @@ static double band(const char * name, const size_t bytes, F && f){
 	// Проверяем работу перед замером: молчаливый отказ не мерим
 	if(!f()){ printf("%s на %zu байтах не удалась\n", name, bytes); exit(1); }
 	// Считаем число повторов на полосу восьми мегабайтов
-	const size_t n = max <size_t> (1, (8u << 20) / bytes);
+	const size_t repeats = max <size_t> (1, (8u << 20) / bytes);
 	// Начинаем с нулевой полосы
 	double result = 0;
 	/**
-	 * Выполняем семь прогонов замера
+	 * Проходим семь прогонов замера
 	 */
 	for(int r = 0; r < 7; r++){
 		// Запоминаем момент начала прогона
@@ -87,13 +87,13 @@ static double band(const char * name, const size_t bytes, F && f){
 		/**
 		 * Повторяем работу заданное число раз
 		 */
-		for(size_t i = 0; i < n; i++) f();
+		for(size_t i = 0; i < repeats; i++) f();
 		// Запоминаем момент конца прогона
 		auto t1 = chrono::steady_clock::now();
 		// Считаем длительность прогона
 		const double seconds = chrono::duration <double> (t1 - t0).count();
 		// Запоминаем лучшую полосу
-		result = max(result, (static_cast <double> (bytes) * n) / seconds / 1e6);
+		result = max(result, (static_cast <double> (bytes) * repeats) / seconds / 1e6);
 	}
 	// Возвращаем лучшую полосу
 	return result;
@@ -202,28 +202,28 @@ int main(){
 	// Печатаем заголовок таблицы замеров
 	printf("%-30s %6s %9s       %16s  %5s\n", "работа", "байтов", "наша", "OpenSSL", "раз");
 	/**
-	 * Выполняем замеры на каждой длине записи
+	 * Замеряем на каждой длине записи
 	 */
 	for(size_t s = 0; s < 3; s++){
 		// Запоминаем длину записи
-		const size_t n = SIZES[s];
+		const size_t length = SIZES[s];
 		// Запоминаем длину записи для эталона
-		const int len32 = static_cast <int> (n);
+		const int len32 = static_cast <int> (length);
 		// Начинаем с отсутствия эталона
 		double ref = 0;
 		// ChaCha20: гамма
-		const double ours1 = band("ChaCha20", n, [&]{ return chacha.start(view_t(key, 32), view_t(nonce, 12), 1) && chacha.encrypt(view_t(data.data(), n), result.data()); });
+		const double ours1 = band("ChaCha20", length, [&]{ return chacha.start(view_t(key, 32), view_t(nonce, 12), 1) && chacha.encrypt(view_t(data.data(), length), result.data()); });
 /**
  * Замеряем гамму ChaCha20 эталона
  */
 #if defined(WITH_OPENSSL)
 		// Замеряем гамму эталона
-		ref = band("ChaCha20 эталона", n, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_chacha20(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1); });
+		ref = band("ChaCha20 эталона", length, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_chacha20(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1); });
 #endif
 		// Печатаем полосу гаммы
-		show("ChaCha20", n, ours1, ref);
+		show("ChaCha20", length, ours1, ref);
 		// Poly1305: имитовставка
-		const double ours2 = band("Poly1305", n, [&]{ return poly.start(view_t(key, 32)) && poly.update(view_t(data.data(), n)) && poly.finish(tag); });
+		const double ours2 = band("Poly1305", length, [&]{ return poly.start(view_t(key, 32)) && poly.update(view_t(data.data(), length)) && poly.finish(tag); });
 		// Сбрасываем эталон
 		ref = 0;
 /**
@@ -231,12 +231,12 @@ int main(){
  */
 #if defined(WITH_OPENSSL) && (OPENSSL_VERSION_NUMBER >= 0x30000000L)
 		// Замеряем имитовставку эталона
-		if(mctx != nullptr) ref = band("Poly1305 эталона", n, [&]{ size_t len = 0; return (EVP_MAC_init(mctx, key, 32, nullptr) == 1) && (EVP_MAC_update(mctx, data.data(), n) == 1) && (EVP_MAC_final(mctx, tag, &len, 16) == 1); });
+		if(mctx != nullptr) ref = band("Poly1305 эталона", length, [&]{ size_t len = 0; return (EVP_MAC_init(mctx, key, 32, nullptr) == 1) && (EVP_MAC_update(mctx, data.data(), length) == 1) && (EVP_MAC_final(mctx, tag, &len, 16) == 1); });
 #endif
 		// Печатаем полосу имитовставки
-		show("Poly1305", n, ours2, ref);
+		show("Poly1305", length, ours2, ref);
 		// ChaCha20-Poly1305: наложение
-		const double ours3 = band("ChaCha20-Poly1305 seal", n, [&]{ return chachapoly.start(view_t(key, 32), view_t(nonce, 12)) && chachapoly.encrypt(view_t(nullptr, 0), view_t(data.data(), n), result.data(), tag); });
+		const double ours3 = band("ChaCha20-Poly1305 seal", length, [&]{ return chachapoly.start(view_t(key, 32), view_t(nonce, 12)) && chachapoly.encrypt(view_t(nullptr, 0), view_t(data.data(), length), result.data(), tag); });
 		// Сбрасываем эталон
 		ref = 0;
 /**
@@ -244,14 +244,14 @@ int main(){
  */
 #if defined(WITH_OPENSSL)
 		// Замеряем наложение эталона
-		ref = band("ChaCha20-Poly1305 seal эталона", n, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_chacha20_poly1305(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1) && (EVP_EncryptFinal_ex(ctx, result.data() + len, &len) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tag) == 1); });
+		ref = band("ChaCha20-Poly1305 seal эталона", length, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_chacha20_poly1305(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1) && (EVP_EncryptFinal_ex(ctx, result.data() + len, &len) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tag) == 1); });
 #endif
 		// Печатаем полосу наложения
-		show("ChaCha20-Poly1305 seal", n, ours3, ref);
+		show("ChaCha20-Poly1305 seal", length, ours3, ref);
 		// ChaCha20-Poly1305: снятие поточным путём, как у слоя защиты
-		chachapoly.start(view_t(key, 32), view_t(nonce, 12)); chachapoly.encrypt(view_t(nullptr, 0), view_t(data.data(), n), result.data(), tag);
+		chachapoly.start(view_t(key, 32), view_t(nonce, 12)); chachapoly.encrypt(view_t(nullptr, 0), view_t(data.data(), length), result.data(), tag);
 		// Замеряем снятие ChaCha20-Poly1305 поточным путём
-		const double ours3b = band("ChaCha20-Poly1305 open", n, [&]{ return chachapoly.start(view_t(key, 32), view_t(nonce, 12)) && chachapoly.decrypt(view_t(result.data(), n), plain.data()) && chachapoly.verify(view_t(tag, 16)); });
+		const double ours3b = band("ChaCha20-Poly1305 open", length, [&]{ return chachapoly.start(view_t(key, 32), view_t(nonce, 12)) && chachapoly.decrypt(view_t(result.data(), length), plain.data()) && chachapoly.verify(view_t(tag, 16)); });
 		// Сбрасываем эталон
 		ref = 0;
 /**
@@ -259,12 +259,12 @@ int main(){
  */
 #if defined(WITH_OPENSSL)
 		// Замеряем снятие эталона
-		ref = band("ChaCha20-Poly1305 open эталона", n, [&]{ int len = 0; return (EVP_DecryptInit_ex(ctx, EVP_chacha20_poly1305(), nullptr, key, nonce) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, 16, tag) == 1) && (EVP_DecryptUpdate(ctx, plain.data(), &len, result.data(), len32) == 1) && (EVP_DecryptFinal_ex(ctx, plain.data() + len, &len) == 1); });
+		ref = band("ChaCha20-Poly1305 open эталона", length, [&]{ int len = 0; return (EVP_DecryptInit_ex(ctx, EVP_chacha20_poly1305(), nullptr, key, nonce) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, 16, tag) == 1) && (EVP_DecryptUpdate(ctx, plain.data(), &len, result.data(), len32) == 1) && (EVP_DecryptFinal_ex(ctx, plain.data() + len, &len) == 1); });
 #endif
 		// Печатаем полосу снятия
-		show("ChaCha20-Poly1305 open", n, ours3b, ref);
+		show("ChaCha20-Poly1305 open", length, ours3b, ref);
 		// AES-256-CTR: гамма счётчика, синхропосылка в половину блока
-		const double ours4 = band("AES-256-CTR", n, [&]{ return counter.start(block256, view_t(nonce, 8)) && counter.encrypt(view_t(data.data(), n), result.data()); });
+		const double ours4 = band("AES-256-CTR", length, [&]{ return counter.start(block256, view_t(nonce, 8)) && counter.encrypt(view_t(data.data(), length), result.data()); });
 		// Сбрасываем эталон
 		ref = 0;
 /**
@@ -272,12 +272,12 @@ int main(){
  */
 #if defined(WITH_OPENSSL)
 		// Замеряем гамму счётчика эталона
-		ref = band("AES-256-CTR эталона", n, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1); });
+		ref = band("AES-256-CTR эталона", length, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1); });
 #endif
 		// Печатаем полосу гаммы счётчика
-		show("AES-256-CTR", n, ours4, ref);
+		show("AES-256-CTR", length, ours4, ref);
 		// GHASH: связанные данные без текста
-		const double ours5 = band("GHASH", n, [&]{ return gcm.restart(view_t(nonce, 12)) && gcm.encrypt(view_t(data.data(), n), view_t(nullptr, 0), nullptr, tag); });
+		const double ours5 = band("GHASH", length, [&]{ return gcm.restart(view_t(nonce, 12)) && gcm.encrypt(view_t(data.data(), length), view_t(nullptr, 0), nullptr, tag); });
 		// Сбрасываем эталон
 		ref = 0;
 /**
@@ -285,12 +285,12 @@ int main(){
  */
 #if defined(WITH_OPENSSL)
 		// Замеряем GHASH эталона
-		ref = band("GHASH эталона", n, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, nullptr, &len, data.data(), len32) == 1) && (EVP_EncryptFinal_ex(ctx, result.data(), &len) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tag) == 1); });
+		ref = band("GHASH эталона", length, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, nullptr, &len, data.data(), len32) == 1) && (EVP_EncryptFinal_ex(ctx, result.data(), &len) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tag) == 1); });
 #endif
 		// Печатаем полосу GHASH
-		show("GHASH (GCM, только AAD)", n, ours5, ref);
+		show("GHASH (GCM, только AAD)", length, ours5, ref);
 		// AES-256-GCM: наложение
-		const double ours6 = band("AES-256-GCM seal", n, [&]{ return gcm.restart(view_t(nonce, 12)) && gcm.encrypt(view_t(nullptr, 0), view_t(data.data(), n), result.data(), tag); });
+		const double ours6 = band("AES-256-GCM seal", length, [&]{ return gcm.restart(view_t(nonce, 12)) && gcm.encrypt(view_t(nullptr, 0), view_t(data.data(), length), result.data(), tag); });
 		// Сбрасываем эталон
 		ref = 0;
 /**
@@ -298,14 +298,14 @@ int main(){
  */
 #if defined(WITH_OPENSSL)
 		// Замеряем наложение GCM эталона
-		ref = band("AES-256-GCM seal эталона", n, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1) && (EVP_EncryptFinal_ex(ctx, result.data() + len, &len) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tag) == 1); });
+		ref = band("AES-256-GCM seal эталона", length, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1) && (EVP_EncryptFinal_ex(ctx, result.data() + len, &len) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tag) == 1); });
 #endif
 		// Печатаем полосу наложения GCM
-		show("AES-256-GCM seal", n, ours6, ref);
+		show("AES-256-GCM seal", length, ours6, ref);
 		// AES-256-GCM: снятие поточным путём, как у слоя защиты
-		gcm.restart(view_t(nonce, 12)); gcm.encrypt(view_t(nullptr, 0), view_t(data.data(), n), result.data(), tag);
+		gcm.restart(view_t(nonce, 12)); gcm.encrypt(view_t(nullptr, 0), view_t(data.data(), length), result.data(), tag);
 		// Замеряем снятие AES-256-GCM поточным путём
-		const double ours6b = band("AES-256-GCM open", n, [&]{ return gcm.restart(view_t(nonce, 12)) && gcm.decrypt(view_t(result.data(), n), plain.data()) && gcm.verify(view_t(tag, 16)); });
+		const double ours6b = band("AES-256-GCM open", length, [&]{ return gcm.restart(view_t(nonce, 12)) && gcm.decrypt(view_t(result.data(), length), plain.data()) && gcm.verify(view_t(tag, 16)); });
 		// Сбрасываем эталон
 		ref = 0;
 /**
@@ -313,12 +313,12 @@ int main(){
  */
 #if defined(WITH_OPENSSL)
 		// Замеряем снятие GCM эталона
-		ref = band("AES-256-GCM open эталона", n, [&]{ int len = 0; return (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, key, nonce) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, 16, tag) == 1) && (EVP_DecryptUpdate(ctx, plain.data(), &len, result.data(), len32) == 1) && (EVP_DecryptFinal_ex(ctx, plain.data() + len, &len) == 1); });
+		ref = band("AES-256-GCM open эталона", length, [&]{ int len = 0; return (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, key, nonce) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, 16, tag) == 1) && (EVP_DecryptUpdate(ctx, plain.data(), &len, result.data(), len32) == 1) && (EVP_DecryptFinal_ex(ctx, plain.data() + len, &len) == 1); });
 #endif
 		// Печатаем полосу снятия GCM
-		show("AES-256-GCM open", n, ours6b, ref);
+		show("AES-256-GCM open", length, ours6b, ref);
 		// AES-128-GCM: наложение
-		const double ours7 = band("AES-128-GCM seal", n, [&]{ return gcm128.restart(view_t(nonce, 12)) && gcm128.encrypt(view_t(nullptr, 0), view_t(data.data(), n), result.data(), tag); });
+		const double ours7 = band("AES-128-GCM seal", length, [&]{ return gcm128.restart(view_t(nonce, 12)) && gcm128.encrypt(view_t(nullptr, 0), view_t(data.data(), length), result.data(), tag); });
 		// Сбрасываем эталон
 		ref = 0;
 /**
@@ -326,10 +326,10 @@ int main(){
  */
 #if defined(WITH_OPENSSL)
 		// Замеряем наложение AES-128-GCM эталона
-		ref = band("AES-128-GCM seal эталона", n, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1) && (EVP_EncryptFinal_ex(ctx, result.data() + len, &len) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tag) == 1); });
+		ref = band("AES-128-GCM seal эталона", length, [&]{ int len = 0; return (EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), nullptr, key, nonce) == 1) && (EVP_EncryptUpdate(ctx, result.data(), &len, data.data(), len32) == 1) && (EVP_EncryptFinal_ex(ctx, result.data() + len, &len) == 1) && (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, 16, tag) == 1); });
 #endif
 		// Печатаем полосу наложения AES-128-GCM
-		show("AES-128-GCM seal", n, ours7, ref);
+		show("AES-128-GCM seal", length, ours7, ref);
 		// Отбиваем строки замеров пустой строкой
 		printf("\n");
 	}
@@ -345,6 +345,7 @@ int main(){
 	#if OPENSSL_VERSION_NUMBER >= 0x30000000L
 	// Освобождаем контекст имитовставки эталона
 	if(mctx != nullptr) EVP_MAC_CTX_free(mctx);
+	// Освобождаем имитовставку эталона
 	if(mac != nullptr) EVP_MAC_free(mac);
 	#endif
 #endif

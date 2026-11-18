@@ -141,9 +141,9 @@ namespace {
 	 * @return       номер знака в основании 64 либо -1, если знак основанию не принадлежит
 	 *
 	 */
-	static int16_t number(const char letter) noexcept {
+	static int16_t __nts_number__(const char letter) noexcept {
 		/**
-		 * Выполняем перебор всех знаков основания
+		 * Перебираем все знаки основания
 		 */
 		for(int16_t i = 0; i < 64; i++){
 			// Если знак основания найден
@@ -161,7 +161,7 @@ namespace {
 	 * @return       признак того, что знак является пробельным
 	 *
 	 */
-	static bool space(const char letter) noexcept {
+	static bool __nts_space__(const char letter) noexcept {
 		// Выводим признак принадлежности знака к пробельным
 		return ((letter == ' ') || (letter == '\t') || (letter == '\r') || (letter == '\n') || (letter == '\v') || (letter == '\f'));
 	}
@@ -172,17 +172,17 @@ namespace {
 	 * @return      признак допустимости метки записи
 	 *
 	 */
-	static bool suitable(const string & label) noexcept {
+	static bool __nts_suitable__(const string & label) noexcept {
 		// Если метка записи пуста
 		if(label.empty())
 			// Выводим признак недопустимости метки записи
 			return false;
 		// Если метка записи начинается или заканчивается пробелом
-		if(space(label.front()) || space(label.back()))
+		if(__nts_space__(label.front()) || __nts_space__(label.back()))
 			// Выводим признак недопустимости метки записи
 			return false;
 		/**
-		 * Выполняем перебор всех знаков метки записи
+		 * Перебираем все знаки метки записи
 		 */
 		for(size_t i = 0; i < label.length(); i++){
 			// Получаем очередной знак метки записи
@@ -215,7 +215,7 @@ namespace {
 	 *       гибла бы в освобождённой памяти не затёртой
 	 *
 	 */
-	static error_t revert(const char * text, const size_t size, vector <uint8_t> & result) noexcept {
+	static error_t __nts_revert__(const char * text, const size_t size, vector <uint8_t> & result) noexcept {
 		// Набранные знаки основания
 		int16_t letters[4] = {0, 0, 0, 0};
 		// Количество набранных знаков основания
@@ -236,13 +236,13 @@ namespace {
 			return error_t::MEMORY;
 		}
 		/**
-		 * Выполняем перебор всего тела записи
+		 * Перебираем всё тело записи
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Получаем очередной знак тела записи
 			const char letter = text[i];
 			// Если знак является пробельным
-			if(space(letter))
+			if(__nts_space__(letter))
 				// Пропускаем знак, разделы 2 и 3 RFC 7468 дозволяют перевод строки в любом месте тела
 				continue;
 			// Если знак является знаком добивки
@@ -272,7 +272,7 @@ namespace {
 					// Выводим отказ о неверной записи добивки
 					return error_t::PADDING;
 				// Получаем номер знака в основании
-				const int16_t value = number(letter);
+				const int16_t value = __nts_number__(letter);
 				// Если знак основанию не принадлежит
 				if(value < 0)
 					// Выводим отказ о знаке вне основания
@@ -328,13 +328,13 @@ namespace {
 	 * @return        отказ переноса числа
 	 *
 	 */
-	static error_t transfer(const uint8_t * data, const size_t size, const bool reverse, vector <uint8_t> & result) noexcept {
+	static error_t __nts_transfer__(const uint8_t * data, const size_t size, const bool reverse, vector <uint8_t> & result) noexcept {
 		// Начало значащей части числа
 		size_t offset = 0;
 		// Длина значащей части числа
 		size_t length = size;
 		/**
-		 * Выполняем пропуск незначащих старших байтов числа
+		 * Пропускаем незначащие старшие байты числа
 		 */
 		while((length > 0) && (data[reverse ? (length - 1) : offset] == 0x00)){
 			// Если число записано порядком от старшего байта к младшему
@@ -368,7 +368,7 @@ namespace {
 			return error_t::MEMORY;
 		}
 		/**
-		 * Выполняем перенос значащей части числа
+		 * Переносим значащую часть числа
 		 */
 		for(size_t i = 0; i < length; i++)
 			// Записываем очередной байт числа порядком от старшего байта к младшему
@@ -386,9 +386,9 @@ namespace {
 	 *       разбор по метке не судит
 	 *
 	 */
-	static void scour(vector <block_t> & blocks) noexcept {
+	static void __nts_scour__(vector <block_t> & blocks) noexcept {
 		/**
-		 * Выполняем перебор всех разобранных записей
+		 * Перебираем все разобранные записи
 		 */
 		for(auto & block : blocks)
 			// Затирание тела записи с его опустошением
@@ -402,7 +402,7 @@ namespace {
 	 * @return       отказ извлечения секретного ключа
 	 *
 	 */
-	static error_t unwrap(const vector <uint8_t> & data, vector <uint8_t> & result) noexcept {
+	static error_t __nts_unwrap__(const vector <uint8_t> & data, vector <uint8_t> & result) noexcept {
 		// Разобранный элемент обёртки секретного ключа
 		asn1::element_t element;
 		// Заводим разборщик обёртки секретного ключа
@@ -436,7 +436,7 @@ namespace {
 			// Выводим отказ о теле записи, разобрать которое не удалось
 			return error_t::CONTENT;
 		/**
-		 * Выполняем определение вида записи самого ключа
+		 * Определяем вид записи самого ключа
 		 */
 		switch(element.tag){
 			// Если ключ записан строкой байтов порядком от младшего байта к старшему
@@ -446,7 +446,7 @@ namespace {
 					// Выводим отказ о теле записи, разобрать которое не удалось
 					return error_t::CONTENT;
 				// Выводим итог переноса ключа порядком от старшего байта к младшему
-				return transfer(element.content.data, element.content.size, true, result);
+				return __nts_transfer__(element.content.data, element.content.size, true, result);
 			}
 			// Если ключ записан целым числом порядком от старшего байта к младшему
 			case static_cast <uint32_t> (asn1::tag_t::INTEGER): {
@@ -457,7 +457,7 @@ namespace {
 					// Выводим отказ о теле записи, разобрать которое не удалось
 					return error_t::CONTENT;
 				// Выводим итог переноса ключа порядком от старшего байта к младшему
-				return transfer(value.data, value.size, false, result);
+				return __nts_transfer__(value.data, value.size, false, result);
 			}
 			// Если ключ записан набором значений по RFC 5915
 			case static_cast <uint32_t> (asn1::tag_t::SEQUENCE): {
@@ -472,7 +472,7 @@ namespace {
 					// Выводим отказ о теле записи, разобрать которое не удалось
 					return error_t::CONTENT;
 				// Выводим итог переноса ключа порядком от старшего байта к младшему
-				return transfer(element.content.data, element.content.size, false, result);
+				return __nts_transfer__(element.content.data, element.content.size, false, result);
 			}
 		}
 		// Выводим отказ о теле записи, разобрать которое не удалось
@@ -496,7 +496,7 @@ pem::error_t nts::pem::decode(const string & text, vector <block_t> & result) no
 	 */
 	try {
 		/**
-		 * Выполняем разбор текста, пока в нём остаются записи
+		 * Разбираем текст, пока в нём остаются записи
 		 */
 		while(offset < text.length()){
 			// Поиск рамки начала записи
@@ -516,7 +516,7 @@ pem::error_t nts::pem::decode(const string & text, vector <block_t> & result) no
 			// Получаем метку записи
 			const string & label = text.substr(opening, fence - opening);
 			// Если метка записи недопустима
-			if(!suitable(label))
+			if(!__nts_suitable__(label))
 				// Выводим отказ о недопустимой метке записи
 				return error_t::LABEL;
 			// Собираем рамку конца записи
@@ -538,7 +538,7 @@ pem::error_t nts::pem::decode(const string & text, vector <block_t> & result) no
 			// Заводим разбираемую запись
 			block_t block;
 			// Снятие тела записи с основания 64
-			const error_t error = revert(text.data() + body, end - body, block.data);
+			const error_t error = __nts_revert__(text.data() + body, end - body, block.data);
 			// Если снять тело записи с основания не удалось
 			if(error != error_t::NONE)
 				// Выводим отказ снятия тела записи с основания
@@ -579,12 +579,12 @@ pem::error_t nts::pem::decode(const string & text, const string & label, vector 
 		// Затираем тела уже разобранных записей: при обрыве на повреждённой записи среди
 		// разобранных мог оказаться секретный ключ («валидный PRIVATE KEY + повреждённая
 		// запись»), и гибнуть в освобождённой памяти незатёртым он не вправе
-		scour(blocks);
+		__nts_scour__(blocks);
 		// Выводим отказ разбора текста
 		return error;
 	}
 	/**
-	 * Выполняем перебор всех разобранных записей
+	 * Перебираем все разобранные записи
 	 */
 	for(auto & block : blocks){
 		// Если метка записи запрошенной не отвечает
@@ -602,17 +602,17 @@ pem::error_t nts::pem::decode(const string & text, const string & label, vector 
 		 */
 		} catch(const bad_alloc &) {
 			// Затирание тел всех разобранных записей: среди пропущенных может лежать секретный ключ
-			scour(blocks);
+			__nts_scour__(blocks);
 			// Выводим отказ о нехватке памяти
 			return error_t::MEMORY;
 		}
 	}
 	/**
-	 * Выполняем затирание тел пропущенных записей: текст «сертификат + ключ» несёт
+	 * Затираем тела пропущенных записей: текст «сертификат + ключ» несёт
 	 * рядом с запрошенными записями и секретный ключ, и гибнуть в освобождённой памяти
 	 * не затёртым он не вправе; перенесённые в итог тела уже пусты, затирать там нечего
 	 */
-	scour(blocks);
+	__nts_scour__(blocks);
 	// Если записей запрошенного вида в тексте не нашлось
 	if(result.empty())
 		// Выводим отказ об отсутствии записей запрошенного вида
@@ -630,7 +630,7 @@ pem::error_t nts::pem::decode(const string & text, const string & label, vector 
  */
 pem::error_t nts::pem::encode(const block_t & block, string & result) noexcept {
 	// Если метка записи недопустима
-	if(!suitable(block.label))
+	if(!__nts_suitable__(block.label))
 		// Выводим отказ о недопустимой метке записи
 		return error_t::LABEL;
 	// Если тело записи столь велико, что длина его текста не умещается в разрядную сетку
@@ -675,7 +675,7 @@ pem::error_t nts::pem::encode(const block_t & block, string & result) noexcept {
 		// Записываем рамку начала записи
 		result.append(OPENING).append(block.label).append(FENCE).append(1, '\n');
 		/**
-		 * Выполняем перебор тела записи тройками байтов
+		 * Перебираем тело записи тройками байтов
 		 */
 		for(size_t i = 0; i < block.data.size(); i += 3){
 			// Получаем количество байтов в текущей тройке
@@ -685,7 +685,7 @@ pem::error_t nts::pem::encode(const block_t & block, string & result) noexcept {
 			                        (count > 1 ? (static_cast <uint32_t> (block.data[i + 1]) << 8) : 0) |
 			                        (count > 2 ? static_cast <uint32_t> (block.data[i + 2]) : 0));
 			/**
-			 * Выполняем перебор всех знаков основания четвёрки
+			 * Перебираем все знаки основания четвёрки
 			 */
 			for(size_t j = 0; j < 4; j++){
 				// Записываем очередной знак основания либо знак добивки
@@ -729,7 +729,7 @@ pem::error_t nts::pem::encode(const vector <block_t> & blocks, string & result) 
 		// Выводим отказ об отсутствии записей
 		return error_t::EMPTY;
 	/**
-	 * Выполняем перебор всего набора записей
+	 * Перебираем весь набор записей
 	 */
 	for(auto & block : blocks){
 		// Запись очередной записи набора
@@ -772,28 +772,28 @@ pem::error_t nts::pem::secret(const string & text, vector <uint8_t> & result) no
 		// Затираем тела уже разобранных записей: при обрыве на повреждённой записи среди
 		// разобранных мог оказаться секретный ключ («валидный PRIVATE KEY + повреждённая
 		// запись»), и гибнуть в освобождённой памяти незатёртым он не вправе
-		scour(blocks);
+		__nts_scour__(blocks);
 		// Выводим отказ разбора текста
 		return error;
 	}
 	/**
-	 * Выполняем перебор всех разобранных записей
+	 * Перебираем все разобранные записи
 	 */
 	for(auto & block : blocks){
 		// Если запись хранит секретный ключ
 		if(block.label.compare(PEM_SECRET) == 0){
 			// Итог извлечения секретного ключа из его обёртки
-			const error_t unwrapped = unwrap(block.data, result);
+			const error_t unwrapped = __nts_unwrap__(block.data, result);
 			// Затирание тел всех разобранных записей
-			scour(blocks);
+			__nts_scour__(blocks);
 			// Выводим итог извлечения секретного ключа
 			return unwrapped;
 		}
 	}
 	// Затирание тел всех разобранных записей: ключа среди них нет, а тела гибнут здесь
-	scour(blocks);
+	__nts_scour__(blocks);
 	/**
-	 * Выполняем повторный перебор всех разобранных записей
+	 * Повторно перебираем все разобранные записи
 	 */
 	for(auto & block : blocks){
 		// Если запись хранит зашифрованный секретный ключ
@@ -813,7 +813,7 @@ pem::error_t nts::pem::secret(const string & text, vector <uint8_t> & result) no
  */
 const char * nts::pem::name(const error_t error) noexcept {
 	/**
-	 * Выполняем определение отказа
+	 * Определяем отказ
 	 */
 	switch(static_cast <uint8_t> (error)){
 		// Если отказа не произошло

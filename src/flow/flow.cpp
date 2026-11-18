@@ -85,7 +85,7 @@ namespace {
 	 * @return     отказ проверки принадлежности сообщения стороне
 	 *
 	 */
-	static error_t belongs(const session::side_t side, const session::side_t sent) noexcept {
+	static error_t __nts_belongs__(const session::side_t side, const session::side_t sent) noexcept {
 		// Выводим отказ, если объявленное сообщение отправлено не той стороной
 		return ((side == sent) ? error_t::NONE : error_t::SIDE);
 	}
@@ -191,7 +191,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 	// Отказ, которым завершилось объявление сообщения рукопожатия
 	error_t outcome = error_t::ORDER;
 	/**
-	 * Выполняем определение ступени, до которой дошло рукопожатие
+	 * Определяем ступень, до которой дошло рукопожатие
 	 */
 	switch(static_cast <uint8_t> (this->_stage)){
 		// Если ожидается приветствие клиента
@@ -199,7 +199,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлено приветствие клиента
 			if(type == handshake::type_t::CLIENT){
 				// Проверяем принадлежность приветствия стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 				// Если приветствие клиента объявлено клиентом
 				if(outcome == error_t::NONE)
 					// Устанавливаем ожидание приветствия сервера
@@ -211,7 +211,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлено приветствие сервера
 			if(type == handshake::type_t::SERVER){
 				// Проверяем принадлежность приветствия стороне связи
-				outcome = ::belongs(session::side_t::SERVER, side);
+				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
 				// Если приветствие сервера объявлено сервером
 				if(outcome == error_t::NONE){
 					// Устанавливаем ожидание защищённых расширений
@@ -231,7 +231,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлены защищённые расширения
 			if(type == handshake::type_t::EXTENSIONS){
 				// Проверяем принадлежность расширений стороне связи
-				outcome = ::belongs(session::side_t::SERVER, side);
+				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
 				// Если защищённые расширения объявлены сервером
 				if(outcome == error_t::NONE)
 					// Устанавливаем ожидание подтверждения подлинности сервера
@@ -243,7 +243,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлен запрос сертификата клиента
 			if(type == handshake::type_t::REQUEST){
 				// Проверяем принадлежность запроса стороне связи
-				outcome = ::belongs(session::side_t::SERVER, side);
+				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
 				// Если запрос сертификата объявлен сервером
 				/**
 				 * Раздел 4.3.2 RFC 8446: запрос подлинности клиента в рукопожатии один,
@@ -259,7 +259,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлена цепочка сертификатов сервера
 			} else if(type == handshake::type_t::CERTIFICATE) {
 				// Проверяем принадлежность цепочки стороне связи
-				outcome = ::belongs(session::side_t::SERVER, side);
+				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
 				// Если цепочка сертификатов объявлена сервером
 				if(outcome == error_t::NONE)
 					// Устанавливаем ожидание подписи владения ключом сервера
@@ -270,7 +270,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			 */
 			} else if(type == handshake::type_t::FINISHED) {
 				// Проверяем принадлежность завершения стороне связи
-				outcome = ::belongs(session::side_t::SERVER, side);
+				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
 				// Если завершение рукопожатия объявлено сервером
 				/**
 				 * Раздел 4.3.2 RFC 8446: сервер, запросивший подлинность, сертификатами
@@ -293,7 +293,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлена подпись владения ключом
 			if(type == handshake::type_t::VERIFY){
 				// Проверяем принадлежность подписи стороне связи
-				outcome = ::belongs(session::side_t::SERVER, side);
+				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
 				// Если подпись владения ключом объявлена сервером
 				if(outcome == error_t::NONE)
 					// Устанавливаем ожидание завершения рукопожатия сервером
@@ -305,7 +305,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлено завершение рукопожатия
 			if(type == handshake::type_t::FINISHED){
 				// Проверяем принадлежность завершения стороне связи
-				outcome = ::belongs(session::side_t::SERVER, side);
+				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
 				// Если завершение рукопожатия объявлено сервером
 				if(outcome == error_t::NONE){
 					// Устанавливаем ожидание ответа клиента
@@ -320,7 +320,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлена цепочка сертификатов клиента
 			if(type == handshake::type_t::CERTIFICATE){
 				// Проверяем принадлежность цепочки стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 				// Если цепочка сертификатов объявлена клиентом
 				if(outcome == error_t::NONE)
 					// Устанавливаем ожидание подписи владения ключом клиента
@@ -332,14 +332,14 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			 */
 			} else if(type == handshake::type_t::EARLY)
 				// Проверяем принадлежность конца упреждающих данных стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 			/**
 			 * Черновик draft-vvv-tls-alps: защищённые расширения клиента идут за завершением
 			 * сервера прежде цепочки и завершения клиента, и лишь однажды
 			 */
 			else if(type == handshake::type_t::EXTENSIONS){
 				// Проверяем принадлежность защищённых расширений клиента стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 				// Если защищённые расширения клиента уже прошли
 				if((outcome == error_t::NONE) && this->_stated)
 					// Выводим отказ повторного сообщения
@@ -355,7 +355,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлена подпись владения ключом
 			if(type == handshake::type_t::VERIFY){
 				// Проверяем принадлежность подписи стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 				// Если подпись владения ключом объявлена клиентом
 				if(outcome == error_t::NONE){
 					// Запоминаем, что клиент подтвердил владение ключом
@@ -369,7 +369,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			 */
 			} else if(type == handshake::type_t::FINISHED) {
 				// Проверяем принадлежность завершения стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 				// Если завершение рукопожатия объявлено клиентом
 				if(outcome == error_t::NONE){
 					// Устанавливаем завершённость рукопожатия
@@ -384,7 +384,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлено завершение рукопожатия
 			if(type == handshake::type_t::FINISHED){
 				// Проверяем принадлежность завершения стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 				// Если завершение рукопожатия объявлено клиентом
 				if(outcome == error_t::NONE){
 					// Устанавливаем завершённость рукопожатия
@@ -399,14 +399,14 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			 */
 			} else if(type == handshake::type_t::EARLY)
 				// Проверяем принадлежность конца упреждающих данных стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 			/**
 			 * Черновик draft-vvv-tls-alps: защищённые расширения клиента идут за завершением
 			 * сервера прежде цепочки и завершения клиента, и лишь однажды
 			 */
 			else if(type == handshake::type_t::EXTENSIONS){
 				// Проверяем принадлежность защищённых расширений клиента стороне связи
-				outcome = ::belongs(session::side_t::CLIENT, side);
+				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 				// Если защищённые расширения клиента уже прошли
 				if((outcome == error_t::NONE) && this->_stated)
 					// Выводим отказ повторного сообщения
@@ -422,7 +422,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			// Если объявлен билет на возобновление связи
 			if(type == handshake::type_t::TICKET)
 				// Проверяем принадлежность билета стороне связи
-				outcome = ::belongs(session::side_t::SERVER, side);
+				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
 			// Если объявлена смена ключевого материала связи
 			else if(type == handshake::type_t::UPDATE)
 				// Смену ключевого материала вправе объявить всякая сторона

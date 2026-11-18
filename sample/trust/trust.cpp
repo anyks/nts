@@ -69,7 +69,7 @@ namespace {
 	 * @return       признак успешности составления записи имени
 	 *
 	 */
-	bool title(asn1::writer_t & writer, const string & name) noexcept {
+	bool __nts_title__(asn1::writer_t & writer, const string & name) noexcept {
 		// Открываем набор записей имени стороны сертификата
 		if(!writer.open(asn1::tag_t::SEQUENCE))
 			// Выводим отказ составления записи имени
@@ -112,7 +112,7 @@ namespace {
 	 *       а подпись владения ключом сличается именно с этим сертификатом
 	 *
 	 */
-	bool identity(const string & name, context::credential_t & result) noexcept {
+	bool __nts_identity__(const string & name, context::credential_t & result) noexcept {
 		// Эллиптическая кривая ключа стороны связи
 		curve::curve_t curve;
 		// Если кривую ключа стороны связи завести не удалось
@@ -150,7 +150,7 @@ namespace {
 		// Место, в которое помещается запись открытого ключа
 		uint8_t opened[64];
 		/**
-		 * Выполняем разворот записи координат: раздел 4 RFC 9215 велит записывать их в
+		 * Разворачиваем записи координат: раздел 4 RFC 9215 велит записывать их в
 		 * сертификат от младшего байта к старшему
 		 */
 		for(size_t i = 0; i < curve.size(); i++){
@@ -202,7 +202,7 @@ namespace {
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Если имя издателя сертификата записать не удалось
-		if(!title(body, name))
+		if(!__nts_title__(body, name))
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Открываем набор записи срока действия сертификата
@@ -222,7 +222,7 @@ namespace {
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Если имя владельца сертификата записать не удалось
-		if(!title(body, name))
+		if(!__nts_title__(body, name))
 			// Выводим отказ выработки подлинности стороны
 			return false;
 		// Открываем набор сведений об открытом ключе
@@ -282,7 +282,7 @@ namespace {
 		// Место, в которое помещается подпись в записи сертификата
 		uint8_t reversed[64];
 		/**
-		 * Выполняем перестановку частей подписи: раздел 2 RFC 9215 велит записывать в
+		 * Переставляем частей подписи: раздел 2 RFC 9215 велит записывать в
 		 * сертификат сперва число s, а затем число r
 		 */
 		::memcpy(reversed, signature + curve.size(), curve.size());
@@ -328,7 +328,7 @@ namespace {
 			return false;
 		// Получаем составленную запись сертификата
 		const view_t data = writer.data();
-		// Выполняем сброс цепочки сертификатов стороны связи
+		// Сбрасываем цепочки сертификатов стороны связи
 		result.chain.clear();
 		// Добавляем составленный сертификат в цепочку стороны связи
 		result.chain.push_back(vector <uint8_t> (data.data, data.data + data.size));
@@ -343,18 +343,18 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Признак того, что байты между сторонами передавались
 		bool moved = false;
 		// Получаем байты, отправляемые клиентом
 		view_t data = client.output();
 		// Если клиенту есть что отправить серверу
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя клиента
 			client.consume(buffer.size());
-			// Выполняем подачу отправленных байтов серверу
+			// Подаём отправленных байтов серверу
 			server.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -363,11 +363,11 @@ namespace {
 		data = server.output();
 		// Если серверу есть что отправить клиенту
 		if(data.size > 0){
-			// Выполняем перенос отправляемых байтов
+			// Переносим отправляемых байтов
 			const vector <uint8_t> buffer(data.data, data.data + data.size);
 			// Снимаем отправленные байты с накопителя сервера
 			server.consume(buffer.size());
-			// Выполняем подачу отправленных байтов клиенту
+			// Подаём отправленных байтов клиенту
 			client.push(view_t(buffer.data(), buffer.size()));
 			// Запоминаем, что байты между сторонами передавались
 			moved = true;
@@ -393,7 +393,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Если подлинность стороны сервера выработать не удалось
-	if(!identity("anyks.com", credentials)){
+	if(!__nts_identity__("anyks.com", credentials)){
 		// Выводим сообщение об отказе выработки подлинности
 		cout << "Выработать подлинность стороны сервера не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -439,9 +439,9 @@ int main(int argc, char * argv[]) noexcept {
 	// Число кругов передачи байтов между сторонами связи
 	size_t rounds = 0;
 	/**
-	 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+	 * Передаём байтов между сторонами, пока им есть что сказать
 	 */
-	while((rounds < 16) && pump(client, server))
+	while((rounds < 16) && __nts_pump__(client, server))
 		// Считаем круги передачи байтов между сторонами
 		rounds++;
 	// Если рукопожатие сторонами связи не пройдено
@@ -462,7 +462,7 @@ int main(int argc, char * argv[]) noexcept {
 	 * сошлась, а вот доверять этому сертификату не с чего
 	 */
 	cout << "Пустой запас        : " << ((trust::verify(client.peer(), store, moment) == trust::error_t::NONE) ? "цепочка доверена" : "издателя цепочки в запасе нет") << endl;
-	// Выполняем добавление сертификата сервера в запас доверенных
+	// Добавляем сертификата сервера в запас доверенных
 	if(!store.add(view_t(credentials.chain[0].data(), credentials.chain[0].size()))){
 		// Выводим сообщение об отказе добавления сертификата
 		cout << "Добавить сертификат в запас доверенных не удалось" << endl;

@@ -69,16 +69,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 	/**
@@ -154,7 +154,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Разбираемый список отзыва
 	x509::crl_t crl;
-	// Выполняем разбор записи списка отзыва
+	// Разбираем записи списка отзыва
 	if(crl.parse(view_t(der.data(), der.size())) != x509::error_t::NONE){
 		// Выводим сообщение об отказе разбора списка
 		cout << "Разобрать список не удалось: причина " << static_cast <uint32_t> (crl.err()) << endl;
@@ -180,13 +180,13 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим число записей отозванных сертификатов
 	cout << "Отозвано           : " << crl.revoked().size() << endl;
 	/**
-	 * Выполняем перебор записей отозванных сертификатов
+	 * Перебираем записей отозванных сертификатов
 	 */
 	for(size_t i = 0; i < crl.revoked().size(); i++){
 		// Запись отозванного сертификата
 		const x509::revoked_t & revoked = crl.revoked()[i];
 		// Выводим порядковый номер отозванного сертификата
-		::print("  Серийник         ", revoked.serial.data, revoked.serial.size);
+		::__nts_print__("  Серийник         ", revoked.serial.data, revoked.serial.size);
 		// Выводим дату отзыва сертификата
 		cout << "  Дата отзыва      : " << revoked.date << endl;
 	}
@@ -195,7 +195,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Признак нахождения отозванного серийника
 	bool found = false;
 	/**
-	 * Выполняем розыск отозванного сертификата по порядковому номеру
+	 * Разыскиваем отозванного сертификата по порядковому номеру
 	 */
 	for(size_t i = 0; i < crl.revoked().size(); i++){
 		// Если серийник записи совпал с разыскиваемым
@@ -208,22 +208,22 @@ int main(int argc, char * argv[]) noexcept {
 	// Тело записи сертификата издателя
 	const vector <uint8_t> caDer = ::body(::corpus("ca-rsa.crt"));
 	// Сертификат издателя списка
-	x509::certificate_t ca;
+	x509::certificate_t issuerCert;
 	// Если сертификат издателя не прочитан либо не разобран
-	if(caDer.empty() || (ca.parse(view_t(caDer.data(), caDer.size())) != x509::error_t::NONE)){
+	if(caDer.empty() || (issuerCert.parse(view_t(caDer.data(), caDer.size())) != x509::error_t::NONE)){
 		// Выводим сообщение об отказе разбора сертификата издателя
 		cout << "Разобрать сертификат издателя не удалось" << endl;
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
 	/**
-	 * Выполняем проверку подписи списка отзыва
+	 * Проверяем подписи списка отзыва
 	 *
 	 * @details Подпись списка проверяется сведениями об открытом ключе издателя,
 	 *          взятыми из его сертификата
 	 *
 	 */
-	if(x509::verify(crl, ca.key()) != x509::error_t::NONE){
+	if(x509::verify(crl, issuerCert.key()) != x509::error_t::NONE){
 		// Выводим сообщение о несошедшейся подписи
 		cout << "Проверка подписи   : подпись не сошлась" << endl;
 		// Выходим из приложения с признаком отказа

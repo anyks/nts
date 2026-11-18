@@ -36,10 +36,14 @@
  */
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "cipher/des.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля
@@ -50,11 +54,12 @@ namespace {
 	 * Подписываемся на метод затирания памяти
 	 */
 	using nts::sys::wipe;
+
 	/**
 	 * @brief Начальная перестановка блока (IP)
 	 *
 	 */
-	constexpr uint8_t IP[64] = {
+	static constexpr uint8_t IP[64] = {
 		// Первая строка начальной перестановки
 		58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4,
 		62, 54, 46, 38, 30, 22, 14, 6, 64, 56, 48, 40, 32, 24, 16, 8,
@@ -65,7 +70,7 @@ namespace {
 	 * @brief Конечная перестановка блока (FP, обратная к IP)
 	 *
 	 */
-	constexpr uint8_t FP[64] = {
+	static constexpr uint8_t FP[64] = {
 		// Первая строка конечной перестановки
 		40, 8, 48, 16, 56, 24, 64, 32, 39, 7, 47, 15, 55, 23, 63, 31,
 		38, 6, 46, 14, 54, 22, 62, 30, 37, 5, 45, 13, 53, 21, 61, 29,
@@ -76,7 +81,7 @@ namespace {
 	 * @brief Перестановка результата S-блоков (P)
 	 *
 	 */
-	constexpr uint8_t P[32] = {
+	static constexpr uint8_t P[32] = {
 		// Первая строка перестановки P
 		16, 7, 20, 21, 29, 12, 28, 17, 1, 15, 23, 26, 5, 18, 31, 10,
 		2, 8, 24, 14, 32, 27, 3, 9, 19, 13, 30, 6, 22, 11, 4, 25
@@ -85,7 +90,7 @@ namespace {
 	 * @brief Восемь S-блоков подстановки 6 разрядов в 4
 	 *
 	 */
-	constexpr uint8_t S[8][64] = {
+	static constexpr uint8_t S[8][64] = {
 		{
 			// Первая строка первого S-блока
 			14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7,
@@ -136,35 +141,37 @@ namespace {
 			2, 1, 14, 7, 4, 10, 8, 13, 15, 12, 9, 0, 3, 5, 6, 11
 		}
 	};
+
 	/**
-	 * @brief Таблицы S-блоков с внесённой перестановкой P
+	 * @brief Структура таблиц S-блоков с внесённой перестановкой P
 	 *
 	 * @details Перестановка P линейна по сложению разрядов по модулю два, оттого
 	 *          её вносят прямо в таблицы S-блоков: всякое место держит готовый вклад
 	 *          своего выхода в 32 разряда результата круга, и круг складывает восемь
 	 *          наложений таблиц вместо поразрядной перестановки. Таблицы вычисляются
-	 *          при компиляции из S и P и с ними разойтись не могут
+	 *          при компиляции из S и P и с ними разойтись не могут.
 	 *
 	 */
-	struct Boxes {
+	typedef struct Boxes {
 		// Готовые вклады выходов S-блоков
 		uint32_t items[8][64];
-	};
+	} boxes_t;
+
 	/**
 	 * @brief Функция построения таблиц S-блоков с внесённой перестановкой P
 	 *
 	 * @return таблицы вкладов всех S-блоков
 	 *
 	 */
-	constexpr Boxes spread() noexcept {
+	static constexpr boxes_t __nts_spread__() noexcept {
 		// Заполняемые таблицы вкладов
-		Boxes boxes{};
+		boxes_t boxes{};
 		/**
-		 * Выполняем перебор S-блоков
+		 * Перебираем S-блоки
 		 */
 		for(uint32_t i = 0; i < 8; i++){
 			/**
-			 * Выполняем перебор входов S-блока
+			 * Перебираем входы S-блока
 			 */
 			for(uint32_t x = 0; x < 64; x++){
 				// Строка S-блока из крайних разрядов входа
@@ -176,7 +183,7 @@ namespace {
 				// Вклад выхода в перестановку P
 				uint32_t item = 0;
 				/**
-				 * Выполняем перебор разрядов перестановки P
+				 * Перебираем разряды перестановки P
 				 */
 				for(uint32_t j = 0; j < 32; j++){
 					// Сдвигаем накопленный вклад на разряд
@@ -195,37 +202,39 @@ namespace {
 	 * @brief Таблицы S-блоков с внесённой перестановкой P, вычисленные при компиляции
 	 *
 	 */
-	constexpr Boxes SP = spread();
+	constexpr boxes_t SP = __nts_spread__();
+
 	/**
-	 * @brief Таблицы начальной и конечной перестановок по байтам входа
+	 * @brief Структура таблиц начальной и конечной перестановок по байтам входа
 	 *
 	 * @details Всякий байт входа вносит в переставленный блок готовый набор разрядов,
 	 *          и перестановка складывает восемь наложений таблиц вместо перебора
 	 *          шестидесяти четырёх разрядов с выбором по одному. Таблицы вычисляются
-	 *          при компиляции из IP и FP и с ними разойтись не могут
+	 *          при компиляции из IP и FP и с ними разойтись не могут.
 	 *
 	 */
-	struct Sheets {
+	typedef struct Sheets {
 		// Вклады байтов входа в начальную перестановку
 		uint64_t enter[8][256];
 		// Вклады байтов входа в конечную перестановку
 		uint64_t leave[8][256];
-	};
+	} sheets_t;
+
 	/**
 	 * @brief Функция построения таблиц перестановок по байтам входа
 	 *
 	 * @return таблицы вкладов байтов в обе перестановки блока
 	 *
 	 */
-	constexpr Sheets unfold() noexcept {
+	static constexpr sheets_t __nts_unfold__() noexcept {
 		// Заполняемые таблицы вкладов
-		Sheets sheets{};
+		sheets_t sheets{};
 		/**
-		 * Выполняем перебор байтов входа
+		 * Перебираем байты входа
 		 */
 		for(size_t j = 0; j < 8; j++){
 			/**
-			 * Выполняем перебор значений байта
+			 * Перебираем значения байта
 			 */
 			for(size_t v = 0; v < 256; v++){
 				// Накопитель вклада байта в начальную перестановку
@@ -233,7 +242,7 @@ namespace {
 				// Накопитель вклада байта в конечную перестановку
 				uint64_t out = 0;
 				/**
-				 * Выполняем перебор разрядов результата перестановок
+				 * Перебираем разряды результата перестановок
 				 */
 				for(size_t p = 0; p < 64; p++){
 					// Глобальный разряд входа, идущий в разряд p начальной перестановки
@@ -262,7 +271,8 @@ namespace {
 	 * @brief Таблицы перестановок по байтам, вычисленные при компиляции
 	 *
 	 */
-	constexpr Sheets SHEETS = unfold();
+	static constexpr sheets_t SHEETS = __nts_unfold__();
+
 	/**
 	 * @brief Функция начальной перестановки блока наложением таблиц байтов
 	 *
@@ -270,7 +280,7 @@ namespace {
 	 * @return      блок после начальной перестановки
 	 *
 	 */
-	static constexpr uint64_t entering(const uint64_t block) noexcept {
+	static constexpr uint64_t __nts_entering__(const uint64_t block) noexcept {
 		// Выводим сумму наложений таблиц байтов
 		return (
 			SHEETS.enter[0][block >> 56] | SHEETS.enter[1][(block >> 48) & 255] | SHEETS.enter[2][(block >> 40) & 255] | SHEETS.enter[3][(block >> 32) & 255] |
@@ -284,18 +294,19 @@ namespace {
 	 * @return      блок после конечной перестановки
 	 *
 	 */
-	static constexpr uint64_t leaving(const uint64_t block) noexcept {
+	static constexpr uint64_t __nts_leaving__(const uint64_t block) noexcept {
 		// Выводим сумму наложений таблиц байтов
 		return (
 			SHEETS.leave[0][block >> 56] | SHEETS.leave[1][(block >> 48) & 255] | SHEETS.leave[2][(block >> 40) & 255] | SHEETS.leave[3][(block >> 32) & 255] |
 		    SHEETS.leave[4][(block >> 24) & 255] | SHEETS.leave[5][(block >> 16) & 255] | SHEETS.leave[6][(block >> 8) & 255] | SHEETS.leave[7][block & 255]
 		);
 	}
+
 	/**
 	 * @brief Перестановка выбора ключа PC-1 (56 разрядов из 64)
 	 *
 	 */
-	constexpr uint8_t PC1[56] = {
+	static constexpr uint8_t PC1[56] = {
 		// Первая строка перестановки выбора ключа
 		57, 49, 41, 33, 25, 17, 9, 1, 58, 50, 42, 34, 26, 18,
 		10, 2, 59, 51, 43, 35, 27, 19, 11, 3, 60, 52, 44, 36,
@@ -306,7 +317,7 @@ namespace {
 	 * @brief Перестановка выбора раундового ключа PC-2 (48 разрядов из 56)
 	 *
 	 */
-	constexpr uint8_t PC2[48] = {
+	static constexpr uint8_t PC2[48] = {
 		// Первая строка перестановки выбора раундового ключа
 		14, 17, 11, 24, 1, 5, 3, 28, 15, 6, 21, 10,
 		23, 19, 12, 4, 26, 8, 16, 7, 27, 20, 13, 2,
@@ -317,7 +328,7 @@ namespace {
 	 * @brief Сдвиги половин ключа по кругам расписания
 	 *
 	 */
-	constexpr uint8_t SHIFTS[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
+	static constexpr uint8_t SHIFTS[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
 
 	/**
 	 * @brief Функция перестановки блока таблицей
@@ -329,11 +340,11 @@ namespace {
 	 * @return       переставленное значение
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t permute(const uint64_t value, const uint8_t * table, const size_t output, const size_t input) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_permute__(const uint64_t value, const uint8_t * table, const size_t output, const size_t input) noexcept {
 		// Результат перестановки
 		uint64_t result = 0;
 		/**
-		 * Выполняем перебор разрядов результата
+		 * Перебираем разряды результата
 		 */
 		for(size_t i = 0; i < output; i++){
 			// Сдвигаем результат на разряд
@@ -359,7 +370,7 @@ namespace {
 	 * @return      значение функции Фейстеля
 	 *
 	 */
-	static constexpr uint32_t feistel(const uint32_t right, const uint64_t key) noexcept {
+	static constexpr uint32_t __nts_feistel__(const uint32_t right, const uint64_t key) noexcept {
 		// Вход первого S-блока: крайнее окно заходит кругом младшим разрядом вперёд
 		const uint32_t first = (((((right & 1) << 5) | ((right >> 27) & 0x1F)) ^ static_cast <uint32_t> ((key >> 42) & 63)));
 		// Вход второго S-блока
@@ -386,23 +397,23 @@ namespace {
 	 * @param rounds место, в которое помещаются шестнадцать раундовых ключей
 	 *
 	 */
-	static __NTS_INLINE__ void schedule(const uint8_t * key, uint64_t * rounds) noexcept {
+	static __NTS_INLINE__ void __nts_schedule__(const uint8_t * key, uint64_t * rounds) noexcept {
 		// Ключ числом старшим байтом вперёд
 		uint64_t whole = 0;
 		/**
-		 * Выполняем чтение байтов ключа
+		 * Читаем байты ключа
 		 */
 		for(size_t i = 0; i < 8; i++)
 			// Присоединяем очередной байт ключа
 			whole = ((whole << 8) | key[i]);
 		// Ключ после перестановки PC-1 (56 разрядов)
-		const uint64_t chosen = permute(whole, PC1, 56, 64);
+		const uint64_t chosen = __nts_permute__(whole, PC1, 56, 64);
 		// Левая и правая половины ключа по 28 разрядов
 		uint32_t left = static_cast <uint32_t> ((chosen >> 28) & 0x0FFFFFFF);
 		// Правая половина ключа по 28 разрядов
 		uint32_t right = static_cast <uint32_t> (chosen & 0x0FFFFFFF);
 		/**
-		 * Выполняем перебор кругов расписания
+		 * Перебираем круги расписания
 		 */
 		for(size_t i = 0; i < 16; i++){
 			// Сдвигаем половины ключа круговым сдвигом влево
@@ -410,7 +421,7 @@ namespace {
 			// Сдвигаем правую половину ключа круговым сдвигом влево
 			right = (((right << SHIFTS[i]) | (right >> (28 - SHIFTS[i]))) & 0x0FFFFFFF);
 			// Собираем раундовый ключ перестановкой PC-2 из сдвинутых половин
-			rounds[i] = permute(((static_cast <uint64_t> (left) << 28) | right), PC2, 48, 56);
+			rounds[i] = __nts_permute__(((static_cast <uint64_t> (left) << 28) | right), PC2, 48, 56);
 		}
 	}
 	/**
@@ -422,15 +433,15 @@ namespace {
 	 * @param invert признак обращения порядка раундовых ключей (расшифрование)
 	 *
 	 */
-	static __NTS_INLINE__ void circles(uint32_t & left, uint32_t & right, const uint64_t * rounds, const bool invert) noexcept {
+	static __NTS_INLINE__ void __nts_circles__(uint32_t & left, uint32_t & right, const uint64_t * rounds, const bool invert) noexcept {
 		/**
-		 * Выполняем перебор кругов Фейстеля
+		 * Перебираем круги Фейстеля
 		 */
 		for(size_t i = 0; i < 16; i++){
 			// Раундовый ключ круга (при расшифровании порядок обращён)
 			const uint64_t round = rounds[invert ? (15 - i) : i];
 			// Новая правая половина - левая, сложенная со значением функции Фейстеля от правой
-			const uint32_t next = (left ^ feistel(right, round));
+			const uint32_t next = (left ^ __nts_feistel__(right, round));
 			// Левая половина становится правой
 			left = right;
 			// Правая половина становится новой
@@ -446,17 +457,17 @@ namespace {
 	 * @return       преобразованный блок
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t transform(const uint64_t block, const uint64_t * rounds, const bool invert) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_transform__(const uint64_t block, const uint64_t * rounds, const bool invert) noexcept {
 		// Блок после начальной перестановки
-		const uint64_t permuted = entering(block);
+		const uint64_t permuted = __nts_entering__(block);
 		// Левая и правая половины блока
 		uint32_t left = static_cast <uint32_t> (permuted >> 32);
 		// Правая половина блока
 		uint32_t right = static_cast <uint32_t> (permuted);
 		// Шестнадцать кругов Фейстеля
-		circles(left, right, rounds, invert);
+		__nts_circles__(left, right, rounds, invert);
 		// Выводим блок после конечной перестановки (половины на выходе меняются местами)
-		return leaving((static_cast <uint64_t> (right) << 32) | left);
+		return __nts_leaving__((static_cast <uint64_t> (right) << 32) | left);
 	}
 	/**
 	 * @brief Функция чтения блока числом старшим байтом вперёд
@@ -465,11 +476,11 @@ namespace {
 	 * @return     блок числом
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t fetch(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_fetch__(const uint8_t * data) noexcept {
 		// Прочитанный блок
 		uint64_t result = 0;
 		/**
-		 * Выполняем чтение байтов блока
+		 * Читаем байты блока
 		 */
 		for(size_t i = 0; i < 8; i++)
 			// Присоединяем очередной байт блока
@@ -484,9 +495,9 @@ namespace {
 	 * @param result место, в которое помещаются байты
 	 *
 	 */
-	static __NTS_INLINE__ void store(const uint64_t value, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_store__(const uint64_t value, uint8_t * result) noexcept {
 		/**
-		 * Выполняем запись байтов блока
+		 * Записываем байты блока
 		 */
 		for(size_t i = 0; i < 8; i++)
 			// Записываем очередной байт блока
@@ -519,11 +530,11 @@ bool nts::cipher::Des::key(const view_t & key) noexcept {
 	// Количество ключей DES по длине ключа
 	this->_keys = (key.size / DES_KEY);
 	/**
-	 * Выполняем перебор ключей DES
+	 * Перебираем ключи DES
 	 */
 	for(size_t i = 0; i < this->_keys; i++)
 		// Выводим раундовые ключи очередного ключа DES
-		schedule(key.data + i * DES_KEY, this->_rounds[i]);
+		__nts_schedule__(key.data + i * DES_KEY, this->_rounds[i]);
 	// Помечаем ключ установленным
 	this->_ready = true;
 	// Выводим признак успешности установки ключа
@@ -555,39 +566,39 @@ bool nts::cipher::Des::encrypt(const uint8_t * source, uint8_t * result) const n
 		// Выводим отказ зашифрования
 		return false;
 	// Преобразуемый блок числом
-	uint64_t block = fetch(source);
+	uint64_t block = __nts_fetch__(source);
 	// Если ключей три (3DES)
 	if(this->_keys > 1){
 		// Блок после начальной перестановки
-		const uint64_t permuted = entering(block);
+		const uint64_t permuted = __nts_entering__(block);
 		// Левая и правая половины блока
 		uint32_t left = static_cast <uint32_t> (permuted >> 32);
 		// Правая половина блока
 		uint32_t right = static_cast <uint32_t> (permuted);
 		/**
-		 * Выполняем черёд EDE без промежуточных перестановок: начальная
+		 * Чередуем EDE без промежуточных перестановок: начальная
 		 * перестановка всякого следующего прохода снимает конечную перестановку
 		 * предыдущего, потому перестановки применяются к череду лишь по разу,
 		 * а между проходами половины меняются местами, как того требует
 		 * завершение всякого прохода
 		 */
-		circles(left, right, this->_rounds[0], false);
+		__nts_circles__(left, right, this->_rounds[0], false);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t swap = left; left = right; right = swap;
 		// Средний проход расшифрованием вторым ключом
-		circles(left, right, this->_rounds[1], true);
+		__nts_circles__(left, right, this->_rounds[1], true);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t change = left; left = right; right = change;
 		// Третий проход зашифрованием третьим ключом
-		circles(left, right, this->_rounds[2], false);
+		__nts_circles__(left, right, this->_rounds[2], false);
 		// Запоминаем блок после конечной перестановки
-		block = leaving((static_cast <uint64_t> (right) << 32) | left);
+		block = __nts_leaving__((static_cast <uint64_t> (right) << 32) | left);
 	// Иначе одиночный DES
 	} else
 		// Зашифровываем единственным ключом
-		block = transform(block, this->_rounds[0], false);
+		block = __nts_transform__(block, this->_rounds[0], false);
 	// Записываем зашифрованный блок
-	store(block, result);
+	__nts_store__(block, result);
 	// Выводим признак успешности зашифрования
 	return true;
 }
@@ -605,37 +616,37 @@ bool nts::cipher::Des::decrypt(const uint8_t * source, uint8_t * result) const n
 		// Выводим отказ расшифрования
 		return false;
 	// Преобразуемый блок числом
-	uint64_t block = fetch(source);
+	uint64_t block = __nts_fetch__(source);
 	// Если ключей три (3DES)
 	if(this->_keys > 1){
 		// Блок после начальной перестановки
-		const uint64_t permuted = entering(block);
+		const uint64_t permuted = __nts_entering__(block);
 		// Левая и правая половины блока
 		uint32_t left = static_cast <uint32_t> (permuted >> 32);
 		// Правая половина блока
 		uint32_t right = static_cast <uint32_t> (permuted);
 		/**
-		 * Выполняем обращённый черёд EDE без промежуточных перестановок, как
+		 * Чередуем в обращённом порядке EDE без промежуточных перестановок, как
 		 * и при зашифровании: перестановки применяются к череду лишь по разу,
 		 * а между проходами половины меняются местами
 		 */
-		circles(left, right, this->_rounds[2], true);
+		__nts_circles__(left, right, this->_rounds[2], true);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t swap = left; left = right; right = swap;
 		// Средний проход зашифрованием вторым ключом
-		circles(left, right, this->_rounds[1], false);
+		__nts_circles__(left, right, this->_rounds[1], false);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t change = left; left = right; right = change;
 		// Первый проход расшифрованием первым ключом
-		circles(left, right, this->_rounds[0], true);
+		__nts_circles__(left, right, this->_rounds[0], true);
 		// Запоминаем блок после конечной перестановки
-		block = leaving((static_cast <uint64_t> (right) << 32) | left);
+		block = __nts_leaving__((static_cast <uint64_t> (right) << 32) | left);
 	// Иначе одиночный DES
 	} else
 		// Расшифровываем единственным ключом
-		block = transform(block, this->_rounds[0], true);
+		block = __nts_transform__(block, this->_rounds[0], true);
 	// Записываем расшифрованный блок
-	store(block, result);
+	__nts_store__(block, result);
 	// Выводим признак успешности расшифрования
 	return true;
 }

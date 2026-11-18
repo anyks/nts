@@ -46,7 +46,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static constexpr uint64_t spin(const uint64_t word, const size_t count) noexcept {
+	static constexpr uint64_t __nts_spin__(const uint64_t word, const size_t count) noexcept {
 		// Выводим сдвиг
 		return ((word << count) | (word >> (64 - count)));
 	}
@@ -56,15 +56,15 @@ namespace {
 	 * @param v состояние из четырёх слов
 	 *
 	 */
-	static __NTS_INLINE__ void round(uint64_t * v) noexcept {
+	static __NTS_INLINE__ void __nts_round__(uint64_t * v) noexcept {
 		// Первое слово складывается со вторым, второе сдвигается и складывается по модулю два с первым, первое сдвигается
-		v[0] += v[1]; v[1] = spin(v[1], 13); v[1] ^= v[0]; v[0] = spin(v[0], 32);
+		v[0] += v[1]; v[1] = __nts_spin__(v[1], 13); v[1] ^= v[0]; v[0] = __nts_spin__(v[0], 32);
 		// Третье слово складывается с четвёртым, четвёртое сдвигается и складывается по модулю два с третьим
-		v[2] += v[3]; v[3] = spin(v[3], 16); v[3] ^= v[2];
+		v[2] += v[3]; v[3] = __nts_spin__(v[3], 16); v[3] ^= v[2];
 		// Первое слово складывается с четвёртым, четвёртое сдвигается и складывается по модулю два с первым
-		v[0] += v[3]; v[3] = spin(v[3], 21); v[3] ^= v[0];
+		v[0] += v[3]; v[3] = __nts_spin__(v[3], 21); v[3] ^= v[0];
 		// Третье слово складывается со вторым, второе сдвигается и складывается по модулю два с третьим, третье сдвигается
-		v[2] += v[1]; v[1] = spin(v[1], 17); v[1] ^= v[2]; v[2] = spin(v[2], 32);
+		v[2] += v[1]; v[1] = __nts_spin__(v[1], 17); v[1] ^= v[2]; v[2] = __nts_spin__(v[2], 32);
 	}
 	/**
 	 * @brief Функция чтения слова от младшего байта
@@ -74,11 +74,11 @@ namespace {
 	 * @return     слово
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t octet(const uint8_t * data, const size_t size) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_octet__(const uint8_t * data, const size_t size) noexcept {
 		// Собираемое слово
 		uint64_t result = 0;
 		/**
-		 * Выполняем перебор байтов
+		 * Перебираем байты
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Складываем байт
@@ -104,7 +104,7 @@ bool nts::digest::siphash(const view_t & key, const view_t & data, uint8_t * res
 		// Выводим отрицательный результат - ключ, место либо длина итога негодны
 		return false;
 	// Слова ключа
-	const uint64_t k0 = octet(key.data, 8), k1 = octet(key.data + 8, 8);
+	const uint64_t k0 = __nts_octet__(key.data, 8), k1 = __nts_octet__(key.data + 8, 8);
 	// Состояние: константы «somepseudorandomlygeneratedbytes», сложенные с ключом
 	uint64_t v[4] = {
 		// Константы, сложенные с парами слов ключа
@@ -118,36 +118,36 @@ bool nts::digest::siphash(const view_t & key, const view_t & data, uint8_t * res
 	// Количество полных слов сообщения
 	const size_t whole = (data.size / 8);
 	/**
-	 * Выполняем перебор полных слов сообщения
+	 * Перебираем полные слова сообщения
 	 */
 	for(size_t i = 0; i < whole; i++){
 		// Слово сообщения
-		const uint64_t m = octet(data.data + (i * 8), 8);
+		const uint64_t m = __nts_octet__(data.data + (i * 8), 8);
 		// Складываем со четвёртым словом
 		v[3] ^= m;
 		// Два круга сжатия
-		round(v);
-		round(v);
+		__nts_round__(v);
+		__nts_round__(v);
 		// Складываем с первым словом
 		v[0] ^= m;
 	}
 	// Последнее слово: остаток и длина сообщения в старшем байте
-	const uint64_t last = (octet(data.data + (whole * 8), data.size - (whole * 8)) | (static_cast <uint64_t> (data.size & 0xFF) << 56));
+	const uint64_t last = (__nts_octet__(data.data + (whole * 8), data.size - (whole * 8)) | (static_cast <uint64_t> (data.size & 0xFF) << 56));
 	// Складываем последнее слово
 	v[3] ^= last;
 	// Два круга сжатия
-	round(v);
-	round(v);
+	__nts_round__(v);
+	__nts_round__(v);
 	// Складываем с первым словом
 	v[0] ^= last;
 	// Завершение: третье слово складывается с 0xFF (64) либо 0xEE (128)
 	v[2] ^= ((size == 16) ? 0xEE : 0xFF);
 	// Четыре круга завершения
-	round(v); round(v); round(v); round(v);
+	__nts_round__(v); __nts_round__(v); __nts_round__(v); __nts_round__(v);
 	// Первое слово итога
 	uint64_t first = (v[0] ^ v[1] ^ v[2] ^ v[3]);
 	/**
-	 * Выполняем запись первого слова от младшего байта
+	 * Записываем первое слово от младшего байта
 	 */
 	for(size_t i = 0; i < 8; i++)
 		// Байт итога
@@ -157,11 +157,11 @@ bool nts::digest::siphash(const view_t & key, const view_t & data, uint8_t * res
 		// Второе слово складывается с 0xDD
 		v[1] ^= 0xDD;
 		// Четыре круга завершения
-		round(v); round(v); round(v); round(v);
+		__nts_round__(v); __nts_round__(v); __nts_round__(v); __nts_round__(v);
 		// Второе слово итога
 		const uint64_t second = (v[0] ^ v[1] ^ v[2] ^ v[3]);
 		/**
-		 * Выполняем запись второго слова
+		 * Записываем второе слово
 		 */
 		for(size_t i = 0; i < 8; i++)
 			// Байт итога
@@ -193,7 +193,7 @@ bool nts::digest::siphash(const view_t & key, const view_t & data, uint64_t & re
 	// Собираем число от младшего байта
 	result = 0;
 	/**
-	 * Выполняем перебор байтов итога
+	 * Перебираем байты итога
 	 */
 	for(size_t i = 0; i < 8; i++)
 		// Присоединяем очередной байт итога

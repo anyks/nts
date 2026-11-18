@@ -157,9 +157,9 @@ namespace {
 	 * @param size   длина записи числа в байтах
 	 *
 	 */
-	static void reverse(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
+	static void __nts_reverse__(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
 		/**
-		 * Выполняем перебор байтов записи числа
+		 * Перебираем байты записи числа
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Переносим очередной байт записи числа
@@ -173,7 +173,7 @@ namespace {
 	 * @param flag   признак обмена
 	 *
 	 */
-	static void exchange(point_t & first, point_t & second, const uint64_t flag) noexcept {
+	static void __nts_exchange__(point_t & first, point_t & second, const uint64_t flag) noexcept {
 		// Условный обмен первых координат
 		math::field448::swap(first.x, second.x, flag);
 		// Условный обмен вторых координат
@@ -194,7 +194,7 @@ namespace {
 	 * @param result место, в которое помещается кратная точка
 	 *
 	 */
-	static void multiply(const uint8_t * scalar, const point_t & point, point_t & result) noexcept {
+	static void __nts_multiply__(const uint8_t * scalar, const point_t & point, point_t & result) noexcept {
 		// Пара точек лестницы
 		point_t first, second;
 		// Первая точка лестницы начинается с нейтральной
@@ -204,7 +204,7 @@ namespace {
 		// Накопленный признак обмена точек лестницы
 		uint64_t swapped = 0;
 		/**
-		 * Выполняем обход разрядов скаляра от старшего к младшему
+		 * Обходим разряды скаляра от старшего к младшему
 		 */
 		for(size_t i = (RECORD * 8); i > 0; i--){
 			// Номер очередного разряда скаляра
@@ -214,7 +214,7 @@ namespace {
 			// Складываем признак обмена с очередным разрядом
 			swapped ^= bit;
 			// Условный обмен точек лестницы
-			exchange(first, second, swapped);
+			__nts_exchange__(first, second, swapped);
 			// Запоминаем очередной разряд признаком обмена
 			swapped = bit;
 			// Вторая точка становится суммой точек лестницы
@@ -223,7 +223,7 @@ namespace {
 			twice(first, first);
 		}
 		// Заключительный условный обмен точек лестницы
-		exchange(first, second, swapped);
+		__nts_exchange__(first, second, swapped);
 		// Переносим кратную точку в место итога
 		result = first;
 		// Затирание точек лестницы
@@ -240,7 +240,7 @@ namespace {
 	 * @return         значение полубайта от нуля до пятнадцати
 	 *
 	 */
-	static uint8_t nibble(const uint8_t * scalar, const size_t row, const size_t position) noexcept {
+	static uint8_t __nts_nibble__(const uint8_t * scalar, const size_t row, const size_t position) noexcept {
 		// Выводим значение полубайта строки гребёнки
 		return ((scalar[(row * 2) + (position >> 1)] >> ((position & 1) * 4)) & 15);
 	}
@@ -256,7 +256,7 @@ namespace {
 	 * @param result место, в которое помещается выбранная точка
 	 *
 	 */
-	static void choose(const sign::comb448_t * table, const uint8_t index, point_t & result) noexcept {
+	static void __nts_choose__(const sign::comb448_t * table, const uint8_t index, point_t & result) noexcept {
 		// Обнуляем первую координату выбираемой точки
 		zero(result.x);
 		// Обнуляем вторую координату выбираемой точки
@@ -266,13 +266,13 @@ namespace {
 		// Обнуляем произведение координат выбираемой точки
 		zero(result.t);
 		/**
-		 * Выполняем перебор мест таблицы кратных
+		 * Перебираем места таблицы кратных
 		 */
 		for(size_t j = 0; j < sign::COMB448_PLACES; j++){
 			// Маска совпадения очередного места с выбираемым номером
 			const uint64_t mask = (0 - (((static_cast <uint64_t> (index) ^ j) - 1) >> 63));
 			/**
-			 * Выполняем наложение слов очередного места по маске
+			 * Накладываем слова очередного места по маске
 			 */
 			for(size_t w = 0; w < LIMBS; w++){
 				// Накладываем слово первой координаты очередного места
@@ -293,9 +293,9 @@ namespace {
 	 * @param place место, в которое переносится точка
 	 *
 	 */
-	static void install(const point_t & point, sign::comb448_t & place) noexcept {
+	static void __nts_install__(const point_t & point, sign::comb448_t & place) noexcept {
 		/**
-		 * Выполняем перенос слов координат точки
+		 * Переносим слова координат точки
 		 */
 		for(size_t w = 0; w < LIMBS; w++){
 			// Переносим слово первой координаты
@@ -315,21 +315,21 @@ namespace {
 	 * @param table  место шестнадцати кратных точки подряд
 	 *
 	 */
-	static void arrange(const point_t & point, sign::comb448_t * table) noexcept {
+	static void __nts_arrange__(const point_t & point, sign::comb448_t * table) noexcept {
 		// Нейтральная точка - нулевое место таблицы
 		point_t item;
 		// Получение нейтральной точки
 		neutral(item);
 		// Переносим нейтральную точку в нулевое место
-		install(item, table[0]);
+		__nts_install__(item, table[0]);
 		// Запоминаем точку первым кратным
 		item = point;
 		/**
-		 * Выполняем обход мест таблицы кратных
+		 * Обходим места таблицы кратных
 		 */
 		for(size_t j = 1; j < sign::COMB448_PLACES; j++){
 			// Переносим очередное кратное в место таблицы
-			install(item, table[j]);
+			__nts_install__(item, table[j]);
 			// Следующее кратное точки
 			point_t next;
 			// Складываем кратное с точкой
@@ -354,27 +354,27 @@ namespace {
 	 * @param result место, в которое помещается кратная точка
 	 *
 	 */
-	static void scale(const uint8_t * scalar, const sign::comb448_t * comb, point_t & result) noexcept {
+	static void __nts_scale__(const uint8_t * scalar, const sign::comb448_t * comb, point_t & result) noexcept {
 		// Начинаем накопление с нейтральной точки
 		neutral(result);
 		// Выбранное место гребёнки
 		point_t picked;
 		/**
-		 * Выполняем обход позиций полубайта от старшей к младшей
+		 * Обходим позиции полубайта от старшей к младшей
 		 */
 		for(size_t p = sign::COMB448_DIGITS; p > 0; p--){
 			/**
-			 * Выполняем четыре удвоения накопленной точки: позиция полубайта стоит четыре разряда
+			 * Удваиваем накопленную точку четыре раза: позиция полубайта стоит четыре разряда
 			 */
 			for(size_t k = 0; k < 4; k++)
 				// Очередное удвоение накопленной точки
 				twice(result, result);
 			/**
-			 * Выполняем обход строк гребёнки кратных
+			 * Обходим строки гребёнки кратных
 			 */
 			for(size_t j = 0; j < sign::COMB448_ROWS; j++){
 				// Выборка места строки гребёнки по полубайту скаляра
-				choose(comb + (j * sign::COMB448_PLACES), nibble(scalar, j, p - 1), picked);
+				__nts_choose__(comb + (j * sign::COMB448_PLACES), __nts_nibble__(scalar, j, p - 1), picked);
 				// Складываем выбранное место с накопленной точкой
 				add(result, picked, result);
 			}
@@ -395,17 +395,17 @@ namespace {
 	 * @param result место, в которое помещается кратная точка
 	 *
 	 */
-	static void advance(const uint8_t * scalar, const sign::comb448_t * table, point_t & result) noexcept {
+	static void __nts_advance__(const uint8_t * scalar, const sign::comb448_t * table, point_t & result) noexcept {
 		// Начинаем накопление с нейтральной точки
 		neutral(result);
 		// Выбранное место таблицы кратных
 		point_t picked;
 		/**
-		 * Выполняем обход полубайтов скаляра от старшего к младшему
+		 * Обходим полубайты скаляра от старшего к младшему
 		 */
 		for(size_t w = (RECORD * 2); w > 0; w--){
 			/**
-			 * Выполняем четыре удвоения накопленной точки: полубайт стоит четыре разряда
+			 * Удваиваем накопленную точку четыре раза: полубайт стоит четыре разряда
 			 */
 			for(size_t k = 0; k < 4; k++)
 				// Очередное удвоение накопленной точки
@@ -413,7 +413,7 @@ namespace {
 			// Номер места таблицы кратных по очередному полубайту скаляра
 			const uint8_t place = ((scalar[(w - 1) >> 1] >> (((w - 1) & 1) * 4)) & 15);
 			// Выборка места таблицы кратных по полубайту скаляра
-			choose(table, place, picked);
+			__nts_choose__(table, place, picked);
 			// Складываем выбранное место с накопленной точкой
 			add(result, picked, result);
 		}
@@ -430,7 +430,7 @@ namespace {
 	 * @param result место, в которое помещается запись длиной в пятьдесят семь байтов
 	 *
 	 */
-	static void encode(const point_t & point, uint8_t * result) noexcept {
+	static void __nts_encode__(const point_t & point, uint8_t * result) noexcept {
 		// Обратный знаменатель и приведённые координаты
 		element_t inverse, x, y;
 		// Обращение знаменателя
@@ -469,7 +469,7 @@ namespace {
 	 * @return       признак того, что запись канонична и точка лежит на кривой
 	 *
 	 */
-	static bool decode(const uint8_t * data, point_t & result) noexcept {
+	static bool __nts_decode__(const uint8_t * data, point_t & result) noexcept {
 		// Разряд знака первой координаты
 		const uint8_t flag = (data[RECORD - 1] >> 7);
 		// Запись приведённой координаты
@@ -481,7 +481,7 @@ namespace {
 		// Накопленное различие записей второй координаты
 		uint8_t difference = 0;
 		/**
-		 * Выполняем перебор байтов записи второй координаты
+		 * Перебираем байты записи второй координаты
 		 */
 		for(size_t i = 0; i < SIZE; i++)
 			// Накапливаем различие очередной записи и поданной
@@ -571,11 +571,11 @@ namespace {
 	 * @return       признак успешности приведения
 	 *
 	 */
-	static bool reduce(const math::modulus_t & order, const uint8_t * data, const size_t size, uint8_t * result) noexcept {
+	static bool __nts_reduce__(const math::modulus_t & order, const uint8_t * data, const size_t size, uint8_t * result) noexcept {
 		// Развёрнутая запись и запись приведённого скаляра
 		uint8_t buffer[DIGEST], stored[RECORD];
 		// Разворот приводимой записи от старшего байта
-		reverse(data, buffer, size);
+		__nts_reverse__(data, buffer, size);
 		// Приведённый скаляр
 		math::number_t value;
 		// Признак успешности приведения
@@ -587,7 +587,7 @@ namespace {
 			// Если запись удалась
 			if(ok)
 				// Разворот записи скаляра младшим байтом вперёд
-				reverse(stored, result, RECORD);
+				__nts_reverse__(stored, result, RECORD);
 		}
 		// Затирание приведённого скаляра
 		wipe(value.words, sizeof(value.words));
@@ -609,26 +609,26 @@ namespace {
 	 * @return       признак успешности выработки
 	 *
 	 */
-	static bool combine(const math::modulus_t & order, const uint8_t * r, const uint8_t * k, const uint8_t * a, uint8_t * result) noexcept {
+	static bool __nts_combine__(const math::modulus_t & order, const uint8_t * r, const uint8_t * k, const uint8_t * a, uint8_t * result) noexcept {
 		// Развёрнутая запись
 		uint8_t buffer[RECORD];
 		// Числа выработки скаляра подписи
 		math::number_t first, second, third;
 		// Разворот записи скаляра r
-		reverse(r, buffer, RECORD);
+		__nts_reverse__(r, buffer, RECORD);
 		// Признак успешности выработки: значение скаляра укладывается в пятьдесят шесть байтов
 		bool ok = order.load(view_t(buffer + 1, RECORD - 1), first);
 		// Если скаляр r разобрать удалось
 		if(ok){
 			// Разворот записи скаляра k
-			reverse(k, buffer, RECORD);
+			__nts_reverse__(k, buffer, RECORD);
 			// Разбор скаляра k
 			ok = order.load(view_t(buffer + 1, RECORD - 1), second);
 		}
 		// Если скаляр k разобрать удалось
 		if(ok){
 			// Разворот записи скаляра ключа
-			reverse(a, buffer, RECORD);
+			__nts_reverse__(a, buffer, RECORD);
 			// Приведение скаляра ключа: зажатый скаляр порядка не меньше
 			ok = order.reduce(view_t(buffer, RECORD), third);
 		}
@@ -649,7 +649,7 @@ namespace {
 			// Если запись удалась
 			if(ok)
 				// Разворот записи скаляра подписи младшим байтом вперёд
-				reverse(buffer, result, RECORD);
+				__nts_reverse__(buffer, result, RECORD);
 		}
 		// Затирание чисел выработки
 		wipe(third.words, sizeof(third.words));
@@ -672,13 +672,13 @@ namespace {
 	 * @return     признак того, что скаляр меньше порядка подгруппы
 	 *
 	 */
-	static bool canonical(const uint8_t * data) noexcept {
+	static bool __nts_canonical__(const uint8_t * data) noexcept {
 		// Старший байт скаляра обязан быть нулевым: порядок короче пятидесяти семи байтов
 		if(data[RECORD - 1] != 0)
 			// Выводим признак того, что скаляр не меньше порядка
 			return false;
 		/**
-		 * Выполняем перебор значимых байтов скаляра от старшего к младшему
+		 * Перебираем значимые байты скаляра от старшего к младшему
 		 */
 		for(size_t i = (RECORD - 1); i > 0; i--){
 			// Очередной байт скаляра
@@ -707,7 +707,7 @@ namespace {
 	 * @return       признак успешности выработки хеша
 	 *
 	 */
-	static bool digestion(const view_t & first, const view_t & second, const view_t & third, uint8_t * result) noexcept {
+	static bool __nts_digestion__(const view_t & first, const view_t & second, const view_t & third, uint8_t * result) noexcept {
 		// Объект хеширования SHAKE256
 		digest::keccak_t hasher(digest::sha3_t::SHAKE256);
 		// Подачу строки dom4
@@ -797,7 +797,7 @@ bool nts::sign::Ed448::secret(const view_t & secret) noexcept {
 		return false;
 	}
 	/**
-	 * Выполняем разделение хеша: раздел 5.2.5 RFC 8032 берёт скаляр из младшей
+	 * Разделяем хеш: раздел 5.2.5 RFC 8032 берёт скаляр из младшей
 	 * половины, а приставку - из старшей
 	 */
 	for(size_t i = 0; i < KEY_SIZE; i++){
@@ -817,9 +817,9 @@ bool nts::sign::Ed448::secret(const view_t & secret) noexcept {
 	// Получаем точку основания
 	base(generator);
 	// Умножение точки основания на скаляр
-	multiply(this->_scalar, generator, point);
+	__nts_multiply__(this->_scalar, generator, point);
 	// Сжатие точки ключа проверки
-	encode(point, this->_key);
+	__nts_encode__(point, this->_key);
 	// Затирание точки ключа проверки
 	wipe(&point, sizeof(point));
 	// Затирание хеша зерна
@@ -887,7 +887,7 @@ bool nts::sign::Ed448::key(const view_t & key) noexcept {
 		// Накопленное различие ключей
 		uint8_t difference = 0;
 		/**
-		 * Выполняем сличение ключей за постоянное время
+		 * Сличаем ключи за постоянное время
 		 */
 		for(size_t i = 0; i < KEY_SIZE; i++)
 			// Накапливаем различие
@@ -904,11 +904,11 @@ bool nts::sign::Ed448::key(const view_t & key) noexcept {
 	// Точка ключа проверки
 	point_t point;
 	// Если точку ключа проверки разобрать не удалось
-	if(!decode(key.data, point))
+	if(!__nts_decode__(key.data, point))
 		// Выводим отказ установки ключа проверки подписи
 		return false;
 	/**
-	 * Выполняем перенос записи ключа проверки
+	 * Переносим запись ключа проверки
 	 */
 	for(size_t i = 0; i < KEY_SIZE; i++)
 		// Переносим очередной байт записи
@@ -932,7 +932,7 @@ bool nts::sign::Ed448::key(uint8_t * result, const size_t size) const noexcept {
 		// Выводим отказ получения ключа проверки подписи
 		return false;
 	/**
-	 * Выполняем перенос записи ключа проверки
+	 * Переносим запись ключа проверки
 	 */
 	for(size_t i = 0; i < KEY_SIZE; i++)
 		// Переносим очередной байт записи
@@ -960,11 +960,11 @@ bool nts::sign::Ed448::make(const view_t & message, uint8_t * result) const noex
 	// Хеш и скаляры выработки подписи
 	uint8_t buffer[DIGEST], r[RECORD], k[RECORD];
 	// Признак успешности выработки подписи
-	bool ok = digestion(view_t(this->_prefix, KEY_SIZE), message, view_t(), buffer);
+	bool ok = __nts_digestion__(view_t(this->_prefix, KEY_SIZE), message, view_t(), buffer);
 	// Если хеш приставки с сообщением выработать удалось
 	if(ok)
 		// Приведение хеша по порядку подгруппы в скаляр r
-		ok = reduce(this->_order, buffer, DIGEST, r);
+		ok = __nts_reduce__(this->_order, buffer, DIGEST, r);
 	// Если скаляр r выработать удалось
 	if(ok){
 		// Точка R
@@ -974,7 +974,7 @@ bool nts::sign::Ed448::make(const view_t & message, uint8_t * result) const noex
 		// Если гребёнка кратных заготовлена сборкой
 		if(comb != nullptr)
 			// Умножение точки основания на скаляр r гребёнкой кратных
-			scale(r, comb, point);
+			__nts_scale__(r, comb, point);
 		// Если гребёнка кратных не заготовлена сборкой
 		else {
 			// Точка основания
@@ -982,23 +982,23 @@ bool nts::sign::Ed448::make(const view_t & message, uint8_t * result) const noex
 			// Получаем точку основания
 			base(generator);
 			// Умножение точки основания на скаляр r лестницей
-			multiply(r, generator, point);
+			__nts_multiply__(r, generator, point);
 		}
 		// Сжатие точки R в начало подписи
-		encode(point, result);
+		__nts_encode__(point, result);
 		// Затирание точки R
 		wipe(&point, sizeof(point));
 		// Выработка хеша точки R, ключа проверки и сообщения
-		ok = digestion(view_t(result, RECORD), view_t(this->_key, KEY_SIZE), message, buffer);
+		ok = __nts_digestion__(view_t(result, RECORD), view_t(this->_key, KEY_SIZE), message, buffer);
 	}
 	// Если хеш точки R с ключом и сообщением выработать удалось
 	if(ok)
 		// Приведение хеша по порядку подгруппы в скаляр k
-		ok = reduce(this->_order, buffer, DIGEST, k);
+		ok = __nts_reduce__(this->_order, buffer, DIGEST, k);
 	// Если скаляр k выработать удалось
 	if(ok)
 		// Выработка скаляра подписи в конец подписи
-		ok = combine(this->_order, r, k, this->_scalar, result + RECORD);
+		ok = __nts_combine__(this->_order, r, k, this->_scalar, result + RECORD);
 	// Затирание скаляра k
 	wipe(k, sizeof(k));
 	// Затирание скаляра r
@@ -1034,27 +1034,27 @@ bool nts::sign::Ed448::check(const view_t & message, const view_t & signature) c
 		// Выводим отказ проверки подписи
 		return false;
 	// Если скаляр S подписи не меньше порядка подгруппы
-	if(!canonical(signature.data + RECORD))
+	if(!__nts_canonical__(signature.data + RECORD))
 		// Выводим отказ проверки подписи
 		return false;
 	// Точки проверки подписи
 	point_t point, r, a;
 	// Если точку R подписи разобрать не удалось
-	if(!decode(signature.data, r))
+	if(!__nts_decode__(signature.data, r))
 		// Выводим отказ проверки подписи
 		return false;
 	// Если точку ключа проверки разобрать не удалось
-	if(!decode(this->_key, a))
+	if(!__nts_decode__(this->_key, a))
 		// Выводим отказ проверки подписи
 		return false;
 	// Хеш и скаляр проверки подписи
 	uint8_t buffer[DIGEST], k[RECORD];
 	// Если хеш точки R, ключа проверки и сообщения выработать не удалось
-	if(!digestion(view_t(signature.data, RECORD), view_t(this->_key, KEY_SIZE), message, buffer))
+	if(!__nts_digestion__(view_t(signature.data, RECORD), view_t(this->_key, KEY_SIZE), message, buffer))
 		// Выводим отказ проверки подписи
 		return false;
 	// Если хеш привести по порядку подгруппы не удалось
-	if(!reduce(this->_order, buffer, DIGEST, k))
+	if(!__nts_reduce__(this->_order, buffer, DIGEST, k))
 		// Выводим отказ проверки подписи
 		return false;
 	// Заготовленная гребёнка кратных точки основания
@@ -1064,11 +1064,11 @@ bool nts::sign::Ed448::check(const view_t & message, const view_t & signature) c
 		// Таблица кратных точки ключа проверки
 		sign::comb448_t table[sign::COMB448_PLACES];
 		// Собираем таблицу кратных точки ключа проверки
-		arrange(a, table);
+		__nts_arrange__(a, table);
 		// Умножение точки основания на скаляр S гребёнкой кратных
-		scale(signature.data + RECORD, comb, point);
+		__nts_scale__(signature.data + RECORD, comb, point);
 		// Умножение точки ключа проверки на скаляр k таблицей кратных
-		advance(k, table, a);
+		__nts_advance__(k, table, a);
 		// Складываем точку R с кратной точкой ключа проверки
 		add(r, a, a);
 		// Затирание таблицы кратных точки ключа проверки
@@ -1081,22 +1081,22 @@ bool nts::sign::Ed448::check(const view_t & message, const view_t & signature) c
 		// Получаем точку основания
 		base(generator);
 		// Умножение точки основания на скаляр S лестницей
-		multiply(signature.data + RECORD, generator, point);
+		__nts_multiply__(signature.data + RECORD, generator, point);
 		// Умножение точки ключа проверки на скаляр k лестницей
-		multiply(k, a, a);
+		__nts_multiply__(k, a, a);
 		// Складываем точку R с кратной точкой ключа проверки
 		add(r, a, a);
 	}
 	// Записи сличаемых точек
 	uint8_t first[RECORD], second[RECORD];
 	// Сжатие кратной точки основания
-	encode(point, first);
+	__nts_encode__(point, first);
 	// Сжатие суммы точек
-	encode(a, second);
+	__nts_encode__(a, second);
 	// Накопленная разность записей
 	uint8_t item = 0;
 	/**
-	 * Выполняем сличение записей точек
+	 * Сличаем записи точек
 	 */
 	for(size_t i = 0; i < RECORD; i++)
 		// Накапливаем разность очередных байтов

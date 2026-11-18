@@ -70,16 +70,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -102,7 +102,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Вектор замены направления связи
 	uint8_t vector[protect::PROTECT_VECTOR];
 	/**
-	 * Выполняем выработку ключевого материала направления связи
+	 * Вырабатываем ключевого материала направления связи
 	 *
 	 * @note В настоящей связи ключ и вектор замены не вырабатываются случайно, а
 	 *       выводятся расписанием ключей из хода рукопожатия: здесь они взяты случайными
@@ -126,7 +126,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Выходим из приложения с признаком отказа
 		return EXIT_FAILURE;
 	}
-	// Выполняем установку того же ключевого материала принимающей стороне
+	// Устанавливаем того же ключевого материала принимающей стороне
 	receiver.start(SUITE, view_t(key, sizeof(key)), view_t(vector, protect::block(SUITE)));
 	// Выводим длину блока базового шифра набора шифрования
 	cout << "Длина блока шифра  : " << protect::block(SUITE) << " байтов" << endl;
@@ -140,7 +140,7 @@ int main(int argc, char * argv[]) noexcept {
 		"Третье сообщение, длиною своей отличное от первых двух"
 	};
 	/**
-	 * Выполняем перебор защищаемых сообщений образца
+	 * Перебираем защищаемых сообщений образца
 	 */
 	for(size_t i = 0; i < 3; i++){
 		// Накопитель, в который складывается защищённая запись
@@ -165,10 +165,10 @@ int main(int argc, char * argv[]) noexcept {
 		// Выводим порядковый номер и длину защищённой записи
 		cout << endl << "Запись " << i << ": длина сообщения " << length << ", длина записи " << sealed.size() << endl;
 		// Выводим заголовок защищённой записи
-		::print("  Заголовок        ", sealed.data(), record::RECORD_HEADER);
+		::__nts_print__("  Заголовок        ", sealed.data(), record::RECORD_HEADER);
 		// Объект сборщика входящих записей
 		record::reader_t reader;
-		// Выполняем подачу защищённой записи сборщику
+		// Подаём защищённой записи сборщику
 		reader.push(view_t(sealed.data(), sealed.size()));
 		// Заголовок принятой защищённой записи
 		record::header_t header;
@@ -199,7 +199,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Накопитель, в который складывается подменяемая запись
 	std::vector <uint8_t> sealed;
-	// Выполняем наложение защиты на подменяемую запись
+	// Накладываем защиты на подменяемую запись
 	sender.seal(record::type_t::APPLICATION, view_t(reinterpret_cast <const uint8_t *> ("Подменяемое сообщение"), 21), sealed, 0);
 	// Портим один байт содержимого защищённой записи
 	sealed[record::RECORD_HEADER] = static_cast <uint8_t> (sealed[record::RECORD_HEADER] ^ 0x01);

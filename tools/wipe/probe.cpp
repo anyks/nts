@@ -33,11 +33,19 @@
 /**
  * A: голый memset - собиратель вправе выбросить по правилу «как если бы»
  */
-static inline void wipeA(void * p, size_t n){ ::memset(p, 0, n); }
+static inline void wipeA(void * p, size_t n){
+	// Затираем область памяти нулями
+	::memset(p, 0, n);
+}
 /**
  * B: memset с барьером собирателя - путь BoringSSL, libsodium и explicit_bzero glibc
  */
-static inline void wipeB(void * p, size_t n){ ::memset(p, 0, n); __asm__ __volatile__("" : : "r"(p) : "memory"); }
+static inline void wipeB(void * p, size_t n){
+	// Затираем область памяти нулями
+	::memset(p, 0, n);
+	// Запрещаем оптимизатору выбросить затирание
+	__asm__ __volatile__("" : : "r"(p) : "memory");
+}
 /**
  * C: пословная изменчивая запись - sys::wipe до круга 32
  */
@@ -105,7 +113,10 @@ typedef void * (* memset_t)(void *, int, size_t);
 // Изменчивый указатель на memset не даёт собрать вызов на этапе сборки
 static volatile memset_t memsetFunc = memset;
 // Затираем область вызовом через изменчивый указатель
-static inline void wipeE(void * p, size_t n){ memsetFunc(p, 0, n); }
+static inline void wipeE(void * p, size_t n){
+	// Затираем область памяти через обёртку
+	memsetFunc(p, 0, n);
+}
 /**
  * Ключ на стеке: остаётся ли затирание после встраивания способа в функцию
  */
@@ -124,10 +135,10 @@ KEYUSE(keyE, wipeE)
  */
 #define BENCH(NAME, W) \
 __attribute__((noinline)) double NAME(uint8_t * buf, size_t n, size_t rounds){ \
-	auto t0 = std::chrono::steady_clock::now(); for(size_t r = 0; r < rounds; r++){ buf[r & (n - 1)] = static_cast <uint8_t> (r); W(buf, n); } \
-	auto t1 = std::chrono::steady_clock::now(); \
-	double s = std::chrono::duration <double> (t1 - t0).count(); \
-	return ((double) n * rounds) / s / 1e9; }
+	auto start = std::chrono::steady_clock::now(); for(size_t r = 0; r < rounds; r++){ buf[r & (n - 1)] = static_cast <uint8_t> (r); W(buf, n); } \
+	auto finish = std::chrono::steady_clock::now(); \
+	double seconds = std::chrono::duration <double> (finish - start).count(); \
+	return ((double) n * rounds) / seconds / 1e9; }
 // Встраиваем способ A в щуп полосы затирания
 BENCH(benchA, wipeA)
 BENCH(benchB, wipeB)
@@ -145,7 +156,7 @@ int main(int argc, char **){
 	// Число прогонов замера
 	const size_t rounds = 100000;
 	/**
-	 * Выполняем два прохода замера полосы
+	 * Проходим два прохода замера полосы
 	 */
 	for(int pass = 0; pass < 2; pass++)
 		// Печатаем полосу каждого способа затирания

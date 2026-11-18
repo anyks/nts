@@ -61,16 +61,16 @@ namespace {
 	 * @param size  размер выводимой области байтов
 	 *
 	 */
-	void print(const char * title, const uint8_t * data, const size_t size) noexcept {
+	void __nts_print__(const char * title, const uint8_t * data, const size_t size) noexcept {
 		// Выводим заголовок области байтов
 		cout << title << ": ";
 		/**
-		 * Выполняем перебор байтов выводимой области
+		 * Перебираем байтов выводимой области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выводим очередной байт шестнадцатеричной записью
 			cout << hex << setw(2) << setfill('0') << static_cast <uint32_t> (data[i]);
-		// Выполняем перевод строки за областью байтов
+		// Переводим строки за областью байтов
 		cout << dec << endl;
 	}
 };
@@ -99,7 +99,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Объект электронной подписи SM2
 	sign::sm2_t sign;
-	// Выполняем установку эллиптической кривой подписи
+	// Устанавливаем эллиптической кривой подписи
 	if(!sign.start(curve)){
 		// Выводим сообщение об отказе установки кривой подписи
 		cout << "Установить кривую подписи не удалось" << endl;
@@ -110,7 +110,7 @@ int main(int argc, char * argv[]) noexcept {
 	const char * id = "1234567812345678";
 	// Ключ подписи образца в тридцать два байта
 	uint8_t secret[32];
-	// Выполняем выработку ключа подписи из источника случайности
+	// Вырабатываем ключа подписи из источника случайности
 	if(!entropy::bytes(secret, sizeof(secret))){
 		// Выводим сообщение об отказе выработки ключа
 		cout << "Выработать ключ подписи не удалось" << endl;
@@ -118,7 +118,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	/**
-	 * Выполняем установку ключа подписи
+	 * Устанавливаем ключа подписи
 	 *
 	 * @details Ключ проверки вырабатывается из ключа подписи сразу же, а опознаватель
 	 *          вяжется с ключом значением Z_A = SM3(ENTL ‖ ID ‖ a ‖ b ‖ G ‖ P)
@@ -132,7 +132,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Координаты ключа проверки подписи
 	uint8_t x[32], y[32];
-	// Выполняем получение ключа проверки подписи
+	// Получаем ключа проверки подписи
 	if(!sign.key(x, y, sizeof(x))){
 		// Выводим сообщение об отказе получения ключа проверки
 		cout << "Получить ключ проверки не удалось" << endl;
@@ -140,12 +140,12 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим первую координату ключа проверки подписи
-	::print("Ключ проверки X    ", x, sizeof(x));
+	::__nts_print__("Ключ проверки X    ", x, sizeof(x));
 	// Подписываемое сообщение образца
 	const char * message = "Сообщение, которое требуется подписать";
 	// Случайность выработки подписи в тридцать два байта
 	uint8_t random[32];
-	// Выполняем выработку случайности подписи из источника случайности
+	// Вырабатываем случайности подписи из источника случайности
 	if(!entropy::bytes(random, sizeof(random))){
 		// Выводим сообщение об отказе выработки случайности
 		cout << "Выработать случайность не удалось" << endl;
@@ -154,7 +154,7 @@ int main(int argc, char * argv[]) noexcept {
 	}
 	// Место, в которое помещается подпись сообщения
 	uint8_t signature[64];
-	// Выполняем подписание сообщения
+	// Подписываем сообщения
 	if(!sign.make(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(random, sizeof(random)), signature)){
 		// Выводим сообщение об отказе подписания сообщения
 		cout << "Подписать сообщение не удалось" << endl;
@@ -162,7 +162,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	// Выводим подпись сообщения
-	::print("Подпись            ", signature, sizeof(signature));
+	::__nts_print__("Подпись            ", signature, sizeof(signature));
 	// Если подпись сообщения не сошлась
 	if(!sign.check(view_t(reinterpret_cast <const uint8_t *> (message), ::strlen(message)), view_t(signature, sizeof(signature)))){
 		// Выводим сообщение об отказе проверки подписи

@@ -73,7 +73,7 @@ namespace {
 	 * @return      признак успешности выработки блоков ключа
 	 *
 	 */
-	static bool prepare(const type_t type, const view_t & key, uint8_t * inner, uint8_t * outer) noexcept {
+	static bool __nts_prepare__(const type_t type, const view_t & key, uint8_t * inner, uint8_t * outer) noexcept {
 		// Дополняемый нулями ключ выработки имитовставки
 		uint8_t buffer[BLOCK];
 		// Обнуление дополняемого ключа
@@ -92,7 +92,7 @@ namespace {
 			// Записываем ключ выработки имитовставки
 			::memcpy(buffer, key.data, key.size);
 		/**
-		 * Выполняем перебор байтов блока сжатия
+		 * Перебираем байты блока сжатия
 		 */
 		for(size_t i = 0; i < BLOCK; i++){
 			// Складываем очередной байт ключа с внутренним дополнением
@@ -136,7 +136,7 @@ bool nts::digest::hmac(const type_t type, const view_t & key, const view_t & dat
 	// Внутренний и внешний блоки ключа выработки имитовставки
 	uint8_t inner[BLOCK], outer[BLOCK];
 	// Если блоки ключа выработки имитовставки выработать не удалось
-	if(!prepare(type, key, inner, outer)){
+	if(!__nts_prepare__(type, key, inner, outer)){
 		// Затирание блоков ключа выработки имитовставки
 		wipe(inner, sizeof(inner));
 		// Затирание внешнего блока ключа
@@ -221,7 +221,7 @@ bool nts::digest::Mac::start(const hash_t algorithm, const view_t & key) noexcep
 		// Переносим ключ в приведённый
 		::memcpy(padded, key.data, key.size);
 	/**
-	 * Выполняем перебор байтов блока сжатия
+	 * Перебираем байты блока сжатия
 	 */
 	for(size_t i = 0; i < width; i++){
 		// Складываем внутреннее заполнение
@@ -430,7 +430,7 @@ bool nts::digest::prf(const type_t type, const view_t & key, const view_t & labe
 		// Количество уже выработанных байтов последовательности
 		size_t offset = 0;
 		/**
-		 * Выполняем выработку последовательности до набора требуемой длины
+		 * Вырабатываем последовательность до набора требуемой длины
 		 */
 		while(ok && (offset < size)){
 			// Объект выработки очередной части последовательности
@@ -501,7 +501,7 @@ bool nts::digest::legacy(const view_t & key, const view_t & label, const view_t 
 		return false;
 	}
 	/**
-	 * Выполняем сложение последовательностей по модулю два
+	 * Складываем последовательности по модулю два
 	 */
 	for(size_t i = 0; i < size; i++)
 		// Складываем байты
@@ -571,7 +571,7 @@ bool nts::digest::prf(const hash_t algorithm, const view_t & key, const view_t &
 	// Количество уже выработанных байтов последовательности
 	size_t offset = 0;
 	/**
-	 * Выполняем выработку последовательности до набора требуемой длины
+	 * Вырабатываем последовательность до набора требуемой длины
 	 */
 	while(ok && (offset < size)){
 		// Записываем промежуточное значение выработки последовательности

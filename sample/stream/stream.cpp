@@ -75,7 +75,7 @@ namespace {
 		// Порождаемый текст
 		vector <uint8_t> result(size);
 		/**
-		 * Выполняем заполнение текста
+		 * Заполняем текста
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Записываем очередной байт
@@ -93,11 +93,11 @@ namespace {
 	 * @return          признак успешности пропуска и завершения
 	 *
 	 */
-	bool pass(cipher::stream_t & stream, const vector <uint8_t> & source, const size_t chunk, vector <uint8_t> & result) noexcept {
+	bool __nts_pass__(cipher::stream_t & stream, const vector <uint8_t> & source, const size_t chunk, vector <uint8_t> & result) noexcept {
 		// Опустошаем накопитель выхода перед подачей кусков
 		result.clear();
 		/**
-		 * Выполняем подачу данных кусками
+		 * Подаём данных кусками
 		 */
 		for(size_t offset = 0; offset < source.size(); offset += chunk){
 			// Длина очередного куска
@@ -118,11 +118,11 @@ namespace {
 	 * @return     число ненулевых байтов
 	 *
 	 */
-	size_t nonzero(const uint8_t * data, const size_t size) noexcept {
+	size_t __nts_nonzero__(const uint8_t * data, const size_t size) noexcept {
 		// Число ненулевых байтов
 		size_t count = 0;
 		/**
-		 * Выполняем перебор байтов области
+		 * Перебираем байтов области
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Считаем ненулевой байт
@@ -174,7 +174,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выход зашифрования
 	vector <uint8_t> sealed;
 	// Если поток на зашифрование завести либо пропустить не удалось
-	if(!stream.start(cipher::direction_t::ENCRYPT, block, cipher::regime_t::GCM) || !pass(stream, source, 7, sealed)){
+	if(!stream.start(cipher::direction_t::ENCRYPT, block, cipher::regime_t::GCM) || !__nts_pass__(stream, source, 7, sealed)){
 		// Выводим сообщение об отказе зашифрования
 		cout << "Зашифровать поток не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -185,7 +185,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выход расшифрования
 	vector <uint8_t> opened;
 	// Если поток на расшифрование завести либо пропустить не удалось
-	if(!stream.start(cipher::direction_t::DECRYPT, block, cipher::regime_t::GCM) || !pass(stream, sealed, 333, opened) || (opened != source)){
+	if(!stream.start(cipher::direction_t::DECRYPT, block, cipher::regime_t::GCM) || !__nts_pass__(stream, sealed, 333, opened) || (opened != source)){
 		// Выводим сообщение об отказе расшифрования
 		cout << "Расшифровать поток не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -202,7 +202,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Заводим поток на расшифрование порченого
 	stream.start(cipher::direction_t::DECRYPT, block, cipher::regime_t::GCM);
 	// Расшифровываем порченый поток: куски проходят, отказ приходит на завершении
-	const bool accepted = pass(stream, spoiled, 64, garbage);
+	const bool accepted = __nts_pass__(stream, spoiled, 64, garbage);
 	// Если порченый поток принят
 	if(accepted){
 		// Выводим сообщение о расхождении
@@ -215,7 +215,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим заголовок прогона режима без метки
 	cout << endl << "== Поток гаммирования с обратной связью: без метки ==" << endl;
 	// Если поток режима гаммирования завести либо пропустить не удалось
-	if(!stream.start(cipher::direction_t::ENCRYPT, block, cipher::regime_t::FEEDBACK) || !pass(stream, source, 100, sealed)){
+	if(!stream.start(cipher::direction_t::ENCRYPT, block, cipher::regime_t::FEEDBACK) || !__nts_pass__(stream, source, 100, sealed)){
 		// Выводим сообщение об отказе зашифрования
 		cout << "Зашифровать поток гаммированием не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -224,7 +224,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим устройство выхода: вектор и шифртекст, метки нет
 	cout << "Выход               : " << sealed.size() << " байт = вектор " << (sealed.size() - source.size()) << " + шифртекст " << source.size() << ", метки нет" << endl;
 	// Если поток на расшифрование завести либо пропустить не удалось
-	if(!stream.start(cipher::direction_t::DECRYPT, block, cipher::regime_t::FEEDBACK) || !pass(stream, sealed, 1, opened) || (opened != source)){
+	if(!stream.start(cipher::direction_t::DECRYPT, block, cipher::regime_t::FEEDBACK) || !__nts_pass__(stream, sealed, 1, opened) || (opened != source)){
 		// Выводим сообщение об отказе расшифрования
 		cout << "Расшифровать поток гаммированием не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -274,7 +274,7 @@ int main(int argc, char * argv[]) noexcept {
 		return EXIT_FAILURE;
 	}
 	/**
-	 * Выполняем поточное зашифрование кусками по 17 байтов
+	 * Шифруем потоком кусками по 17 байтов
 	 */
 	for(size_t offset = 0; offset < source.size(); offset += 17){
 		// Длина очередного куска
@@ -314,7 +314,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Расшифрование с порченой меткой: выход обязан остаться нетронутым
 	const bool verified = (aead.start(view_t(key, sizeof(key)), view_t(nonce, sizeof(nonce))) && aead.decrypt(header, view_t(once.data(), once.size()), untouched.data(), view_t(tag, sizeof(tag))));
 	// Если порченая метка принята либо выход тронут
-	if(verified || (nonzero(untouched.data(), untouched.size()) != untouched.size())){
+	if(verified || (__nts_nonzero__(untouched.data(), untouched.size()) != untouched.size())){
 		// Выводим сообщение о расхождении
 		cout << "Порченая метка принята либо выход тронут" << endl;
 		// Выходим из приложения с признаком отказа
@@ -325,11 +325,11 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим заголовок прогона затирания
 	cout << endl << "== Затирание тайн ==" << endl;
 	// Выводим ненулевые байты ключа до затирания
-	cout << "Ключ до затирания   : " << nonzero(key, sizeof(key)) << " ненулевых байтов из " << sizeof(key) << endl;
+	cout << "Ключ до затирания   : " << __nts_nonzero__(key, sizeof(key)) << " ненулевых байтов из " << sizeof(key) << endl;
 	// Затираем ключ через изменчивый указатель
 	sys::wipe(key, sizeof(key));
 	// Выводим ненулевые байты ключа после затирания
-	cout << "Ключ после          : " << nonzero(key, sizeof(key)) << " ненулевых байтов" << endl;
+	cout << "Ключ после          : " << __nts_nonzero__(key, sizeof(key)) << " ненулевых байтов" << endl;
 	// Набор байтов с тайной
 	vector <uint8_t> hoard(source);
 	// Ёмкость набора до затирания
@@ -345,7 +345,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Выводим итог затирания строки
 	cout << "Строка              : размер " << password.size() << ", " << (password.empty() ? "пуста" : "не пуста") << endl;
 	// Если ключ затёрт не целиком
-	if(nonzero(key, sizeof(key)) != 0){
+	if(__nts_nonzero__(key, sizeof(key)) != 0){
 		// Выводим сообщение о расхождении
 		cout << "Ключ затёрт не целиком" << endl;
 		// Выходим из приложения с признаком отказа
