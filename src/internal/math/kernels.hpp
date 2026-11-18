@@ -168,15 +168,15 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ words_t <WORDS> __nts_fetch__(const uint64_t * value) noexcept {
-				// Читаемое значение
+				// Значение, собираемое из слов памяти в регистры
 				words_t <WORDS> result;
 				/**
-				 * Выполняем чтение слов
+				 * Читаем слова значения из памяти в регистры по порядку от младшего к старшему
 				 */
 				for(size_t i = 0; i < WORDS; i++)
-					// Читаем очередное слово
+					// Читаем очередное слово значения из памяти в регистр
 					result.words[i] = value[i];
-				// Выводим прочитанное значение
+				// Возвращаем собранное в регистрах значение вызывающему
 				return result;
 			}
 			/**
@@ -195,10 +195,10 @@ namespace nts {
 			 */
 			static __NTS_INLINE__ void __nts_put__(const words_t <WORDS> & value, uint64_t * result) noexcept {
 				/**
-				 * Выполняем запись слов
+				 * Записываем слова значения из регистров в память по порядку от младшего к старшему
 				 */
 				for(size_t i = 0; i < WORDS; i++)
-					// Записываем очередное слово
+					// Записываем очередное слово значения из регистра в память
 					result[i] = value.words[i];
 			}
 			/**
@@ -220,35 +220,35 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ uint64_t __nts_montgomery__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const uint64_t factor, uint64_t * result) noexcept {
-				// Слова накапливаемого произведения
+				// Накопитель произведения: WORDS слов итога и старшее слово переноса
 				uint64_t buffer[WORDS + 1] = {};
 				// Слова сомножителей и модуля, снятые в регистры до первой записи
-				uint64_t a[WORDS], b[WORDS], m[WORDS];
+				uint64_t firstWords[WORDS], secondWords[WORDS], modulusWords[WORDS];
 				/**
-				 * Выполняем перенос слов сомножителей и модуля в регистры
+				 * Переносим слова сомножителей и модуля из памяти в регистры до первой записи итога
 				 */
 				for(size_t i = 0; i < WORDS; i++){
 					// Переносим очередное слово первого сомножителя
-					a[i] = first[i];
+					firstWords[i] = first[i];
 					// Переносим очередное слово второго сомножителя
-					b[i] = second[i];
+					secondWords[i] = second[i];
 					// Переносим очередное слово модуля
-					m[i] = modulus[i];
+					modulusWords[i] = modulus[i];
 				}
 				/**
-				 * Выполняем перебор слов второго сомножителя от младшего к старшему
+				 * Перебираем слова второго сомножителя от младшего к старшему
 				 */
 				for(size_t i = 0; i < WORDS; i++){
 					// Получаем очередное слово второго сомножителя
-					const uint64_t word = b[i];
+					const uint64_t word = secondWords[i];
 					// Перенос из очередного слова накапливаемого произведения
 					uint64_t carry = 0;
 					/**
-					 * Выполняем умножение первого сомножителя на очередное слово второго
+					 * Умножаем первый сомножитель на очередное слово второго и прибавляем к накопителю
 					 */
 					for(size_t j = 0; j < WORDS; j++){
 						// Складываем накопленное слово с произведением слов и переносом
-						const wide_t item = (static_cast <wide_t> (a[j]) * word + buffer[j] + carry);
+						const wide_t item = (static_cast <wide_t> (firstWords[j]) * word + buffer[j] + carry);
 						// Записываем младшую половину полученного значения
 						buffer[j] = static_cast <uint64_t> (item);
 						// Запоминаем перенос в следующее слово
@@ -266,15 +266,15 @@ namespace nts {
 					 */
 					const uint64_t reducer = (buffer[0] * factor);
 					// Складываем младшее слово произведения с произведением множителя на модуль
-					const wide_t value = (static_cast <wide_t> (reducer) * m[0] + buffer[0]);
+					const wide_t value = (static_cast <wide_t> (reducer) * modulusWords[0] + buffer[0]);
 					// Запоминаем перенос из младшего слова произведения
 					carry = static_cast <uint64_t> (value >> 64);
 					/**
-					 * Выполняем приведение произведения по модулю со сдвигом на слово
+					 * Приводим произведение по модулю со сдвигом на слово: младшее слово обращается в ноль
 					 */
 					for(size_t j = 1; j < WORDS; j++){
 						// Складываем накопленное слово с произведением множителя на модуль
-						const wide_t step = (static_cast <wide_t> (reducer) * m[j] + buffer[j] + carry);
+						const wide_t step = (static_cast <wide_t> (reducer) * modulusWords[j] + buffer[j] + carry);
 						// Записываем младшую половину полученного значения со сдвигом на слово
 						buffer[j - 1] = static_cast <uint64_t> (step);
 						// Запоминаем перенос в следующее слово
@@ -288,7 +288,7 @@ namespace nts {
 					buffer[WORDS] = static_cast <uint64_t> (extra + (last >> 64));
 				}
 				/**
-				 * Выполняем перебор слов накопленного произведения
+				 * Перебираем слова накопленного произведения для записи в приёмник
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Записываем очередное слово произведения
@@ -315,46 +315,46 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ uint64_t __nts_nist256square__(const uint64_t * value, uint64_t * result) noexcept {
-				// Слова возводимого числа
-				const uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3];
+				// Слова возводимого числа, снятые в регистры до первой записи
+				const uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3];
 				// Полное произведение в восемь слов
 				uint64_t buffer[9] = {};
-				// Перенос между словами
+				// Перенос между словами произведения: начинаем строку с нулевого переноса
 				uint64_t carry = 0;
 				/**
-				 * Выполняем накопление произведений разных слов: a0·a1, a0·a2, a0·a3, a1·a2, a1·a3, a2·a3
+				 * Накапливаем произведения разных слов: a0·a1, a0·a2, a0·a3, a1·a2, a1·a3, a2·a3
 				 */
-				wide_t item = (static_cast <wide_t> (a0) * a1);
+				wide_t item = (static_cast <wide_t> (value0) * value1);
 				// Записываем младшую половину произведения нулевого слова на первое
 				buffer[1] = static_cast <uint64_t> (item);
 				// Запоминаем перенос из произведения нулевого слова на первое
 				carry = static_cast <uint64_t> (item >> 64);
 				// Складываем произведение нулевого слова на второе с переносом
-				item = (static_cast <wide_t> (a0) * a2 + carry);
+				item = (static_cast <wide_t> (value0) * value2 + carry);
 				// Записываем младшую половину полученного значения
 				buffer[2] = static_cast <uint64_t> (item);
 				// Запоминаем перенос в следующее слово
 				carry = static_cast <uint64_t> (item >> 64);
 				// Складываем произведение нулевого слова на третье с переносом
-				item = (static_cast <wide_t> (a0) * a3 + carry);
+				item = (static_cast <wide_t> (value0) * value3 + carry);
 				// Записываем младшую половину полученного значения
 				buffer[3] = static_cast <uint64_t> (item);
 				// Записываем старшую половину полученного значения
 				buffer[4] = static_cast <uint64_t> (item >> 64);
 				// Складываем произведение первого слова на второе с накопленным словом
-				item = (static_cast <wide_t> (a1) * a2 + buffer[3]);
+				item = (static_cast <wide_t> (value1) * value2 + buffer[3]);
 				// Записываем младшую половину полученного значения
 				buffer[3] = static_cast <uint64_t> (item);
 				// Запоминаем перенос в следующее слово
 				carry = static_cast <uint64_t> (item >> 64);
 				// Складываем произведение первого слова на третье с накопленным словом и переносом
-				item = (static_cast <wide_t> (a1) * a3 + buffer[4] + carry);
+				item = (static_cast <wide_t> (value1) * value3 + buffer[4] + carry);
 				// Записываем младшую половину полученного значения
 				buffer[4] = static_cast <uint64_t> (item);
 				// Записываем старшую половину полученного значения
 				buffer[5] = static_cast <uint64_t> (item >> 64);
 				// Складываем произведение второго слова на третье с накопленным словом
-				item = (static_cast <wide_t> (a2) * a3 + buffer[5]);
+				item = (static_cast <wide_t> (value2) * value3 + buffer[5]);
 				// Записываем младшую половину полученного значения
 				buffer[5] = static_cast <uint64_t> (item);
 				// Записываем старшую половину полученного значения
@@ -378,31 +378,31 @@ namespace nts {
 				/**
 				 * Прибавляем квадраты слов по диагонали
 				 */
-				item = (static_cast <wide_t> (a0) * a0);
+				item = (static_cast <wide_t> (value0) * value0);
 				// Записываем младшую половину квадрата нулевого слова
 				buffer[0] = static_cast <uint64_t> (item);
 				// Прибавляем старшую половину квадрата нулевого слова к первому слову
 				carry = nts::math::adc(buffer[1], static_cast <uint64_t> (item >> 64), 0, buffer[1]);
 				// Вычисляем квадрат первого слова
-				item = (static_cast <wide_t> (a1) * a1);
+				item = (static_cast <wide_t> (value1) * value1);
 				// Прибавляем младшую половину квадрата первого слова ко второму слову
 				carry = nts::math::adc(buffer[2], static_cast <uint64_t> (item), carry, buffer[2]);
 				// Прибавляем старшую половину квадрата первого слова к третьему слову
 				carry = nts::math::adc(buffer[3], static_cast <uint64_t> (item >> 64), carry, buffer[3]);
 				// Вычисляем квадрат второго слова
-				item = (static_cast <wide_t> (a2) * a2);
+				item = (static_cast <wide_t> (value2) * value2);
 				// Прибавляем младшую половину квадрата второго слова к четвёртому слову
 				carry = nts::math::adc(buffer[4], static_cast <uint64_t> (item), carry, buffer[4]);
 				// Прибавляем старшую половину квадрата второго слова к пятому слову
 				carry = nts::math::adc(buffer[5], static_cast <uint64_t> (item >> 64), carry, buffer[5]);
 				// Вычисляем квадрат третьего слова
-				item = (static_cast <wide_t> (a3) * a3);
+				item = (static_cast <wide_t> (value3) * value3);
 				// Прибавляем младшую половину квадрата третьего слова к шестому слову
 				carry = nts::math::adc(buffer[6], static_cast <uint64_t> (item), carry, buffer[6]);
 				// Прибавляем старшую половину квадрата третьего слова к седьмому слову
 				carry = nts::math::adc(buffer[7], static_cast <uint64_t> (item >> 64), carry, buffer[7]);
 				/**
-				 * Выполняем приведение Монтгомери по четырём словам: на всяком шаге младшее
+				 * Приводим квадрат по Монтгомери по четырём словам: на всяком шаге младшее
 				 * слово обращается в ноль прибавлением произведения множителя на модуль
 				 */
 				for(size_t i = 0; i < 4; i++){
@@ -441,7 +441,7 @@ namespace nts {
 					}
 				}
 				/**
-				 * Выполняем перебор слов приведённого квадрата
+				 * Перебираем слова приведённого квадрата для записи в приёмник
 				 */
 				for(size_t i = 0; i < 4; i++)
 					// Записываем очередное слово квадрата
@@ -460,7 +460,7 @@ namespace nts {
 			 */
 			static __NTS_INLINE__ uint64_t __nts_nist256__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 				// Слова сомножителей, снятые в регистры до первой записи
-				uint64_t a[4], b[4];
+				uint64_t firstWords[4], secondWords[4];
 				/**
 				 * Простое число кривой P-256 в словах, от младшего к старшему, есть
 				 * (2^64 - 1, 2^32 - 1, 0, 2^64 - 2^32 + 1), а обратное к его младшему
@@ -472,28 +472,28 @@ namespace nts {
 				 */
 				uint64_t buffer[5] = {};
 				/**
-				 * Выполняем перенос слов сомножителей в регистры
+				 * Переносим слова сомножителей из памяти в регистры до первой записи итога
 				 */
 				for(size_t i = 0; i < 4; i++){
 					// Переносим очередное слово первого сомножителя
-					a[i] = first[i];
+					firstWords[i] = first[i];
 					// Переносим очередное слово второго сомножителя
-					b[i] = second[i];
+					secondWords[i] = second[i];
 				}
 				/**
-				 * Выполняем перебор слов второго сомножителя от младшего к старшему
+				 * Перебираем слова второго сомножителя от младшего к старшему
 				 */
 				for(size_t i = 0; i < 4; i++){
 					// Получаем очередное слово второго сомножителя
-					const uint64_t word = b[i];
+					const uint64_t word = secondWords[i];
 					// Перенос из очередного слова накапливаемого произведения
 					uint64_t carry = 0;
 					/**
-					 * Выполняем умножение первого сомножителя на очередное слово второго
+					 * Умножаем первый сомножитель на очередное слово второго и прибавляем к накопителю
 					 */
 					for(size_t j = 0; j < 4; j++){
 						// Складываем накопленное слово с произведением слов и переносом
-						const wide_t item = (static_cast <wide_t> (a[j]) * word + buffer[j] + carry);
+						const wide_t item = (static_cast <wide_t> (firstWords[j]) * word + buffer[j] + carry);
 						// Записываем младшую половину полученного значения
 						buffer[j] = static_cast <uint64_t> (item);
 						// Запоминаем перенос в следующее слово
@@ -535,7 +535,7 @@ namespace nts {
 					buffer[4] = static_cast <uint64_t> (extra + (last >> 64));
 				}
 				/**
-				 * Выполняем перебор слов накопленного произведения
+				 * Перебираем слова накопленного произведения для записи в приёмник
 				 */
 				for(size_t i = 0; i < 4; i++)
 					// Записываем очередное слово произведения
@@ -583,15 +583,15 @@ namespace nts {
 			static __NTS_INLINE__ void __nts_shrink__(const uint64_t * value, const uint64_t * modulus, const uint64_t carry, uint64_t * result) noexcept {
 				// Слова приводимого значения, снятые в регистры
 				uint64_t item[WORDS];
-				// Разность значения с модулем
+				// Буфер разности значения с модулем для условного выбора
 				uint64_t buffer[WORDS];
 				// Заём из очередного слова разности
 				uint64_t borrow = 0;
 				/**
-				 * Выполняем вычитание модуля из значения
+				 * Вычитаем модуль из значения для приведения по модулю
 				 */
 				for(size_t i = 0; i < WORDS; i++){
-					// Снимаем очередное слово значения
+					// Снимаем очередное слово значения из регистров в память
 					item[i] = value[i];
 					// Вычитаем очередные слова с заёмом одной командой
 					borrow = nts::math::sbb(item[i], modulus[i], borrow, buffer[i]);
@@ -599,7 +599,7 @@ namespace nts {
 				// Модуль вычитается при переносе либо при отсутствии заёма
 				const uint64_t mask = (0 - (carry | (borrow ^ 0x01)));
 				/**
-				 * Выполняем запись итога
+				 * Записываем приведённое значение в приёмник
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Выбираем очередное слово итога наложением маски
@@ -628,12 +628,12 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ void __nts_addition__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
-				// Сумма слагаемых
+				// Буфер суммы слагаемых до приведения по модулю
 				uint64_t sum[WORDS];
 				// Перенос из очередного слова суммы
 				uint64_t carry = 0;
 				/**
-				 * Выполняем перебор складываемых слов от младшего к старшему
+				 * Перебираем складываемые слова от младшего к старшему
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Складываем очередные слова с переносом одной командой
@@ -643,7 +643,7 @@ namespace nts {
 				// Заём из старшего слова разности
 				uint64_t borrow = 0;
 				/**
-				 * Выполняем вычитание модуля из полученной суммы
+				 * Вычитаем модуль из полученной суммы для приведения по модулю
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Вычитаем очередные слова с заёмом одной командой
@@ -654,7 +654,7 @@ namespace nts {
 				 */
 				const uint64_t mask = (0 - (carry | (borrow ^ 0x01)));
 				/**
-				 * Выполняем запись итога: все чтения слагаемых и модуля уже позади
+				 * Записываем приведённую сумму в приёмник: все чтения слагаемых и модуля уже позади
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Выбираем очередное слово итога наложением маски
@@ -680,12 +680,12 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ void __nts_subtraction__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
-				// Разность
+				// Значение разности, собираемое в регистрах
 				uint64_t difference[WORDS];
 				// Заём из очередного слова разности
 				uint64_t borrow = 0;
 				/**
-				 * Выполняем перебор вычитаемых слов от младшего к старшему
+				 * Перебираем вычитаемые слова от младшего к старшему
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Вычитаем очередные слова с заёмом одной командой
@@ -695,13 +695,13 @@ namespace nts {
 				// Перенос из очередного слова суммы
 				uint64_t carry = 0;
 				/**
-				 * Выполняем сложение полученной разности с модулем
+				 * Складываем полученную разность с модулем для условного выбора
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Складываем очередные слова с переносом одной командой
 					carry = nts::math::adc(difference[i], modulus[i], carry, buffer[i]);
 				/**
-				 * Выполняем запись итога: все чтения уменьшаемого, вычитаемого и модуля уже позади
+				 * Записываем приведённую разность в приёмник: все чтения уменьшаемого, вычитаемого и модуля уже позади
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Выбираем очередное слово итога наложением маски заёма
@@ -727,13 +727,13 @@ namespace nts {
 			 */
 			static __NTS_INLINE__ void __nts_product__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 				/**
-				 * Выполняем обнуление слов произведения
+				 * Обнуляем слова накопителя произведения перед накоплением
 				 */
 				for(size_t i = 0; i < (2 * WORDS); i++)
 					// Обнуляем очередное слово произведения
 					result[i] = 0;
 				/**
-				 * Выполняем перебор слов второго сомножителя от младшего к старшему
+				 * Перебираем слова второго сомножителя от младшего к старшему
 				 */
 				for(size_t i = 0; i < WORDS; i++){
 					// Получаем очередное слово второго сомножителя
@@ -741,7 +741,7 @@ namespace nts {
 					// Перенос в следующее слово произведения
 					uint64_t carry = 0;
 					/**
-					 * Выполняем умножение первого сомножителя на очередное слово второго
+					 * Умножаем первый сомножитель на очередное слово второго и прибавляем к накопителю
 					 */
 					for(size_t j = 0; j < WORDS; j++){
 						// Складываем накопленное слово с произведением слов и переносом
@@ -775,19 +775,19 @@ namespace nts {
 			 */
 			static __NTS_INLINE__ void __nts_squared__(const uint64_t * value, uint64_t * result) noexcept {
 				/**
-				 * Выполняем обнуление слов квадрата
+				 * Обнуляем слова накопителя квадрата перед накоплением
 				 */
 				for(size_t i = 0; i < (2 * WORDS); i++)
 					// Обнуляем очередное слово квадрата
 					result[i] = 0;
 				/**
-				 * Выполняем накопление произведений разных слов
+				 * Накапливаем произведения разных слов сомножителей
 				 */
 				for(size_t i = 0; i < WORDS; i++){
 					// Перенос в следующее слово квадрата
 					uint64_t carry = 0;
 					/**
-					 * Выполняем умножение очередного слова на все старшие слова
+					 * Умножаем очередное слово на все старшие слова и накапливаем произведения
 					 */
 					for(size_t j = (i + 1); j < WORDS; j++){
 						// Складываем накопленное слово с произведением слов и переносом
@@ -803,20 +803,20 @@ namespace nts {
 				// Разряд, уходящий при удвоении в следующее слово
 				uint64_t carry = 0;
 				/**
-				 * Выполняем удвоение накопленных произведений сдвигом на разряд
+				 * Удваиваем накопленные произведения сдвигом на разряд
 				 */
 				for(size_t i = 1; i < (2 * WORDS); i++){
-					// Запоминаем сдвигаемое слово
+					// Запоминаем сдвигаемое слово итога до записи сдвинутого значения
 					const uint64_t item = result[i];
 					// Записываем удвоенное слово с разрядом из младшего
 					result[i] = ((item << 1) | carry);
-					// Запоминаем старший разряд слова
+					// Сохраняем старший разряд слова как перенос в следующее слово
 					carry = (item >> 63);
 				}
-				// Перенос прибавления квадратов слов
+				// Перенос от прибавления квадратов слов к накопителю
 				carry = 0;
 				/**
-				 * Выполняем прибавление квадратов слов по диагонали
+				 * Прибавляем квадраты слов по диагонали накопителя
 				 */
 				for(size_t i = 0; i < WORDS; i++){
 					// Вычисляем квадрат очередного слова
@@ -852,7 +852,7 @@ namespace nts {
 				// Перенос в следующее слово свёртки
 				uint64_t carry = 0;
 				/**
-				 * Выполняем прибавление старшей половины, умноженной на хвост, к младшей
+				 * Прибавляем старшую половину, умноженную на хвост, к младшей
 				 */
 				for(size_t j = 0; j < WORDS; j++){
 					// Складываем слово младшей половины с произведением старшего слова на хвост
@@ -869,13 +869,13 @@ namespace nts {
 				// Запоминаем перенос в следующее слово
 				carry = static_cast <uint64_t> (item >> 64);
 				/**
-				 * Выполняем пронос переноса по старшим словам
+				 * Проносим перенос по старшим словам накопителя
 				 */
 				for(size_t j = 1; j < WORDS; j++)
 					// Прибавляем перенос к очередному слову
 					carry = nts::math::adc(wide[j], 0, carry, wide[j]);
 				/**
-				 * Выполняем перенос свёрнутого значения в итог
+				 * Переносим свёрнутое значение в приёмник итога
 				 */
 				for(size_t j = 0; j < WORDS; j++)
 					// Записываем очередное слово итога
@@ -908,17 +908,17 @@ namespace nts {
 			 */
 			static __NTS_INLINE__ void __nts_foldplus__(const uint64_t * wide, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Слова модуля, снятые в регистры до первой записи
-				uint64_t m[WORDS];
+				uint64_t modulusWords[WORDS];
 				/**
-				 * Выполняем перенос слов модуля в регистры
+				 * Переносим слова модуля из памяти в регистры до первой записи
 				 */
 				for(size_t j = 0; j < WORDS; j++)
 					// Переносим очередное слово модуля
-					m[j] = modulus[j];
+					modulusWords[j] = modulus[j];
 				// Младшая часть произведения: разряды ниже степени двойки модуля
 				uint64_t low[WORDS];
 				/**
-				 * Выполняем перенос младшей части произведения
+				 * Переносим младшую часть произведения в накопитель
 				 */
 				for(size_t j = 0; j < WORDS; j++)
 					// Переносим очередное слово младшей части
@@ -928,7 +928,7 @@ namespace nts {
 				// Старшая часть произведения: разряды от степени двойки модуля и выше
 				uint64_t high[WORDS + 1];
 				/**
-				 * Выполняем сборку старшей части сдвигом произведения на разряд
+				 * Собираем старшую часть сдвигом произведения на разряд
 				 */
 				for(size_t j = 0; j < WORDS; j++)
 					// Собираем очередное слово старшей части из двух соседних слов произведения
@@ -940,7 +940,7 @@ namespace nts {
 				// Перенос в следующее слово произведения
 				uint64_t carry = 0;
 				/**
-				 * Выполняем умножение старшей части на хвост
+				 * Умножаем старшую часть произведения на хвост модуля
 				 */
 				for(size_t j = 0; j <= WORDS; j++){
 					// Складываем произведение слова на хвост с переносом
@@ -966,7 +966,7 @@ namespace nts {
 				// Запоминаем перенос в следующее слово
 				carry = static_cast <uint64_t> (step >> 64);
 				/**
-				 * Выполняем пронос переноса по старшим словам младшей части
+				 * Проносим перенос по старшим словам младшей части
 				 */
 				for(size_t j = 1; j < WORDS; j++)
 					// Прибавляем перенос к очередному слову
@@ -974,23 +974,23 @@ namespace nts {
 				// Заём из старшего слова разности
 				uint64_t borrow = 0;
 				/**
-				 * Выполняем вычитание остатка произведения старшей части на хвост
+				 * Вычитаем остаток произведения старшей части на хвост
 				 */
 				for(size_t j = 0; j < WORDS; j++)
 					// Вычитаем очередные слова с заёмом
 					borrow = nts::math::sbb(value[j], item[j], borrow, value[j]);
 				// Маска заёма: при заёме прибавляется модуль
 				const uint64_t mask = (0 - borrow);
-				// Перенос прибавления модуля
+				// Перенос от прибавления модуля к отрицательному значению
 				carry = 0;
 				/**
-				 * Выполняем прибавление модуля наложением маски заёма
+				 * Прибавляем модуль наложением маски заёма для условного выбора
 				 */
 				for(size_t j = 0; j < WORDS; j++)
 					// Прибавляем очередное слово модуля под маской
-					carry = nts::math::adc(value[j], (m[j] & mask), carry, value[j]);
+					carry = nts::math::adc(value[j], (modulusWords[j] & mask), carry, value[j]);
 				// Условное вычитание модуля: значение не превосходит удвоенного модуля
-				__nts_shrink__ <WORDS> (value, m, 0, result);
+				__nts_shrink__ <WORDS> (value, modulusWords, 0, result);
 			}
 			/**
 			 * Ядра на четыре слова для AArch64 на встроенном ассемблере: те же действия, что у
@@ -1090,7 +1090,7 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ words_t <4> __nts_multiplyminus4r__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
-					// Произведение
+					// Значение произведения, собираемое в регистрах
 					words_t <4> result;
 					// Произведение со свёрткой и условным вычитанием ядром на ассемблере
 					__asm__(
@@ -1100,7 +1100,7 @@ namespace nts {
 						: [a0] "r" (first.words[0]), [a1] "r" (first.words[1]), [a2] "r" (first.words[2]), [a3] "r" (first.words[3]), [b0] "r" (second.words[0]), [b1] "r" (second.words[1]), [b2] "r" (second.words[2]), [b3] "r" (second.words[3]), [t] "r" (tail)
 						: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "cc"
 					);
-					// Выводим произведение
+					// Возвращаем произведение, собранное в регистрах
 					return result;
 				}
 				/**
@@ -1112,19 +1112,19 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ words_t <4> __nts_squareminus4r__(const words_t <4> & value, const uint64_t tail) noexcept {
-					// Квадрат
+					// Значение квадрата, собираемое в регистрах
 					words_t <4> result;
 					// Слова возводимого числа: по ходу счёта замещаются квадратами слов
-					uint64_t a0 = value.words[0], a1 = value.words[1], a2 = value.words[2], a3 = value.words[3];
+					uint64_t value0 = value.words[0], value1 = value.words[1], value2 = value.words[2], value3 = value.words[3];
 					// Квадрат со свёрткой и условным вычитанием ядром на ассемблере
 					__asm__(
 						__NTS_AARCH64_SQUARE4__
 						__NTS_AARCH64_FOLD_SHRINK__
-						: [c0] "=&r" (result.words[0]), [c1] "=&r" (result.words[1]), [c2] "=&r" (result.words[2]), [c3] "=&r" (result.words[3]), [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3)
+						: [c0] "=&r" (result.words[0]), [c1] "=&r" (result.words[1]), [c2] "=&r" (result.words[2]), [c3] "=&r" (result.words[3]), [a0] "+&r" (value0), [a1] "+&r" (value1), [a2] "+&r" (value2), [a3] "+&r" (value3)
 						: [t] "r" (tail)
 						: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "cc"
 					);
-					// Выводим квадрат
+					// Возвращаем квадрат, собранный в регистрах
 					return result;
 				}
 
@@ -1143,7 +1143,7 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ words_t <4> __nts_addminus4r__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
-					// Сумма
+					// Значение суммы, собираемое в регистрах
 					words_t <4> result;
 					// Сложение со свёрткой и условным вычитанием ядром на ассемблере
 					__asm__(
@@ -1156,7 +1156,7 @@ namespace nts {
 						: [a0] "r" (first.words[0]), [a1] "r" (first.words[1]), [a2] "r" (first.words[2]), [a3] "r" (first.words[3]), [b0] "r" (second.words[0]), [b1] "r" (second.words[1]), [b2] "r" (second.words[2]), [b3] "r" (second.words[3]), [t] "r" (tail)
 						: "x9", "x10", "x11", "x12", "x13", "cc"
 					);
-					// Выводим сумму
+					// Возвращаем сумму, собранную в регистрах
 					return result;
 				}
 				/**
@@ -1169,7 +1169,7 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ words_t <4> __nts_subtractminus4r__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
-					// Разность
+					// Значение разности, собираемое в регистрах
 					words_t <4> result;
 					// Вычитание со свёрткой и условным вычитанием ядром на ассемблере
 					__asm__(
@@ -1181,7 +1181,7 @@ namespace nts {
 						: [a0] "r" (first.words[0]), [a1] "r" (first.words[1]), [a2] "r" (first.words[2]), [a3] "r" (first.words[3]), [b0] "r" (second.words[0]), [b1] "r" (second.words[1]), [b2] "r" (second.words[2]), [b3] "r" (second.words[3]), [t] "r" (tail)
 						: "x9", "cc"
 					);
-					// Выводим разность
+					// Возвращаем разность, собранную в регистрах
 					return result;
 				}
 				/**
@@ -1218,7 +1218,7 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ words_t <4> __nts_multiplynist4r__(const words_t <4> & first, const words_t <4> & second) noexcept {
-					// Произведение
+					// Значение произведения, собираемое в регистрах
 					words_t <4> result;
 					// Произведение с приведением Монтгомери ядром на ассемблере
 					__asm__(
@@ -1228,7 +1228,7 @@ namespace nts {
 						: [a0] "r" (first.words[0]), [a1] "r" (first.words[1]), [a2] "r" (first.words[2]), [a3] "r" (first.words[3]), [b0] "r" (second.words[0]), [b1] "r" (second.words[1]), [b2] "r" (second.words[2]), [b3] "r" (second.words[3])
 						: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "cc"
 					);
-					// Выводим произведение
+					// Возвращаем произведение, собранное в регистрах
 					return result;
 				}
 				/**
@@ -1239,19 +1239,19 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ words_t <4> __nts_squarenist4r__(const words_t <4> & value) noexcept {
-					// Квадрат
+					// Значение квадрата, собираемое в регистрах
 					words_t <4> result;
 					// Слова возводимого числа: по ходу счёта замещаются квадратами слов
-					uint64_t a0 = value.words[0], a1 = value.words[1], a2 = value.words[2], a3 = value.words[3];
+					uint64_t value0 = value.words[0], value1 = value.words[1], value2 = value.words[2], value3 = value.words[3];
 					// Квадрат с приведением Монтгомери ядром на ассемблере
 					__asm__(
 						__NTS_AARCH64_SQUARE4__
 						__NTS_AARCH64_NIST_SHRINK__
-						: [c0] "=&r" (result.words[0]), [c1] "=&r" (result.words[1]), [c2] "=&r" (result.words[2]), [c3] "=&r" (result.words[3]), [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3)
+						: [c0] "=&r" (result.words[0]), [c1] "=&r" (result.words[1]), [c2] "=&r" (result.words[2]), [c3] "=&r" (result.words[3]), [a0] "+&r" (value0), [a1] "+&r" (value1), [a2] "+&r" (value2), [a3] "+&r" (value3)
 						:
 						: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "cc"
 					);
-					// Выводим квадрат
+					// Возвращаем квадрат, собранный в регистрах
 					return result;
 				}
 
@@ -1269,7 +1269,7 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ words_t <4> __nts_addnist4r__(const words_t <4> & first, const words_t <4> & second) noexcept {
-					// Сумма
+					// Значение суммы, собираемое в регистрах
 					words_t <4> result;
 					// Сложение со словами модуля ядром на ассемблере
 					__asm__(
@@ -1283,7 +1283,7 @@ namespace nts {
 						: [a0] "r" (first.words[0]), [a1] "r" (first.words[1]), [a2] "r" (first.words[2]), [a3] "r" (first.words[3]), [b0] "r" (second.words[0]), [b1] "r" (second.words[1]), [b2] "r" (second.words[2]), [b3] "r" (second.words[3])
 						: "x9", "x10", "x11", "x12", "x13", "x14", "x15", "cc"
 					);
-					// Выводим сумму
+					// Возвращаем сумму, собранную в регистрах
 					return result;
 				}
 				/**
@@ -1295,7 +1295,7 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ words_t <4> __nts_subtractnist4r__(const words_t <4> & first, const words_t <4> & second) noexcept {
-					// Разность
+					// Значение разности, собираемое в регистрах
 					words_t <4> result;
 					// Вычитание со словами модуля ядром на ассемблере
 					__asm__(
@@ -1308,7 +1308,7 @@ namespace nts {
 						: [a0] "r" (first.words[0]), [a1] "r" (first.words[1]), [a2] "r" (first.words[2]), [a3] "r" (first.words[3]), [b0] "r" (second.words[0]), [b1] "r" (second.words[1]), [b2] "r" (second.words[2]), [b3] "r" (second.words[3])
 						: "x9", "x10", "x11", "x14", "x15", "cc"
 					);
-					// Выводим разность
+					// Возвращаем разность, собранную в регистрах
 					return result;
 				}
 				/**
@@ -1461,7 +1461,7 @@ namespace nts {
 				#define __NTS_AARCH64_HIGH8_PRODUCT__ \
 					"stp %[w8], %[w0], [%[r], #64]\n\t" "stp %[w1], %[w2], [%[r], #80]\n\t" "stp %[w3], %[w4], [%[r], #96]\n\t" "stp %[w5], %[w6], [%[r], #112]\n\t"
 				/**
-				 * Выполняем свёртку полного произведения восьми слов по модулю вида 2^512 минус хвост
+				 * Сворачиваем полное произведение восьми слов по модулю вида 2^512 минус хвост
 				 */
 				#define __NTS_AARCH64_FOLD8_PRODUCT__ \
 					"ldp %[a0], %[a1], [%[r], #0]\n\t" "ldp %[a2], %[a3], [%[r], #16]\n\t" "ldp %[a4], %[a5], [%[r], #32]\n\t" "ldp %[a6], %[a7], [%[r], #48]\n\t" \
@@ -1544,7 +1544,7 @@ namespace nts {
 				#define __NTS_AARCH64_HIGH8_SQUARE__ \
 					"stp %[w0], %[w1], [%[r], #64]\n\t" "stp %[w2], %[w3], [%[r], #80]\n\t" "stp %[w4], %[w5], [%[r], #96]\n\t" "stp %[w6], %[w7], [%[r], #112]\n\t"
 				/**
-				 * Выполняем свёртку полного квадрата восьми слов по модулю вида 2^512 минус хвост
+				 * Сворачиваем полный квадрат восьми слов по модулю вида 2^512 минус хвост
 				 */
 				#define __NTS_AARCH64_FOLD8_SQUARE__ \
 					"ldp %[a0], %[a1], [%[r], #0]\n\t" "ldp %[a2], %[a3], [%[r], #16]\n\t" "ldp %[a4], %[a5], [%[r], #32]\n\t" "ldp %[a6], %[a7], [%[r], #48]\n\t" \
@@ -1575,15 +1575,15 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_product8__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 					// Слова первого сомножителя, снятые в регистры до первой записи
-					uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3], a4 = first[4], a5 = first[5], a6 = first[6], a7 = first[7];
+					uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3], first4 = first[4], first5 = first[5], first6 = first[6], first7 = first[7];
 					// Окно накопителя, временные и слово второго сомножителя
-					uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, temp0, temp1, temp2, temp3, secondWord;
 					// Полное произведение восьми слов ядром на ассемблере
 					__asm__ volatile(
 						__NTS_AARCH64_PRODUCT8__
 						__NTS_AARCH64_HIGH8_PRODUCT__
-						: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
-						: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [b] "r" (second), [r] "r" (result)
+						: [w0] "=&r" (acc0), [w1] "=&r" (acc1), [w2] "=&r" (acc2), [w3] "=&r" (acc3), [w4] "=&r" (acc4), [w5] "=&r" (acc5), [w6] "=&r" (acc6), [w7] "=&r" (acc7), [w8] "=&r" (acc8), [t0] "=&r" (temp0), [t1] "=&r" (temp1), [t2] "=&r" (temp2), [t3] "=&r" (temp3), [m] "=&r" (secondWord)
+						: [a0] "r" (first0), [a1] "r" (first1), [a2] "r" (first2), [a3] "r" (first3), [a4] "r" (first4), [a5] "r" (first5), [a6] "r" (first6), [a7] "r" (first7), [b] "r" (second), [r] "r" (result)
 						: "cc", "memory"
 					);
 				}
@@ -1595,25 +1595,25 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ void __nts_square8__(const uint64_t * value, uint64_t * result) noexcept {
-					// Треугольник произведений разных слов
-					uint64_t q[16];
+					// Буфер треугольника произведений разных слов до удвоения
+					uint64_t triangle[16];
 					// Слова числа, снятые в регистры до первой записи
-					uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3], a4 = value[4], a5 = value[5], a6 = value[6], a7 = value[7];
+					uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3], value4 = value[4], value5 = value[5], value6 = value[6], value7 = value[7];
 					// Окно накопителя, временные и слово переноса
-					uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, temp0, temp1, temp2, temp3, carryWord;
 					// Накопление треугольника произведений разных слов ядром на ассемблере
 					__asm__ volatile(
 						__NTS_AARCH64_TRIANGLE8__
-						: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3)
-						: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [q] "r" (q)
+						: [w0] "=&r" (acc0), [w1] "=&r" (acc1), [w2] "=&r" (acc2), [w3] "=&r" (acc3), [w4] "=&r" (acc4), [w5] "=&r" (acc5), [w6] "=&r" (acc6), [w7] "=&r" (acc7), [w8] "=&r" (acc8), [t0] "=&r" (temp0), [t1] "=&r" (temp1), [t2] "=&r" (temp2), [t3] "=&r" (temp3)
+						: [a0] "r" (value0), [a1] "r" (value1), [a2] "r" (value2), [a3] "r" (value3), [a4] "r" (value4), [a5] "r" (value5), [a6] "r" (value6), [a7] "r" (value7), [q] "r" (triangle)
 						: "cc", "memory"
 					);
 					// Удвоение треугольника и прибавление квадратов слов ядром на ассемблере
 					__asm__ volatile(
 						__NTS_AARCH64_DIAGONAL8__
 						__NTS_AARCH64_HIGH8_SQUARE__
-						: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
-						: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [q] "r" (q), [r] "r" (result)
+						: [w0] "=&r" (acc0), [w1] "=&r" (acc1), [w2] "=&r" (acc2), [w3] "=&r" (acc3), [w4] "=&r" (acc4), [w5] "=&r" (acc5), [w6] "=&r" (acc6), [w7] "=&r" (acc7), [w8] "=&r" (acc8), [t0] "=&r" (temp0), [t1] "=&r" (temp1), [t2] "=&r" (temp2), [t3] "=&r" (temp3), [m] "=&r" (carryWord)
+						: [a0] "r" (value0), [a1] "r" (value1), [a2] "r" (value2), [a3] "r" (value3), [a4] "r" (value4), [a5] "r" (value5), [a6] "r" (value6), [a7] "r" (value7), [q] "r" (triangle), [r] "r" (result)
 						: "cc", "memory"
 					);
 				}
@@ -1636,14 +1636,14 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_multiplyminus8__(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова первого сомножителя, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
-						uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3], a4 = first[4], a5 = first[5], a6 = first[6], a7 = first[7];
+						uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3], first4 = first[4], first5 = first[5], first6 = first[6], first7 = first[7];
 						// Окно накопителя, временные и слово второго сомножителя
-						uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+						uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, temp0, temp1, temp2, temp3, secondWord;
 						// Произведение со свёрткой ядром на ассемблере
 						__asm__ volatile(
 							__NTS_AARCH64_PRODUCT8__
 							__NTS_AARCH64_FOLD8_PRODUCT__
-							: [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3), [a4] "+&r" (a4), [a5] "+&r" (a5), [a6] "+&r" (a6), [a7] "+&r" (a7), [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
+							: [a0] "+&r" (first0), [a1] "+&r" (first1), [a2] "+&r" (first2), [a3] "+&r" (first3), [a4] "+&r" (first4), [a5] "+&r" (first5), [a6] "+&r" (first6), [a7] "+&r" (first7), [w0] "=&r" (acc0), [w1] "=&r" (acc1), [w2] "=&r" (acc2), [w3] "=&r" (acc3), [w4] "=&r" (acc4), [w5] "=&r" (acc5), [w6] "=&r" (acc6), [w7] "=&r" (acc7), [w8] "=&r" (acc8), [t0] "=&r" (temp0), [t1] "=&r" (temp1), [t2] "=&r" (temp2), [t3] "=&r" (temp3), [m] "=&r" (secondWord)
 							: [b] "r" (second), [c] "r" (tail), [r] "r" (result)
 							: "cc", "memory"
 						);
@@ -1658,25 +1658,25 @@ namespace nts {
 					 *
 					 */
 					static __NTS_INLINE__ void __nts_squareminus8__(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
-						// Треугольник произведений разных слов
-						uint64_t q[16];
+						// Буфер треугольника произведений разных слов до удвоения
+						uint64_t triangle[16];
 						// Слова числа, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
-						uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3], a4 = value[4], a5 = value[5], a6 = value[6], a7 = value[7];
+						uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3], value4 = value[4], value5 = value[5], value6 = value[6], value7 = value[7];
 						// Окно накопителя, временные и слово переноса
-						uint64_t w0, w1, w2, w3, w4, w5, w6, w7, w8, t0, t1, t2, t3, m;
+						uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, temp0, temp1, temp2, temp3, carryWord;
 						// Накопление треугольника произведений разных слов ядром на ассемблере
 						__asm__ volatile(
 							__NTS_AARCH64_TRIANGLE8__
-							: [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3)
-							: [a0] "r" (a0), [a1] "r" (a1), [a2] "r" (a2), [a3] "r" (a3), [a4] "r" (a4), [a5] "r" (a5), [a6] "r" (a6), [a7] "r" (a7), [q] "r" (q)
+							: [w0] "=&r" (acc0), [w1] "=&r" (acc1), [w2] "=&r" (acc2), [w3] "=&r" (acc3), [w4] "=&r" (acc4), [w5] "=&r" (acc5), [w6] "=&r" (acc6), [w7] "=&r" (acc7), [w8] "=&r" (acc8), [t0] "=&r" (temp0), [t1] "=&r" (temp1), [t2] "=&r" (temp2), [t3] "=&r" (temp3)
+							: [a0] "r" (value0), [a1] "r" (value1), [a2] "r" (value2), [a3] "r" (value3), [a4] "r" (value4), [a5] "r" (value5), [a6] "r" (value6), [a7] "r" (value7), [q] "r" (triangle)
 							: "cc", "memory"
 						);
 						// Удвоение треугольника, прибавление квадратов слов и свёртку ядром на ассемблере
 						__asm__ volatile(
 							__NTS_AARCH64_DIAGONAL8__
 							__NTS_AARCH64_FOLD8_SQUARE__
-							: [a0] "+&r" (a0), [a1] "+&r" (a1), [a2] "+&r" (a2), [a3] "+&r" (a3), [a4] "+&r" (a4), [a5] "+&r" (a5), [a6] "+&r" (a6), [a7] "+&r" (a7), [w0] "=&r" (w0), [w1] "=&r" (w1), [w2] "=&r" (w2), [w3] "=&r" (w3), [w4] "=&r" (w4), [w5] "=&r" (w5), [w6] "=&r" (w6), [w7] "=&r" (w7), [w8] "=&r" (w8), [t0] "=&r" (t0), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3), [m] "=&r" (m)
-							: [q] "r" (q), [c] "r" (tail), [r] "r" (result)
+							: [a0] "+&r" (value0), [a1] "+&r" (value1), [a2] "+&r" (value2), [a3] "+&r" (value3), [a4] "+&r" (value4), [a5] "+&r" (value5), [a6] "+&r" (value6), [a7] "+&r" (value7), [w0] "=&r" (acc0), [w1] "=&r" (acc1), [w2] "=&r" (acc2), [w3] "=&r" (acc3), [w4] "=&r" (acc4), [w5] "=&r" (acc5), [w6] "=&r" (acc6), [w7] "=&r" (acc7), [w8] "=&r" (acc8), [t0] "=&r" (temp0), [t1] "=&r" (temp1), [t2] "=&r" (temp2), [t3] "=&r" (temp3), [m] "=&r" (carryWord)
+							: [q] "r" (triangle), [c] "r" (tail), [r] "r" (result)
 							: "cc", "memory"
 						);
 					}
@@ -1748,9 +1748,9 @@ namespace nts {
 				 *
 				 */
 				typedef struct Fold {
-					// Хвост c модуля
+					// Хвост c модуля вида 2^(64·слов-1)+c для свёртки произведения
 					uint64_t tail;
-					// Слова модуля
+					// Указатель на слова модуля для условного вычитания
 					const uint64_t * modulus;
 				} fold_t;
 
@@ -1826,19 +1826,19 @@ namespace nts {
 				/**
 				 * @brief Функция свёртки и условного вычитания модуля на ассемблере x86-64
 				 *
-				 * @param c0 младшие слова произведения, замещаемые итогом
-				 * @param c4 старшие слова произведения
-				 * @param f  хвост и слова модуля
-				 * @param r  место, в которое помещается итог
+				 * @param acc0 младшие слова произведения, замещаемые итогом
+				 * @param acc4 старшие слова произведения
+				 * @param fold хвост и слова модуля
+				 * @param result место, в которое помещается итог
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_settle4__(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7, const fold_t * f, uint64_t * r) noexcept {
+				static __NTS_INLINE__ void __nts_settle4__(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, const fold_t * fold, uint64_t * result) noexcept {
 					// Слово переноса и указатель на слова модуля
-					uint64_t t, m;
+					uint64_t temp, modulusPtr;
 					// Свёртку, условное вычитание и запись итога ядром на ассемблере
 					__asm__ volatile(__NTS_X86_64_FOLD_SHRINK__ __NTS_X86_64_STORE4__
-						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
-						: [f] "r" (f), [r] "r" (r)
+						: [c0] "+r" (acc0), [c1] "+r" (acc1), [c2] "+r" (acc2), [c3] "+r" (acc3), [c4] "+r" (acc4), [c5] "+r" (acc5), [c6] "+r" (acc6), [c7] "+r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusPtr)
+						: [f] "r" (fold), [r] "r" (result)
 						: "rax", "rdx", "cc", "memory"
 					);
 				}
@@ -1848,18 +1848,18 @@ namespace nts {
 				 * @details Записи итога нет: слова остаются в c0…c3, и собиратель сам решает,
 				 *          держать их в регистрах для следующего ядра либо сложить в память
 				 *
-				 * @param c0 младшие слова произведения, замещаемые итогом
-				 * @param c4 старшие слова произведения
-				 * @param f  хвост и слова модуля
+				 * @param acc0 младшие слова произведения, замещаемые итогом
+				 * @param acc4 старшие слова произведения
+				 * @param fold хвост и слова модуля
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_settle4v__(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7, const fold_t * f) noexcept {
+				static __NTS_INLINE__ void __nts_settle4v__(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, const fold_t * fold) noexcept {
 					// Слово переноса и указатель на слова модуля
-					uint64_t t, m;
+					uint64_t temp, modulusPtr;
 					// Свёртка и условное вычитание ядром на ассемблере
 					__asm__(__NTS_X86_64_FOLD_SHRINK__
-						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
-						: [f] "r" (f)
+						: [c0] "+r" (acc0), [c1] "+r" (acc1), [c2] "+r" (acc2), [c3] "+r" (acc3), [c4] "+r" (acc4), [c5] "+r" (acc5), [c6] "+r" (acc6), [c7] "+r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusPtr)
+						: [f] "r" (fold)
 						: "rax", "rdx", "cc", "memory"
 					);
 				}
@@ -1896,34 +1896,34 @@ namespace nts {
 				/**
 				 * @brief Функция приведения Монтгомери по простому P-256 и условного вычитания модуля на ассемблере x86-64
 				 *
-				 * @param c0 младшие слова произведения, замещаемые итогом
-				 * @param c4 старшие слова произведения
-				 * @param r  место, в которое помещается итог
+				 * @param acc0 младшие слова произведения, замещаемые итогом
+				 * @param acc4 старшие слова произведения
+				 * @param result место, в которое помещается итог
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_settlenist4__(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7, uint64_t * r) noexcept {
-					// Временные слова приведения
-					uint64_t t, m;
+				static __NTS_INLINE__ void __nts_settlenist4__(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, uint64_t * result) noexcept {
+					// Временные слова приведения: множители модуля для обращения младших слов в ноль
+					uint64_t temp, modulusPtr;
 					// Приведение Монтгомери и запись итога ядром на ассемблере
 					__asm__ volatile(__NTS_X86_64_NIST_SHRINK__ __NTS_X86_64_STORE4__
-						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
-						: [r] "r" (r)
+						: [c0] "+r" (acc0), [c1] "+r" (acc1), [c2] "+r" (acc2), [c3] "+r" (acc3), [c4] "+r" (acc4), [c5] "+r" (acc5), [c6] "+r" (acc6), [c7] "+r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusPtr)
+						: [r] "r" (result)
 						: "rax", "rdx", "cc", "memory"
 					);
 				}
 				/**
 				 * @brief Функция приведения Монтгомери по простому P-256 и условного вычитания модуля на ассемблере x86-64 с итогом в регистрах
 				 *
-				 * @param c0 младшие слова произведения, замещаемые итогом
-				 * @param c4 старшие слова произведения
+				 * @param acc0 младшие слова произведения, замещаемые итогом
+				 * @param acc4 старшие слова произведения
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_settlenist4v__(uint64_t & c0, uint64_t & c1, uint64_t & c2, uint64_t & c3, uint64_t & c4, uint64_t & c5, uint64_t & c6, uint64_t & c7) noexcept {
-					// Временные слова приведения
-					uint64_t t, m;
+				static __NTS_INLINE__ void __nts_settlenist4v__(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7) noexcept {
+					// Временные слова приведения: множители модуля для обращения младших слов в ноль
+					uint64_t temp, modulusPtr;
 					// Приведение Монтгомери ядром на ассемблере
 					__asm__(__NTS_X86_64_NIST_SHRINK__
-						: [c0] "+r" (c0), [c1] "+r" (c1), [c2] "+r" (c2), [c3] "+r" (c3), [c4] "+r" (c4), [c5] "+r" (c5), [c6] "+r" (c6), [c7] "+r" (c7), [t] "=&r" (t), [m] "=&r" (m)
+						: [c0] "+r" (acc0), [c1] "+r" (acc1), [c2] "+r" (acc2), [c3] "+r" (acc3), [c4] "+r" (acc4), [c5] "+r" (acc5), [c6] "+r" (acc6), [c7] "+r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusPtr)
 						:
 						: "rax", "rdx", "cc"
 					);
@@ -2009,22 +2009,22 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_nistmultiply4__(const uint64_t * first, const uint64_t * second, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Слова накопителя, старшее слово модуля, временное и слово второго сомножителя
-					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t, m;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp, modulusWord;
 					// Умножение Монтгомери ядром на ассемблере
 					__asm__(
 						__NTS_X86_64_NIST_MULMONT__
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t), [m] "=&r" (m)
+						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusWord)
 						: [a] "r" (first), [b] "r" (second)
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Записываем слова произведения: итог лежит в c4, c5, c0, c1
-					result[0] = c4;
+					result[0] = acc4;
 					// Записываем второе слово произведения
-					result[1] = c5;
+					result[1] = acc5;
 					// Записываем третье слово произведения
-					result[2] = c0;
+					result[2] = acc0;
 					// Записываем четвёртое слово произведения
-					result[3] = c1;
+					result[3] = acc1;
 				}
 				/**
 				 * @brief Функция возведения в квадрат Монтгомери по простому P-256 на встроенном ассемблере x86-64
@@ -2036,16 +2036,16 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_nistsquare4__(const uint64_t * value, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Слова полного квадрата и слово переноса
-					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
 					// Возведение в квадрат Монтгомери ядром на ассемблере
 					__asm__ volatile(
 						__NTS_X86_64_SQUARE4__
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
 						: [a] "r" (value)
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Приведение и условное вычитание модуля с записью итога
-					__nts_settlenist4__(c0, c1, c2, c3, c4, c5, c6, c7, result);
+					__nts_settlenist4__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, result);
 				}
 				/**
 				 * @brief Функция сложения по простому P-256 на встроенном ассемблере x86-64
@@ -2061,7 +2061,7 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_addnist4__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 					// Слова суммы и её старший разряд
-					uint64_t c0, c1, c2, c3, k;
+					uint64_t sum0, sum1, sum2, sum3, carry;
 					// Сложение со словами модуля ядром на ассемблере
 					__asm__ volatile(
 						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
@@ -2071,7 +2071,7 @@ namespace nts {
 						"subq $-1, %%r8\n\t" "movabsq $0xffffffff, %%rax\n\t" "sbbq %%rax, %%r9\n\t" "sbbq $0, %%r10\n\t" "movabsq $0xffffffff00000001, %%rax\n\t" "sbbq %%rax, %%r11\n\t" "sbbq $0, %[k]\n\t"
 						"cmovncq %%r8, %[c0]\n\t" "cmovncq %%r9, %[c1]\n\t" "cmovncq %%r10, %[c2]\n\t" "cmovncq %%r11, %[c3]\n\t"
 						"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [k] "=&r" (k)
+						: [c0] "=&r" (sum0), [c1] "=&r" (sum1), [c2] "=&r" (sum2), [c3] "=&r" (sum3), [k] "=&r" (carry)
 						: [a] "r" (first), [b] "r" (second), [r] "r" (result)
 						: "rax", "r8", "r9", "r10", "r11", "cc", "memory"
 					);
@@ -2089,7 +2089,7 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_subtractnist4__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 					// Слова разности и маска займа
-					uint64_t c0, c1, c2, c3, k;
+					uint64_t diff0, diff1, diff2, diff3, carry;
 					// Вычитание со словами модуля ядром на ассемблере
 					__asm__ volatile(
 						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
@@ -2098,7 +2098,7 @@ namespace nts {
 						"movabsq $0xffffffff, %%rax\n\t" "andq %[k], %%rax\n\t" "movabsq $0xffffffff00000001, %%rdx\n\t" "andq %[k], %%rdx\n\t"
 						"addq %[k], %[c0]\n\t" "adcq %%rax, %[c1]\n\t" "adcq $0, %[c2]\n\t" "adcq %%rdx, %[c3]\n\t"
 						"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [k] "=&r" (k)
+						: [c0] "=&r" (diff0), [c1] "=&r" (diff1), [c2] "=&r" (diff2), [c3] "=&r" (diff3), [k] "=&r" (carry)
 						: [a] "r" (first), [b] "r" (second), [r] "r" (result)
 						: "rax", "rdx", "cc", "memory"
 					);
@@ -2114,19 +2114,19 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ void __nts_multiplyminus4__(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Хвост и слова модуля
+					// Хвост c и слова модуля для свёртки и условного вычитания
 					const fold_t fold = {tail, modulus};
 					// Слова полного произведения и слово переноса
-					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
 					// Полное произведение ядром на ассемблере
 					__asm__ volatile(
 						__NTS_X86_64_PRODUCT4__
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
 						: [a] "r" (first), [b] "r" (second)
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Свёртка и условное вычитание модуля с записью итога
-					__nts_settle4__(c0, c1, c2, c3, c4, c5, c6, c7, &fold, result);
+					__nts_settle4__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold, result);
 				}
 				/**
 				 * @brief Функция возведения в квадрат по модулю вида 2^256 - c на встроенном ассемблере x86-64
@@ -2138,19 +2138,19 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ void __nts_squareminus4__(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-					// Хвост и слова модуля
+					// Хвост c и слова модуля для свёртки и условного вычитания
 					const fold_t fold = {tail, modulus};
 					// Слова полного квадрата и слово переноса
-					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
 					// Полный квадрат ядром на ассемблере
 					__asm__ volatile(
 						__NTS_X86_64_SQUARE4__
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
 						: [a] "r" (value)
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Свёртка и условное вычитание модуля с записью итога
-					__nts_settle4__(c0, c1, c2, c3, c4, c5, c6, c7, &fold, result);
+					__nts_settle4__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold, result);
 				}
 				/**
 				 * @brief Функция сложения по модулю вида 2^256 - c на встроенном ассемблере x86-64
@@ -2168,7 +2168,7 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_addminus4__(const uint64_t * first, const uint64_t * second, const uint64_t tail, uint64_t * result) noexcept {
 					// Слова суммы и признак выхода за разрядную сетку
-					uint64_t c0, c1, c2, c3, k;
+					uint64_t sum0, sum1, sum2, sum3, carry;
 					// Сложение со свёрткой ядром на ассемблере
 					__asm__ volatile(
 						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
@@ -2180,7 +2180,7 @@ namespace nts {
 						"testq %[k], %[k]\n\t"
 						"cmovnzq %%r8, %[c0]\n\t" "cmovnzq %%r9, %[c1]\n\t" "cmovnzq %%r10, %[c2]\n\t" "cmovnzq %%r11, %[c3]\n\t"
 						"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [k] "=&r" (k)
+						: [c0] "=&r" (sum0), [c1] "=&r" (sum1), [c2] "=&r" (sum2), [c3] "=&r" (sum3), [k] "=&r" (carry)
 						: [a] "r" (first), [b] "r" (second), [t] "r" (tail), [r] "r" (result)
 						: "r8", "r9", "r10", "r11", "cc", "memory"
 					);
@@ -2198,7 +2198,7 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_subtractminus4__(const uint64_t * first, const uint64_t * second, const uint64_t tail, uint64_t * result) noexcept {
 					// Слова разности и маска займа
-					uint64_t c0, c1, c2, c3, k;
+					uint64_t diff0, diff1, diff2, diff3, carry;
 					// Вычитание со свёрткой ядром на ассемблере
 					__asm__ volatile(
 						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
@@ -2207,7 +2207,7 @@ namespace nts {
 						"andq %[t], %[k]\n\t"
 						"subq %[k], %[c0]\n\t" "sbbq $0, %[c1]\n\t" "sbbq $0, %[c2]\n\t" "sbbq $0, %[c3]\n\t"
 						"movq %[c0], 0(%[r])\n\t" "movq %[c1], 8(%[r])\n\t" "movq %[c2], 16(%[r])\n\t" "movq %[c3], 24(%[r])\n\t"
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [k] "=&r" (k)
+						: [c0] "=&r" (diff0), [c1] "=&r" (diff1), [c2] "=&r" (diff2), [c3] "=&r" (diff3), [k] "=&r" (carry)
 						: [a] "r" (first), [b] "r" (second), [t] "r" (tail), [r] "r" (result)
 						: "cc", "memory"
 					);
@@ -2240,27 +2240,27 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ void __nts_multiplyminus4v__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, const uint64_t * modulus, words_t <4> & result) noexcept {
-					// Хвост и слова модуля
+					// Хвост c и слова модуля для свёртки и условного вычитания
 					const fold_t fold = {tail, modulus};
 					// Слова полного произведения и слово переноса
-					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
 					// Полное произведение ядром на ассемблере
 					__asm__(
 						__NTS_X86_64_PRODUCT4__
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
 						: [a] "r" (first.words), [b] "r" (second.words)
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Свёртка и условное вычитание модуля в регистрах
-					__nts_settle4v__(c0, c1, c2, c3, c4, c5, c6, c7, &fold);
+					__nts_settle4v__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold);
 					// Записываем слова произведения
-					result.words[0] = c0;
+					result.words[0] = acc0;
 					// Записываем второе слово произведения
-					result.words[1] = c1;
+					result.words[1] = acc1;
 					// Записываем третье слово произведения
-					result.words[2] = c2;
+					result.words[2] = acc2;
 					// Записываем четвёртое слово произведения
-					result.words[3] = c3;
+					result.words[3] = acc3;
 				}
 				/**
 				 * @brief Функция возведения в квадрат по модулю вида 2^256 - c на значениях x86-64
@@ -2272,27 +2272,27 @@ namespace nts {
 				 *
 				 */
 				static __NTS_INLINE__ void __nts_squareminus4v__(const words_t <4> & value, const uint64_t tail, const uint64_t * modulus, words_t <4> & result) noexcept {
-					// Хвост и слова модуля
+					// Хвост c и слова модуля для свёртки и условного вычитания
 					const fold_t fold = {tail, modulus};
 					// Слова полного квадрата и слово переноса
-					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
 					// Полный квадрат ядром на ассемблере
 					__asm__(
 						__NTS_X86_64_SQUARE4__
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
 						: [a] "r" (value.words)
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Свёртка и условное вычитание модуля в регистрах
-					__nts_settle4v__(c0, c1, c2, c3, c4, c5, c6, c7, &fold);
+					__nts_settle4v__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold);
 					// Записываем слова квадрата
-					result.words[0] = c0;
+					result.words[0] = acc0;
 					// Записываем второе слово квадрата
-					result.words[1] = c1;
+					result.words[1] = acc1;
 					// Записываем третье слово квадрата
-					result.words[2] = c2;
+					result.words[2] = acc2;
 					// Записываем четвёртое слово квадрата
-					result.words[3] = c3;
+					result.words[3] = acc3;
 				}
 				/**
 				 * @brief Функция умножения Монтгомери по простому P-256 на значениях x86-64
@@ -2307,22 +2307,22 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_nistmultiply4v__(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
 					// Слова накопителя, старшее слово модуля, временное и слово второго сомножителя
-					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t, m;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp, modulusWord;
 					// Умножение Монтгомери ядром на ассемблере
 					__asm__(
 						__NTS_X86_64_NIST_MULMONT__
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t), [m] "=&r" (m)
+						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusWord)
 						: [a] "r" (first.words), [b] "r" (second.words)
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Записываем слова произведения: итог лежит в c4, c5, c0, c1
-					result.words[0] = c4;
+					result.words[0] = acc4;
 					// Записываем второе слово произведения
-					result.words[1] = c5;
+					result.words[1] = acc5;
 					// Записываем третье слово произведения
-					result.words[2] = c0;
+					result.words[2] = acc0;
 					// Записываем четвёртое слово произведения
-					result.words[3] = c1;
+					result.words[3] = acc1;
 				}
 				/**
 				 * @brief Функция возведения в квадрат Монтгомери по простому P-256 на значениях x86-64
@@ -2333,24 +2333,24 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_nistsquare4v__(const words_t <4> & value, words_t <4> & result) noexcept {
 					// Слова полного квадрата и слово переноса
-					uint64_t c0, c1, c2, c3, c4, c5, c6, c7, t;
+					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
 					// Возведение в квадрат Монтгомери ядром на ассемблере
 					__asm__(
 						__NTS_X86_64_SQUARE4__
-						: [c0] "=&r" (c0), [c1] "=&r" (c1), [c2] "=&r" (c2), [c3] "=&r" (c3), [c4] "=&r" (c4), [c5] "=&r" (c5), [c6] "=&r" (c6), [c7] "=&r" (c7), [t] "=&r" (t)
+						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
 						: [a] "r" (value.words)
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Приведение и условное вычитание модуля в регистрах
-					__nts_settlenist4v__(c0, c1, c2, c3, c4, c5, c6, c7);
+					__nts_settlenist4v__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7);
 					// Записываем слова квадрата
-					result.words[0] = c0;
+					result.words[0] = acc0;
 					// Записываем второе слово квадрата
-					result.words[1] = c1;
+					result.words[1] = acc1;
 					// Записываем третье слово квадрата
-					result.words[2] = c2;
+					result.words[2] = acc2;
 					// Записываем четвёртое слово квадрата
-					result.words[3] = c3;
+					result.words[3] = acc3;
 				}
 				/**
 				 * @brief Функция сложения по модулю вида 2^256 - c на значениях x86-64
@@ -2372,7 +2372,7 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_addminus4v__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, words_t <4> & result) noexcept {
 					// Слова суммы, слова второго слагаемого (затем копии суммы с хвостом) и признак выбора
-					uint64_t c0 = first.words[0], c1 = first.words[1], c2 = first.words[2], c3 = first.words[3], b0 = second.words[0], b1 = second.words[1], b2 = second.words[2], b3 = second.words[3], k;
+					uint64_t sum0 = first.words[0], sum1 = first.words[1], sum2 = first.words[2], sum3 = first.words[3], second0 = second.words[0], second1 = second.words[1], second2 = second.words[2], second3 = second.words[3], carry;
 					// Сложение со свёрткой ядром на ассемблере
 					__asm__(
 						"addq %[b0], %[c0]\n\t" "adcq %[b1], %[c1]\n\t" "adcq %[b2], %[c2]\n\t" "adcq %[b3], %[c3]\n\t"
@@ -2381,18 +2381,18 @@ namespace nts {
 						"addq %[t], %[b0]\n\t" "adcq $0, %[b1]\n\t" "adcq $0, %[b2]\n\t" "adcq $0, %[b3]\n\t"
 						"sbbq $0, %[k]\n\t"
 						"cmovnzq %[b0], %[c0]\n\t" "cmovnzq %[b1], %[c1]\n\t" "cmovnzq %[b2], %[c2]\n\t" "cmovnzq %[b3], %[c3]\n\t"
-						: [c0] "+&r" (c0), [c1] "+&r" (c1), [c2] "+&r" (c2), [c3] "+&r" (c3), [b0] "+&r" (b0), [b1] "+&r" (b1), [b2] "+&r" (b2), [b3] "+&r" (b3), [k] "=&r" (k)
+						: [c0] "+&r" (sum0), [c1] "+&r" (sum1), [c2] "+&r" (sum2), [c3] "+&r" (sum3), [b0] "+&r" (second0), [b1] "+&r" (second1), [b2] "+&r" (second2), [b3] "+&r" (second3), [k] "=&r" (carry)
 						: [t] "r" (tail)
 						: "cc"
 					);
 					// Записываем слова суммы
-					result.words[0] = c0;
+					result.words[0] = sum0;
 					// Записываем второе слово суммы
-					result.words[1] = c1;
+					result.words[1] = sum1;
 					// Записываем третье слово суммы
-					result.words[2] = c2;
+					result.words[2] = sum2;
 					// Записываем четвёртое слово суммы
-					result.words[3] = c3;
+					result.words[3] = sum3;
 				}
 				/**
 				 * @brief Функция вычитания по модулю вида 2^256 - c на значениях x86-64
@@ -2405,25 +2405,25 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_subtractminus4v__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, words_t <4> & result) noexcept {
 					// Слова разности и маска займа
-					uint64_t c0 = first.words[0], c1 = first.words[1], c2 = first.words[2], c3 = first.words[3], k;
+					uint64_t diff0 = first.words[0], diff1 = first.words[1], diff2 = first.words[2], diff3 = first.words[3], carry;
 					// Вычитание со свёрткой ядром на ассемблере
 					__asm__(
 						"subq %[b0], %[c0]\n\t" "sbbq %[b1], %[c1]\n\t" "sbbq %[b2], %[c2]\n\t" "sbbq %[b3], %[c3]\n\t"
 						"sbbq %[k], %[k]\n\t"
 						"andq %[t], %[k]\n\t"
 						"subq %[k], %[c0]\n\t" "sbbq $0, %[c1]\n\t" "sbbq $0, %[c2]\n\t" "sbbq $0, %[c3]\n\t"
-						: [c0] "+&r" (c0), [c1] "+&r" (c1), [c2] "+&r" (c2), [c3] "+&r" (c3), [k] "=&r" (k)
+						: [c0] "+&r" (diff0), [c1] "+&r" (diff1), [c2] "+&r" (diff2), [c3] "+&r" (diff3), [k] "=&r" (carry)
 						: [b0] "r" (second.words[0]), [b1] "r" (second.words[1]), [b2] "r" (second.words[2]), [b3] "r" (second.words[3]), [t] "r" (tail)
 						: "cc"
 					);
 					// Записываем слова разности
-					result.words[0] = c0;
+					result.words[0] = diff0;
 					// Записываем второе слово разности
-					result.words[1] = c1;
+					result.words[1] = diff1;
 					// Записываем третье слово разности
-					result.words[2] = c2;
+					result.words[2] = diff2;
 					// Записываем четвёртое слово разности
-					result.words[3] = c3;
+					result.words[3] = diff3;
 				}
 				/**
 				 * @brief Функция сложения по простому P-256 на значениях x86-64
@@ -2442,7 +2442,7 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_addnist4v__(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
 					// Слова суммы, слова второго слагаемого (затем копии суммы без модуля) и признак выбора
-					uint64_t c0 = first.words[0], c1 = first.words[1], c2 = first.words[2], c3 = first.words[3], b0 = second.words[0], b1 = second.words[1], b2 = second.words[2], b3 = second.words[3], k;
+					uint64_t sum0 = first.words[0], sum1 = first.words[1], sum2 = first.words[2], sum3 = first.words[3], second0 = second.words[0], second1 = second.words[1], second2 = second.words[2], second3 = second.words[3], k;
 					// Сложение со словами модуля ядром на ассемблере
 					__asm__(
 						"addq %[b0], %[c0]\n\t" "adcq %[b1], %[c1]\n\t" "adcq %[b2], %[c2]\n\t" "adcq %[b3], %[c3]\n\t"
@@ -2451,18 +2451,18 @@ namespace nts {
 						"subq $-1, %[b0]\n\t" "movabsq $0xffffffff, %%rax\n\t" "sbbq %%rax, %[b1]\n\t" "sbbq $0, %[b2]\n\t" "movabsq $0xffffffff00000001, %%rdx\n\t" "sbbq %%rdx, %[b3]\n\t"
 						"sbbq $0, %[k]\n\t"
 						"cmovncq %[b0], %[c0]\n\t" "cmovncq %[b1], %[c1]\n\t" "cmovncq %[b2], %[c2]\n\t" "cmovncq %[b3], %[c3]\n\t"
-						: [c0] "+&r" (c0), [c1] "+&r" (c1), [c2] "+&r" (c2), [c3] "+&r" (c3), [b0] "+&r" (b0), [b1] "+&r" (b1), [b2] "+&r" (b2), [b3] "+&r" (b3), [k] "=&r" (k)
+						: [c0] "+&r" (sum0), [c1] "+&r" (sum1), [c2] "+&r" (sum2), [c3] "+&r" (sum3), [b0] "+&r" (second0), [b1] "+&r" (second1), [b2] "+&r" (second2), [b3] "+&r" (second3), [k] "=&r" (k)
 						:
 						: "rax", "rdx", "cc"
 					);
 					// Записываем слова суммы
-					result.words[0] = c0;
+					result.words[0] = sum0;
 					// Записываем второе слово суммы
-					result.words[1] = c1;
+					result.words[1] = sum1;
 					// Записываем третье слово суммы
-					result.words[2] = c2;
+					result.words[2] = sum2;
 					// Записываем четвёртое слово суммы
-					result.words[3] = c3;
+					result.words[3] = sum3;
 				}
 				/**
 				 * @brief Функция вычитания по простому P-256 на значениях x86-64
@@ -2474,25 +2474,25 @@ namespace nts {
 				 */
 				static __NTS_INLINE__ void __nts_subtractnist4v__(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
 					// Слова разности и маска займа
-					uint64_t c0 = first.words[0], c1 = first.words[1], c2 = first.words[2], c3 = first.words[3], k;
+					uint64_t diff0 = first.words[0], diff1 = first.words[1], diff2 = first.words[2], diff3 = first.words[3], carry;
 					// Вычитание со словами модуля ядром на ассемблере
 					__asm__(
 						"subq %[b0], %[c0]\n\t" "sbbq %[b1], %[c1]\n\t" "sbbq %[b2], %[c2]\n\t" "sbbq %[b3], %[c3]\n\t"
 						"sbbq %[k], %[k]\n\t"
 						"movabsq $0xffffffff, %%rax\n\t" "andq %[k], %%rax\n\t" "movabsq $0xffffffff00000001, %%rdx\n\t" "andq %[k], %%rdx\n\t"
 						"addq %[k], %[c0]\n\t" "adcq %%rax, %[c1]\n\t" "adcq $0, %[c2]\n\t" "adcq %%rdx, %[c3]\n\t"
-						: [c0] "+&r" (c0), [c1] "+&r" (c1), [c2] "+&r" (c2), [c3] "+&r" (c3), [k] "=&r" (k)
+						: [c0] "+&r" (diff0), [c1] "+&r" (diff1), [c2] "+&r" (diff2), [c3] "+&r" (diff3), [k] "=&r" (carry)
 						: [b0] "r" (second.words[0]), [b1] "r" (second.words[1]), [b2] "r" (second.words[2]), [b3] "r" (second.words[3])
 						: "rax", "rdx", "cc"
 					);
 					// Записываем слова разности
-					result.words[0] = c0;
+					result.words[0] = diff0;
 					// Записываем второе слово разности
-					result.words[1] = c1;
+					result.words[1] = diff1;
 					// Записываем третье слово разности
-					result.words[2] = c2;
+					result.words[2] = diff2;
 					// Записываем четвёртое слово разности
-					result.words[3] = c3;
+					result.words[3] = diff3;
 				}
 				/**
 				 * @details Ядра P-256 на MULX и ADCX/ADOX: перевод __ecp_nistz256_mul_montx и __ecp_nistz256_sqr_montx
@@ -2545,7 +2545,7 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_nistmultiply4x__(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
 						// Указатель второго сомножителя: после последней строки служит копией слова
-						const uint64_t * b = second.words;
+						const uint64_t * secondWords = second.words;
 						// Умножение Монтгомери ядром с двумя независимыми цепочками переносов
 						__asm__ __volatile__(
 						"mov   8*0(%[b]), %%rdx\n\t"
@@ -2670,7 +2670,7 @@ namespace nts {
 						"cmovc %%rax, %%r9\n\t"
 						"mov   %%r8, 8*2(%[h])\n\t"
 						"mov   %%r9, 8*3(%[h])\n\t"
-							: [b] "+&r" (b)
+							: [b] "+&r" (secondWords)
 							: [a] "r" (first.words), [h] "r" (result.words)
 							: "rax", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
 						);
@@ -2684,7 +2684,7 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_nistsquare4x__(const words_t <4> & value, words_t <4> & result) noexcept {
 						// Указатель числа: после чтения слов служит счётчиком сдвига и словом модуля
-						const uint64_t * a = value.words;
+						const uint64_t * valueWords = value.words;
 						// Возведение в квадрат Монтгомери ядром с двумя независимыми цепочками переносов
 						__asm__ __volatile__(
 						"mov   8*0(%[a]), %%rdx\n\t"
@@ -2789,7 +2789,7 @@ namespace nts {
 						"cmovc %%r11, %%r15\n\t"
 						"mov   %%r14, 8*2(%[h])\n\t"
 						"mov   %%r15, 8*3(%[h])\n\t"
-							: [a] "+&r" (a)
+							: [a] "+&r" (valueWords)
 							: [h] "r" (result.words)
 							: "rax", "rbx", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "cc", "memory"
 						);
@@ -3281,295 +3281,295 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ uint64_t __nts_nist256msvc__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 						// Слова первого сомножителя, снятые в регистры
-						const uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3];
+						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова второго сомножителя, снятые в регистры
-						const uint64_t w0 = second[0], w1 = second[1], w2 = second[2], w3 = second[3];
+						const uint64_t second0 = second[0], second1 = second[1], second2 = second[2], second3 = second[3];
 						// Накопитель произведения в пять слов
-						uint64_t t0 = 0, t1 = 0, t2 = 0, t3 = 0, t4 = 0;
-						// Младшая половина очередного произведения
+						uint64_t acc0 = 0, acc1 = 0, acc2 = 0, acc3 = 0, acc4 = 0;
+						// Младшие 64 разряда очередного произведения: приёмник результата _umul128
 						uint64_t lo = 0;
-						// Старшая половина очередного произведения
+						// Старшие 64 разряда очередного произведения: приёмник результата _umul128
 						uint64_t hi = 0;
-						// Перенос между словами строки
+						// Перенос между словами строки произведения: начинаем с нулевого переноса
 						uint64_t carry = 0;
 						// Флаг переноса первого сложения слова
-						unsigned char o1 = 0;
+						unsigned char outcome1 = 0;
 						// Флаг переноса второго сложения слова
-						unsigned char o2 = 0;
+						unsigned char outcome2 = 0;
 						// Перенос за пятое слово накопителя
 						unsigned char extra = 0;
 						// Младшая половина произведения нулевого слова первого сомножителя на нулевого слово второго
-						lo = ::_umul128(a0, w0, &hi);
+						lo = ::_umul128(first0, second0, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t0, lo, &t0);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, acc0, lo, &acc0);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого слова первого сомножителя на нулевого слово второго
-						lo = ::_umul128(a1, w0, &hi);
+						lo = ::_umul128(first1, second0, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t1, lo, &t1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t1, carry, &t1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения второго слова первого сомножителя на нулевого слово второго
-						lo = ::_umul128(a2, w0, &hi);
+						lo = ::_umul128(first2, second0, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t2, lo, &t2);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t2, carry, &t2);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc2, lo, &acc2);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения третьего слова первого сомножителя на нулевого слово второго
-						lo = ::_umul128(a3, w0, &hi);
+						lo = ::_umul128(first3, second0, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t3, lo, &t3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t3, carry, &t3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Перенос в дополнительное слово произведения
-						extra = ::_addcarry_u64(0, t4, carry, &t4);
+						extra = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Множитель приведения есть младшее слово накопителя
-						const uint64_t r0 = t0;
-						// Перенос приведения
-						carry = r0;
+						const uint64_t result0 = acc0;
+						// Перенос приведения: младшее слово накопителя есть сам множитель приведения
+						carry = result0;
 						// Младшая половина произведения множителя приведения на второе слово модуля
-						lo = ::_umul128(r0, 0xFFFFFFFFull, &hi);
+						lo = ::_umul128(result0, 0xFFFFFFFFull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t1, lo, &t1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t1, carry, &t1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, t2, carry, &t2);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Младшая половина произведения множителя приведения на четвёртое слово модуля
-						lo = ::_umul128(r0, 0xFFFFFFFF00000001ull, &hi);
+						lo = ::_umul128(result0, 0xFFFFFFFF00000001ull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t3, lo, &t3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t3, carry, &t3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, t4, carry, &t4);
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Сдвигаем в младшее слово накопителя
-						t0 = t1;
+						acc0 = acc1;
 						// Сдвигаем в первое слово накопителя
-						t1 = t2;
+						acc1 = acc2;
 						// Сдвигаем в второе слово накопителя
-						t2 = t3;
+						acc2 = acc3;
 						// Сдвигаем в третье слово накопителя
-						t3 = t4;
+						acc3 = acc4;
 						// Дополнительное слово принимает сумму переносов
-						t4 = extra + o1;
+						acc4 = extra + outcome1;
 						// Младшая половина произведения нулевого слова первого сомножителя на первого слово второго
-						lo = ::_umul128(a0, w1, &hi);
+						lo = ::_umul128(first0, second1, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t0, lo, &t0);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, acc0, lo, &acc0);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого слова первого сомножителя на первого слово второго
-						lo = ::_umul128(a1, w1, &hi);
+						lo = ::_umul128(first1, second1, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t1, lo, &t1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t1, carry, &t1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения второго слова первого сомножителя на первого слово второго
-						lo = ::_umul128(a2, w1, &hi);
+						lo = ::_umul128(first2, second1, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t2, lo, &t2);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t2, carry, &t2);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc2, lo, &acc2);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения третьего слова первого сомножителя на первого слово второго
-						lo = ::_umul128(a3, w1, &hi);
+						lo = ::_umul128(first3, second1, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t3, lo, &t3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t3, carry, &t3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Перенос в дополнительное слово произведения
-						extra = ::_addcarry_u64(0, t4, carry, &t4);
+						extra = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Множитель приведения есть младшее слово накопителя
-						const uint64_t r1 = t0;
-						// Перенос приведения
-						carry = r1;
+						const uint64_t result1 = acc0;
+						// Перенос приведения: младшее слово накопителя есть сам множитель приведения
+						carry = result1;
 						// Младшая половина произведения множителя приведения на второе слово модуля
-						lo = ::_umul128(r1, 0xFFFFFFFFull, &hi);
+						lo = ::_umul128(result1, 0xFFFFFFFFull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t1, lo, &t1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t1, carry, &t1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, t2, carry, &t2);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Младшая половина произведения множителя приведения на четвёртое слово модуля
-						lo = ::_umul128(r1, 0xFFFFFFFF00000001ull, &hi);
+						lo = ::_umul128(result1, 0xFFFFFFFF00000001ull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t3, lo, &t3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t3, carry, &t3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, t4, carry, &t4);
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Сдвигаем в младшее слово накопителя
-						t0 = t1;
+						acc0 = acc1;
 						// Сдвигаем в первое слово накопителя
-						t1 = t2;
+						acc1 = acc2;
 						// Сдвигаем в второе слово накопителя
-						t2 = t3;
+						acc2 = acc3;
 						// Сдвигаем в третье слово накопителя
-						t3 = t4;
+						acc3 = acc4;
 						// Дополнительное слово принимает сумму переносов
-						t4 = extra + o1;
+						acc4 = extra + outcome1;
 						// Младшая половина произведения нулевого слова первого сомножителя на второго слово второго
-						lo = ::_umul128(a0, w2, &hi);
+						lo = ::_umul128(first0, second2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t0, lo, &t0);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, acc0, lo, &acc0);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого слова первого сомножителя на второго слово второго
-						lo = ::_umul128(a1, w2, &hi);
+						lo = ::_umul128(first1, second2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t1, lo, &t1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t1, carry, &t1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения второго слова первого сомножителя на второго слово второго
-						lo = ::_umul128(a2, w2, &hi);
+						lo = ::_umul128(first2, second2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t2, lo, &t2);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t2, carry, &t2);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc2, lo, &acc2);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения третьего слова первого сомножителя на второго слово второго
-						lo = ::_umul128(a3, w2, &hi);
+						lo = ::_umul128(first3, second2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t3, lo, &t3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t3, carry, &t3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Перенос в дополнительное слово произведения
-						extra = ::_addcarry_u64(0, t4, carry, &t4);
+						extra = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Множитель приведения есть младшее слово накопителя
-						const uint64_t r2 = t0;
-						// Перенос приведения
-						carry = r2;
+						const uint64_t result2 = acc0;
+						// Перенос приведения: младшее слово накопителя есть сам множитель приведения
+						carry = result2;
 						// Младшая половина произведения множителя приведения на второе слово модуля
-						lo = ::_umul128(r2, 0xFFFFFFFFull, &hi);
+						lo = ::_umul128(result2, 0xFFFFFFFFull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t1, lo, &t1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t1, carry, &t1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, t2, carry, &t2);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Младшая половина произведения множителя приведения на четвёртое слово модуля
-						lo = ::_umul128(r2, 0xFFFFFFFF00000001ull, &hi);
+						lo = ::_umul128(result2, 0xFFFFFFFF00000001ull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t3, lo, &t3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t3, carry, &t3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, t4, carry, &t4);
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Сдвигаем в младшее слово накопителя
-						t0 = t1;
+						acc0 = acc1;
 						// Сдвигаем в первое слово накопителя
-						t1 = t2;
+						acc1 = acc2;
 						// Сдвигаем в второе слово накопителя
-						t2 = t3;
+						acc2 = acc3;
 						// Сдвигаем в третье слово накопителя
-						t3 = t4;
+						acc3 = acc4;
 						// Дополнительное слово принимает сумму переносов
-						t4 = extra + o1;
+						acc4 = extra + outcome1;
 						// Младшая половина произведения нулевого слова первого сомножителя на третьего слово второго
-						lo = ::_umul128(a0, w3, &hi);
+						lo = ::_umul128(first0, second3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t0, lo, &t0);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, acc0, lo, &acc0);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого слова первого сомножителя на третьего слово второго
-						lo = ::_umul128(a1, w3, &hi);
+						lo = ::_umul128(first1, second3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t1, lo, &t1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t1, carry, &t1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения второго слова первого сомножителя на третьего слово второго
-						lo = ::_umul128(a2, w3, &hi);
+						lo = ::_umul128(first2, second3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t2, lo, &t2);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t2, carry, &t2);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc2, lo, &acc2);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения третьего слова первого сомножителя на третьего слово второго
-						lo = ::_umul128(a3, w3, &hi);
+						lo = ::_umul128(first3, second3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t3, lo, &t3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t3, carry, &t3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Перенос в дополнительное слово произведения
-						extra = ::_addcarry_u64(0, t4, carry, &t4);
+						extra = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Множитель приведения есть младшее слово накопителя
-						const uint64_t r3 = t0;
-						// Перенос приведения
-						carry = r3;
+						const uint64_t result3 = acc0;
+						// Перенос приведения: младшее слово накопителя есть сам множитель приведения
+						carry = result3;
 						// Младшая половина произведения множителя приведения на второе слово модуля
-						lo = ::_umul128(r3, 0xFFFFFFFFull, &hi);
+						lo = ::_umul128(result3, 0xFFFFFFFFull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t1, lo, &t1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t1, carry, &t1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, t2, carry, &t2);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Младшая половина произведения множителя приведения на четвёртое слово модуля
-						lo = ::_umul128(r3, 0xFFFFFFFF00000001ull, &hi);
+						lo = ::_umul128(result3, 0xFFFFFFFF00000001ull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, t3, lo, &t3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, t3, carry, &t3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, t4, carry, &t4);
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Записываем младшее слово итога
-						result[0] = t1;
+						result[0] = acc1;
 						// Записываем первое слово итога
-						result[1] = t2;
+						result[1] = acc2;
 						// Записываем второе слово итога
-						result[2] = t3;
+						result[2] = acc3;
 						// Записываем третье слово итога
-						result[3] = t4;
+						result[3] = acc4;
 						// Выводим старшее слово переноса: пятое слово накопителя до сдвига
-						return extra + o1;
+						return extra + outcome1;
 					}
 					/**
 					 * @brief Функция возведения в квадрат Монтгомери по P-256 на интринсиках MSVC
@@ -3587,225 +3587,225 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ uint64_t __nts_nist256squaremsvc__(const uint64_t * value, uint64_t * result) noexcept {
 						// Слова возводимого числа, снятые в регистры
-						const uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3];
+						const uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3];
 						// Накопитель квадрата в девять слов
-						uint64_t p0 = 0, p1 = 0, p2 = 0, p3 = 0, p4 = 0, p5 = 0, p6 = 0, p7 = 0, p8 = 0;
-						// Младшая половина очередного произведения
+						uint64_t acc0 = 0, acc1 = 0, acc2 = 0, acc3 = 0, acc4 = 0, acc5 = 0, acc6 = 0, acc7 = 0, acc8 = 0;
+						// Младшие 64 разряда очередного произведения: приёмник результата _umul128
 						uint64_t lo = 0;
-						// Старшая половина очередного произведения
+						// Старшие 64 разряда очередного произведения: приёмник результата _umul128
 						uint64_t hi = 0;
-						// Перенос между словами
+						// Перенос между словами произведения: начинаем строку с нулевого переноса
 						uint64_t carry = 0;
-						// Флаг переноса первого сложения
-						unsigned char o1 = 0;
-						// Флаг переноса второго сложения
-						unsigned char o2 = 0;
+						// Флаг переноса первого сложения строки: младшая половина произведения плюс накопитель
+						unsigned char outcome1 = 0;
+						// Флаг переноса второго сложения строки: слово накопителя плюс перенос
+						unsigned char outcome2 = 0;
 						// Флаг разноса переноса по старшим словам
-						unsigned char c = 0;
+						unsigned char carry = 0;
 						// Младшая половина произведения нулевого и первого слов
-						lo = ::_umul128(a0, a1, &hi);
+						lo = ::_umul128(value0, value1, &hi);
 						// Первое слово произведения разных слов
-						p1 = lo;
-						// Перенос в следующее слово
+						acc1 = lo;
+						// Сохраняем старшую половину произведения как перенос в следующее слово
 						carry = hi;
 						// Младшая половина произведения нулевого и второго слов
-						lo = ::_umul128(a0, a2, &hi);
-						// Складываем с переносом
-						o1 = ::_addcarry_u64(0, lo, carry, &p2);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						lo = ::_umul128(value0, value2, &hi);
+						// Складываем младшую половину произведения со словом накопителя и переносом
+						outcome1 = ::_addcarry_u64(0, lo, carry, &acc2);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения нулевого и третьего слов
-						lo = ::_umul128(a0, a3, &hi);
-						// Складываем с переносом
-						o1 = ::_addcarry_u64(0, lo, carry, &p3);
-						// Четвёртое слово
-						p4 = hi + o1;
+						lo = ::_umul128(value0, value3, &hi);
+						// Складываем младшую половину произведения со словом накопителя и переносом
+						outcome1 = ::_addcarry_u64(0, lo, carry, &acc3);
+						// Четвёртое слово произведения: старшая половина плюс флаг переноса
+						acc4 = hi + outcome1;
 						// Младшая половина произведения первого и второго слов
-						lo = ::_umul128(a1, a2, &hi);
+						lo = ::_umul128(value1, value2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p3, lo, &p3);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого и третьего слов
-						lo = ::_umul128(a1, a3, &hi);
+						lo = ::_umul128(value1, value3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p4, lo, &p4);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p4, carry, &p4);
-						// Пятое слово
-						p5 = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc4, lo, &acc4);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc4, carry, &acc4);
+						// Пятое слово произведения: старшая половина плюс два флага переноса
+						acc5 = hi + outcome1 + outcome2;
 						// Младшая половина произведения второго и третьего слов
-						lo = ::_umul128(a2, a3, &hi);
+						lo = ::_umul128(value2, value3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p5, lo, &p5);
-						// Шестое слово
-						p6 = hi + o1;
+						outcome1 = ::_addcarry_u64(0, acc5, lo, &acc5);
+						// Шестое слово произведения: старшая половина плюс флаг переноса
+						acc6 = hi + outcome1;
 						// Слово над шестым принимает его старший бит
-						p7 = (p6 >> 63);
+						acc7 = (acc6 >> 63);
 						// Удваиваем шестое слово с захватом старшего бита соседнего
-						p6 = ((p6 << 1) | (p5 >> 63));
+						acc6 = ((acc6 << 1) | (acc5 >> 63));
 						// Удваиваем пятое слово с захватом старшего бита соседнего
-						p5 = ((p5 << 1) | (p4 >> 63));
+						acc5 = ((acc5 << 1) | (acc4 >> 63));
 						// Удваиваем четвёртое слово с захватом старшего бита соседнего
-						p4 = ((p4 << 1) | (p3 >> 63));
+						acc4 = ((acc4 << 1) | (acc3 >> 63));
 						// Удваиваем третье слово с захватом старшего бита соседнего
-						p3 = ((p3 << 1) | (p2 >> 63));
+						acc3 = ((acc3 << 1) | (acc2 >> 63));
 						// Удваиваем второе слово с захватом старшего бита соседнего
-						p2 = ((p2 << 1) | (p1 >> 63));
+						acc2 = ((acc2 << 1) | (acc1 >> 63));
 						// Удваиваем первое слово
-						p1 = (p1 << 1);
+						acc1 = (acc1 << 1);
 						// Младшая половина квадрата нулевого слова
-						lo = ::_umul128(a0, a0, &hi);
-						// Младшее слово квадрата
-						p0 = lo;
+						lo = ::_umul128(value0, value0, &hi);
+						// Младшее слово квадрата: младшая половина произведения первого слова на себя
+						acc0 = lo;
 						// Прибавляем старшую половину квадрата нулевого слова
-						carry = ::_addcarry_u64(0, p1, hi, &p1);
+						carry = ::_addcarry_u64(0, acc1, hi, &acc1);
 						// Младшая половина квадрата первого слова
-						lo = ::_umul128(a1, a1, &hi);
+						lo = ::_umul128(value1, value1, &hi);
 						// Прибавляем младшую половину квадрата второго слова с переносом
-						carry = ::_addcarry_u64(carry, p2, lo, &p2);
+						carry = ::_addcarry_u64(carry, acc2, lo, &acc2);
 						// Прибавляем старшую половину квадрата третьего слова с переносом
-						carry = ::_addcarry_u64(carry, p3, hi, &p3);
+						carry = ::_addcarry_u64(carry, acc3, hi, &acc3);
 						// Младшая половина квадрата второго слова
-						lo = ::_umul128(a2, a2, &hi);
+						lo = ::_umul128(value2, value2, &hi);
 						// Прибавляем младшую половину квадрата четвёртого слова с переносом
-						carry = ::_addcarry_u64(carry, p4, lo, &p4);
+						carry = ::_addcarry_u64(carry, acc4, lo, &acc4);
 						// Прибавляем старшую половину квадрата пятого слова с переносом
-						carry = ::_addcarry_u64(carry, p5, hi, &p5);
+						carry = ::_addcarry_u64(carry, acc5, hi, &acc5);
 						// Младшая половина квадрата третьего слова
-						lo = ::_umul128(a3, a3, &hi);
+						lo = ::_umul128(value3, value3, &hi);
 						// Прибавляем младшую половину квадрата шестого слова с переносом
-						carry = ::_addcarry_u64(carry, p6, lo, &p6);
+						carry = ::_addcarry_u64(carry, acc6, lo, &acc6);
 						// Прибавляем старшую половину квадрата седьмого слова с переносом
-						carry = ::_addcarry_u64(carry, p7, hi, &p7);
+						carry = ::_addcarry_u64(carry, acc7, hi, &acc7);
 						// Квадрат четырёх слов не выходит за восемь слов: девятое слово нулевое
-						p8 = carry;
-						// Перенос приведения
-						carry = p0;
+						acc8 = carry;
+						// Перенос приведения: младшее слово накопителя есть сам множитель приведения
+						carry = acc0;
 						// Младшая половина произведения множителя приведения на второе слово модуля
-						lo = ::_umul128(p0, 0xFFFFFFFFull, &hi);
+						lo = ::_umul128(acc0, 0xFFFFFFFFull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p1, lo, &p1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p1, carry, &p1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, p2, carry, &p2);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, acc1, lo, &acc1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc1, carry, &acc1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Младшая половина произведения множителя приведения на четвёртое слово модуля
-						lo = ::_umul128(p0, 0xFFFFFFFF00000001ull, &hi);
+						lo = ::_umul128(acc0, 0xFFFFFFFF00000001ull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p3, lo, &p3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p3, carry, &p3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Разносим перенос по четвёртое слову
-						c = ::_addcarry_u64(0, p4, carry, &p4);
+						carry = ::_addcarry_u64(0, acc4, carry, &acc4);
 						// Продолжаем разнос переноса по пятое слову
-						c = ::_addcarry_u64(0, p5, c, &p5);
+						carry = ::_addcarry_u64(0, acc5, carry, &acc5);
 						// Продолжаем разнос переноса по шестое слову
-						c = ::_addcarry_u64(0, p6, c, &p6);
+						carry = ::_addcarry_u64(0, acc6, carry, &acc6);
 						// Продолжаем разнос переноса по седьмое слову
-						c = ::_addcarry_u64(0, p7, c, &p7);
+						carry = ::_addcarry_u64(0, acc7, carry, &acc7);
 						// Продолжаем разнос переноса по восьмое слову
-						c = ::_addcarry_u64(0, p8, c, &p8);
-						// Перенос приведения
-						carry = p1;
+						carry = ::_addcarry_u64(0, acc8, carry, &acc8);
+						// Перенос приведения: младшее слово накопителя есть сам множитель приведения
+						carry = acc1;
 						// Младшая половина произведения множителя приведения на второе слово модуля
-						lo = ::_umul128(p1, 0xFFFFFFFFull, &hi);
+						lo = ::_umul128(acc1, 0xFFFFFFFFull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p2, lo, &p2);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p2, carry, &p2);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, p3, carry, &p3);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, acc2, lo, &acc2);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc2, carry, &acc2);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Младшая половина произведения множителя приведения на четвёртое слово модуля
-						lo = ::_umul128(p1, 0xFFFFFFFF00000001ull, &hi);
+						lo = ::_umul128(acc1, 0xFFFFFFFF00000001ull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p4, lo, &p4);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p4, carry, &p4);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc4, lo, &acc4);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc4, carry, &acc4);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Разносим перенос по пятое слову
-						c = ::_addcarry_u64(0, p5, carry, &p5);
+						carry = ::_addcarry_u64(0, acc5, carry, &acc5);
 						// Продолжаем разнос переноса по шестое слову
-						c = ::_addcarry_u64(0, p6, c, &p6);
+						carry = ::_addcarry_u64(0, acc6, carry, &acc6);
 						// Продолжаем разнос переноса по седьмое слову
-						c = ::_addcarry_u64(0, p7, c, &p7);
+						carry = ::_addcarry_u64(0, acc7, carry, &acc7);
 						// Продолжаем разнос переноса по восьмое слову
-						c = ::_addcarry_u64(0, p8, c, &p8);
-						// Перенос приведения
-						carry = p2;
+						carry = ::_addcarry_u64(0, acc8, carry, &acc8);
+						// Перенос приведения: младшее слово накопителя есть сам множитель приведения
+						carry = acc2;
 						// Младшая половина произведения множителя приведения на второе слово модуля
-						lo = ::_umul128(p2, 0xFFFFFFFFull, &hi);
+						lo = ::_umul128(acc2, 0xFFFFFFFFull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p3, lo, &p3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p3, carry, &p3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, p4, carry, &p4);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, acc3, lo, &acc3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc3, carry, &acc3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc4, carry, &acc4);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Младшая половина произведения множителя приведения на четвёртое слово модуля
-						lo = ::_umul128(p2, 0xFFFFFFFF00000001ull, &hi);
+						lo = ::_umul128(acc2, 0xFFFFFFFF00000001ull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p5, lo, &p5);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p5, carry, &p5);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc5, lo, &acc5);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc5, carry, &acc5);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Разносим перенос по шестое слову
-						c = ::_addcarry_u64(0, p6, carry, &p6);
+						carry = ::_addcarry_u64(0, acc6, carry, &acc6);
 						// Продолжаем разнос переноса по седьмое слову
-						c = ::_addcarry_u64(0, p7, c, &p7);
+						carry = ::_addcarry_u64(0, acc7, carry, &acc7);
 						// Продолжаем разнос переноса по восьмое слову
-						c = ::_addcarry_u64(0, p8, c, &p8);
-						// Перенос приведения
-						carry = p3;
+						carry = ::_addcarry_u64(0, acc8, carry, &acc8);
+						// Перенос приведения: младшее слово накопителя есть сам множитель приведения
+						carry = acc3;
 						// Младшая половина произведения множителя приведения на второе слово модуля
-						lo = ::_umul128(p3, 0xFFFFFFFFull, &hi);
+						lo = ::_umul128(acc3, 0xFFFFFFFFull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p4, lo, &p4);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p4, carry, &p4);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, p5, carry, &p5);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, acc4, lo, &acc4);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc4, carry, &acc4);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, acc5, carry, &acc5);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Младшая половина произведения множителя приведения на четвёртое слово модуля
-						lo = ::_umul128(p3, 0xFFFFFFFF00000001ull, &hi);
+						lo = ::_umul128(acc3, 0xFFFFFFFF00000001ull, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, p6, lo, &p6);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, p6, carry, &p6);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, acc6, lo, &acc6);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, acc6, carry, &acc6);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Разносим перенос по седьмое слову
-						c = ::_addcarry_u64(0, p7, carry, &p7);
+						carry = ::_addcarry_u64(0, acc7, carry, &acc7);
 						// Продолжаем разнос переноса по восьмое слову
-						c = ::_addcarry_u64(0, p8, c, &p8);
+						carry = ::_addcarry_u64(0, acc8, carry, &acc8);
 						// Записываем младшее слово итога
-						result[0] = p4;
+						result[0] = acc4;
 						// Записываем первое слово итога
-						result[1] = p5;
+						result[1] = acc5;
 						// Записываем второе слово итога
-						result[2] = p6;
+						result[2] = acc6;
 						// Записываем третье слово итога
-						result[3] = p7;
-						// Выводим старшее слово переноса
-						return p8;
+						result[3] = acc7;
+						// Возвращаем старшее слово переноса произведения
+						return acc8;
 					}
 					/**
 					 * @brief Функция сложения по простому P-256 на интринсиках MSVC
@@ -3823,35 +3823,35 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_addnist4msvc__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 						// Слова первого слагаемого, снятые в регистры
-						const uint64_t f0 = first[0], f1 = first[1], f2 = first[2], f3 = first[3];
+						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова второго слагаемого, снятые в регистры
-						const uint64_t s0 = second[0], s1 = second[1], s2 = second[2], s3 = second[3];
-						// Сумма слагаемых
+						const uint64_t second0 = second[0], second1 = second[1], second2 = second[2], second3 = second[3];
+						// Буфер суммы слагаемых до приведения по модулю
 						uint64_t sum0, sum1, sum2, sum3;
-						// Флаг переноса цепи сложения
-						unsigned char c = 0;
-						// Складываем младшие слова
-						c = ::_addcarry_u64(0, f0, s0, &sum0);
+						// Флаг переноса цепи сложения слов: разносится по старшим словам
+						unsigned char carry = 0;
+						// Складываем младшие слова сомножителей с переносом
+						carry = ::_addcarry_u64(0, first0, second0, &sum0);
 						// Складываем первые слова с переносом
-						c = ::_addcarry_u64(c, f1, s1, &sum1);
+						carry = ::_addcarry_u64(carry, first1, second1, &sum1);
 						// Складываем вторые слова с переносом
-						c = ::_addcarry_u64(c, f2, s2, &sum2);
+						carry = ::_addcarry_u64(carry, first2, second2, &sum2);
 						// Складываем старшие слова с переносом
-						c = ::_addcarry_u64(c, f3, s3, &sum3);
+						carry = ::_addcarry_u64(carry, first3, second3, &sum3);
 						// Разность суммы с простым числом кривой
 						uint64_t buffer0, buffer1, buffer2, buffer3;
-						// Флаг заёма цепи вычитания
-						unsigned char b = 0;
+						// Флаг заёма цепи вычитания слов модуля из суммы
+						unsigned char borrow = 0;
 						// Вычитаем младшее слово простого числа
-						b = ::_subborrow_u64(0, sum0, 0xffffffffffffffffull, &buffer0);
+						borrow = ::_subborrow_u64(0, sum0, 0xffffffffffffffffull, &buffer0);
 						// Вычитаем первое слово простого числа
-						b = ::_subborrow_u64(b, sum1, 0x00000000ffffffffull, &buffer1);
+						borrow = ::_subborrow_u64(borrow, sum1, 0x00000000ffffffffull, &buffer1);
 						// Вычитаем второе слово простого числа
-						b = ::_subborrow_u64(b, sum2, 0x0000000000000000ull, &buffer2);
+						borrow = ::_subborrow_u64(borrow, sum2, 0x0000000000000000ull, &buffer2);
 						// Вычитаем старшее слово простого числа
-						b = ::_subborrow_u64(b, sum3, 0xffffffff00000001ull, &buffer3);
+						borrow = ::_subborrow_u64(borrow, sum3, 0xffffffff00000001ull, &buffer3);
 						// Маска вычитания: простое вычитается при переносе либо отсутствии заёма
-						const uint64_t mask = 0 - (static_cast <uint64_t> (c) | static_cast <uint64_t> (b ^ 0x01));
+						const uint64_t mask = 0 - (static_cast <uint64_t> (carry) | static_cast <uint64_t> (borrow ^ 0x01));
 						// Выбираем младшее слово итога наложением маски
 						result[0] = sum0 ^ (mask & (sum0 ^ buffer0));
 						// Выбираем первое слово итога наложением маски
@@ -3876,35 +3876,35 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_subtractnist4msvc__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 						// Слова уменьшаемого, снятые в регистры
-						const uint64_t f0 = first[0], f1 = first[1], f2 = first[2], f3 = first[3];
+						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова вычитаемого, снятые в регистры
-						const uint64_t s0 = second[0], s1 = second[1], s2 = second[2], s3 = second[3];
-						// Разность чисел
+						const uint64_t second0 = second[0], second1 = second[1], second2 = second[2], second3 = second[3];
+						// Буфер разности чисел для условного выбора
 						uint64_t difference0, difference1, difference2, difference3;
-						// Флаг заёма цепи вычитания
-						unsigned char b = 0;
-						// Вычитаем младшие слова
-						b = ::_subborrow_u64(0, f0, s0, &difference0);
+						// Флаг заёма цепи вычитания слов модуля из суммы
+						unsigned char borrow = 0;
+						// Вычитаем младшие слова модуля из суммы
+						borrow = ::_subborrow_u64(0, first0, second0, &difference0);
 						// Вычитаем первые слова с заёмом
-						b = ::_subborrow_u64(b, f1, s1, &difference1);
+						borrow = ::_subborrow_u64(borrow, first1, second1, &difference1);
 						// Вычитаем вторые слова с заёмом
-						b = ::_subborrow_u64(b, f2, s2, &difference2);
+						borrow = ::_subborrow_u64(borrow, first2, second2, &difference2);
 						// Вычитаем старшие слова с заёмом
-						b = ::_subborrow_u64(b, f3, s3, &difference3);
+						borrow = ::_subborrow_u64(borrow, first3, second3, &difference3);
 						// Сумма разности с простым числом кривой
 						uint64_t buffer0, buffer1, buffer2, buffer3;
-						// Флаг переноса цепи сложения
-						unsigned char c = 0;
+						// Флаг переноса цепи сложения слов: разносится по старшим словам
+						unsigned char carry = 0;
 						// Прибавляем младшее слово простого числа
-						c = ::_addcarry_u64(0, difference0, 0xffffffffffffffffull, &buffer0);
+						carry = ::_addcarry_u64(0, difference0, 0xffffffffffffffffull, &buffer0);
 						// Прибавляем первое слово простого числа
-						c = ::_addcarry_u64(c, difference1, 0x00000000ffffffffull, &buffer1);
+						carry = ::_addcarry_u64(carry, difference1, 0x00000000ffffffffull, &buffer1);
 						// Прибавляем второе слово простого числа
-						c = ::_addcarry_u64(c, difference2, 0x0000000000000000ull, &buffer2);
+						carry = ::_addcarry_u64(carry, difference2, 0x0000000000000000ull, &buffer2);
 						// Прибавляем старшее слово простого числа
-						c = ::_addcarry_u64(c, difference3, 0xffffffff00000001ull, &buffer3);
+						carry = ::_addcarry_u64(carry, difference3, 0xffffffff00000001ull, &buffer3);
 						// Маска прибавления: простое прибавляется при заёме
-						const uint64_t mask = 0 - static_cast <uint64_t> (b);
+						const uint64_t mask = 0 - static_cast <uint64_t> (borrow);
 						// Выбираем младшее слово итога наложением маски
 						result[0] = difference0 ^ (mask & (difference0 ^ buffer0));
 						// Выбираем первое слово итога наложением маски
@@ -3934,217 +3934,217 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_multiplyminus4msvc__(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова первого сомножителя, снятые в регистры
-						const uint64_t a0 = first[0], a1 = first[1], a2 = first[2], a3 = first[3];
+						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова второго сомножителя, снятые в регистры
-						const uint64_t b0 = second[0], b1 = second[1], b2 = second[2], b3 = second[3];
+						const uint64_t second0 = second[0], second1 = second[1], second2 = second[2], second3 = second[3];
 						// Полное произведение в восемь слов
-						uint64_t w0 = 0, w1 = 0, w2 = 0, w3 = 0, w4 = 0, w5 = 0, w6 = 0, w7 = 0;
-						// Младшая половина очередного произведения
+						uint64_t product0 = 0, product1 = 0, product2 = 0, product3 = 0, product4 = 0, product5 = 0, product6 = 0, product7 = 0;
+						// Младшие 64 разряда очередного произведения: приёмник результата _umul128
 						uint64_t lo = 0;
-						// Старшая половина очередного произведения
+						// Старшие 64 разряда очередного произведения: приёмник результата _umul128
 						uint64_t hi = 0;
-						// Перенос между словами строки
+						// Перенос между словами строки произведения: начинаем с нулевого переноса
 						uint64_t carry = 0;
-						// Флаг переноса первого сложения
-						unsigned char o1 = 0;
-						// Флаг переноса второго сложения
-						unsigned char o2 = 0;
+						// Флаг переноса первого сложения строки: младшая половина произведения плюс накопитель
+						unsigned char outcome1 = 0;
+						// Флаг переноса второго сложения строки: слово накопителя плюс перенос
+						unsigned char outcome2 = 0;
 						// Младшая половина произведения нулевого слова первого сомножителя на нулевого слово второго
-						lo = ::_umul128(a0, b0, &hi);
-						// Младшее слово произведения
-						w0 = lo;
-						// Перенос в следующее слово
+						lo = ::_umul128(first0, second0, &hi);
+						// Младшее слово произведения: младшая половина произведения нулевых слов сомножителей
+						product0 = lo;
+						// Сохраняем старшую половину произведения как перенос в следующее слово
 						carry = hi;
 						// Младшая половина произведения первого слова первого сомножителя на нулевого слово второго
-						lo = ::_umul128(a1, b0, &hi);
-						// Складываем произведение с переносом
-						o1 = ::_addcarry_u64(0, lo, carry, &w1);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						lo = ::_umul128(first1, second0, &hi);
+						// Складываем младшую половину произведения со словом накопителя и переносом
+						outcome1 = ::_addcarry_u64(0, lo, carry, &product1);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения второго слова первого сомножителя на нулевого слово второго
-						lo = ::_umul128(a2, b0, &hi);
-						// Складываем произведение с переносом
-						o1 = ::_addcarry_u64(0, lo, carry, &w2);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						lo = ::_umul128(first2, second0, &hi);
+						// Складываем младшую половину произведения со словом накопителя и переносом
+						outcome1 = ::_addcarry_u64(0, lo, carry, &product2);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения третьего слова первого сомножителя на нулевого слово второго
-						lo = ::_umul128(a3, b0, &hi);
-						// Складываем произведение с переносом
-						o1 = ::_addcarry_u64(0, lo, carry, &w3);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						lo = ::_umul128(first3, second0, &hi);
+						// Складываем младшую половину произведения со словом накопителя и переносом
+						outcome1 = ::_addcarry_u64(0, lo, carry, &product3);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Хвост строки занимает четвёртое слово произведения
-						w4 = carry;
+						product4 = carry;
 						// Младшая половина произведения нулевого слова первого сомножителя на первого слово второго
-						lo = ::_umul128(a0, b1, &hi);
+						lo = ::_umul128(first0, second1, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w1, lo, &w1);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, product1, lo, &product1);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого слова первого сомножителя на первого слово второго
-						lo = ::_umul128(a1, b1, &hi);
+						lo = ::_umul128(first1, second1, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w2, lo, &w2);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w2, carry, &w2);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product2, lo, &product2);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product2, carry, &product2);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения второго слова первого сомножителя на первого слово второго
-						lo = ::_umul128(a2, b1, &hi);
+						lo = ::_umul128(first2, second1, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w3, lo, &w3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w3, carry, &w3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product3, lo, &product3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product3, carry, &product3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения третьего слова первого сомножителя на первого слово второго
-						lo = ::_umul128(a3, b1, &hi);
+						lo = ::_umul128(first3, second1, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w4, lo, &w4);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w4, carry, &w4);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product4, lo, &product4);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product4, carry, &product4);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Хвост строки занимает пятое слово произведения
-						w5 = carry;
+						product5 = carry;
 						// Младшая половина произведения нулевого слова первого сомножителя на второго слово второго
-						lo = ::_umul128(a0, b2, &hi);
+						lo = ::_umul128(first0, second2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w2, lo, &w2);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, product2, lo, &product2);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого слова первого сомножителя на второго слово второго
-						lo = ::_umul128(a1, b2, &hi);
+						lo = ::_umul128(first1, second2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w3, lo, &w3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w3, carry, &w3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product3, lo, &product3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product3, carry, &product3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения второго слова первого сомножителя на второго слово второго
-						lo = ::_umul128(a2, b2, &hi);
+						lo = ::_umul128(first2, second2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w4, lo, &w4);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w4, carry, &w4);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product4, lo, &product4);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product4, carry, &product4);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения третьего слова первого сомножителя на второго слово второго
-						lo = ::_umul128(a3, b2, &hi);
+						lo = ::_umul128(first3, second2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w5, lo, &w5);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w5, carry, &w5);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product5, lo, &product5);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product5, carry, &product5);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Хвост строки занимает шестое слово произведения
-						w6 = carry;
+						product6 = carry;
 						// Младшая половина произведения нулевого слова первого сомножителя на третьего слово второго
-						lo = ::_umul128(a0, b3, &hi);
+						lo = ::_umul128(first0, second3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w3, lo, &w3);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, product3, lo, &product3);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого слова первого сомножителя на третьего слово второго
-						lo = ::_umul128(a1, b3, &hi);
+						lo = ::_umul128(first1, second3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w4, lo, &w4);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w4, carry, &w4);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product4, lo, &product4);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product4, carry, &product4);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения второго слова первого сомножителя на третьего слово второго
-						lo = ::_umul128(a2, b3, &hi);
+						lo = ::_umul128(first2, second3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w5, lo, &w5);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w5, carry, &w5);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product5, lo, &product5);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product5, carry, &product5);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения третьего слова первого сомножителя на третьего слово второго
-						lo = ::_umul128(a3, b3, &hi);
+						lo = ::_umul128(first3, second3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w6, lo, &w6);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w6, carry, &w6);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product6, lo, &product6);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product6, carry, &product6);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Хвост строки занимает седьмое слово произведения
-						w7 = carry;
-						// Обнуляем перенос свёртки
+						product7 = carry;
+						// Обнуляем перенос свёртки перед накоплением старшей половины
 						carry = 0;
 						// Младшая половина произведения четвёртого слова старшей половины на хвост
-						lo = ::_umul128(w4, tail, &hi);
+						lo = ::_umul128(product4, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w0, lo, &w0);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, product0, lo, &product0);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения пятого слова старшей половины на хвост
-						lo = ::_umul128(w5, tail, &hi);
+						lo = ::_umul128(product5, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w1, lo, &w1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w1, carry, &w1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product1, lo, &product1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product1, carry, &product1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения шестого слова старшей половины на хвост
-						lo = ::_umul128(w6, tail, &hi);
+						lo = ::_umul128(product6, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w2, lo, &w2);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w2, carry, &w2);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product2, lo, &product2);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product2, carry, &product2);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения седьмого слова старшей половины на хвост
-						lo = ::_umul128(w7, tail, &hi);
+						lo = ::_umul128(product7, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w3, lo, &w3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w3, carry, &w3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product3, lo, &product3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product3, carry, &product3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения переноса на хвост
 						lo = ::_umul128(carry, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w0, lo, &w0);
-						// Перенос в следующее слово
-						carry = hi + o1;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, w1, carry, &w1);
-						// Перенос
-						carry = o1;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, w2, carry, &w2);
-						// Перенос
-						carry = o1;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, w3, carry, &w3);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, product0, lo, &product0);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, product1, carry, &product1);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, product2, carry, &product2);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, product3, carry, &product3);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Слова модуля, снятые в регистры
-						const uint64_t m0 = modulus[0], m1 = modulus[1], m2 = modulus[2], m3 = modulus[3];
-						// Разность с модулем
-						uint64_t u0, u1, u2, u3;
-						// Флаг заёма цепи вычитания
-						unsigned char b = 0;
+						const uint64_t modulus0 = modulus[0], modulus1 = modulus[1], modulus2 = modulus[2], modulus3 = modulus[3];
+						// Буфер разности с модулем для условного выбора
+						uint64_t diff0, diff1, diff2, diff3;
+						// Флаг заёма цепи вычитания слов модуля из суммы
+						unsigned char borrow = 0;
 						// Вычитаем младшее слово модуля
-						b = ::_subborrow_u64(0, w0, m0, &u0);
+						borrow = ::_subborrow_u64(0, product0, modulus0, &diff0);
 						// Вычитаем первое слово модуля
-						b = ::_subborrow_u64(b, w1, m1, &u1);
+						borrow = ::_subborrow_u64(borrow, product1, modulus1, &diff1);
 						// Вычитаем второе слово модуля
-						b = ::_subborrow_u64(b, w2, m2, &u2);
+						borrow = ::_subborrow_u64(borrow, product2, modulus2, &diff2);
 						// Вычитаем старшее слово модуля
-						b = ::_subborrow_u64(b, w3, m3, &u3);
+						borrow = ::_subborrow_u64(borrow, product3, modulus3, &diff3);
 						// Маска вычитания: модуль вычитается при переносе либо отсутствии заёма
-						const uint64_t mask = 0 - (carry | static_cast <uint64_t> (b ^ 0x01));
+						const uint64_t mask = 0 - (carry | static_cast <uint64_t> (borrow ^ 0x01));
 						// Записываем младшее слово итога наложением маски
-						result[0] = w0 ^ (mask & (w0 ^ u0));
+						result[0] = product0 ^ (mask & (product0 ^ diff0));
 						// Записываем первое слово итога наложением маски
-						result[1] = w1 ^ (mask & (w1 ^ u1));
+						result[1] = product1 ^ (mask & (product1 ^ diff1));
 						// Записываем второе слово итога наложением маски
-						result[2] = w2 ^ (mask & (w2 ^ u2));
+						result[2] = product2 ^ (mask & (product2 ^ diff2));
 						// Записываем старшее слово итога наложением маски
-						result[3] = w3 ^ (mask & (w3 ^ u3));
+						result[3] = product3 ^ (mask & (product3 ^ diff3));
 					}
 					/**
 					 * @brief Функция возведения в квадрат по модулю вида 2^256 - c на интринсиках MSVC
@@ -4162,197 +4162,197 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_squareminus4msvc__(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова возводимого числа, снятые в регистры
-						const uint64_t a0 = value[0], a1 = value[1], a2 = value[2], a3 = value[3];
+						const uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3];
 						// Полный квадрат в восемь слов
-						uint64_t w0 = 0, w1 = 0, w2 = 0, w3 = 0, w4 = 0, w5 = 0, w6 = 0, w7 = 0;
-						// Младшая половина очередного произведения
+						uint64_t product0 = 0, product1 = 0, product2 = 0, product3 = 0, product4 = 0, product5 = 0, product6 = 0, product7 = 0;
+						// Младшие 64 разряда очередного произведения: приёмник результата _umul128
 						uint64_t lo = 0;
-						// Старшая половина очередного произведения
+						// Старшие 64 разряда очередного произведения: приёмник результата _umul128
 						uint64_t hi = 0;
-						// Перенос между словами
+						// Перенос между словами произведения: начинаем строку с нулевого переноса
 						uint64_t carry = 0;
-						// Флаг переноса первого сложения
-						unsigned char o1 = 0;
-						// Флаг переноса второго сложения
-						unsigned char o2 = 0;
+						// Флаг переноса первого сложения строки: младшая половина произведения плюс накопитель
+						unsigned char outcome1 = 0;
+						// Флаг переноса второго сложения строки: слово накопителя плюс перенос
+						unsigned char outcome2 = 0;
 						// Младшая половина произведения нулевого и первого слов
-						lo = ::_umul128(a0, a1, &hi);
+						lo = ::_umul128(value0, value1, &hi);
 						// Первое слово произведения разных слов
-						w1 = lo;
-						// Перенос в следующее слово
+						product1 = lo;
+						// Сохраняем старшую половину произведения как перенос в следующее слово
 						carry = hi;
 						// Младшая половина произведения нулевого и второго слов
-						lo = ::_umul128(a0, a2, &hi);
-						// Складываем произведение с переносом
-						o1 = ::_addcarry_u64(0, lo, carry, &w2);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						lo = ::_umul128(value0, value2, &hi);
+						// Складываем младшую половину произведения со словом накопителя и переносом
+						outcome1 = ::_addcarry_u64(0, lo, carry, &product2);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения нулевого и третьего слов
-						lo = ::_umul128(a0, a3, &hi);
-						// Складываем произведение с переносом
-						o1 = ::_addcarry_u64(0, lo, carry, &w3);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						lo = ::_umul128(value0, value3, &hi);
+						// Складываем младшую половину произведения со словом накопителя и переносом
+						outcome1 = ::_addcarry_u64(0, lo, carry, &product3);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Хвост строки занимает четвёртое слово произведения
-						w4 = carry;
+						product4 = carry;
 						// Младшая половина произведения первого и второго слов
-						lo = ::_umul128(a1, a2, &hi);
+						lo = ::_umul128(value1, value2, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w3, lo, &w3);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, product3, lo, &product3);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения первого и третьего слов
-						lo = ::_umul128(a1, a3, &hi);
+						lo = ::_umul128(value1, value3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w4, lo, &w4);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w4, carry, &w4);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product4, lo, &product4);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product4, carry, &product4);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Хвост строки занимает пятое слово произведения
-						w5 = carry;
+						product5 = carry;
 						// Младшая половина произведения второго и третьего слов
-						lo = ::_umul128(a2, a3, &hi);
+						lo = ::_umul128(value2, value3, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w5, lo, &w5);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, product5, lo, &product5);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Хвост строки занимает шестое слово произведения
-						w6 = carry;
-						// Удвоение накопленного треугольника
-						uint64_t bit = (w1 >> 63);
+						product6 = carry;
+						// Удваиваем накопленный треугольник произведений разных слов
+						uint64_t bit = (product1 >> 63);
 						// Удваиваем первое слово
-						w1 = (w1 << 1);
+						product1 = (product1 << 1);
 						// Старший разряд очередного удваиваемого слова
-						uint64_t next = (w2 >> 63);
+						uint64_t next = (product2 >> 63);
 						// Удваиваем второе слово с захватом старшего бита соседнего
-						w2 = ((w2 << 1) | bit);
+						product2 = ((product2 << 1) | bit);
 						// Сдвигаем захваченный бит к следующему слову
 						bit = next;
 						// Запоминаем старший разряд следующего слова
-						next = (w3 >> 63);
+						next = (product3 >> 63);
 						// Удваиваем третье слово с захватом старшего бита соседнего
-						w3 = ((w3 << 1) | bit);
+						product3 = ((product3 << 1) | bit);
 						// Сдвигаем захваченный бит к следующему слову
 						bit = next;
 						// Запоминаем старший разряд следующего слова
-						next = (w4 >> 63);
+						next = (product4 >> 63);
 						// Удваиваем четвёртое слово с захватом старшего бита соседнего
-						w4 = ((w4 << 1) | bit);
+						product4 = ((product4 << 1) | bit);
 						// Сдвигаем захваченный бит к следующему слову
 						bit = next;
 						// Запоминаем старший разряд следующего слова
-						next = (w5 >> 63);
+						next = (product5 >> 63);
 						// Удваиваем пятое слово с захватом старшего бита соседнего
-						w5 = ((w5 << 1) | bit);
+						product5 = ((product5 << 1) | bit);
 						// Сдвигаем захваченный бит к следующему слову
 						bit = next;
 						// Запоминаем старший разряд следующего слова
-						next = (w6 >> 63);
+						next = (product6 >> 63);
 						// Удваиваем шестое слово с захватом старшего бита соседнего
-						w6 = ((w6 << 1) | bit);
+						product6 = ((product6 << 1) | bit);
 						// Сдвигаем захваченный бит к следующему слову
 						bit = next;
 						// Удваиваем седьмое слово с захватом старшего бита соседнего
-						w7 = ((w7 << 1) | bit);
+						product7 = ((product7 << 1) | bit);
 						// Младшая половина квадрата нулевого слова
-						lo = ::_umul128(a0, a0, &hi);
+						lo = ::_umul128(value0, value0, &hi);
 						// Прибавляем младшую половину квадрата нулевого слова
-						carry = ::_addcarry_u64(0, w0, lo, &w0);
+						carry = ::_addcarry_u64(0, product0, lo, &product0);
 						// Прибавляем старшую половину квадрата первого слова с переносом
-						carry = ::_addcarry_u64(carry, w1, hi, &w1);
+						carry = ::_addcarry_u64(carry, product1, hi, &product1);
 						// Младшая половина квадрата первого слова
-						lo = ::_umul128(a1, a1, &hi);
+						lo = ::_umul128(value1, value1, &hi);
 						// Прибавляем младшую половину квадрата второго слова с переносом
-						carry = ::_addcarry_u64(carry, w2, lo, &w2);
+						carry = ::_addcarry_u64(carry, product2, lo, &product2);
 						// Прибавляем старшую половину квадрата третьего слова с переносом
-						carry = ::_addcarry_u64(carry, w3, hi, &w3);
+						carry = ::_addcarry_u64(carry, product3, hi, &product3);
 						// Младшая половина квадрата второго слова
-						lo = ::_umul128(a2, a2, &hi);
+						lo = ::_umul128(value2, value2, &hi);
 						// Прибавляем младшую половину квадрата четвёртого слова с переносом
-						carry = ::_addcarry_u64(carry, w4, lo, &w4);
+						carry = ::_addcarry_u64(carry, product4, lo, &product4);
 						// Прибавляем старшую половину квадрата пятого слова с переносом
-						carry = ::_addcarry_u64(carry, w5, hi, &w5);
+						carry = ::_addcarry_u64(carry, product5, hi, &product5);
 						// Младшая половина квадрата третьего слова
-						lo = ::_umul128(a3, a3, &hi);
+						lo = ::_umul128(value3, value3, &hi);
 						// Прибавляем младшую половину квадрата шестого слова с переносом
-						carry = ::_addcarry_u64(carry, w6, lo, &w6);
+						carry = ::_addcarry_u64(carry, product6, lo, &product6);
 						// Прибавляем старшую половину квадрата седьмого слова с переносом
-						carry = ::_addcarry_u64(carry, w7, hi, &w7);
-						// Обнуляем перенос свёртки
+						carry = ::_addcarry_u64(carry, product7, hi, &product7);
+						// Обнуляем перенос свёртки перед накоплением старшей половины
 						carry = 0;
 						// Младшая половина произведения четвёртого слова старшей половины на хвост
-						lo = ::_umul128(w4, tail, &hi);
+						lo = ::_umul128(product4, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w0, lo, &w0);
-						// Перенос в следующее слово
-						carry = hi + o1;
+						outcome1 = ::_addcarry_u64(0, product0, lo, &product0);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
 						// Младшая половина произведения пятого слова старшей половины на хвост
-						lo = ::_umul128(w5, tail, &hi);
+						lo = ::_umul128(product5, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w1, lo, &w1);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w1, carry, &w1);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product1, lo, &product1);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product1, carry, &product1);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения шестого слова старшей половины на хвост
-						lo = ::_umul128(w6, tail, &hi);
+						lo = ::_umul128(product6, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w2, lo, &w2);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w2, carry, &w2);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product2, lo, &product2);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product2, carry, &product2);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения седьмого слова старшей половины на хвост
-						lo = ::_umul128(w7, tail, &hi);
+						lo = ::_umul128(product7, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w3, lo, &w3);
-						// Перенос от сложения с переносом предыдущего слова
-						o2 = ::_addcarry_u64(0, w3, carry, &w3);
-						// Перенос в следующее слово
-						carry = hi + o1 + o2;
+						outcome1 = ::_addcarry_u64(0, product3, lo, &product3);
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome2 = ::_addcarry_u64(0, product3, carry, &product3);
+						// Сохраняем старшую половину произведения с двумя флагами переноса как перенос в следующее слово
+						carry = hi + outcome1 + outcome2;
 						// Младшая половина произведения переноса на хвост
 						lo = ::_umul128(carry, tail, &hi);
 						// Перенос от сложения слова накопителя с младшей половиной
-						o1 = ::_addcarry_u64(0, w0, lo, &w0);
-						// Перенос в следующее слово
-						carry = hi + o1;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, w1, carry, &w1);
-						// Перенос
-						carry = o1;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, w2, carry, &w2);
-						// Перенос
-						carry = o1;
-						// Перенос от сложения с переносом предыдущего слова
-						o1 = ::_addcarry_u64(0, w3, carry, &w3);
-						// Перенос
-						carry = o1;
+						outcome1 = ::_addcarry_u64(0, product0, lo, &product0);
+						// Сохраняем старшую половину произведения с флагом переноса как перенос в следующее слово
+						carry = hi + outcome1;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, product1, carry, &product1);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, product2, carry, &product2);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
+						// Складываем слово накопителя с переносом предыдущего слова и сохраняем флаг переноса
+						outcome1 = ::_addcarry_u64(0, product3, carry, &product3);
+						// Сохраняем флаг переноса сложения как перенос в следующее слово
+						carry = outcome1;
 						// Слова модуля, снятые в регистры
-						const uint64_t m0 = modulus[0], m1 = modulus[1], m2 = modulus[2], m3 = modulus[3];
-						// Разность с модулем
-						uint64_t u0, u1, u2, u3;
-						// Флаг заёма цепи вычитания
-						unsigned char b = 0;
+						const uint64_t modulus0 = modulus[0], modulus1 = modulus[1], modulus2 = modulus[2], modulus3 = modulus[3];
+						// Буфер разности с модулем для условного выбора
+						uint64_t diff0, diff1, diff2, diff3;
+						// Флаг заёма цепи вычитания слов модуля из суммы
+						unsigned char borrow = 0;
 						// Вычитаем младшее слово модуля
-						b = ::_subborrow_u64(0, w0, m0, &u0);
+						borrow = ::_subborrow_u64(0, product0, modulus0, &diff0);
 						// Вычитаем первое слово модуля
-						b = ::_subborrow_u64(b, w1, m1, &u1);
+						borrow = ::_subborrow_u64(borrow, product1, modulus1, &diff1);
 						// Вычитаем второе слово модуля
-						b = ::_subborrow_u64(b, w2, m2, &u2);
+						borrow = ::_subborrow_u64(borrow, product2, modulus2, &diff2);
 						// Вычитаем старшее слово модуля
-						b = ::_subborrow_u64(b, w3, m3, &u3);
+						borrow = ::_subborrow_u64(borrow, product3, modulus3, &diff3);
 						// Маска вычитания: модуль вычитается при переносе либо отсутствии заёма
-						const uint64_t mask = 0 - (carry | static_cast <uint64_t> (b ^ 0x01));
+						const uint64_t mask = 0 - (carry | static_cast <uint64_t> (borrow ^ 0x01));
 						// Записываем младшее слово итога наложением маски
-						result[0] = w0 ^ (mask & (w0 ^ u0));
+						result[0] = product0 ^ (mask & (product0 ^ diff0));
 						// Записываем первое слово итога наложением маски
-						result[1] = w1 ^ (mask & (w1 ^ u1));
+						result[1] = product1 ^ (mask & (product1 ^ diff1));
 						// Записываем второе слово итога наложением маски
-						result[2] = w2 ^ (mask & (w2 ^ u2));
+						result[2] = product2 ^ (mask & (product2 ^ diff2));
 						// Записываем старшее слово итога наложением маски
-						result[3] = w3 ^ (mask & (w3 ^ u3));
+						result[3] = product3 ^ (mask & (product3 ^ diff3));
 					}
 					/**
 					 * @brief Функция сложения по модулю из слов указателя на интринсиках MSVC
@@ -4372,37 +4372,37 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_addmod4msvc__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова первого слагаемого, снятые в регистры
-						const uint64_t f0 = first[0], f1 = first[1], f2 = first[2], f3 = first[3];
+						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова второго слагаемого, снятые в регистры
-						const uint64_t s0 = second[0], s1 = second[1], s2 = second[2], s3 = second[3];
+						const uint64_t second0 = second[0], second1 = second[1], second2 = second[2], second3 = second[3];
 						// Слова модуля, снятые в регистры
-						const uint64_t m0 = modulus[0], m1 = modulus[1], m2 = modulus[2], m3 = modulus[3];
-						// Сумма слагаемых
+						const uint64_t modulus0 = modulus[0], modulus1 = modulus[1], modulus2 = modulus[2], modulus3 = modulus[3];
+						// Буфер суммы слагаемых до приведения по модулю
 						uint64_t sum0, sum1, sum2, sum3;
-						// Флаг переноса цепи сложения
-						unsigned char c = 0;
-						// Складываем младшие слова
-						c = ::_addcarry_u64(0, f0, s0, &sum0);
+						// Флаг переноса цепи сложения слов: разносится по старшим словам
+						unsigned char carry = 0;
+						// Складываем младшие слова сомножителей с переносом
+						carry = ::_addcarry_u64(0, first0, second0, &sum0);
 						// Складываем первые слова с переносом
-						c = ::_addcarry_u64(c, f1, s1, &sum1);
+						carry = ::_addcarry_u64(carry, first1, second1, &sum1);
 						// Складываем вторые слова с переносом
-						c = ::_addcarry_u64(c, f2, s2, &sum2);
+						carry = ::_addcarry_u64(carry, first2, second2, &sum2);
 						// Складываем старшие слова с переносом
-						c = ::_addcarry_u64(c, f3, s3, &sum3);
-						// Разность суммы с модулем
+						carry = ::_addcarry_u64(carry, first3, second3, &sum3);
+						// Буфер разности суммы с модулем для условного выбора
 						uint64_t buffer0, buffer1, buffer2, buffer3;
-						// Флаг заёма цепи вычитания
-						unsigned char b = 0;
+						// Флаг заёма цепи вычитания слов модуля из суммы
+						unsigned char borrow = 0;
 						// Вычитаем младшее слово модуля
-						b = ::_subborrow_u64(0, sum0, m0, &buffer0);
+						borrow = ::_subborrow_u64(0, sum0, modulus0, &buffer0);
 						// Вычитаем первое слово модуля
-						b = ::_subborrow_u64(b, sum1, m1, &buffer1);
+						borrow = ::_subborrow_u64(borrow, sum1, modulus1, &buffer1);
 						// Вычитаем второе слово модуля
-						b = ::_subborrow_u64(b, sum2, m2, &buffer2);
+						borrow = ::_subborrow_u64(borrow, sum2, modulus2, &buffer2);
 						// Вычитаем старшее слово модуля
-						b = ::_subborrow_u64(b, sum3, m3, &buffer3);
+						borrow = ::_subborrow_u64(borrow, sum3, modulus3, &buffer3);
 						// Маска вычитания: модуль вычитается при переносе либо отсутствии заёма
-						const uint64_t mask = 0 - (static_cast <uint64_t> (c) | static_cast <uint64_t> (b ^ 0x01));
+						const uint64_t mask = 0 - (static_cast <uint64_t> (carry) | static_cast <uint64_t> (borrow ^ 0x01));
 						// Выбираем младшее слово итога наложением маски
 						result[0] = sum0 ^ (mask & (sum0 ^ buffer0));
 						// Выбираем первое слово итога наложением маски
@@ -4429,37 +4429,37 @@ namespace nts {
 					 */
 					static __NTS_INLINE__ void __nts_subtractmod4msvc__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова уменьшаемого, снятые в регистры
-						const uint64_t f0 = first[0], f1 = first[1], f2 = first[2], f3 = first[3];
+						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова вычитаемого, снятые в регистры
-						const uint64_t s0 = second[0], s1 = second[1], s2 = second[2], s3 = second[3];
+						const uint64_t second0 = second[0], second1 = second[1], second2 = second[2], second3 = second[3];
 						// Слова модуля, снятые в регистры
-						const uint64_t m0 = modulus[0], m1 = modulus[1], m2 = modulus[2], m3 = modulus[3];
-						// Разность чисел
+						const uint64_t modulus0 = modulus[0], modulus1 = modulus[1], modulus2 = modulus[2], modulus3 = modulus[3];
+						// Буфер разности чисел для условного выбора
 						uint64_t difference0, difference1, difference2, difference3;
-						// Флаг заёма цепи вычитания
-						unsigned char b = 0;
-						// Вычитаем младшие слова
-						b = ::_subborrow_u64(0, f0, s0, &difference0);
+						// Флаг заёма цепи вычитания слов модуля из суммы
+						unsigned char borrow = 0;
+						// Вычитаем младшие слова модуля из суммы
+						borrow = ::_subborrow_u64(0, first0, second0, &difference0);
 						// Вычитаем первые слова с заёмом
-						b = ::_subborrow_u64(b, f1, s1, &difference1);
+						borrow = ::_subborrow_u64(borrow, first1, second1, &difference1);
 						// Вычитаем вторые слова с заёмом
-						b = ::_subborrow_u64(b, f2, s2, &difference2);
+						borrow = ::_subborrow_u64(borrow, first2, second2, &difference2);
 						// Вычитаем старшие слова с заёмом
-						b = ::_subborrow_u64(b, f3, s3, &difference3);
-						// Сумма разности с модулем
+						borrow = ::_subborrow_u64(borrow, first3, second3, &difference3);
+						// Буфер суммы разности с модулем для условного выбора
 						uint64_t buffer0, buffer1, buffer2, buffer3;
-						// Флаг переноса цепи сложения
-						unsigned char c = 0;
+						// Флаг переноса цепи сложения слов: разносится по старшим словам
+						unsigned char carry = 0;
 						// Прибавляем младшее слово модуля
-						c = ::_addcarry_u64(0, difference0, m0, &buffer0);
+						carry = ::_addcarry_u64(0, difference0, modulus0, &buffer0);
 						// Прибавляем первое слово модуля
-						c = ::_addcarry_u64(c, difference1, m1, &buffer1);
+						carry = ::_addcarry_u64(carry, difference1, modulus1, &buffer1);
 						// Прибавляем второе слово модуля
-						c = ::_addcarry_u64(c, difference2, m2, &buffer2);
+						carry = ::_addcarry_u64(carry, difference2, modulus2, &buffer2);
 						// Прибавляем старшее слово модуля
-						c = ::_addcarry_u64(c, difference3, m3, &buffer3);
+						carry = ::_addcarry_u64(carry, difference3, modulus3, &buffer3);
 						// Маска прибавления: модуль прибавляется при заёме
-						const uint64_t mask = 0 - static_cast <uint64_t> (b);
+						const uint64_t mask = 0 - static_cast <uint64_t> (borrow);
 						// Выбираем младшее слово итога наложением маски
 						result[0] = difference0 ^ (mask & (difference0 ^ buffer0));
 						// Выбираем первое слово итога наложением маски
@@ -4487,13 +4487,13 @@ namespace nts {
 					 * Если есть ядро P-256 на интринсиках MSVC
 					 */
 					#if defined(__NTS_MSVC_X64__)
-						// Умножение ядром на интринсиках
+						// Умножаем значения ядром на интринсиках MSVC с записью в приёмник
 						const uint64_t carry = __nts_nist256msvc__(first, second, buffer);
 					/**
 					 * Иначе переносимое ядро на C++
 					 */
 					#else
-						// Умножение ядром P-256
+						// Умножаем значения ядром простого P-256 с записью в приёмник
 						const uint64_t carry = __nts_nist256__(first, second, buffer);
 					#endif
 					// Условное вычитание модуля с записью итога
@@ -4556,9 +4556,9 @@ namespace nts {
 				#if defined(__NTS_AARCH64_KERNELS__) || defined(__NTS_X86_64_KERNELS__)
 					// Четыре слова на AArch64 и x86-64 (gcc) идут ядром на встроенном ассемблере
 					if constexpr (WORDS == 4){
-						// Умножение ядром на ассемблере
+						// Умножаем значения ядром на ассемблере с записью в приёмник
 						__nts_multiplyminus4__(first, second, tail, modulus, result);
-						// Выходим из умножения
+						// Выходим: произведение записано ядром в приёмник
 						return;
 					}
 				#endif
@@ -4570,7 +4570,7 @@ namespace nts {
 					if constexpr (WORDS == 4){
 						// Умножение ядром на интринсиках MSVC
 						__nts_multiplyminus4msvc__(first, second, tail, modulus, result);
-						// Выходим из умножения
+						// Выходим: произведение записано ядром в приёмник
 						return;
 					}
 				#endif
@@ -4580,9 +4580,9 @@ namespace nts {
 				#if defined(__NTS_AARCH64_KERNELS8__)
 					// Восемь слов на AArch64 идут ядром на встроенном ассемблере
 					if constexpr (WORDS == 8){
-						// Умножение ядром на ассемблере
+						// Умножаем значения ядром на ассемблере с записью в приёмник
 						__nts_multiplyminus8__(first, second, tail, modulus, result);
-						// Выходим из умножения
+						// Выходим: произведение записано ядром в приёмник
 						return;
 					}
 				#endif
@@ -4592,23 +4592,23 @@ namespace nts {
 				#if defined(__NTS_X86_64_KERNELS8__)
 					// Восемь слов на x86-64: произведение и свёртка ядрами на ассемблере
 					if constexpr (WORDS == 8){
-						// Полное произведение сомножителей
+						// Буфер полного произведения сомножителей до свёртки по модулю
 						uint64_t wide[2 * WORDS];
 						// Полное умножение ядром на ассемблере
 						__nts_product8__(first, second, wide);
 						// Свёртка с условным вычитанием модуля ядром на ассемблере
 						__nts_foldminus8__(wide, tail, result);
-						// Выходим из умножения
+						// Выходим: произведение записано ядром в приёмник
 						return;
 					}
 				#endif
-				// Полное произведение сомножителей
+				// Буфер полного произведения сомножителей до свёртки по модулю
 				uint64_t wide[2 * WORDS];
-				// Полное умножение
+				// Полное умножение сомножителей ядром до свёртки по модулю
 				__nts_product__ <WORDS> (first, second, wide);
-				// Свёрнутое произведение
+				// Буфер свёрнутого произведения по модулю
 				uint64_t folded[WORDS];
-				// Свёртка произведения
+				// Сворачиваем произведение по модулю вида 2^(64·слов-1)+c и получаем перенос
 				const uint64_t carry = __nts_foldminus__ <WORDS> (wide, tail, folded);
 				// Условное вычитание модуля с записью итога
 				__nts_shrink__ <WORDS> (folded, modulus, carry, result);
@@ -4672,7 +4672,7 @@ namespace nts {
 				#if defined(__NTS_X86_64_KERNELS8__)
 					// Восемь слов на x86-64: квадрат и свёртка ядрами на ассемблере
 					if constexpr (WORDS == 8){
-						// Полный квадрат числа
+						// Буфер полного квадрата числа до свёртки по модулю
 						uint64_t wide[2 * WORDS];
 						// Возведение числа в квадрат ядром на ассемблере
 						__nts_square8__(value, wide);
@@ -4682,13 +4682,13 @@ namespace nts {
 						return;
 					}
 				#endif
-				// Полный квадрат числа
+				// Буфер полного квадрата числа до свёртки по модулю
 				uint64_t wide[2 * WORDS];
-				// Возведение числа в квадрат
+				// Возводим число в квадрат ядром с записью в буфер
 				__nts_squared__ <WORDS> (value, wide);
-				// Свёрнутый квадрат
+				// Буфер свёрнутого квадрата по модулю
 				uint64_t folded[WORDS];
-				// Свёртка квадрата
+				// Сворачиваем квадрат по модулю вида 2^(64·слов-1)+c и получаем перенос
 				const uint64_t carry = __nts_foldminus__ <WORDS> (wide, tail, folded);
 				// Условное вычитание модуля с записью итога
 				__nts_shrink__ <WORDS> (folded, modulus, carry, result);
@@ -4711,7 +4711,7 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ void __nts_multiplyplus__(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-				// Полное произведение сомножителей
+				// Буфер полного произведения сомножителей до свёртки по модулю
 				uint64_t wide[2 * WORDS];
 				/**
 				 * Экранируем путь полного произведения восьми слов ядром на ассемблере
@@ -4723,9 +4723,9 @@ namespace nts {
 						__nts_product8__(first, second, wide);
 					else
 				#endif
-				// Полное умножение
+				// Полное умножение сомножителей ядром до свёртки по модулю
 				__nts_product__ <WORDS> (first, second, wide);
-				// Свёртка произведения по модулю
+				// Сворачиваем произведение по модулю вида 2^(64·слов-1)+c и получаем перенос
 				__nts_foldplus__ <WORDS> (wide, tail, modulus, result);
 			}
 			/**
@@ -4745,7 +4745,7 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ void __nts_squareplus__(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
-				// Полный квадрат числа
+				// Буфер полного квадрата числа до свёртки по модулю
 				uint64_t wide[2 * WORDS];
 				/**
 				 * Экранируем путь полного квадрата восьми слов ядром на ассемблере
@@ -4757,9 +4757,9 @@ namespace nts {
 						__nts_square8__(value, wide);
 					else
 				#endif
-				// Возведение числа в квадрат
+				// Возводим число в квадрат ядром с записью в буфер
 				__nts_squared__ <WORDS> (value, wide);
-				// Свёртка квадрата по модулю
+				// Сворачиваем квадрат по модулю вида 2^(64·слов-1)+c и получаем перенос
 				__nts_foldplus__ <WORDS> (wide, tail, modulus, result);
 			}
 			/**
@@ -4798,7 +4798,7 @@ namespace nts {
 						else {
 							// Произведение до условного вычитания модуля
 							uint64_t buffer[WORDS];
-							// Умножение общим Монтгомери
+							// Умножаем значения общим ядром Монтгомери с записью в приёмник
 							const uint64_t carry = __nts_montgomery__ <WORDS> (first, second, layout.modulus, layout.factor, buffer);
 							// Условное вычитание модуля с записью итога
 							__nts_shrink__ <WORDS> (buffer, layout.modulus, carry, result);
@@ -4812,11 +4812,11 @@ namespace nts {
 					case static_cast <uint8_t> (Modulus::form_t::PLUS):
 						__nts_multiplyplus__ <WORDS> (first, second, layout.tail, layout.modulus, result);
 					break;
-					// Произвольный модуль
+					// Приведение по произвольному модулю общим ядром Монтгомери
 					default: {
 						// Произведение до условного вычитания модуля
 						uint64_t buffer[WORDS];
-						// Умножение общим Монтгомери
+						// Умножаем значения общим ядром Монтгомери с записью в приёмник
 						const uint64_t carry = __nts_montgomery__ <WORDS> (first, second, layout.modulus, layout.factor, buffer);
 						// Условное вычитание модуля с записью итога
 						__nts_shrink__ <WORDS> (buffer, layout.modulus, carry, result);
@@ -4903,16 +4903,16 @@ namespace nts {
 					if constexpr (WORDS == 4){
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
-							// Сложение ядром на ассемблере
+							// Складываем значения ядром на ассемблере с записью в приёмник
 							__nts_addminus4__(first, second, layout.tail, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 сложение идёт своим ядром на ассемблере
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение ядром на ассемблере по пути простого числа кривой
 							__nts_addnist4__(first, second, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -4927,16 +4927,16 @@ namespace nts {
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение ядром на интринсиках по пути простого числа кривой
 							__nts_addnist4msvc__(first, second, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// Сложение ядром на интринсиках по словам модуля из указателя
 						__nts_addmod4msvc__(first, second, layout.modulus, result);
-						// Выводим результат
+						// Выходим: итог уже записан ядром в приёмник
 						return;
 					}
 				#endif
-				// Сложение развёрнутым ядром
+				// Складываем значения развёрнутым ядром на значениях в регистрах
 				__nts_addition__ <WORDS> (first, second, layout.modulus, result);
 			}
 			/**
@@ -4964,16 +4964,16 @@ namespace nts {
 					if constexpr (WORDS == 4){
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
-							// Вычитание ядром на ассемблере
+							// Вычитаем значения ядром на ассемблере с записью в приёмник
 							__nts_subtractminus4__(first, second, layout.tail, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 вычитание идёт своим ядром на ассемблере
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание ядром на ассемблере по пути простого числа кривой
 							__nts_subtractnist4__(first, second, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -4988,16 +4988,16 @@ namespace nts {
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание ядром на интринсиках по пути простого числа кривой
 							__nts_subtractnist4msvc__(first, second, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// Вычитание ядром на интринсиках по словам модуля из указателя
 						__nts_subtractmod4msvc__(first, second, layout.modulus, result);
-						// Выводим результат
+						// Выходим: итог уже записан ядром в приёмник
 						return;
 					}
 				#endif
-				// Вычитание развёрнутым ядром
+				// Вычитаем значения развёрнутым ядром на значениях в регистрах
 				__nts_subtraction__ <WORDS> (first, second, layout.modulus, result);
 			}
 			/**
@@ -5037,16 +5037,16 @@ namespace nts {
 					if constexpr (WORDS == 4){
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
-							// Умножение регистровым ядром
+							// Умножаем значения регистровым ядром на значениях
 							result = __nts_multiplyminus4r__(first, second, layout.tail);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							// Умножение регистровым ядром по пути простого числа кривой
 							result = __nts_multiplynist4r__(first, second);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5059,20 +5059,20 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							/**
-							 * Выполняем умножение ядром с двумя независимыми цепочками переносов по признаку машины
+							 * Умножаем ядром с двумя независимыми цепочками переносов по признаку машины
 							 */
 							#if defined(__NTS_X86_64_ADX_KERNELS__)
 								// Проверяем признак наличия ядра с двумя независимыми цепочками переносов
 								if constexpr (ADX){
 									// Умножение ядром с двумя независимыми цепочками переносов
 									__nts_multiplyminus4x__(first, second, layout.tail, result);
-									// Выводим результат
+									// Выходим: итог уже записан ядром в приёмник
 									return;
 								}
 							#endif
-							// Умножение ядром на значениях
+							// Умножаем значения ядром на значениях в регистрах
 							__nts_multiplyminus4v__(first, second, layout.tail, layout.modulus, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим ядром на значениях: на MULX и ADCX/ADOX по признаку машины
@@ -5085,13 +5085,13 @@ namespace nts {
 								if constexpr (ADX){
 									// Умножение ядром с двумя независимыми цепочками переносов
 									__nts_nistmultiply4x__(first, second, result);
-									// Выводим результат
+									// Выходим: итог уже записан ядром в приёмник
 									return;
 								}
 							#endif
-							// Умножение ядром на значениях
+							// Умножаем значения ядром на значениях в регистрах
 							__nts_nistmultiply4v__(first, second, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5127,14 +5127,14 @@ namespace nts {
 						if(layout.form == Modulus::form_t::MINUS){
 							// Возведение в квадрат регистровым ядром
 							result = __nts_squareminus4r__(value, layout.tail);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							// Возведение в квадрат регистровым ядром по пути простого числа кривой
 							result = __nts_squarenist4r__(value);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5147,20 +5147,20 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							/**
-							 * Выполняем возведение в квадрат ядром с двумя независимыми цепочками переносов по признаку машины
+							 * Возводим в квадрат ядром с двумя независимыми цепочками переносов по признаку машины
 							 */
 							#if defined(__NTS_X86_64_ADX_KERNELS__)
 								// Проверяем признак наличия ядра с двумя независимыми цепочками переносов
 								if constexpr (ADX){
 									// Возведение в квадрат ядром с двумя независимыми цепочками переносов
 									__nts_squareminus4x__(value, layout.tail, result);
-									// Выводим результат
+									// Выходим: итог уже записан ядром в приёмник
 									return;
 								}
 							#endif
 							// Возведение в квадрат ядром на значениях
 							__nts_squareminus4v__(value, layout.tail, layout.modulus, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим ядром на значениях: на MULX и ADCX/ADOX по признаку машины
@@ -5173,13 +5173,13 @@ namespace nts {
 								if constexpr (ADX){
 									// Возведение в квадрат ядром с двумя независимыми цепочками переносов
 									__nts_nistsquare4x__(value, result);
-									// Выводим результат
+									// Выходим: итог уже записан ядром в приёмник
 									return;
 								}
 							#endif
 							// Возведение в квадрат ядром на значениях
 							__nts_nistsquare4v__(value, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5212,16 +5212,16 @@ namespace nts {
 					if constexpr (WORDS == 4){
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
-							// Сложение регистровым ядром
+							// Складываем значения регистровым ядром на значениях
 							result = __nts_addminus4r__(first, second, layout.tail);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение регистровым ядром по пути простого числа кривой
 							result = __nts_addnist4r__(first, second);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5233,16 +5233,16 @@ namespace nts {
 					if constexpr (WORDS == 4){
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
-							// Сложение ядром на значениях
+							// Складываем значения ядром на значениях в регистрах
 							__nts_addminus4v__(first, second, layout.tail, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим ядром на значениях
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение ядром на значениях по пути простого числа кривой
 							__nts_addnist4v__(first, second, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5257,7 +5257,7 @@ namespace nts {
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение ядром на интринсиках по пути простого числа кривой
 							__nts_addnist4msvc__(first.words, second.words, result.words);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5290,16 +5290,16 @@ namespace nts {
 					if constexpr (WORDS == 4){
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
-							// Вычитание регистровым ядром
+							// Вычитаем значения регистровым ядром на значениях
 							result = __nts_subtractminus4r__(first, second, layout.tail);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание регистровым ядром по пути простого числа кривой
 							result = __nts_subtractnist4r__(first, second);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5311,16 +5311,16 @@ namespace nts {
 					if constexpr (WORDS == 4){
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
-							// Вычитание ядром на значениях
+							// Вычитаем значения ядром на значениях в регистрах
 							__nts_subtractminus4v__(first, second, layout.tail, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим ядром на значениях
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание ядром на значениях по пути простого числа кривой
 							__nts_subtractnist4v__(first, second, result);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5335,7 +5335,7 @@ namespace nts {
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание ядром на интринсиках по пути простого числа кривой
 							__nts_subtractnist4msvc__(first.words, second.words, result.words);
-							// Выводим результат
+							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
@@ -5360,11 +5360,11 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ words_t <WORDS> __nts_multiply__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
-				// Произведение
+				// Значение произведения, собираемое в регистрах
 				words_t <WORDS> result;
-				// Умножение в приёмник
+				// Умножаем значения ядром с записью произведения в приёмник
 				__nts_multiply__ <WORDS> (layout, first, second, result);
-				// Выводим произведение
+				// Возвращаем произведение, собранное в регистрах
 				return result;
 			}
 			/**
@@ -5383,11 +5383,11 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ words_t <WORDS> __nts_square__(const Modulus::layout_t & layout, const words_t <WORDS> & value) noexcept {
-				// Квадрат
+				// Значение квадрата, собираемое в регистрах
 				words_t <WORDS> result;
 				// Возведение в квадрат в приёмник
 				__nts_square__ <WORDS> (layout, value, result);
-				// Выводим квадрат
+				// Возвращаем квадрат, собранный в регистрах
 				return result;
 			}
 			/**
@@ -5407,11 +5407,11 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ words_t <WORDS> __nts_add__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
-				// Сумма
+				// Значение суммы, собираемое в регистрах
 				words_t <WORDS> result;
-				// Сложение в приёмник
+				// Складываем значения ядром с записью суммы в приёмник
 				__nts_add__ <WORDS> (layout, first, second, result);
-				// Выводим сумму
+				// Возвращаем сумму, собранную в регистрах
 				return result;
 			}
 			/**
@@ -5431,11 +5431,11 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ words_t <WORDS> __nts_subtract__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
-				// Разность
+				// Значение разности, собираемое в регистрах
 				words_t <WORDS> result;
-				// Вычитание в приёмник
+				// Вычитаем значения ядром с записью разности в приёмник
 				__nts_subtract__ <WORDS> (layout, first, second, result);
-				// Выводим разность
+				// Возвращаем разность, собранную в регистрах
 				return result;
 			}
 			/**
@@ -5456,10 +5456,10 @@ namespace nts {
 			 */
 			static __NTS_INLINE__ void __nts_choose__(const uint64_t mask, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
 				/**
-				 * Выполняем выбор слов наложением маски
+				 * Выбираем слова из двух значений наложением маски
 				 */
 				for(size_t i = 0; i < WORDS; i++)
-					// Выбираем очередное слово
+					// Выбираем очередное слово из двух значений наложением маски
 					result.words[i] = __nts_select__(mask, first.words[i], second.words[i]);
 			}
 			/**
@@ -5479,15 +5479,15 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ words_t <WORDS> __nts_choose__(const uint64_t mask, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
-				// Выбранное значение
+				// Значение, выбираемое из двух наложением маски
 				words_t <WORDS> result;
 				/**
-				 * Выполняем выбор слов наложением маски
+				 * Выбираем слова из двух значений наложением маски
 				 */
 				for(size_t i = 0; i < WORDS; i++)
-					// Выбираем очередное слово
+					// Выбираем очередное слово из двух значений наложением маски
 					result.words[i] = __nts_select__(mask, first.words[i], second.words[i]);
-				// Выводим выбранное значение
+				// Возвращаем выбранное наложением маски значение
 				return result;
 			}
 			/**
@@ -5507,13 +5507,13 @@ namespace nts {
 			 *
 			 */
 			static __NTS_INLINE__ uint64_t __nts_zero__(const words_t <WORDS> & value) noexcept {
-				// Объединение слов значения
+				// Объединяющее слово: собираем слова значения для проверки на ноль
 				uint64_t item = 0;
 				/**
-				 * Выполняем накопление слов
+				 * Накапливаем слова значения в объединяющем слове
 				 */
 				for(size_t i = 0; i < WORDS; i++)
-					// Накапливаем очередное слово
+					// Накапливаем очередное слово значения в объединяющем слове
 					item |= value.words[i];
 				// Выводим маску: старший разряд объединения с обратным знаком поднят лишь у ненулевого
 				return (0 - ((((item | (0 - item)) >> 63) ^ 0x01)));

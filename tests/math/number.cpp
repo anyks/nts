@@ -972,44 +972,44 @@ TEST(NumberTest, FoldingMulx) {
 		modulus.square(refLeft, refSquare);
 		// Значения для ядер на значениях
 		value_t first, second, outcome;
-		::memcpy(first.w, left, 32);
-		::memcpy(second.w, right, 32);
+		::memcpy(first.words, left, 32);
+		::memcpy(second.words, right, 32);
 		// Ядра сборки без ADX
 		math::kernel::__nts_multiply__ <4, false> (layout, first, second, outcome);
 		// Сличаем умножение без ADX с эталоном
-		EXPECT_EQ(::memcmp(outcome.w, refProduct.words, 32), 0) << where << ": умножение без ADX " << hex(outcome.w) << " при " << hex(refProduct.words);
+		EXPECT_EQ(::memcmp(outcome.words, refProduct.words, 32), 0) << where << ": умножение без ADX " << hex(outcome.words) << " при " << hex(refProduct.words);
 		// Возводим в квадрат без ADX
 		math::kernel::__nts_square__ <4, false> (layout, first, outcome);
 		// Сличаем квадрат без ADX с эталоном
-		EXPECT_EQ(::memcmp(outcome.w, refSquare.words, 32), 0) << where << ": квадрат без ADX " << hex(outcome.w) << " при " << hex(refSquare.words);
+		EXPECT_EQ(::memcmp(outcome.words, refSquare.words, 32), 0) << where << ": квадрат без ADX " << hex(outcome.words) << " при " << hex(refSquare.words);
 		// Ядра сборки под ADX, если машина их исполняет
 		if(kernels && adx){
 			// Умножаем на MULX
 			math::kernel::__nts_multiply__ <4, true> (layout, first, second, outcome);
 			// Сличаем умножение на MULX с эталоном
-			EXPECT_EQ(::memcmp(outcome.w, refProduct.words, 32), 0) << where << ": умножение на MULX " << hex(outcome.w) << " при " << hex(refProduct.words);
+			EXPECT_EQ(::memcmp(outcome.words, refProduct.words, 32), 0) << where << ": умножение на MULX " << hex(outcome.words) << " при " << hex(refProduct.words);
 			// Возводим в квадрат на MULX
 			math::kernel::__nts_square__ <4, true> (layout, first, outcome);
 			// Сличаем квадрат на MULX с эталоном
-			EXPECT_EQ(::memcmp(outcome.w, refSquare.words, 32), 0) << where << ": квадрат на MULX " << hex(outcome.w) << " при " << hex(refSquare.words);
+			EXPECT_EQ(::memcmp(outcome.words, refSquare.words, 32), 0) << where << ": квадрат на MULX " << hex(outcome.words) << " при " << hex(refSquare.words);
 			// На место первого сомножителя, на место второго и на место возводимого числа
 			value_t firstCopy = first;
 			// Умножаем на MULX на место первого сомножителя
 			math::kernel::__nts_multiply__ <4, true> (layout, firstCopy, second, firstCopy);
 			// Сличаем умножение на месте с эталоном
-			EXPECT_EQ(::memcmp(firstCopy.w, refProduct.words, 32), 0) << where << ": умножение на MULX на место первого сомножителя";
+			EXPECT_EQ(::memcmp(firstCopy.words, refProduct.words, 32), 0) << where << ": умножение на MULX на место первого сомножителя";
 			// Объявляем копию второго сомножителя
 			value_t secondCopy = second;
 			// Умножаем на MULX на место второго сомножителя
 			math::kernel::__nts_multiply__ <4, true> (layout, first, secondCopy, secondCopy);
 			// Сличаем умножение на месте с эталоном
-			EXPECT_EQ(::memcmp(secondCopy.w, refProduct.words, 32), 0) << where << ": умножение на MULX на место второго сомножителя";
+			EXPECT_EQ(::memcmp(secondCopy.words, refProduct.words, 32), 0) << where << ": умножение на MULX на место второго сомножителя";
 			// Объявляем копию возводимого числа
 			value_t squareCopy = first;
 			// Возводим в квадрат на MULX на место числа
 			math::kernel::__nts_square__ <4, true> (layout, squareCopy, squareCopy);
 			// Сличаем квадрат на месте с эталоном
-			EXPECT_EQ(::memcmp(squareCopy.w, refSquare.words, 32), 0) << where << ": квадрат на MULX на место числа";
+			EXPECT_EQ(::memcmp(squareCopy.words, refSquare.words, 32), 0) << where << ": квадрат на MULX на место числа";
 		}
 		// Подсчитываем выполненное сличение
 		count++;

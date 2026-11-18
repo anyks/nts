@@ -76,11 +76,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "math/number.hpp"
 #include "sys/wipe.hpp"
-
 #include "math/wide.hpp"
 #include "internal/math/kernels.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "math/number.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -90,7 +93,7 @@ using namespace std;
 /**
  * Проверяем наличие целых чисел двойной разрядности
  */
-static_assert(sizeof(void *) >= 8, "Арифметика требует машинного слова разрядностью не менее 64");
+static_assert(sizeof(void *) >= 8, "Arithmetic requires a machine word with a bit width of at least 64.");
 
 /**
  * @brief Внутренние служебные объекты
@@ -101,21 +104,25 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
 	using namespace nts::math;
-
-	// Целое число двойной разрядности: __uint128_t либо своя запись у MSVC (math/wide.hpp)
-	typedef nts::math::wide_t wide_t;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * Ядра арифметики известного количества слов и выбор слова наложением маски берутся из внутреннего заголовка
 	 */
 	using namespace nts::math::kernel;
+
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
+
+	/**
+	 * Создаём тип данных целого числа двойной разрядности: __uint128_t либо своя запись у MSVC (math/wide.hpp)
+	 */
+	using wide_t = nts::math::wide_t;
+
 	/**
 	 * @brief Функция затирания области памяти словами
 	 *
@@ -123,18 +130,18 @@ namespace {
 	 *       указателя молча увела бы к нему всякий вызов, где затирается число, а
 	 *       размер подан в байтах
 	 *
-	 * @param data  затираемая область памяти
-	 * @param count количество затираемых слов области памяти
-	 *
 	 * @note Затирание словами дешевле побайтового ровно во столько раз, сколько байтов
 	 *       в слове: числа лежат словами, и байтовый перебор здесь ничего не даёт
 	 *
+	 * @param data  затираемая область памяти
+	 * @param count количество затираемых слов области памяти
+	 *
 	 */
-	static void clean(uint64_t * data, const size_t count) noexcept {
+	static __NTS_INLINE__ void __nts_clean__(uint64_t * data, const size_t count) noexcept {
 		// Получаем изменчивый указатель на затираемую область памяти
 		volatile uint64_t * item = static_cast <volatile uint64_t *> (data);
 		/**
-		 * Выполняем перебор слов затираемой области памяти
+		 * Перебираем слова затираемой области памяти
 		 */
 		for(size_t i = 0; i < count; i++)
 			// Обнуляем очередное слово области памяти
@@ -150,11 +157,11 @@ namespace {
 	 * @return       перенос из старшего слова суммы
 	 *
 	 */
-	static uint64_t increase(const uint64_t * first, const uint64_t * second, uint64_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_increase__(const uint64_t * first, const uint64_t * second, uint64_t * result, const size_t size) noexcept {
 		// Перенос из очередного слова суммы
 		uint64_t carry = 0;
 		/**
-		 * Выполняем перебор складываемых слов от младшего к старшему
+		 * Перебираем складываемые слова от младшего к старшему
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Складываем очередные слова с переносом
@@ -177,11 +184,11 @@ namespace {
 	 * @return       заём из старшего слова разности
 	 *
 	 */
-	static uint64_t decrease(const uint64_t * first, const uint64_t * second, uint64_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_decrease__(const uint64_t * first, const uint64_t * second, uint64_t * result, const size_t size) noexcept {
 		// Заём в очередное слово разности
 		uint64_t borrow = 0;
 		/**
-		 * Выполняем перебор вычитаемых слов от младшего к старшему
+		 * Перебираем вычитаемые слова от младшего к старшему
 		 */
 		for(size_t i = 0; i < size; i++){
 			// Вычитаем очередные слова с заёмом
@@ -199,7 +206,7 @@ namespace {
 	 *
 	 * @details Вычитание выполняется всегда, а нужный из двух итогов выбирается
 	 *          наложением маски: ветвление по значению выдало бы соотношение
-	 *          уменьшаемого и модуля временем работы
+	 *          уменьшаемого и модуля временем работы.
 	 *
 	 * @param value   уменьшаемое, замещаемое итогом вычитания
 	 * @param modulus вычитаемый модуль
@@ -207,25 +214,535 @@ namespace {
 	 * @param size    количество слов модуля
 	 *
 	 */
-	static void lessen(uint64_t * value, const uint64_t * modulus, const uint64_t carry, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_lessen__(uint64_t * value, const uint64_t * modulus, const uint64_t carry, const size_t size) noexcept {
 		// Итог вычитания модуля из уменьшаемого
 		uint64_t buffer[NUMBER_WORDS];
 		// Вычитание модуля из уменьшаемого
-		const uint64_t borrow = decrease(value, modulus, buffer, size);
+		const uint64_t borrow = __nts_decrease__(value, modulus, buffer, size);
 		/**
 		 * Модуль вычитается, когда уменьшаемое его не меньше: либо вычитание прошло
 		 * без заёма, либо уменьшаемое и без того вышло за разрядность своих слов
 		 */
 		const uint64_t mask = (0 - (carry | (borrow ^ 0x01)));
 		/**
-		 * Выполняем перебор слов уменьшаемого
+		 * Перебираем слова уменьшаемого
 		 */
 		for(size_t i = 0; i < size; i++)
 			// Выбираем очередное слово итога наложением маски
 			value[i] = __nts_select__(mask, buffer[i], value[i]);
 		// Затирание итога вычитания модуля
-		clean(buffer, size);
+		__nts_clean__(buffer, size);
 	}
+};
+
+/**
+ * @brief Внутренние служебные объекты обращения по модулю
+ *
+ */
+namespace {
+	/**
+	 * Обращение идёт алгоритмом Бернстайна и Янга (шаги деления divstep) и требует
+	 * знакового целого двойной разрядности для накопления произведений порций: у MSVC
+	 * такого типа нет, и там остаётся возведение в степень окнами показателя
+	 */
+	#if !defined(_MSC_VER)
+		/**
+		 * Количество разрядов порции: числа обращения держатся порциями по 62 разряда в знаковых
+		 * словах, оттого произведение порции на элемент матрицы переходов (по модулю не
+		 * больше 2^62) с накоплением двух таких произведений, произведения порции модуля на
+		 * множитель приведения и переноса укладывается в знаковое целое двойной разрядности
+		 */
+		static constexpr size_t SLICE = 62;
+		/**
+		 * Маска разрядов порции
+		 */
+		static constexpr uint64_t SLICE_MASK = ((static_cast <uint64_t> (1) << SLICE) - 1);
+
+		/**
+		 * Знаковое целое двойной разрядности
+		 */
+		using signed_t = __int128_t;
+		
+		/**
+		 * @brief Шаблон структуры числа, разложенное на порции по 62 разряда
+		 *
+		 * @tparam LIMBS тип данных количества разрядов
+		 *
+		 */
+		template <size_t LIMBS>
+		/**
+		 * @brief Структура числа, разложенное на порции по 62 разряда
+		 *
+		 * @note Младшие порции лежат в [0, 2^62), а старшая знаковая: так число любого знака
+		 *       держится без отдельного признака, и перенос между порциями идёт знаковым
+		 *       сдвигом
+		 *
+		 */
+		struct Sliced {
+			// Порции разрядов от младшей к старшей
+			int64_t limbs[LIMBS];
+		};
+		/**
+		 * @brief Шаблон структуры числа, разложенное на порции по 62 разряда
+		 *
+		 * @tparam LIMBS тип данных количества разрядов
+		 *
+		 */
+		template <size_t LIMBS>
+		/**
+		 * @brief Создаём новый тип данных структуры числа
+		 *
+		 */
+		using sliced_t = Sliced <LIMBS>;
+
+		/**
+		 * @brief Структура матрицы переходов за проход из 62 шагов деления
+		 *
+		 * @note Элементы матрицы умножены на 2^62: за всякий шаг определитель удваивается, и
+		 *       после 62 шагов произведение матрицы на пару чисел делится на 2^62 нацело.
+		 *       Сумма модулей элементов строки не превышает 2^62, оттого произведение элемента
+		 *       на порцию укладывается в знаковое целое двойной разрядности
+		 *
+		 */
+		typedef struct Transition {
+			// Множитель первого числа в первой строке
+			int64_t u = 0;
+			// Множитель второго числа в первой строке
+			int64_t v = 0;
+			// Множитель первого числа во второй строке
+			int64_t q = 0;
+			// Множитель второго числа во второй строке
+			int64_t r = 0;
+		} transition_t;
+
+		/**
+		 * @brief Функция сокрытия маски от собирателя
+		 *
+		 * @details Собиратель видит, что маска есть ноль либо все единицы, и заменяет
+		 *          наложение маски ветвлением по её значению: clang на M4 ставил tbz по
+		 *          знаку сомножителя в приведении к отрезку. Пустая вставка ассемблера,
+		 *          берущая маску на вход и на выход, лишает его знания о значении, и
+		 *          наложение остаётся наложением; команд вставка не порождает.
+		 *
+		 * @param mask скрываемая маска
+		 * @return     та же маска, о значении которой собиратель ничего не знает
+		 *
+		 */
+		static __NTS_INLINE__ int64_t __nts_hide__(int64_t mask) noexcept {
+			// Пустая вставка с маской на входе и выходе
+			__asm__ __volatile__("" : "+r"(mask));
+			// Выводим маску
+			return mask;
+		}
+		/**
+		 * @brief Функция выполнения 62 шагов деления по младшим разрядам пары чисел
+		 *
+		 * @details Шаг деления Бернстайна и Янга над парой (f, g) при нечётном f: если
+		 *          δ > 0 и g нечётно, пара обращается в (g, (g - f) / 2) при δ := 1 - δ,
+		 *          иначе в (f, (g + (g mod 2)·f) / 2) при δ := 1 + δ. Решение всякого шага
+		 *          зависит лишь от младших разрядов чисел, оттого 62 шага берутся по одному
+		 *          слову, а матрица переходов затем применяется к числам целиком. Величина
+		 *          η = -δ держится вместо δ: знак её и есть признак первого пути.
+		 *
+		 * @note Ветвлений нет: выбор пути на всяком шаге идёт наложением масок, количество шагов
+		 *       постоянно, и время работы от значений чисел не зависит
+		 *
+		 * @param eta   величина η перед проходом
+		 * @param first младшее слово первого (нечётного) числа
+		 * @param second младшее слово второго числа
+		 * @param result место, в которое помещается матрица переходов прохода
+		 * @return      величина η после прохода
+		 *
+		 */
+		static __NTS_INLINE__ int64_t __nts_divsteps__(int64_t eta, const uint64_t first, const uint64_t second, transition_t & result) noexcept {
+			// Элементы матрицы переходов: единичная матрица
+			uint64_t u = 1, v = 0, q = 0, r = 1;
+			// Младшие слова пары чисел
+			uint64_t f = first, g = second;
+			/**
+			 * Прогоняем шаги деления
+			 */
+			for(size_t i = 0; i < SLICE; i++){
+				// Маска первого пути: η отрицательна
+				uint64_t swap = static_cast <uint64_t> (__nts_hide__(eta >> 63));
+				// Маска нечётности второго числа
+				const uint64_t odd = static_cast <uint64_t> (__nts_hide__(0 - static_cast <int64_t> (g & 0x01)));
+				// Первое число и его строка матрицы со сменой знака при первом пути
+				const uint64_t x = ((f ^ swap) - swap);
+				// Первая строка матрицы со сменой знака при первом пути
+				const uint64_t y = ((u ^ swap) - swap);
+				// Вторая строка матрицы со сменой знака при первом пути
+				const uint64_t z = ((v ^ swap) - swap);
+				// Прибавляем первое число ко второму при нечётном втором
+				g += (x & odd);
+				// Прибавляем первую строку матрицы при нечётном втором числе
+				q += (y & odd);
+				// Прибавляем вторую строку матрицы при нечётном втором числе
+				r += (z & odd);
+				// Первый путь берётся при отрицательной η и нечётном втором числе
+				swap &= odd;
+				// Величина η: на первом пути -η - 1, на прочих η - 1
+				eta = static_cast <int64_t> ((static_cast <uint64_t> (eta) ^ swap) - (swap + 1));
+				// На первом пути первым числом становится прежнее второе
+				f += (g & swap);
+				// На первом пути первой строкой становится прежняя вторая
+				u += (q & swap);
+				// На первом пути второй строкой становится прежняя вторая
+				v += (r & swap);
+				// Второе число делится на два, а строка первого удваивается в счёт общего множителя
+				g >>= 1;
+				// Удваиваем первую строку в счёт общего множителя
+				u <<= 1;
+				// Удваиваем вторую строку в счёт общего множителя
+				v <<= 1;
+			}
+			// Записываем матрицу переходов
+			result.u = static_cast <int64_t> (u);
+			// Записываем второй член матрицы переходов
+			result.v = static_cast <int64_t> (v);
+			// Записываем третий член матрицы переходов
+			result.q = static_cast <int64_t> (q);
+			// Записываем четвёртый член матрицы переходов
+			result.r = static_cast <int64_t> (r);
+			// Выводим величину η
+			return eta;
+		}
+		/**
+		 * @brief Шаблон функции применения матрицы переходов к паре чисел деления
+		 *
+		 * @tparam LIMBS тип данных количества разрядов
+		 *
+		 */
+		template <size_t LIMBS>
+		/**
+		 * @brief Функция применения матрицы переходов к паре чисел деления
+		 *
+		 * @note Произведение делится на 2^62 нацело: младшие 62 разряда нулевые и отбрасываются
+		 *       сдвигом, а всякая следующая порция итога есть порция произведения на одну выше
+		 *
+		 * @param f первое число деления; после применения содержит первую строку произведения
+		 * @param g второе число деления; после применения содержит вторую строку произведения
+		 * @param t матрица переходов прохода
+		 *
+		 */
+		static __NTS_INLINE__ void __nts_advance__(sliced_t <LIMBS> & f, sliced_t <LIMBS> & g, const transition_t & t) noexcept {
+			// Накопители строк произведения
+			signed_t accF = ((static_cast <signed_t> (t.u) * f.limbs[0]) + (static_cast <signed_t> (t.v) * g.limbs[0]));
+			// Накопитель второй строки произведения
+			signed_t accG = ((static_cast <signed_t> (t.q) * f.limbs[0]) + (static_cast <signed_t> (t.r) * g.limbs[0]));
+			// Отбрасываем нулевые младшие разряды произведения
+			accF >>= SLICE;
+			// Отбрасываем нулевые младшие разряды второго накопителя
+			accG >>= SLICE;
+			/**
+			 * Перебираем порции от первой к старшей
+			 */
+			for(size_t i = 1; i < LIMBS; i++){
+				// Накапливаем произведения очередных порций
+				accF += ((static_cast <signed_t> (t.u) * f.limbs[i]) + (static_cast <signed_t> (t.v) * g.limbs[i]));
+				// Накапливаем произведения очередных порций второй строки
+				accG += ((static_cast <signed_t> (t.q) * f.limbs[i]) + (static_cast <signed_t> (t.r) * g.limbs[i]));
+				// Записываем порции итога на одну ниже
+				f.limbs[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (accF) & SLICE_MASK);
+				// Записываем вторую порцию итога на одну ниже
+				g.limbs[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (accG) & SLICE_MASK);
+				// Переносим старшие разряды накопителей
+				accF >>= SLICE;
+				// Переносим старшие разряды второго накопителя
+				accG >>= SLICE;
+			}
+			// Старшие порции итога есть остатки накопителей
+			f.limbs[LIMBS - 1] = static_cast <int64_t> (accF);
+			// Старшая порция второй строки есть остаток второго накопителя
+			g.limbs[LIMBS - 1] = static_cast <int64_t> (accG);
+		}
+		/**
+		 * @brief Шаблон функции применения матрицы переходов к паре сомножителей обращения по модулю
+		 *
+		 * @tparam LIMBS тип данных количества разрядов
+		 *
+		 */
+		template <size_t LIMBS>
+		/**
+		 * @brief Функция применения матрицы переходов к паре сомножителей обращения по модулю
+		 *
+		 * @details Сомножители держат соотношения f ≡ d·x и g ≡ e·x по модулю: деление
+		 *          произведения на 2^62 здесь идёт по модулю - к произведению прибавляется
+		 *          модуль, умноженный на такой множитель, чтобы младшие 62 разряда суммы
+		 *          обратились в ноль, и лишь затем сумма сдвигается.
+		 *
+		 * @note Множители модуля начинаются со строк матрицы при отрицательных сомножителях:
+		 *       так сомножители держатся в пределах (-2·модуль, модуль) весь ход обращения
+		 *
+		 * @param d       первый сомножитель; после применения содержит первую строку итога
+		 * @param e       второй сомножитель; после применения содержит вторую строку итога
+		 * @param t       матрица переходов прохода
+		 * @param modulus модуль порциями
+		 * @param inverse обратное к модулю по 2^62
+		 *
+		 */
+		static __NTS_INLINE__ void __nts_advance__(sliced_t <LIMBS> & d, sliced_t <LIMBS> & e, const transition_t & t, const sliced_t <LIMBS> & modulus, const uint64_t inverse) noexcept {
+			// Маски знаков сомножителей
+			const int64_t signD = __nts_hide__(d.limbs[LIMBS - 1] >> 63);
+			// Маска знака второго сомножителя
+			const int64_t signE = __nts_hide__(e.limbs[LIMBS - 1] >> 63);
+			// Множители модуля: строки матрицы при отрицательных сомножителях
+			int64_t modD = ((t.u & signD) + (t.v & signE));
+			// Множитель модуля для второй строки
+			int64_t modE = ((t.q & signD) + (t.r & signE));
+			// Накопители строк произведения
+			signed_t accD = ((static_cast <signed_t> (t.u) * d.limbs[0]) + (static_cast <signed_t> (t.v) * e.limbs[0]));
+			// Накопитель второй строки произведения
+			signed_t accE = ((static_cast <signed_t> (t.q) * d.limbs[0]) + (static_cast <signed_t> (t.r) * e.limbs[0]));
+			// Уточняем множители модуля так, чтобы младшие разряды сумм обратились в ноль
+			modD -= static_cast <int64_t> (((inverse * static_cast <uint64_t> (accD)) + static_cast <uint64_t> (modD)) & SLICE_MASK);
+			// Уточняем множитель модуля для второй строки
+			modE -= static_cast <int64_t> (((inverse * static_cast <uint64_t> (accE)) + static_cast <uint64_t> (modE)) & SLICE_MASK);
+			// Прибавляем произведения младшей порции модуля на множители
+			accD += (static_cast <signed_t> (modulus.limbs[0]) * modD);
+			// Прибавляем произведение младшей порции модуля на второй множитель
+			accE += (static_cast <signed_t> (modulus.limbs[0]) * modE);
+			// Отбрасываем нулевые младшие разряды сумм
+			accD >>= SLICE;
+			// Отбрасываем нулевые младшие разряды второй суммы
+			accE >>= SLICE;
+			/**
+			 * Перебираем порции от первой к старшей
+			 */
+			for(size_t i = 1; i < LIMBS; i++){
+				// Накапливаем произведения очередных порций сомножителей и модуля
+				accD += ((static_cast <signed_t> (t.u) * d.limbs[i]) + (static_cast <signed_t> (t.v) * e.limbs[i]) + (static_cast <signed_t> (modulus.limbs[i]) * modD));
+				// Накапливаем произведения очередных порций второй строки и модуля
+				accE += ((static_cast <signed_t> (t.q) * d.limbs[i]) + (static_cast <signed_t> (t.r) * e.limbs[i]) + (static_cast <signed_t> (modulus.limbs[i]) * modE));
+				// Записываем порции итога на одну ниже
+				d.limbs[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (accD) & SLICE_MASK);
+				// Записываем вторую порцию итога на одну ниже
+				e.limbs[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (accE) & SLICE_MASK);
+				// Переносим старшие разряды накопителей
+				accD >>= SLICE;
+				// Переносим старшие разряды второго накопителя
+				accE >>= SLICE;
+			}
+			// Старшие порции итога есть остатки накопителей
+			d.limbs[LIMBS - 1] = static_cast <int64_t> (accD);
+			// Старшая порция второй строки есть остаток второго накопителя
+			e.limbs[LIMBS - 1] = static_cast <int64_t> (accE);
+		}
+		/**
+		 * @brief Шаблон функции приведения сомножителя обращения к отрезку [0, модуль)
+		 *
+		 * @tparam LIMBS тип данных количества разрядов
+		 *
+		 */
+		template <size_t LIMBS>
+		/**
+		 * @brief Функция приведения сомножителя обращения к отрезку [0, модуль)
+		 *
+		 * @note Модуль прибавляется при отрицательном сомножителе, затем знак меняется по
+		 *       переданному, и модуль прибавляется вновь при отрицательном итоге: оба
+		 *       прибавления и смена знака идут наложением масок без ветвлений
+		 *
+		 * @param value   приводимый сомножитель в пределах (-2·модуль, модуль)
+		 * @param sign    число, знак которого сомножителю передаётся
+		 * @param modulus модуль порциями
+		 *
+		 */
+		static __NTS_INLINE__ void __nts_settle__(sliced_t <LIMBS> & value, const int64_t sign, const sliced_t <LIMBS> & modulus) noexcept {
+			// Маска отрицательного сомножителя
+			int64_t negative = __nts_hide__(value.limbs[LIMBS - 1] >> 63);
+			/**
+			 * Прибавляем модуль к отрицательному сомножителю
+			 */
+			for(size_t i = 0; i < LIMBS; i++)
+				// Прибавляем порцию модуля под маской
+				value.limbs[i] += (modulus.limbs[i] & negative);
+			// Маска смены знака
+			const int64_t flip = __nts_hide__(sign >> 63);
+			/**
+			 * Меняем знак сомножителя по маске
+			 */
+			for(size_t i = 0; i < LIMBS; i++)
+				// Меняем знак порции под маской
+				value.limbs[i] = ((value.limbs[i] ^ flip) - flip);
+			/**
+			 * Проносим переносы между порциями
+			 */
+			for(size_t i = 0; (i + 1) < LIMBS; i++){
+				// Переносим старшие разряды порции в следующую
+				value.limbs[i + 1] += (value.limbs[i] >> SLICE);
+				// Оставляем в порции её разряды
+				value.limbs[i] &= static_cast <int64_t> (SLICE_MASK);
+			}
+			// Маска отрицательного итога
+			negative = __nts_hide__(value.limbs[LIMBS - 1] >> 63);
+			/**
+			 * Прибавляем модуль к отрицательному итогу
+			 */
+			for(size_t i = 0; i < LIMBS; i++)
+				// Прибавляем порцию модуля под маской
+				value.limbs[i] += (modulus.limbs[i] & negative);
+			/**
+			 * Проносим переносы между порциями
+			 */
+			for(size_t i = 0; (i + 1) < LIMBS; i++){
+				// Переносим старшие разряды порции в следующую
+				value.limbs[i + 1] += (value.limbs[i] >> SLICE);
+				// Оставляем в порции её разряды
+				value.limbs[i] &= static_cast <int64_t> (SLICE_MASK);
+			}
+		}
+		/**
+		 * @brief Шаблон функции разложения числа из слов на порции
+		 *
+		 * @tparam WORDS тип максимального количества слов
+		 * @tparam LIMBS тип данных количества разрядов
+		 *
+		 */
+		template <size_t WORDS, size_t LIMBS>
+		/**
+		 * @brief Функция разложения числа из слов на порции
+		 *
+		 * @param words  слова числа от младшего к старшему
+		 * @param result место, в которое помещаются порции числа
+		 *
+		 */
+		static __NTS_INLINE__ void __nts_slice__(const uint64_t * words, sliced_t <LIMBS> & result) noexcept {
+			/**
+			 * Перебираем порции
+			 */
+			for(size_t i = 0; i < LIMBS; i++){
+				// Номер младшего разряда порции, его слово и смещение в слове
+				const size_t bit = (SLICE * i), word = (bit / 64), offset = (bit % 64);
+				// Разряды порции из своего слова
+				uint64_t item = (words[word] >> offset);
+				// Если порция лежит через границу слова, добираем разряды из следующего
+				if((offset > (64 - SLICE)) && ((word + 1) < WORDS))
+					// Добираем старшие разряды порции
+					item |= (words[word + 1] << (64 - offset));
+				// Записываем порцию
+				result.limbs[i] = static_cast <int64_t> (item & SLICE_MASK);
+			}
+		}
+		/**
+		 * @brief Шаблон функции сборки числа из порций в слова
+		 *
+		 * @tparam WORDS тип максимального количества слов
+		 * @tparam LIMBS тип данных количества разрядов
+		 *
+		 */
+		template <size_t WORDS, size_t LIMBS>
+		/**
+		 * @brief Функция сборки числа из порций в слова
+		 *
+		 * @param value  порции числа, приведённого к отрезку [0, модуль)
+		 * @param result место, в которое помещаются слова числа
+		 *
+		 */
+		static __NTS_INLINE__ void __nts_gather__(const sliced_t <LIMBS> & value, uint64_t * result) noexcept {
+			/**
+			 * Обнуляем слова числа
+			 */
+			for(size_t i = 0; i < WORDS; i++)
+				// Обнуляем очередное слово
+				result[i] = 0;
+			/**
+			 * Перебираем порции
+			 */
+			for(size_t i = 0; i < LIMBS; i++){
+				// Номер младшего разряда порции, его слово и смещение в слове
+				const size_t bit = (SLICE * i), word = (bit / 64), offset = (bit % 64);
+				// Если слово порции лежит в числе
+				if(word < WORDS)
+					// Записываем разряды порции в своё слово
+					result[word] |= (static_cast <uint64_t> (value.limbs[i]) << offset);
+				// Если порция лежит через границу слова, дописываем разряды в следующее
+				if((offset > (64 - SLICE)) && ((word + 1) < WORDS))
+					// Дописываем старшие разряды порции
+					result[word + 1] |= (static_cast <uint64_t> (value.limbs[i]) >> (64 - offset));
+			}
+		}
+		/**
+		 * @brief Шаблон функции обращения числа по модулю алгоритмом Бернстайна и Янга
+		 *
+		 * @tparam WORDS тип максимального количества слов
+		 *
+		 */
+		template <size_t WORDS>
+		/**
+		 * @brief Функция обращения числа по модулю алгоритмом Бернстайна и Янга
+		 *
+		 * @details Пара (f, g) = (модуль, число) ведётся шагами деления до g = 0, при котором
+		 *          f = ±1, а пара сомножителей (d, e) = (0, 1) ведётся теми же матрицами
+		 *          переходов по модулю: соотношение f ≡ d·x держится на всяком шаге, оттого
+		 *          по окончании d ≡ ±x⁻¹. Количество шагов, за которое g обращается в ноль у чисел
+		 *          до d разрядов, ограничено сверху величиной (49·d + 57) / 17 (теорема 11.2
+		 *          Бернстайна и Янга «Fast constant-time gcd computation and modular
+		 *          inversion», 2019): 741 на 256 разрядах и 1479 на 512, отсюда 12 и 24 прохода
+		 *          по 62 шага. Случайные числа обходятся десятью и восемнадцатью проходами
+		 *          (щуп 22.09.2026 по 20 000 и 5 000 чисел на модуль), запас задан теоремой.
+		 *
+		 * @note Число проходов задано лишь разрядностью модуля, ветвлений по значениям нет:
+		 *       время работы от обращаемого числа не зависит. Обратное к нулю есть ноль
+		 *
+		 * @param modulus слова модуля от младшего к старшему
+		 * @param factor  множитель приведения Монтгомери: обратное к младшему слову модуля
+		 *                со сменой знака
+		 * @param value   обращаемое число из отрезка [0, модуль)
+		 * @param result  место, в которое помещается обратное число из отрезка [0, модуль)
+		 *
+		 */
+		static __NTS_INLINE__ void __nts_safegcd__(const uint64_t * modulus, const uint64_t factor, const nts::math::number_t & value, nts::math::number_t & result) noexcept {
+			// Количество порций: одна порция запаса под знак и рост сомножителей до двух модулей
+			constexpr size_t LIMBS = (WORDS + 1);
+			// Граница количества шагов деления по теореме при d = 64·WORDS
+			constexpr size_t STEPS = (((49 * 64 * WORDS) + 57) / 17);
+			// Число проходов по 62 шага, накрывающее границу
+			constexpr size_t BATCHES = ((STEPS + (SLICE - 1)) / SLICE);
+			// Модуль порциями
+			sliced_t <LIMBS> m;
+			// Разложение модуля на порции
+			__nts_slice__ <WORDS, LIMBS> (modulus, m);
+			// Пара чисел деления: модуль и обращаемое число
+			sliced_t <LIMBS> f = m, g;
+			// Разложение обращаемого числа на порции
+			__nts_slice__ <WORDS, LIMBS> (value.words, g);
+			// Пара сомножителей обращения: ноль и единица
+			sliced_t <LIMBS> d = {}, e = {};
+			// Записываем единицу вторым сомножителем
+			e.limbs[0] = 1;
+			// Обратное к модулю по 2^62: множитель приведения без смены знака и старших разрядов
+			const uint64_t inverse = ((0 - factor) & SLICE_MASK);
+			// Величина η = -δ при исходной δ = 1
+			int64_t eta = -1;
+			// Матрица переходов прохода
+			transition_t t;
+			/**
+			 * Прогоняем проходы шагов деления
+			 */
+			for(size_t i = 0; i < BATCHES; i++){
+				// 62 шага деления по младшим порциям пары чисел
+				eta = __nts_divsteps__(eta, static_cast <uint64_t> (f.limbs[0]), static_cast <uint64_t> (g.limbs[0]), t);
+				// Применяем матрицу переходов к сомножителям по модулю
+				__nts_advance__ <LIMBS> (d, e, t, m, inverse);
+				// Применяем матрицу переходов к паре чисел деления
+				__nts_advance__ <LIMBS> (f, g, t);
+			}
+			// Приводим первый сомножитель к отрезку [0, модуль) со знаком первого числа деления
+			__nts_settle__ <LIMBS> (d, f.limbs[LIMBS - 1], m);
+			// Обнуление обратного числа: слова выше ширины модуля нулевые
+			result = nts::math::number_t();
+			// Сборка обратного числа из порций
+			__nts_gather__ <WORDS, LIMBS> (d, result.words);
+			// Затирание сомножителей обращения
+			wipe(&d, sizeof(d));
+			wipe(&e, sizeof(e));
+			// Затирание пары чисел деления
+			wipe(&f, sizeof(f));
+			wipe(&g, sizeof(g));
+			// Затирание матрицы переходов
+			wipe(&t, sizeof(t));
+		}
+	#endif
 };
 
 /**
@@ -233,6 +750,7 @@ namespace {
  *
  */
 nts::math::Number::Number() noexcept : words{} {}
+
 /**
  * @brief Метод проверки готовности арифметики к работе
  *
@@ -251,7 +769,11 @@ bool nts::math::Modulus::ready() const noexcept {
  */
 nts::math::Modulus::layout_t nts::math::Modulus::layout() const noexcept {
 	// Собираем устройство модуля
-	const layout_t result = {this->_form, this->_words, this->_factor, this->_tail, this->_modulus.words};
+	const layout_t result = {
+		this->_form, this->_words,
+		this->_factor, this->_tail,
+		this->_modulus.words
+	};
 	// Выводим устройство модуля
 	return result;
 }
@@ -284,7 +806,7 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 	// Запоминаем размер модуля в байтах
 	this->_size = modulus.size;
 	/**
-	 * Выполняем разбор модуля от младшего байта к старшему
+	 * Разбираем модуль от младшего байта к старшему
 	 */
 	for(size_t i = 0; i < modulus.size; i++){
 		// Извлекаем очередной байт модуля от его конца
@@ -307,13 +829,13 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 		return false;
 	}
 	/**
-	 * Выполняем выработку обратного к младшему слову модуля значения приёмом Ньютона:
+	 * Вырабатываем обратное к младшему слову модуля значение приёмом Ньютона:
 	 * всякий шаг удваивает количество верных разрядов, оттого шести шагов довольно на все
 	 * шестьдесят четыре разряда слова
 	 */
 	uint64_t factor = 1;
 	/**
-	 * Выполняем уточнение обратного значения
+	 * Уточняем обратное значение
 	 */
 	for(size_t i = 0; i < 6; i++)
 		// Очередной шаг уточнения обратного значения
@@ -341,9 +863,12 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 		// Признак модуля вида 2^(64·слов) - c
 		bool minus = (this->_modulus.words[0] >= 0xFFFFFFFF00000000ULL);
 		// Признак модуля вида 2^(64·слов - 1) + c
-		bool plus = ((this->_modulus.words[this->_words - 1] == 0x8000000000000000ULL) && (this->_modulus.words[0] < 0x100000000ULL));
+		bool plus = (
+			(this->_modulus.words[this->_words - 1] == 0x8000000000000000ULL) &&
+			(this->_modulus.words[0] < 0x100000000ULL)
+		);
 		/**
-		 * Выполняем сличение средних слов модуля
+		 * Сличаем средние слова модуля
 		 */
 		for(size_t i = 1; i < this->_words; i++){
 			// Старшие слова модуля вида 2^k - c обязаны состоять из единиц
@@ -370,7 +895,7 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 			// Записываем удвоенный хвост модуля
 			twice.words[0] = (this->_tail * 2);
 			// Основание разрядной сетки сравнимо с модулем без удвоенного хвоста
-			decrease(this->_modulus.words, twice.words, this->_shift.words, this->_words);
+			__nts_decrease__(this->_modulus.words, twice.words, this->_shift.words, this->_words);
 		}
 	}
 	// Записываем единицу основой квадрата основания области Монтгомери
@@ -382,7 +907,7 @@ bool nts::math::Modulus::start(const view_t & modulus) noexcept {
 	 */
 	if((this->_form == form_t::GENERAL) || (this->_form == form_t::NIST)){
 		/**
-		 * Выполняем удвоение значения по модулю
+		 * Удваиваем значение по модулю
 		 */
 		for(size_t i = 0; i < (this->_words * 128); i++)
 			// Очередное удвоение значения
@@ -408,14 +933,14 @@ void nts::math::Modulus::clear() noexcept {
 	wipe(this->_shift.words, sizeof(this->_shift.words));
 	// Сбрасываем хвост модуля
 	this->_tail = 0;
-	// Сбрасываем вид модуля
-	this->_form = form_t::GENERAL;
 	// Сбрасываем размер модуля в байтах
 	this->_size = 0;
 	// Сбрасываем количество слов модуля
 	this->_words = 0;
 	// Снимаем признак того, что модуль установлен
 	this->_ready = false;
+	// Сбрасываем вид модуля
+	this->_form = form_t::GENERAL;
 }
 /**
  * @brief Метод разбора числа из потока байтов
@@ -433,7 +958,7 @@ bool nts::math::Modulus::load(const view_t & data, number_t & result) const noex
 		// Выводим отказ разбора числа
 		return false;
 	/**
-	 * Выполняем разбор числа от младшего байта к старшему
+	 * Разбираем число от младшего байта к старшему
 	 */
 	for(size_t i = 0; i < data.size; i++){
 		// Извлекаем очередной байт числа от его конца
@@ -444,9 +969,9 @@ bool nts::math::Modulus::load(const view_t & data, number_t & result) const noex
 	// Итог вычитания модуля из разобранного числа
 	uint64_t buffer[NUMBER_WORDS];
 	// Вычитание модуля из разобранного числа
-	const uint64_t borrow = decrease(result.words, this->_modulus.words, buffer, this->_words);
+	const uint64_t borrow = __nts_decrease__(result.words, this->_modulus.words, buffer, this->_words);
 	// Затирание итога вычитания модуля
-	clean(buffer, this->_words);
+	__nts_clean__(buffer, this->_words);
 	// Если разобранное число оказалось не меньше модуля
 	if(borrow == 0){
 		// Обнуление разобранного числа
@@ -494,14 +1019,14 @@ bool nts::math::Modulus::reduce(const view_t & data, number_t & result) const no
 	 * оттого прочие полны, и умножений на весь поток выходит по три на кусок
 	 */
 	for(size_t offset = 0; offset < data.size;){
+		// Очередной кусок потока числом
+		number_t item;
 		// Количество байтов, остающихся в потоке
 		const size_t rest = (data.size - offset);
 		// Количество байтов очередного куска: первый кусок несёт остаток от деления на сетку
 		const size_t count = (((rest % chunk) == 0) ? chunk : (rest % chunk));
-		// Очередной кусок потока числом
-		number_t item;
 		/**
-		 * Выполняем разбор куска от младшего байта к старшему
+		 * Разбираем кусок от младшего байта к старшему
 		 */
 		for(size_t i = 0; i < count; i++){
 			// Извлекаем очередной байт куска от его конца
@@ -516,7 +1041,7 @@ bool nts::math::Modulus::reduce(const view_t & data, number_t & result) const no
 		 */
 		if((this->_form == form_t::MINUS) || (this->_form == form_t::PLUS))
 			// Условное вычитание модуля
-			lessen(item.words, this->_modulus.words, 0, this->_words);
+			__nts_lessen__(item.words, this->_modulus.words, 0, this->_words);
 		// Иначе приводим кусок умножениями
 		else {
 			// Умножение куска на квадрат основания области Монтгомери
@@ -565,7 +1090,7 @@ bool nts::math::Modulus::store(const number_t & value, uint8_t * data, const siz
 		// Выводим отказ записи числа
 		return false;
 	/**
-	 * Выполняем перебор слов записываемого числа от старшего к младшему
+	 * Перебираем слова записываемого числа от старшего к младшему
 	 */
 	for(size_t i = size; i > 0; i--){
 		// Определяем место очередного байта числа от его конца
@@ -583,7 +1108,7 @@ bool nts::math::Modulus::store(const number_t & value, uint8_t * data, const siz
 		// Если старший байт за пределами места не нулевой
 		if(((value.words[index / 8] >> ((index % 8) * 8)) & 0xFF) != 0){
 			/**
-			 * Выполняем затирание усечённой записи
+			 * Затираем усечённую запись
 			 */
 			for(size_t i = 0; i < size; i++)
 				// Обнуляем байт усечённой записи
@@ -619,7 +1144,7 @@ bool nts::math::Modulus::zero(const number_t & value) const noexcept {
 	// Собираемое объединение слов проверяемого числа
 	uint64_t item = 0;
 	/**
-	 * Выполняем перебор слов проверяемого числа
+	 * Перебираем слова проверяемого числа
 	 */
 	for(size_t i = 0; i < this->_words; i++)
 		// Собираем объединение слов проверяемого числа
@@ -639,7 +1164,7 @@ bool nts::math::Modulus::equal(const number_t & first, const number_t & second) 
 	// Собираемое расхождение сличаемых чисел
 	uint64_t item = 0;
 	/**
-	 * Выполняем перебор слов сличаемых чисел
+	 * Перебираем слова сличаемых чисел
 	 */
 	for(size_t i = 0; i < this->_words; i++)
 		// Собираем расхождение очередных слов сличаемых чисел
@@ -710,9 +1235,9 @@ void nts::math::Modulus::add(const number_t & first, const number_t & second, nu
 		return;
 	}
 	// Сложение слагаемых
-	const uint64_t carry = increase(first.words, second.words, result.words, this->_words);
+	const uint64_t carry = __nts_increase__(first.words, second.words, result.words, this->_words);
 	// Приведение суммы по модулю
-	lessen(result.words, this->_modulus.words, carry, this->_words);
+	__nts_lessen__(result.words, this->_modulus.words, carry, this->_words);
 }
 /**
  * @brief Метод вычитания чисел по модулю
@@ -737,19 +1262,19 @@ void nts::math::Modulus::subtract(const number_t & first, const number_t & secon
 		return;
 	}
 	// Вычитание вычитаемого из уменьшаемого
-	const uint64_t borrow = decrease(first.words, second.words, result.words, this->_words);
+	const uint64_t borrow = __nts_decrease__(first.words, second.words, result.words, this->_words);
 	// Сумма разности с модулем, применяемая при заёме из старшего слова
 	uint64_t buffer[NUMBER_WORDS];
 	// Сложение разности с модулем
-	increase(result.words, this->_modulus.words, buffer, this->_words);
+	__nts_increase__(result.words, this->_modulus.words, buffer, this->_words);
 	/**
-	 * Выполняем перебор слов разности
+	 * Перебираем слова разности
 	 */
 	for(size_t i = 0; i < this->_words; i++)
 		// Выбираем очередное слово итога наложением маски заёма
 		result.words[i] = __nts_select__(0 - borrow, buffer[i], result.words[i]);
 	// Затирание суммы разности с модулем
-	clean(buffer, this->_words);
+	__nts_clean__(buffer, this->_words);
 }
 /**
  * @brief Метод умножения чисел по модулю
@@ -791,13 +1316,13 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 	 */
 	::memset(buffer, 0, total * sizeof(uint64_t));
 	/**
-	 * Выполняем перебор слов второго сомножителя от младшего к старшему
+	 * Перебираем слова второго сомножителя от младшего к старшему
 	 */
 	for(size_t i = 0; i < this->_words; i++){
 		// Перенос из очередного слова накапливаемого произведения
 		uint64_t carry = 0;
 		/**
-		 * Выполняем умножение первого сомножителя на очередное слово второго
+		 * Умножаем первый сомножитель на очередное слово второго
 		 */
 		for(size_t j = 0; j < this->_words; j++){
 			// Складываем накопленное слово с произведением слов и переносом
@@ -827,7 +1352,7 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 		// Запоминаем перенос из младшего слова произведения
 		carry = static_cast <uint64_t> (value >> 64);
 		/**
-		 * Выполняем приведение накопленного произведения по модулю со сдвигом на слово
+		 * Приводим накопленное произведение по модулю со сдвигом на слово
 		 */
 		for(size_t j = 1; j < this->_words; j++){
 			// Складываем накопленное слово с произведением множителя на модуль
@@ -847,15 +1372,15 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 		buffer[this->_words] = static_cast <uint64_t> (buffer[this->_words + 1] + (last >> 64));
 	}
 	/**
-	 * Выполняем перебор слов накопленного произведения
+	 * Перебираем слова накопленного произведения
 	 */
 	for(size_t i = 0; i < this->_words; i++)
 		// Записываем очередное слово произведения
 		result.words[i] = buffer[i];
 	// Приведение произведения по модулю
-	lessen(result.words, this->_modulus.words, buffer[this->_words], this->_words);
+	__nts_lessen__(result.words, this->_modulus.words, buffer[this->_words], this->_words);
 	// Затирание накопленного произведения
-	clean(buffer, total);
+	__nts_clean__(buffer, total);
 }
 /**
  * @brief Метод возведения числа в квадрат по модулю
@@ -887,18 +1412,18 @@ void nts::math::Modulus::square(const number_t & value, number_t & result) const
  *
  */
 void nts::math::Modulus::power(const number_t & base, const number_t & exponent, number_t & result) const noexcept {
-	// Накапливаемая степень основания
-	number_t value;
-	// Произведение накопленной степени на основание
-	number_t item;
 	// Единица области Монтгомери, с которой начинается накопление степени
 	number_t unit;
+	// Произведение накопленной степени на основание
+	number_t item;
+	// Накапливаемая степень основания
+	number_t value;
 	// Записываем значение единицы вне области Монтгомери
 	unit.words[0] = 1;
 	// Приведение единицы в область Монтгомери
 	this->enter(unit, value);
 	/**
-	 * Выполняем перебор разрядов показателя степени от старшего к младшему
+	 * Перебираем разряды показателя степени от старшего к младшему
 	 */
 	for(size_t i = (this->_words * 64); i > 0; i--){
 		// Извлекаем очередной разряд показателя степени
@@ -908,7 +1433,7 @@ void nts::math::Modulus::power(const number_t & base, const number_t & exponent,
 		// Умножение накопленной степени на основание
 		this->multiply(value, base, item);
 		/**
-		 * Выполняем перебор слов накопленной степени
+		 * Перебираем слова накопленной степени
 		 */
 		for(size_t j = 0; j < this->_words; j++)
 			// Выбираем очередное слово степени наложением маски разряда показателя
@@ -923,451 +1448,6 @@ void nts::math::Modulus::power(const number_t & base, const number_t & exponent,
 	// Затирание накопленной степени основания
 	wipe(value.words, sizeof(value.words));
 }
-/**
- * @brief Внутренние служебные объекты обращения по модулю
- *
- */
-namespace {
-	/**
-	 * Обращение идёт алгоритмом Бернстайна и Янга (шаги деления divstep) и требует
-	 * знакового целого двойной разрядности для накопления произведений порций: у MSVC
-	 * такого типа нет, и там остаётся возведение в степень окнами показателя
-	 */
-	#if !defined(_MSC_VER)
-		/**
-		 * Знаковое целое двойной разрядности
-		 */
-		typedef __int128_t signed_t;
-		/**
-		 * Количество разрядов порции: числа обращения держатся порциями по 62 разряда в знаковых
-		 * словах, оттого произведение порции на элемент матрицы переходов (по модулю не
-		 * больше 2^62) с накоплением двух таких произведений, произведения порции модуля на
-		 * множитель приведения и переноса укладывается в знаковое целое двойной разрядности
-		 */
-		static constexpr size_t SLICE = 62;
-		/**
-		 * Маска разрядов порции
-		 */
-		static constexpr uint64_t SLICE_MASK = ((static_cast <uint64_t> (1) << SLICE) - 1);
-		/**
-		 * @brief Функция сокрытия маски от собирателя
-		 *
-		 * @details Собиратель видит, что маска есть ноль либо все единицы, и заменяет
-		 *          наложение маски ветвлением по её значению: clang на M4 ставил tbz по
-		 *          знаку сомножителя в приведении к отрезку. Пустая вставка ассемблера,
-		 *          берущая маску на вход и на выход, лишает его знания о значении, и
-		 *          наложение остаётся наложением; команд вставка не порождает
-		 *
-		 * @param mask скрываемая маска
-		 * @return     та же маска, о значении которой собиратель ничего не знает
-		 *
-		 */
-		static __NTS_INLINE__ int64_t hide(int64_t mask) noexcept {
-			// Пустая вставка с маской на входе и выходе
-			__asm__ __volatile__("" : "+r"(mask));
-			// Выводим маску
-			return mask;
-		}
-		/**
-		 * @brief Число, разложенное на порции по 62 разряда
-		 *
-		 * @note Младшие порции лежат в [0, 2^62), а старшая знаковая: так число любого знака
-		 *       держится без отдельного признака, и перенос между порциями идёт знаковым
-		 *       сдвигом
-		 *
-		 */
-		template <size_t LIMBS>
-		struct Sliced {
-			// Порции разрядов от младшей к старшей
-			int64_t v[LIMBS];
-		};
-		/**
-		 * @brief Матрица переходов за проход из 62 шагов деления
-		 *
-		 * @note Элементы матрицы умножены на 2^62: за всякий шаг определитель удваивается, и
-		 *       после 62 шагов произведение матрицы на пару чисел делится на 2^62 нацело.
-		 *       Сумма модулей элементов строки не превышает 2^62, оттого произведение элемента
-		 *       на порцию укладывается в знаковое целое двойной разрядности
-		 *
-		 */
-		typedef struct Transition {
-			int64_t u; // Множитель первого числа в первой строке
-			int64_t v; // Множитель второго числа в первой строке
-			int64_t q; // Множитель первого числа во второй строке
-			int64_t r; // Множитель второго числа во второй строке
-		} transition_t;
-		/**
-		 * @brief Функция выполнения 62 шагов деления по младшим разрядам пары чисел
-		 *
-		 * @details Шаг деления Бернстайна и Янга над парой (f, g) при нечётном f: если
-		 *          δ > 0 и g нечётно, пара обращается в (g, (g - f) / 2) при δ := 1 - δ,
-		 *          иначе в (f, (g + (g mod 2)·f) / 2) при δ := 1 + δ. Решение всякого шага
-		 *          зависит лишь от младших разрядов чисел, оттого 62 шага берутся по одному
-		 *          слову, а матрица переходов затем применяется к числам целиком. Величина
-		 *          η = -δ держится вместо δ: знак её и есть признак первого пути
-		 *
-		 * @param eta   величина η перед проходом
-		 * @param first младшее слово первого (нечётного) числа
-		 * @param second младшее слово второго числа
-		 * @param result место, в которое помещается матрица переходов прохода
-		 * @return      величина η после прохода
-		 *
-		 * @note Ветвлений нет: выбор пути на всяком шаге идёт наложением масок, количество шагов
-		 *       постоянно, и время работы от значений чисел не зависит
-		 *
-		 */
-		static int64_t divsteps(int64_t eta, const uint64_t first, const uint64_t second, transition_t & result) noexcept {
-			// Элементы матрицы переходов: единичная матрица
-			uint64_t u = 1, v = 0, q = 0, r = 1;
-			// Младшие слова пары чисел
-			uint64_t f = first, g = second;
-			/**
-			 * Выполняем шаги деления
-			 */
-			for(size_t i = 0; i < SLICE; i++){
-				// Маска первого пути: η отрицательна
-				uint64_t swap = static_cast <uint64_t> (hide(eta >> 63));
-				// Маска нечётности второго числа
-				const uint64_t odd = static_cast <uint64_t> (hide(0 - static_cast <int64_t> (g & 0x01)));
-				// Первое число и его строка матрицы со сменой знака при первом пути
-				const uint64_t x = ((f ^ swap) - swap);
-				// Первая строка матрицы со сменой знака при первом пути
-				const uint64_t y = ((u ^ swap) - swap);
-				// Вторая строка матрицы со сменой знака при первом пути
-				const uint64_t z = ((v ^ swap) - swap);
-				// Прибавляем первое число ко второму при нечётном втором
-				g += (x & odd);
-				// Прибавляем первую строку матрицы при нечётном втором числе
-				q += (y & odd);
-				// Прибавляем вторую строку матрицы при нечётном втором числе
-				r += (z & odd);
-				// Первый путь берётся при отрицательной η и нечётном втором числе
-				swap &= odd;
-				// Величина η: на первом пути -η - 1, на прочих η - 1
-				eta = static_cast <int64_t> ((static_cast <uint64_t> (eta) ^ swap) - (swap + 1));
-				// На первом пути первым числом становится прежнее второе
-				f += (g & swap);
-				// На первом пути первой строкой становится прежняя вторая
-				u += (q & swap);
-				// На первом пути второй строкой становится прежняя вторая
-				v += (r & swap);
-				// Второе число делится на два, а строка первого удваивается в счёт общего множителя
-				g >>= 1;
-				// Удваиваем первую строку в счёт общего множителя
-				u <<= 1;
-				// Удваиваем вторую строку в счёт общего множителя
-				v <<= 1;
-			}
-			// Записываем матрицу переходов
-			result.u = static_cast <int64_t> (u);
-			// Записываем второй член матрицы переходов
-			result.v = static_cast <int64_t> (v);
-			// Записываем третий член матрицы переходов
-			result.q = static_cast <int64_t> (q);
-			// Записываем четвёртый член матрицы переходов
-			result.r = static_cast <int64_t> (r);
-			// Выводим величину η
-			return eta;
-		}
-		/**
-		 * @brief Функция применения матрицы переходов к паре чисел деления
-		 *
-		 * @param f первое число деления; после применения содержит первую строку произведения
-		 * @param g второе число деления; после применения содержит вторую строку произведения
-		 * @param t матрица переходов прохода
-		 *
-		 * @note Произведение делится на 2^62 нацело: младшие 62 разряда нулевые и отбрасываются
-		 *       сдвигом, а всякая следующая порция итога есть порция произведения на одну выше
-		 *
-		 */
-		template <size_t LIMBS>
-		static void advance(Sliced <LIMBS> & f, Sliced <LIMBS> & g, const transition_t & t) noexcept {
-			// Накопители строк произведения
-			signed_t cf = ((static_cast <signed_t> (t.u) * f.v[0]) + (static_cast <signed_t> (t.v) * g.v[0]));
-			// Накопитель второй строки произведения
-			signed_t cg = ((static_cast <signed_t> (t.q) * f.v[0]) + (static_cast <signed_t> (t.r) * g.v[0]));
-			// Отбрасываем нулевые младшие разряды произведения
-			cf >>= SLICE;
-			// Отбрасываем нулевые младшие разряды второго накопителя
-			cg >>= SLICE;
-			/**
-			 * Выполняем перебор порций от первой к старшей
-			 */
-			for(size_t i = 1; i < LIMBS; i++){
-				// Накапливаем произведения очередных порций
-				cf += ((static_cast <signed_t> (t.u) * f.v[i]) + (static_cast <signed_t> (t.v) * g.v[i]));
-				// Накапливаем произведения очередных порций второй строки
-				cg += ((static_cast <signed_t> (t.q) * f.v[i]) + (static_cast <signed_t> (t.r) * g.v[i]));
-				// Записываем порции итога на одну ниже
-				f.v[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (cf) & SLICE_MASK);
-				// Записываем вторую порцию итога на одну ниже
-				g.v[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (cg) & SLICE_MASK);
-				// Переносим старшие разряды накопителей
-				cf >>= SLICE;
-				// Переносим старшие разряды второго накопителя
-				cg >>= SLICE;
-			}
-			// Старшие порции итога есть остатки накопителей
-			f.v[LIMBS - 1] = static_cast <int64_t> (cf);
-			// Старшая порция второй строки есть остаток второго накопителя
-			g.v[LIMBS - 1] = static_cast <int64_t> (cg);
-		}
-		/**
-		 * @brief Функция применения матрицы переходов к паре сомножителей обращения по модулю
-		 *
-		 * @details Сомножители держат соотношения f ≡ d·x и g ≡ e·x по модулю: деление
-		 *          произведения на 2^62 здесь идёт по модулю - к произведению прибавляется
-		 *          модуль, умноженный на такой множитель, чтобы младшие 62 разряда суммы
-		 *          обратились в ноль, и лишь затем сумма сдвигается
-		 *
-		 * @param d       первый сомножитель; после применения содержит первую строку итога
-		 * @param e       второй сомножитель; после применения содержит вторую строку итога
-		 * @param t       матрица переходов прохода
-		 * @param modulus модуль порциями
-		 * @param inverse обратное к модулю по 2^62
-		 *
-		 * @note Множители модуля начинаются со строк матрицы при отрицательных сомножителях:
-		 *       так сомножители держатся в пределах (-2·модуль, модуль) весь ход обращения
-		 *
-		 */
-		template <size_t LIMBS>
-		static void advance(Sliced <LIMBS> & d, Sliced <LIMBS> & e, const transition_t & t, const Sliced <LIMBS> & modulus, const uint64_t inverse) noexcept {
-			// Маски знаков сомножителей
-			const int64_t sd = hide(d.v[LIMBS - 1] >> 63);
-			// Маска знака второго сомножителя
-			const int64_t se = hide(e.v[LIMBS - 1] >> 63);
-			// Множители модуля: строки матрицы при отрицательных сомножителях
-			int64_t md = ((t.u & sd) + (t.v & se));
-			// Множитель модуля для второй строки
-			int64_t me = ((t.q & sd) + (t.r & se));
-			// Накопители строк произведения
-			signed_t cd = ((static_cast <signed_t> (t.u) * d.v[0]) + (static_cast <signed_t> (t.v) * e.v[0]));
-			// Накопитель второй строки произведения
-			signed_t ce = ((static_cast <signed_t> (t.q) * d.v[0]) + (static_cast <signed_t> (t.r) * e.v[0]));
-			// Уточняем множители модуля так, чтобы младшие разряды сумм обратились в ноль
-			md -= static_cast <int64_t> (((inverse * static_cast <uint64_t> (cd)) + static_cast <uint64_t> (md)) & SLICE_MASK);
-			// Уточняем множитель модуля для второй строки
-			me -= static_cast <int64_t> (((inverse * static_cast <uint64_t> (ce)) + static_cast <uint64_t> (me)) & SLICE_MASK);
-			// Прибавляем произведения младшей порции модуля на множители
-			cd += (static_cast <signed_t> (modulus.v[0]) * md);
-			// Прибавляем произведение младшей порции модуля на второй множитель
-			ce += (static_cast <signed_t> (modulus.v[0]) * me);
-			// Отбрасываем нулевые младшие разряды сумм
-			cd >>= SLICE;
-			// Отбрасываем нулевые младшие разряды второй суммы
-			ce >>= SLICE;
-			/**
-			 * Выполняем перебор порций от первой к старшей
-			 */
-			for(size_t i = 1; i < LIMBS; i++){
-				// Накапливаем произведения очередных порций сомножителей и модуля
-				cd += ((static_cast <signed_t> (t.u) * d.v[i]) + (static_cast <signed_t> (t.v) * e.v[i]) + (static_cast <signed_t> (modulus.v[i]) * md));
-					// Накапливаем произведения очередных порций второй строки и модуля
-				ce += ((static_cast <signed_t> (t.q) * d.v[i]) + (static_cast <signed_t> (t.r) * e.v[i]) + (static_cast <signed_t> (modulus.v[i]) * me));
-				// Записываем порции итога на одну ниже
-				d.v[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (cd) & SLICE_MASK);
-				// Записываем вторую порцию итога на одну ниже
-				e.v[i - 1] = static_cast <int64_t> (static_cast <uint64_t> (ce) & SLICE_MASK);
-				// Переносим старшие разряды накопителей
-				cd >>= SLICE;
-				// Переносим старшие разряды второго накопителя
-				ce >>= SLICE;
-			}
-			// Старшие порции итога есть остатки накопителей
-			d.v[LIMBS - 1] = static_cast <int64_t> (cd);
-			// Старшая порция второй строки есть остаток второго накопителя
-			e.v[LIMBS - 1] = static_cast <int64_t> (ce);
-		}
-		/**
-		 * @brief Функция приведения сомножителя обращения к отрезку [0, модуль)
-		 *
-		 * @param value   приводимый сомножитель в пределах (-2·модуль, модуль)
-		 * @param sign    число, знак которого сомножителю передаётся
-		 * @param modulus модуль порциями
-		 *
-		 * @note Модуль прибавляется при отрицательном сомножителе, затем знак меняется по
-		 *       переданному, и модуль прибавляется вновь при отрицательном итоге: оба
-		 *       прибавления и смена знака идут наложением масок без ветвлений
-		 *
-		 */
-		template <size_t LIMBS>
-		static void settle(Sliced <LIMBS> & value, const int64_t sign, const Sliced <LIMBS> & modulus) noexcept {
-			// Маска отрицательного сомножителя
-			int64_t negative = hide(value.v[LIMBS - 1] >> 63);
-			/**
-			 * Выполняем прибавление модуля к отрицательному сомножителю
-			 */
-			for(size_t i = 0; i < LIMBS; i++)
-			// Прибавляем порцию модуля под маской
-			value.v[i] += (modulus.v[i] & negative);
-			// Маска смены знака
-			const int64_t flip = hide(sign >> 63);
-			/**
-			 * Выполняем смену знака сомножителя по маске
-			 */
-			for(size_t i = 0; i < LIMBS; i++)
-			// Меняем знак порции под маской
-			value.v[i] = ((value.v[i] ^ flip) - flip);
-			/**
-			 * Выполняем пронос переносов между порциями
-			 */
-			for(size_t i = 0; (i + 1) < LIMBS; i++){
-				// Переносим старшие разряды порции в следующую
-				value.v[i + 1] += (value.v[i] >> SLICE);
-				// Оставляем в порции её разряды
-				value.v[i] &= static_cast <int64_t> (SLICE_MASK);
-			}
-			// Маска отрицательного итога
-			negative = hide(value.v[LIMBS - 1] >> 63);
-			/**
-			 * Выполняем прибавление модуля к отрицательному итогу
-			 */
-			for(size_t i = 0; i < LIMBS; i++)
-			// Прибавляем порцию модуля под маской
-			value.v[i] += (modulus.v[i] & negative);
-			/**
-			 * Выполняем пронос переносов между порциями
-			 */
-			for(size_t i = 0; (i + 1) < LIMBS; i++){
-				// Переносим старшие разряды порции в следующую
-				value.v[i + 1] += (value.v[i] >> SLICE);
-				// Оставляем в порции её разряды
-				value.v[i] &= static_cast <int64_t> (SLICE_MASK);
-			}
-		}
-		/**
-		 * @brief Функция разложения числа из слов на порции
-		 *
-		 * @param words  слова числа от младшего к старшему
-		 * @param result место, в которое помещаются порции числа
-		 *
-		 */
-		template <size_t WORDS, size_t LIMBS>
-		static void slice(const uint64_t * words, Sliced <LIMBS> & result) noexcept {
-			/**
-			 * Выполняем перебор порций
-			 */
-			for(size_t i = 0; i < LIMBS; i++){
-				// Номер младшего разряда порции, его слово и смещение в слове
-				const size_t bit = (SLICE * i), word = (bit / 64), offset = (bit % 64);
-				// Разряды порции из своего слова
-				uint64_t item = (words[word] >> offset);
-				// Если порция лежит через границу слова, добираем разряды из следующего
-				if((offset > (64 - SLICE)) && ((word + 1) < WORDS))
-				// Добираем старшие разряды порции
-				item |= (words[word + 1] << (64 - offset));
-				// Записываем порцию
-				result.v[i] = static_cast <int64_t> (item & SLICE_MASK);
-			}
-		}
-		/**
-		 * @brief Функция сборки числа из порций в слова
-		 *
-		 * @param value  порции числа, приведённого к отрезку [0, модуль)
-		 * @param result место, в которое помещаются слова числа
-		 *
-		 */
-		template <size_t WORDS, size_t LIMBS>
-		static void gather(const Sliced <LIMBS> & value, uint64_t * result) noexcept {
-			/**
-			 * Выполняем обнуление слов числа
-			 */
-			for(size_t i = 0; i < WORDS; i++)
-			// Обнуляем очередное слово
-			result[i] = 0;
-			/**
-			 * Выполняем перебор порций
-			 */
-			for(size_t i = 0; i < LIMBS; i++){
-				// Номер младшего разряда порции, его слово и смещение в слове
-				const size_t bit = (SLICE * i), word = (bit / 64), offset = (bit % 64);
-				// Если слово порции лежит в числе
-				if(word < WORDS)
-				// Записываем разряды порции в своё слово
-				result[word] |= (static_cast <uint64_t> (value.v[i]) << offset);
-				// Если порция лежит через границу слова, дописываем разряды в следующее
-				if((offset > (64 - SLICE)) && ((word + 1) < WORDS))
-				// Дописываем старшие разряды порции
-				result[word + 1] |= (static_cast <uint64_t> (value.v[i]) >> (64 - offset));
-			}
-		}
-		/**
-		 * @brief Функция обращения числа по модулю алгоритмом Бернстайна и Янга
-		 *
-		 * @details Пара (f, g) = (модуль, число) ведётся шагами деления до g = 0, при котором
-		 *          f = ±1, а пара сомножителей (d, e) = (0, 1) ведётся теми же матрицами
-		 *          переходов по модулю: соотношение f ≡ d·x держится на всяком шаге, оттого
-		 *          по окончании d ≡ ±x⁻¹. Количество шагов, за которое g обращается в ноль у чисел
-		 *          до d разрядов, ограничено сверху величиной (49·d + 57) / 17 (теорема 11.2
-		 *          Бернстайна и Янга «Fast constant-time gcd computation and modular
-		 *          inversion», 2019): 741 на 256 разрядах и 1479 на 512, отсюда 12 и 24 прохода
-		 *          по 62 шага. Случайные числа обходятся десятью и восемнадцатью проходами
-		 *          (щуп 22.09.2026 по 20 000 и 5 000 чисел на модуль), запас задан теоремой
-		 *
-		 * @param modulus слова модуля от младшего к старшему
-		 * @param factor  множитель приведения Монтгомери: обратное к младшему слову модуля
-		 *                со сменой знака
-		 * @param value   обращаемое число из отрезка [0, модуль)
-		 * @param result  место, в которое помещается обратное число из отрезка [0, модуль)
-		 *
-		 * @note Число проходов задано лишь разрядностью модуля, ветвлений по значениям нет:
-		 *       время работы от обращаемого числа не зависит. Обратное к нулю есть ноль
-		 *
-		 */
-		template <size_t WORDS>
-		static void safegcd(const uint64_t * modulus, const uint64_t factor, const nts::math::number_t & value, nts::math::number_t & result) noexcept {
-			// Количество порций: одна порция запаса под знак и рост сомножителей до двух модулей
-			constexpr size_t LIMBS = (WORDS + 1);
-			// Граница количества шагов деления по теореме при d = 64·WORDS
-			constexpr size_t STEPS = (((49 * 64 * WORDS) + 57) / 17);
-			// Число проходов по 62 шага, накрывающее границу
-			constexpr size_t BATCHES = ((STEPS + (SLICE - 1)) / SLICE);
-			// Модуль порциями
-			Sliced <LIMBS> m;
-			// Разложение модуля на порции
-			slice <WORDS, LIMBS> (modulus, m);
-			// Пара чисел деления: модуль и обращаемое число
-			Sliced <LIMBS> f = m, g;
-			// Разложение обращаемого числа на порции
-			slice <WORDS, LIMBS> (value.words, g);
-			// Пара сомножителей обращения: ноль и единица
-			Sliced <LIMBS> d = {}, e = {};
-			// Записываем единицу вторым сомножителем
-			e.v[0] = 1;
-			// Обратное к модулю по 2^62: множитель приведения без смены знака и старших разрядов
-			const uint64_t inverse = ((0 - factor) & SLICE_MASK);
-			// Величина η = -δ при исходной δ = 1
-			int64_t eta = -1;
-			// Матрица переходов прохода
-			transition_t t;
-			/**
-			 * Выполняем проходы шагов деления
-			 */
-			for(size_t i = 0; i < BATCHES; i++){
-				// 62 шага деления по младшим порциям пары чисел
-				eta = divsteps(eta, static_cast <uint64_t> (f.v[0]), static_cast <uint64_t> (g.v[0]), t);
-				// Применяем матрицу переходов к сомножителям по модулю
-				advance <LIMBS> (d, e, t, m, inverse);
-				// Применяем матрицу переходов к паре чисел деления
-				advance <LIMBS> (f, g, t);
-			}
-			// Приводим первый сомножитель к отрезку [0, модуль) со знаком первого числа деления
-			settle <LIMBS> (d, f.v[LIMBS - 1], m);
-			// Обнуление обратного числа: слова выше ширины модуля нулевые
-			result = nts::math::number_t();
-			// Сборка обратного числа из порций
-			gather <WORDS, LIMBS> (d, result.words);
-			// Затирание сомножителей обращения
-			wipe(&d, sizeof(d));
-			wipe(&e, sizeof(e));
-			// Затирание пары чисел деления
-			wipe(&f, sizeof(f));
-			wipe(&g, sizeof(g));
-			// Затирание матрицы переходов
-			wipe(&t, sizeof(t));
-		}
-	#endif
-};
 /**
  * @brief Метод обращения числа по модулю
  *
@@ -1388,51 +1468,51 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		 */
 		switch(this->_words){
 			// Модуль в одно слово
-			case 1: safegcd <1> (this->_modulus.words, this->_factor, value, result); break;
+			case 1: __nts_safegcd__ <1> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в два слова
-			case 2: safegcd <2> (this->_modulus.words, this->_factor, value, result); break;
+			case 2: __nts_safegcd__ <2> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в три слова
-			case 3: safegcd <3> (this->_modulus.words, this->_factor, value, result); break;
+			case 3: __nts_safegcd__ <3> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в четыре слова: кривые на 256 разрядов
-			case 4: safegcd <4> (this->_modulus.words, this->_factor, value, result); break;
+			case 4: __nts_safegcd__ <4> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в пять слов
-			case 5: safegcd <5> (this->_modulus.words, this->_factor, value, result); break;
+			case 5: __nts_safegcd__ <5> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в шесть слов: кривая P-384
-			case 6: safegcd <6> (this->_modulus.words, this->_factor, value, result); break;
+			case 6: __nts_safegcd__ <6> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в семь слов
-			case 7: safegcd <7> (this->_modulus.words, this->_factor, value, result); break;
+			case 7: __nts_safegcd__ <7> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в восемь слов: кривые на 512 разрядов
-			case 8: safegcd <8> (this->_modulus.words, this->_factor, value, result); break;
+			case 8: __nts_safegcd__ <8> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в девять слов: кривая P-521
-			case 9: safegcd <9> (this->_modulus.words, this->_factor, value, result); break;
+			case 9: __nts_safegcd__ <9> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль не установлен: слов у него нет, и обращать нечего
 			default: return;
 		}
 		/**
-		 * @brief Метод приведения числа в область Монтгомери
+		 * @brief Выполняем приведение числа в область Монтгомери дважды
 		 *
-		 * @param value  приводимое число
-		 * @param result место, в которое помещается приведённое число
-		 * Обратное к числу x·R области Монтгомери есть x⁻¹·R⁻¹: два приведения в область
-		 * (умножения на R² с делением на R) дают x⁻¹·R. У модулей прямой свёртки области
-		 * нет, и приведение переписывает число как есть
+		 * @details enter(x) умножает на R² через произведение Монтгомери,
+		 *          т.е. enter(x) = x·R mod p (перевод обычного числа в область Монтгомери). 
+		 *          Договор __nts_safegcd__ (doc-блок, number.cpp:684-687): вход и выход — обычные числа из [0, p),
+		 *          не домен Монтгомери. При этом invert получает value уже в области Монтгомери (value = a·R)
+		 *          и должен вернуть обратное тоже в области (a⁻¹·R).
 		 *
 		 */
 		this->enter(result, result);
 		this->enter(result, result);
-		/**
-		 * Обращение показателем степени: у компилятора окон нет знакового целого
-		 * двойной разрядности, и алгоритм Бернстайна и Янга там не собирается
-		 */
+	/**
+	 * Обращение показателем степени: у компилятора окон нет знакового целого
+	 * двойной разрядности, и алгоритм Бернстайна и Янга там не собирается
+	 */
 	#else
-		// Показатель степени обращения числа
-		number_t exponent;
 		// Двойка, вычитаемая из модуля
 		number_t two;
+		// Показатель степени обращения числа
+		number_t exponent;
 		// Записываем значение двойки
 		two.words[0] = 2;
 		// Вычитание двойки из модуля
-		decrease(this->_modulus.words, two.words, exponent.words, this->_words);
+		__nts_decrease__(this->_modulus.words, two.words, exponent.words, this->_words);
 		// Заготовленные степени обращаемого числа от нулевой до пятнадцатой
 		number_t table[16];
 		// Единица вне области Монтгомери
@@ -1444,7 +1524,7 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		// Первая степень есть само число
 		table[1] = value;
 		/**
-		 * Выполняем заготовку оставшихся степеней умножением на число
+		 * Заготавливаем оставшиеся степени умножением на число
 		 */
 		for(size_t i = 2; i < 16; i++)
 			// Считаем очередную степень
@@ -1454,7 +1534,7 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		// Признак того, что старшее ненулевое окно показателя уже пройдено
 		bool started = false;
 		/**
-		 * Выполняем перебор окон показателя по четыре разряда от старшего к младшему:
+		 * Перебираем окна показателя по четыре разряда от старшего к младшему:
 		 * показатель задан одним модулем и открыт, оттого ветвление по его окнам времени
 		 * работы от обращаемого числа не ставит в зависимость
 		 */
@@ -1464,7 +1544,7 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 			// Если старшее ненулевое окно уже пройдено
 			if(started){
 				/**
-				 * Выполняем возведение накопленной степени в шестнадцатую степень
+				 * Возводим накопленную степень в шестнадцатую степень
 				 */
 				for(size_t j = 0; j < 4; j++)
 					// Возведение накопленной степени в квадрат
@@ -1495,7 +1575,9 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
  * @brief Конструктор
  *
  */
-nts::math::Modulus::Modulus() noexcept : _ready(false), _form(form_t::GENERAL), _words(0), _size(0), _factor(0), _tail(0) {}
+nts::math::Modulus::Modulus() noexcept :
+ _ready(false), _form(form_t::GENERAL),
+ _words(0), _size(0), _factor(0), _tail(0) {}
 /**
  * @brief Деструктор
  *

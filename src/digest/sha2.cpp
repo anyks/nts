@@ -354,7 +354,7 @@ namespace {
 		 * @return таблица, вычисленная из круговых постоянных
 		 *
 		 */
-		static constexpr pairs256_t buildPairs256() noexcept {
+		static constexpr pairs256_t __nts_build_pairs256__() noexcept {
 			// Таблица постоянных
 			pairs256_t table{};
 			/**
@@ -380,7 +380,7 @@ namespace {
 		 * @return таблица, вычисленная из круговых постоянных
 		 *
 		 */
-		static constexpr pairs512_t buildPairs512() noexcept {
+		static constexpr pairs512_t __nts_build_pairs512__() noexcept {
 			// Таблица постоянных
 			pairs512_t table{};
 			/**
@@ -405,12 +405,12 @@ namespace {
 		 * @brief Таблица круговых постоянных SHA-256 под парные ядра AVX2, вычисленная при сборке
 		 *
 		 */
-		static constexpr pairs256_t PAIRS256 = buildPairs256();
+		static constexpr pairs256_t PAIRS256 = __nts_build_pairs256__();
 		/**
 		 * @brief Таблица круговых постоянных SHA-512 под парные ядра AVX2, вычисленная при сборке
 		 *
 		 */
-		static constexpr pairs512_t PAIRS512 = buildPairs512();
+		static constexpr pairs512_t PAIRS512 = __nts_build_pairs512__();
 	#endif
 
 	/**
@@ -508,7 +508,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_rotr__(const uint32_t value, const unsigned count) noexcept {
+	static constexpr uint32_t __nts_rotr__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value >> count) | (value << (32 - count)));
 	}
@@ -520,7 +520,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t __nts_rotr__(const uint64_t value, const unsigned count) noexcept {
+	static constexpr uint64_t __nts_rotr__(const uint64_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value >> count) | (value << (64 - count)));
 	}
@@ -1813,17 +1813,17 @@ namespace {
 					// Если пар блоков хотя бы одна
 					if(count >= 2)
 						// Разбор пар блоков ядром AVX2
-						kernel::sha256avx2(words, data, count / 2, PAIRS256.words);
+						kernel::__nts_sha256_avx2__(words, data, count / 2, PAIRS256.words);
 					// Если остался нечётный блок
 					if((count & 1) != 0)
 						// Разбор последнего блока ядром AVX
-						kernel::sha256avx(words, data + ((count & ~static_cast <size_t> (1)) * 64), 1, K256);
+						kernel::__nts_sha256_avx__(words, data + ((count & ~static_cast <size_t> (1)) * 64), 1, K256);
 				// Если есть AVX и BMI2
 				} else if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::ADX))
 					// Разбор блоков ядром AVX
-					kernel::sha256avx(words, data, count, K256);
+					kernel::__nts_sha256_avx__(words, data, count, K256);
 				// Иначе разбираем блоки ядром SSSE3
-				else kernel::sha256ssse3(words, data, count, K256);
+				else kernel::__nts_sha256_ssse3__(words, data, count, K256);
 				/**
 				 * Переносим слова в значение хеша
 				 */
@@ -1888,17 +1888,17 @@ namespace {
 					// Если пар блоков хотя бы одна
 					if(count >= 2)
 						// Разбор пар блоков ядром AVX2
-						kernel::sha512avx2(hash, data, count / 2, PAIRS512.words);
+						kernel::__nts_sha512_avx2__(hash, data, count / 2, PAIRS512.words);
 					// Если остался нечётный блок
 					if((count & 1) != 0)
 						// Разбор последнего блока ядром AVX
-						kernel::sha512avx(hash, data + ((count & ~static_cast <size_t> (1)) * 128), 1, K512);
+						kernel::__nts_sha512_avx__(hash, data + ((count & ~static_cast <size_t> (1)) * 128), 1, K512);
 				// Если есть AVX и BMI2
 				} else if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::ADX))
 					// Разбор блоков ядром AVX
-					kernel::sha512avx(hash, data, count, K512);
+					kernel::__nts_sha512_avx__(hash, data, count, K512);
 				// Иначе разбираем блоки ядром SSSE3
-				else kernel::sha512ssse3(hash, data, count, K512);
+				else kernel::__nts_sha512_ssse3__(hash, data, count, K512);
 				// Выходим из метода
 				return;
 			}

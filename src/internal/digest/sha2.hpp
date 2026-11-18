@@ -66,6 +66,7 @@
 	 * Признак наличия ядер на ассемблере
 	 */
 	#define __NTS_SHA2_X86_64__
+
 	/**
 	 * @brief Основное пространство имён
 	 *
@@ -85,7 +86,7 @@
 				 * @brief Маски перестановки байтов SHA-256: разворот слов от старшего байта и две укладки младших половин четвёрок в слова 0…1 и 2…3
 				 *
 				 */
-				alignas(16) static const uint8_t MASK256[48] = {
+				alignas(16) static constexpr uint8_t MASK256[48] = {
 					/* Разворот байтов в каждом слове блока */
 					3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12,
 					0, 1, 2, 3, 8, 9, 10, 11, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
@@ -95,7 +96,8 @@
 				 * @brief Маска перестановки байтов SHA-512: разворот слов от старшего байта
 				 *
 				 */
-				alignas(16) static const uint8_t MASK512[16] = {7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8};
+				alignas(16) static constexpr uint8_t MASK512[16] = {7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8};
+
 				/**
 				 * @brief Функция разбора пар блоков SHA-256 ядром AVX2 с BMI2
 				 *
@@ -105,11 +107,11 @@
 				 * @param constants круговые постоянные, удвоенные по группам: каждая группа из 4 слов лежит дважды подряд
 				 *
 				 */
-				static void sha256avx2(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
+				static void __nts_sha256_avx2__(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
-					const void * kp = constants;
+					const void * constantsPtr = constants;
 					/* Маска перестановки байтов под чтение вставкой */
-					const void * mp = MASK256;
+					const void * maskPtr = MASK256;
 					/* Вставка ядра: раскладка стека и раунды над парами блоков */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
@@ -930,7 +932,7 @@
 						"vzeroupper\n\t"
 						"movq 16(%%rsp), %%rsp\n\t"
 						: [data] "+S" (data), [state] "+D" (state), [count] "+d" (count)
-						: [kp] "m" (kp), [mp] "m" (mp)
+						: [kp] "m" (constantsPtr), [mp] "m" (maskPtr)
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "cc", "memory");
 				}
 				/**
@@ -942,11 +944,11 @@
 				 * @param constants круговые постоянные
 				 *
 				 */
-				static void sha256avx(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
+				static void __nts_sha256_avx__(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
-					const void * kp = constants;
+					const void * constantsPtr = constants;
 					/* Маска перестановки байтов под чтение вставкой */
-					const void * mp = MASK256;
+					const void * maskPtr = MASK256;
 					/* Вставка ядра: раскладка стека и раунды над блоками */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
@@ -1915,7 +1917,7 @@
 						"jb 1b\n\t"
 						"movq 16(%%rsp), %%rsp\n\t"
 						: [data] "+S" (data), [state] "+D" (state), [count] "+d" (count)
-						: [kp] "m" (kp), [mp] "m" (mp)
+						: [kp] "m" (constantsPtr), [mp] "m" (maskPtr)
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "cc", "memory");
 				}
 				/**
@@ -1927,11 +1929,11 @@
 				 * @param constants круговые постоянные
 				 *
 				 */
-				static void sha256ssse3(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
+				static void __nts_sha256_ssse3__(uint32_t * state, const uint8_t * data, size_t count, const uint32_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
-					const void * kp = constants;
+					const void * constantsPtr = constants;
 					/* Маска перестановки байтов под чтение вставкой */
-					const void * mp = MASK256;
+					const void * maskPtr = MASK256;
 					/* Вставка ядра: раскладка стека и раунды над блоками */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
@@ -3004,7 +3006,7 @@
 						"jb 1b\n\t"
 						"movq 16(%%rsp), %%rsp\n\t"
 						: [data] "+S" (data), [state] "+D" (state), [count] "+d" (count)
-						: [kp] "m" (kp), [mp] "m" (mp)
+						: [kp] "m" (constantsPtr), [mp] "m" (maskPtr)
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "cc", "memory");
 				}
 				/**
@@ -3016,11 +3018,11 @@
 				 * @param constants круговые постоянные, удвоенные по группам: каждая группа из 2 слов лежит дважды подряд
 				 *
 				 */
-				static void sha512avx2(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
+				static void __nts_sha512_avx2__(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
-					const void * kp = constants;
+					const void * constantsPtr = constants;
 					/* Маска перестановки байтов под чтение вставкой */
-					const void * mp = MASK512;
+					const void * maskPtr = MASK512;
 					/* Вставка ядра: раскладка стека и раунды над парами блоков */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
@@ -3939,7 +3941,7 @@
 						"vzeroupper\n\t"
 						"movq 16(%%rsp), %%rsp\n\t"
 						: [data] "+S" (data), [state] "+D" (state), [count] "+d" (count)
-						: [kp] "m" (kp), [mp] "m" (mp)
+						: [kp] "m" (constantsPtr), [mp] "m" (maskPtr)
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "cc", "memory");
 				}
 				/**
@@ -3951,11 +3953,11 @@
 				 * @param constants круговые постоянные
 				 *
 				 */
-				static void sha512avx(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
+				static void __nts_sha512_avx__(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
-					const void * kp = constants;
+					const void * constantsPtr = constants;
 					/* Маска перестановки байтов под чтение вставкой */
-					const void * mp = MASK512;
+					const void * maskPtr = MASK512;
 					/* Вставка ядра: раскладка стека и раунды над блоками */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
@@ -5014,7 +5016,7 @@
 						"jb 1b\n\t"
 						"movq 16(%%rsp), %%rsp\n\t"
 						: [data] "+S" (data), [state] "+D" (state), [count] "+d" (count)
-						: [kp] "m" (kp), [mp] "m" (mp)
+						: [kp] "m" (constantsPtr), [mp] "m" (maskPtr)
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "cc", "memory");
 				}
 				/**
@@ -5026,11 +5028,11 @@
 				 * @param constants круговые постоянные
 				 *
 				 */
-				static void sha512ssse3(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
+				static void __nts_sha512_ssse3__(uint64_t * state, const uint8_t * data, size_t count, const uint64_t * constants) noexcept {
 					// Указатели на постоянные и маски перестановки байтов: читаются вставкой до сдвига стека
-					const void * kp = constants;
+					const void * constantsPtr = constants;
 					/* Маска перестановки байтов под чтение вставкой */
-					const void * mp = MASK512;
+					const void * maskPtr = MASK512;
 					/* Вставка ядра: раскладка стека и раунды над блоками */
 					__asm__ __volatile__(
 						"movq %[kp], %%rax\n\t"
@@ -6265,7 +6267,7 @@
 						"jb 1b\n\t"
 						"movq 16(%%rsp), %%rsp\n\t"
 						: [data] "+S" (data), [state] "+D" (state), [count] "+d" (count)
-						: [kp] "m" (kp), [mp] "m" (mp)
+						: [kp] "m" (constantsPtr), [mp] "m" (maskPtr)
 						: "rax", "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "cc", "memory");
 				}
 			}
