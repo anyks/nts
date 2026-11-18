@@ -69,13 +69,13 @@ static size_t bytes(const char * text, uint8_t * data) {
 	// Число разобранных байтов
 	size_t result = 0;
 	/**
-	 * Выполняем перебор пар знаков разбираемой записи
+	 * Перебираем пары знаков разбираемой записи
 	 */
 	for(size_t i = 0; text[i * 2] != '\0'; i++){
 		// Собираемое значение байта
 		uint8_t value = 0;
 		/**
-		 * Выполняем перебор знаков очередной пары
+		 * Перебираем знаки очередной пары
 		 */
 		for(size_t j = 0; j < 2; j++){
 			// Извлекаем очередной знак записи
@@ -96,15 +96,15 @@ static size_t bytes(const char * text, uint8_t * data) {
 TEST(KdfTest, Sample) {
 	// Места, в которые помещаются разбираемые записи
 	uint8_t secret[32], label[8], seed[16], derived[32], result[32];
-	// Выполняем разбор ключа выработки производного ключа
+	// Разбираем ключ выработки производного ключа
 	const size_t length = bytes(SECRET, secret);
-	// Выполняем разбор метки назначения производного ключа
+	// Разбираем метку назначения производного ключа
 	const size_t marked = bytes(LABEL, label);
-	// Выполняем разбор затравки выработки производного ключа
+	// Разбираем затравку выработки производного ключа
 	const size_t sown = bytes(SEED, seed);
-	// Выполняем разбор производного ключа контрольного примера
+	// Разбираем производный ключ контрольного примера
 	const size_t size = bytes(DERIVED, derived);
-	// Выполняем выработку производного ключа
+	// Вырабатываем производный ключ
 	ASSERT_TRUE(digest::kdf(view_t(secret, length), view_t(label, marked), view_t(seed, sown), result));
 	// Проверяем схождение выработанного ключа с контрольным примером
 	ASSERT_EQ(::memcmp(result, derived, size), 0);
@@ -116,11 +116,11 @@ TEST(KdfTest, Sample) {
 TEST(KdfTest, Refusals) {
 	// Места, в которые помещаются разбираемые записи
 	uint8_t secret[32], label[8], seed[16], result[32];
-	// Выполняем разбор ключа выработки производного ключа
+	// Разбираем ключ выработки производного ключа
 	const size_t length = bytes(SECRET, secret);
-	// Выполняем разбор метки назначения производного ключа
+	// Разбираем метку назначения производного ключа
 	const size_t marked = bytes(LABEL, label);
-	// Выполняем разбор затравки выработки производного ключа
+	// Разбираем затравку выработки производного ключа
 	const size_t sown = bytes(SEED, seed);
 	// Проверяем отказ выработки в непереданное место
 	ASSERT_FALSE(digest::kdf(view_t(secret, length), view_t(label, marked), view_t(seed, sown), nullptr));
@@ -133,15 +133,15 @@ TEST(KdfTest, Refusals) {
 	 * отказа не даёт - он даёт другой производный ключ
 	 */
 	uint8_t shorter[32] = {0};
-	// Выполняем выработку производного ключа ключом иной длины
+	// Вырабатываем производный ключ ключом иной длины
 	ASSERT_TRUE(digest::kdf(view_t(secret, (length - 1)), view_t(label, marked), view_t(seed, sown), shorter));
-	// Выполняем выработку производного ключа ключом положенной длины
+	// Вырабатываем производный ключ ключом положенной длины
 	ASSERT_TRUE(digest::kdf(view_t(secret, length), view_t(label, marked), view_t(seed, sown), result));
 	// Проверяем расхождение производных ключей, выработанных ключами разной длины
 	ASSERT_NE(::memcmp(shorter, result, sizeof(shorter)), 0);
 	// Место, в которое помещается непомерно длинная метка назначения
 	uint8_t lengthy[digest::KDF_LIMIT + 1];
-	// Выполняем заполнение непомерно длинной метки назначения
+	// Заполняем непомерно длинную метку назначения
 	::memset(lengthy, 0x5A, sizeof(lengthy));
 	/**
 	 * Метка назначения и затравка вместе с ключом и счётчиком идут в один хеш, и
@@ -163,7 +163,7 @@ TEST(KdfTest, Refusals) {
 	ASSERT_TRUE(digest::kdf(view_t(secret, length), view_t(nullptr, 0), view_t(nullptr, 0), bare));
 	// Производный ключ, выработанный метками нулевой длины
 	uint8_t hollow[32] = {0};
-	// Выполняем выработку производного ключа метками нулевой длины
+	// Вырабатываем производный ключ метками нулевой длины
 	ASSERT_TRUE(digest::kdf(view_t(secret, length), view_t(label, 0), view_t(seed, 0), hollow));
 	// Проверяем схождение выработки метками нулевой длины с выработкой без них
 	ASSERT_EQ(::memcmp(bare, hollow, sizeof(bare)), 0);

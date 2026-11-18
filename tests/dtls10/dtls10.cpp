@@ -97,7 +97,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool keyfile(const char * name, context::credential_t & result) noexcept {
+	bool __nts_keyfile__(const char * name, context::credential_t & result) noexcept {
 		// Считываем секретный ключ
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Считываем сертификат
@@ -120,7 +120,7 @@ namespace {
 	 *
 	 */
 	template <typename A, typename B>
-	bool carry(A & from, B & to) noexcept {
+	bool __nts_carry__(A & from, B & to) noexcept {
 		// Объявляем признак переноса
 		bool moved = false;
 		/**
@@ -159,18 +159,18 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем перенос дейтаграмм, пока сторонам есть что сказать
+		 * Переносим дейтаграммы, пока сторонам есть что сказать
 		 */
 		for(size_t round = 0; round < 64; round++){
 			// Прерываем обмен при отказе стороны
 			if((client.state() == context::state_t::FAILED) || (server.state() == context::state_t::FAILED))
 				break;
 			// Переносим дейтаграммы клиента серверу
-			bool moved = carry(client, server);
+			bool moved = __nts_carry__(client, server);
 			// Переносим дейтаграммы сервера клиенту
-			moved = (carry(server, client) || moved);
+			moved = (__nts_carry__(server, client) || moved);
 			// Если перенос был
 			if(moved)
 				continue;
@@ -203,7 +203,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Формируем запрос клиента
 		const string request = "ping from the client over DTLS 1.0";
 		// Формируем ответ сервера
@@ -217,7 +217,7 @@ namespace {
 			// Выводим отрицательный результат - ответ не передан
 			return false;
 		// Обмениваемся дейтаграммами
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Объявляем буфер принятых данных
 		vector <uint8_t> received;
 		// Проверяем доставку запроса серверу
@@ -242,7 +242,7 @@ namespace {
 	 * @param highest    верхний предел издания клиента и сервера
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const protect::suite_t suite, const context::credential_t & credential, const uint16_t lowest, const uint16_t highest) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const protect::suite_t suite, const context::credential_t & credential, const uint16_t lowest, const uint16_t highest) noexcept {
 		// Задаём клиенту дейтаграммы
 		client.transport(context::transport_t::DATAGRAMS);
 		// Задаём серверу дейтаграммы
@@ -356,19 +356,19 @@ TEST(Dtls10Test, Prf){
  */
 TEST(Dtls10Test, Loopback){
 	/**
-	 * Выполняем перебор наборов шифрования
+	 * Перебираем наборы шифрования
 	 */
 	for(size_t s = 0; s < (sizeof(SUITES) / sizeof(SUITES[0])); s++){
 		// Объявляем подлинность сервера
 		context::credential_t credential;
 		// Считываем ключи набора
-		ASSERT_TRUE(keyfile(SUITES[s].key, credential)) << SUITES[s].title;
+		ASSERT_TRUE(__nts_keyfile__(SUITES[s].key, credential)) << SUITES[s].title;
 		// Объявляем связь клиента
 		client::context_t client;
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны на издание 1.1
-		arrange(client, server, SUITES[s].suite, credential, TLS11, TLS11);
+		__nts_arrange__(client, server, SUITES[s].suite, credential, TLS11, TLS11);
 		// Задаём тайник сессий
 		const vector <uint8_t> vault(32, 0x55);
 		// Передаём тайник серверу
@@ -378,7 +378,7 @@ TEST(Dtls10Test, Loopback){
 		// Запускаем клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE) << SUITES[s].title;
 		// Обмениваемся дейтаграммами
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established()) << SUITES[s].title << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " " << static_cast <int> (client.alert().description) << " " << static_cast <int> (server.alert().description);
 		// Проверяем издание у клиента
@@ -390,7 +390,7 @@ TEST(Dtls10Test, Loopback){
 		// Проверяем цепочку сервера
 		ASSERT_EQ(client.peer().size(), static_cast <size_t> (1));
 		// Проверяем обмен данными
-		ASSERT_TRUE(barter(client, server)) << SUITES[s].title;
+		ASSERT_TRUE(__nts_barter__(client, server)) << SUITES[s].title;
 		// Проверяем получение билета
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1)) << SUITES[s].title;
 		// Объявляем связь возобновляющего клиента
@@ -398,7 +398,7 @@ TEST(Dtls10Test, Loopback){
 		// Объявляем связь возобновляемого сервера
 		server::context_t resumed;
 		// Настраиваем стороны возобновления
-		arrange(resuming, resumed, SUITES[s].suite, credential, TLS11, TLS11);
+		__nts_arrange__(resuming, resumed, SUITES[s].suite, credential, TLS11, TLS11);
 		// Передаём тайник серверу
 		resumed.vault(vault);
 		// Передаём билет клиенту
@@ -410,7 +410,7 @@ TEST(Dtls10Test, Loopback){
 		// Запускаем клиента
 		ASSERT_EQ(resuming.start(), context::error_t::NONE);
 		// Обмениваемся дейтаграммами
-		converse(resuming, resumed);
+		__nts_converse__(resuming, resumed);
 		// Проверяем установление связи
 		ASSERT_TRUE(resuming.established() && resumed.established()) << SUITES[s].title << " " << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error());
 		// Проверяем общий секрет
@@ -418,7 +418,7 @@ TEST(Dtls10Test, Loopback){
 		// Проверяем издание связи
 		EXPECT_EQ(resuming.version(), TLS11);
 		// Проверяем обмен данными
-		ASSERT_TRUE(barter(resuming, resumed)) << SUITES[s].title;
+		ASSERT_TRUE(__nts_barter__(resuming, resumed)) << SUITES[s].title;
 	}
 }
 
@@ -431,14 +431,14 @@ TEST(Dtls10Test, Choice){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	{
 		// Объявляем связь клиента
 		client::context_t client;
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны: клиент до издания 1.2, сервер только 1.1
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, credential, TLS11, TLS12);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, credential, TLS11, TLS12);
 		// Зажимаем сервер на издание 1.1
 		ASSERT_EQ(server.versions(TLS11, TLS11), context::error_t::NONE);
 		// Запускаем сервер
@@ -470,7 +470,7 @@ TEST(Dtls10Test, Choice){
 		// Проверяем наличие издания 1.0 в перечне
 		EXPECT_TRUE(listed);
 		// Обмениваемся дейтаграммами
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем издание у клиента
@@ -478,7 +478,7 @@ TEST(Dtls10Test, Choice){
 		// Проверяем издание у сервера
 		EXPECT_EQ(server.version(), TLS11);
 		// Проверяем обмен данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 	{
 		// Обе стороны от 1.0 до 1.2: выбирается 1.2
@@ -486,12 +486,12 @@ TEST(Dtls10Test, Choice){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны от издания 1.1 до 1.2
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, credential, TLS11, TLS12);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, credential, TLS11, TLS12);
 		// Запускаем сервер
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Обмениваемся дейтаграммами
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем издание у клиента
@@ -504,7 +504,7 @@ TEST(Dtls10Test, Choice){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны на издание 1.1
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, credential, TLS11, TLS11);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, credential, TLS11, TLS11);
 		// Зажимаем сервер на издание 1.2
 		ASSERT_EQ(server.versions(TLS12, TLS12), context::error_t::NONE);
 		// Запускаем сервер
@@ -518,7 +518,7 @@ TEST(Dtls10Test, Choice){
 		// Проверяем заголовок издания 1.2
 		EXPECT_EQ(profile.version, static_cast <uint16_t> (0xFEFF));
 		// Обмениваемся дейтаграммами
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем отказ установления
 		EXPECT_FALSE(client.established() || server.established());
 		// Проверяем причину отказа
@@ -531,7 +531,7 @@ TEST(Dtls10Test, Choice){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны на GCM при издании 1.1
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, TLS11, TLS11);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, TLS11, TLS11);
 		// Проверяем отказ заведения
 		EXPECT_EQ(client.start(), context::error_t::SETTINGS);
 		// Сервер, зажатый на 1.0 с одним лишь GCM, не сходится изданием с клиентом от 1.0 до 1.2: protocol_version
@@ -539,13 +539,13 @@ TEST(Dtls10Test, Choice){
 		// Объявляем связь другого сервера
 		server::context_t another;
 		// Настраиваем стороны: клиент от 1.1 до 1.2, сервер на GCM
-		arrange(other, another, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, TLS11, TLS12);
+		__nts_arrange__(other, another, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, TLS11, TLS12);
 		// Зажимаем сервер на издание 1.1
 		ASSERT_EQ(another.versions(TLS11, TLS11), context::error_t::NONE);
 		ASSERT_EQ(another.start(), context::error_t::NONE);
 		ASSERT_EQ(other.start(), context::error_t::NONE);
 		// Обмениваемся дейтаграммами
-		converse(other, another);
+		__nts_converse__(other, another);
 		// Проверяем отказ установления
 		EXPECT_FALSE(other.established() || another.established());
 		// Проверяем причину отказа
@@ -557,7 +557,7 @@ TEST(Dtls10Test, Choice){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны от издания 1.1 до 1.2
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, TLS11, TLS12);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, credential, TLS11, TLS12);
 		// Ставим клиенту GCM впереди CBC
 		client.suites(vector <protect::suite_t> {protect::suite_t::ECDHE_ECDSA_AES_128_GCM_SHA256, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA});
 		// Ставим серверу GCM впереди CBC
@@ -567,7 +567,7 @@ TEST(Dtls10Test, Choice){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Обмениваемся дейтаграммами
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем издание у клиента
@@ -575,7 +575,7 @@ TEST(Dtls10Test, Choice){
 		EXPECT_EQ(server.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA);
 		EXPECT_EQ(client.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA);
 		// Проверяем обмен данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 	{
 		// Объявляем связь клиента
@@ -605,15 +605,15 @@ TEST(Dtls10Test, Mutual){
 		// Объявляем подлинности сторон
 		context::credential_t mine, theirs;
 		// Считываем подлинность сервера
-		ASSERT_TRUE(keyfile("ec256", mine));
+		ASSERT_TRUE(__nts_keyfile__("ec256", mine));
 		// Считываем подлинность клиента
-		ASSERT_TRUE(keyfile(KEYS[k], theirs));
+		ASSERT_TRUE(__nts_keyfile__(KEYS[k], theirs));
 		// Объявляем связь клиента
 		client::context_t client;
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны на издание 1.1
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, mine, TLS11, TLS11);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, mine, TLS11, TLS11);
 		// Запрашиваем подлинность клиента
 		server.request(true);
 		// Задаём клиенту подлинность
@@ -623,7 +623,7 @@ TEST(Dtls10Test, Mutual){
 		// Запускаем клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Обмениваемся дейтаграммами
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи
 		ASSERT_TRUE(client.established() && server.established()) << KEYS[k] << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " " << static_cast <int> (client.alert().description) << " " << static_cast <int> (server.alert().description);
 		// Проверяем цепочку клиента
@@ -631,7 +631,7 @@ TEST(Dtls10Test, Mutual){
 		// Сверяем сертификат клиента
 		EXPECT_EQ(server.peer()[0], theirs.chain[0]);
 		// Проверяем обмен данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 	}
 }
 
@@ -670,7 +670,7 @@ static bool dtlsable() noexcept {
 	const toolkit_t toolkit = __nts_inspect__();
 	// Поднимаем сервер openssl
 	const bool started = __nts_launch__("openssl s_server" + __nts_accepting__(toolkit, number) + " -dtls1 -listen -no_ticket -cert " + crt + " -key " + key + " -cipher 'ECDHE-ECDSA-AES128-SHA@SECLEVEL=0' -mtu 300" + __nts_once__(toolkit) + " <" + holder + " >" + log + " 2>&1", log, log + ".pid", holder);
-	// Итог
+	// Итог согласования набора
 	bool agreed = false;
 	// Если сервер поднялся
 	if(started){
@@ -702,7 +702,7 @@ static bool dtlsable() noexcept {
 		// Останавливаем сервер
 		sentinel.halt();
 	}
-	// Прибираем
+	// Прибираем файлы проверки
 	::remove(holder.c_str());
 	::remove(log.c_str());
 	::remove(out.c_str());
@@ -742,7 +742,7 @@ TEST(Dtls10Test, Openssl){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Составляем пути к сертификату и ключу
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	{
@@ -769,9 +769,9 @@ TEST(Dtls10Test, Openssl){
 		// Объявляем привязанный порт
 		uint16_t bound = 0;
 		// Заводим сокет
-		const int fd = __nts_socketing__(0, bound);
+		const int connection = __nts_socketing__(0, bound);
 		// Проверяем сокет
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(connection, 0);
 		// Объявляем адрес собеседника
 		struct sockaddr_in peer;
 		// Очищаем адрес собеседника
@@ -799,7 +799,7 @@ TEST(Dtls10Test, Openssl){
 		// Запускаем клиента
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Ведём обмен до установления связи
-		const bool complete = __nts_relay__(client, fd, peer, 400);
+		const bool complete = __nts_relay__(client, connection, peer, 400);
 		// Если связь не установилась
 		if(!complete){ std::string journal; (void) __nts_settle__(log, journal); ADD_FAILURE() << journal; }
 		// Проверяем установление связи
@@ -809,7 +809,7 @@ TEST(Dtls10Test, Openssl){
 		// Проверяем договорённый набор
 		EXPECT_EQ(client.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA);
 		// Закрываем сокет
-		closing(fd);
+		closing(connection);
 		// Останавливаем сервер
 		sentinel.halt();
 		// Снимаем журнал сервера
@@ -823,9 +823,9 @@ TEST(Dtls10Test, Openssl){
 		// Объявляем номер порта
 		uint16_t number = 0;
 		// Заводим сокет
-		const int fd = __nts_socketing__(0, number);
+		const int connection = __nts_socketing__(0, number);
 		// Проверяем сокет
-		ASSERT_GE(fd, 0);
+		ASSERT_GE(connection, 0);
 		// Составляем имя журнала клиента
 		const std::string log = "/tmp/ants-dtls10-client-" + std::to_string(number) + ".log";
 		// Задаём запрос клиента
@@ -847,7 +847,7 @@ TEST(Dtls10Test, Openssl){
 		 */
 		for(size_t i = 0; (i < 150) && (received <= 0); i++)
 			// Принимаем дейтаграмму клиента
-			received = receivingfrom(fd, buffer, sizeof(buffer), reinterpret_cast <struct sockaddr *> (&peer), &length);
+			received = receivingfrom(connection, buffer, sizeof(buffer), reinterpret_cast <struct sockaddr *> (&peer), &length);
 		// Проверяем, что данные пришли
 		ASSERT_GT(received, 0);
 		// Объявляем связь сервера
@@ -875,7 +875,7 @@ TEST(Dtls10Test, Openssl){
 		// Принятые прикладные данные
 		vector <uint8_t> plaintext;
 		/**
-		 * Выполняем обмен дейтаграммами с s_client, пока связь не установится и данные не придут
+		 * Обмениваемся дейтаграммами с s_client, пока связь не установится и данные не придут
 		 */
 		for(size_t i = 0; (i < 400) && (server.state() != context::state_t::FAILED) && (server.state() != context::state_t::CLOSED) && plaintext.empty(); i++){
 			/**
@@ -885,12 +885,12 @@ TEST(Dtls10Test, Openssl){
 				// Получаем исходящую дейтаграмму сервера
 				const view_t data = server.output();
 				// Отправляем дейтаграмму клиенту
-				(void) sendingto(fd, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
+				(void) sendingto(connection, data.data, data.size, reinterpret_cast <const struct sockaddr *> (&peer), length);
 				// Убираем дейтаграмму из вывода
 				server.consume(data.size);
 			}
 			// Принимаем дейтаграмму клиента
-			received = receiving(fd, buffer, sizeof(buffer));
+			received = receiving(connection, buffer, sizeof(buffer));
 			// Если данные пришли
 			if(received > 0)
 				// Передаём данные серверу
@@ -912,7 +912,7 @@ TEST(Dtls10Test, Openssl){
 		EXPECT_EQ(server.suite(), protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA);
 		EXPECT_EQ(string(plaintext.begin(), plaintext.end()), request);
 		// Закрываем сокет
-		closing(fd);
+		closing(connection);
 		// Останавливаем клиента
 		sentinel.halt();
 		// Объявляем буфер журнала
@@ -933,13 +933,13 @@ TEST(Dtls10Test, Starved){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Считываем ключи набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем признак нехватки памяти
 	bool starved = false;
 	// Объявляем признак установления связи
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 6000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Объявляем связь клиента
@@ -947,7 +947,7 @@ TEST(Dtls10Test, Starved){
 		// Объявляем связь сервера
 		server::context_t server;
 		// Настраиваем стороны на издание 1.1
-		arrange(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, credential, TLS11, TLS11);
+		__nts_arrange__(client, server, protect::suite_t::ECDHE_ECDSA_AES_128_CBC_SHA, credential, TLS11, TLS11);
 		// Объявляем итоги сторон
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{
@@ -960,7 +960,7 @@ TEST(Dtls10Test, Starved){
 			// Если обе стороны завелись
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 				// Обмениваемся дейтаграммами
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Снимаем итог сервера
 				first = server.error();
 				// Снимаем итог клиента

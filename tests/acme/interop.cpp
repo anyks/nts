@@ -74,7 +74,7 @@ namespace {
 	 * @return     содержимое файла
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Открываем файл на чтение
 		std::ifstream file(path, std::ios::binary);
 		// Читаем содержимое файла в поток
@@ -91,7 +91,7 @@ namespace {
 	 * @return     просмотр строки
 	 *
 	 */
-	static view_t view(const std::string & text) {
+	static view_t __nts_view__(const std::string & text) {
 		// Выводим просмотр строки
 		return view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size());
 	}
@@ -191,7 +191,7 @@ namespace {
 	 * @return        признак того, что ответ получен
 	 *
 	 */
-	static bool http(const sandbox_t & sandbox, const std::string & method, const std::string & url, const std::string & body, answer_t & result) {
+	static bool __nts_http__(const sandbox_t & sandbox, const std::string & method, const std::string & url, const std::string & body, answer_t & result) {
 		// Файлы заголовков и тела ответа
 		const std::string headers = sandbox.file("headers.txt");
 		// Файл тела ответа
@@ -207,12 +207,12 @@ namespace {
 		}
 		// Дописываем адрес запроса
 		command += " " + url;
-		// Выполняем запрос
+		// Посылаем запрос
 		if(__nts_shell__(command + " >/dev/null 2>&1") != 0)
 			// Выводим отказ запроса
 			return false;
 		// Читаем заголовки ответа
-		const std::string head = slurp(headers);
+		const std::string head = __nts_slurp__(headers);
 		// Если заголовков нет
 		if(head.empty())
 			// Выводим отказ запроса
@@ -280,7 +280,7 @@ namespace {
 			}
 		}
 		// Читаем тело ответа
-		result.body = slurp(content);
+		result.body = __nts_slurp__(content);
 		// Выводим полученность ответа
 		return true;
 	}
@@ -298,19 +298,19 @@ namespace {
 	 * @return        признак того, что ответ получен и подпись принята
 	 *
 	 */
-	static bool call(const sandbox_t & sandbox, const std::string & url, std::string & nonce, const std::string & kid, const keys::key_t & key, const std::string & payload, const keys::signer_t & signer, answer_t & result) {
+	static bool __nts_call__(const sandbox_t & sandbox, const std::string & url, std::string & nonce, const std::string & kid, const keys::key_t & key, const std::string & payload, const keys::signer_t & signer, answer_t & result) {
 		/**
-		 * Выполняем запрос с повтором по отказу badNonce, как велит раздел 6.5 RFC 8555
+		 * Повторяем запрос по отказу badNonce, как велит раздел 6.5 RFC 8555
 		 */
 		for(size_t attempt = 0; attempt < 3; attempt++){
 			// Собираем тело запроса
 			std::string body;
 			// Если тело собрать не удалось
-			if(acme::request(url, nonce, kid, key, view(payload), signer, body) != acme::error_t::NONE)
+			if(acme::request(url, nonce, kid, key, __nts_view__(payload), signer, body) != acme::error_t::NONE)
 				// Выводим отказ запроса
 				return false;
-			// Выполняем запрос
-			if(!http(sandbox, "POST", url, body, result))
+			// Посылаем запрос
+			if(!__nts_http__(sandbox, "POST", url, body, result))
 				// Выводим отказ запроса
 				return false;
 			// Если отказ не о метке новизны
@@ -346,25 +346,25 @@ TEST(AcmeInteropTest, Pebble) {
 	keys::key_t key;
 	{
 		// Читаем запись ключа
-		const std::string text = slurp(std::string(CORPUS) + "/ca-ec.key");
+		const std::string text = __nts_slurp__(std::string(CORPUS) + "/ca-ec.key");
 		// Разбор обязан удаться
 		ASSERT_EQ(keys::decode(text, view_t(), key), keys::error_t::NONE);
 	}
 	// Готовим ключ подписи учётной записи
 	keys::signer_t signer;
 	// Подготовка подписанта учётной записи обязана удаться
-	ASSERT_EQ(signer.prepare(view(slurp(std::string(CORPUS) + "/ca-ec.key"))), keys::error_t::NONE);
+	ASSERT_EQ(signer.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/ca-ec.key"))), keys::error_t::NONE);
 	// Разбираем каталог службы
 	acme::directory_t directory;
 	{
 		// Ответ сервера
 		answer_t answer;
 		// Запрашиваем каталог
-		ASSERT_TRUE(http(sandbox, "GET", PEBBLE, "", answer));
+		ASSERT_TRUE(__nts_http__(sandbox, "GET", PEBBLE, "", answer));
 		// Состояние ответа - 200
 		ASSERT_EQ(answer.status, 200);
 		// Разбор каталога обязан удаться
-		ASSERT_EQ(directory.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
+		ASSERT_EQ(directory.parse(__nts_view__(answer.body)), acme::error_t::NONE) << answer.body;
 	}
 	// Запрашиваем метку новизны
 	std::string nonce;
@@ -372,7 +372,7 @@ TEST(AcmeInteropTest, Pebble) {
 		// Ответ сервера
 		answer_t answer;
 		// Запрашиваем метку
-		ASSERT_TRUE(http(sandbox, "GET", directory.newNonce, "", answer));
+		ASSERT_TRUE(__nts_http__(sandbox, "GET", directory.newNonce, "", answer));
 		// Состояние ответа - 204
 		ASSERT_EQ(answer.status, 204);
 		// Метка обязана быть
@@ -390,7 +390,7 @@ TEST(AcmeInteropTest, Pebble) {
 		// Ответ сервера
 		answer_t answer;
 		// Заводим запись
-		ASSERT_TRUE(call(sandbox, directory.newAccount, nonce, "", key, payload, signer, answer));
+		ASSERT_TRUE(__nts_call__(sandbox, directory.newAccount, nonce, "", key, payload, signer, answer));
 		// Состояние ответа - 201 либо 200: запись заведена либо уже была, подпись JWK принята
 		ASSERT_TRUE((answer.status == 201) || (answer.status == 200)) << answer.body;
 		// Адрес записи обязан быть
@@ -400,7 +400,7 @@ TEST(AcmeInteropTest, Pebble) {
 		// Разбираем ответ записи
 		acme::account_t account;
 		// Разбор ответа записи обязан удаться
-		ASSERT_EQ(account.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
+		ASSERT_EQ(account.parse(__nts_view__(answer.body)), acme::error_t::NONE) << answer.body;
 		// Состояние записи - valid
 		ASSERT_EQ(account.status, "valid");
 		// Обновляем метку новизны
@@ -418,13 +418,13 @@ TEST(AcmeInteropTest, Pebble) {
 		// Ответ сервера
 		answer_t answer;
 		// Заводим заказ
-		ASSERT_TRUE(call(sandbox, directory.newOrder, nonce, kid, key, payload, signer, answer));
+		ASSERT_TRUE(__nts_call__(sandbox, directory.newOrder, nonce, kid, key, payload, signer, answer));
 		// Состояние ответа - 201: заказ заведён, подпись kid принята
 		ASSERT_EQ(answer.status, 201) << answer.body;
 		// Запоминаем адрес заказа
 		orderUrl = answer.location;
 		// Разбираем заказ
-		ASSERT_EQ(order.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
+		ASSERT_EQ(order.parse(__nts_view__(answer.body)), acme::error_t::NONE) << answer.body;
 		// Состояние заказа - pending либо ready: служба вправе подтвердить сразу
 		ASSERT_TRUE((order.status.compare("pending") == 0) || (order.status.compare("ready") == 0)) << answer.body;
 		// Идентификатор заказа один
@@ -441,18 +441,18 @@ TEST(AcmeInteropTest, Pebble) {
 		// Ответ сервера
 		answer_t answer;
 		// Запрашиваем запись полномочий запросом POST-as-GET
-		ASSERT_TRUE(call(sandbox, order.authorizations[0], nonce, kid, key, "", signer, answer));
+		ASSERT_TRUE(__nts_call__(sandbox, order.authorizations[0], nonce, kid, key, "", signer, answer));
 		// Состояние ответа - 200
 		ASSERT_EQ(answer.status, 200) << answer.body;
 		// Разбор записи обязан удаться
-		ASSERT_EQ(authorization.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
+		ASSERT_EQ(authorization.parse(__nts_view__(answer.body)), acme::error_t::NONE) << answer.body;
 		// Обновляем метку новизны
 		nonce = answer.nonce;
 	}
 	// Ищем испытание dns-01: Pebble резолвит его моком DNS сам
 	const acme::challenge_t * challenge = nullptr;
 	/**
-	 * Выполняем обход испытаний записи
+	 * Обходим испытания записи
 	 */
 	for(size_t position = 0; position < authorization.challenges.size(); position++){
 		// Если испытание dns-01
@@ -475,7 +475,7 @@ TEST(AcmeInteropTest, Pebble) {
 		// Ответ сервера
 		answer_t answer;
 		// Отвечаем на испытание
-		ASSERT_TRUE(call(sandbox, challenge->url, nonce, kid, key, payload, signer, answer));
+		ASSERT_TRUE(__nts_call__(sandbox, challenge->url, nonce, kid, key, payload, signer, answer));
 		// Состояние ответа - 200: ответ принят; 400 - испытание уже подтверждено
 		// службой в режиме всегда действующей проверки
 		ASSERT_TRUE((answer.status == 200) || (answer.status == 400)) << answer.body;
@@ -488,17 +488,17 @@ TEST(AcmeInteropTest, Pebble) {
 		// Состояние записи полномочий
 		std::string status;
 		/**
-		 * Выполняем опрос записи до итогового состояния
+		 * Опрашиваем запись до итогового состояния
 		 */
 		for(size_t attempt = 0; attempt < 10; attempt++){
 			// Ответ сервера
 			answer_t answer;
 			// Запрашиваем запись полномочий
-			ASSERT_TRUE(call(sandbox, order.authorizations[0], nonce, kid, key, "", signer, answer));
+			ASSERT_TRUE(__nts_call__(sandbox, order.authorizations[0], nonce, kid, key, "", signer, answer));
 			// Разбираем запись полномочий из ответа сервера
 			acme::authorization_t current;
 			// Разбор записи полномочий обязан удаться
-			ASSERT_EQ(current.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
+			ASSERT_EQ(current.parse(__nts_view__(answer.body)), acme::error_t::NONE) << answer.body;
 			// Обновляем метку новизны
 			nonce = answer.nonce;
 			// Если состояние итоговое
@@ -508,7 +508,7 @@ TEST(AcmeInteropTest, Pebble) {
 				// Выходим из опроса
 				break;
 			}
-			// Ждём секунду
+			// Выжидаем секунду между опросами
 			::sleep(1);
 		}
 		// Запись обязана стать действующей: мок DNS Pebble отвечает на испытание
@@ -518,7 +518,7 @@ TEST(AcmeInteropTest, Pebble) {
 	// Готовим запрос на сертификат модулем x509::request
 	std::vector <uint8_t> csr;
 	// Запись запроса набора: ключ владельца берём из него, запись обязана пережить разобранный запрос
-	const std::string referenceText = slurp(std::string(CORPUS) + "/leaf-ec.csr");
+	const std::string referenceText = __nts_slurp__(std::string(CORPUS) + "/leaf-ec.csr");
 	// Разобранная запись PEM запроса
 	std::vector <pem::block_t> referenceBlocks;
 	// Разбираем запись PEM запроса
@@ -533,7 +533,7 @@ TEST(AcmeInteropTest, Pebble) {
 		// Готовим ключ подписи владельца
 		keys::signer_t leafSigner;
 		// Подготовка подписанта владельца обязана удаться
-		ASSERT_EQ(leafSigner.prepare(view(slurp(std::string(CORPUS) + "/leaf-ec.key"))), keys::error_t::NONE);
+		ASSERT_EQ(leafSigner.prepare(__nts_view__(__nts_slurp__(std::string(CORPUS) + "/leaf-ec.key"))), keys::error_t::NONE);
 		// Имя владельца сертификата
 		x509::name_t subject;
 		// Признак CN имени
@@ -572,27 +572,27 @@ TEST(AcmeInteropTest, Pebble) {
 		// Ответ сервера
 		answer_t answer;
 		// Завершаем заказ
-		ASSERT_TRUE(call(sandbox, order.finalize, nonce, kid, key, payload, signer, answer));
+		ASSERT_TRUE(__nts_call__(sandbox, order.finalize, nonce, kid, key, payload, signer, answer));
 		// Состояние ответа - 200: запрос принят
 		ASSERT_EQ(answer.status, 200) << answer.body;
 		// Обновляем метку новизны
 		nonce = answer.nonce;
 	}
-	// Ждём выдачи сертификата опросом заказа
+	// Дожидаемся выдачи сертификата опросом заказа
 	std::string certificateUrl;
 	{
 		/**
-		 * Выполняем опрос заказа до выдачи
+		 * Опрашиваем заказ до выдачи
 		 */
 		for(size_t attempt = 0; attempt < 10; attempt++){
 			// Ответ сервера
 			answer_t answer;
 			// Запрашиваем заказ
-			ASSERT_TRUE(call(sandbox, orderUrl, nonce, kid, key, "", signer, answer));
+			ASSERT_TRUE(__nts_call__(sandbox, orderUrl, nonce, kid, key, "", signer, answer));
 			// Разбираем заказ
 			acme::order_t current;
 			// Разбор заказа обязан удаться
-			ASSERT_EQ(current.parse(view(answer.body)), acme::error_t::NONE) << answer.body;
+			ASSERT_EQ(current.parse(__nts_view__(answer.body)), acme::error_t::NONE) << answer.body;
 			// Обновляем метку новизны
 			nonce = answer.nonce;
 			// Если сертификат выдан
@@ -604,7 +604,7 @@ TEST(AcmeInteropTest, Pebble) {
 			}
 			// Заказ обязан остаться действующим
 			ASSERT_NE(current.status, "invalid") << answer.body;
-			// Ждём секунду
+			// Выжидаем секунду между опросами
 			::sleep(1);
 		}
 		// Адрес сертификата обязан быть
@@ -616,7 +616,7 @@ TEST(AcmeInteropTest, Pebble) {
 		// Ответ сервера
 		answer_t answer;
 		// Сгружаем сертификат
-		ASSERT_TRUE(call(sandbox, certificateUrl, nonce, kid, key, "", signer, answer));
+		ASSERT_TRUE(__nts_call__(sandbox, certificateUrl, nonce, kid, key, "", signer, answer));
 		// Состояние ответа - 200
 		ASSERT_EQ(answer.status, 200) << answer.body;
 		// Тело ответа несёт цепочку PEM
@@ -649,7 +649,7 @@ TEST(AcmeInteropTest, Pebble) {
 		// Имя example.org обязано быть среди дополнительных
 		bool found = false;
 		/**
-		 * Выполняем обход дополнительных имён
+		 * Обходим дополнительные имена
 		 */
 		for(size_t position = 0; position < alternatives.size(); position++){
 			// Если имя доменное и совпало
@@ -673,7 +673,7 @@ TEST(AcmeInteropTest, Pebble) {
 		// Ответ сервера
 		answer_t answer;
 		// Отзываем сертификат ключом учётной записи
-		ASSERT_TRUE(call(sandbox, directory.revokeCert, nonce, kid, key, payload, signer, answer));
+		ASSERT_TRUE(__nts_call__(sandbox, directory.revokeCert, nonce, kid, key, payload, signer, answer));
 		// Состояние ответа - 200: отзыв принят
 		ASSERT_EQ(answer.status, 200) << answer.body;
 	}

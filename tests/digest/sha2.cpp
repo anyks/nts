@@ -53,7 +53,7 @@ static std::string text(const uint8_t * data, const size_t size) {
 	// Набор шестнадцатеричных знаков
 	static const char * DIGITS = "0123456789abcdef";
 	/**
-	 * Выполняем перебор байтов хеша
+	 * Перебираем байты хеша
 	 */
 	for(size_t i = 0; i < size; i++){
 		// Записываем старший полубайт
@@ -208,18 +208,18 @@ TEST(Sha2Test, Million){
 	// Размеры кусков, которыми подаётся сообщение
 	const size_t chunks[] = {1, 3, 63, 64, 65, 127, 128, 129, 1000, 4097};
 	/**
-	 * Выполняем перебор размеров кусков
+	 * Перебираем размеры кусков
 	 */
 	for(size_t c = 0; c < (sizeof(chunks) / sizeof(chunks[0])); c++){
 		// Объект хеширования SHA-512
 		digest::sha2_t hasher(digest::sha_t::SHA512);
 		/**
-		 * Выполняем подачу сообщения кусками
+		 * Подаём сообщение кусками
 		 */
 		for(size_t offset = 0; offset < message.size(); offset += chunks[c]){
 			// Размер очередного куска
 			const size_t size = (((message.size() - offset) < chunks[c]) ? (message.size() - offset) : chunks[c]);
-			// Выполняем подачу очередного куска
+			// Подаём очередной кусок
 			hasher.update(view_t(reinterpret_cast <const uint8_t *> (message.data()) + offset, size));
 		}
 		// Место, в которое записывается хеш
@@ -271,13 +271,13 @@ TEST(Sha2Test, Refusals){
 	ASSERT_TRUE(hasher.finish(result, 32));
 	// Проверяем хеш пустого сообщения после отказов
 	ASSERT_EQ(text(result, 32), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
-	// Выполняем сброс на SHA-384
+	// Сбрасываем на SHA-384
 	hasher.reset(digest::sha_t::SHA384);
 	// Проверяем разновидность после сброса
 	ASSERT_EQ(hasher.type(), digest::sha_t::SHA384);
 	// Проверяем размер блока SHA-384
 	ASSERT_EQ(hasher.block(), 128u);
-	// Выполняем подачу сообщения «abc»
+	// Подаём сообщение «abc»
 	hasher.update(view_t(reinterpret_cast <const uint8_t *> ("abc"), 3));
 	// Проверяем снятие хеша после сброса
 	ASSERT_TRUE(hasher.finish(result, sizeof(result)));
@@ -292,13 +292,13 @@ TEST(Sha2Test, Paths){
 	// Генератор сообщений и длин кусков с закреплённым зерном
 	std::mt19937 generator(20260928);
 	/**
-	 * Выполняем перебор длин: пачки блоков любой чётности и хвосты через границы блоков
+	 * Перебираем длины: пачки блоков любой чётности и хвосты через границы блоков
 	 */
 	for(size_t length = 0; length <= 4096; length++){
-		// Сообщение
+		// Сообщение заданной длины
 		std::string message(length, 'x');
 		/**
-		 * Выполняем заполнение сообщения
+		 * Заполняем сообщение
 		 */
 		for(size_t i = 0; i < message.size(); i++)
 			// Записываем очередной знак
@@ -310,7 +310,7 @@ TEST(Sha2Test, Paths){
 		// Позиция внутри сообщения
 		size_t position = 0;
 		/**
-		 * Выполняем подачу сообщения кусками случайной длины
+		 * Подаём сообщение кусками случайной длины
 		 */
 		while(position < length){
 			// Длина очередного куска
@@ -355,13 +355,13 @@ TEST(Sha2Test, Paths512){
 	// Генератор сообщений и длин кусков с закреплённым зерном
 	std::mt19937 generator(20260906);
 	/**
-	 * Выполняем перебор длин
+	 * Перебираем длины
 	 */
 	for(size_t length = 0; length <= 4096; length++){
-		// Сообщение
+		// Сообщение заданной длины
 		std::string message(length, 'x');
 		/**
-		 * Выполняем заполнение сообщения
+		 * Заполняем сообщение
 		 */
 		for(size_t i = 0; i < message.size(); i++)
 			// Записываем очередной знак
@@ -377,7 +377,7 @@ TEST(Sha2Test, Paths512){
 		// Позиция внутри сообщения
 		size_t position = 0;
 		/**
-		 * Выполняем подачу сообщения кусками случайной длины
+		 * Подаём сообщение кусками случайной длины
 		 */
 		while(position < length){
 			// Длина очередного куска

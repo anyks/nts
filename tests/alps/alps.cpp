@@ -86,7 +86,7 @@ namespace {
 	 * @return       признак успешности составления подлинности
 	 *
 	 */
-	bool keyfile(const char * name, context::credential_t & result) noexcept {
+	bool __nts_keyfile__(const char * name, context::credential_t & result) noexcept {
 		// Загружаем содержимое из файла набора
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Объявляем список байтов
@@ -119,7 +119,7 @@ namespace {
 	 * @return       признак того, что байты между сторонами передавались
 	 *
 	 */
-	bool pump(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Заводим признак передачи байтов
 		bool moved = false;
 		/**
@@ -169,11 +169,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	void converse(client::context_t & client, server::context_t & server) noexcept {
+	void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
-		 * Выполняем передачу байтов между сторонами, пока им есть что сказать
+		 * Передаём байты между сторонами, пока им есть что сказать
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			continue;
 	}
 	/**
@@ -184,7 +184,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны без искажения
 	 *
 	 */
-	bool barter(client::context_t & client, server::context_t & server) noexcept {
+	bool __nts_barter__(client::context_t & client, server::context_t & server) noexcept {
 		// Задаём текст запроса
 		const string request = "Запрос по связи с прикладными настройками";
 		// Если запись запроса клиентом удалась
@@ -192,7 +192,7 @@ namespace {
 			// Возвращаем признак неудачи
 			return false;
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Объявляем список байтов
 		vector <uint8_t> received;
 		// Если чтение запроса сервером удалось и текст совпал
@@ -206,7 +206,7 @@ namespace {
 			// Возвращаем признак неудачи
 			return false;
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Если чтение ответа клиентом удалось и текст совпал
 		if((client.read(received) != context::error_t::NONE) || (string(received.begin(), received.end()) != answer))
 			// Возвращаем признак неудачи
@@ -225,7 +225,7 @@ namespace {
 	 * @param type       точка кода обеих сторон
 	 *
 	 */
-	void arrange(client::context_t & client, server::context_t & server, const context::credential_t & credential, const char * mine, const char * theirs, const extension::type_t type) noexcept {
+	void __nts_arrange__(client::context_t & client, server::context_t & server, const context::credential_t & credential, const char * mine, const char * theirs, const extension::type_t type) noexcept {
 		// Устанавливаем подлинность сервера
 		server.credential(credential);
 		// Задаём прикладные протоколы клиента
@@ -259,9 +259,9 @@ TEST(AlpsTest, Loopback){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	/**
-	 * Выполняем перебор точек кода
+	 * Перебираем точки кода
 	 */
 	for(size_t p = 0; p < (sizeof(POINTS) / sizeof(POINTS[0])); p++){
 		// Создаём контекст клиента
@@ -273,14 +273,14 @@ TEST(AlpsTest, Loopback){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, "client-h2", "server-h2", POINTS[p]);
+		__nts_arrange__(client, server, credential, "client-h2", "server-h2", POINTS[p]);
 		// Кодовая точка договорена обеими сторонами
 		ASSERT_EQ(client.codepoint(), POINTS[p]);
 		ASSERT_EQ(server.codepoint(), POINTS[p]);
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << p << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Прикладной протокол согласован по договору
@@ -292,11 +292,11 @@ TEST(AlpsTest, Loopback){
 		EXPECT_EQ(client.settings(), bytes("server-h2"));
 		EXPECT_EQ(server.settings(), bytes("client-h2"));
 		// Проверяем обмен прикладными данными
-		ASSERT_TRUE(barter(client, server));
+		ASSERT_TRUE(__nts_barter__(client, server));
 		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем размер
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Проверяем снятие журнала процесса
@@ -313,7 +313,7 @@ TEST(AlpsTest, Loopback){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(resumed);
 		// Настраиваем стороны связи
-		arrange(resuming, resumed, credential, "client-h2-again", "server-h2-again", POINTS[p]);
+		__nts_arrange__(resuming, resumed, credential, "client-h2-again", "server-h2-again", POINTS[p]);
 		// Возобновляем связь по билету возобновляемого клиента
 		resuming.resume(client.tickets()[0]);
 		// Возобновляем связь по билету возобновляемого сервера
@@ -322,7 +322,7 @@ TEST(AlpsTest, Loopback){
 		ASSERT_EQ(resumed.start(), context::error_t::NONE);
 		ASSERT_EQ(resuming.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(resuming, resumed);
+		__nts_converse__(resuming, resumed);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(resuming.established() && resumed.established());
 		ASSERT_TRUE(resuming.shared() && resumed.shared());
@@ -332,7 +332,7 @@ TEST(AlpsTest, Loopback){
 		EXPECT_EQ(resuming.settings(), bytes("server-h2-again"));
 		EXPECT_EQ(resumed.settings(), bytes("client-h2-again"));
 		// Проверяем обмен прикладными данными
-		ASSERT_TRUE(barter(resuming, resumed));
+		ASSERT_TRUE(__nts_barter__(resuming, resumed));
 	}
 }
 
@@ -344,7 +344,7 @@ TEST(AlpsTest, Codepoints){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Создаём контекст клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -354,14 +354,14 @@ TEST(AlpsTest, Codepoints){
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Настраиваем стороны связи
-	arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS_OLD);
+	__nts_arrange__(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS_OLD);
 	// Задаём кодовую точку сервера
 	server.codepoint(extension::type_t::SETTINGS);
 	// Проверяем успешность запуска
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Прикладной протокол согласован по договору
@@ -375,7 +375,7 @@ TEST(AlpsTest, Codepoints){
 	// Проверяем обслуживание подключения
 	EXPECT_NE(client.codepoint(), server.codepoint());
 	// Проверяем обмен прикладными данными
-	ASSERT_TRUE(barter(client, server));
+	ASSERT_TRUE(__nts_barter__(client, server));
 }
 
 /**
@@ -386,7 +386,7 @@ TEST(AlpsTest, Absent){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	{
 		// Создаём контекст клиента
 		client::context_t client;
@@ -397,12 +397,12 @@ TEST(AlpsTest, Absent){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, "client-h2", nullptr, extension::type_t::SETTINGS);
+		__nts_arrange__(client, server, credential, "client-h2", nullptr, extension::type_t::SETTINGS);
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем договор прикладных настроек
@@ -418,7 +418,7 @@ TEST(AlpsTest, Absent){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, "client-h2", nullptr, extension::type_t::SETTINGS);
+		__nts_arrange__(client, server, credential, "client-h2", nullptr, extension::type_t::SETTINGS);
 		// Задаём прикладные протоколы сервера
 		server.protocols(vector <string> {"http/1.1"});
 		// Задаём прикладные настройки сервера
@@ -427,7 +427,7 @@ TEST(AlpsTest, Absent){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Прикладной протокол согласован по договору
@@ -445,7 +445,7 @@ TEST(AlpsTest, Empty){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Создаём контекст клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -455,19 +455,19 @@ TEST(AlpsTest, Empty){
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Настраиваем стороны связи
-	arrange(client, server, credential, "", "", extension::type_t::SETTINGS);
+	__nts_arrange__(client, server, credential, "", "", extension::type_t::SETTINGS);
 	// Проверяем успешность запуска
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем договор прикладных настроек
 	EXPECT_TRUE(client.settled() && server.settled());
 	EXPECT_TRUE(client.settings().empty() && server.settings().empty());
 	// Проверяем обмен прикладными данными
-	ASSERT_TRUE(barter(client, server));
+	ASSERT_TRUE(__nts_barter__(client, server));
 }
 
 /**
@@ -478,7 +478,7 @@ TEST(AlpsTest, Lying){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("rsa2048", credential));
+	ASSERT_TRUE(__nts_keyfile__("rsa2048", credential));
 	// Создаём контекст клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -566,7 +566,7 @@ TEST(AlpsTest, Resumed){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Создаём контекст клиента
 	client::context_t client;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -576,20 +576,20 @@ TEST(AlpsTest, Resumed){
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(server);
 	// Настраиваем стороны связи
-	arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
+	__nts_arrange__(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 	// Разрешаем упреждающие данные сервера
 	server.advance(true);
 	// Проверяем успешность запуска
 	ASSERT_EQ(server.start(), context::error_t::NONE);
 	ASSERT_EQ(client.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established());
 	// Проверяем обслуживание подключения
 	ASSERT_EQ(server.issue(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем размер
 	ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 	// Проверяем, что полученное значение больше ожидаемого
@@ -603,7 +603,7 @@ TEST(AlpsTest, Resumed){
 	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 	gosting(resumed);
 	// Настраиваем стороны связи
-	arrange(resuming, resumed, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
+	__nts_arrange__(resuming, resumed, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 	// Разрешаем упреждающие данные возобновляемого сервера
 	resumed.advance(true);
 	// Разрешаем упреждающие данные возобновляемого клиента
@@ -620,7 +620,7 @@ TEST(AlpsTest, Resumed){
 	// Проверяем размер
 	ASSERT_EQ(resuming.write(view_t(reinterpret_cast <const uint8_t *> (request.data()), request.size())), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(resuming, resumed);
+	__nts_converse__(resuming, resumed);
 	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(resuming.established() && resumed.established()) << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error());
 	ASSERT_TRUE(resuming.accepted() && resumed.accepted());
@@ -636,7 +636,7 @@ TEST(AlpsTest, Resumed){
 	// Принятый текст совпал с отправленным
 	EXPECT_EQ(string(received.begin(), received.end()), request);
 	// Проверяем обмен прикладными данными
-	ASSERT_TRUE(barter(resuming, resumed));
+	ASSERT_TRUE(__nts_barter__(resuming, resumed));
 }
 
 /**
@@ -648,9 +648,9 @@ TEST(AlpsTest, Mismatch){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	/**
-	 * Выполняем перебор сторон, сменивших настройки: клиент, сервер, обе
+	 * Перебираем стороны, сменившие настройки: клиент, сервер, обе
 	 */
 	for(size_t side = 0; side < 3; side++){
 		// Создаём контекст клиента
@@ -662,20 +662,20 @@ TEST(AlpsTest, Mismatch){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
+		__nts_arrange__(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 		// Разрешаем упреждающие данные сервера
 		server.advance(true);
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем размер
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Создаём контекст клиента
@@ -689,7 +689,7 @@ TEST(AlpsTest, Mismatch){
 		// Отмечаем стороны, подающие и принимающие настройки
 		const bool mine = ((side == 0) || (side == 2)), theirs = ((side == 1) || (side == 2));
 		// Настраиваем стороны связи
-		arrange(resuming, resumed, credential, (mine ? "client-h2-changed" : "client-h2"), (theirs ? "server-h2-changed" : "server-h2"), extension::type_t::SETTINGS);
+		__nts_arrange__(resuming, resumed, credential, (mine ? "client-h2-changed" : "client-h2"), (theirs ? "server-h2-changed" : "server-h2"), extension::type_t::SETTINGS);
 		// Разрешаем упреждающие данные возобновляемого сервера
 		resumed.advance(true);
 		// Разрешаем упреждающие данные возобновляемого клиента
@@ -704,7 +704,7 @@ TEST(AlpsTest, Mismatch){
 		// Смена настроек клиентом упреждение не предлагает вовсе, смена сервером - отвергает предложенное
 		EXPECT_EQ(resuming.earlying(), !mine) << side;
 		// Проводим рукопожатие сторон
-		converse(resuming, resumed);
+		__nts_converse__(resuming, resumed);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(resuming.established() && resumed.established()) << side << " " << static_cast <int> (resuming.error()) << " " << static_cast <int> (resumed.error());
 		ASSERT_TRUE(resuming.shared() && resumed.shared()) << side;
@@ -716,7 +716,7 @@ TEST(AlpsTest, Mismatch){
 		EXPECT_EQ(resuming.settings(), bytes(theirs ? "server-h2-changed" : "server-h2")) << side;
 		EXPECT_EQ(resumed.settings(), bytes(mine ? "client-h2-changed" : "client-h2")) << side;
 		// Проверяем обмен прикладными данными
-		ASSERT_TRUE(barter(resuming, resumed)) << side;
+		ASSERT_TRUE(__nts_barter__(resuming, resumed)) << side;
 	}
 	// Без настроек у нового клиента при билете с согласованными настройками упреждение тоже не идёт
 	{
@@ -729,18 +729,18 @@ TEST(AlpsTest, Mismatch){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
+		__nts_arrange__(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 		// Разрешаем упреждающие данные сервера
 		server.advance(true);
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем обслуживание подключения
 		ASSERT_EQ(server.issue(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем размер
 		ASSERT_EQ(client.tickets().size(), static_cast <size_t> (1));
 		// Создаём контекст клиента
@@ -752,7 +752,7 @@ TEST(AlpsTest, Mismatch){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(resumed);
 		// Настраиваем стороны связи
-		arrange(resuming, resumed, credential, nullptr, "server-h2", extension::type_t::SETTINGS);
+		__nts_arrange__(resuming, resumed, credential, nullptr, "server-h2", extension::type_t::SETTINGS);
 		// Разрешаем упреждающие данные возобновляемого сервера
 		resumed.advance(true);
 		// Разрешаем упреждающие данные возобновляемого клиента
@@ -767,7 +767,7 @@ TEST(AlpsTest, Mismatch){
 		// Проверяем отправку упреждающих данных
 		EXPECT_FALSE(resuming.earlying());
 		// Проводим рукопожатие сторон
-		converse(resuming, resumed);
+		__nts_converse__(resuming, resumed);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(resuming.established() && resumed.established());
 		// Проверяем принятие упреждающих данных
@@ -785,7 +785,7 @@ TEST(AlpsTest, Profile){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Объявляем профиль отпечатка
 	fingerprint::profile_t source;
 	{
@@ -808,7 +808,7 @@ TEST(AlpsTest, Profile){
 	// Заводим признак нахождения расширения
 	bool found = false;
 	/**
-	 * Выполняем перебор расширений снимка
+	 * Перебираем расширения снимка
 	 */
 	for(size_t i = 0; i < source.extensions.size(); i++){
 		// Если расширение имеет вид ALPS
@@ -856,7 +856,7 @@ TEST(AlpsTest, Profile){
 	ASSERT_EQ(fingerprint::parse(client.output(), made), fingerprint::error_t::NONE);
 	ASSERT_EQ(made.extensions.size(), source.extensions.size());
 	/**
-	 * Выполняем сличение видов и тел расширений снимка и сложенного приветствия
+	 * Сличаем виды и тела расширений снимка и сложенного приветствия
 	 */
 	for(size_t i = 0; i < made.extensions.size(); i++){
 		// Виды расширений совпали со снимком
@@ -867,7 +867,7 @@ TEST(AlpsTest, Profile){
 			EXPECT_EQ(made.extensions[i].data, source.extensions[i].data) << i;
 	}
 	// Проводим рукопожатие сторон
-	converse(client, server);
+	__nts_converse__(client, server);
 	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 	// Прикладной протокол согласован по договору
@@ -879,7 +879,7 @@ TEST(AlpsTest, Profile){
 	// Проверяем пустоту
 	EXPECT_TRUE(server.settings().empty());
 	// Проверяем обмен прикладными данными
-	ASSERT_TRUE(barter(client, server));
+	ASSERT_TRUE(__nts_barter__(client, server));
 	// Профиль с ALPS против сервера иной точки кода: связь без настроек
 	client::context_t other;
 	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
@@ -902,7 +902,7 @@ TEST(AlpsTest, Profile){
 	ASSERT_EQ(another.start(), context::error_t::NONE);
 	ASSERT_EQ(other.start(), context::error_t::NONE);
 	// Проводим рукопожатие сторон
-	converse(other, another);
+	__nts_converse__(other, another);
 	// Проверяем установление связи обеими сторонами
 	ASSERT_TRUE(other.established() && another.established());
 	// Проверяем договор прикладных настроек
@@ -984,7 +984,7 @@ TEST(AlpsTest, Refusals){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	{
 		// Создаём контекст клиента
 		client::context_t client;
@@ -1050,7 +1050,7 @@ TEST(AlpsTest, Refusals){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
+		__nts_arrange__(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 		// Издание ограничено обеими сторонами
 		ASSERT_EQ(client.versions(0x0303, 0x0303), context::error_t::NONE);
 		ASSERT_EQ(server.versions(0x0303, 0x0303), context::error_t::NONE);
@@ -1061,13 +1061,13 @@ TEST(AlpsTest, Refusals){
 		// Проверяем разбор
 		ASSERT_EQ(fingerprint::parse(client.output(), made), fingerprint::error_t::NONE);
 		/**
-		 * Выполняем перебор расширений приветствия издания 1.2
+		 * Перебираем расширения приветствия издания 1.2
 		 */
 		for(size_t i = 0; i < made.extensions.size(); i++)
 			// Проверяем несовпадение полученного значения с ожидаемым
 			EXPECT_NE(made.extensions[i].type, static_cast <uint16_t> (extension::type_t::SETTINGS)) << i;
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем договор прикладных настроек
@@ -1083,14 +1083,14 @@ TEST(AlpsTest, Refusals){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, "first", "server-h2", extension::type_t::SETTINGS);
+		__nts_arrange__(client, server, credential, "first", "server-h2", extension::type_t::SETTINGS);
 		// Задаём прикладные настройки клиента
 		client.settings("h2", bytes("second"));
 		// Проверяем успешность запуска
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим рукопожатие сторон
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established());
 		// Проверяем обслуживание подключения
@@ -1106,13 +1106,13 @@ TEST(AlpsTest, Starved){
 	// Объявляем подлинность стороны
 	context::credential_t credential;
 	// Проверяем составление подлинности из набора
-	ASSERT_TRUE(keyfile("ec256", credential));
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
 	// Заводим признак голодания памяти
 	bool starved = false;
 	// Заводим признак завершения прогона
 	bool complete = false;
 	/**
-	 * Выполняем перебор запасов выделений
+	 * Перебираем запасы выделений
 	 */
 	for(size_t budget = 0; (budget < 4000) && !complete; budget += ((budget < 200) ? 1 : 37)){
 		// Создаём контекст клиента
@@ -1124,7 +1124,7 @@ TEST(AlpsTest, Starved){
 		// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
 		gosting(server);
 		// Настраиваем стороны связи
-		arrange(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
+		__nts_arrange__(client, server, credential, "client-h2", "server-h2", extension::type_t::SETTINGS);
 		// Заводим ошибки обеих сторон
 		context::error_t first = context::error_t::NONE, second = context::error_t::NONE;
 		{
@@ -1137,7 +1137,7 @@ TEST(AlpsTest, Starved){
 			// Проверяем результат поиска
 			if((first == context::error_t::NONE) && (second == context::error_t::NONE)){
 				// Проводим рукопожатие сторон
-				converse(client, server);
+				__nts_converse__(client, server);
 				// Запоминаем итоговую ошибку стороны
 				first = server.error();
 				// Запоминаем итоговую ошибку стороны

@@ -49,7 +49,7 @@ namespace {
 	 * @return     число байтов
 	 *
 	 */
-	static size_t bytes(const char * text, uint8_t * data) {
+	static size_t __nts_bytes__(const char * text, uint8_t * data) {
 		// Число собранных байтов
 		size_t result = 0;
 		/**
@@ -81,7 +81,7 @@ namespace {
 	 * @return     запись
 	 *
 	 */
-	static std::string text(const uint8_t * data, const size_t size) {
+	static std::string __nts_text__(const uint8_t * data, const size_t size) {
 		// Собираемая запись
 		std::string result;
 		// Набор шестнадцатеричных знаков
@@ -104,7 +104,7 @@ namespace {
 	 * @return     содержимое
 	 *
 	 */
-	static std::string slurp(const std::string & path) {
+	static std::string __nts_slurp__(const std::string & path) {
 		// Содержимое файла
 		std::string result;
 		// Открываем файл на чтение
@@ -137,7 +137,7 @@ namespace {
 	 * @return     признак успешности
 	 *
 	 */
-	static bool spill(const std::string & path, const uint8_t * data, const size_t size) {
+	static bool __nts_spill__(const std::string & path, const uint8_t * data, const size_t size) {
 		// Открываем файл на запись
 		FILE * file = ::fopen(path.c_str(), "wb");
 		// Проверяем успех открытия
@@ -158,8 +158,8 @@ namespace {
 	 * @return        признак нулевого кода завершения
 	 *
 	 */
-	static bool run(const std::string & command) {
-		// Выполняем команду с отключённым вводом и возвращаем признак нулевого кода завершения
+	static bool __nts_run__(const std::string & command) {
+		// Запускаем команду с отключённым вводом и возвращаем признак нулевого кода завершения
 		return (::system((command + " </dev/null").c_str()) == 0);
 	}
 };
@@ -186,25 +186,25 @@ namespace {
 	 * @return      признак успешности
 	 *
 	 */
-	static bool field(const std::string & text, const std::string & label, std::vector <uint8_t> & result) noexcept {
+	static bool __nts_field__(const std::string & text, const std::string & label, std::vector <uint8_t> & result) noexcept {
 		// Очищаем приёмник
 		result.clear();
 		// Ищем подпись поля в выводе
-		size_t at = text.find(label);
+		size_t place = text.find(label);
 		// Проверяем нахождение подписи
-		if(at == std::string::npos)
+		if(place == std::string::npos)
 			// Возвращаем признак неудачи
 			return false;
 		// Переносим позицию за подпись
-		at += label.size();
+		place += label.size();
 		// Собираемая шестнадцатеричная запись
 		std::string hex;
 		/**
 		 * Перебираем: знаки поля до конца вывода
 		 */
-		for(; at < text.size(); at++){
+		for(; place < text.size(); place++){
 			// Очередной знак вывода
-			const char letter = text[at];
+			const char letter = text[place];
 			// Пропускаем разделители поля
 			if((letter == ':') || (letter == ' ') || (letter == '\n') || (letter == '\r'))
 				continue;
@@ -223,7 +223,7 @@ namespace {
 		// Выделяем место под байты записи
 		result.assign(hex.size() / 2, 0);
 		// Разбираем запись и сверяем число байтов
-		return (bytes(hex.c_str(), result.data()) == result.size());
+		return (__nts_bytes__(hex.c_str(), result.data()) == result.size());
 	}
 	/**
 	 * @brief Функция записи целого DER без знака
@@ -233,7 +233,7 @@ namespace {
 	 * @return       признак успешности
 	 *
 	 */
-	static bool unsignedInteger(asn1::writer_t & writer, const view_t & value) noexcept {
+	static bool __nts_unsigned_integer__(asn1::writer_t & writer, const view_t & value) noexcept {
 		// Содержимое целого
 		std::vector <uint8_t> content;
 		// Число отсекаемых ведущих нулей
@@ -262,13 +262,13 @@ namespace {
 	 * @return     признак успешности
 	 *
 	 */
-	static bool publish(const std::string & path, const size_t size, const uint8_t * key) noexcept {
+	static bool __nts_publish__(const std::string & path, const size_t size, const uint8_t * key) noexcept {
 		// Модуль группы
 		const view_t prime = agreement::prime(size);
 		// Записывающий открытого ключа
 		asn1::writer_t inner;
 		// Записываем открытый ключ целым
-		if(!unsignedInteger(inner, view_t(key, size)))
+		if(!__nts_unsigned_integer__(inner, view_t(key, size)))
 			// Возвращаем признак неудачи
 			return false;
 		// Записывающий итоговой записи
@@ -278,7 +278,7 @@ namespace {
 			// Возвращаем признак неудачи
 			return false;
 		// Записываем параметры и закрываем последовательности
-		if(!unsignedInteger(writer, prime) || !writer.integer(2) || !writer.close() || !writer.close())
+		if(!__nts_unsigned_integer__(writer, prime) || !writer.integer(2) || !writer.close() || !writer.close())
 			// Возвращаем признак неудачи
 			return false;
 		// Записываем биты открытого ключа и закрываем запись
@@ -288,7 +288,7 @@ namespace {
 		// Готовая DER-запись
 		const view_t der = writer.data();
 		// Сохраняем запись в файл и возвращаем признак успеха
-		return spill(path, der.data, der.size);
+		return __nts_spill__(path, der.data, der.size);
 	}
 	/**
 	 * @brief Функция снятия ведущих нулей
@@ -297,7 +297,7 @@ namespace {
 	 * @return     запись без ведущих нулей
 	 *
 	 */
-	static std::string trimmed(const std::vector <uint8_t> & data) noexcept {
+	static std::string __nts_trimmed__(const std::vector <uint8_t> & data) noexcept {
 		// Число отсекаемых ведущих нулей
 		size_t skip = 0;
 		/**
@@ -307,7 +307,7 @@ namespace {
 			// Отсекаем очередной ведущий ноль
 			skip++;
 		// Возвращаем запись без ведущих нулей
-		return text(data.data() + skip, data.size() - skip);
+		return __nts_text__(data.data() + skip, data.size() - skip);
 	}
 	/**
 	 * @brief Функция записи параметров DH (p, g) в DER для openssl
@@ -318,7 +318,7 @@ namespace {
 	 * @return          признак успешности
 	 *
 	 */
-	static bool params(const std::string & path, const view_t & prime, const view_t & generator) noexcept {
+	static bool __nts_params__(const std::string & path, const view_t & prime, const view_t & generator) noexcept {
 		// Записывающий параметров
 		asn1::writer_t writer;
 		// Открываем последовательность
@@ -326,7 +326,7 @@ namespace {
 			// Возвращаем признак неудачи
 			return false;
 		// Записываем модуль и образующую
-		if(!unsignedInteger(writer, prime) || !unsignedInteger(writer, generator))
+		if(!__nts_unsigned_integer__(writer, prime) || !__nts_unsigned_integer__(writer, generator))
 			// Возвращаем признак неудачи
 			return false;
 		// Закрываем последовательность
@@ -336,7 +336,7 @@ namespace {
 		// Готовая DER-запись
 		const view_t der = writer.data();
 		// Сохраняем запись в файл и возвращаем признак успеха
-		return spill(path, der.data, der.size);
+		return __nts_spill__(path, der.data, der.size);
 	}
 	/**
 	 * @brief Функция записи открытого ключа DH записью SubjectPublicKeyInfo в DER
@@ -347,11 +347,11 @@ namespace {
 	 * @return          признак успешности
 	 *
 	 */
-	static bool publish(const std::string & path, const view_t & prime, const uint8_t * key) noexcept {
+	static bool __nts_publish__(const std::string & path, const view_t & prime, const uint8_t * key) noexcept {
 		// Записывающий открытого ключа
 		asn1::writer_t inner;
 		// Записываем открытый ключ целым
-		if(!unsignedInteger(inner, view_t(key, prime.size)))
+		if(!__nts_unsigned_integer__(inner, view_t(key, prime.size)))
 			// Возвращаем признак неудачи
 			return false;
 		// Записывающий итоговой записи
@@ -361,7 +361,7 @@ namespace {
 			// Возвращаем признак неудачи
 			return false;
 		// Записываем модуль, образующую и закрываем последовательности
-		if(!unsignedInteger(writer, prime) || !writer.integer(2) || !writer.close() || !writer.close())
+		if(!__nts_unsigned_integer__(writer, prime) || !writer.integer(2) || !writer.close() || !writer.close())
 			// Возвращаем признак неудачи
 			return false;
 		// Записываем биты открытого ключа и закрываем запись
@@ -371,7 +371,7 @@ namespace {
 		// Готовая DER-запись
 		const view_t der = writer.data();
 		// Сохраняем запись в файл и возвращаем признак успеха
-		return spill(path, der.data, der.size);
+		return __nts_spill__(path, der.data, der.size);
 	}
 };
 
@@ -398,7 +398,7 @@ TEST(FfdheTest, Primes) {
 	EXPECT_EQ(agreement::prime(128).size, static_cast <size_t> (0));
 	EXPECT_EQ(agreement::exponent(128), static_cast <size_t> (0));
 	// Проверяем наличие групп RFC 7919 у системного openssl
-	if(!run("openssl genpkey -genparam -algorithm DH -pkeyopt group:ffdhe2048 -out /dev/null >/dev/null 2>&1"))
+	if(!__nts_run__("openssl genpkey -genparam -algorithm DH -pkeyopt group:ffdhe2048 -out /dev/null >/dev/null 2>&1"))
 		// Пропускаем проверку без групп RFC 7919
 		GTEST_SKIP() << "Системный openssl без групп RFC 7919";
 	// Шаблон имени временного каталога
@@ -412,11 +412,11 @@ TEST(FfdheTest, Primes) {
 	 */
 	for(size_t i = 0; i < 5; i++){
 		// Порождаем параметры группы у openssl
-		ASSERT_TRUE(run("openssl genpkey -genparam -algorithm DH -pkeyopt group:" + std::string(NAMES[i]) + " -out " + dir + "/p.pem 2>/dev/null"));
+		ASSERT_TRUE(__nts_run__("openssl genpkey -genparam -algorithm DH -pkeyopt group:" + std::string(NAMES[i]) + " -out " + dir + "/p.pem 2>/dev/null"));
 		// Конвейер в подоболочке: перенаправление ввода помощника run() относится к последнему звену
-		ASSERT_TRUE(run("(openssl asn1parse -in " + dir + "/p.pem | grep INTEGER | head -1 | sed 's/.*://' > " + dir + "/p.hex)"));
+		ASSERT_TRUE(__nts_run__("(openssl asn1parse -in " + dir + "/p.pem | grep INTEGER | head -1 | sed 's/.*://' > " + dir + "/p.hex)"));
 		// Считываем шестнадцатеричную запись модуля
-		std::string hex = slurp(dir + "/p.hex");
+		std::string hex = __nts_slurp__(dir + "/p.hex");
 		/**
 		 * Отсекаем переводы строк с конца записи
 		 */
@@ -432,10 +432,10 @@ TEST(FfdheTest, Primes) {
 		// Модуль нашей реализации
 		const view_t prime = agreement::prime(SIZES[i]);
 		// Сверяем запись модуля с openssl
-		EXPECT_EQ(text(prime.data, prime.size), hex) << NAMES[i];
+		EXPECT_EQ(__nts_text__(prime.data, prime.size), hex) << NAMES[i];
 	}
 	// Удаляем временный каталог
-	ASSERT_TRUE(run("rm -rf " + dir));
+	ASSERT_TRUE(__nts_run__("rm -rf " + dir));
 }
 
 /**
@@ -455,16 +455,16 @@ TEST(FfdheTest, Exchange) {
 		ASSERT_TRUE(agreement::pairffdhe(size, secretA.data(), keyA.data())) << NAMES[i];
 		ASSERT_TRUE(agreement::pairffdhe(size, secretB.data(), keyB.data())) << NAMES[i];
 		// Проверяем различие открытых ключей
-		EXPECT_NE(text(keyA.data(), size), text(keyB.data(), size)) << NAMES[i];
+		EXPECT_NE(__nts_text__(keyA.data(), size), __nts_text__(keyB.data(), size)) << NAMES[i];
 		// Выводим открытый ключ из секрета первой стороны
 		ASSERT_TRUE(agreement::ffdhe(size, view_t(secretA.data(), length), derived.data())) << NAMES[i];
 		// Сверяем выведенный ключ с открытым
-		EXPECT_EQ(text(derived.data(), size), text(keyA.data(), size)) << NAMES[i];
+		EXPECT_EQ(__nts_text__(derived.data(), size), __nts_text__(keyA.data(), size)) << NAMES[i];
 		// Вычисляем общее значение первой стороной
 		ASSERT_TRUE(agreement::ffdhe(size, view_t(secretA.data(), length), view_t(keyB.data(), size), sharedA.data())) << NAMES[i];
 		ASSERT_TRUE(agreement::ffdhe(size, view_t(secretB.data(), length), view_t(keyA.data(), size), sharedB.data())) << NAMES[i];
 		// Сверяем общие значения сторон
-		EXPECT_EQ(text(sharedA.data(), size), text(sharedB.data(), size)) << NAMES[i];
+		EXPECT_EQ(__nts_text__(sharedA.data(), size), __nts_text__(sharedB.data(), size)) << NAMES[i];
 	}
 }
 
@@ -481,11 +481,11 @@ TEST(FfdheTest, Reject) {
 	ASSERT_TRUE(agreement::pairffdhe(size, secret.data(), key.data()));
 	// Модуль группы
 	const view_t prime = agreement::prime(size);
-	// Ноль
+	// Нулевой чужой ключ
 	std::fill(peer.begin(), peer.end(), 0);
 	// Проверяем отказ для нуля
 	EXPECT_FALSE(agreement::ffdhe(size, view_t(secret.data(), length), view_t(peer.data(), size), shared.data()));
-	// Единица
+	// Чужой ключ-единица
 	peer[size - 1] = 1;
 	// Проверяем отказ для единицы
 	EXPECT_FALSE(agreement::ffdhe(size, view_t(secret.data(), length), view_t(peer.data(), size), shared.data()));
@@ -526,7 +526,7 @@ TEST(FfdheTest, Reject) {
  */
 TEST(FfdheTest, Foreign) {
 	// Проверяем наличие групп RFC 7919 у системного openssl
-	if(!run("openssl genpkey -genparam -algorithm DH -pkeyopt group:ffdhe2048 -out /dev/null >/dev/null 2>&1"))
+	if(!__nts_run__("openssl genpkey -genparam -algorithm DH -pkeyopt group:ffdhe2048 -out /dev/null >/dev/null 2>&1"))
 		// Пропускаем проверку без групп RFC 7919
 		GTEST_SKIP() << "Системный openssl без групп RFC 7919";
 	// Шаблон имени временного каталога
@@ -542,22 +542,22 @@ TEST(FfdheTest, Foreign) {
 		// Длина модуля очередной группы
 		const size_t size = SIZES[i];
 		// Порождаем параметры группы у openssl
-		ASSERT_TRUE(run("openssl genpkey -genparam -algorithm DH -pkeyopt group:" + std::string(NAMES[i]) + " -out " + dir + "/p.pem 2>/dev/null")) << NAMES[i];
-		ASSERT_TRUE(run("openssl genpkey -paramfile " + dir + "/p.pem -out " + dir + "/a.pem 2>/dev/null")) << NAMES[i];
-		ASSERT_TRUE(run("openssl pkey -in " + dir + "/a.pem -text -noout > " + dir + "/a.txt 2>/dev/null")) << NAMES[i];
+		ASSERT_TRUE(__nts_run__("openssl genpkey -genparam -algorithm DH -pkeyopt group:" + std::string(NAMES[i]) + " -out " + dir + "/p.pem 2>/dev/null")) << NAMES[i];
+		ASSERT_TRUE(__nts_run__("openssl genpkey -paramfile " + dir + "/p.pem -out " + dir + "/a.pem 2>/dev/null")) << NAMES[i];
+		ASSERT_TRUE(__nts_run__("openssl pkey -in " + dir + "/a.pem -text -noout > " + dir + "/a.txt 2>/dev/null")) << NAMES[i];
 		// Считываем вывод openssl с ключами
-		const std::string dump = slurp(dir + "/a.txt");
+		const std::string dump = __nts_slurp__(dir + "/a.txt");
 		// Секрет и открытый ключ чужой пары
 		std::vector <uint8_t> secret, pub;
 		// Извлекаем секрет чужой пары
-		ASSERT_TRUE(field(dump, "private-key:", secret)) << dump;
-		ASSERT_TRUE(field(dump, "public-key:", pub)) << dump;
+		ASSERT_TRUE(__nts_field__(dump, "private-key:", secret)) << dump;
+		ASSERT_TRUE(__nts_field__(dump, "public-key:", pub)) << dump;
 		// Открытый ключ из чужого показателя
 		std::vector <uint8_t> derived(size);
 		// Выводим открытый ключ из чужого секрета
 		ASSERT_TRUE(agreement::ffdhe(size, view_t(secret.data(), secret.size()), derived.data())) << NAMES[i];
 		// Сверяем выведенный ключ с чужим
-		EXPECT_EQ(trimmed(derived), trimmed(pub)) << NAMES[i];
+		EXPECT_EQ(__nts_trimmed__(derived), __nts_trimmed__(pub)) << NAMES[i];
 		// Своя пара и общее значение с чужим открытым ключом
 		std::vector <uint8_t> mine(agreement::exponent(size)), key(size), shared(size), peer(size, 0);
 		// Порождаем свою пару
@@ -577,18 +577,18 @@ TEST(FfdheTest, Foreign) {
 		// Вычисляем общее значение с чужим ключом
 		ASSERT_TRUE(agreement::ffdhe(size, view_t(mine.data(), mine.size()), view_t(peer.data(), size), shared.data())) << NAMES[i];
 		// Своё открытое - в PEM для openssl
-		ASSERT_TRUE(publish(dir + "/b.der", size, key.data())) << NAMES[i];
-		ASSERT_TRUE(run("openssl pkey -pubin -inform DER -in " + dir + "/b.der -out " + dir + "/b.pem 2>/dev/null")) << NAMES[i];
-		ASSERT_TRUE(run("openssl pkeyutl -derive -inkey " + dir + "/a.pem -peerkey " + dir + "/b.pem -out " + dir + "/shared.bin 2>/dev/null")) << NAMES[i];
+		ASSERT_TRUE(__nts_publish__(dir + "/b.der", size, key.data())) << NAMES[i];
+		ASSERT_TRUE(__nts_run__("openssl pkey -pubin -inform DER -in " + dir + "/b.der -out " + dir + "/b.pem 2>/dev/null")) << NAMES[i];
+		ASSERT_TRUE(__nts_run__("openssl pkeyutl -derive -inkey " + dir + "/a.pem -peerkey " + dir + "/b.pem -out " + dir + "/shared.bin 2>/dev/null")) << NAMES[i];
 		// Считываем чужое общее значение
-		const std::string foreign = slurp(dir + "/shared.bin");
+		const std::string foreign = __nts_slurp__(dir + "/shared.bin");
 		// Проверяем непустоту чужого значения
 		ASSERT_FALSE(foreign.empty()) << NAMES[i];
 		// Сверяем своё общее значение с чужим
-		EXPECT_EQ(trimmed(shared), trimmed(std::vector <uint8_t> (foreign.begin(), foreign.end()))) << NAMES[i];
+		EXPECT_EQ(__nts_trimmed__(shared), __nts_trimmed__(std::vector <uint8_t> (foreign.begin(), foreign.end()))) << NAMES[i];
 	}
 	// Удаляем временный каталог
-	ASSERT_TRUE(run("rm -rf " + dir));
+	ASSERT_TRUE(__nts_run__("rm -rf " + dir));
 }
 
 /**
@@ -619,7 +619,7 @@ TEST(FfdheTest, Rfc3526Primes) {
 		EXPECT_EQ(agreement::exponent(SIZES[i]), agreement::exponent3526(IDS[i])) << NAMES[i];
 	}
 	// Проверяем наличие dhparam у системного openssl
-	if(!run("openssl dhparam -help >/dev/null 2>&1"))
+	if(!__nts_run__("openssl dhparam -help >/dev/null 2>&1"))
 		// Пропускаем проверку без dhparam
 		GTEST_SKIP() << "Системный openssl без dhparam";
 	// Шаблон имени временного каталога
@@ -637,10 +637,10 @@ TEST(FfdheTest, Rfc3526Primes) {
 		// Образующая равная двум
 		const uint8_t gen[1] = {2};
 		// Записываем параметры группы для openssl
-		ASSERT_TRUE(params(dir + "/p" + std::to_string(IDS[i]) + ".der", prime, view_t(gen, 1))) << NAMES[i];
-		ASSERT_TRUE(run("(openssl asn1parse -in " + dir + "/p" + std::to_string(IDS[i]) + ".der -inform DER | grep INTEGER | head -1 | sed 's/.*://' > " + dir + "/p" + std::to_string(IDS[i]) + ".hex)")) << NAMES[i];
+		ASSERT_TRUE(__nts_params__(dir + "/p" + std::to_string(IDS[i]) + ".der", prime, view_t(gen, 1))) << NAMES[i];
+		ASSERT_TRUE(__nts_run__("(openssl asn1parse -in " + dir + "/p" + std::to_string(IDS[i]) + ".der -inform DER | grep INTEGER | head -1 | sed 's/.*://' > " + dir + "/p" + std::to_string(IDS[i]) + ".hex)")) << NAMES[i];
 		// Считываем запись модуля
-		std::string hex = slurp(dir + "/p" + std::to_string(IDS[i]) + ".hex");
+		std::string hex = __nts_slurp__(dir + "/p" + std::to_string(IDS[i]) + ".hex");
 		/**
 		 * Отсекаем переводы строк с конца записи модуля
 		 */
@@ -654,10 +654,10 @@ TEST(FfdheTest, Rfc3526Primes) {
 			// Приводим знак к нижнему регистру
 			hex[k] = static_cast <char> (::tolower(static_cast <unsigned char> (hex[k])));
 		// Сверяем запись модуля с openssl
-		EXPECT_EQ(text(prime.data, prime.size), hex) << NAMES[i];
-		ASSERT_TRUE(run("(openssl asn1parse -in " + dir + "/p" + std::to_string(IDS[i]) + ".der -inform DER | grep INTEGER | sed -n '2p' | sed 's/.*://' > " + dir + "/g" + std::to_string(IDS[i]) + ".hex)")) << NAMES[i];
+		EXPECT_EQ(__nts_text__(prime.data, prime.size), hex) << NAMES[i];
+		ASSERT_TRUE(__nts_run__("(openssl asn1parse -in " + dir + "/p" + std::to_string(IDS[i]) + ".der -inform DER | grep INTEGER | sed -n '2p' | sed 's/.*://' > " + dir + "/g" + std::to_string(IDS[i]) + ".hex)")) << NAMES[i];
 		// Считываем запись образующей
-		std::string ghex = slurp(dir + "/g" + std::to_string(IDS[i]) + ".hex");
+		std::string ghex = __nts_slurp__(dir + "/g" + std::to_string(IDS[i]) + ".hex");
 		/**
 		 * Отсекаем переводы строк с конца записи образующей
 		 */
@@ -674,7 +674,7 @@ TEST(FfdheTest, Rfc3526Primes) {
 		EXPECT_EQ(std::string("02"), ghex) << NAMES[i];
 	}
 	// Удаляем временный каталог
-	ASSERT_TRUE(run("rm -rf " + dir));
+	ASSERT_TRUE(__nts_run__("rm -rf " + dir));
 }
 
 /**
@@ -705,16 +705,16 @@ TEST(FfdheTest, Rfc3526Exchange) {
 		ASSERT_TRUE(agreement::pairffdhe(prime, generator, length, secretA.data(), keyA.data())) << NAMES[i];
 		ASSERT_TRUE(agreement::pairffdhe(prime, generator, length, secretB.data(), keyB.data())) << NAMES[i];
 		// Проверяем различие открытых ключей
-		EXPECT_NE(text(keyA.data(), size), text(keyB.data(), size)) << NAMES[i];
+		EXPECT_NE(__nts_text__(keyA.data(), size), __nts_text__(keyB.data(), size)) << NAMES[i];
 		// Выводим открытый ключ из секрета первой стороны
 		ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secretA.data(), length), derived.data())) << NAMES[i];
 		// Сверяем выведенный ключ с открытым
-		EXPECT_EQ(text(derived.data(), size), text(keyA.data(), size)) << NAMES[i];
+		EXPECT_EQ(__nts_text__(derived.data(), size), __nts_text__(keyA.data(), size)) << NAMES[i];
 		// Вычисляем общее значение первой стороной
 		ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secretA.data(), length), view_t(keyB.data(), size), sharedA.data())) << NAMES[i];
 		ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secretB.data(), length), view_t(keyA.data(), size), sharedB.data())) << NAMES[i];
 		// Сверяем общие значения сторон
-		EXPECT_EQ(text(sharedA.data(), size), text(sharedB.data(), size)) << NAMES[i];
+		EXPECT_EQ(__nts_text__(sharedA.data(), size), __nts_text__(sharedB.data(), size)) << NAMES[i];
 	}
 }
 
@@ -736,11 +736,11 @@ TEST(FfdheTest, Rfc3526Reject) {
 	std::vector <uint8_t> secret(length), key(size), peer(size), shared(size);
 	// Порождаем свою пару
 	ASSERT_TRUE(agreement::pairffdhe(prime, generator, length, secret.data(), key.data()));
-	// Ноль
+	// Нулевой чужой ключ
 	std::fill(peer.begin(), peer.end(), 0);
 	// Проверяем отказ для нуля
 	EXPECT_FALSE(agreement::ffdhe(prime, generator, view_t(secret.data(), length), view_t(peer.data(), size), shared.data()));
-	// Единица
+	// Чужой ключ-единица
 	std::fill(peer.begin(), peer.end(), 0);
 	// Задаём чужой ключ равным единице
 	peer[size - 1] = 1;
@@ -787,7 +787,7 @@ TEST(FfdheTest, Rfc3526Reject) {
  */
 TEST(FfdheTest, Rfc3526Foreign) {
 	// Проверяем наличие dhparam у системного openssl
-	if(!run("openssl dhparam -help >/dev/null 2>&1"))
+	if(!__nts_run__("openssl dhparam -help >/dev/null 2>&1"))
 		// Пропускаем проверку без dhparam
 		GTEST_SKIP() << "Системный openssl без dhparam";
 	// Модуль группы modp14
@@ -803,23 +803,23 @@ TEST(FfdheTest, Rfc3526Foreign) {
 	// Путь временного каталога
 	const std::string dir(pattern);
 	// Записываем параметры группы для openssl
-	ASSERT_TRUE(params(dir + "/p.der", prime, generator));
-	ASSERT_TRUE(run("openssl dhparam -in " + dir + "/p.der -inform DER -out " + dir + "/p.pem 2>/dev/null"));
-	ASSERT_TRUE(run("openssl genpkey -paramfile " + dir + "/p.pem -out " + dir + "/a.pem 2>/dev/null"));
-	ASSERT_TRUE(run("openssl pkey -in " + dir + "/a.pem -text -noout > " + dir + "/a.txt 2>/dev/null"));
+	ASSERT_TRUE(__nts_params__(dir + "/p.der", prime, generator));
+	ASSERT_TRUE(__nts_run__("openssl dhparam -in " + dir + "/p.der -inform DER -out " + dir + "/p.pem 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl genpkey -paramfile " + dir + "/p.pem -out " + dir + "/a.pem 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl pkey -in " + dir + "/a.pem -text -noout > " + dir + "/a.txt 2>/dev/null"));
 	// Считываем вывод openssl с ключами
-	const std::string dump = slurp(dir + "/a.txt");
+	const std::string dump = __nts_slurp__(dir + "/a.txt");
 	// Секрет и открытый ключ чужой пары
 	std::vector <uint8_t> secret, pub;
 	// Извлекаем секрет чужой пары
-	ASSERT_TRUE(field(dump, "private-key:", secret)) << dump;
-	ASSERT_TRUE(field(dump, "public-key:", pub)) << dump;
+	ASSERT_TRUE(__nts_field__(dump, "private-key:", secret)) << dump;
+	ASSERT_TRUE(__nts_field__(dump, "public-key:", pub)) << dump;
 	// Открытый ключ из чужого показателя
 	std::vector <uint8_t> derived(256);
 	// Выводим открытый ключ из чужого секрета
 	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secret.data(), secret.size()), derived.data()));
 	// Сверяем выведенный ключ с чужим
-	EXPECT_EQ(trimmed(derived), trimmed(pub));
+	EXPECT_EQ(__nts_trimmed__(derived), __nts_trimmed__(pub));
 	// Своя пара и общее значение с чужим открытым ключом
 	std::vector <uint8_t> mine(agreement::exponent3526(14)), key(256), shared(256), peer(256, 0);
 	// Порождаем свою пару
@@ -839,17 +839,17 @@ TEST(FfdheTest, Rfc3526Foreign) {
 	// Вычисляем общее значение с чужим ключом
 	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(mine.data(), mine.size()), view_t(peer.data(), 256), shared.data()));
 	// Своё открытое - в PEM для openssl
-	ASSERT_TRUE(publish(dir + "/b.der", prime, key.data()));
-	ASSERT_TRUE(run("openssl pkey -pubin -inform DER -in " + dir + "/b.der -out " + dir + "/b.pem 2>/dev/null"));
-	ASSERT_TRUE(run("openssl pkeyutl -derive -inkey " + dir + "/a.pem -peerkey " + dir + "/b.pem -out " + dir + "/shared.bin 2>/dev/null"));
+	ASSERT_TRUE(__nts_publish__(dir + "/b.der", prime, key.data()));
+	ASSERT_TRUE(__nts_run__("openssl pkey -pubin -inform DER -in " + dir + "/b.der -out " + dir + "/b.pem 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl pkeyutl -derive -inkey " + dir + "/a.pem -peerkey " + dir + "/b.pem -out " + dir + "/shared.bin 2>/dev/null"));
 	// Считываем чужое общее значение
-	const std::string foreign = slurp(dir + "/shared.bin");
+	const std::string foreign = __nts_slurp__(dir + "/shared.bin");
 	// Проверяем непустоту чужого значения
 	ASSERT_FALSE(foreign.empty());
 	// Сверяем своё общее значение с чужим
-	EXPECT_EQ(trimmed(shared), trimmed(std::vector <uint8_t> (foreign.begin(), foreign.end())));
+	EXPECT_EQ(__nts_trimmed__(shared), __nts_trimmed__(std::vector <uint8_t> (foreign.begin(), foreign.end())));
 	// Удаляем временный каталог
-	ASSERT_TRUE(run("rm -rf " + dir));
+	ASSERT_TRUE(__nts_run__("rm -rf " + dir));
 }
 
 /**
@@ -876,14 +876,14 @@ TEST(FfdheTest, Rfc3526Modp18) {
 	ASSERT_TRUE(agreement::pairffdhe(prime, generator, length, secretA.data(), keyA.data()));
 	ASSERT_TRUE(agreement::pairffdhe(prime, generator, length, secretB.data(), keyB.data()));
 	// Проверяем различие открытых ключей
-	EXPECT_NE(text(keyA.data(), 1024), text(keyB.data(), 1024));
+	EXPECT_NE(__nts_text__(keyA.data(), 1024), __nts_text__(keyB.data(), 1024));
 	// Вычисляем общее значение первой стороной
 	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secretA.data(), length), view_t(keyB.data(), 1024), sharedA.data()));
 	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secretB.data(), length), view_t(keyA.data(), 1024), sharedB.data()));
 	// Сверяем общие значения сторон
-	EXPECT_EQ(text(sharedA.data(), 1024), text(sharedB.data(), 1024));
+	EXPECT_EQ(__nts_text__(sharedA.data(), 1024), __nts_text__(sharedB.data(), 1024));
 	// Интероп с openssl по параметрам PKCS#3
-	if(!run("openssl dhparam -help >/dev/null 2>&1"))
+	if(!__nts_run__("openssl dhparam -help >/dev/null 2>&1"))
 		// Пропускаем проверку без dhparam
 		GTEST_SKIP() << "Системный openssl без dhparam";
 	// Шаблон имени временного каталога
@@ -893,23 +893,23 @@ TEST(FfdheTest, Rfc3526Modp18) {
 	// Путь временного каталога
 	const std::string dir(pattern);
 	// Записываем параметры группы для openssl
-	ASSERT_TRUE(params(dir + "/p.der", prime, generator));
-	ASSERT_TRUE(run("openssl dhparam -in " + dir + "/p.der -inform DER -out " + dir + "/p.pem 2>/dev/null"));
-	ASSERT_TRUE(run("openssl genpkey -paramfile " + dir + "/p.pem -out " + dir + "/a.pem 2>/dev/null"));
-	ASSERT_TRUE(run("openssl pkey -in " + dir + "/a.pem -text -noout > " + dir + "/a.txt 2>/dev/null"));
+	ASSERT_TRUE(__nts_params__(dir + "/p.der", prime, generator));
+	ASSERT_TRUE(__nts_run__("openssl dhparam -in " + dir + "/p.der -inform DER -out " + dir + "/p.pem 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl genpkey -paramfile " + dir + "/p.pem -out " + dir + "/a.pem 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl pkey -in " + dir + "/a.pem -text -noout > " + dir + "/a.txt 2>/dev/null"));
 	// Считываем вывод openssl с ключами
-	const std::string dump = slurp(dir + "/a.txt");
+	const std::string dump = __nts_slurp__(dir + "/a.txt");
 	// Секрет и открытый ключ чужой пары
 	std::vector <uint8_t> secret, pub;
 	// Извлекаем секрет чужой пары
-	ASSERT_TRUE(field(dump, "private-key:", secret)) << dump;
-	ASSERT_TRUE(field(dump, "public-key:", pub)) << dump;
+	ASSERT_TRUE(__nts_field__(dump, "private-key:", secret)) << dump;
+	ASSERT_TRUE(__nts_field__(dump, "public-key:", pub)) << dump;
 	// Открытый ключ из чужого показателя
 	std::vector <uint8_t> derived(1024);
 	// Выводим открытый ключ из чужого секрета
 	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(secret.data(), secret.size()), derived.data()));
 	// Сверяем выведенный ключ с чужим
-	EXPECT_EQ(trimmed(derived), trimmed(pub));
+	EXPECT_EQ(__nts_trimmed__(derived), __nts_trimmed__(pub));
 	// Своя пара и общее значение с чужим открытым ключом
 	std::vector <uint8_t> mine(length), key(1024), shared(1024), peer(1024, 0);
 	// Порождаем свою пару
@@ -929,15 +929,15 @@ TEST(FfdheTest, Rfc3526Modp18) {
 	// Вычисляем общее значение с чужим ключом
 	ASSERT_TRUE(agreement::ffdhe(prime, generator, view_t(mine.data(), mine.size()), view_t(peer.data(), 1024), shared.data()));
 	// Своё открытое - в PEM для openssl
-	ASSERT_TRUE(publish(dir + "/b.der", prime, key.data()));
-	ASSERT_TRUE(run("openssl pkey -pubin -inform DER -in " + dir + "/b.der -out " + dir + "/b.pem 2>/dev/null"));
-	ASSERT_TRUE(run("openssl pkeyutl -derive -inkey " + dir + "/a.pem -peerkey " + dir + "/b.pem -out " + dir + "/shared.bin 2>/dev/null"));
+	ASSERT_TRUE(__nts_publish__(dir + "/b.der", prime, key.data()));
+	ASSERT_TRUE(__nts_run__("openssl pkey -pubin -inform DER -in " + dir + "/b.der -out " + dir + "/b.pem 2>/dev/null"));
+	ASSERT_TRUE(__nts_run__("openssl pkeyutl -derive -inkey " + dir + "/a.pem -peerkey " + dir + "/b.pem -out " + dir + "/shared.bin 2>/dev/null"));
 	// Считываем чужое общее значение
-	const std::string foreign = slurp(dir + "/shared.bin");
+	const std::string foreign = __nts_slurp__(dir + "/shared.bin");
 	// Проверяем непустоту чужого значения
 	ASSERT_FALSE(foreign.empty());
 	// Сверяем своё общее значение с чужим
-	EXPECT_EQ(trimmed(shared), trimmed(std::vector <uint8_t> (foreign.begin(), foreign.end())));
+	EXPECT_EQ(__nts_trimmed__(shared), __nts_trimmed__(std::vector <uint8_t> (foreign.begin(), foreign.end())));
 	// Удаляем временный каталог
-	ASSERT_TRUE(run("rm -rf " + dir));
+	ASSERT_TRUE(__nts_run__("rm -rf " + dir));
 }

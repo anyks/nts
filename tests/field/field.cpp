@@ -48,19 +48,19 @@ TEST(FieldTest, Number){
 	scanner.start(view_t(data, sizeof(data)));
 	// Прочитанное значение числа
 	uint32_t value = 0;
-	// Выполняем чтение числа шириной в один байт
+	// Читаем число шириной в один байт
 	ASSERT_EQ(scanner.number(value, 1), field::error_t::NONE);
 	// Проверяем прочитанное значение числа шириной в один байт
 	ASSERT_EQ(value, static_cast <uint32_t> (0x01));
-	// Выполняем чтение числа шириной в два байта
+	// Читаем число шириной в два байта
 	ASSERT_EQ(scanner.number(value, 2), field::error_t::NONE);
 	// Проверяем прочитанное значение числа шириной в два байта
 	ASSERT_EQ(value, static_cast <uint32_t> (0x0203));
-	// Выполняем чтение числа шириной в три байта
+	// Читаем число шириной в три байта
 	ASSERT_EQ(scanner.number(value, 3), field::error_t::NONE);
 	// Проверяем прочитанное значение числа шириной в три байта
 	ASSERT_EQ(value, static_cast <uint32_t> (0x040506));
-	// Выполняем чтение числа шириной в четыре байта
+	// Читаем число шириной в четыре байта
 	ASSERT_EQ(scanner.number(value, 4), field::error_t::NONE);
 	// Проверяем прочитанное значение числа шириной в четыре байта
 	ASSERT_EQ(value, static_cast <uint32_t> (0x0708090A));
@@ -86,19 +86,19 @@ TEST(FieldTest, Vector){
 	scanner.start(view_t(data, sizeof(data)));
 	// Прочитанное содержимое поля переменной длины
 	view_t body;
-	// Выполняем чтение поля с длиной шириной в один байт
+	// Читаем поле с длиной шириной в один байт
 	ASSERT_EQ(scanner.vector(body, 1), field::error_t::NONE);
 	// Проверяем длину прочитанного поля
 	ASSERT_EQ(body.size, static_cast <size_t> (2));
 	// Проверяем содержимое прочитанного поля
 	ASSERT_EQ(body.data[0], static_cast <uint8_t> (0xAA));
-	// Выполняем чтение поля с длиной шириной в два байта
+	// Читаем поле с длиной шириной в два байта
 	ASSERT_EQ(scanner.vector(body, 2), field::error_t::NONE);
 	// Проверяем длину прочитанного поля
 	ASSERT_EQ(body.size, static_cast <size_t> (3));
 	// Проверяем содержимое прочитанного поля
 	ASSERT_EQ(body.data[2], static_cast <uint8_t> (0xEE));
-	// Выполняем чтение поля с длиной шириной в три байта
+	// Читаем поле с длиной шириной в три байта
 	ASSERT_EQ(scanner.vector(body, 3), field::error_t::NONE);
 	// Проверяем длину прочитанного поля
 	ASSERT_EQ(body.size, static_cast <size_t> (1));
@@ -128,7 +128,7 @@ TEST(FieldTest, Rollback){
 	ASSERT_EQ(scanner.left(), sizeof(data));
 	// Прочитанное значение числа
 	uint32_t value = 0;
-	// Выполняем чтение того же места числом
+	// Читаем то же место числом
 	ASSERT_EQ(scanner.number(value, 2), field::error_t::NONE);
 	// Проверяем прочитанное значение объявленной длины поля
 	ASSERT_EQ(value, static_cast <uint32_t> (0x0010));
@@ -172,7 +172,7 @@ TEST(FieldTest, Nesting){
 	ASSERT_EQ(builder.number(0x100, 1), field::error_t::LENGTH);
 	// Проверяем отказ открытия поля недозволенной ширины длины
 	ASSERT_EQ(builder.open(4), field::error_t::WIDTH);
-	// Выполняем сброс накопителя составляемой записи
+	// Сбрасываем накопитель составляемой записи
 	builder.clear();
 	// Проверяем опустошение накопителя составителя
 	ASSERT_EQ(builder.pending(), static_cast <size_t> (0));
@@ -245,13 +245,13 @@ TEST(FieldTest, Remainder){
 	scanner.start(view_t(data.data(), data.size()));
 	// Прочитанное число области полей
 	uint32_t number = 0;
-	// Выполняем чтение числа шириною в два байта
+	// Читаем число шириною в два байта
 	ASSERT_EQ(scanner.number(number, 2), field::error_t::NONE);
 	// Проверяем прочитанное число области полей
 	ASSERT_EQ(number, static_cast <uint32_t> (0x002A));
 	// Просмотр, в который помещается оставшаяся часть области
 	view_t tail;
-	// Выполняем чтение всей оставшейся части области полей
+	// Читаем всю оставшуюся часть области полей
 	ASSERT_EQ(scanner.rest(tail), field::error_t::NONE);
 	// Проверяем длину прочитанной оставшейся части области
 	ASSERT_EQ(tail.size, static_cast <size_t> (4));
@@ -264,7 +264,7 @@ TEST(FieldTest, Remainder){
 	 * разобрана до конца, и читать в ней более нечего
 	 */
 	view_t empty;
-	// Выполняем чтение остатка разобранной до конца области
+	// Читаем остаток разобранной до конца области
 	ASSERT_EQ(scanner.rest(empty), field::error_t::NONE);
 	// Проверяем нулевую длину остатка разобранной до конца области
 	ASSERT_EQ(empty.size, static_cast <size_t> (0));
@@ -336,7 +336,7 @@ TEST(FieldTest, Starved){
 	// Признак того, что нехватка памяти хоть раз объявлена отказом
 	bool starved = false;
 	/**
-	 * Выполняем перебор запасов выделений: на всяком запасе составление обязано
+	 * Перебираем запасы выделений: на всяком запасе составление обязано
 	 * ответить либо успехом, либо отказом памяти, но не прерыванием исполнения
 	 */
 	for(size_t budget = 0; budget < 64; budget++){
@@ -347,7 +347,7 @@ TEST(FieldTest, Starved){
 		{
 			// Отмеряем запас выделений на время составления
 			starve::ration_t ration(budget);
-			// Выполняем составление при отмеренном запасе
+			// Составляем при отмеренном запасе
 			outcome = exhaust(view_t(data.data(), data.size()), intact);
 		}
 		// Проверяем, что составление ответило успехом либо отказом памяти
@@ -417,7 +417,7 @@ TEST(FieldTest, Wiped){
 	ASSERT_EQ(before.size, static_cast <size_t> (4 + 2 + secret.size()));
 	// Секрет в записи лежит
 	ASSERT_EQ(::memcmp(before.data + 6, secret.data(), secret.size()), 0);
-	// Выполняем сброс накопителя
+	// Сбрасываем накопитель
 	builder.clear();
 	// Накопитель пуст
 	ASSERT_EQ(builder.pending(), static_cast <size_t> (0));
@@ -426,7 +426,7 @@ TEST(FieldTest, Wiped){
 	// Число ненулевых байтов прежней области накопителя
 	size_t dirty = 0;
 	/**
-	 * Выполняем перебор байтов прежней области накопителя
+	 * Перебираем байты прежней области накопителя
 	 */
 	for(size_t i = 0; i < before.size; i++)
 		// Учитываем ненулевой байт

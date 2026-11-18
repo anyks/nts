@@ -203,17 +203,17 @@ namespace {
 TEST(EcdheTest, Long){
 	// Эллиптическая кривая обмена мимолётными ключами
 	curve::curve_t curve;
-	// Выполняем заведение кривой GC512C
+	// Заводим кривую GC512C
 	ASSERT_TRUE(curve::parameters("1.2.643.7.1.2.1.2.3", curve));
 	// Место, в которое помещается выработанное общее значение
 	uint8_t result[64] = {0};
-	// Выполняем выработку общего значения стороной клиента
+	// Вырабатываем общее значение стороной клиента
 	ASSERT_TRUE(agreement::ecdhe(curve, view_t(DC512, sizeof(DC512)), view_t(QS512, sizeof(QS512)), result));
 	// Сличаем выработанное клиентом значение с контрольным
 	ASSERT_EQ(::memcmp(result, EC512, sizeof(EC512)), 0);
-	// Выполняем очистку места общего значения
+	// Очищаем место общего значения
 	::memset(result, 0, sizeof(result));
-	// Выполняем выработку общего значения стороной сервера
+	// Вырабатываем общее значение стороной сервера
 	ASSERT_TRUE(agreement::ecdhe(curve, view_t(DS512, sizeof(DS512)), view_t(QC512, sizeof(QC512)), result));
 	// Сличаем выработанное сервером значение с контрольным
 	ASSERT_EQ(::memcmp(result, EC512, sizeof(EC512)), 0);
@@ -225,17 +225,17 @@ TEST(EcdheTest, Long){
 TEST(EcdheTest, Short){
 	// Эллиптическая кривая обмена мимолётными ключами
 	curve::curve_t curve;
-	// Выполняем заведение кривой GC256B
+	// Заводим кривую GC256B
 	ASSERT_TRUE(curve::parameters("1.2.643.2.2.35.1", curve));
 	// Место, в которое помещается выработанное общее значение
 	uint8_t result[32] = {0};
-	// Выполняем выработку общего значения стороной клиента
+	// Вырабатываем общее значение стороной клиента
 	ASSERT_TRUE(agreement::ecdhe(curve, view_t(DC256, sizeof(DC256)), view_t(QS256, sizeof(QS256)), result));
 	// Сличаем выработанное клиентом значение с контрольным
 	ASSERT_EQ(::memcmp(result, EC256, sizeof(EC256)), 0);
-	// Выполняем очистку места общего значения
+	// Очищаем место общего значения
 	::memset(result, 0, sizeof(result));
-	// Выполняем выработку общего значения стороной сервера
+	// Вырабатываем общее значение стороной сервера
 	ASSERT_TRUE(agreement::ecdhe(curve, view_t(DS256, sizeof(DS256)), view_t(QC256, sizeof(QC256)), result));
 	// Сличаем выработанное сервером значение с контрольным
 	ASSERT_EQ(::memcmp(result, EC256, sizeof(EC256)), 0);
@@ -247,23 +247,23 @@ TEST(EcdheTest, Short){
 TEST(EcdheTest, Generate){
 	// Эллиптическая кривая обмена мимолётными ключами
 	curve::curve_t curve;
-	// Выполняем заведение кривой GC256B
+	// Заводим кривую GC256B
 	ASSERT_TRUE(curve::parameters("1.2.643.2.2.35.1", curve));
 	// Мимолётная пара ключей клиента
 	uint8_t first[32] = {0}, opened[64] = {0};
 	// Мимолётная пара ключей сервера
 	uint8_t second[32] = {0}, answer[64] = {0};
-	// Выполняем выработку мимолётной пары ключей клиента
+	// Вырабатываем мимолётную пару ключей клиента
 	ASSERT_TRUE(agreement::generate(curve, first, opened));
-	// Выполняем выработку мимолётной пары ключей сервера
+	// Вырабатываем мимолётную пару ключей сервера
 	ASSERT_TRUE(agreement::generate(curve, second, answer));
 	// Проверяем несовпадение выработанных секретных ключей сторон
 	ASSERT_NE(::memcmp(first, second, sizeof(first)), 0);
 	// Общие значения, выработанные сторонами связи
 	uint8_t client[32] = {0}, server[32] = {0};
-	// Выполняем выработку общего значения стороной клиента
+	// Вырабатываем общее значение стороной клиента
 	ASSERT_TRUE(agreement::ecdhe(curve, view_t(first, sizeof(first)), view_t(answer, sizeof(answer)), client));
-	// Выполняем выработку общего значения стороной сервера
+	// Вырабатываем общее значение стороной сервера
 	ASSERT_TRUE(agreement::ecdhe(curve, view_t(second, sizeof(second)), view_t(opened, sizeof(opened)), server));
 	// Проверяем схождение общих значений сторон связи
 	ASSERT_EQ(::memcmp(client, server, sizeof(client)), 0);
@@ -279,7 +279,7 @@ TEST(EcdheTest, Reject){
 	uint8_t result[32] = {0};
 	// Проверяем отказ выработки общего значения на незаведённой кривой
 	ASSERT_FALSE(agreement::ecdhe(curve, view_t(DC256, sizeof(DC256)), view_t(QS256, sizeof(QS256)), result));
-	// Выполняем заведение кривой GC256B
+	// Заводим кривую GC256B
 	ASSERT_TRUE(curve::parameters("1.2.643.2.2.35.1", curve));
 	// Проверяем отказ выработки общего значения без места итога
 	ASSERT_FALSE(agreement::ecdhe(curve, view_t(DC256, sizeof(DC256)), view_t(QS256, sizeof(QS256)), nullptr));
@@ -311,7 +311,7 @@ TEST(EcdheTest, Reject){
 	ASSERT_FALSE(agreement::ecdhe(curve, view_t(zero, sizeof(zero)), view_t(QS256, sizeof(QS256)), result));
 	// Открытый ключ встречной стороны, кривой не принадлежащий
 	uint8_t alien[64];
-	// Выполняем перенос открытого ключа встречной стороны
+	// Переносим открытый ключ встречной стороны
 	::memcpy(alien, QS256, sizeof(alien));
 	// Портим первую координату открытого ключа встречной стороны
 	alien[0] ^= 0x01;
@@ -397,7 +397,7 @@ TEST(EcdheTest, Cleared){
 		for(size_t i = 0; i < size; i++){ key[i] = x[size - 1 - i]; key[size + i] = y[size - 1 - i]; }
 	};
 	// Наборы с кофактором четыре: GC256A и GC512C, их значения и точки T порядка два
-	struct sample_t { const char * oid; size_t size; const char * p, * a, * b, * n, * gx, * gy, * tx; };
+	struct sample_t { const char * oid; size_t size; const char * prime, * coefficientA, * coefficientB, * order, * baseX, * baseY, * torsionX; };
 	// Значения параметров обоих наборов и координата x точек кручения в шестнадцатеричной записи
 	static const sample_t SAMPLES[] = {
 		{"1.2.643.7.1.2.1.1.1", 32,
@@ -431,14 +431,14 @@ TEST(EcdheTest, Cleared){
 		// Кофактор набора равен четырём
 		ASSERT_EQ(curve.cofactor(), static_cast <uint64_t> (4)) << "Набор: " << sample.oid;
 		// Буферы параметров кривой и координат точек: ty нулевой, так как точка кручения лежит на оси абсцисс
-		uint8_t p[64], a[64], b[64], n[64], gx[64], gy[64], tx[64], ty[64] = {0};
-		// Шестнадцатеричные записи p, a, b, n и координат G и T раскладываются по буферам
-		decode(sample.p, p, size); decode(sample.a, a, size); decode(sample.b, b, size);
-		decode(sample.n, n, size); decode(sample.gx, gx, size); decode(sample.gy, gy, size); decode(sample.tx, tx, size);
+		uint8_t modulus[64], a[64], b[64], n[64], gx[64], gy[64], tx[64], ty[64] = {0};
+		// Шестнадцатеричные записи modulus, a, b, n и координат G и T раскладываются по буферам
+		decode(sample.prime, modulus, size); decode(sample.coefficientA, a, size); decode(sample.coefficientB, b, size);
+		decode(sample.order, n, size); decode(sample.baseX, gx, size); decode(sample.baseY, gy, size); decode(sample.torsionX, tx, size);
 		// Та же кривая с кофактором один: T читается как есть, и G + T складывается её арифметикой
 		curve::curve_t loose;
 		// Кривая с кофактором один поднимается по разобранным параметрам
-		ASSERT_TRUE(loose.start(view_t(p, size), view_t(a, size), view_t(b, size), view_t(n, size), view_t(gx, size), view_t(gy, size), 1)) << "Набор: " << sample.oid;
+		ASSERT_TRUE(loose.start(view_t(modulus, size), view_t(a, size), view_t(b, size), view_t(n, size), view_t(gx, size), view_t(gy, size), 1)) << "Набор: " << sample.oid;
 		// Точки кручения T, генератора G и их суммы
 		curve::point_t torsion, base, sum;
 		// Точка T разбирается из координат: её ордината нулевая

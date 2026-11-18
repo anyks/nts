@@ -61,7 +61,7 @@ namespace {
 	 *
 	 */
 	typedef struct Entry {
-		// Группа
+		// Группа обмена записи
 		extension::group_t group;
 		// Имя у openssl
 		const char * name;
@@ -115,7 +115,7 @@ namespace {
 	 * @return       признак успешности чтения
 	 *
 	 */
-	static bool identity(const char * name, context::credential_t & result) noexcept {
+	static bool __nts_identity__(const char * name, context::credential_t & result) noexcept {
 		// Читаем ключ подлинности из набора
 		result.secret = corpus((std::string(name) + ".pem").c_str());
 		// Читаем цепочку сертификатов из набора
@@ -135,7 +135,7 @@ namespace {
 	 * @return       признак того, что байты передавались
 	 *
 	 */
-	static bool pump(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_pump__(client::context_t & client, server::context_t & server) noexcept {
 		// Объявляем признак передачи байтов
 		bool moved = false;
 		/**
@@ -185,11 +185,11 @@ namespace {
 	 * @param server связь стороны сервера
 	 *
 	 */
-	static void converse(client::context_t & client, server::context_t & server) noexcept {
+	static void __nts_converse__(client::context_t & client, server::context_t & server) noexcept {
 		/**
 		 * Перебираем: шаги передачи байтов между сторонами, пока связь не замолчит, не более шестнадцати шагов
 		 */
-		for(size_t i = 0; (i < 16) && pump(client, server); i++)
+		for(size_t i = 0; (i < 16) && __nts_pump__(client, server); i++)
 			continue;
 	}
 	/**
@@ -234,7 +234,7 @@ namespace {
 	 * @return       признак того, что данные дошли в обе стороны
 	 *
 	 */
-	static bool exchanged(client::context_t & client, server::context_t & server) noexcept {
+	static bool __nts_exchanged__(client::context_t & client, server::context_t & server) noexcept {
 		// Объявляем прикладные данные запроса и ответа
 		const string request = "Запрос по отложенной группе", reply = "Ответ по отложенной группе";
 		// Отправляем запрос от клиента
@@ -242,7 +242,7 @@ namespace {
 			// Возвращаем признак неудачи отправки
 			return false;
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Объявляем буфер принятых данных
 		vector <uint8_t> received;
 		// Проверяем получение запроса сервером
@@ -254,7 +254,7 @@ namespace {
 			// Возвращаем признак неудачи отправки
 			return false;
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Очищаем буфер принятых данных
 		received.clear();
 		// Проверяем получение ответа клиентом
@@ -267,7 +267,7 @@ namespace {
 	 * @return     признак поддержки
 	 *
 	 */
-	static bool groupable(const char * name, const bool legacy, const std::string & crt, const std::string & key) noexcept {
+	static bool __nts_groupable__(const char * name, const bool legacy, const std::string & crt, const std::string & key) noexcept {
 		// Признак по делу, а не по подкоманде list: openssl договаривается с собой по этой группе (у 3.0 list -tls-groups нет вовсе)
 		const toolkit_t toolkit = __nts_inspect__();
 		// Занимаем свободный порт
@@ -335,7 +335,7 @@ namespace {
 	 * @return          признак установленной связи с обменом
 	 *
 	 */
-	static bool against(const std::string & arguments, const vector <extension::group_t> & groups, const vector <extension::group_t> & shares, const bool legacy, const vector <extension::scheme_t> & schemes, const extension::group_t expected, std::string & journal) noexcept {
+	static bool __nts_against__(const std::string & arguments, const vector <extension::group_t> & groups, const vector <extension::group_t> & shares, const bool legacy, const vector <extension::scheme_t> & schemes, const extension::group_t expected, std::string & journal) noexcept {
 		// Осматриваем системный инструмент
 		const toolkit_t toolkit = __nts_inspect__();
 		// Занимаем свободный порт
@@ -353,9 +353,9 @@ namespace {
 		// Объявляем страж остановки сервера
 		sentinel_t sentinel(log + ".pid");
 		// Соединяемся с портом сервера
-		const int fd = __nts_dial__(number);
+		const int connection = __nts_dial__(number);
 		// Проверяем соединение с сервером
-		if(fd < 0)
+		if(connection < 0)
 			// Возвращаем признак неудачи соединения
 			return false;
 		// Объявляем контекст своего клиента
@@ -383,7 +383,7 @@ namespace {
 		 */
 		for(size_t i = 0; ok && (i < 8) && !client.established() && (client.state() != context::state_t::FAILED); i++)
 			// Передаём байты между клиентом и сервером
-			__nts_relay__(client, fd);
+			__nts_relay__(client, connection);
 		// Проверяем установление связи и выбранную группу
 		ok = (ok && client.established() && (client.group() == expected));
 		// Проверяем установление связи
@@ -399,7 +399,7 @@ namespace {
 			 */
 			for(size_t i = 0; ok && (i < 16) && answer.empty(); i++){
 				// Передаём байты между клиентом и сервером
-				__nts_relay__(client, fd);
+				__nts_relay__(client, connection);
 				// Принимаем ответ системного сервера
 				ok = (client.read(answer) == context::error_t::NONE);
 			}
@@ -411,7 +411,7 @@ namespace {
 			// Собираем журнал отказа
 			journal = "отказ " + std::to_string(static_cast <int> (client.error())) + " извещение " + std::to_string(static_cast <int> (client.alert().description)) + " группа " + std::to_string(static_cast <int> (client.group()));
 		// Закрываем соединение с сервером
-		closing(fd);
+		closing(connection);
 		// Останавливаем системный сервер
 		sentinel.halt();
 		// Объявляем буфер журнала сервера
@@ -436,7 +436,7 @@ namespace {
 	 * @return           признак установленной связи
 	 *
 	 */
-	static bool served(const std::string & arguments, const vector <extension::group_t> & groups, const context::credential_t & credential, const bool legacy, const extension::group_t expected, std::string & journal) noexcept {
+	static bool __nts_served__(const std::string & arguments, const vector <extension::group_t> & groups, const context::credential_t & credential, const bool legacy, const extension::group_t expected, std::string & journal) noexcept {
 		// Объявляем номер порта
 		uint16_t number = 0;
 		// Открываем слушающий сокет
@@ -461,9 +461,9 @@ namespace {
 		// Объявляем страж остановки клиента
 		sentinel_t sentinel(log + ".pid");
 		// Принимаем соединение системного клиента
-		const int fd = __nts_greeted__(listener);
+		const int connection = __nts_greeted__(listener);
 		// Проверяем принятие соединения
-		if(fd < 0)
+		if(connection < 0)
 			// Возвращаем признак неудачи принятия
 			return false;
 		// Объявляем контекст своего сервера
@@ -479,15 +479,15 @@ namespace {
 		// Запускаем рукопожатие сервера
 		bool ok = (server.start() == context::error_t::NONE);
 		// Проводим связь и проверяем выбранную группу
-		ok = (ok && __nts_serve__(server, fd) && server.established() && (server.group() == expected));
+		ok = (ok && __nts_serve__(server, connection) && server.established() && (server.group() == expected));
 		// Проверяем неудачу связи
 		if(!ok)
 			// Собираем журнал отказа
 			journal = "отказ " + std::to_string(static_cast <int> (server.error())) + " группа " + std::to_string(static_cast <int> (server.group()));
 		// Прощаемся с системным клиентом
-		(void) __nts_farewell__(server, fd);
+		(void) __nts_farewell__(server, connection);
 		// Закрываем соединение с клиентом
-		closing(fd);
+		closing(connection);
 		closing(listener);
 		// Объявляем буфер журнала клиента
 		std::string text;
@@ -554,7 +554,7 @@ TEST(GroupsTest, Modern){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Читаем подлинность ec256 из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
 	 * Перебираем: проверочные группы издания 1.3
 	 */
@@ -577,14 +577,14 @@ TEST(GroupsTest, Modern){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << MODERN[i].name << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем выбранную группу у клиента
 		EXPECT_EQ(client.group(), MODERN[i].group) << MODERN[i].name;
 		EXPECT_EQ(server.group(), MODERN[i].group) << MODERN[i].name;
 		// Проверяем обмен прикладными данными
-		EXPECT_TRUE(exchanged(client, server)) << MODERN[i].name;
+		EXPECT_TRUE(__nts_exchanged__(client, server)) << MODERN[i].name;
 	}
 }
 
@@ -595,7 +595,7 @@ TEST(GroupsTest, Legacy){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Читаем подлинность ec256 из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	/**
 	 * Перебираем: проверочные группы издания 1.2
 	 */
@@ -619,14 +619,14 @@ TEST(GroupsTest, Legacy){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << LEGACY[i].name << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем выбранную группу у клиента
 		EXPECT_EQ(client.group(), LEGACY[i].group) << LEGACY[i].name;
 		EXPECT_EQ(server.group(), LEGACY[i].group) << LEGACY[i].name;
 		// Проверяем обмен прикладными данными
-		EXPECT_TRUE(exchanged(client, server)) << LEGACY[i].name;
+		EXPECT_TRUE(__nts_exchanged__(client, server)) << LEGACY[i].name;
 	}
 }
 
@@ -638,7 +638,7 @@ TEST(GroupsTest, Editions){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Читаем подлинность ec256 из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	{
 		// Объявляем контекст клиента
 		client::context_t client;
@@ -664,7 +664,7 @@ TEST(GroupsTest, Editions){
 		// Проверяем число долей
 		ASSERT_EQ(shares.size(), static_cast <size_t> (2));
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем группу, выбранную сервером
@@ -691,7 +691,7 @@ TEST(GroupsTest, Editions){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << static_cast <int> (client.error()) << " " << static_cast <int> (server.error());
 		// Проверяем группу, выбранную сервером
@@ -717,7 +717,7 @@ TEST(GroupsTest, Editions){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем отказ связи у сервера
 		EXPECT_FALSE(server.established());
 		EXPECT_FALSE(client.established());
@@ -731,7 +731,7 @@ TEST(GroupsTest, Ecdsa521){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Читаем подлинность ec521 из набора
-	ASSERT_TRUE(identity("ec521", credential));
+	ASSERT_TRUE(__nts_identity__("ec521", credential));
 	/**
 	 * Перебираем: издания протокола 1.3 и 1.2
 	 */
@@ -762,18 +762,18 @@ TEST(GroupsTest, Ecdsa521){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем установление связи обеими сторонами
 		ASSERT_TRUE(client.established() && server.established()) << legacy << " " << static_cast <int> (client.error()) << " " << static_cast <int> (server.error()) << " извещение " << static_cast <int> (client.alert().description);
 		// Проверяем обмен прикладными данными
-		EXPECT_TRUE(exchanged(client, server)) << legacy;
+		EXPECT_TRUE(__nts_exchanged__(client, server)) << legacy;
 	}
 	// Схема 0x0603 не годится ключу P-256: сервер с ec256 при единственной схеме клиента отвергает рукопожатие
 	{
 		// Объявляем подлинность сервера
 		context::credential_t other;
 		// Читаем подлинность ec256 из набора
-		ASSERT_TRUE(identity("ec256", other));
+		ASSERT_TRUE(__nts_identity__("ec256", other));
 		// Объявляем контекст клиента
 		client::context_t client;
 		// Объявляем контекст сервера
@@ -788,7 +788,7 @@ TEST(GroupsTest, Ecdsa521){
 		ASSERT_EQ(server.start(), context::error_t::NONE);
 		ASSERT_EQ(client.start(), context::error_t::NONE);
 		// Проводим связь до тишины
-		converse(client, server);
+		__nts_converse__(client, server);
 		// Проверяем отказ связи у клиента
 		EXPECT_FALSE(client.established());
 	}
@@ -808,7 +808,7 @@ TEST(GroupsTest, Openssl){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Читаем подлинность ec256 из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Объявляем пути к подлинности набора
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	/**
@@ -816,7 +816,7 @@ TEST(GroupsTest, Openssl){
 	 */
 	for(size_t i = 0; i < (sizeof(MODERN) / sizeof(MODERN[0])); i++){
 		// Проверяем ведение группы системным инструментом
-		if(!groupable(MODERN[i].name, false, crt, key)){
+		if(!__nts_groupable__(MODERN[i].name, false, crt, key)){
 			// Сообщаем вслух о пропуске группы
 			std::cerr << "[ SKIP     ] openssl не ведёт группу " << MODERN[i].name << " сам с собой: пропуск вслух" << std::endl;
 			continue;
@@ -824,7 +824,8 @@ TEST(GroupsTest, Openssl){
 		// Объявляем журнал связи
 		std::string journal;
 		// Проверяем связь своего клиента против системного сервера
-		if(!against("-tls1_3 -cert " + crt + " -key " + key + " -groups " + MODERN[i].name, vector <extension::group_t> {MODERN[i].group, extension::group_t::X25519}, vector <extension::group_t> {MODERN[i].group}, false, vector <extension::scheme_t> (), MODERN[i].group, journal)){
+		if(!__nts_against__("-tls1_3 -cert " + crt + " -key " + key + " -groups " + MODERN[i].name, vector <extension::group_t> {MODERN[i].group, extension::group_t::X25519}, vector <extension::group_t> {MODERN[i].group}, false, vector <extension::scheme_t> (), MODERN[i].group, journal)){
+			// Разбираем отказ настройки в журнале связи
 			if(journal.find("Failed to set") != std::string::npos)
 				// Сообщаем вслух о пропуске группы
 				std::cerr << "[ SKIP     ] openssl s_server не принял группу " << MODERN[i].name << ": пропуск вслух" << std::endl;
@@ -834,7 +835,8 @@ TEST(GroupsTest, Openssl){
 		// Очищаем журнал связи
 		journal.clear();
 		// Проверяем связь своего сервера против системного клиента
-		if(!served("-tls1_3 -CAfile " + crt + " -groups " + std::string(MODERN[i].name) + ":X25519", vector <extension::group_t> {MODERN[i].group, extension::group_t::X25519}, credential, false, MODERN[i].group, journal)){
+		if(!__nts_served__("-tls1_3 -CAfile " + crt + " -groups " + std::string(MODERN[i].name) + ":X25519", vector <extension::group_t> {MODERN[i].group, extension::group_t::X25519}, credential, false, MODERN[i].group, journal)){
+			// Разбираем отказ настройки в журнале связи
 			if(journal.find("Failed to set") != std::string::npos)
 				// Сообщаем вслух о пропуске групп
 				std::cerr << "[ SKIP     ] openssl s_client не принял группы " << MODERN[i].name << ": пропуск вслух" << std::endl;
@@ -863,7 +865,7 @@ TEST(GroupsTest, OpensslLegacy){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Читаем подлинность ec256 из набора
-	ASSERT_TRUE(identity("ec256", credential));
+	ASSERT_TRUE(__nts_identity__("ec256", credential));
 	// Объявляем пути к подлинности набора
 	const std::string crt = std::string(CORPUS) + "/ec256.crt", key = std::string(CORPUS) + "/ec256.pem";
 	/**
@@ -871,7 +873,7 @@ TEST(GroupsTest, OpensslLegacy){
 	 */
 	for(size_t i = 0; i < (sizeof(LEGACY) / sizeof(LEGACY[0])); i++){
 		// Проверяем ведение группы системным инструментом
-		if(!groupable(LEGACY[i].name, true, crt, key)){
+		if(!__nts_groupable__(LEGACY[i].name, true, crt, key)){
 			// Сообщаем вслух о пропуске группы
 			std::cerr << "[ SKIP     ] openssl не ведёт группу " << LEGACY[i].name << " изданием 1.2 сам с собой: пропуск вслух" << std::endl;
 			continue;
@@ -879,7 +881,8 @@ TEST(GroupsTest, OpensslLegacy){
 		// Объявляем журнал связи
 		std::string journal;
 		// Изданию 1.2 openssl требует кривую сертификата ECDSA (P-256) в перечне групп собеседника, иначе «no shared cipher»
-		if(!against("-tls1_2 -cert " + crt + " -key " + key + " -groups " + LEGACY[i].name, vector <extension::group_t> {LEGACY[i].group, extension::group_t::X25519, extension::group_t::SECP256R1}, vector <extension::group_t> (), true, vector <extension::scheme_t> (), LEGACY[i].group, journal)){
+		if(!__nts_against__("-tls1_2 -cert " + crt + " -key " + key + " -groups " + LEGACY[i].name, vector <extension::group_t> {LEGACY[i].group, extension::group_t::X25519, extension::group_t::SECP256R1}, vector <extension::group_t> (), true, vector <extension::scheme_t> (), LEGACY[i].group, journal)){
+			// Разбираем отказ настройки в журнале связи
 			if(journal.find("Failed to set") != std::string::npos)
 				// Сообщаем вслух о пропуске группы
 				std::cerr << "[ SKIP     ] openssl s_server не принял группу " << LEGACY[i].name << ": пропуск вслух" << std::endl;
@@ -889,7 +892,7 @@ TEST(GroupsTest, OpensslLegacy){
 		// Имя prime256v1: LibreSSL не знает псевдонима secp256r1
 		journal.clear();
 		// Проверяем связь своего сервера против системного клиента
-		if(!served("-tls1_2 -CAfile " + crt + " -groups " + std::string(LEGACY[i].name) + ":X25519:prime256v1", vector <extension::group_t> {LEGACY[i].group, extension::group_t::X25519, extension::group_t::SECP256R1}, credential, true, LEGACY[i].group, journal)){
+		if(!__nts_served__("-tls1_2 -CAfile " + crt + " -groups " + std::string(LEGACY[i].name) + ":X25519:prime256v1", vector <extension::group_t> {LEGACY[i].group, extension::group_t::X25519, extension::group_t::SECP256R1}, credential, true, LEGACY[i].group, journal)){
 			// Если инструмент отказал на своих доводах - пропуск вслух, иначе отказ
 			if(journal.find("Failed to set") != std::string::npos)
 				// Сообщаем вслух о пропуске групп
@@ -914,13 +917,14 @@ TEST(GroupsTest, OpensslEcdsa521){
 	// Объявляем подлинность сервера
 	context::credential_t credential;
 	// Читаем подлинность ec521 из набора
-	ASSERT_TRUE(identity("ec521", credential));
+	ASSERT_TRUE(__nts_identity__("ec521", credential));
 	// Объявляем пути к подлинности набора
 	const std::string crt = std::string(CORPUS) + "/ec521.crt", key = std::string(CORPUS) + "/ec521.pem";
 	// Объявляем журнал связи
 	std::string journal;
 	// Проверяем связь своего клиента против системного сервера
-	if(!against("-tls1_3 -cert " + crt + " -key " + key + " -sigalgs ECDSA+SHA512", vector <extension::group_t> {extension::group_t::X25519}, vector <extension::group_t> {extension::group_t::X25519}, false, vector <extension::scheme_t> {extension::scheme_t::ECDSA_SECP521R1_SHA512}, extension::group_t::X25519, journal)){
+	if(!__nts_against__("-tls1_3 -cert " + crt + " -key " + key + " -sigalgs ECDSA+SHA512", vector <extension::group_t> {extension::group_t::X25519}, vector <extension::group_t> {extension::group_t::X25519}, false, vector <extension::scheme_t> {extension::scheme_t::ECDSA_SECP521R1_SHA512}, extension::group_t::X25519, journal)){
+		// Разбираем отказ настройки в журнале связи
 		if(journal.find("Failed to set") != std::string::npos)
 			// Сообщаем вслух о пропуске доводов
 			std::cerr << "[ SKIP     ] openssl s_server не принял -sigalgs: пропуск вслух" << std::endl;
@@ -930,7 +934,8 @@ TEST(GroupsTest, OpensslEcdsa521){
 	// Очищаем журнал связи
 	journal.clear();
 	// Проверяем связь своего сервера против системного клиента
-	if(!served("-tls1_3 -CAfile " + crt + " -sigalgs ECDSA+SHA512", vector <extension::group_t> {extension::group_t::X25519}, credential, false, extension::group_t::X25519, journal)){
+	if(!__nts_served__("-tls1_3 -CAfile " + crt + " -sigalgs ECDSA+SHA512", vector <extension::group_t> {extension::group_t::X25519}, credential, false, extension::group_t::X25519, journal)){
+		// Разбираем отказ настройки в журнале связи
 		if(journal.find("Failed to set") != std::string::npos)
 			// Сообщаем вслух о пропуске доводов
 			std::cerr << "[ SKIP     ] openssl s_client не принял -sigalgs: пропуск вслух" << std::endl;
@@ -961,7 +966,7 @@ TEST(GroupsTest, OpensslDefaults){
 	// Объявляем журнал связи
 	std::string journal;
 	// Пустые перечни оставляют умолчания клиента; -msg кладёт сообщения рукопожатия в журнал сервера
-	const bool ok = against("-tls1_3 -cert " + crt + " -key " + key + " -msg", vector <extension::group_t> (), vector <extension::group_t> (), false, vector <extension::scheme_t> (), expected, journal);
+	const bool ok = __nts_against__("-tls1_3 -cert " + crt + " -key " + key + " -msg", vector <extension::group_t> (), vector <extension::group_t> (), false, vector <extension::scheme_t> (), expected, journal);
 	// Проверяем успех связи умолчаниями
 	EXPECT_TRUE(ok) << journal;
 	// Приветствие клиента в журнале одно: просьбы о повторе не было

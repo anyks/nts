@@ -53,51 +53,51 @@ namespace {
 	 * @param payload тело разбираемого сообщения рукопожатия
 	 *
 	 */
-	void parseMessage(const handshake::type_t type, const view_t & payload) noexcept {
+	void __nts_parse_message__(const handshake::type_t type, const view_t & payload) noexcept {
 		/**
-		 * Выполняем разбор тела сообщения его собственным разборщиком
+		 * Разбираем тело сообщения его собственным разборщиком
 		 */
 		switch(static_cast <uint8_t> (type)){
 			// Если получено приветствие клиента
 			case static_cast <uint8_t> (handshake::type_t::CLIENT): {
 				// Разбираемое приветствие клиента
 				hello::client_t greeting;
-				// Выполняем разбор приветствия клиента
+				// Разбираем приветствие клиента
 				hello::parse(payload, greeting);
 			} break;
 			// Если получено приветствие сервера
 			case static_cast <uint8_t> (handshake::type_t::SERVER): {
 				// Разбираемое приветствие сервера
 				hello::server_t greeting;
-				// Выполняем разбор приветствия сервера
+				// Разбираем приветствие сервера
 				hello::parse(payload, greeting);
 			} break;
 			// Если получена цепочка сертификатов
 			case static_cast <uint8_t> (handshake::type_t::CERTIFICATE): {
 				// Разбираемая цепочка сертификатов
 				message::certificate_t certificate;
-				// Выполняем разбор цепочки сертификатов
+				// Разбираем цепочку сертификатов
 				message::parse(payload, certificate);
 			} break;
 			// Если получена подпись владения ключом
 			case static_cast <uint8_t> (handshake::type_t::VERIFY): {
 				// Разбираемая подпись владения ключом
 				message::verify_t verify;
-				// Выполняем разбор подписи владения ключом
+				// Разбираем подпись владения ключом
 				message::parse(payload, verify);
 			} break;
 			// Если получен билет возобновления связи
 			case static_cast <uint8_t> (handshake::type_t::TICKET): {
 				// Разбираемый билет возобновления связи
 				message::ticket_t ticket;
-				// Выполняем разбор билета возобновления связи
+				// Разбираем билет возобновления связи
 				message::parse(payload, ticket);
 			} break;
 			// Если получено требование смены ключевого материала
 			case static_cast <uint8_t> (handshake::type_t::UPDATE): {
 				// Разбираемое требование смены ключевого материала
 				message::update_t update;
-				// Выполняем разбор требования смены ключевого материала
+				// Разбираем требование смены ключевого материала
 				message::parse(payload, update);
 			} break;
 		}
@@ -109,7 +109,7 @@ namespace {
 	 * @param payload содержимое записей рукопожатия
 	 *
 	 */
-	void parseHandshake(handshake::reader_t & reader, const view_t & payload) noexcept {
+	void __nts_parse_handshake__(handshake::reader_t & reader, const view_t & payload) noexcept {
 		// Если содержимое записи принято сборщиком сообщений
 		if(reader.push(payload) == handshake::error_t::NONE){
 			// Обвязка очередного собранного сообщения
@@ -117,11 +117,11 @@ namespace {
 			// Тело очередного собранного сообщения
 			view_t body;
 			/**
-			 * Выполняем выборку всех сообщений, собранных из поданного содержимого
+			 * Выбираем все сообщения, собранных из поданного содержимого
 			 */
 			while(reader.next(header, body) == handshake::error_t::NONE)
-				// Выполняем разбор тела очередного сообщения по его виду
-				parseMessage(header.type, body);
+				// Разбираем тело очередного сообщения по его виду
+				__nts_parse_message__(header.type, body);
 		}
 	}
 }
@@ -143,11 +143,11 @@ extern "C" {
 		const view_t input(data, size);
 		// Заголовок записи, разбираемой без накопления
 		record::header_t recordHeader;
-		// Выполняем разбор одиночного заголовка записи
+		// Разбираем одиночный заголовок записи
 		record::parse(input, recordHeader);
 		// Обвязка сообщения, разбираемого без накопления
 		handshake::header_t handshakeHeader;
-		// Выполняем разбор одиночной обвязки сообщения
+		// Разбираем одиночную обвязку сообщения
 		handshake::parse(input, handshakeHeader);
 		// Сборщик записей потокового переноса
 		record::reader_t records;
@@ -156,7 +156,7 @@ extern "C" {
 		// Длина куска меняется от длины входа, не расходуя его проводные байты
 		const size_t chunk = ((size % 31) + 1);
 		/**
-		 * Выполняем подачу потока кусками разной длины
+		 * Подаём поток кусками разной длины
 		 */
 		for(size_t offset = 0; offset < size; offset += chunk){
 			// Длина очередного куска потока
@@ -172,18 +172,18 @@ extern "C" {
 			// Отказ получения очередной записи
 			record::error_t error = record::error_t::NONE;
 			/**
-			 * Выполняем выборку всех записей, собранных из поданного куска
+			 * Выбираем все записи, собранных из поданного куска
 			 */
 			while((error = records.next(header, payload)) == record::error_t::NONE){
 				// Если запись несёт сообщения рукопожатия
 				if(header.type == record::type_t::HANDSHAKE)
 					// Подаём содержимое сохраняющемуся сборщику сообщений
-					parseHandshake(handshakes, payload);
+					__nts_parse_handshake__(handshakes, payload);
 				// Если запись несёт извещение связи
 				else if(header.type == record::type_t::ALERT){
 					// Разбираемое извещение связи
 					alert::alert_t notice;
-					// Выполняем разбор извещения связи
+					// Разбираем извещение связи
 					alert::parse(payload, notice);
 				}
 			}
@@ -195,7 +195,7 @@ extern "C" {
 		// Сборщик сообщений из входа без внешней записи
 		handshake::reader_t direct;
 		// Подаём вход сборщику сообщений напрямую
-		parseHandshake(direct, input);
+		__nts_parse_handshake__(direct, input);
 		// Выводим код продолжения ворошения
 		return 0;
 	}
