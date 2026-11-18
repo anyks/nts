@@ -358,11 +358,11 @@ namespace {
 			// Таблица постоянных
 			pairs256_t table{};
 			/**
-			 * Выполняем перебор групп постоянных
+			 * Перебираем группы постоянных
 			 */
 			for(size_t group = 0; group < 16; group++){
 				/**
-				 * Выполняем перебор слов группы
+				 * Перебираем слова группы
 				 */
 				for(size_t word = 0; word < 4; word++){
 					// Кладём слово в первую полосу
@@ -384,11 +384,11 @@ namespace {
 			// Таблица постоянных
 			pairs512_t table{};
 			/**
-			 * Выполняем перебор групп постоянных
+			 * Перебираем группы постоянных
 			 */
 			for(size_t group = 0; group < 40; group++){
 				/**
-				 * Выполняем перебор слов группы
+				 * Перебираем слова группы
 				 */
 				for(size_t word = 0; word < 2; word++){
 					// Кладём слово в первую полосу
@@ -485,7 +485,7 @@ namespace {
 	 * @return      разряд, установленный хотя бы в двух словах из трёх
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t majority([[maybe_unused]] const uint64_t a, const uint64_t b, [[maybe_unused]] const uint64_t c, [[maybe_unused]] const uint64_t fresh, [[maybe_unused]] const uint64_t stale) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_majority__([[maybe_unused]] const uint64_t a, const uint64_t b, [[maybe_unused]] const uint64_t c, [[maybe_unused]] const uint64_t fresh, [[maybe_unused]] const uint64_t stale) noexcept {
 		/**
 		 * Если логика от трёх слов идёт одной командой
 		 */
@@ -508,7 +508,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t rotr(const uint32_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_rotr__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value >> count) | (value << (32 - count)));
 	}
@@ -520,7 +520,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t rotr(const uint64_t value, const unsigned count) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_rotr__(const uint64_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value >> count) | (value << (64 - count)));
 	}
@@ -558,7 +558,7 @@ namespace {
 	 * @return     прочитанное слово
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t load64(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_load64__(const uint8_t * data) noexcept {
 		/**
 		 * Если слово читается одной командой с перестановкой байтов
 		 */
@@ -585,7 +585,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __NTS_INLINE__ void store32(const uint32_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void __nts_store32__(const uint32_t value, uint8_t * data) noexcept {
 		/**
 		 * Если слово пишется одной командой с перестановкой байтов
 		 */
@@ -613,7 +613,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static __NTS_INLINE__ void store64(const uint64_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void __nts_store64__(const uint64_t value, uint8_t * data) noexcept {
 		/**
 		 * Если слово пишется одной командой с перестановкой байтов
 		 */
@@ -625,9 +625,9 @@ namespace {
 		 */
 		#else
 			// Записываем старшую половину слова
-			store32(static_cast <uint32_t> (value >> 32), data);
+			__nts_store32__(static_cast <uint32_t> (value >> 32), data);
 			// Записываем младшую половину слова
-			store32(static_cast <uint32_t> (value), data + 4);
+			__nts_store32__(static_cast <uint32_t> (value), data + 4);
 		#endif
 	}
 	/**
@@ -654,19 +654,19 @@ namespace {
 	 * @param stale сумма a ^ b прежнего круга: она же b ^ c этого
 	 *
 	 */
-	static __NTS_INLINE__ void round256(const uint32_t a, const uint32_t b, uint32_t & d, const uint32_t e, const uint32_t f, const uint32_t g, uint32_t & h, const uint32_t k, const uint32_t w, uint32_t & fresh, const uint32_t stale) noexcept {
+	static __NTS_INLINE__ void __nts_round256__(const uint32_t a, const uint32_t b, uint32_t & d, const uint32_t e, const uint32_t f, const uint32_t g, uint32_t & h, const uint32_t k, const uint32_t w, uint32_t & fresh, const uint32_t stale) noexcept {
 		// Большая сигма первая от переменной e
-		const uint32_t s1 = (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25));
+		const uint32_t s1 = (__nts_rotr__(e, 6) ^ __nts_rotr__(e, 11) ^ __nts_rotr__(e, 25));
 		// Функция выбора по переменной e
-		const uint32_t ch = ((e & f) ^ ((~e) & g));
+		const uint32_t choose = ((e & f) ^ ((~e) & g));
 		// Большая сигма нулевая от переменной a
-		const uint32_t s0 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22));
+		const uint32_t s0 = (__nts_rotr__(a, 2) ^ __nts_rotr__(a, 13) ^ __nts_rotr__(a, 22));
 		// Сумма a ^ b этого круга
 		fresh = (a ^ b);
 		// Функция большинства по переменным a, b, c через две суммы
 		const uint32_t maj = ((fresh & stale) ^ b);
 		// Первое временное значение круга: слагаемые без e прежде сигмы
-		const uint32_t t1 = (((h + k) + w) + (ch + s1));
+		const uint32_t t1 = (((h + k) + w) + (choose + s1));
 		// Складываем новое значение переменной e на месте d
 		d += t1;
 		// Складываем новое значение переменной a на месте h
@@ -689,11 +689,11 @@ namespace {
 	 * @return    слово расписания круга
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t expand256(uint32_t & w0, const uint32_t w1, const uint32_t w9, const uint32_t w14) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_expand256__(uint32_t & w0, const uint32_t w1, const uint32_t w9, const uint32_t w14) noexcept {
 		// Малая сигма нулевая от слова пятнадцатью позициями раньше
-		const uint32_t s0 = (rotr(w1, 7) ^ rotr(w1, 18) ^ (w1 >> 3));
+		const uint32_t s0 = (__nts_rotr__(w1, 7) ^ __nts_rotr__(w1, 18) ^ (w1 >> 3));
 		// Малая сигма первая от слова двумя позициями раньше
-		const uint32_t s1 = (rotr(w14, 17) ^ rotr(w14, 19) ^ (w14 >> 10));
+		const uint32_t s1 = (__nts_rotr__(w14, 17) ^ __nts_rotr__(w14, 19) ^ (w14 >> 10));
 		// Складываем очередное слово расписания на место слова шестнадцатью позициями раньше
 		w0 += (s0 + w9 + s1);
 		// Выводим слово расписания круга
@@ -736,16 +736,16 @@ namespace {
 	 * @param expand признак того, что слова расписания вырабатываются на ходу
 	 *
 	 */
-	static __NTS_INLINE__ void eight256(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d, uint32_t & e, uint32_t & f, uint32_t & g, uint32_t & h, const uint32_t * k, uint32_t & x0, uint32_t & x1, uint32_t & p0, uint32_t & p1, uint32_t & p2, uint32_t & p3, uint32_t & p4, uint32_t & p5, uint32_t & p6, uint32_t & p7, uint32_t & p8, uint32_t & p9, uint32_t & p10, uint32_t & p11, uint32_t & p12, uint32_t & p13, uint32_t & p14, uint32_t & p15, const bool expand) noexcept {
+	static __NTS_INLINE__ void __nts_eight256__(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d, uint32_t & e, uint32_t & f, uint32_t & g, uint32_t & h, const uint32_t * k, uint32_t & x0, uint32_t & x1, uint32_t & p0, uint32_t & p1, uint32_t & p2, uint32_t & p3, uint32_t & p4, uint32_t & p5, uint32_t & p6, uint32_t & p7, uint32_t & p8, uint32_t & p9, uint32_t & p10, uint32_t & p11, uint32_t & p12, uint32_t & p13, uint32_t & p14, uint32_t & p15, const bool expand) noexcept {
 		// Восемь кругов восьмёрки, переменные не сдвигаются
-		round256(a, b, d, e, f, g, h, k[0], (expand ? expand256(p0, p1, p9, p14) : p0), x1, x0);
-		round256(h, a, c, d, e, f, g, k[1], (expand ? expand256(p1, p2, p10, p15) : p1), x0, x1);
-		round256(g, h, b, c, d, e, f, k[2], (expand ? expand256(p2, p3, p11, p0) : p2), x1, x0);
-		round256(f, g, a, b, c, d, e, k[3], (expand ? expand256(p3, p4, p12, p1) : p3), x0, x1);
-		round256(e, f, h, a, b, c, d, k[4], (expand ? expand256(p4, p5, p13, p2) : p4), x1, x0);
-		round256(d, e, g, h, a, b, c, k[5], (expand ? expand256(p5, p6, p14, p3) : p5), x0, x1);
-		round256(c, d, f, g, h, a, b, k[6], (expand ? expand256(p6, p7, p15, p4) : p6), x1, x0);
-		round256(b, c, e, f, g, h, a, k[7], (expand ? expand256(p7, p8, p0, p5) : p7), x0, x1);
+		__nts_round256__(a, b, d, e, f, g, h, k[0], (expand ? __nts_expand256__(p0, p1, p9, p14) : p0), x1, x0);
+		__nts_round256__(h, a, c, d, e, f, g, k[1], (expand ? __nts_expand256__(p1, p2, p10, p15) : p1), x0, x1);
+		__nts_round256__(g, h, b, c, d, e, f, k[2], (expand ? __nts_expand256__(p2, p3, p11, p0) : p2), x1, x0);
+		__nts_round256__(f, g, a, b, c, d, e, k[3], (expand ? __nts_expand256__(p3, p4, p12, p1) : p3), x0, x1);
+		__nts_round256__(e, f, h, a, b, c, d, k[4], (expand ? __nts_expand256__(p4, p5, p13, p2) : p4), x1, x0);
+		__nts_round256__(d, e, g, h, a, b, c, k[5], (expand ? __nts_expand256__(p5, p6, p14, p3) : p5), x0, x1);
+		__nts_round256__(c, d, f, g, h, a, b, k[6], (expand ? __nts_expand256__(p6, p7, p15, p4) : p6), x1, x0);
+		__nts_round256__(b, c, e, f, g, h, a, k[7], (expand ? __nts_expand256__(p7, p8, p0, p5) : p7), x0, x1);
 	}
 	/**
 	 * @brief Функция одного круга SHA-512 без сдвига рабочих переменных
@@ -772,19 +772,19 @@ namespace {
 	 * @param stale сумма a ^ b прежнего круга: она же b ^ c этого
 	 *
 	 */
-	static __NTS_INLINE__ void round512(const uint64_t a, const uint64_t b, const uint64_t c, uint64_t & d, const uint64_t e, const uint64_t f, const uint64_t g, uint64_t & h, const uint64_t k, const uint64_t w, uint64_t & fresh, const uint64_t stale) noexcept {
+	static __NTS_INLINE__ void __nts_round512__(const uint64_t a, const uint64_t b, const uint64_t c, uint64_t & d, const uint64_t e, const uint64_t f, const uint64_t g, uint64_t & h, const uint64_t k, const uint64_t w, uint64_t & fresh, const uint64_t stale) noexcept {
 		// Большая сигма первая от переменной e
-		const uint64_t s1 = (rotr(e, 14) ^ rotr(e, 18) ^ rotr(e, 41));
+		const uint64_t s1 = (__nts_rotr__(e, 14) ^ __nts_rotr__(e, 18) ^ __nts_rotr__(e, 41));
 		// Функция выбора по переменной e
-		const uint64_t ch = ((e & f) ^ ((~e) & g));
+		const uint64_t choose = ((e & f) ^ ((~e) & g));
 		// Большая сигма нулевая от переменной a
-		const uint64_t s0 = (rotr(a, 28) ^ rotr(a, 34) ^ rotr(a, 39));
+		const uint64_t s0 = (__nts_rotr__(a, 28) ^ __nts_rotr__(a, 34) ^ __nts_rotr__(a, 39));
 		// Сумма a ^ b этого круга
 		fresh = (a ^ b);
 		// Функция большинства по переменным a, b, c
-		const uint64_t maj = majority(a, b, c, fresh, stale);
+		const uint64_t maj = __nts_majority__(a, b, c, fresh, stale);
 		// Первое временное значение круга: слагаемые без e прежде сигмы
-		const uint64_t t1 = (((h + k) + w) + (ch + s1));
+		const uint64_t t1 = (((h + k) + w) + (choose + s1));
 		// Складываем новое значение переменной e на месте d
 		d += t1;
 		// Складываем новое значение переменной a на месте h
@@ -807,11 +807,11 @@ namespace {
 	 * @return    слово расписания круга
 	 *
 	 */
-	static __NTS_INLINE__ uint64_t expand512(uint64_t & w0, const uint64_t w1, const uint64_t w9, const uint64_t w14) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_expand512__(uint64_t & w0, const uint64_t w1, const uint64_t w9, const uint64_t w14) noexcept {
 		// Малая сигма нулевая от слова пятнадцатью позициями раньше
-		const uint64_t s0 = (rotr(w1, 1) ^ rotr(w1, 8) ^ (w1 >> 7));
+		const uint64_t s0 = (__nts_rotr__(w1, 1) ^ __nts_rotr__(w1, 8) ^ (w1 >> 7));
 		// Малая сигма первая от слова двумя позициями раньше
-		const uint64_t s1 = (rotr(w14, 19) ^ rotr(w14, 61) ^ (w14 >> 6));
+		const uint64_t s1 = (__nts_rotr__(w14, 19) ^ __nts_rotr__(w14, 61) ^ (w14 >> 6));
 		// Складываем очередное слово расписания на место слова шестнадцатью позициями раньше
 		w0 += (s0 + w9 + s1);
 		// Выводим слово расписания круга
@@ -854,16 +854,16 @@ namespace {
 	 * @param expand признак того, что слова расписания вырабатываются на ходу
 	 *
 	 */
-	static __NTS_INLINE__ void eight512(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t * k, uint64_t & x0, uint64_t & x1, uint64_t & p0, uint64_t & p1, uint64_t & p2, uint64_t & p3, uint64_t & p4, uint64_t & p5, uint64_t & p6, uint64_t & p7, uint64_t & p8, uint64_t & p9, uint64_t & p10, uint64_t & p11, uint64_t & p12, uint64_t & p13, uint64_t & p14, uint64_t & p15, const bool expand) noexcept {
+	static __NTS_INLINE__ void __nts_eight512__(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t * k, uint64_t & x0, uint64_t & x1, uint64_t & p0, uint64_t & p1, uint64_t & p2, uint64_t & p3, uint64_t & p4, uint64_t & p5, uint64_t & p6, uint64_t & p7, uint64_t & p8, uint64_t & p9, uint64_t & p10, uint64_t & p11, uint64_t & p12, uint64_t & p13, uint64_t & p14, uint64_t & p15, const bool expand) noexcept {
 		// Восемь кругов восьмёрки, переменные не сдвигаются
-		round512(a, b, c, d, e, f, g, h, k[0], (expand ? expand512(p0, p1, p9, p14) : p0), x1, x0);
-		round512(h, a, b, c, d, e, f, g, k[1], (expand ? expand512(p1, p2, p10, p15) : p1), x0, x1);
-		round512(g, h, a, b, c, d, e, f, k[2], (expand ? expand512(p2, p3, p11, p0) : p2), x1, x0);
-		round512(f, g, h, a, b, c, d, e, k[3], (expand ? expand512(p3, p4, p12, p1) : p3), x0, x1);
-		round512(e, f, g, h, a, b, c, d, k[4], (expand ? expand512(p4, p5, p13, p2) : p4), x1, x0);
-		round512(d, e, f, g, h, a, b, c, k[5], (expand ? expand512(p5, p6, p14, p3) : p5), x0, x1);
-		round512(c, d, e, f, g, h, a, b, k[6], (expand ? expand512(p6, p7, p15, p4) : p6), x1, x0);
-		round512(b, c, d, e, f, g, h, a, k[7], (expand ? expand512(p7, p8, p0, p5) : p7), x0, x1);
+		__nts_round512__(a, b, c, d, e, f, g, h, k[0], (expand ? __nts_expand512__(p0, p1, p9, p14) : p0), x1, x0);
+		__nts_round512__(h, a, b, c, d, e, f, g, k[1], (expand ? __nts_expand512__(p1, p2, p10, p15) : p1), x0, x1);
+		__nts_round512__(g, h, a, b, c, d, e, f, k[2], (expand ? __nts_expand512__(p2, p3, p11, p0) : p2), x1, x0);
+		__nts_round512__(f, g, h, a, b, c, d, e, k[3], (expand ? __nts_expand512__(p3, p4, p12, p1) : p3), x0, x1);
+		__nts_round512__(e, f, g, h, a, b, c, d, k[4], (expand ? __nts_expand512__(p4, p5, p13, p2) : p4), x1, x0);
+		__nts_round512__(d, e, f, g, h, a, b, c, k[5], (expand ? __nts_expand512__(p5, p6, p14, p3) : p5), x0, x1);
+		__nts_round512__(c, d, e, f, g, h, a, b, k[6], (expand ? __nts_expand512__(p6, p7, p15, p4) : p6), x1, x0);
+		__nts_round512__(b, c, d, e, f, g, h, a, k[7], (expand ? __nts_expand512__(p7, p8, p0, p5) : p7), x0, x1);
 	}
 
 	/**
@@ -892,7 +892,7 @@ namespace {
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
-			 * Выполняем перенос значения хеша в слова
+			 * Переносим значение хеша в слова
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное слово
@@ -1048,7 +1048,7 @@ namespace {
 			: "r" (x3)
 			: "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v16", "v17", "v18", "v19", "cc", "memory");
 			/**
-			 * Выполняем перенос слов в значение хеша
+			 * Переносим слова в значение хеша
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное слово
@@ -1127,7 +1127,7 @@ namespace {
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
-			 * Выполняем перенос значения хеша в слова
+			 * Переносим значение хеша в слова
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное слово
@@ -1135,7 +1135,7 @@ namespace {
 			// Половины состояния: abcd и efgh
 			uint32x4_t abcd = vld1q_u32(words), efgh = vld1q_u32(words + 4);
 			/**
-			 * Выполняем перебор блоков пачки
+			 * Перебираем блоки пачки
 			 */
 			for(size_t block = 0; block < count; block++, data += 64){
 				// Четвёрки слов расписания
@@ -1145,7 +1145,7 @@ namespace {
 				// Половины состояния на входе блока
 				const uint32x4_t abcd0 = abcd, efgh0 = efgh;
 				/**
-				 * Выполняем четыре прохода по четыре четвёрки кругов
+				 * Прогоняем четыре прохода по четыре четвёрки кругов
 				 */
 				for(size_t i = 0; i < 4; i++){
 					// Признак того, что расписание ещё расширяется
@@ -1171,7 +1171,7 @@ namespace {
 			// Записываем половины состояния
 			vst1q_u32(words + 4, efgh);
 			/**
-			 * Выполняем перенос слов в значение хеша
+			 * Переносим слова в значение хеша
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное слово
@@ -1205,13 +1205,13 @@ namespace {
 		 * @param w   слово расписания, уже сложенное с постоянной круга
 		 *
 		 */
-		static __NTS_INLINE__ void round256(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d, uint32_t & e, uint32_t & f, uint32_t & g, uint32_t & h, const uint32_t w) noexcept {
+		static __NTS_INLINE__ void __nts_round256__(uint32_t & a, uint32_t & b, uint32_t & c, uint32_t & d, uint32_t & e, uint32_t & f, uint32_t & g, uint32_t & h, const uint32_t w) noexcept {
 			// Сигма единицы и выбор над e, f, g
 			const uint32_t s1 = ((e >> 6) | (e << 26)) ^ ((e >> 11) | (e << 21)) ^ ((e >> 25) | (e << 7));
 			// Выбор: (e & f) ^ (~e & g)
-			const uint32_t ch = (e & f) ^ (~e & g);
+			const uint32_t choose = (e & f) ^ (~e & g);
 			// Первое временное слово круга
-			const uint32_t t1 = h + s1 + ch + w;
+			const uint32_t t1 = h + s1 + choose + w;
 			// Сигма нуля и большинство над a, b, c
 			const uint32_t s0 = ((a >> 2) | (a << 30)) ^ ((a >> 13) | (a << 19)) ^ ((a >> 22) | (a << 10));
 			// Большинство: (a & b) ^ (a & c) ^ (b & c)
@@ -1228,13 +1228,13 @@ namespace {
 		 * @param w   слово расписания, уже сложенное с постоянной круга
 		 *
 		 */
-		static __NTS_INLINE__ void round512(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t w) noexcept {
+		static __NTS_INLINE__ void __nts_round512__(uint64_t & a, uint64_t & b, uint64_t & c, uint64_t & d, uint64_t & e, uint64_t & f, uint64_t & g, uint64_t & h, const uint64_t w) noexcept {
 			// Сигма единицы и выбор над e, f, g
 			const uint64_t s1 = ((e >> 14) | (e << 50)) ^ ((e >> 18) | (e << 46)) ^ ((e >> 41) | (e << 23));
 			// Выбор: (e & f) ^ (~e & g)
-			const uint64_t ch = (e & f) ^ (~e & g);
+			const uint64_t choose = (e & f) ^ (~e & g);
 			// Первое временное слово круга
-			const uint64_t t1 = h + s1 + ch + w;
+			const uint64_t t1 = h + s1 + choose + w;
 			// Сигма нуля и большинство над a, b, c
 			const uint64_t s0 = ((a >> 28) | (a << 36)) ^ ((a >> 34) | (a << 30)) ^ ((a >> 39) | (a << 25));
 			// Большинство: (a & b) ^ (a & c) ^ (b & c)
@@ -1259,51 +1259,51 @@ namespace {
 		 */
 		static void compress256Msvc(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Маски перестановки байтов
-			const __m128i m0 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK256));
+			const __m128i mask0 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK256));
 			// Маска укладки младших половин для сигмы единицы
-			const __m128i m1 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK256 + 16));
+			const __m128i mask1 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK256 + 16));
 			// Маска укладки старших половин для сигмы единицы
-			const __m128i m2 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK256 + 32));
+			const __m128i mask2 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK256 + 32));
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
-			 * Выполняем перенос значения хеша в слова
+			 * Переносим значение хеша в слова
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное слово
 				words[i] = static_cast <uint32_t> (hash[i]);
 			/**
-			 * Выполняем перебор блоков пачки
+			 * Перебираем блоки пачки
 			 */
 			for(size_t block = 0; block < count; block++, data += 64){
 				// Четвёрки слов расписания
-				__m128i x0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data)), m0);
+				__m128i x0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data)), mask0);
 				// Вторая четвёрка слов блока
-				__m128i x1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data + 16)), m0);
+				__m128i x1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data + 16)), mask0);
 				// Третья четвёрка слов блока
-				__m128i x2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data + 32)), m0);
+				__m128i x2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data + 32)), mask0);
 				// Четвёртая четвёрка слов блока
-				__m128i x3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data + 48)), m0);
+				__m128i x3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data + 48)), mask0);
 				// Рабочие слова состояния на входе блока
 				uint32_t a = words[0], b = words[1], c = words[2], d = words[3];
 				// Вторая половина рабочих слов состояния
 				uint32_t e = words[4], f = words[5], g = words[6], h = words[7];
 				/**
-				 * Выполняем двенадцать групп по четыре круга с выработкой расписания
+				 * Прогоняем двенадцать групп по четыре круга с выработкой расписания
 				 */
 				for(size_t grp = 0; grp < 12; grp++){
 					// Четвёрка слов расписания, сложенная с постоянными группы
-					const __m128i t = _mm_add_epi32(x0, _mm_loadu_si128(reinterpret_cast <const __m128i *> (K256 + (grp * 4))));
+					const __m128i sum = _mm_add_epi32(x0, _mm_loadu_si128(reinterpret_cast <const __m128i *> (K256 + (grp * 4))));
 					// Слова четвёрки для скалярных кругов
 					uint32_t tw[4];
 					// Выгружаем четвёрку
-					_mm_storeu_si128(reinterpret_cast <__m128i *> (tw), t);
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (tw), sum);
 					/**
-					 * Выполняем четыре круга группы
+					 * Прогоняем четыре круга группы
 					 */
 					for(size_t r = 0; r < 4; r++)
 						// Очередной круг
-						round256(a, b, c, d, e, f, g, h, tw[r]);
+						__nts_round256__(a, b, c, d, e, f, g, h, tw[r]);
 					// Слова расписания на один вперёд для сигмы нуля
 					const __m128i s0v = _mm_alignr_epi8(x1, x0, 4);
 					// Слова расписания на девять вперёд
@@ -1317,23 +1317,23 @@ namespace {
 					// Накопитель: добавляем сигму нуля
 					acc = _mm_add_epi32(acc, s0);
 					// Старшая четвёрка с повтором слов для сигмы единицы
-					const __m128i hi = _mm_shuffle_epi32(x3, 250);
+					const __m128i high = _mm_shuffle_epi32(x3, 250);
 					// Сигма единицы: ror17 ^ shr10
-					__m128i s1 = _mm_xor_si128(_mm_srli_epi64(hi, 17), _mm_srli_epi32(hi, 10));
+					__m128i s1 = _mm_xor_si128(_mm_srli_epi64(high, 17), _mm_srli_epi32(high, 10));
 					// Сигма единицы: добавляем ror19
-					s1 = _mm_xor_si128(s1, _mm_srli_epi64(hi, 19));
+					s1 = _mm_xor_si128(s1, _mm_srli_epi64(high, 19));
 					// Укладка младших половин сигмы единицы
-					s1 = _mm_shuffle_epi8(s1, m1);
+					s1 = _mm_shuffle_epi8(s1, mask1);
 					// Накопитель: добавляем сигму единицы
 					acc = _mm_add_epi32(acc, s1);
 					// Повтор слов накопителя для добора сигмы единицы
-					const __m128i hi2 = _mm_shuffle_epi32(acc, 80);
+					const __m128i high2 = _mm_shuffle_epi32(acc, 80);
 					// Добираем сигму единицы: ror17 ^ shr10
-					__m128i s1b = _mm_xor_si128(_mm_srli_epi64(hi2, 17), _mm_srli_epi32(hi2, 10));
+					__m128i s1b = _mm_xor_si128(_mm_srli_epi64(high2, 17), _mm_srli_epi32(high2, 10));
 					// Добираем сигму единицы: добавляем ror19
-					s1b = _mm_xor_si128(s1b, _mm_srli_epi64(hi2, 19));
+					s1b = _mm_xor_si128(s1b, _mm_srli_epi64(high2, 19));
 					// Укладка старших половин сигмы единицы
-					s1b = _mm_shuffle_epi8(s1b, m2);
+					s1b = _mm_shuffle_epi8(s1b, mask2);
 					// Накопитель: добавляем добранную сигму единицы
 					acc = _mm_add_epi32(acc, s1b);
 					// Сдвигаем кольцо четвёрок и кладём выработанную
@@ -1350,18 +1350,18 @@ namespace {
 				// Выгружаем четвёртую четвёрку
 				_mm_storeu_si128(reinterpret_cast <__m128i *> (tw + 12), x3);
 				/**
-				 * Выполняем шестнадцать кругов хвоста без расписания
+				 * Прогоняем шестнадцать кругов хвоста без расписания
 				 */
 				for(size_t r = 0; r < 16; r++)
 					// Очередной круг
-					round256(a, b, c, d, e, f, g, h, K256[48 + r] + tw[r]);
+					__nts_round256__(a, b, c, d, e, f, g, h, K256[48 + r] + tw[r]);
 				// Складываем итог блока с прежним значением хеша
 				words[0] += a; words[1] += b; words[2] += c; words[3] += d;
 				// Складываем вторую половину итога блока
 				words[4] += e; words[5] += f; words[6] += g; words[7] += h;
 			}
 			/**
-			 * Выполняем перенос слов в значение хеша
+			 * Переносим слова в значение хеша
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное слово
@@ -1381,39 +1381,39 @@ namespace {
 		 */
 		static void compress512Msvc(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Маска перестановки байтов
-			const __m128i m = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK512));
+			const __m128i mask512 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK512));
 			/**
-			 * Выполняем перебор блоков пачки
+			 * Перебираем блоки пачки
 			 */
 			for(size_t block = 0; block < count; block++, data += 128){
 				// Восьмёрка пар слов расписания
 				__m128i x[8];
 				/**
-				 * Выполняем чтение пар слов блока от старшего байта
+				 * Читаем пары слов блока от старшего байта
 				 */
 				for(size_t i = 0; i < 8; i++)
 					// Читаем очередную пару слов
-					x[i] = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data + (i * 16))), m);
+					x[i] = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast <const __m128i *> (data + (i * 16))), mask512);
 				// Рабочие слова состояния на входе блока
 				uint64_t a = hash[0], b = hash[1], c = hash[2], d = hash[3];
 				// Вторая половина рабочих слов состояния
 				uint64_t e = hash[4], f = hash[5], g = hash[6], h = hash[7];
 				/**
-				 * Выполняем тридцать две группы по два круга с выработкой расписания
+				 * Прогоняем тридцать две группы по два круга с выработкой расписания
 				 */
 				for(size_t grp = 0; grp < 32; grp++){
 					// Пара слов расписания, сложенная с постоянными группы
-					const __m128i t = _mm_add_epi64(x[0], _mm_loadu_si128(reinterpret_cast <const __m128i *> (K512 + (grp * 2))));
+					const __m128i sum = _mm_add_epi64(x[0], _mm_loadu_si128(reinterpret_cast <const __m128i *> (K512 + (grp * 2))));
 					// Слова пары для скалярных кругов
 					uint64_t tw[2];
 					// Выгружаем пару
-					_mm_storeu_si128(reinterpret_cast <__m128i *> (tw), t);
+					_mm_storeu_si128(reinterpret_cast <__m128i *> (tw), sum);
 					/**
-					 * Выполняем два круга группы
+					 * Прогоняем два круга группы
 					 */
 					for(size_t r = 0; r < 2; r++)
 						// Очередной круг
-						round512(a, b, c, d, e, f, g, h, tw[r]);
+						__nts_round512__(a, b, c, d, e, f, g, h, tw[r]);
 					// Слова расписания на один вперёд для сигмы нуля
 					const __m128i s0v = _mm_alignr_epi8(x[1], x[0], 8);
 					// Слова расписания на девять вперёд
@@ -1433,7 +1433,7 @@ namespace {
 					// Накопитель: добавляем сигму единицы
 					acc = _mm_add_epi64(acc, s1);
 					/**
-					 * Выполняем сдвиг кольца пар слов
+					 * Сдвигаем кольцо пар слов
 					 */
 					for(size_t i = 0; i < 7; i++)
 						// Сдвигаем очередную пару
@@ -1444,17 +1444,17 @@ namespace {
 				// Слова хвоста расписания
 				uint64_t tw[16];
 				/**
-				 * Выполняем выгрузку кольца пар
+				 * Выгружаем кольцо пар
 				 */
 				for(size_t i = 0; i < 8; i++)
 					// Выгружаем очередную пару
 					_mm_storeu_si128(reinterpret_cast <__m128i *> (tw + (i * 2)), x[i]);
 				/**
-				 * Выполняем шестнадцать кругов хвоста без расписания
+				 * Прогоняем шестнадцать кругов хвоста без расписания
 				 */
 				for(size_t r = 0; r < 16; r++)
 					// Очередной круг
-					round512(a, b, c, d, e, f, g, h, K512[64 + r] + tw[r]);
+					__nts_round512__(a, b, c, d, e, f, g, h, K512[64 + r] + tw[r]);
 				// Складываем итог блока с прежним значением хеша
 				hash[0] += a; hash[1] += b; hash[2] += c; hash[3] += d;
 				// Складываем вторую половину итога блока
@@ -1476,39 +1476,39 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блока
 	 *
 	 */
-	static __NTS_INLINE__ void compress256(const uint8_t * block, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void __nts_compress256__(const uint8_t * block, uint64_t * hash) noexcept {
 		// Кольцо слов расписания: шестнадцать именованных слов, дальнейшие вырабатываются на ходу
 		uint32_t w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15;
 		// Пара слов блока 0 и 1 одним чтением от старшего байта
-		const uint64_t pair0 = load64(block + 0);
+		const uint64_t pair0 = __nts_load64__(block + 0);
 		// Раскладываем пару 0 на слова w0 и w1
 		w0 = static_cast <uint32_t> (pair0 >> 32), w1 = static_cast <uint32_t> (pair0);
 		// Пара слов блока 2 и 3 одним чтением от старшего байта
-		const uint64_t pair1 = load64(block + 8);
+		const uint64_t pair1 = __nts_load64__(block + 8);
 		// Раскладываем пару 1 на слова w2 и w3
 		w2 = static_cast <uint32_t> (pair1 >> 32), w3 = static_cast <uint32_t> (pair1);
 		// Пара слов блока 4 и 5 одним чтением от старшего байта
-		const uint64_t pair2 = load64(block + 16);
+		const uint64_t pair2 = __nts_load64__(block + 16);
 		// Раскладываем пару 2 на слова w4 и w5
 		w4 = static_cast <uint32_t> (pair2 >> 32), w5 = static_cast <uint32_t> (pair2);
 		// Пара слов блока 6 и 7 одним чтением от старшего байта
-		const uint64_t pair3 = load64(block + 24);
+		const uint64_t pair3 = __nts_load64__(block + 24);
 		// Раскладываем пару 3 на слова w6 и w7
 		w6 = static_cast <uint32_t> (pair3 >> 32), w7 = static_cast <uint32_t> (pair3);
 		// Пара слов блока 8 и 9 одним чтением от старшего байта
-		const uint64_t pair4 = load64(block + 32);
+		const uint64_t pair4 = __nts_load64__(block + 32);
 		// Раскладываем пару 4 на слова w8 и w9
 		w8 = static_cast <uint32_t> (pair4 >> 32), w9 = static_cast <uint32_t> (pair4);
 		// Пара слов блока 10 и 11 одним чтением от старшего байта
-		const uint64_t pair5 = load64(block + 40);
+		const uint64_t pair5 = __nts_load64__(block + 40);
 		// Раскладываем пару 5 на слова w10 и w11
 		w10 = static_cast <uint32_t> (pair5 >> 32), w11 = static_cast <uint32_t> (pair5);
 		// Пара слов блока 12 и 13 одним чтением от старшего байта
-		const uint64_t pair6 = load64(block + 48);
+		const uint64_t pair6 = __nts_load64__(block + 48);
 		// Раскладываем пару 6 на слова w12 и w13
 		w12 = static_cast <uint32_t> (pair6 >> 32), w13 = static_cast <uint32_t> (pair6);
 		// Пара слов блока 14 и 15 одним чтением от старшего байта
-		const uint64_t pair7 = load64(block + 56);
+		const uint64_t pair7 = __nts_load64__(block + 56);
 		// Раскладываем пару 7 на слова w14 и w15
 		w14 = static_cast <uint32_t> (pair7 >> 32), w15 = static_cast <uint32_t> (pair7);
 		// Рабочие переменные круга
@@ -1522,14 +1522,14 @@ namespace {
 		// Суммы a ^ b соседних кругов: перед первым кругом это b ^ c
 		uint32_t x0 = (b ^ c), x1 = 0;
 		// Первая восьмёрка кругов без выработки расписания
-		eight256(a, b, c, d, e, f, g, h, K256 + 0, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, false);
-		eight256(a, b, c, d, e, f, g, h, K256 + 8, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, false);
-		eight256(a, b, c, d, e, f, g, h, K256 + 16, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
-		eight256(a, b, c, d, e, f, g, h, K256 + 24, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
-		eight256(a, b, c, d, e, f, g, h, K256 + 32, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
-		eight256(a, b, c, d, e, f, g, h, K256 + 40, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
-		eight256(a, b, c, d, e, f, g, h, K256 + 48, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
-		eight256(a, b, c, d, e, f, g, h, K256 + 56, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
+		__nts_eight256__(a, b, c, d, e, f, g, h, K256 + 0, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, false);
+		__nts_eight256__(a, b, c, d, e, f, g, h, K256 + 8, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, false);
+		__nts_eight256__(a, b, c, d, e, f, g, h, K256 + 16, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
+		__nts_eight256__(a, b, c, d, e, f, g, h, K256 + 24, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
+		__nts_eight256__(a, b, c, d, e, f, g, h, K256 + 32, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
+		__nts_eight256__(a, b, c, d, e, f, g, h, K256 + 40, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
+		__nts_eight256__(a, b, c, d, e, f, g, h, K256 + 48, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
+		__nts_eight256__(a, b, c, d, e, f, g, h, K256 + 56, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
 		// Складываем итог круга с прежним значением хеша
 		hash[0] = static_cast <uint32_t> (static_cast <uint32_t> (hash[0]) + a);
 		// Складываем итог круга с прежним значением хеша
@@ -1574,21 +1574,21 @@ namespace {
 		 * @param extend признак того, что расписание ещё расширяется
 		 *
 		 */
-		#define __NTS_SHA512_STEP__(t, p1, p2, p3, m, k, n, f, e1, e2, extend) { \
+		#define __NTS_SHA512_STEP__(target, p1, p2, p3, msg, k, n, f, e1, e2, extend) { \
 			/* Слова расписания, сложенные с постоянными двух кругов */ \
-			const uint64x2_t sum = vaddq_u64(m, vld1q_u64(K512 + (k))); \
+			const uint64x2_t sum = vaddq_u64(msg, vld1q_u64(K512 + (k))); \
 			/* Сумма с переставленными половинами, сложенная с парой-целью */ \
-			const uint64x2_t mixed = vaddq_u64(vextq_u64(sum, sum, 1), t); \
+			const uint64x2_t mixed = vaddq_u64(vextq_u64(sum, sum, 1), target); \
 			/* Промежуток двух кругов: сигма и выбор над парами fg и de */ \
-			const uint64x2_t mid = vsha512hq_u64(mixed, vextq_u64(p1, t, 1), vextq_u64(p2, p1, 1)); \
+			const uint64x2_t mid = vsha512hq_u64(mixed, vextq_u64(p1, target, 1), vextq_u64(p2, p1, 1)); \
 			/* Новая пара-цель: сигма и большинство над парами ab и cd */ \
-			t = vsha512h2q_u64(mid, p2, p3); \
+			target = vsha512h2q_u64(mid, p2, p3); \
 			/* Пара на две раньше складывается с промежутком */ \
 			p2 = vaddq_u64(p2, mid); \
 			/* Если расписание ещё расширяется */ \
 			if(extend) \
 				/* Складываем пару слов расписания на восемь пар вперёд */ \
-				m = vsha512su1q_u64(vsha512su0q_u64(m, n), f, vextq_u64(e1, e2, 1)); \
+				msg = vsha512su1q_u64(vsha512su0q_u64(msg, n), f, vextq_u64(e1, e2, 1)); \
 		}
 
 		/**
@@ -1618,21 +1618,21 @@ namespace {
 		 */
 		static __NTS_SHA512_TARGET__ void compressArm512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Пары состояния: ab, cd, ef и gh
-			uint64x2_t ab = vld1q_u64(hash), cd = vld1q_u64(hash + 2);
+			uint64x2_t abPair = vld1q_u64(hash), cdPair = vld1q_u64(hash + 2);
 			// Пары состояния: ab, cd, ef и gh
-			uint64x2_t ef = vld1q_u64(hash + 4), gh = vld1q_u64(hash + 6);
+			uint64x2_t efPair = vld1q_u64(hash + 4), ghPair = vld1q_u64(hash + 6);
 			/**
-			 * Выполняем перебор блоков пачки
+			 * Перебираем блоки пачки
 			 */
 			for(size_t block = 0; block < count; block++, data += 128){
 				// Сохранённые пары для сложения в конце блока
-				const uint64x2_t ab0 = ab, cd0 = cd, ef0 = ef, gh0 = gh;
+				const uint64x2_t abPair0 = abPair, cdPair0 = cdPair, efPair0 = efPair, ghPair0 = ghPair;
 				// Пары слов расписания
-				uint64x2_t m0 = pair(data), m1 = pair(data + 16), m2 = pair(data + 32), m3 = pair(data + 48);
+				uint64x2_t msg0 = pair(data), msg1 = pair(data + 16), msg2 = pair(data + 32), msg3 = pair(data + 48);
 				// Пары слов расписания
-				uint64x2_t m4 = pair(data + 64), m5 = pair(data + 80), m6 = pair(data + 96), m7 = pair(data + 112);
+				uint64x2_t msg4 = pair(data + 64), msg5 = pair(data + 80), msg6 = pair(data + 96), msg7 = pair(data + 112);
 				/**
-				 * Выполняем пять проходов по шестнадцать кругов
+				 * Прогоняем пять проходов по шестнадцать кругов
 				 */
 				for(size_t i = 0; i < 5; i++){
 					// Признак того, что расписание ещё расширяется
@@ -1640,39 +1640,39 @@ namespace {
 					// Номер первой постоянной прохода
 					const size_t k = (i * 16);
 					// Круги первый и второй прохода
-					__NTS_SHA512_STEP__(gh, ef, cd, ab, m0, k, m1, m7, m4, m5, extend)
+					__NTS_SHA512_STEP__(ghPair, efPair, cdPair, abPair, msg0, k, msg1, msg7, msg4, msg5, extend)
 					// Круги третий и четвёртый прохода
-					__NTS_SHA512_STEP__(ef, cd, ab, gh, m1, k + 2, m2, m0, m5, m6, extend)
+					__NTS_SHA512_STEP__(efPair, cdPair, abPair, ghPair, msg1, k + 2, msg2, msg0, msg5, msg6, extend)
 					// Круги пятый и шестой прохода
-					__NTS_SHA512_STEP__(cd, ab, gh, ef, m2, k + 4, m3, m1, m6, m7, extend)
+					__NTS_SHA512_STEP__(cdPair, abPair, ghPair, efPair, msg2, k + 4, msg3, msg1, msg6, msg7, extend)
 					// Круги седьмой и восьмой прохода
-					__NTS_SHA512_STEP__(ab, gh, ef, cd, m3, k + 6, m4, m2, m7, m0, extend)
+					__NTS_SHA512_STEP__(abPair, ghPair, efPair, cdPair, msg3, k + 6, msg4, msg2, msg7, msg0, extend)
 					// Круги девятый и десятый прохода
-					__NTS_SHA512_STEP__(gh, ef, cd, ab, m4, k + 8, m5, m3, m0, m1, extend)
+					__NTS_SHA512_STEP__(ghPair, efPair, cdPair, abPair, msg4, k + 8, msg5, msg3, msg0, msg1, extend)
 					// Круги одиннадцатый и двенадцатый прохода
-					__NTS_SHA512_STEP__(ef, cd, ab, gh, m5, k + 10, m6, m4, m1, m2, extend)
+					__NTS_SHA512_STEP__(efPair, cdPair, abPair, ghPair, msg5, k + 10, msg6, msg4, msg1, msg2, extend)
 					// Круги тринадцатый и четырнадцатый прохода
-					__NTS_SHA512_STEP__(cd, ab, gh, ef, m6, k + 12, m7, m5, m2, m3, extend)
+					__NTS_SHA512_STEP__(cdPair, abPair, ghPair, efPair, msg6, k + 12, msg7, msg5, msg2, msg3, extend)
 					// Круги пятнадцатый и шестнадцатый прохода
-					__NTS_SHA512_STEP__(ab, gh, ef, cd, m7, k + 14, m0, m6, m3, m4, extend)
+					__NTS_SHA512_STEP__(abPair, ghPair, efPair, cdPair, msg7, k + 14, msg0, msg6, msg3, msg4, extend)
 				}
 				// Складываем итог блока с прежним значением хеша
-				ab = vaddq_u64(ab, ab0);
+				abPair = vaddq_u64(abPair, abPair0);
 				// Складываем итог блока с прежним значением хеша
-				cd = vaddq_u64(cd, cd0);
+				cdPair = vaddq_u64(cdPair, cdPair0);
 				// Складываем итог блока с прежним значением хеша
-				ef = vaddq_u64(ef, ef0);
+				efPair = vaddq_u64(efPair, efPair0);
 				// Складываем итог блока с прежним значением хеша
-				gh = vaddq_u64(gh, gh0);
+				ghPair = vaddq_u64(ghPair, ghPair0);
 			}
 			// Записываем пары состояния
-			vst1q_u64(hash, ab);
+			vst1q_u64(hash, abPair);
 			// Записываем пары состояния
-			vst1q_u64(hash + 2, cd);
+			vst1q_u64(hash + 2, cdPair);
 			// Записываем пары состояния
-			vst1q_u64(hash + 4, ef);
+			vst1q_u64(hash + 4, efPair);
 			// Записываем пары состояния
-			vst1q_u64(hash + 6, gh);
+			vst1q_u64(hash + 6, ghPair);
 		}
 	#endif
 
@@ -1691,39 +1691,39 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блока
 	 *
 	 */
-	static __NTS_INLINE__ void compress512(const uint8_t * block, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void __nts_compress512__(const uint8_t * block, uint64_t * hash) noexcept {
 		// Слово блока 0 от старшего байта
-		uint64_t w0 = load64(block + 0);
+		uint64_t w0 = __nts_load64__(block + 0);
 		// Слово блока 1 от старшего байта
-		uint64_t w1 = load64(block + 8);
+		uint64_t w1 = __nts_load64__(block + 8);
 		// Слово блока 2 от старшего байта
-		uint64_t w2 = load64(block + 16);
+		uint64_t w2 = __nts_load64__(block + 16);
 		// Слово блока 3 от старшего байта
-		uint64_t w3 = load64(block + 24);
+		uint64_t w3 = __nts_load64__(block + 24);
 		// Слово блока 4 от старшего байта
-		uint64_t w4 = load64(block + 32);
+		uint64_t w4 = __nts_load64__(block + 32);
 		// Слово блока 5 от старшего байта
-		uint64_t w5 = load64(block + 40);
+		uint64_t w5 = __nts_load64__(block + 40);
 		// Слово блока 6 от старшего байта
-		uint64_t w6 = load64(block + 48);
+		uint64_t w6 = __nts_load64__(block + 48);
 		// Слово блока 7 от старшего байта
-		uint64_t w7 = load64(block + 56);
+		uint64_t w7 = __nts_load64__(block + 56);
 		// Слово блока 8 от старшего байта
-		uint64_t w8 = load64(block + 64);
+		uint64_t w8 = __nts_load64__(block + 64);
 		// Слово блока 9 от старшего байта
-		uint64_t w9 = load64(block + 72);
+		uint64_t w9 = __nts_load64__(block + 72);
 		// Слово блока 10 от старшего байта
-		uint64_t w10 = load64(block + 80);
+		uint64_t w10 = __nts_load64__(block + 80);
 		// Слово блока 11 от старшего байта
-		uint64_t w11 = load64(block + 88);
+		uint64_t w11 = __nts_load64__(block + 88);
 		// Слово блока 12 от старшего байта
-		uint64_t w12 = load64(block + 96);
+		uint64_t w12 = __nts_load64__(block + 96);
 		// Слово блока 13 от старшего байта
-		uint64_t w13 = load64(block + 104);
+		uint64_t w13 = __nts_load64__(block + 104);
 		// Слово блока 14 от старшего байта
-		uint64_t w14 = load64(block + 112);
+		uint64_t w14 = __nts_load64__(block + 112);
 		// Слово блока 15 от старшего байта
-		uint64_t w15 = load64(block + 120);
+		uint64_t w15 = __nts_load64__(block + 120);
 		// Рабочие переменные круга
 		uint64_t a = hash[0], b = hash[1], c = hash[2], d = hash[3];
 		// Рабочие переменные круга
@@ -1731,16 +1731,16 @@ namespace {
 		// Суммы a ^ b соседних кругов: перед первым кругом это b ^ c
 		uint64_t x0 = (b ^ c), x1 = 0;
 		// Первая восьмёрка кругов без выработки расписания
-		eight512(a, b, c, d, e, f, g, h, K512 + 0, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, false);
-		eight512(a, b, c, d, e, f, g, h, K512 + 8, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, false);
-		eight512(a, b, c, d, e, f, g, h, K512 + 16, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
-		eight512(a, b, c, d, e, f, g, h, K512 + 24, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
-		eight512(a, b, c, d, e, f, g, h, K512 + 32, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
-		eight512(a, b, c, d, e, f, g, h, K512 + 40, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
-		eight512(a, b, c, d, e, f, g, h, K512 + 48, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
-		eight512(a, b, c, d, e, f, g, h, K512 + 56, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
-		eight512(a, b, c, d, e, f, g, h, K512 + 64, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
-		eight512(a, b, c, d, e, f, g, h, K512 + 72, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 0, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, false);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 8, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, false);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 16, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 24, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 32, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 40, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 48, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 56, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 64, x0, x1, w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15, true);
+		__nts_eight512__(a, b, c, d, e, f, g, h, K512 + 72, x0, x1, w8, w9, w10, w11, w12, w13, w14, w15, w0, w1, w2, w3, w4, w5, w6, w7, true);
 		// Складываем итог круга с прежним значением хеша
 		hash[0] += a;
 		// Складываем итог круга с прежним значением хеша
@@ -1770,7 +1770,7 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блоков
 	 *
 	 */
-	static __NTS_INLINE__ void blocks256(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void __nts_blocks256__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		/**
 		 * Если есть ветвь команд SHA-256 расширения ARMv8
 		 */
@@ -1804,7 +1804,7 @@ namespace {
 				// Значение хеша словами в 32 разряда
 				uint32_t words[8];
 				/**
-				 * Выполняем перенос значения хеша в слова
+				 * Переносим значение хеша в слова
 				 */
 				for(size_t i = 0; i < 8; i++)
 					// Переносим очередное слово
@@ -1826,7 +1826,7 @@ namespace {
 				// Иначе разбираем блоки ядром SSSE3
 				else kernel::sha256ssse3(words, data, count, K256);
 				/**
-				 * Выполняем перенос слов в значение хеша
+				 * Переносим слова в значение хеша
 				 */
 				for(size_t i = 0; i < 8; i++)
 					// Переносим очередное слово
@@ -1836,11 +1836,11 @@ namespace {
 			}
 		#endif
 		/**
-		 * Выполняем перебор блоков переносимым путём
+		 * Перебираем блоки переносимым путём
 		 */
 		for(size_t block = 0; block < count; block++)
 			// Разбор очередного блока
-			compress256(data + (block * 64), hash);
+			__nts_compress256__(data + (block * 64), hash);
 	}
 	/**
 	 * @brief Функция разбора пачки блоков в 128 байтов преобразованием SHA-512
@@ -1853,7 +1853,7 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блоков
 	 *
 	 */
-	static __NTS_INLINE__ void blocks512(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void __nts_blocks512__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		/**
 		 * Если есть ветвь команд SHA-512 расширения ARMv8.2
 		 */
@@ -1905,11 +1905,11 @@ namespace {
 			}
 		#endif
 		/**
-		 * Выполняем перебор блоков переносимым путём
+		 * Перебираем блоки переносимым путём
 		 */
 		for(size_t block = 0; block < count; block++)
 			// Разбор очередного блока
-			compress512(data + (block * 128), hash);
+			__nts_compress512__(data + (block * 128), hash);
 	}
 	/**
 	 * @brief Функция разбора пачки блоков сообщения
@@ -1920,13 +1920,13 @@ namespace {
 	 * @param hash  значение хеша, в которое складывается итог блоков
 	 *
 	 */
-	static __NTS_INLINE__ void blocks(const size_t width, const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+	static __NTS_INLINE__ void __nts_blocks__(const size_t width, const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 		// Если хеш вырабатывается над словами в 64 разряда
 		if(width == 128)
 			// Разбор пачки преобразованием SHA-512
-			blocks512(data, count, hash);
+			__nts_blocks512__(data, count, hash);
 		// Иначе хеш вырабатывается над словами в 32 разряда
-		else blocks256(data, count, hash);
+		else __nts_blocks256__(data, count, hash);
 	}
 };
 
@@ -1938,7 +1938,7 @@ namespace {
  */
 void nts::digest::Sha2::compress(const uint8_t * block) noexcept {
 	// Разбор одного блока
-	blocks(this->block(), block, 1, this->_hash);
+	__nts_blocks__(this->block(), block, 1, this->_hash);
 }
 /**
  * @brief Метод получения разновидности вырабатываемого хеша
@@ -1978,13 +1978,13 @@ void nts::digest::Sha2::reset(const sha_t type) noexcept {
 	// Сбрасываем старшую часть количества разобранных байтов
 	this->_count[1] = 0;
 	/**
-	 * Выполняем установку начального значения хеша по разновидности
+	 * Устанавливаем начальное значение хеша по разновидности
 	 */
 	switch(static_cast <uint8_t> (type)){
 		// Если вырабатывается хеш длиной 224 разряда
 		case static_cast <uint8_t> (sha_t::SHA224): {
 			/**
-			 * Выполняем перенос начальных значений
+			 * Переносим начальные значения
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное начальное значение
@@ -1993,7 +1993,7 @@ void nts::digest::Sha2::reset(const sha_t type) noexcept {
 		// Если вырабатывается хеш длиной 256 разрядов
 		case static_cast <uint8_t> (sha_t::SHA256): {
 			/**
-			 * Выполняем перенос начальных значений
+			 * Переносим начальные значения
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное начальное значение
@@ -2002,7 +2002,7 @@ void nts::digest::Sha2::reset(const sha_t type) noexcept {
 		// Если вырабатывается хеш длиной 384 разряда
 		case static_cast <uint8_t> (sha_t::SHA384): {
 			/**
-			 * Выполняем перенос начальных значений
+			 * Переносим начальные значения
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное начальное значение
@@ -2011,7 +2011,7 @@ void nts::digest::Sha2::reset(const sha_t type) noexcept {
 		// Если вырабатывается хеш длиной 512 разрядов
 		case static_cast <uint8_t> (sha_t::SHA512): {
 			/**
-			 * Выполняем перенос начальных значений
+			 * Переносим начальные значения
 			 */
 			for(size_t i = 0; i < 8; i++)
 				// Переносим очередное начальное значение
@@ -2067,7 +2067,7 @@ void nts::digest::Sha2::update(const view_t & data) noexcept {
 		// Количество байтов, переносимых в накопитель из куска
 		const size_t taken = ((left < needed) ? left : needed);
 		/**
-		 * Выполняем перенос байтов куска в накопитель
+		 * Переносим байты куска в накопитель
 		 */
 		for(size_t i = 0; i < taken; i++)
 			// Переносим очередной байт куска
@@ -2092,17 +2092,17 @@ void nts::digest::Sha2::update(const view_t & data) noexcept {
 	// Если целые блоки есть
 	if(whole > 0){
 		/**
-		 * Выполняем разбор целых блоков куска одной пачкой прямо из него: ядра читают
+		 * Разбираем целые блоки куска одной пачкой прямо из него: ядра читают
 		 * слова невыровненными загрузками, оттого выравнивание куска значения не имеет
 		 */
-		blocks(width, cursor, whole, this->_hash);
+		__nts_blocks__(width, cursor, whole, this->_hash);
 		// Сдвигаем позицию чтения куска
 		cursor += (whole * width);
 		// Уменьшаем количество не разобранных байтов
 		left -= (whole * width);
 	}
 	/**
-	 * Выполняем перенос хвоста куска в накопитель
+	 * Переносим хвост куска в накопитель
 	 */
 	for(size_t i = 0; i < left; i++)
 		// Переносим очередной байт хвоста
@@ -2138,7 +2138,7 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 	// Если места под поле длины в этом блоке не осталось
 	if(this->_size > (width - field)){
 		/**
-		 * Выполняем дополнение блока нулями до конца
+		 * Дополняем блок нулями до конца
 		 */
 		for(size_t i = this->_size; i < width; i++)
 			// Записываем очередной нулевой байт
@@ -2149,7 +2149,7 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 		this->_size = 0;
 	}
 	/**
-	 * Выполняем дополнение блока нулями до поля длины
+	 * Дополняем блок нулями до поля длины
 	 */
 	for(size_t i = this->_size; i < (width - field); i++)
 		// Записываем очередной нулевой байт
@@ -2157,27 +2157,27 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 	// Если поле длины занимает шестнадцать байтов
 	if(field == 16)
 		// Записываем старшую часть длины сообщения
-		store64(high, this->_block + (width - 16));
+		__nts_store64__(high, this->_block + (width - 16));
 	// Записываем младшую часть длины сообщения
-	store64(low, this->_block + (width - 8));
+	__nts_store64__(low, this->_block + (width - 8));
 	// Разбор последнего блока
 	this->compress(this->_block);
 	// Если хеш вырабатывается над словами в 64 разряда
 	if(width == 128){
 		/**
-		 * Выполняем запись слов хеша от старшего байта в пределах длины хеша
+		 * Записываем слова хеша от старшего байта в пределах длины хеша
 		 */
 		for(size_t i = 0; (i * 8) < length; i++)
 			// Записываем очередное слово хеша
-			store64(this->_hash[i], result + (i * 8));
+			__nts_store64__(this->_hash[i], result + (i * 8));
 	// Иначе хеш вырабатывается над словами в 32 разряда
 	} else {
 		/**
-		 * Выполняем запись слов хеша от старшего байта в пределах длины хеша
+		 * Записываем слова хеша от старшего байта в пределах длины хеша
 		 */
 		for(size_t i = 0; (i * 4) < length; i++)
 			// Записываем очередное слово хеша
-			store32(static_cast <uint32_t> (this->_hash[i]), result + (i * 4));
+			__nts_store32__(static_cast <uint32_t> (this->_hash[i]), result + (i * 4));
 	}
 	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
