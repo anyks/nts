@@ -1824,8 +1824,9 @@ set(CMAKE_INSTALL_LIBDIR "${NTS_LIBROOT}/anyks" CACHE PATH "Каталог би�
 # достраивается ссылкой
 set(NTS_CMAKE_DIR "${NTS_LIBROOT}/cmake/${PROJECT_NAME}")
 
-# Указываем что нужно собрать консольную утилиту a-nts
-option(CMAKE_BUILD_APP "Build the a-nts command line utility" ON)
+# Указываем что нужно собрать консольную утилиту a-nts: сборка по требованию,
+# библиотеке утилита не нужна, и чужому потребителю её нечего собирать
+option(CMAKE_BUILD_APP "Build the a-nts command line utility" OFF)
 
 # Если необходимо собрать консольную утилиту
 if (${CMAKE_BUILD_APP})
