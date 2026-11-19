@@ -39,7 +39,10 @@
  *
  * @details The library keeps no log - it has only a SINK: one function the consumer may set.
  *          While the sink is not set, the library is silent and a message costs one comparison
- *          with nullptr: the string is not composed at all
+ *          with nullptr: the string is not composed at all. AWH sets the sink by an adapter to
+ *          its own log at its own start; a foreign project without a log sets nothing. There are
+ *          and there will be no headers and build definitions of the foreign projects here: the
+ *          dependence remains one-way
  *
  * @note Deliberate decisions:
  *       1. The sink, and not a log: no streams, no files, no queues, no syslog - it is the business
