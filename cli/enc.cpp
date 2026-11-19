@@ -27,6 +27,7 @@
 /**
  * Стандартные модули
  */
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 
