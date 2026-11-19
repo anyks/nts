@@ -916,12 +916,17 @@ bool nts::protect::Protection::start(const suite_t suite, const view_t & key, co
  *
  */
 void nts::protect::Protection::clear() noexcept {
-	// Затирание корневого ключа направления связи
-	wipe(this->_key, sizeof(this->_key));
-	// Затирание ключа имитовставки направления связи
-	wipe(this->_mac, sizeof(this->_mac));
-	// Затирание вектора замены направления связи
-	wipe(this->_vector, sizeof(this->_vector));
+	// Признак установленного ключевого материала: без него ключи секрета не держат
+	const bool ready = this->_ready;
+	// Если ключевой материал был установлен
+	if(ready){
+		// Затирание корневого ключа направления связи
+		wipe(this->_key, sizeof(this->_key));
+		// Затирание ключа имитовставки направления связи
+		wipe(this->_mac, sizeof(this->_mac));
+		// Затирание вектора замены направления связи
+		wipe(this->_vector, sizeof(this->_vector));
+	}
 	// Сбрасываем признак набора CBC
 	this->_cbc = false;
 	// Сбрасываем порядок «шифрование, затем имитовставка»
