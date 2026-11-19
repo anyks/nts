@@ -554,8 +554,9 @@ namespace {
 			if(context.error() != context::error_t::NONE)
 				// Сообщаем об отказе ретрансляции
 				return EXIT_FAILURE;
-			// Если связь закрыта любой из сторон
-			if(context.state() == context::state_t::CLOSED)
+			// Если собеседник завершил передачу извещением close_notify: приём окончен,
+			// своё извещение (прямое либо ответное) уже выведено выше, связь завершена
+			if(context.alert().description == alert::description_t::CLOSE)
 				// Завершаем ретрансляцию
 				return EXIT_SUCCESS;
 			// Признак готовности сокета
@@ -1247,8 +1248,9 @@ int nts::cli::sServer(const int argc, const char * const argv[]) noexcept {
 		if(!quiet)
 			// Выводим сведения о связи
 			__nts_report__(server, "ACCEPT", false, trust::error_t::NONE);
-		// Ретранслируем данные и запоминаем код выхода
-		const int code = __nts_relay__(server, peer, false);
+		// Ретранслируем данные и запоминаем код выхода: сервер вводом не ведётся,
+		// конец стандартного ввода его передачу не завершает (как у openssl s_server)
+		const int code = __nts_relay__(server, peer, true);
 		// Закрываем сокет
 		__nts_close__(peer);
 		// Если ретрансляция оборвана отказом
