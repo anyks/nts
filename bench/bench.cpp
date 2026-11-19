@@ -1704,7 +1704,7 @@ int main(int argc, char * argv[]) noexcept {
 	// Подлинность стороны сервера
 	context::credential_t credentials;
 	// Если подлинность стороны сервера выработать не удалось
-	if(!identity("anyks.com", credentials)){
+	if(!__nts_identity__("anyks.com", credentials)){
 		// Выводим сообщение об отказе выработки подлинности
 		cout << "Выработать подлинность стороны сервера не удалось" << endl;
 		// Выходим из приложения с признаком отказа
@@ -2240,7 +2240,7 @@ int main(int argc, char * argv[]) noexcept {
 		// Сжатый поток и распакованное тело
 		vector <uint8_t> packed, unpacked;
 		// Если кодек не сошёлся сам с собой
-		if(!lz77Compress(view_t(body.data(), body.size()), packed, nullptr) || !lz77Decompress(view_t(packed.data(), packed.size()), body.size(), unpacked, nullptr) || (unpacked != body)){
+		if(!__nts_lz77_compress__(view_t(body.data(), body.size()), packed, nullptr) || !__nts_lz77_decompress__(view_t(packed.data(), packed.size()), body.size(), unpacked, nullptr) || (unpacked != body)){
 			// Выводим сообщение об отказе
 			cout << "Кодек сжатия не сошёлся сам с собой" << endl;
 			// Выходим из приложения с признаком отказа
@@ -2253,17 +2253,17 @@ int main(int argc, char * argv[]) noexcept {
 			// Очищаем сжатый поток
 			packed.clear();
 			// Сжимаем цепочку
-			lz77Compress(view_t(body.data(), body.size()), packed, nullptr);
+			__nts_lz77_compress__(view_t(body.data(), body.size()), packed, nullptr);
 		});
 		// Замеряем распаковки цепочки
 		__nts_count__("LZ77 распаковка цепочки", 500, [&body, &packed, &unpacked]() noexcept -> void {
 			// Очищаем распакованное тело
 			unpacked.clear();
 			// Распаковываем цепочку
-			lz77Decompress(view_t(packed.data(), packed.size()), body.size(), unpacked, nullptr);
+			__nts_lz77_decompress__(view_t(packed.data(), packed.size()), body.size(), unpacked, nullptr);
 		});
 		// Алгоритмы сжатия сторон
-		const vector <context::codec_t> codecs = {context::codec_t(LZ77_ALGORITHM, lz77Compress, lz77Decompress, nullptr)};
+		const vector <context::codec_t> codecs = {context::codec_t(LZ77_ALGORITHM, __nts_lz77_compress__, __nts_lz77_decompress__, nullptr)};
 		/**
 		 * Перебираем: рукопожатие без сжатия и со сжатием
 		 */
