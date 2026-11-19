@@ -35,6 +35,7 @@
 #include "common.hpp"
 #include "enc.hpp"
 #include "keys.hpp"
+#include "x509.hpp"
 #include "digest/hash.hpp"
 #include "digest/hmac.hpp"
 #include "codec/base64.hpp"
@@ -71,7 +72,7 @@ namespace {
 		// Печатаем назначение утилиты
 		cout << "применение: a-nts команда [флаги] [параметры]" << endl;
 		// Печатаем список подкоманд
-		cout << "команды: version, rand, base64, dgst, enc, genpkey, genrsa, genec, pkey, rsa, ec" << endl;
+		cout << "команды: version, rand, base64, dgst, enc, genpkey, genrsa, genec, pkey, rsa, ec, req, x509, ca, crl, pkcs12" << endl;
 	}
 
 	/**
@@ -519,6 +520,26 @@ int main(const int argc, const char * const argv[]) noexcept {
 	if(::strcmp(argv[1], "ec") == 0)
 		// Преобразуем ключ EC
 		return cli::ecKey(argc, argv);
+	// Если запрошено создание запроса на сертификат
+	if(::strcmp(argv[1], "req") == 0)
+		// Создаём запрос на сертификат
+		return cli::req(argc, argv);
+	// Если запрошены действия над сертификатом
+	if(::strcmp(argv[1], "x509") == 0)
+		// Преобразуем сертификат
+		return cli::x509(argc, argv);
+	// Если запрошен выпуск сертификата центром
+	if(::strcmp(argv[1], "ca") == 0)
+		// Выпускаем сертификат центром
+		return cli::issueCa(argc, argv);
+	// Если запрошены действия над списком отзыва
+	if(::strcmp(argv[1], "crl") == 0)
+		// Преобразуем список отзыва
+		return cli::crl(argc, argv);
+	// Если запрошены действия над контейнером PKCS #12
+	if(::strcmp(argv[1], "pkcs12") == 0)
+		// Преобразуем контейнер PKCS #12
+		return cli::pkcs12(argc, argv);
 	// Печатаем справку утилиты
 	__nts_usage__();
 	// Сообщаем об отказе приложения
