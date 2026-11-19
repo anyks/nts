@@ -1538,6 +1538,11 @@ int main(int argc, char * argv[]) noexcept {
 		// Распаковываем секрета закрытым ключом получателя
 		agreement::decapsulate(agreement::kem_t::MLKEM768, view_t(kemSecret, sizeof(kemSecret)), view_t(kemCipher, sizeof(kemCipher)), kemShared);
 	});
+	// Замеряем числа порождений ключевых пар ML-KEM-768 за секунду
+	const double mlkemGenerating = __nts_count__("ML-KEM-768 порождение", 200, [&kemKey, &kemSecret]() noexcept -> void {
+		// Вырабатываем пару ключей ML-KEM-768 из источника случайности
+		agreement::generate(agreement::kem_t::MLKEM768, kemKey, kemSecret);
+	});
 	// Ключ RSA-2048 для замера подписи и сличения
 	sign::rsa_t rsa;
 	// Если ключ RSA породить не удалось
@@ -2961,7 +2966,7 @@ int main(int argc, char * argv[]) noexcept {
 		 */
 #if (OPENSSL_VERSION_NUMBER >= 0x30500000L) || defined(NTS_BENCH_BORINGSSL)
 		// Замеры упаковки ML-KEM-768 эталона
-		double mlkemSealRef = 0., mlkemOpenRef = 0.;
+		double mlkemSealRef = 0., mlkemOpenRef = 0., mlkemGenRef = 0.;
 		// Ключевая пара ML-KEM-768 эталона
 		EVP_PKEY * kemPair = __nts_pair_generate__("ML-KEM-768");
 		// Если ключевая пара ML-KEM-768 эталона выработалась
@@ -2970,6 +2975,11 @@ int main(int argc, char * argv[]) noexcept {
 			vector <uint8_t> kemCipher(1088, 0), kemShared(32, 0);
 			// Запоминаем длины шифртекста и секрета
 			size_t kemCipherLength = kemCipher.size(), kemSharedLength = kemShared.size();
+			// Замеряем числа порождений ключевых пар ML-KEM-768 эталона за секунду
+			mlkemGenRef = __nts_count__("ML-KEM-768 порождение", 200, []() noexcept -> void {
+				// Порождаем ключевую пару ML-KEM-768 эталона и освобождаем её
+				::EVP_PKEY_free(__nts_pair_generate__("ML-KEM-768"));
+			});
 			// Замеряем числа упаковок ML-KEM-768 эталона за секунду
 			mlkemSealRef = __nts_count__("ML-KEM-768 упаковка", 200, [&kemPair, &kemCipher, &kemCipherLength, &kemShared, &kemSharedLength]() noexcept -> void {
 				// Длины шифртекста и секрета
@@ -3008,7 +3018,7 @@ int main(int argc, char * argv[]) noexcept {
 		 */
 #else
 		// Замеры упаковки ML-KEM-768 без нового эталона: сличения нет
-		const double mlkemSealRef = 0., mlkemOpenRef = 0.;
+		const double mlkemSealRef = 0., mlkemOpenRef = 0., mlkemGenRef = 0.;
 #endif
 		// Замеры обмена ключами FFDHE-2048 эталона: группа ffdhe2048 равна modp2048 из RFC 3526
 		double ffdheRef = 0.;
@@ -3628,6 +3638,8 @@ int main(int argc, char * argv[]) noexcept {
 		relation("ML-KEM-768 упаковка против эталона", mlkemSealing, mlkemSealRef);
 		// Выводим отношение распаковки ML-KEM-768 к эталону
 		relation("ML-KEM-768 распаковка против эталона", mlkemOpening, mlkemOpenRef);
+		// Выводим отношение порождения ключевой пары ML-KEM-768 к эталону
+		relation("ML-KEM-768 порождение против эталона", mlkemGenerating, mlkemGenRef);
 		// Выводим отношение замеров обмена ключами FFDHE-2048 к эталону
 		relation("FFDHE-2048 против эталона", ffdheExchange, ffdheRef);
 		// Выводим отношение замеров хеширования Стрибог-256 к ГОСТ-эталону
@@ -3739,6 +3751,8 @@ int main(int argc, char * argv[]) noexcept {
 		(void) mlkemSealing;
 		// Замеры распаковки ML-KEM-768 без эталона сравнивать не с чем
 		(void) mlkemOpening;
+		// Замеры порождения ключевой пары ML-KEM-768 без эталона сравнивать не с чем
+		(void) mlkemGenerating;
 		// Замеры обмена ключами FFDHE-2048 без эталона сравнивать не с чем
 		(void) ffdheExchange;
 		// Замеры Стрибог-512 без эталона сравнивать не с чем

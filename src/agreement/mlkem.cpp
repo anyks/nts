@@ -2276,10 +2276,10 @@ namespace {
 		 *
 		 * @param rho     зерно матрицы
 		 * @param indices пары индексов четырёх губок: зерно || первый || второй
-		 * @param polys   место, в которое помещаются многочлены
+		 * @param polys   места, в которые помещаются четыре многочлена
 		 *
 		 */
-		static void __nts_sampling4__(const uint8_t * rho, const uint8_t indices[4][2], poly_t * polys) noexcept {
+		static void __nts_sampling4__(const uint8_t * rho, const uint8_t indices[4][2], poly_t ** polys) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -2343,11 +2343,11 @@ namespace {
 						// Если первый претендент годен
 						if(first < Q)
 							// Записываем коэффициент
-							polys[k].values[counts[k]++] = static_cast <int16_t> (first);
+							polys[k]->values[counts[k]++] = static_cast <int16_t> (first);
 						// Если второй претендент годен и место есть
 						if((second < Q) && (counts[k] < N))
 							// Записываем коэффициент
-							polys[k].values[counts[k]++] = static_cast <int16_t> (second);
+							polys[k]->values[counts[k]++] = static_cast <int16_t> (second);
 					}
 				}
 			}
@@ -2558,29 +2558,54 @@ namespace {
 			// Выводим развёрнутую матрицу
 			return cache.items;
 		/**
-		 * Если параллельное ядро губок готово, строки выбираются четырьмя губками разом:
-		 * у набора меньшей ширины лишний поток каждой четвёрки пишется в запасной слот строки полной ширины
+		 * Если параллельное ядро губок готово, элементы матрицы выбираются четырьмя губками разом
+		 * по линейному номеру, а неполная последняя четвёрка довыбирается по одному
 		 */
 		#if defined(__NTS_KECCAK_X4__)
 			// Если параллельное ядро губок готово
 			if(::__nts_sponges4__()){
+				// Общее число элементов матрицы
+				const size_t total = sample.dimension * sample.dimension;
+				// Текущий элемент матрицы
+				size_t index = 0;
 				/**
-				 * Разворачиваем строки матрицы
+				 * Разворачиваем матрицу четвёрками элементов по линейному номеру
 				 */
-				for(size_t x = 0; x < sample.dimension; x++){
-					// Пары индексов губок: столбец y и строка x
-					uint8_t indices[K][2];
+				for(; (index + 4) <= total; index += 4){
+					// Пары индексов четырёх губок: столбец и строка элемента
+					uint8_t indices[4][2];
+					// Места четырёх элементов матрицы
+					poly_t * places[4];
 					/**
-					 * Заполняем пары индексов
+					 * Заполняем пары индексов и места элементов четвёрки
 					 */
-					for(size_t y = 0; y < K; y++){
-						// Первый индекс пары
-						indices[y][0] = static_cast <uint8_t> (y);
-						// Второй индекс пары
-						indices[y][1] = static_cast <uint8_t> (x);
+					for(size_t k = 0; k < 4; k++){
+						// Номер элемента четвёрки
+						const size_t idx = index + k;
+						// Столбец элемента
+						const size_t column = idx % sample.dimension;
+						// Строка элемента
+						const size_t row = idx / sample.dimension;
+						// Первый индекс пары - столбец
+						indices[k][0] = static_cast <uint8_t> (column);
+						// Второй индекс пары - строка
+						indices[k][1] = static_cast <uint8_t> (row);
+						// Место элемента в строке матрицы
+						places[k] = cache.items + ((row * K) + column);
 					}
-					// Выбираем строку из четырёх многочленов разом
-					::__nts_sampling4__(rho, indices, cache.items + (x * K));
+					// Выбираем четвёрку элементов матрицы разом
+					::__nts_sampling4__(rho, indices, places);
+				}
+				/**
+				 * Довыбираем оставшиеся элементы по одному
+				 */
+				for(; index < total; index++){
+					// Столбец элемента
+					const size_t column = index % sample.dimension;
+					// Строка элемента
+					const size_t row = index / sample.dimension;
+					// Выбираем элемент матрицы
+					::__nts_sampling__(rho, static_cast <uint8_t> (row), static_cast <uint8_t> (column), cache.items[(row * K) + column]);
 				}
 				// Запоминаем зерно развёрнутой матрицы
 				::memcpy(cache.seed, rho, SEED);
