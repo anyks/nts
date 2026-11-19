@@ -1836,6 +1836,7 @@ if (${CMAKE_BUILD_APP})
         "${CMAKE_CURRENT_SOURCE_DIR}/cli/enc.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/cli/keys.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/cli/x509.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cli/tls.cpp"
     )
     # Подключаем библиотеку к приложению утилиты
     target_link_libraries(a-nts ${NTS_LIB_NAME})

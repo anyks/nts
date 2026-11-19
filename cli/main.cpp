@@ -36,6 +36,7 @@
 #include "enc.hpp"
 #include "keys.hpp"
 #include "x509.hpp"
+#include "tls.hpp"
 #include "digest/hash.hpp"
 #include "digest/hmac.hpp"
 #include "codec/base64.hpp"
@@ -72,7 +73,7 @@ namespace {
 		// Печатаем назначение утилиты
 		cout << "применение: a-nts команда [флаги] [параметры]" << endl;
 		// Печатаем список подкоманд
-		cout << "команды: version, rand, base64, dgst, enc, genpkey, genrsa, genec, pkey, rsa, ec, req, x509, ca, crl, pkcs12" << endl;
+		cout << "команды: version, rand, base64, dgst, enc, genpkey, genrsa, genec, pkey, rsa, ec, req, x509, ca, crl, pkcs12, s_client, s_server" << endl;
 	}
 
 	/**
@@ -540,6 +541,14 @@ int main(const int argc, const char * const argv[]) noexcept {
 	if(::strcmp(argv[1], "pkcs12") == 0)
 		// Преобразуем контейнер PKCS #12
 		return cli::pkcs12(argc, argv);
+	// Если запрошена связь со стороны клиента
+	if(::strcmp(argv[1], "s_client") == 0)
+		// Ведём связь со стороны клиента
+		return cli::sClient(argc, argv);
+	// Если запрошена связь со стороны сервера
+	if(::strcmp(argv[1], "s_server") == 0)
+		// Ведём связь со стороны сервера
+		return cli::sServer(argc, argv);
 	// Печатаем справку утилиты
 	__nts_usage__();
 	// Сообщаем об отказе приложения
