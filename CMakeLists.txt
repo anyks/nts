@@ -1824,6 +1824,25 @@ set(CMAKE_INSTALL_LIBDIR "${NTS_LIBROOT}/anyks" CACHE PATH "Каталог би�
 # достраивается ссылкой
 set(NTS_CMAKE_DIR "${NTS_LIBROOT}/cmake/${PROJECT_NAME}")
 
+# Указываем что нужно собрать консольную утилиту a-nts
+option(CMAKE_BUILD_APP "Build the a-nts command line utility" ON)
+
+# Если необходимо собрать консольную утилиту
+if (${CMAKE_BUILD_APP})
+    # Выполняем создание приложения консольной утилиты
+    add_executable(a-nts
+        "${CMAKE_CURRENT_SOURCE_DIR}/cli/main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cli/common.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cli/enc.cpp"
+    )
+    # Подключаем библиотеку к приложению утилиты
+    target_link_libraries(a-nts ${NTS_LIB_NAME})
+    # Подключаем каталог общих заголовочных файлов утилиты
+    target_include_directories(a-nts PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/cli")
+    # Выполняем установку консольной утилиты
+    install(TARGETS a-nts RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 # Выполняем установку заголовочных файлов проекта
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.hpp")
 
