@@ -2051,6 +2051,8 @@ bool nts::cipher::Gcm::restart(const view_t & nonce) noexcept {
  *
  */
 void nts::cipher::Gcm::clear() noexcept {
+	// Признак установленного ключа: без него таблицы кратных секрета не держат, и затирать нечего
+	const bool ready = this->_ready;
 	// Сбрасываем признак готовности
 	this->_ready = false;
 	// Сбрасываем признак израсходованного заполнения
@@ -2059,16 +2061,19 @@ void nts::cipher::Gcm::clear() noexcept {
 	this->_size = 0;
 	// Сбрасываем базовый шифр
 	this->_block = block_t();
-	// Затирание начального блока счётчика
-	wipe(this->_nonce, sizeof(this->_nonce));
-	// Затирание таблицы кратных
-	wipe(this->_table, sizeof(this->_table));
-	// Затирание таблицы остатков
-	wipe(this->_remainders, sizeof(this->_remainders));
-	// Затирание отражённого ключа хеширования
-	wipe(this->_mirror, sizeof(this->_mirror));
-	// Затирание степеней ключа хеширования
-	wipe(this->_powers, sizeof(this->_powers));
+	// Если ключ хеширования был установлен
+	if(ready){
+		// Затирание начального блока счётчика
+		wipe(this->_nonce, sizeof(this->_nonce));
+		// Затирание таблицы кратных
+		wipe(this->_table, sizeof(this->_table));
+		// Затирание таблицы остатков
+		wipe(this->_remainders, sizeof(this->_remainders));
+		// Затирание отражённого ключа хеширования
+		wipe(this->_mirror, sizeof(this->_mirror));
+		// Затирание степеней ключа хеширования
+		wipe(this->_powers, sizeof(this->_powers));
+	}
 	// Сброс состояния потока
 	this->reset();
 }

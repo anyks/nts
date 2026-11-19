@@ -1690,18 +1690,23 @@ bool nts::cipher::Aes::key(const view_t & key) noexcept {
  *
  */
 void nts::cipher::Aes::clear() noexcept {
+	// Признак установленного ключа: без него расписания раундов секрета не держат
+	const bool ready = this->_ready;
 	// Сбрасываем признак установленного ключа
 	this->_ready = false;
 	// Сбрасываем количество раундов
 	this->_rounds = 0;
-	// Затирание ключей зашифрования
-	wipe(this->_encryption, sizeof(this->_encryption));
-	// Затирание ключей расшифрования
-	wipe(this->_decryption, sizeof(this->_decryption));
-	// Затирание байтовых ключей зашифрования
-	wipe(this->_sealing, sizeof(this->_sealing));
-	// Затирание байтовых ключей расшифрования
-	wipe(this->_opening, sizeof(this->_opening));
+	// Если ключ был установлен
+	if(ready){
+		// Затирание ключей зашифрования
+		wipe(this->_encryption, sizeof(this->_encryption));
+		// Затирание ключей расшифрования
+		wipe(this->_decryption, sizeof(this->_decryption));
+		// Затирание байтовых ключей зашифрования
+		wipe(this->_sealing, sizeof(this->_sealing));
+		// Затирание байтовых ключей расшифрования
+		wipe(this->_opening, sizeof(this->_opening));
+	}
 }
 /**
  * @brief Метод зашифрования блока

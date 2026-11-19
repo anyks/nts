@@ -799,6 +799,8 @@ bool nts::cipher::Ccm::restart(const view_t & nonce) noexcept {
  *
  */
 void nts::cipher::Ccm::clear() noexcept {
+	// Признак готовности режима: без него заполнение секрета не держит
+	const bool ready = this->_ready;
 	// Сбрасываем признак готовности режима к работе
 	this->_ready = false;
 	// Сбрасываем длину метки целостности
@@ -809,8 +811,10 @@ void nts::cipher::Ccm::clear() noexcept {
 	this->_length = 0;
 	// Сбрасываем базовый алгоритм блочного шифрования
 	this->_block = block_t();
-	// Затирание начального заполнения режима
-	wipe(this->_nonce, sizeof(this->_nonce));
+	// Если режим был заведён
+	if(ready)
+		// Затирание начального заполнения режима
+		wipe(this->_nonce, sizeof(this->_nonce));
 }
 /**
  * @brief Метод зашифрования сообщения с выработкой метки целостности

@@ -318,14 +318,19 @@ bool nts::cipher::Chachapoly::restart(const view_t & nonce) noexcept {
  *
  */
 void nts::cipher::Chachapoly::clear() noexcept {
+	// Признак установленного ключа: без него ключ и заполнение секрета не держат
+	const bool ready = this->_ready;
 	// Сбрасываем признак готовности
 	this->_ready = false;
 	// Сбрасываем признак израсходованного заполнения
 	this->_spent = false;
-	// Затирание ключа
-	wipe(this->_key, sizeof(this->_key));
-	// Затирание заполнения
-	wipe(this->_nonce, sizeof(this->_nonce));
+	// Если ключ был установлен
+	if(ready){
+		// Затирание ключа
+		wipe(this->_key, sizeof(this->_key));
+		// Затирание заполнения
+		wipe(this->_nonce, sizeof(this->_nonce));
+	}
 	// Сброс состояния потока: без ключа он лишь затирает шифр и имитовставку
 	this->reset();
 }

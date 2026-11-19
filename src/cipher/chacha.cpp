@@ -1471,16 +1471,21 @@ bool nts::cipher::Chacha::start(const view_t & key, const view_t & nonce, const 
  *
  */
 void nts::cipher::Chacha::clear() noexcept {
+	// Признак запущенного шифра: без него состояние и остаток гаммы секрета не держат
+	const bool ready = this->_ready;
 	// Сбрасываем признак готовности
 	this->_ready = false;
 	// Сбрасываем признак переполнения счётчика
 	this->_exhausted = false;
 	// Сбрасываем остаток блока гаммы
 	this->_rest = 0;
-	// Затирание состояния
-	wipe(this->_state, sizeof(this->_state));
-	// Затирание остатка блока гаммы
-	wipe(this->_gamma, sizeof(this->_gamma));
+	// Если шифр был запущен
+	if(ready){
+		// Затирание состояния
+		wipe(this->_state, sizeof(this->_state));
+		// Затирание остатка блока гаммы
+		wipe(this->_gamma, sizeof(this->_gamma));
+	}
 }
 /**
  * @brief Метод выработки целого блока гаммы

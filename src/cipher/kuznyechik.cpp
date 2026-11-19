@@ -814,10 +814,14 @@ bool nts::cipher::Kuznyechik::key(const view_t & key) noexcept {
  *
  */
 void nts::cipher::Kuznyechik::clear() noexcept {
-	// Затирание раундовых ключей
-	wipe(this->_keys, sizeof(this->_keys));
+	// Признак установленного ключа: без него раундовые ключи секрета не держат
+	const bool ready = this->_ready;
 	// Снимаем признак того, что ключ установлен
 	this->_ready = false;
+	// Если ключ был установлен
+	if(ready)
+		// Затирание раундовых ключей
+		wipe(this->_keys, sizeof(this->_keys));
 }
 /**
  * @brief Метод зашифрования блока

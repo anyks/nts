@@ -276,10 +276,14 @@ bool nts::cipher::Sm4::key(const view_t & key) noexcept {
  *
  */
 void nts::cipher::Sm4::clear() noexcept {
+	// Признак установленного ключа: без него раундовые ключи секрета не держат
+	const bool ready = this->_ready;
 	// Сбрасываем признак установленного ключа
 	this->_ready = false;
-	// Затирание раундовых ключей
-	wipe(this->_keys, sizeof(this->_keys));
+	// Если ключ был установлен
+	if(ready)
+		// Затирание раундовых ключей
+		wipe(this->_keys, sizeof(this->_keys));
 }
 /**
  * @brief Метод зашифрования блока
