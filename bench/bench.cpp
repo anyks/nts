@@ -107,6 +107,7 @@
 #include "cipher/sm4.hpp"
 #include "cipher/ccm.hpp"
 #include "cipher/des.hpp"
+#include "sign/ecdsa.hpp"
 #include "sign/ed25519.hpp"
 #include "sign/ed448.hpp"
 #include "sign/sm2.hpp"
@@ -1390,6 +1391,59 @@ int main(int argc, char * argv[]) noexcept {
 	const double checking = __nts_count__("ГОСТ 34.10 сличение", 200, [&gost, &hash, &signature]() noexcept -> void {
 		// Сличаем подписи хеша
 		gost.check(view_t(hash, 32), view_t(signature, sizeof(signature)));
+	});
+	// Кривая подписи ECDSA P-256
+	curve::curve_t ecdsaCurve;
+	// Если параметры кривой P-256 завести не удалось
+	if(!curve::parameters("1.2.840.10045.3.1.7", ecdsaCurve)){
+		// Выводим сообщение об отказе заведения кривой
+		cout << "Завести кривую P-256 не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Секретный ключ и открытый ключ подписи ECDSA
+	uint8_t ecdsaSecret[32], ecdsaOpened[64];
+	// Если пару ключей ECDSA выработать не удалось
+	if(!agreement::generate(ecdsaCurve, ecdsaSecret, ecdsaOpened)){
+		// Выводим сообщение об отказе выработки пары ключей
+		cout << "Выработать пару ключей ECDSA не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Объект электронной подписи ECDSA
+	sign::ecdsa_t ecdsaSigner;
+	// Если ключ подписи ECDSA установить не удалось
+	if(!ecdsaSigner.start(ecdsaCurve) || !ecdsaSigner.secret(view_t(ecdsaSecret, sizeof(ecdsaSecret)))){
+		// Выводим сообщение об отказе заведения подписи
+		cout << "Завести подпись ECDSA не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Место, в которое помещается подпись ECDSA
+	uint8_t ecdsaSealing[64];
+	// Если подпись ECDSA выработать не удалось
+	if(!ecdsaSigner.make(digest::hash_t::SHA256, view_t(hash, 32), ecdsaSealing)){
+		// Выводим сообщение об отказе выработки подписи
+		cout << "Выработать подпись ECDSA не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Если подпись ECDSA сличить не удалось
+	if(!ecdsaSigner.check(view_t(hash, 32), view_t(ecdsaSealing, sizeof(ecdsaSealing)))){
+		// Выводим сообщение об отказе сличения подписи
+		cout << "Сличить подпись ECDSA не удалось" << endl;
+		// Выходим из приложения с признаком отказа
+		return EXIT_FAILURE;
+	}
+	// Замеряем числа подписей ECDSA P-256 за секунду
+	const double ecdsaSigning = __nts_count__("ECDSA P-256 подпись", 200, [&ecdsaSigner, &hash, &ecdsaSealing]() noexcept -> void {
+		// Подписываем хеш области байтов
+		ecdsaSigner.make(digest::hash_t::SHA256, view_t(hash, 32), ecdsaSealing);
+	});
+	// Замеряем числа сличений подписи ECDSA P-256 за секунду
+	const double ecdsaChecking = __nts_count__("ECDSA P-256 сличение", 200, [&ecdsaSigner, &hash, &ecdsaSealing]() noexcept -> void {
+		// Сличаем подписи хеша
+		ecdsaSigner.check(view_t(hash, 32), view_t(ecdsaSealing, sizeof(ecdsaSealing)));
 	});
 	// Место, в которое помещается общее значение обмена ключами
 	uint8_t shared[32];
@@ -3588,6 +3642,10 @@ int main(int argc, char * argv[]) noexcept {
 		relation("Подпись", signing, ecdsa);
 		// Выводим отношение замеров сличения подписи
 		relation("Сличение подписи", checking, verify);
+		// Выводим отношение подписи ECDSA P-256 к эталону
+		relation("ECDSA P-256 подпись против эталона", ecdsaSigning, ecdsa);
+		// Выводим отношение сличения подписи ECDSA P-256 к эталону
+		relation("ECDSA P-256 сличение против эталона", ecdsaChecking, verify);
 		// Выводим отношение замеров обмена ключами по ГОСТ-кривой к обмену эталона по P-256
 		relation("Обмен ключами ГОСТ против P-256 эталона", exchange, ecdh);
 		// Выводим отношение замеров обмена ключами по кривой P-256 к эталону
@@ -3717,6 +3775,10 @@ int main(int argc, char * argv[]) noexcept {
 		(void) mldsaSigning;
 		// Не используем замер сличения ML-DSA-65 при отключённом сличении
 		(void) mldsaChecking;
+		// Замеры подписи ECDSA P-256 без эталона сравнивать не с чем
+		(void) ecdsaSigning;
+		// Замеры сличения подписи ECDSA P-256 без эталона сравнивать не с чем
+		(void) ecdsaChecking;
 		// Замеры хеширования SHA-3 без эталона сравнивать не с чем
 		(void) sha3;
 		// Замеры хеширования SHA-3 без эталона сравнивать не с чем
