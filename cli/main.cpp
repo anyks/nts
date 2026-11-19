@@ -34,6 +34,7 @@
  */
 #include "common.hpp"
 #include "enc.hpp"
+#include "keys.hpp"
 #include "digest/hash.hpp"
 #include "digest/hmac.hpp"
 #include "codec/base64.hpp"
@@ -70,7 +71,7 @@ namespace {
 		// Печатаем назначение утилиты
 		cout << "применение: a-nts команда [флаги] [параметры]" << endl;
 		// Печатаем список подкоманд
-		cout << "команды: version, rand, base64, dgst, enc" << endl;
+		cout << "команды: version, rand, base64, dgst, enc, genpkey, genrsa, genec, pkey, rsa, ec" << endl;
 	}
 
 	/**
@@ -494,6 +495,30 @@ int main(const int argc, const char * const argv[]) noexcept {
 	if(::strcmp(argv[1], "enc") == 0)
 		// Зашифровываем либо расшифровываем данные
 		return cli::enc(argc, argv);
+	// Если запрошена универсальная выработка ключа
+	if(::strcmp(argv[1], "genpkey") == 0)
+		// Вырабатываем ключ
+		return cli::genpkey(argc, argv);
+	// Если запрошена выработка ключа RSA
+	if(::strcmp(argv[1], "genrsa") == 0)
+		// Вырабатываем ключ RSA
+		return cli::genrsa(argc, argv);
+	// Если запрошена выработка ключа EC
+	if(::strcmp(argv[1], "genec") == 0)
+		// Вырабатываем ключ EC
+		return cli::genec(argc, argv);
+	// Если запрошены действия над ключом
+	if(::strcmp(argv[1], "pkey") == 0)
+		// Преобразуем ключ
+		return cli::pkey(argc, argv);
+	// Если запрошены действия над ключом RSA
+	if(::strcmp(argv[1], "rsa") == 0)
+		// Преобразуем ключ RSA
+		return cli::rsa(argc, argv);
+	// Если запрошены действия над ключом EC
+	if(::strcmp(argv[1], "ec") == 0)
+		// Преобразуем ключ EC
+		return cli::ecKey(argc, argv);
 	// Печатаем справку утилиты
 	__nts_usage__();
 	// Сообщаем об отказе приложения
