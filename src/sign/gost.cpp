@@ -497,10 +497,10 @@ bool nts::sign::Gost::check(const view_t & value, const view_t & signature) cons
 		return false;
 	// Значения в области Монтгомери, участвующие в проверке подписи
 	math::number_t entered, inverse, z1, z2;
-	// Приведение хеша сообщения в область Монтгомери
-	order.enter(item, entered);
-	// Обращение приведённого хеша сообщения
-	order.invert(entered, inverse);
+	// Обращение хеша сообщения: хеш открыт, время работы от него зависит
+	order.inverse(item, inverse);
+	// Приведение обращённого хеша в область Монтгомери
+	order.enter(inverse, inverse);
 	// Приведение второй части подписи в область Монтгомери
 	order.enter(second, entered);
 	// Умножение второй части подписи на обращённый хеш

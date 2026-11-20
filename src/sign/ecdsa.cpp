@@ -840,10 +840,10 @@ bool nts::sign::Ecdsa::check(const view_t & digest, const view_t & signature) co
 		return false;
 	// Значения в области Монтгомери, участвующие в проверке подписи
 	math::number_t entered, inverse, u1, u2;
-	// Приведение второй части подписи в область Монтгомери
-	order.enter(second, entered);
-	// Обращение второй части подписи
-	order.invert(entered, inverse);
+	// Обращение второй части подписи: часть открыта, время работы от неё зависит
+	order.inverse(second, inverse);
+	// Приведение обращённой части в область Монтгомери
+	order.enter(inverse, inverse);
 	// Приведение хеша сообщения в область Монтгомери
 	order.enter(item, entered);
 	// Умножение хеша сообщения на обращённую вторую часть

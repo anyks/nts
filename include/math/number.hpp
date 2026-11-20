@@ -654,6 +654,37 @@ namespace nts {
 				 * \~
 				 */
 				void invert(const number_t & value, number_t & result) const noexcept;
+				/**
+				 * \~russian
+				 * @brief Метод обращения открытого числа по модулю
+				 *
+				 * @param value  обращаемое число из отрезка [0, модуль)
+				 * @param result место, в которое помещается обратное число из отрезка [0, модуль)
+				 *
+				 * @note У кривых на 256 разрядов обращение идёт бинарным алгоритмом Евклида с
+				 *       досрочным выходом: время работы от обращаемого числа зависит, поэтому
+				 *       применимо лишь к открытым числам - не к секретному случайному числу
+				 *       подписи. У прочих модулей обращение идёт алгоритмом Бернстайна и Янга,
+				 *       и время от значения не зависит. Модуль обязан быть нечётным, а обратное
+				 *       верно лишь при числе, взаимно простом с модулем; обратное к нулю есть ноль
+				 *
+				 * \~english
+				 * @brief Method of the inversion of an open number by the modulus
+				 *
+				 * @param value  the number being inverted from the segment [0, modulus)
+				 * @param result the place the inverse number from the segment [0, modulus) is put into
+				 *
+				 * @note At the curves of 256 bits the inversion goes by the binary Euclidean algorithm
+				 *       with an early exit: the running time depends on the number being inverted, so it
+				 *       is applicable only to open numbers - not to the secret random number of a
+				 *       signature. At the other moduli the inversion goes by the algorithm of Bernstein
+				 *       and Yang, and the time does not depend on the value. The modulus must be odd,
+				 *       and the inverse is true only at a number coprime with the modulus; the inverse
+				 *       of zero is zero
+				 *
+				 * \~
+				 */
+				void inverse(const number_t & value, number_t & result) const noexcept;
 			public:
 				/**
 				 * \~russian

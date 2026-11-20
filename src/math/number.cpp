@@ -743,6 +743,79 @@ namespace {
 			wipe(&t, sizeof(t));
 		}
 	#endif
+	/**
+	 * Ассемблерное обращение по нечётному модулю из четырёх слов
+	 */
+	#if defined(__aarch64__) && !defined(_MSC_VER)
+		/**
+		 * @brief Функция обращения числа бинарным алгоритмом Евклида
+		 *
+		 * @details Обращение идёт алгоритмом 14.61 руководства Menezes-vanOorschot-Vanstone
+		 *          с досрочным выходом по значению: время работы от обращаемого числа
+		 *          зависит, поэтому применимо лишь к открытым числам. Сдвиги пары чисел
+		 *          идут разом на число нулей, найденное командами rbit и clz, а сомножители
+		 *          держатся пятью словами под перенос. Модуль обязан быть нечётным, обратное
+		 *          верно лишь при числе, взаимно простом с модулем.
+		 *
+		 * @param modulus слова модуля от младшего к старшему
+		 * @param value   обращаемое число из отрезка [1, модуль)
+		 * @param result  место, в которое помещается обратное число из отрезка [0, модуль)
+		 *
+		 */
+		static __NTS_INLINE__ void __nts_beeu4__(const uint64_t * modulus, const uint64_t * value, uint64_t * result) noexcept {
+			// Обращение регистровым ядром: n в x0-x3, X в x4-x8, Y в x9-x13, сдвиг x14, временные x15-x16, A в x21-x24, B в x25-x28
+			__asm__ volatile(
+				"ldr x25, [%[value]]\n\t" "ldr x26, [%[value], #8]\n\t" "ldr x27, [%[value], #16]\n\t" "ldr x28, [%[value], #24]\n\t"
+				"ldr x0, [%[modulus]]\n\t" "ldr x1, [%[modulus], #8]\n\t" "ldr x2, [%[modulus], #16]\n\t" "ldr x3, [%[modulus], #24]\n\t"
+				"mov x21, x0\n\t" "mov x22, x1\n\t" "mov x23, x2\n\t" "mov x24, x3\n\t"
+				"mov x4, #1\n\t" "eor x5, x5, x5\n\t" "eor x6, x6, x6\n\t" "eor x7, x7, x7\n\t" "eor x8, x8, x8\n\t"
+				"eor x9, x9, x9\n\t" "eor x10, x10, x10\n\t" "eor x11, x11, x11\n\t" "eor x12, x12, x12\n\t" "eor x13, x13, x13\n\t"
+				"1:\n\t"
+				"orr x15, x25, x26\n\t" "rbit x16, x25\n\t" "orr x15, x15, x27\n\t" "orr x15, x15, x28\n\t" "cbz x15, 3f\n\t"
+				"orr x16, x16, #1\n\t" "clz x14, x16\n\t" "cbz x14, 2f\n\t"
+				"neg x15, x14\n\t" "lsl x16, x26, x15\n\t" "lsr x25, x25, x14\n\t" "orr x25, x25, x16\n\t"
+				"lsl x16, x27, x15\n\t" "lsr x26, x26, x14\n\t" "orr x26, x26, x16\n\t"
+				"lsl x16, x28, x15\n\t" "lsr x27, x27, x14\n\t" "orr x27, x27, x16\n\t" "lsr x28, x28, x14\n\t"
+				"eor x15, x15, x15\n\t"
+				"4:\n\t"
+				"tbz x4, #0, 5f\n\t" "adds x4, x4, x0\n\t" "adcs x5, x5, x1\n\t" "adcs x6, x6, x2\n\t" "adcs x7, x7, x3\n\t" "adc x8, x8, x15\n\t"
+				"5:\n\t"
+				"extr x4, x5, x4, #1\n\t" "extr x5, x6, x5, #1\n\t" "extr x6, x7, x6, #1\n\t" "extr x7, x8, x7, #1\n\t" "lsr x8, x8, #1\n\t"
+				"subs x14, x14, #1\n\t" "bne 4b\n\t"
+				"2:\n\t"
+				"rbit x16, x21\n\t" "orr x16, x16, #1\n\t" "clz x14, x16\n\t" "cbz x14, 6f\n\t"
+				"neg x15, x14\n\t" "lsl x16, x22, x15\n\t" "lsr x21, x21, x14\n\t" "orr x21, x21, x16\n\t"
+				"lsl x16, x23, x15\n\t" "lsr x22, x22, x14\n\t" "orr x22, x22, x16\n\t"
+				"lsl x16, x24, x15\n\t" "lsr x23, x23, x14\n\t" "orr x23, x23, x16\n\t" "lsr x24, x24, x14\n\t"
+				"eor x15, x15, x15\n\t"
+				"7:\n\t"
+				"tbz x9, #0, 8f\n\t" "adds x9, x9, x0\n\t" "adcs x10, x10, x1\n\t" "adcs x11, x11, x2\n\t" "adcs x12, x12, x3\n\t" "adc x13, x13, x15\n\t"
+				"8:\n\t"
+				"extr x9, x10, x9, #1\n\t" "extr x10, x11, x10, #1\n\t" "extr x11, x12, x11, #1\n\t" "extr x12, x13, x12, #1\n\t" "lsr x13, x13, #1\n\t"
+				"subs x14, x14, #1\n\t" "bne 7b\n\t"
+				"6:\n\t"
+				"subs x25, x25, x21\n\t" "sbcs x26, x26, x22\n\t" "sbcs x27, x27, x23\n\t" "sbcs x28, x28, x24\n\t" "bcs 9f\n\t"
+				"adds x25, x25, x21\n\t" "adcs x26, x26, x22\n\t" "adcs x27, x27, x23\n\t" "adcs x28, x28, x24\n\t"
+				"subs x21, x21, x25\n\t" "sbcs x22, x22, x26\n\t" "sbcs x23, x23, x27\n\t" "sbcs x24, x24, x28\n\t"
+				"adds x9, x9, x4\n\t" "adcs x10, x10, x5\n\t" "adcs x11, x11, x6\n\t" "adcs x12, x12, x7\n\t" "adc x13, x13, x8\n\t" "b 1b\n\t"
+				"9:\n\t"
+				"adds x4, x4, x9\n\t" "adcs x5, x5, x10\n\t" "adcs x6, x6, x11\n\t" "adcs x7, x7, x12\n\t" "adc x8, x8, x13\n\t" "b 1b\n\t"
+				"3:\n\t"
+				"sub x15, x21, #1\n\t" "orr x15, x15, x22\n\t" "orr x15, x15, x23\n\t" "orr x15, x15, x24\n\t" "cbnz x15, 10f\n\t"
+				"11:\n\t"
+				"subs x4, x9, x0\n\t" "sbcs x5, x10, x1\n\t" "sbcs x6, x11, x2\n\t" "sbcs x7, x12, x3\n\t" "sbcs x8, x13, xzr\n\t"
+				"csel x9, x4, x9, cs\n\t" "csel x10, x5, x10, cs\n\t" "csel x11, x6, x11, cs\n\t" "csel x12, x7, x12, cs\n\t" "csel x13, x8, x13, cs\n\t" "bcs 11b\n\t"
+				"subs x9, x0, x9\n\t" "sbcs x10, x1, x10\n\t" "sbcs x11, x2, x11\n\t" "sbcs x12, x3, x12\n\t"
+				"str x9, [%[result]]\n\t" "str x10, [%[result], #8]\n\t" "str x11, [%[result], #16]\n\t" "str x12, [%[result], #24]\n\t" "b 12f\n\t"
+				"10:\n\t"
+				"str xzr, [%[result]]\n\t" "str xzr, [%[result], #8]\n\t" "str xzr, [%[result], #16]\n\t" "str xzr, [%[result], #24]\n\t"
+				"12:\n\t"
+				:
+				: [modulus] "r" (modulus), [value] "r" (value), [result] "r" (result)
+				: "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "cc", "memory"
+			);
+		}
+	#endif
 };
 
 /**
@@ -1569,6 +1642,74 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		wipe(table, sizeof(table));
 		// Затирание показателя степени обращения числа
 		wipe(exponent.words, sizeof(exponent.words));
+	#endif
+}
+/**
+ * @brief Метод обращения открытого числа по модулю
+ *
+ * @param value  обращаемое число из отрезка [0, модуль)
+ * @param result место, в которое помещается обратное число из отрезка [0, модуль)
+ *
+ */
+void nts::math::Modulus::inverse(const number_t & value, number_t & result) const noexcept {
+	// Если модуль не установлен
+	if(this->_words == 0){
+		// Обнуляем итог: обращать не по чему
+		result = number_t();
+		// Выходим из обращения
+		return;
+	}
+	/**
+	 * У простых кривых на 256 разрядов обращение идёт регистровым ядром
+	 */
+	#if defined(__aarch64__) && !defined(_MSC_VER)
+		// Если модуль в четыре слова
+		if(this->_words == 4){
+			// Обращение бинарным алгоритмом Евклида
+			__nts_beeu4__(this->_modulus.words, value.words, result.words);
+			// Выходим из обращения
+			return;
+		}
+	#endif
+	/**
+	 * Иначе обращение идёт алгоритмом Бернстайна и Янга: время от значения не зависит
+	 */
+	#if !defined(_MSC_VER)
+		/**
+		 * Обращение по разрядности модуля
+		 */
+		switch(this->_words){
+			// Модуль в одно слово
+			case 1: __nts_safegcd__ <1> (this->_modulus.words, this->_factor, value, result); break;
+			// Модуль в два слова
+			case 2: __nts_safegcd__ <2> (this->_modulus.words, this->_factor, value, result); break;
+			// Модуль в три слова
+			case 3: __nts_safegcd__ <3> (this->_modulus.words, this->_factor, value, result); break;
+			// Модуль в четыре слова: кривые на 256 разрядов
+			case 4: __nts_safegcd__ <4> (this->_modulus.words, this->_factor, value, result); break;
+			// Модуль в пять слов
+			case 5: __nts_safegcd__ <5> (this->_modulus.words, this->_factor, value, result); break;
+			// Модуль в шесть слов: кривая P-384
+			case 6: __nts_safegcd__ <6> (this->_modulus.words, this->_factor, value, result); break;
+			// Модуль в семь слов
+			case 7: __nts_safegcd__ <7> (this->_modulus.words, this->_factor, value, result); break;
+			// Модуль в восемь слов: кривые на 512 разрядов
+			case 8: __nts_safegcd__ <8> (this->_modulus.words, this->_factor, value, result); break;
+			// Модуль в девять слов: кривая P-521
+			case 9: __nts_safegcd__ <9> (this->_modulus.words, this->_factor, value, result); break;
+		}
+	/**
+	 * У MSVC нет знакового целого двойной разрядности: обращение через область Монтгомери
+	 */
+	#else
+		// Приведённое значение в области Монтгомери
+		number_t entered;
+		// Приводим значение в область Монтгомери
+		this->enter(value, entered);
+		// Обращение в области Монтгомери
+		this->invert(entered, result);
+		// Выводим обратное из области Монтгомери
+		this->leave(result, result);
 	#endif
 }
 /**
