@@ -3971,8 +3971,18 @@ context::error_t nts::internal::Engine::answer(const vector <uint8_t> & session,
 				// Выводим отказ вписывания
 				return failure;
 		}
-		// Выводим итог отправки приветствия сервера
-		return this->send(handshake::type_t::SERVER, view_t(body.data(), body.size()));
+		// Отказ отправки приветствия сервера
+		failure = this->send(handshake::type_t::SERVER, view_t(body.data(), body.size()));
+		// Если приветствие сервера отправить не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ отправки приветствия сервера
+			return failure;
+		// Раздел D.4 RFC 8446: за первым залпом сервера издания 1.3 идёт совместимостная смена набора шифрования
+		if(!this->_legacy && (this->_transport == context::transport_t::RECORDS))
+			// Выводим итог отправки совместимостной смены набора шифрования
+			return this->compatible();
+		// Выводим успешность отправки приветствия сервера
+		return context::error_t::NONE;
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -4218,6 +4228,15 @@ context::error_t nts::internal::Engine::complete() noexcept {
 		if(failure != context::error_t::NONE)
 			// Выводим отказ выработки завершения рукопожатия
 			return failure;
+		// Раздел D.4 RFC 8446: клиент шлёт совместимостную смену набора шифрования перед завершением рукопожатия
+		if(!this->_server && !this->_legacy && (this->_transport == context::transport_t::RECORDS)){
+			// Отказ отправки совместимостной смены набора шифрования
+			const context::error_t error = this->compatible();
+			// Если совместимостную смену набора шифрования отправить не удалось
+			if(error != context::error_t::NONE)
+				// Выводим отказ отправки совместимостной смены набора шифрования
+				return error;
+		}
 		// Выводим итог отправки завершения рукопожатия своей стороной
 		return this->send(handshake::type_t::FINISHED, view_t(completion, width));
 	/**
@@ -15130,6 +15149,44 @@ context::error_t nts::internal::Engine::switching() noexcept {
 	}
 	// Запоминаем, что свои записи отныне защищаются
 	this->_sealing = true;
+	// Выводим успешность отправки смены набора шифрования
+	return context::error_t::NONE;
+}
+/**
+ * @brief Метод отправки совместимостной смены набора шифрования издания TLS 1.3
+ *
+ * @return отказ отправки совместимостной смены набора шифрования
+ *
+ * @details Раздел D.4 RFC 8446: пустая смена набора шифрования изображает рукопожатие
+ *          издания 1.2 ради посредников, пропускающих шифровку
+ *
+ */
+context::error_t nts::internal::Engine::compatible() noexcept {
+	// Раздел D.4 RFC 8446: тело смены набора шифрования - единственный байт со значением один
+	const uint8_t change[1] = {0x01};
+	/**
+	 * Выполняем перехват ошибок
+	 */
+	try {
+		// Объект нарезчика отправляемых записей
+		record::writer_t writer;
+		// Отказ нарезки смены набора шифрования на открытую запись поверх потока
+		const context::error_t failure = ::__nts_translate__(writer.push(record::type_t::CHANGE, record::version_t::TLS12, view_t(change, sizeof(change))), context::error_t::RECORD);
+		// Если смену набора шифрования нарезать не удалось
+		if(failure != context::error_t::NONE)
+			// Выводим отказ нарезки смены набора шифрования
+			return failure;
+		// Получаем нарезанную запись смены набора шифрования
+		const view_t records = writer.data();
+		// Складывание нарезанной записи в накопитель отправляемых байтов
+		this->_wire.insert(this->_wire.end(), records.data, records.data + records.size);
+	/**
+	 * Выполняем перехват ошибок
+	 */
+	} catch(const bad_alloc &) {
+		// Выводим отказ нехватки памяти
+		return context::error_t::MEMORY;
+	}
 	// Выводим успешность отправки смены набора шифрования
 	return context::error_t::NONE;
 }

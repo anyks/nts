@@ -95,7 +95,7 @@ namespace nts {
 			 * @brief Конструктор
 			 *
 			 */
-			Exchange() noexcept : group(extension::group_t::NONE) {}
+			explicit Exchange() noexcept : group(extension::group_t::NONE) {}
 			/**
 			 * @brief Деструктор: секретный ключ и общий секрет затираются при всяком освобождении пары
 			 *
@@ -107,17 +107,17 @@ namespace nts {
 		 *
 		 */
 		typedef struct Served {
-			// Конфигурация, как записана
-			ech::config_t config;
-			// Ключ HPKE конфигурации
-			hpke::key_t key;
 			// Признак объявления конфигурации в перечне для DNS и в retry_configs
 			bool advertised;
+			// Ключ HPKE конфигурации
+			hpke::key_t key;
+			// Конфигурация, как записана
+			ech::config_t config;
 			/**
 			 * @brief Конструктор
 			 *
 			 */
-			Served() noexcept : advertised(true) {}
+			explicit Served() noexcept : advertised(true) {}
 		} served_t;
 		/**
 		 * @brief Ступени рукопожатия издания TLS 1.2
@@ -199,12 +199,14 @@ namespace nts {
 				typedef struct Keys {
 					// Главный секрет связи издания TLS 1.2
 					uint8_t master[48];
-					// Ключи завершения рукопожатия сторон связи
-					uint8_t completion[2][schedule::SCHEDULE_WIDEST];
 					// Ключевой материал прикладных данных сторон связи
-					uint8_t key[2][protect::PROTECT_KEY], vector[2][protect::PROTECT_VECTOR];
+					uint8_t key[2][protect::PROTECT_KEY];
 					// Ключи имитовставки сторон связи наборов CBC издания TLS 1.2
 					uint8_t stamp[2][protect::PROTECT_MAC];
+					// Блок данных расширения CBC издания TLS 1.2
+					uint8_t vector[2][protect::PROTECT_VECTOR];
+					// Ключи завершения рукопожатия сторон связи
+					uint8_t completion[2][schedule::SCHEDULE_WIDEST];
 					// Значения направлений связи по уровням защиты и сторонам
 					uint8_t traffic[3][2][schedule::SCHEDULE_WIDEST];
 				} keys_t;
@@ -1622,6 +1624,16 @@ namespace nts {
 				 *
 				 */
 				context::error_t switching() noexcept;
+				/**
+				 * @brief Метод отправки совместимостной смены набора шифрования издания TLS 1.3
+				 *
+				 * @return отказ отправки совместимостной смены набора шифрования
+				 *
+				 * @details Раздел D.4 RFC 8446: пустая смена набора шифрования изображает рукопожатие
+				 *          издания 1.2 ради посредников, пропускающих шифровку
+				 *
+				 */
+				context::error_t compatible() noexcept;
 				/**
 				 * @brief Метод отправки завершения рукопожатия издания TLS 1.2
 				 *

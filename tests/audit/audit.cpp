@@ -624,6 +624,101 @@ TEST(AuditTest, CcsAfterRetry){
 }
 
 /**
+ * Отправка совместимостной записи change_cipher_spec (приложение D.4 RFC 8446): сервер
+ * шлёт её открытой записью сразу за приветствием и за просьбой о повторе, клиент - перед
+ * завершением рукопожатия. Проверка идёт по байтам вывода стороны до разбора рукопожатия.
+ * Точки клиента перед повторным приветствием (после просьбы о повторе) и за первым
+ * приветствием (при упреждении) опущены сознательно: обе по RFC необязательны, обязательна
+ * лишь запись сервера, если клиент прислал непустой опознаватель связи
+ */
+TEST(AuditTest, CcsSend){
+	// Подлинность стороны
+	context::credential_t credential;
+	// Подлинность стороны из файла ключа ec256
+	ASSERT_TRUE(__nts_keyfile__("ec256", credential));
+	// Совместимостная запись change_cipher_spec открытой записью
+	const uint8_t ccs[] = {0x14, 0x03, 0x03, 0x00, 0x01, 0x01};
+	// Связь стороны клиента
+	client::context_t client;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(client);
+	// Связь стороны сервера
+	server::context_t server;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(server);
+	// Задаём подлинность стороны
+	server.credential(credential);
+	// Требуем равенство server.start() и context::error_t::NONE
+	ASSERT_EQ(server.start(), context::error_t::NONE);
+	// Требуем равенство client.start() и context::error_t::NONE
+	ASSERT_EQ(client.start(), context::error_t::NONE);
+	// Приветствие клиента
+	const vector <uint8_t> first = take(client);
+	// Подаём приветствие клиента серверу
+	ASSERT_EQ(server.push(view_t(first.data(), first.size())), context::error_t::NONE);
+	// Вывод сервера: приветствие, совместимостная запись и зашифрованный залп
+	const vector <uint8_t> served = take(server);
+	// Длина приветствия сервера из заголовка его записи
+	const size_t length = ((static_cast <size_t> (served[3]) << 8) | static_cast <size_t> (served[4]));
+	// Проверяем, что первой записью идёт именно приветствие сервера
+	ASSERT_EQ(served[0], static_cast <uint8_t> (record::type_t::HANDSHAKE));
+	// Проверяем, что вывода сервера хватает на приветствие, совместимостную запись и зашифрованную запись
+	ASSERT_GT(served.size(), 5 + length + sizeof(ccs));
+	// Проверяем, что сразу за приветствием идёт совместимостная запись
+	ASSERT_EQ(::memcmp(served.data() + 5 + length, ccs, sizeof(ccs)), 0);
+	// Проверяем, что за совместимостной записью идёт зашифрованная запись
+	EXPECT_EQ(served[5 + length + sizeof(ccs)], static_cast <uint8_t> (record::type_t::APPLICATION));
+	// Подаём вывод сервера клиенту
+	ASSERT_EQ(client.push(view_t(served.data(), served.size())), context::error_t::NONE);
+	// Вывод клиента: совместимостная запись и завершение рукопожатия
+	const vector <uint8_t> completed = take(client);
+	// Проверяем, что вывода клиента хватает на совместимостную запись и завершение
+	ASSERT_GT(completed.size(), sizeof(ccs));
+	// Проверяем, что клиент шлёт совместимостную запись перед завершением
+	ASSERT_EQ(::memcmp(completed.data(), ccs, sizeof(ccs)), 0);
+	// Проверяем, что за совместимостной записью идёт зашифрованная запись завершения
+	EXPECT_EQ(completed[sizeof(ccs)], static_cast <uint8_t> (record::type_t::APPLICATION));
+	// Подаём завершение клиента серверу
+	ASSERT_EQ(server.push(view_t(completed.data(), completed.size())), context::error_t::NONE);
+	// Проводим связь сторон до тишины
+	__nts_converse__(client, server);
+	// Связь обеих сторон установлена
+	EXPECT_TRUE(client.established() && server.established());
+	// Связь стороны клиента, чья доля ключа серверу не подходит
+	client::context_t rejected;
+	// Объявляем ГОСТ в настройках связи стороны клиента: умолчания связи - классика без ГОСТ
+	gosting(rejected);
+	// Связь стороны сервера, ждущей лишь свою кривую обмена ключами
+	server::context_t retried;
+	// Объявляем ГОСТ в настройках связи стороны сервера: умолчания связи - классика без ГОСТ
+	gosting(retried);
+	// Задаём подлинность стороны
+	retried.credential(credential);
+	// Сервер ведёт лишь кривую, долю по которой клиент не шлёт
+	retried.groups(vector <extension::group_t> {extension::group_t::SECP384R1});
+	// Клиент шлёт долю лишь по кривой, серверу не годной
+	rejected.groups(vector <extension::group_t> {extension::group_t::X25519, extension::group_t::SECP384R1});
+	// Требуем равенство retried.start() и context::error_t::NONE
+	ASSERT_EQ(retried.start(), context::error_t::NONE);
+	// Требуем равенство rejected.start() и context::error_t::NONE
+	ASSERT_EQ(rejected.start(), context::error_t::NONE);
+	// Приветствие клиента, чья доля серверу не подходит
+	const vector <uint8_t> greet = take(rejected);
+	// Подаём приветствие серверу: он отвечает просьбою о повторе
+	ASSERT_EQ(retried.push(view_t(greet.data(), greet.size())), context::error_t::NONE);
+	// Вывод сервера: просьба о повторе и совместимостная запись
+	const vector <uint8_t> retry = take(retried);
+	// Длина просьбы о повторе из заголовка её записи
+	const size_t width = ((static_cast <size_t> (retry[3]) << 8) | static_cast <size_t> (retry[4]));
+	// Проверяем, что первой записью идёт именно просьба о повторе
+	ASSERT_EQ(retry[0], static_cast <uint8_t> (record::type_t::HANDSHAKE));
+	// Проверяем, что вывода сервера хватает на просьбу о повторе и совместимостную запись
+	ASSERT_GE(retry.size(), 5 + width + sizeof(ccs));
+	// Проверяем, что сразу за просьбою о повторе идёт совместимостная запись
+	ASSERT_EQ(::memcmp(retry.data() + 5 + width, ccs, sizeof(ccs)), 0);
+}
+
+/**
  * Приветствие сервера издания 1.2 без блока расширений разбирается (раздел 7.4.1.3 RFC 5246)
  */
 TEST(AuditTest, ServerHelloBare){

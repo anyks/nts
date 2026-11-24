@@ -1384,10 +1384,12 @@ namespace {
 			if(completing.size == 0)
 				// Выводим отказ ответа враждебного сервера
 				return false;
-			// Выполняем перенос отправленных клиентом байтов
-			const vector <uint8_t> stream(completing.data, completing.data + completing.size);
+			// Раздел D.4 RFC 8446: совместимостную смену набора шифрования (шесть байтов) снимаем впереди завершения
+			const size_t leading = (((completing.size >= 6) && (completing.data[0] == 0x14)) ? 6 : 0);
+			// Выполняем перенос отправленных клиентом байтов за вычетом совместимостной смены набора шифрования
+			const vector <uint8_t> stream(completing.data + leading, completing.data + completing.size);
 			// Снимаем отправленные байты с накопителя клиента
-			client.consume(stream.size());
+			client.consume(completing.size);
 			// Объект сборщика записей, принятых от клиента
 			record::reader_t taken;
 			// Если принятые байты сборщику записей подать не удалось
@@ -2298,6 +2300,10 @@ namespace {
 			if(records.next(taking, sealed) != record::error_t::NONE)
 				// Выводим отказ рукопожатия враждебного клиента
 				return false;
+			// Раздел D.4 RFC 8446: совместимостную смену набора шифрования пропускаем
+			if(taking.type == record::type_t::CHANGE)
+				// Переходим к следующей принятой записи
+				continue;
 			// Вид содержимого, вскрытого из принятой записи
 			record::type_t kind = record::type_t::NONE;
 			// Накопитель, в который складывается вскрытое содержимое
