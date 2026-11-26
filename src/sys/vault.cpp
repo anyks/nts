@@ -21,18 +21,25 @@
 /**
  * Стандартные заголовочные файлы
  */
+#include <new>
 #include <cstring>
 
 /**
  * Системные заголовочные файлы
  */
 #if defined(_WIN32)
+	/**
+	 * Системный заголовочный файл
+	 */
 	#include <windows.h>
-		/**
-		 * Иначе подключаем заголовочные файлы POSIX
-		 */
-	#else
-		#include <unistd.h>
+/**
+ * Иначе подключаем заголовочные файлы POSIX
+ */
+#else
+	/**
+	 * Системные заголовочные файлы
+	 */
+	#include <unistd.h>
 	#include <pthread.h>
 	#include <sys/mman.h>
 #endif
@@ -40,9 +47,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "sys/vault.hpp"
-#include "sys/wipe.hpp"
 #include "sys/log.hpp"
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файлй модуля
+ */
+#include "sys/vault.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки
@@ -50,60 +61,82 @@
 using namespace nts;
 
 /**
- * @brief Наименьшая длина куска, берущегося у системы
- *
- * @note Кусок в 64 КБ вмещает ключевой материал сотни связей; меньший дробил бы право
- *       на запрет подкачки впустую, больший тратил бы его наперёд
+ * @brief Инкапсулируем статические функции в аннонимное пространство имён
  *
  */
-static constexpr size_t VAULT_CHUNK = 65536;
-
-/**
- * @brief Выравнивание участка: довольно любому значению ключа и векторных команд
- *
- */
-static constexpr size_t VAULT_ALIGN = 16;
-
-/**
- * @brief Функция получения длины страницы памяти
- *
- * @return длина страницы памяти в байтах
- *
- */
-static size_t page() noexcept {
+namespace {
 	/**
-	 * Для операционной системы MS Windows
+	 * @brief Выравнивание участка: довольно любому значению ключа и векторных команд
+	 *
 	 */
-	#if defined(_WIN32)
-		// Сведения о системе
-		SYSTEM_INFO info;
-		// Получаем сведения о системе
-		::GetSystemInfo(&info);
-		// Выводим длину страницы
-		return static_cast <size_t> (info.dwPageSize);
+	static constexpr size_t VAULT_ALIGN = 16;
 	/**
-	 * Для операционных систем POSIX
+	 * @brief Наименьшая длина куска, берущегося у системы
+	 *
+	 * @note Кусок в 64 КБ вмещает ключевой материал сотни связей; меньший дробил бы право
+	 *       на запрет подкачки впустую, больший тратил бы его наперёд
+	 *
 	 */
-	#else
-		// Запрашиваем длину страницы у системы
-		const long result = ::sysconf(_SC_PAGESIZE);
-		// Выводим длину страницы, отступая к обычной при отказе
-		return ((result > 0) ? static_cast <size_t> (result) : 4096);
-	#endif
-}
+	static constexpr size_t VAULT_CHUNK = 65536;
+
+	/**
+	 * @brief Функция получения длины страницы памяти
+	 *
+	 * @return длина страницы памяти в байтах
+	 *
+	 */
+	static __NTS_INLINE__ size_t __awh_page__() noexcept {
+		/**
+		 * Для операционной системы MS Windows
+		 */
+		#if defined(_WIN32)
+			// Сведения о системе
+			SYSTEM_INFO info;
+			// Получаем сведения о системе
+			::GetSystemInfo(&info);
+			// Выводим длину страницы
+			return static_cast <size_t> (info.dwPageSize);
+		/**
+		 * Для операционных систем POSIX
+		 */
+		#else
+			// Запрашиваем длину страницы у системы
+			const long result = ::sysconf(_SC_PAGESIZE);
+			// Выводим длину страницы, отступая к обычной при отказе
+			return ((result > 0) ? static_cast <size_t> (result) : 4096);
+		#endif
+	}
+	/**
+	 * @brief Функция обработки разветвления процесса у потомка
+	 *
+	 * @details Там, где система сама не даёт потомку затёртую память, затираем её сами.
+	 *          Замок хранилища у потомка не берётся: потомок однопоточен, а замок мог
+	 *          остаться взятым потоком родителя, которого у потомка нет.
+	 *
+	 */
+	static __NTS_INLINE__ void __awh_forked__() noexcept {
+		// Затираем всю память хранилища у потомка
+		sys::vault_t::instance().wipe();
+	}
+};
 
 /**
- * @brief Функция обработки разветвления процесса у потомка
- *
- * @details Там, где система сама не даёт потомку затёртую память, затираем её сами.
- *          Замок хранилища у потомка не берётся: потомок однопоточен, а замок мог
- *          остаться взятым потоком родителя, которого у потомка нет
+ * @brief Конструктор
  *
  */
-static void forked() noexcept {
-	// Затираем всю память хранилища у потомка
-	sys::Vault::instance().wipe();
-}
+nts::sys::Shelter::Shelter() noexcept : wired(false), forked(false), hidden(false) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::sys::Vault::Span::Span(const size_t offset, const size_t size) noexcept : size(size), offset(offset) {}
+
+/**
+ * @brief Конструктор
+ *
+ */
+nts::sys::Vault::Chunk::Chunk() noexcept : size(0), base(nullptr) {}
 
 /**
  * @brief Метод получения хранилища процесса
@@ -112,10 +145,17 @@ static void forked() noexcept {
  *
  */
 sys::Vault & sys::Vault::instance() noexcept {
-	// Хранилище процесса: живёт до завершения процесса
-	static Vault vault;
+	/**
+	 * Хранилище процесса намеренно не разрушается: оно заводится лениво, позже
+	 * статиков потребителя, и деструктор статика-одиночки сработал бы на exit
+	 * раньше их деструкторов, оставив заёмщиков (Secret) с участками в уже
+	 * возвращённой системе памяти
+	 */
+	alignas(Vault) static uint8_t storage[sizeof(Vault)];
+	// Заводим хранилище процесса один раз: размещение в статике не зовёт кучу и не бросает
+	static Vault * vault = new (storage) Vault();
 	// Выводим хранилище процесса
-	return vault;
+	return *vault;
 }
 /**
  * @brief Метод взятия куска у системы
@@ -126,7 +166,7 @@ sys::Vault & sys::Vault::instance() noexcept {
  */
 bool sys::Vault::grow(const size_t size) noexcept {
 	// Длина страницы памяти
-	const size_t granule = page();
+	const size_t granule = ::__awh_page__();
 	// Наименьшая длина куска: не меньше страницы и не меньше запроса
 	size_t length = ((size > VAULT_CHUNK) ? size : VAULT_CHUNK);
 	// Округляем длину куска вверх до страницы
@@ -223,7 +263,7 @@ bool sys::Vault::grow(const size_t size) noexcept {
 			// Если обработчик разветвления ещё не заведён
 			if(!this->_guarded)
 				// Заводим обработчик разветвления: потомок затирает хранилище сам
-				this->_guarded = (::pthread_atfork(nullptr, nullptr, &forked) == 0);
+				this->_guarded = (::pthread_atfork(nullptr, nullptr, &::__awh_forked__) == 0);
 			// Затирание обработчиком - то же укрытие, если он заведён
 			chunk.shelter.forked = this->_guarded;
 		}
@@ -251,11 +291,10 @@ bool sys::Vault::grow(const size_t size) noexcept {
 		chunk.spans.emplace_back(0, length);
 		// Запоминаем кусок
 		this->_chunks.push_back(::move(chunk));
-	// Перехватываем нехватку памяти
 	/**
 	 * Выполняем перехват ошибок
 	 */
-	} catch(const bad_alloc &){
+	} catch(const bad_alloc &) {
 		/**
 		 * Для операционной системы MS Windows
 		 */
@@ -353,7 +392,7 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
 	// Берём замок хранилища
 	const lock_guard <std::mutex> lock(this->_lock);
 	/**
-	 * Перебираем куски
+	 * Перебираем все имеющиеся куски
 	 */
 	for(auto & chunk : this->_chunks){
 		// Если участок принадлежит куску
@@ -383,7 +422,7 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
 				// Расширяем предыдущий участок на возвращаемый
 				(next - 1)->size += length;
 			// Если участок смыкается со следующим
-			else if(after){
+			else if(after) {
 				// Сдвигаем начало следующего участка
 				next->offset = offset;
 				// Расширяем следующий участок на возвращаемый
@@ -396,7 +435,6 @@ void sys::Vault::give(void * data, const size_t size) noexcept {
 				try {
 					// Заводим свободный участок на месте возвращаемого
 					chunk.spans.emplace(next, offset, length);
-				// Перехватываем нехватку памяти
 				/**
 				 * Выполняем перехват ошибок
 				 */
@@ -437,10 +475,10 @@ sys::shelter_t sys::Vault::shelter() const noexcept {
 	 * Перебираем куски
 	 */
 	for(const auto & chunk : this->_chunks){
-		// Опускаем признак укрытия от снимков, если у куска его нет
-		result.hidden = (result.hidden && chunk.shelter.hidden);
 		// Опускаем признак запрета подкачки, если у куска его нет
 		result.wired = (result.wired && chunk.shelter.wired);
+		// Опускаем признак укрытия от снимков, если у куска его нет
+		result.hidden = (result.hidden && chunk.shelter.hidden);
 		// Опускаем признак затирания у потомка, если у куска его нет
 		result.forked = (result.forked && chunk.shelter.forked);
 	}
@@ -524,8 +562,8 @@ sys::Vault::~Vault() noexcept {
 	/**
 	 * @brief Метод затирания участка без возврата
 	 *
-	 * Перебираем куски: хранилище живёт до завершения процесса, и возврат кусков
-	 * системе - забота порядка; затирание - забота тайны
+	 * @note Перебираем куски: хранилище живёт до завершения процесса, и возврат кусков
+	 *       системе - забота порядка; затирание - забота тайны
 	 *
 	 */
 	for(auto & chunk : this->_chunks){
@@ -534,7 +572,7 @@ sys::Vault::~Vault() noexcept {
 		/**
 		 * @brief Метод возврата участка хранилищу с затиранием
 		 *
-		 * Для операционной системы MS Windows
+		 * @note Для операционной системы MS Windows
 		 *
 		 */
 		#if defined(_WIN32)
@@ -645,10 +683,10 @@ sys::Secret & sys::Secret::operator = (Secret && other) noexcept {
 		this->_data = other._data;
 		// Забираем длину участка
 		this->_size = other._size;
-		// Опустошаем переносимый участок
-		other._data = nullptr;
 		// Сбрасываем длину переносимого участка
 		other._size = 0;
+		// Опустошаем переносимый участок
+		other._data = nullptr;
 	}
 	// Выводим текущий участок
 	return (* this);
@@ -659,12 +697,18 @@ sys::Secret & sys::Secret::operator = (Secret && other) noexcept {
  * @param other переносимый участок; после переноса пуст
  *
  */
-sys::Secret::Secret(Secret && other) noexcept : _data(other._data), _size(other._size) {
-	// Опустошаем переносимый участок
-	other._data = nullptr;
+sys::Secret::Secret(Secret && other) noexcept : _size(other._size), _data(other._data) {
 	// Сбрасываем длину переносимого участка
 	other._size = 0;
+	// Опустошаем переносимый участок
+	other._data = nullptr;
 }
+/**
+ * @brief Конструктор
+ * @param other переносимый участок; после переноса пуст
+ *
+ */
+nts::sys::Secret::Secret() noexcept : _size(0), _data(nullptr) {}
 /**
  * @brief Деструктор
  *
@@ -673,28 +717,3 @@ sys::Secret::~Secret() noexcept {
 	// Возвращаем участок хранилищу с затиранием
 	this->release();
 }
-
-/**
- * @brief Конструктор
- *
- */
-nts::sys::Shelter::Shelter() noexcept : hidden(false), wired(false), forked(false) {}
-
-/**
- * @brief Конструктор
- *
- */
-nts::sys::Vault::Span::Span(const size_t offset, const size_t size) noexcept : offset(offset), size(size) {}
-
-/**
- * @brief Конструктор
- *
- */
-nts::sys::Vault::Chunk::Chunk() noexcept : base(nullptr), size(0) {}
-
-/**
- * @brief Конструктор
- * @param other переносимый участок; после переноса пуст
- *
- */
-nts::sys::Secret::Secret() noexcept : _data(nullptr), _size(0) {}

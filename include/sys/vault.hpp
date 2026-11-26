@@ -71,7 +71,7 @@ namespace nts {
 	namespace sys {
 		/**
 		 * \~russian
-		 * @brief Сведения об укрытии памяти хранилища
+		 * @brief Структура сведений об укрытии памяти хранилища
 		 *
 		 * @note Признаки отвечают о том, что состоялось НА ДЕЛЕ, а не о том, о чём
 		 *       просили: умеет такое не всякая система, а право на запрет подкачки к
@@ -80,7 +80,7 @@ namespace nts {
 		 *       кто не мирится с понижением, зовёт Vault::demand(true)
 		 *
 		 * \~english
-		 * @brief Information about the sheltering of the storage memory
+		 * @brief Structure of information regarding storage memory concealment
 		 *
 		 * @note The flags report what has happened IN FACT, not what was asked for: not every
 		 *       system is able to do it, and the right to forbid the swapping is besides limited
@@ -90,12 +90,12 @@ namespace nts {
 		 * \~
 		 */
 		typedef struct __NTS_SHARED_EXPORT__ Shelter {
-			// Признак памяти, укрытой от снимков памяти процесса
-			bool hidden;
 			// Признак памяти, которой запрещено уходить в подкачку
 			bool wired;
 			// Признак памяти, которую потомок процесса получает затёртой
 			bool forked;
+			// Признак памяти, укрытой от снимков памяти процесса
+			bool hidden;
 			/**
 			 * \~russian
 			 * @brief Конструктор
@@ -105,7 +105,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Shelter() noexcept;
+			explicit Shelter() noexcept;
 		} shelter_t;
 		/**
 		 * \~russian
@@ -117,7 +117,7 @@ namespace nts {
 		 *          участки под запросы, освобождённый участок затирается и отдаётся
 		 *          следующему запросу; системе куски не возвращаются никогда, потому
 		 *          что их число мало (десятки соединений на кусок), а право на запрет
-		 *          подкачки дорого и терять его перезаведением куска незачем
+		 *          подкачки дорого и терять его перезаведением куска незачем.
 		 *
 		 * @note Намеренные решения:
 		 *       1. Хранилище общее на процесс, а не своё у каждой связи: право на запрет
@@ -139,7 +139,7 @@ namespace nts {
 		 *          directly, bypassing the heap: the chunk is forbidden to swap, hidden from the
 		 *          memory dumps, and a child process gets it wiped. The chunks are cut into pieces
 		 *          for the requests, a released piece is wiped and given to the next request; the
-		 *          chunks are never returned to the system
+		 *          chunks are never returned to the system.
 		 *
 		 * @note Deliberate decisions:
 		 *       1. The storage is common per process, and not own at each connection: the right to forbid
@@ -167,11 +167,11 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				typedef struct Span {
-					// Смещение участка от начала куска
-					size_t offset;
+				typedef struct __NTS_SHARED_EXPORT__ Span {
 					// Длина участка в байтах
 					size_t size;
+					// Смещение участка от начала куска
+					size_t offset;
 					/**
 					 * \~russian
 					 * @brief Конструктор
@@ -198,15 +198,15 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				typedef struct Chunk {
-					// Адрес начала куска
-					uint8_t * base;
+				typedef struct __NTS_SHARED_EXPORT__ Chunk {
 					// Длина куска в байтах
 					size_t size;
 					// Сведения об укрытии куска
 					shelter_t shelter;
 					// Свободные участки куска по возрастанию смещения
 					vector <span_t> spans;
+					// Адрес начала куска
+					uint8_t * base;
 					/**
 					 * \~russian
 					 * @brief Конструктор
@@ -216,7 +216,7 @@ namespace nts {
 					 *
 					 * \~
 					 */
-					Chunk() noexcept;
+					explicit Chunk() noexcept;
 				} chunk_t;
 			private:
 				// Признак того, что понижение укрытия отвечается отказом
@@ -224,11 +224,11 @@ namespace nts {
 				// Признак того, что обработчик разветвления процесса заведён
 				bool _guarded;
 			private:
-				// Куски памяти, взятые у системы
-				vector <chunk_t> _chunks;
-			private:
 				// Замок хранилища: связи живут в разных потоках
 				mutable std::mutex _lock;
+			private:
+				// Куски памяти, взятые у системы
+				vector <chunk_t> _chunks;
 			private:
 				/**
 				 * \~russian
@@ -251,10 +251,16 @@ namespace nts {
 				 * \~russian
 				 * @brief Метод получения хранилища процесса
 				 *
+				 * @note Хранилище намеренно не разрушается и живёт до завершения
+				 *       процесса: заёмщики (Secret) разрушаются на exit, пока оно живо
+				 *
 				 * @return хранилище процесса
 				 *
 				 * \~english
 				 * @brief Method of getting the storage of the process
+				 *
+				 * @note The storage is intentionally never destroyed and lives until
+				 *       the process ends: borrowers (Secret) are destroyed at exit while it is alive
 				 *
 				 * @return the storage of the process
 				 *
@@ -401,7 +407,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				Vault() noexcept;
+				explicit Vault() noexcept;
 				/**
 				 * \~russian
 				 * @brief Деструктор
@@ -419,40 +425,24 @@ namespace nts {
 		 *
 		 * @details Владеет участком хранилища: заводится reserve(), затирается wipe(),
 		 *          возвращается release() либо разрушением. Копирования нет - у тайны
-		 *          один владелец; перенос дозволен
+		 *          один владелец; перенос дозволен.
 		 *
 		 * \~english
 		 * @brief Class of a piece of the sheltered memory
 		 *
 		 * @details Owns a piece of the storage: created by reserve(), wiped by wipe(), returned by
 		 *          release() or by the destruction. There is no copying, a secret has one owner;
-		 *          the move is allowed
+		 *          the move is allowed.
 		 *
 		 * \~
 		 */
 		typedef class __NTS_SHARED_EXPORT__ Secret {
 			private:
-				// Адрес участка
-				uint8_t * _data;
 				// Длина участка в байтах
 				size_t _size;
+				// Адрес участка
+				uint8_t * _data;
 			public:
-				/**
-				 * \~russian
-				 * @brief Метод заведения участка
-				 *
-				 * @param size длина участка в байтах
-				 * @return     признак того, что участок заведён и обнулён
-				 *
-				 * \~english
-				 * @brief Method of the reservation of the piece
-				 *
-				 * @param size the length of the piece in bytes
-				 * @return     the flag of the piece being reserved and zeroed
-				 *
-				 * \~
-				 */
-				bool reserve(const size_t size) noexcept;
 				/**
 				 * \~russian
 				 * @brief Метод затирания участка без возврата
@@ -473,6 +463,23 @@ namespace nts {
 				 * \~
 				 */
 				void release() noexcept;
+			public:
+				/**
+				 * \~russian
+				 * @brief Метод заведения участка
+				 *
+				 * @param size длина участка в байтах
+				 * @return     признак того, что участок заведён и обнулён
+				 *
+				 * \~english
+				 * @brief Method of the reservation of the piece
+				 *
+				 * @param size the length of the piece in bytes
+				 * @return     the flag of the piece being reserved and zeroed
+				 *
+				 * \~
+				 */
+				bool reserve(const size_t size) noexcept;
 			public:
 				/**
 				 * \~russian
@@ -582,7 +589,7 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				Secret() noexcept;
+				explicit Secret() noexcept;
 				/**
 				 * \~russian
 				 * @brief Деструктор
@@ -596,26 +603,42 @@ namespace nts {
 		} secret_t;
 		/**
 		 * \~russian
-		 * @brief Распределитель контейнеров языка над укрытым хранилищем
+		 * @brief Шаблон класса распределителя контейнеров языка над укрытым хранилищем
 		 *
-		 * @details Даёт контейнерам стандартной библиотеки память хранилища; освобождение
-		 *          затирает. Отказ хранилища обращается в bad_alloc, как у обычного
-		 *          распределителя, - контейнер о причине не знает и знать не должен
+		 * @tparam T тип данных значения распределителя
 		 *
 		 * \~english
-		 * @brief Allocator of the containers of the language over the sheltered storage
+		 * @brief Container allocator class template for a language, operating over an encapsulated storage area
 		 *
-		 * @details Gives the containers of the standard library the memory of the storage; the
-		 *          deallocation wipes. A refusal of the storage turns into bad_alloc, as at the
-		 *          ordinary allocator
+		 * @tparam T allocator value data type
 		 *
 		 * \~
 		 */
 		template <typename T>
+		/**
+		 * \~russian
+		 * @brief Класс распределителя контейнеров языка над укрытым хранилищем
+		 *
+		 * @details Даёт контейнерам стандартной библиотеки память хранилища; освобождение
+		 *          затирает. Отказ хранилища обращается в bad_alloc, как у обычного
+		 *          распределителя, - контейнер о причине не знает и знать не должен.
+		 *
+		 * \~english
+		 * @brief Container spreader class for use above a covered storage area
+		 *
+		 * @details Gives the containers of the standard library the memory of the storage; the
+		 *          deallocation wipes. A refusal of the storage turns into bad_alloc, as at the
+		 *          ordinary allocator.
+		 *
+		 * \~
+		 */
 		class Allocator {
 			public:
-				// Тип значения распределителя (имя задано стандартом: allocator_traits)
-				typedef T value_type;
+				/**
+				 * @brief Создаём тип значения распределителя (имя задано стандартом: allocator_traits)
+				 *
+				 */
+				using value_type = T;
 			public:
 				/**
 				 * \~russian
@@ -668,6 +691,20 @@ namespace nts {
 			public:
 				/**
 				 * \~russian
+				 * @brief Шаблон оператора сличения: все распределители равны, память общая
+				 *
+				 * @tparam U тип данных аллокатора
+				 *
+				 * \~english
+				 * @brief Comparison operator template: all allocators are equal, memory is shared
+				 *
+				 * @tparam U allocator data type
+				 *
+				 * \~
+				 */
+				template <typename U>
+				/**
+				 * \~russian
 				 * @brief Оператор сличения: все распределители равны, память общая
 				 *
 				 * \~english
@@ -675,11 +712,37 @@ namespace nts {
 				 *
 				 * \~
 				 */
+				bool operator == (const Allocator <U> &) const noexcept {
+					// Выводим положительный результат
+					return true;
+				}
+				/**
+				 * \~russian
+				 * @brief Шаблон оператора сличения: все распределители не равны, память общая
+				 *
+				 * @tparam U тип данных аллокатора
+				 *
+				 * \~english
+				 * @brief Comparison operator pattern: all allocators are unequal, memory is shared
+				 *
+				 * @tparam U allocator data type
+				 *
+				 * \~
+				 */
 				template <typename U>
-				bool operator == (const Allocator <U> &) const noexcept { return true; }
-				// Объявляем шаблон оператора сличения
-				template <typename U>
-				bool operator != (const Allocator <U> &) const noexcept { return false; }
+				/**
+				 * \~russian
+				 * @brief Оператор сличения: все распределители не равны, память общая
+				 *
+				 * \~english
+				 * @brief Comparison operator: all allocators are unequal, memory is shared
+				 *
+				 * \~
+				 */
+				bool operator != (const Allocator <U> &) const noexcept {
+					// Выводим отрицательный результат
+					return false;
+				}
 			public:
 				/**
 				 * \~russian
@@ -690,13 +753,42 @@ namespace nts {
 				 *
 				 * \~
 				 */
-				Allocator() noexcept = default;
-				// Объявляем шаблон конструктора копирования
+				explicit Allocator() noexcept = default;
+				/**
+				 * \~russian
+				 * @brief Шаблон конструктора копирования
+				 *
+				 * @tparam U тип данных аллокатора
+				 *
+				 * \~english
+				 * @brief Copy constructor template
+				 *
+				 * @tparam U allocator data type
+				 *
+				 * \~
+				 */
 				template <typename U>
-				Allocator(const Allocator <U> &) noexcept {}
+				/**
+				 * \~russian
+				 * @brief Конструктор копирования
+				 *
+				 * \~english
+				 * @brief Copy constructor
+				 *
+				 * \~
+				 */
+				explicit Allocator(const Allocator <U> &) noexcept {}
 		};
-		// Набор байтов на укрытой памяти: освобождение затирает
-		typedef vector <uint8_t, Allocator <uint8_t>> bytes_t;
+		/**
+		 * \~russian
+		 * @brief Тип данных набора байтов на укрытой памяти: освобождение затирает
+		 *
+		 * \~english
+		 * @brief Byte-array data type in protected memory: deallocation triggers zeroing out
+		 *
+		 * \~
+		 */
+		using bytes_t = vector <uint8_t, Allocator <uint8_t>>;
 	};
 };
 

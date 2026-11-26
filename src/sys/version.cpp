@@ -36,7 +36,7 @@ namespace {
 	/**
 	 * Сводное число обязано сходиться со своими номерами: опечатка сборки ловится здесь
 	 */
-	static_assert((NTS_VERSION_MAJOR * 1000000 + NTS_VERSION_MINOR * 1000 + NTS_VERSION_PATCH) == NTS_VERSION_NUMBER, "сводное число издания не сходится с номерами");
+	static_assert((NTS_VERSION_MAJOR * 1000000 + NTS_VERSION_MINOR * 1000 + NTS_VERSION_PATCH) == NTS_VERSION_NUMBER, "the publication's cumulative issue number does not match the individual issue numbers");
 }
 
 /**
