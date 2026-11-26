@@ -1697,10 +1697,9 @@ namespace {
 				// Выводим отказ негодного значения
 				return error_t::VALUE;
 			// Если подан и развёрнутый ключ, а с развёрнутым из зерна не сошёлся
-			if((expanded.data != nullptr) && ((expanded.size != sign::mldsa_t::secretSize(set)) || (::memcmp(record, expanded.data, expanded.size) != 0))){
+			if((expanded.data != nullptr) && ((expanded.size != sign::mldsa_t::secretSize(set)) || (::memcmp(record, expanded.data, expanded.size) != 0)))
 				// Выводим отказ негодного значения
 				return error_t::VALUE;
-			}
 		// Иначе записан лишь развёрнутый ключ: устанавливаем его с проверкой трассировки
 		} else if(!mldsa.secret(set, expanded))
 			// Выводим отказ негодного значения
@@ -1747,73 +1746,94 @@ namespace {
 	 * @return    отказ разбора записи
 	 *
 	 */
-	static error_t __nts_gost_secret__(const view_t & der, key_t & key) noexcept {
+	static __NTS_INLINE__ error_t __nts_gost_secret__(const view_t & der, key_t & key) noexcept {
 		// Если запись не передана
 		if((der.data == nullptr) || (der.size == 0))
 			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
+		// Кривая ключа
+		curve::curve_t curve;
+		// Итог установки кривой
+		const error_t fitted = ::__nts_curve_of__(key, curve);
+		// Если кривую установить не удалось
+		if(fitted != error_t::NONE)
+			// Выводим отказ установки
+			return fitted;
 		// Разбираемый элемент записи
 		asn1::element_t element;
 		// Разборщик записи
 		asn1::reader_t reader(der);
-		// Если элемент записи разобрать не удалось
-		if(!reader.next(element))
-			// Выводим переведённый отказ разбора
-			return ::__nts_translate__(reader.err());
-		// Если после элемента остался хвост либо класс метки не универсальный
-		if(!reader.empty() || (element.cls != asn1::cls_t::UNIVERSAL))
-			// Выводим отказ устройства записи
-			return error_t::STRUCTURE;
+		// Признак разобранности записи порядком DER
+		const bool parsed = reader.next(element);
 		/**
-		 * Определяем вид записи самого ключа по опознавателю
+		 * @brief Если запись разобрана, хвоста нет и класс метки универсальный
+		 *
+		 * @details Чужие работы (gost-engine) кладут скаляр в поле записи прямо, без вложенной
+		 *          строки октетов: запись расходится с разделом 4 RFC 9215 на две головы записи,
+		 *          а принимается обеими сторонами. Запись DER разбирается первой, а прямая
+		 *          узнаётся по длине строки байтов, равной размеру координаты кривой, - иная
+		 *          длина прямой записью быть не может.
+		 *
 		 */
-		switch(element.tag){
-			// Если ключ записан строкой байтов порядком от младшего байта к старшему
-			case static_cast <uint32_t> (asn1::tag_t::OCTET_STRING): {
-				// Если строка байтов составная либо пуста
-				if(element.constructed || (element.content.size == 0))
+		if(parsed && reader.empty() && (element.cls == asn1::cls_t::UNIVERSAL)){
+			/**
+			 * Определяем вид записи самого ключа по опознавателю
+			 */
+			switch(element.tag){
+				// Если ключ записан строкой байтов порядком от младшего байта к старшему
+				case static_cast <uint32_t> (asn1::tag_t::OCTET_STRING): {
+					// Если строка байтов составная либо пуста
+					if(element.constructed || (element.content.size == 0))
+						// Выводим отказ устройства записи
+						return error_t::STRUCTURE;
+					// Если развёрнутый ключ скопировать не удалось
+					if(!::__nts_reverse__(element.content.data, element.content.size, key.d))
+						// Выводим отказ нехватки памяти
+						return error_t::MEMORY;
+				} break;
+				// Если ключ записан целым числом порядком от старшего байта к младшему
+				case static_cast <uint32_t> (asn1::tag_t::INTEGER): {
+					// Итог разбора целого числа
+					const error_t outcome = ::__nts_unsigned_integer__(element, key.d);
+					// Если целое число разобрать не удалось
+					if(outcome != error_t::NONE)
+						// Выводим отказ разбора
+						return outcome;
+				} break;
+				// Если ключ записан набором из издания и строки байтов
+				case static_cast <uint32_t> (asn1::tag_t::SEQUENCE): {
+					// Разборщик содержимого набора
+					asn1::reader_t inner = reader.enter(element);
+					// Если издание записи разобрать не удалось
+					if(!inner.next(asn1::tag_t::INTEGER, element))
+						// Выводим переведённый отказ разбора
+						return ::__nts_translate__(inner.err());
+					// Если строку байтов ключа разобрать не удалось
+					if(!inner.next(asn1::tag_t::OCTET_STRING, element) || element.constructed || (element.content.size == 0))
+						// Выводим отказ устройства записи
+						return error_t::STRUCTURE;
+					// Если после строки байтов остался хвост
+					if(!inner.empty())
+						// Выводим отказ устройства записи
+						return error_t::STRUCTURE;
+					// Если ключ скопировать не удалось
+					if(!::__nts_copy__(element.content.data, element.content.size, key.d))
+						// Выводим отказ нехватки памяти
+						return error_t::MEMORY;
+				} break;
+				// Если вид записи ключа неизвестен
+				default:
 					// Выводим отказ устройства записи
 					return error_t::STRUCTURE;
-				// Если развёрнутый ключ скопировать не удалось
-				if(!::__nts_reverse__(element.content.data, element.content.size, key.d))
-					// Выводим отказ нехватки памяти
-					return error_t::MEMORY;
-			} break;
-			// Если ключ записан целым числом порядком от старшего байта к младшему
-			case static_cast <uint32_t> (asn1::tag_t::INTEGER): {
-				// Итог разбора целого числа
-				const error_t outcome = ::__nts_unsigned_integer__(element, key.d);
-				// Если целое число разобрать не удалось
-				if(outcome != error_t::NONE)
-					// Выводим отказ разбора
-					return outcome;
-			} break;
-			// Если ключ записан набором из издания и строки байтов
-			case static_cast <uint32_t> (asn1::tag_t::SEQUENCE): {
-				// Разборщик содержимого набора
-				asn1::reader_t inner = reader.enter(element);
-				// Если издание записи разобрать не удалось
-				if(!inner.next(asn1::tag_t::INTEGER, element))
-					// Выводим переведённый отказ разбора
-					return ::__nts_translate__(inner.err());
-				// Если строку байтов ключа разобрать не удалось
-				if(!inner.next(asn1::tag_t::OCTET_STRING, element) || element.constructed || (element.content.size == 0))
-					// Выводим отказ устройства записи
-					return error_t::STRUCTURE;
-				// Если после строки байтов остался хвост
-				if(!inner.empty())
-					// Выводим отказ устройства записи
-					return error_t::STRUCTURE;
-				// Если ключ скопировать не удалось
-				if(!::__nts_copy__(element.content.data, element.content.size, key.d))
-					// Выводим отказ нехватки памяти
-					return error_t::MEMORY;
-			} break;
-			// Если вид записи ключа неизвестен
-			default:
-				// Выводим отказ устройства записи
-				return error_t::STRUCTURE;
-		}
+			}
+		// Если запись порядком DER не разобрана, а длина её отвечает координате кривой
+		} else if(der.size == curve.size()){
+			// Если развёрнутый ключ скопировать не удалось
+			if(!::__nts_reverse__(der.data, der.size, key.d))
+				// Выводим отказ нехватки памяти
+				return error_t::MEMORY;
+		// Если запись не разобрана ни порядком DER, ни прямой записью
+		} else return error_t::STRUCTURE;
 		// Устанавливаем вид ключа
 		key.kind = kind_t::GOST;
 		// Выводим итог выведения открытой части ключа
