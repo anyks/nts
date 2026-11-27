@@ -34,9 +34,9 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "codec/base64.hpp"
-#include "sys/machine.hpp"
 #include "sys/wipe.hpp"
+#include "sys/machine.hpp"
+#include "codec/base64.hpp"
 #include "internal/codec/base64.hpp"
 
 /**
@@ -45,14 +45,14 @@
  */
 namespace {
 	/**
-	 * Подписываемся на метод затирания памяти
-	 */
-	using nts::sys::wipe;
-
-	/**
 	 * Подписываемся на пространство имён проекта
 	 */
 	using namespace nts;
+
+	/**
+	 * Подписываемся на метод затирания памяти
+	 */
+	using nts::sys::wipe;
 
 	/**
 	 * @brief Знаки основания 64 по разделу 4 RFC 4648
@@ -112,77 +112,90 @@ namespace {
 	static constexpr Table POINTERS = __nts_reverse__(WANTED);
 
 	/**
+	 * @brief Функция Служебная функция отказа разбора с затиранием накопленных байтов
+	 *
+	 * @param result накопленные байты
+	 * @return       признак отказа разбора
+	 *
+	 */
+	static __NTS_INLINE__ bool __nts_failure__(vector <uint8_t> & result) noexcept {
+		// Затираем недоразобранные байты
+		wipe(result.data(), result.size());
+		// Очищаем место
+		result.clear();
+		// Выводим отказ разбора
+		return false;
+	}
+	/**
 	 * @brief Функция проверки того, что знак является пробельным
 	 *
 	 * @param letter проверяемый знак
 	 * @return       признак того, что знак является пробельным
 	 *
 	 */
-	static bool __nts_space__(const char letter) noexcept {
+	static constexpr bool __nts_space__(const char letter) noexcept {
 		// Выводим признак принадлежности знака к пробельным
 		return ((letter == ' ') || (letter == '\t') || (letter == '\r') || (letter == '\n') || (letter == '\v') || (letter == '\f'));
 	}
-/**
- * @brief Функция шага полных блоков кодирования
- *
- * @details Векторное ядро AVX2 кодирует двадцать четыре байта за шаг, прочие
- *          ядра - двенадцать; шаг спрашивается до разбора входа, чтобы запись
- *          завелась точной длиной
- *
- * @return количество байтов шага: двадцать четыре либо двенадцать
- *
- */
-static size_t __nts_stepping__() noexcept {
 	/**
-	 * x86-64 спрашивает команды AVX2 у машины на исполнении
+	 * @brief Функция шага полных блоков кодирования
+	 *
+	 * @details Векторное ядро AVX2 кодирует двадцать четыре байта за шаг, прочие
+	 *          ядра - двенадцать; шаг спрашивается до разбора входа, чтобы запись
+	 *          завелась точной длиной.
+	 *
+	 * @return количество байтов шага: двадцать четыре либо двенадцать
+	 *
 	 */
-	#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
-		// Шаг двадцать четыре байта при векторном ядре машины
-		return (::nts::machine::has(::nts::machine::feature_t::AVX2) ? 24 : 12);
+	static __NTS_INLINE__ size_t __nts_stepping__() noexcept {
+		/**
+		 * x86-64 спрашивает команды AVX2 у машины на исполнении
+		 */
+		#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
+			// Шаг двадцать четыре байта при векторном ядре машины
+			return (::nts::machine::has(::nts::machine::feature_t::AVX2) ? 24 : 12);
+		/**
+		 * Прочие машины шагают двенадцатью байтами
+		 */
+		#else
+			// Выводим шаг переносимого и двенадцатибайтового хода
+			return 12;
+		#endif
+	}
 	/**
-	 * Прочие машины шагают двенадцатью байтами
+	 * @brief Функция кодирования очереди полных блоков выбранным ядром
+	 *
+	 * @details Векторное ядро AVX2 берёт всю очередь одним вызовом и ведёт блоки
+	 *          парами вперемежку, прочие ядра кодируют блок за блоком.
+	 *
+	 * @param step     шаг блока из функции шага
+	 * @param data     кодируемые байты очереди
+	 * @param result   место, в которое помещаются знаки очереди
+	 * @param blocks   количество полных блоков очереди
+	 * @param alphabet алфавит записи
+	 *
 	 */
-	#else
-		// Выводим шаг переносимого и двенадцатибайтового хода
-		return 12;
-	#endif
-}
-/**
- * @brief Функция кодирования очереди полных блоков выбранным ядром
- *
- * @details Векторное ядро AVX2 берёт всю очередь одним вызовом и ведёт блоки
- *          парами вперемежку, прочие ядра кодируют блок за блоком
- *
- * @param step     шаг блока из функции шага
- * @param data     кодируемые байты очереди
- * @param result   место, в которое помещаются знаки очереди
- * @param blocks   количество полных блоков очереди
- * @param alphabet алфавит записи
- *
- */
-static void __nts_dispatch_blocks__(const size_t step, const uint8_t * data, uint8_t * result, const size_t blocks, const codec::alphabet_t alphabet) noexcept {
-	/**
-	 * Шаг двадцать четыре байта достаётся лишь векторному ядру AVX2
-	 */
-	#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
-		// Векторное ядро несётся при шаге двадцать четыре
-		if(step == 24){
-			// Кодируем очередь блоков векторным ядром
-			encodeBlocks(data, result, blocks, alphabet);
-			// Выходим из кодирования очереди
-			return;
-		}
-	#endif
-	/**
-	 * Перебираем полные блоки: блок кодирует выбранное ядро
-	 */
-	for(size_t i = 0; i < blocks; i++)
-		// Кодируем блок выбранным ядром
-		dispatch(data + (step * i), result + (((step * 4) / 3) * i), alphabet);
-}
+	static __NTS_INLINE__ void __nts_dispatch_blocks__(const size_t step, const uint8_t * data, uint8_t * result, const size_t blocks, const codec::alphabet_t alphabet) noexcept {
+		/**
+		* Шаг двадцать четыре байта достаётся лишь векторному ядру AVX2
+		*/
+		#if ((defined(__x86_64__) || defined(__i386__)) && (defined(__clang__) || defined(__GNUC__)) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
+			// Векторное ядро несётся при шаге двадцать четыре
+			if(step == 24){
+				// Кодируем очередь блоков векторным ядром
+				encodeBlocks(data, result, blocks, alphabet);
+				// Выходим из кодирования очереди
+				return;
+			}
+		#endif
+		/**
+		* Перебираем полные блоки: блок кодирует выбранное ядро
+		*/
+		for(size_t i = 0; i < blocks; i++)
+			// Кодируем блок выбранным ядром
+			dispatch(data + (step * i), result + (((step * 4) / 3) * i), alphabet);
+	}
 };
-
-
 
 /**
  * @brief Метод кодирования основания 64
@@ -218,7 +231,6 @@ bool nts::codec::encode(const view_t & data, string & result, const bool padding
 		return false;
 	}
 }
-
 /**
  * @brief Функция Служебный метод кодирования основания 64 с пробросом нехватки памяти
  *
@@ -233,7 +245,7 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 	// Очистка прежней записи
 	result.clear();
 	// Шаг полных блоков: двадцать четыре байта при векторном ядре AVX2, иначе двенадцать
-	const size_t step = __nts_stepping__();
+	const size_t step = ::__nts_stepping__();
 	// Количество полных блоков шага
 	const size_t blocks = (data.size / step);
 	// Количество байтов хвоста
@@ -245,7 +257,7 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 	// Запись заводится точной длиной: знаки пишутся прямо в неё
 	result.resize(total);
 	// Кодируем очередь полных блоков выбранным ядром
-	__nts_dispatch_blocks__(step, data.data, reinterpret_cast <uint8_t *> (result.data()), blocks, alphabet);
+	::__nts_dispatch_blocks__(step, data.data, reinterpret_cast <uint8_t *> (result.data()), blocks, alphabet);
 	// Счётчик знаков записи: знаки полных блоков уже записаны
 	size_t written = (blocks * ((step * 4) / 3));
 	// Хвост входа до двадцати трёх байтов переносимым ходом
@@ -293,22 +305,6 @@ bool nts::codec::rawEncode(const view_t & data, string & result, const bool padd
 }
 
 /**
- * @brief Функция Служебная функция отказа разбора с затиранием накопленных байтов
- *
- * @param result накопленные байты
- * @return       признак отказа разбора
- *
- */
-static bool failure(vector <uint8_t> & result) noexcept {
-	// Затираем недоразобранные байты
-	wipe(result.data(), result.size());
-	// Очищаем место
-	result.clear();
-	// Выводим отказ разбора
-	return false;
-}
-
-/**
  * @brief Метод разбора записи основания 64
  *
  * @param text     разбираемая запись
@@ -342,7 +338,6 @@ bool nts::codec::decode(const view_t & text, vector <uint8_t> & result, const al
 		return false;
 	}
 }
-
 /**
  * @brief Функция Служебный метод разбора записи основания 64 с пробросом нехватки памяти
  *
@@ -381,7 +376,7 @@ bool nts::codec::rawDecode(const view_t & text, vector <uint8_t> & result, const
 				continue;
 			}
 			// Пробельный знак при заказанном пропуске
-			if(spaces && __nts_space__(letter))
+			if(spaces && ::__nts_space__(letter))
 				// Продолжаем перебор
 				continue;
 			// Номер знака основания из таблицы
@@ -389,7 +384,7 @@ bool nts::codec::rawDecode(const view_t & text, vector <uint8_t> & result, const
 			// Посторонний знак либо знак после заполнения
 			if((number == 255) || (filled != 0))
 				// Выводим отказ разбора с затиранием накопленного
-				return failure(result);
+				return ::__nts_failure__(result);
 			// Накапливаем шесть разрядов знака
 			accumulator = ((accumulator << 6) | number);
 			// Четвёрка знаков собрана
@@ -409,19 +404,19 @@ bool nts::codec::rawDecode(const view_t & text, vector <uint8_t> & result, const
 		// Остаток знаков: один знак не собирает байта, два либо три собирают
 		if(gathered == 1)
 			// Выводим отказ разбора с затиранием накопленного
-			return failure(result);
+			return ::__nts_failure__(result);
 		// Заполнение сверх двух знаков либо не дополняющее четвёрку
 		if((filled > 2) || ((filled != 0) && ((gathered + filled) != 4)))
 			// Выводим отказ разбора с затиранием накопленного
-			return failure(result);
+			return ::__nts_failure__(result);
 		// Ненулевые отброшенные разряды остатка
 		if((gathered == 2) && ((accumulator & 15) != 0))
 			// Выводим отказ разбора с затиранием накопленного
-			return failure(result);
+			return ::__nts_failure__(result);
 		// Ненулевые отброшенные разряды остатка
 		if((gathered == 3) && ((accumulator & 3) != 0))
 			// Выводим отказ разбора с затиранием накопленного
-			return failure(result);
+			return ::__nts_failure__(result);
 		// Байты остатка
 		if(gathered != 0)
 			/**

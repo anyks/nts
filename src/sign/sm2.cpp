@@ -30,9 +30,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "sign/sm2.hpp"
-#include "digest/sm3.hpp"
 #include "sys/wipe.hpp"
+#include "digest/sm3.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "sign/sm2.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -49,13 +53,15 @@ namespace {
 	 */
 	using namespace nts;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
 	/**
 	 * @brief Первый коэффициент уравнения кривой SM2
 	 *
-	 * @details Раздел 5 GB/T 32918.5-2017
+	 * @details Раздел 5 GB/T 32918.5-2017.
 	 *
 	 */
 	static constexpr uint8_t FIRST[32] = {
@@ -63,11 +69,10 @@ namespace {
 		0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 		0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC
 	};
-
 	/**
 	 * @brief Второй коэффициент уравнения кривой SM2
 	 *
-	 * @details Раздел 5 GB/T 32918.5-2017
+	 * @details Раздел 5 GB/T 32918.5-2017.
 	 *
 	 */
 	static constexpr uint8_t SECOND[32] = {
@@ -75,11 +80,10 @@ namespace {
 		0x28, 0xE9, 0xFA, 0x9E, 0x9D, 0x9F, 0x5E, 0x34, 0x4D, 0x5A, 0x9E, 0x4B, 0xCF, 0x65, 0x09, 0xA7,
 		0xF3, 0x97, 0x89, 0xF5, 0x15, 0xAB, 0x8F, 0x92, 0xDD, 0xBC, 0xBD, 0x41, 0x4D, 0x94, 0x0E, 0x93
 	};
-
 	/**
 	 * @brief Первая координата образующей точки кривой SM2
 	 *
-	 * @details Раздел 5 GB/T 32918.5-2017
+	 * @details Раздел 5 GB/T 32918.5-2017.
 	 *
 	 */
 	static constexpr uint8_t BASE_X[32] = {
@@ -87,11 +91,10 @@ namespace {
 		0x32, 0xC4, 0xAE, 0x2C, 0x1F, 0x19, 0x81, 0x19, 0x5F, 0x99, 0x04, 0x46, 0x6A, 0x39, 0xC9, 0x94,
 		0x8F, 0xE3, 0x0B, 0xBF, 0xF2, 0x66, 0x0B, 0xE1, 0x71, 0x5A, 0x45, 0x89, 0x33, 0x4C, 0x74, 0xC7
 	};
-
 	/**
 	 * @brief Вторая координата образующей точки кривой SM2
 	 *
-	 * @details Раздел 5 GB/T 32918.5-2017
+	 * @details Раздел 5 GB/T 32918.5-2017.
 	 *
 	 */
 	static constexpr uint8_t BASE_Y[32] = {

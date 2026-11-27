@@ -26,33 +26,18 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "digest/pbkdf2.hpp"
-#include "digest/hmac.hpp"
 #include "sys/wipe.hpp"
+#include "digest/hmac.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "digest/pbkdf2.hpp"
 
 /**
  * Используем стандартное пространство имён
  */
 using namespace std;
-
-/**
- * @brief Внутренние служебные объекты
- *
- */
-namespace {
-	/**
-	 * Пространство имён библиотеки
-	 */
-	using namespace nts;
-
-	/**
-	 * Пространство имён модуля
-	 */
-	using namespace nts::digest;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
-};
 
 /**
  * @brief Функция вывода ключа из пароля PBKDF2-HMAC
@@ -144,13 +129,13 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 		produced += taken;
 	}
 	// Затирание оборота
-	wipe(round, sizeof(round));
+	sys::wipe(round, sizeof(round));
 	// Затирание блока
-	wipe(block, sizeof(block));
+	sys::wipe(block, sizeof(block));
 	// Если вывод не удался
 	if(!ok)
 		// Затирание недовыведенного ключа
-		wipe(result, size);
+		sys::wipe(result, size);
 	// Выводим признак успешности вывода
 	return ok;
 }

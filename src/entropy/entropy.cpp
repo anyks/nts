@@ -95,11 +95,17 @@
 		 * Заголовочные файлы вызова ядра, выдающего случайные байты
 		 */
 		#if defined(__APPLE__) || defined(__MACH__) || defined(__ANDROID__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
+			/**
+			 * Системный заголовочный файл
+			 */
 			#include <stdlib.h>
 		/**
 		 * Иначе подключаем заголовочные файлы вызова ядра Linux
 		 */
 		#else
+			/**
+			 * Системные заголовочные файлы
+			 */
 			#include <stdlib.h>
 			#include <sys/random.h>
 		#endif
@@ -170,7 +176,7 @@ namespace {
 		 * @brief Функция Обработчик разветвления процесса у потомка
 		 *
 		 */
-		static void __nts_forked__() noexcept {
+		static __NTS_INLINE__ void __nts_forked__() noexcept {
 			// Открываем новое поколение процесса
 			generation.fetch_add(1, memory_order_relaxed);
 		}
@@ -185,7 +191,7 @@ namespace {
 		 * @return  признак того, что обработчик заведён
 		 *
 		 */
-		static bool __nts_guard__() noexcept {
+		static __NTS_INLINE__ bool __nts_guard__() noexcept {
 			// Признак того, что обработчик заведён
 			static atomic <bool> guarded{false};
 			// Если обработчик уже заведён
@@ -211,7 +217,7 @@ namespace {
 		 * @return признак того, что обработчик заведён: разветвления у Windows нет
 		 *
 		 */
-		static bool __nts_guard__() noexcept {
+		static constexpr bool __nts_guard__() noexcept {
 			// Разветвления у системы нет, стеречь нечего
 			return true;
 		}
@@ -234,7 +240,7 @@ namespace {
 		 * @return     признак успешности чтения случайных байтов
 		 *
 		 */
-		static bool __nts_device__(uint8_t * data, const size_t size) noexcept {
+		static __NTS_INLINE__ bool __nts_device__(uint8_t * data, const size_t size) noexcept {
 			// Открытие устройства случайных байтов
 			const int32_t descriptor = ::open("/dev/urandom", O_RDONLY);
 			// Если устройство случайных байтов открыть не удалось
@@ -280,7 +286,7 @@ namespace {
 	 * @return     признак успешности получения случайных байтов
 	 *
 	 */
-	static bool __nts_seed__(uint8_t * data, const size_t size) noexcept {
+	static __NTS_INLINE__ bool __nts_seed__(uint8_t * data, const size_t size) noexcept {
 		/**
 		 * Определяем платформу, под которую ведётся сборка
 		 */
@@ -353,7 +359,7 @@ namespace {
 	 * @return          признак успешности наполнения
 	 *
 	 */
-	static bool __nts_refill__(internal::generator_t & generator) noexcept {
+	static __NTS_INLINE__ bool __nts_refill__(internal::generator_t & generator) noexcept {
 		// Объект шифра ChaCha20
 		cipher::chacha_t cipher;
 		// Если шифр на текущих ключе и заполнении запустить не удалось
@@ -391,13 +397,13 @@ namespace {
 	 *
 	 * @details Свежие байты системы складываются с ключом по модулю два, а не подменяют
 	 *          его: худшие байты системы состояния не ухудшат. Неизрасходованный запас
-	 *          отбрасывается: у потомка процесса он тот же, что у родителя
+	 *          отбрасывается: у потомка процесса он тот же, что у родителя.
 	 *
 	 * @param generator порождатель потока
 	 * @return          признак успешности переналивки
 	 *
 	 */
-	static bool __nts_stir__(internal::generator_t & generator) noexcept {
+	static __NTS_INLINE__ bool __nts_stir__(internal::generator_t & generator) noexcept {
 		// Свежие байты системы
 		uint8_t fresh[internal::generator_t::KEY];
 		// Если свежих байтов у системы получить не удалось

@@ -305,7 +305,7 @@
  */
 
 /**
- * Копирование байтов слова при разборе и записи числа; перестановка байтов слова под MSVC библиотечная
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -313,6 +313,9 @@
  * Для MSVC подключаем заголовочный файл перестановки байтов
  */
 #if defined(_MSC_VER)
+	/**
+	 * Системный заголовочный файл
+	 */
 	#include <stdlib.h>
 #endif
 
@@ -320,11 +323,17 @@
  * Векторные команды выбора записи таблицы окна: NEON под AArch64, SSE2 под x86-64
  */
 #if (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && !defined(__ARM_BIG_ENDIAN) && !defined(NTS_NO_MACHINE)
+	/**
+	 * Системный заголовочный файл
+	 */
 	#include <arm_neon.h>
 /**
  * Для x86-64 подключаем заголовочные файлы SSE2 и AVX2
  */
 #elif (defined(__x86_64__) || defined(__NTS_MSVC_X64__)) && !defined(NTS_NO_MACHINE)
+	/**
+	 * Системные заголовочные файлы
+	 */
 	#include <emmintrin.h>
 	#include <immintrin.h>
 #endif
@@ -961,7 +970,9 @@ namespace {
 			uint64_t passed = 0;
 			// Переносы в регистрах
 			uint64_t carry1Reg = carry1, lift1Reg = lift1, carry2Reg = carry2, lift2Reg = lift2;
-			// Цикл столбцов на ассемблере
+			/**
+			 * Цикл столбцов на ассемблере
+			 */
 			__asm__ __volatile__(
 			"cmpq  $4, %[left]\n\t" "jb    2f\n\t"
 			"1:\n\t"
@@ -1019,7 +1030,9 @@ namespace {
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_multiply_4x_mulq__(uint64_t * buffer, const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result) noexcept {
-			// Умножение с приведением на ассемблере
+			/**
+			 * Умножение с приведением на ассемблере
+			 */
 			__asm__ __volatile__(
 			"movq  %[buffer], %%r8\n\t"
 			"movq  %[first], %%rsi\n\t"
@@ -1467,7 +1480,9 @@ namespace {
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_stripes__(uint64_t * buffer, const uint64_t * first, const uint64_t * modulus, const uint64_t word, const uint64_t inverse, const size_t count) noexcept {
-			// Ряд полосами по четыре слова на ассемблере
+			/**
+			 * Ряд полосами по четыре слова на ассемблере
+			 */
 			__asm__ __volatile__(
 			"mov   x24, %[buffer]\n\t"
 			"mov   x25, %[first]\n\t"
@@ -1618,7 +1633,9 @@ namespace {
 			const uint64_t bytes = (count * 8), counter = ((count / 4) - 1);
 			// Конец слов второго сомножителя
 			const uint64_t * bend = (second + count);
-			// Умножение полосами по четыре слова одним вызовом
+			/**
+			 * Умножение полосами по четыре слова одним вызовом
+			 */
 			__asm__ __volatile__(
 			"movq  %[t], %%rbx\n\t"
 			"movq  %[a], %%rsi\n\t"
@@ -1883,7 +1900,9 @@ namespace {
 				// Перенос между блоками
 				uint64_t carry;
 			} args = {buffer, value, modulus, count, inverse, 0};
-			// Квадрат полосами по восемь слов на ассемблере
+			/**
+			 * Квадрат полосами по восемь слов на ассемблере
+			 */
 			__asm__ __volatile__(
 			/* Указатели накопителя и числа, количество слов; обнуление удвоенной ширины накопителя */
 			"ldp   x26, x27, [%[p]]\n\t"
@@ -2333,7 +2352,9 @@ namespace {
 		 *
 		 */
 		static __NTS_INLINE__ void __nts_square_8x__(uint64_t * buffer, const uint64_t * value, const uint64_t * modulus, const size_t count, const uint64_t inverse) noexcept {
-			// Квадрат блоками по восемь слов на ассемблере
+			/**
+			 * Квадрат блоками по восемь слов на ассемблере
+			 */
 			__asm__ __volatile__(
 			"movq  %[buffer], %%rdi\n\t"
 			"movq  %[value], %%rsi\n\t"
@@ -2869,7 +2890,9 @@ namespace {
 		 * снятым флагам: доводка на C стоила пятую часть умножения на 16 словах (решение 7 шапки)
 		 */
 		#if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
-			// Доводка на ассемблере AArch64
+			/**
+			 * Доводка на ассемблере AArch64
+			 */
 			__asm__ __volatile__(
 			"mov   x4, %[buffer]\n\t"
 			"mov   x5, %[modulus]\n\t"
@@ -2950,7 +2973,9 @@ namespace {
 		 * из 805 у квадрата на 16 словах)
 		 */
 		#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
-			// Доводка на ассемблере x86-64
+			/**
+			 * Доводка на ассемблере x86-64
+			 */
 			__asm__ __volatile__(
 			"movq  %[count], %%rcx\n\t"
 			"xorl  %%edx, %%edx\n\t"
@@ -4439,7 +4464,9 @@ namespace {
 		 *
 		 */
 		static __NTS_INLINE__ int64_t __nts_hide__(int64_t mask) noexcept {
-			// Прячем маску от собирателя пустой вставкой
+			/**
+			 * Прячем маску от собирателя пустой вставкой
+			 */
 			__asm__ __volatile__("" : "+r"(mask));
 			// Выводим ту же маску
 			return mask;

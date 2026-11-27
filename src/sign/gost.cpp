@@ -26,9 +26,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "sign/gost.hpp"
-#include "entropy/entropy.hpp"
 #include "sys/wipe.hpp"
+#include "entropy/entropy.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "sign/gost.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -46,6 +50,11 @@ namespace {
 	using namespace nts;
 
 	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
+
+	/**
 	 * @brief Наибольшее количество попыток выработки подписи
 	 *
 	 * @details Обращение в ноль всякой из частей подписи невероятно настолько же,
@@ -55,13 +64,11 @@ namespace {
 	 */
 	static constexpr size_t ATTEMPTS = 10;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * @brief Функция приведения хеша сообщения по порядку подгруппы точек кривой
 	 *
 	 * @details Раздел 6.1 ГОСТ Р 34.10-2012: нулевое приведённое значение заменяется
-	 *          единицей, иначе подпись обратилась бы в тождество
+	 *          единицей, иначе подпись обратилась бы в тождество.
 	 *
 	 * @param order  арифметика порядка подгруппы точек кривой
 	 * @param digest приводимый хеш сообщения
@@ -69,7 +76,7 @@ namespace {
 	 * @return       признак успешности приведения хеша сообщения
 	 *
 	 */
-	static bool __nts_digest__(const math::modulus_t & order, const view_t & value, math::number_t & result) noexcept {
+	static __NTS_INLINE__ bool __nts_digest__(const math::modulus_t & order, const view_t & value, math::number_t & result) noexcept {
 		// Если хеш сообщения приведению не подлежит
 		if(!order.reduce(value, result))
 			// Выводим отказ приведения хеша сообщения

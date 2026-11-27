@@ -27,10 +27,14 @@
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "digest/hmac.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -53,13 +57,16 @@ namespace {
 	using namespace nts::digest;
 
 	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
+
+	/**
 	 * @brief Размер блока сжатия хеша в байтах
 	 *
 	 */
 	static constexpr size_t BLOCK = 64;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * @brief Функция выработки блоков ключа имитовставки
 	 *
@@ -73,7 +80,7 @@ namespace {
 	 * @return      признак успешности выработки блоков ключа
 	 *
 	 */
-	static bool __nts_prepare__(const type_t type, const view_t & key, uint8_t * inner, uint8_t * outer) noexcept {
+	static __NTS_INLINE__ bool __nts_prepare__(const type_t type, const view_t & key, uint8_t * inner, uint8_t * outer) noexcept {
 		// Дополняемый нулями ключ выработки имитовставки
 		uint8_t buffer[BLOCK];
 		// Обнуление дополняемого ключа

@@ -23,22 +23,26 @@
  */
 
 /**
- * Стандартные модули
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "keys/ssh.hpp"
 #include "sys/wipe.hpp"
-#include "codec/base64.hpp"
-#include "digest/bcrypt.hpp"
-#include "digest/hmac.hpp"
-#include "digest/sha2.hpp"
 #include "cipher/aes.hpp"
 #include "cipher/mode.hpp"
+#include "digest/hmac.hpp"
+#include "digest/sha2.hpp"
+#include "digest/bcrypt.hpp"
+#include "codec/base64.hpp"
 #include "entropy/entropy.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "keys/ssh.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -54,6 +58,7 @@ namespace {
 	 * Пространство имён проекта
 	 */
 	using namespace nts;
+
 	/**
 	 * Затирание областей памяти берётся из открытого API библиотеки
 	 */
@@ -378,7 +383,7 @@ namespace {
 	 * @return     строка base64
 	 *
 	 */
-	string __nts_base64_encode__(const uint8_t * data, const size_t size) noexcept {
+	static __NTS_INLINE__ string __nts_base64_encode__(const uint8_t * data, const size_t size) noexcept {
 		// Накопитель строки base64
 		string result;
 		// Кодируем данные кодеком: нехватка памяти отвечает пустой строкой
@@ -394,7 +399,7 @@ namespace {
 	 * @return     признак успешности
 	 *
 	 */
-	bool __nts_base64_decode__(const string & text, vector <uint8_t> & data) noexcept {
+	static __NTS_INLINE__ bool __nts_base64_decode__(const string & text, vector <uint8_t> & data) noexcept {
 		// Выводим итог разбора кодеком: нехватка памяти отвечает отказом
 		return codec::decode(view_t(reinterpret_cast <const uint8_t *> (text.data()), text.size()), data);
 	}
@@ -407,7 +412,7 @@ namespace {
 	 * @return        признак успешности
 	 *
 	 */
-	bool __nts_parse_private__(reader_t & reader, keys::key_t & key, string & comment) noexcept {
+	static __NTS_INLINE__ bool __nts_parse_private__(reader_t & reader, keys::key_t & key, string & comment) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -486,7 +491,7 @@ namespace {
 	 * @param comment комментарий
 	 *
 	 */
-	void __nts_write_private__(writer_t & writer, const keys::key_t & key, const string & comment) noexcept {
+	static __NTS_INLINE__ void __nts_write_private__(writer_t & writer, const keys::key_t & key, const string & comment) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -568,7 +573,7 @@ string nts::keys::ssh::fingerprint(const key_t & key) noexcept {
 		// Завершаем хеш
 		sha.finish(hash, sizeof(hash));
 		// Отпечаток в base64 без дополнения
-		string b64;
+		string b64 = "";
 		// Кодируем отпечаток кодеком без заполнения записи
 		codec::encode(view_t(hash, sizeof(hash)), b64, false);
 		// Выводим отпечаток с меткой алгоритма

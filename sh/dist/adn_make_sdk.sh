@@ -15,7 +15,7 @@
 #   - SDK собирается БЕЗ пароля (ключевые контейнеры открываются ключами получателей).
 #   - модуль ищется по имени: у macOS-фреймворка он внутри Versions/A, у Unix - lib/anyks.
 #   - EXTRACT возвращает rc=0 и на отказе (битая ссылка): мерим последствие, не код возврата.
-DAN="/Users/forman/Work/GIT/crisper/danube2/build-rel/dan"
+DAN="${DAN:-/Users/forman/Work/GIT/crisper/danube/build-rel/dan}"
 
 LAYOUT="${1:-}"
 OUTDIR="${2:-}"

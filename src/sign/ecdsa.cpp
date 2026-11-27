@@ -37,11 +37,15 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "sign/ecdsa.hpp"
-#include "asn1/asn1.hpp"
-#include "entropy/entropy.hpp"
-#include "digest/hmac.hpp"
 #include "sys/wipe.hpp"
+#include "asn1/asn1.hpp"
+#include "digest/hmac.hpp"
+#include "entropy/entropy.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "sign/ecdsa.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -59,6 +63,11 @@ namespace {
 	using namespace nts;
 
 	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
+
+	/**
 	 * @brief Наибольшее количество попыток вывода случайного числа
 	 *
 	 * @details Кандидат k по разделу 3.2 RFC 6979 берётся из разрядов порядка и
@@ -66,11 +75,10 @@ namespace {
 	 *          (наборы ГОСТ) это половина кандидатов, оттого десяти попыток мало -
 	 *          подпись срывалась бы у одного сообщения из тысячи, и навсегда, ибо
 	 *          вывод детерминирован; ста двадцати восьми попыток довольно с запасом
-	 *          2^-128, а предел стоит заслоном от вечного круга
+	 *          2^-128, а предел стоит заслоном от вечного круга.
 	 *
 	 */
 	static constexpr size_t ATTEMPTS = 128;
-
 	/**
 	 * @brief Наибольшая длина хеша, участвующего в выводе случайного числа
 	 *
@@ -82,13 +90,13 @@ namespace {
 	 *
 	 * @details Заголовок состоит из метки и длины: длина до 128 байтов пишется одним
 	 *          байтом, а большая - байтом количества байтов и самими байтами по разделу
-	 *          8.1.3 X.690
+	 *          8.1.3 X.690.
 	 *
 	 * @param content длина содержимого элемента
 	 * @return        длина заголовка элемента в байтах
 	 *
 	 */
-	static size_t __nts_header__(const size_t content) noexcept {
+	static constexpr size_t __nts_header__(const size_t content) noexcept {
 		// Если длина укладывается в короткую форму
 		if(content < 128)
 			// Выводим длину метки и одного байта длины
@@ -100,15 +108,12 @@ namespace {
 		// Выводим длину метки, байта количества байтов и двух байтов длины
 		return 4;
 	}
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * @brief Функция усечения потока байтов до старших разрядов заданного числа
 	 *
 	 * @details Раздел 4.1.3 SEC 1 и раздел 2.3.2 RFC 6979: из потока берутся старшие
 	 *          разряды в числе, равном разрядности порядка подгруппы, а поток короче
-	 *          порядка берётся целиком
+	 *          порядка берётся целиком.
 	 *
 	 * @param data   усекаемый поток байтов, записанный от старшего байта к младшему
 	 * @param bits   количество оставляемых старших разрядов
@@ -116,7 +121,7 @@ namespace {
 	 * @return       количество байтов усечённого потока
 	 *
 	 */
-	static size_t __nts_truncate__(const view_t & data, const size_t bits, uint8_t * result) noexcept {
+	static __NTS_INLINE__ size_t __nts_truncate__(const view_t & data, const size_t bits, uint8_t * result) noexcept {
 		// Количество байтов, вмещающих оставляемые разряды
 		size_t count = ((bits + 7) / 8);
 		// Если поток короче оставляемых разрядов
@@ -156,7 +161,7 @@ namespace {
 	 * @return       признак успешности обращения хеша сообщения
 	 *
 	 */
-	static bool __nts_digest__(const math::modulus_t & order, const size_t bits, const view_t & value, math::number_t & result) noexcept {
+	static __NTS_INLINE__ bool __nts_digest__(const math::modulus_t & order, const size_t bits, const view_t & value, math::number_t & result) noexcept {
 		// Если хеш сообщения не передан
 		if((value.data == nullptr) || (value.size == 0))
 			// Выводим отказ обращения хеша сообщения
@@ -177,7 +182,7 @@ namespace {
 	 * @return       признак успешности разбора
 	 *
 	 */
-	static bool __nts_integer__(asn1::reader_t & reader, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ bool __nts_integer__(asn1::reader_t & reader, uint8_t * result, const size_t size) noexcept {
 		// Разбираемый элемент
 		asn1::element_t element;
 		// Если очередной элемент не целое число
@@ -263,9 +268,9 @@ size_t nts::sign::Ecdsa::limit() const noexcept {
 	 * Наихудший случай записи числа INTEGER - взведённый старший разряд: тогда
 	 * число получает ведущий нулевой байт, и содержимое длиннее порядка на байт
 	 */
-	const size_t integer = (__nts_header__(size + 1) + size + 1);
+	const size_t integer = (::__nts_header__(size + 1) + size + 1);
 	// Выводим длину последовательности из двух наихудших чисел с её заголовком
-	return (__nts_header__(integer * 2) + (integer * 2));
+	return (::__nts_header__(integer * 2) + (integer * 2));
 }
 /**
  * @brief Метод установки эллиптической кривой
@@ -470,12 +475,12 @@ bool nts::sign::Ecdsa::key(const view_t & x, const view_t & y) noexcept {
 		uint8_t ax[math::NUMBER_SIZE], ay[math::NUMBER_SIZE];
 		// Координаты поданного открытого ключа
 		uint8_t bx[math::NUMBER_SIZE], by[math::NUMBER_SIZE];
+		// Накопленное различие координат
+		uint8_t difference = 0;
 		// Размер координаты
 		const size_t size = this->_curve->size();
 		// Признак схождения ключей
 		bool same = (this->_curve->coordinates(this->_point, ax, ay, size) && this->_curve->coordinates(given, bx, by, size));
-		// Накопленное различие координат
-		uint8_t difference = 0;
 		/**
 		 * Сличаем координаты за постоянное время
 		 */
@@ -738,7 +743,7 @@ bool nts::sign::Ecdsa::make(const digest::hash_t algorithm, const view_t & diges
 		// Если значение T собрано
 		if(ok){
 			// Усечение значения T до разрядности порядка
-			const size_t count = __nts_truncate__(view_t(t, order.size()), this->_bits, candidate);
+			const size_t count = ::__nts_truncate__(view_t(t, order.size()), this->_bits, candidate);
 			// Случайное число выработки подписи
 			math::number_t number;
 			/**
@@ -898,6 +903,7 @@ nts::sign::Ecdsa::~Ecdsa() noexcept {
 	// Сброс состояния модуля
 	this->clear();
 }
+
 /**
  * @brief Функция записи подписи ECDSA в структуру ASN.1 DER в готовое место
  *
@@ -912,14 +918,14 @@ bool nts::sign::encode(const view_t & raw, uint8_t * der, size_t & size) noexcep
 	if((raw.data == nullptr) || (raw.size == 0) || ((raw.size % 2) != 0) || (raw.size > (math::NUMBER_SIZE * 2)) || (der == nullptr))
 		// Выводим отрицательный результат - подпись либо место негодны
 		return false;
-	// Длина одного числа подписи
-	const size_t half = (raw.size / 2);
-	// Начала чисел и их длины без ведущих нулей
-	size_t offsets[2] = {0, half}, lengths[2] = {0, 0};
-	// Признаки нужды в ведущем нулевом байте
-	bool leading[2] = {false, false};
 	// Длина содержимого последовательности
 	size_t content = 0;
+	// Длина одного числа подписи
+	const size_t half = (raw.size / 2);
+	// Признаки нужды в ведущем нулевом байте
+	bool leading[2] = {false, false};
+	// Начала чисел и их длины без ведущих нулей
+	size_t offsets[2] = {0, half}, lengths[2] = {0, 0};
 	/**
 	 * Перебираем числа подписи
 	 */

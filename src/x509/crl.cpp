@@ -32,9 +32,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "x509/crl.hpp"
-#include "x509/signature.hpp"
 #include "asn1/asn1.hpp"
+#include "x509/signature.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "x509/crl.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -61,7 +65,7 @@ namespace {
 	 * @return      отказ модуля
 	 *
 	 */
-	static nts::x509::error_t __nts_translate__(const asn1::error_t error) noexcept {
+	static constexpr nts::x509::error_t __nts_translate__(const asn1::error_t error) noexcept {
 		// Выводим отказ модуля: нехватка памяти отдаётся своим отказом, всё прочее - отказом устройства
 		return ((error == asn1::error_t::MEMORY) ? nts::x509::error_t::MEMORY : nts::x509::error_t::STRUCTURE);
 	}
@@ -73,7 +77,7 @@ namespace {
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
-	static nts::x509::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
 		// Итог разбора опознавателя
 		const asn1::error_t outcome = asn1::oid(element, result);
 		// Выводим переведённый отказ разбора, если он есть
@@ -87,7 +91,7 @@ namespace {
 	 * @return        отказ разбора числа
 	 *
 	 */
-	static nts::x509::error_t __nts_small_integer__(const asn1::element_t & element, int64_t & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_small_integer__(const asn1::element_t & element, int64_t & result) noexcept {
 		// Итог разбора целого числа
 		const asn1::error_t outcome = asn1::integer(element, result);
 		// Выводим переведённый отказ разбора, если он есть
@@ -103,7 +107,7 @@ namespace {
 	 * @return        отказ разбора записи
 	 *
 	 */
-	static nts::x509::error_t __nts_algorithm_identifier__(asn1::reader_t & reader, string & oid, asn1::element_t & params, bool & present) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_algorithm_identifier__(asn1::reader_t & reader, string & oid, asn1::element_t & params, bool & present) noexcept {
 		// Сбрасываем признак наличия настроек
 		present = false;
 		// Набор алгоритма
@@ -143,15 +147,15 @@ namespace {
 	/**
 	 * @brief Функция разбора отличительного имени
 	 *
+	 * @note Разборщик повторяет разборщик имени сертификата: список несёт имя
+	 *       издателя по тем же правилам X.501, и негодная запись отвергается так же строго
+	 *
 	 * @param element разбираемый элемент записи имени
 	 * @param result  объект имени, в который производится разбор
 	 * @return        причина отказа либо nts::x509::error_t::NONE
 	 *
-	 * @note Разборщик повторяет разборщик имени сертификата: список несёт имя
-	 *       издателя по тем же правилам X.501, и негодная запись отвергается так же строго
-	 *
 	 */
-	static nts::x509::error_t __nts_distinguished__(const asn1::element_t & element, nts::x509::name_t & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_distinguished__(const asn1::element_t & element, nts::x509::name_t & result) noexcept {
 		// Если запись имени имеет простой вид метки
 		if(!element.constructed)
 			// Выводим причину отказа
@@ -276,15 +280,15 @@ namespace {
 	/**
 	 * @brief Функция разбора записи времени
 	 *
+	 * @note Правило записи времени то же, что у срока действия сертификата:
+	 *       раздел 4.1.2.5 RFC 5280 отводит UTCTime лишь годам 1950…2049
+	 *
 	 * @param element разбираемый элемент записи времени
 	 * @param result  место, в которое помещается время в секундах от начала эпохи
 	 * @return        причина отказа либо nts::x509::error_t::NONE
 	 *
-	 * @note Правило записи времени то же, что у срока действия сертификата:
-	 *       раздел 4.1.2.5 RFC 5280 отводит UTCTime лишь годам 1950…2049
-	 *
 	 */
-	static nts::x509::error_t __nts_moment__(const asn1::element_t & element, int64_t & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_moment__(const asn1::element_t & element, int64_t & result) noexcept {
 		// Если время записано меткой не универсального класса
 		if(element.cls != asn1::cls_t::UNIVERSAL)
 			// Выводим причину отказа
@@ -319,7 +323,7 @@ namespace {
 	 * @return        причина отказа либо nts::x509::error_t::NONE
 	 *
 	 */
-	static nts::x509::error_t __nts_extensions__(const asn1::element_t & element, vector <nts::x509::extension_t> & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_extensions__(const asn1::element_t & element, vector <nts::x509::extension_t> & result) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -476,7 +480,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		// Признак наличия настроек алгоритма подписи
 		bool present = false;
 		// Извлечение опознавателя алгоритма подписи
-		this->_error = __nts_algorithm_identifier__(top, this->_algorithm, params, present);
+		this->_error = ::__nts_algorithm_identifier__(top, this->_algorithm, params, present);
 		// Если извлечение опознавателя алгоритма подписи не удалось
 		if(this->_error != error_t::NONE)
 			// Выводим причину отказа
@@ -514,7 +518,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			// Издание списка
 			int64_t version = -1;
 			// Извлечение издания списка
-			if(__nts_small_integer__(field, version) != error_t::NONE)
+			if(::__nts_small_integer__(field, version) != error_t::NONE)
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
 			// Если издание списка не второе: раздел 5.1.2.1 RFC 5280
@@ -542,7 +546,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			// Опознаватель алгоритма подписи подписываемой части
 			string innerAlgorithm;
 			// Извлечение опознавателя алгоритма подписи подписываемой части
-			if(__nts_oid_of__(oidField, innerAlgorithm) != error_t::NONE)
+			if(::__nts_oid_of__(oidField, innerAlgorithm) != error_t::NONE)
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
 			/**
@@ -558,7 +562,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
 		// Извлечение имени издателя списка
-		this->_error = __nts_distinguished__(field, this->_issuer);
+		this->_error = ::__nts_distinguished__(field, this->_issuer);
 		// Если извлечение имени издателя не удалось
 		if(this->_error != error_t::NONE)
 			// Выводим причину отказа
@@ -568,7 +572,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
 		// Извлечение даты выдачи списка
-		if(__nts_moment__(field, this->_thisUpdate) != error_t::NONE)
+		if(::__nts_moment__(field, this->_thisUpdate) != error_t::NONE)
 			// Запоминаем причину отказа
 			return (this->_error = error_t::VALIDITY);
 		// Если подписываемая часть исчерпана
@@ -586,7 +590,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		 */
 		if((field.cls == asn1::cls_t::UNIVERSAL) && ((field.tag == static_cast <uint32_t> (asn1::tag_t::UTC_TIME)) || (field.tag == static_cast <uint32_t> (asn1::tag_t::GENERALIZED_TIME)))){
 			// Извлечение даты следующего списка
-			if(__nts_moment__(field, this->_nextUpdate) != error_t::NONE)
+			if(::__nts_moment__(field, this->_nextUpdate) != error_t::NONE)
 				// Запоминаем причину отказа
 				return (this->_error = error_t::VALIDITY);
 			// Если подписываемая часть исчерпана
@@ -647,7 +651,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 					// Запоминаем причину отказа
 					return (this->_error = error_t::ENCODING);
 				// Извлечение даты отзыва
-				if(__nts_moment__(entryField, revoked.date) != error_t::NONE)
+				if(::__nts_moment__(entryField, revoked.date) != error_t::NONE)
 					// Запоминаем причину отказа
 					return (this->_error = error_t::VALIDITY);
 				// Если запись отзыва не исчерпана
@@ -657,7 +661,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 						// Запоминаем причину отказа
 						return (this->_error = error_t::ENCODING);
 					// Извлечение набора расширений записи отзыва
-					this->_error = __nts_extensions__(entryField, revoked.extensions);
+					this->_error = ::__nts_extensions__(entryField, revoked.extensions);
 					// Если извлечение расширений записи отзыва не удалось
 					if(this->_error != error_t::NONE)
 						// Выводим причину отказа
@@ -701,7 +705,7 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 				// Запоминаем причину отказа
 				return (this->_error = error_t::STRUCTURE);
 			// Извлечение набора расширений списка
-			this->_error = __nts_extensions__(items, this->_extensions);
+			this->_error = ::__nts_extensions__(items, this->_extensions);
 			// Если извлечение расширений списка не удалось
 			if(this->_error != error_t::NONE)
 				// Выводим причину отказа
@@ -723,40 +727,38 @@ nts::x509::error_t nts::x509::Revocations::parse(const view_t & data) noexcept {
 		return (this->_error = error_t::MEMORY);
 	}
 }
-
 /**
  * @brief Метод очистки разобранных сведений
  *
  */
 void nts::x509::Revocations::clear() noexcept {
-	// Сбрасываем причину последнего отказа
-	this->_error = error_t::NONE;
-	// Сбрасываем просмотры записи списка
-	this->_element = view_t();
-	// Сбрасываем просмотр подписываемой части списка
-	this->_body = view_t();
-	// Сбрасываем запись подписи
-	this->_signature = view_t();
 	// Сбрасываем количество неиспользованных разрядов подписи
 	this->_unused = 0;
-	// Сбрасываем алгоритм подписи
-	this->_algorithm.clear();
-	// Сбрасываем просмотр настроек алгоритма подписи
-	this->_parameters = view_t();
-	// Сбрасываем имя издателя
-	this->_issuer.element = view_t();
-	// Сбрасываем разобранные части имени издателя
-	this->_issuer.parts.clear();
 	// Сбрасываем даты списка
 	this->_thisUpdate = 0;
 	// Сбрасываем дату следующего обновления списка
 	this->_nextUpdate = 0;
+	// Сбрасываем причину последнего отказа
+	this->_error = error_t::NONE;
+	// Сбрасываем просмотр подписываемой части списка
+	this->_body = view_t();
+	// Сбрасываем просмотры записи списка
+	this->_element = view_t();
+	// Сбрасываем запись подписи
+	this->_signature = view_t();
+	// Сбрасываем просмотр настроек алгоритма подписи
+	this->_parameters = view_t();
+	// Сбрасываем имя издателя
+	this->_issuer.element = view_t();
 	// Сбрасываем наборы записей отзывов и расширений
 	this->_revoked.clear();
+	// Сбрасываем алгоритм подписи
+	this->_algorithm.clear();
 	// Сбрасываем набор записей расширений
 	this->_extensions.clear();
+	// Сбрасываем разобранные части имени издателя
+	this->_issuer.parts.clear();
 }
-
 /**
  * @brief Метод извлечения причины последнего отказа
  *
@@ -767,7 +769,6 @@ nts::x509::error_t nts::x509::Revocations::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
-
 /**
  * @brief Метод извлечения подписываемой части списка
  *
@@ -778,7 +779,6 @@ const nts::view_t & nts::x509::Revocations::body() const noexcept {
 	// Выводим просмотр подписываемой части списка
 	return this->_body;
 }
-
 /**
  * @brief Метод извлечения подписи списка
  *
@@ -792,7 +792,6 @@ const nts::view_t & nts::x509::Revocations::sign(uint8_t & unused) const noexcep
 	// Выводим просмотр записи подписи
 	return this->_signature;
 }
-
 /**
  * @brief Метод извлечения опознавателя алгоритма подписи
  *
@@ -803,7 +802,6 @@ const std::string & nts::x509::Revocations::algorithms() const noexcept {
 	// Выводим опознаватель алгоритма подписи
 	return this->_algorithm;
 }
-
 /**
  * @brief Метод получения записи настроек алгоритма подписи
  *
@@ -814,7 +812,6 @@ const nts::view_t & nts::x509::Revocations::settings() const noexcept {
 	// Выводим просмотр записи настроек алгоритма подписи
 	return this->_parameters;
 }
-
 /**
  * @brief Метод извлечения имени издателя списка
  *
@@ -825,7 +822,6 @@ const nts::x509::name_t & nts::x509::Revocations::issuers() const noexcept {
 	// Выводим имя издателя списка
 	return this->_issuer;
 }
-
 /**
  * @brief Метод извлечения дат списка
  *
@@ -839,7 +835,6 @@ void nts::x509::Revocations::updates(int64_t & thisUpdate, int64_t & nextUpdate)
 	// Выводим дату следующего списка
 	nextUpdate = this->_nextUpdate;
 }
-
 /**
  * @brief Метод извлечения набора записей отозванных сертификатов
  *
@@ -850,7 +845,6 @@ const std::vector <nts::x509::revoked_t> & nts::x509::Revocations::revoked() con
 	// Выводим набор записей отозванных сертификатов
 	return this->_revoked;
 }
-
 /**
  * @brief Метод извлечения набора расширений списка
  *
@@ -862,7 +856,6 @@ const std::vector <nts::x509::extension_t> & nts::x509::Revocations::extension()
 	// Выводим набор расширений списка
 	return this->_extensions;
 }
-
 /**
  * @brief Метод розыска расширения списка по опознавателю
  *
@@ -883,7 +876,6 @@ const nts::x509::extension_t * nts::x509::Revocations::extension(const string & 
 	// Расширение не найдено
 	return nullptr;
 }
-
 /**
  * @brief Конструктор списка отзыва
  *
@@ -922,9 +914,8 @@ nts::x509::error_t nts::x509::verify(const crl_t & crl, const nts::x509::key_t &
  *
  */
 nts::x509::Revoked::Revoked() noexcept : date(0) {}
-
 /**
  * @brief Деструктор
  *
  */
-nts::x509::Revocations::~Revocations() noexcept {}
+nts::x509::Revocations::~Revocations() noexcept = default;

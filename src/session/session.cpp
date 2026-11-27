@@ -48,16 +48,20 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "digest/hmac.hpp"
-#include <session/session.hpp>
 #include "sys/wipe.hpp"
+#include "digest/hmac.hpp"
+
+/**
+ * Подключаем заголовочный файлй модуля
+ */
+#include "session/session.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -73,33 +77,29 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
 	using namespace nts::session;
 
 	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
+
+	/**
 	 * Отказы модуля
 	 */
-	typedef session::error_t error_t;
+	using error_t = session::error_t;
 
 	/**
 	 * @brief Вид сообщения, несущего хеш замещённой переписки
 	 *
 	 * @details Раздел 4.4.1 RFC 8446: сообщение это по связи не ходит и служит лишь
-	 *          для переписки, оттого вида его среди сообщений рукопожатия нет
+	 *          для переписки, оттого вида его среди сообщений рукопожатия нет.
 	 *
 	 */
 	static constexpr uint8_t DIGEST = 0xFE;
-
-	/**
-	 * Хеши, которыми переписка ведётся до выбора набора шифрования
-	 */
-	static const digest::hash_t CANDIDATES[session::Transcript::CANDIDATES] = {
-		// Хеши кандидатов в порядке предпочтения
-		digest::hash_t::STREEBOG256, digest::hash_t::SHA256, digest::hash_t::SHA384, digest::hash_t::SM3
-	};
 
 	/**
 	 * Хеш, которым переписка и расписание ведутся, пока набор шифрования не выбран
@@ -107,67 +107,62 @@ namespace {
 	static constexpr digest::hash_t DEFAULT = digest::hash_t::STREEBOG256;
 
 	/**
-	 * Метка вывода значения направления связи от клиента на ступени рукопожатия
+	 * Хеши, которыми переписка ведётся до выбора набора шифрования
 	 */
-	static const char * CLIENT_HANDSHAKE = "c hs traffic";
-
-	/**
-	 * Метка вывода значения направления связи от сервера на ступени рукопожатия
-	 */
-	static const char * SERVER_HANDSHAKE = "s hs traffic";
-
-	/**
-	 * Метка вывода значения направления связи от клиента на ступени прикладных данных
-	 */
-	static const char * CLIENT_APPLICATION = "c ap traffic";
-
-	/**
-	 * Метка вывода значения направления связи от сервера на ступени прикладных данных
-	 */
-	static const char * SERVER_APPLICATION = "s ap traffic";
+	static constexpr const digest::hash_t CANDIDATES[session::Transcript::CANDIDATES] = {
+		// Хеши кандидатов в порядке предпочтения
+		digest::hash_t::STREEBOG256, digest::hash_t::SHA256, digest::hash_t::SHA384, digest::hash_t::SM3
+	};
 
 	/**
 	 * Метка вывода промежуточного значения между ступенями расписания
 	 */
-	static const char * DERIVED = "derived";
-
-	/**
-	 * Метка смены значения направления связи
-	 */
-	static const char * UPDATE = "traffic upd";
-
-	/**
-	 * Метка вывода значения возобновления связи
-	 */
-	static const char * RESUMPTION = "res master";
-
+	static constexpr const char * DERIVED = "derived";
 	/**
 	 * Метка вывода заранее разделённого ключа билета
 	 */
-	static const char * TICKET = "resumption";
-
+	static constexpr const char * TICKET = "resumption";
 	/**
 	 * Метка вывода ключа привязки заранее разделённого ключа
 	 */
-	static const char * BINDER = "res binder";
-
+	static constexpr const char * BINDER = "res binder";
 	/**
 	 * Метка вывода значения упреждающих данных связи
 	 */
-	static const char * EARLY = "c e traffic";
-
+	static constexpr const char * EARLY = "c e traffic";
 	/**
-	 * Метка вывода значения раннего экспорта ключевого материала: раздел 7.2 RFC 8446
+	 * Метка смены значения направления связи
 	 */
-	static const char * EARLY_EXPORTER = "e exp master";
-
+	static constexpr const char * UPDATE = "traffic upd";
 	/**
 	 * Метка вывода значения экспорта ключевого материала связи
 	 */
-	static const char * EXPORTER = "exp master";
+	static constexpr const char * EXPORTER = "exp master";
+	/**
+	 * Метка вывода значения возобновления связи
+	 */
+	static constexpr const char * RESUMPTION = "res master";
+	/**
+	 * Метка вывода значения раннего экспорта ключевого материала: раздел 7.2 RFC 8446
+	 */
+	static constexpr const char * EARLY_EXPORTER = "e exp master";
+	/**
+	 * Метка вывода значения направления связи от клиента на ступени рукопожатия
+	 */
+	static constexpr const char * CLIENT_HANDSHAKE = "c hs traffic";
+	/**
+	 * Метка вывода значения направления связи от сервера на ступени рукопожатия
+	 */
+	static constexpr const char * SERVER_HANDSHAKE = "s hs traffic";
+	/**
+	 * Метка вывода значения направления связи от клиента на ступени прикладных данных
+	 */
+	static constexpr const char * CLIENT_APPLICATION = "c ap traffic";
+	/**
+	 * Метка вывода значения направления связи от сервера на ступени прикладных данных
+	 */
+	static constexpr const char * SERVER_APPLICATION = "s ap traffic";
 
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * @brief Функция получения просмотра метки вывода
 	 *
@@ -175,7 +170,7 @@ namespace {
 	 * @return      просмотр метки вывода
 	 *
 	 */
-	static view_t __nts_label__(const char * label) noexcept {
+	static __NTS_INLINE__ view_t __nts_label__(const char * label) noexcept {
 		// Выводим просмотр метки вывода
 		return view_t(reinterpret_cast <const uint8_t *> (label), ::strlen(label));
 	}
@@ -188,7 +183,7 @@ namespace {
 	 * @return          признак успешности вывода промежуточного значения
 	 *
 	 */
-	static bool __nts_stepping__(const digest::hash_t algorithm, const uint8_t * secret, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_stepping__(const digest::hash_t algorithm, const uint8_t * secret, uint8_t * result) noexcept {
 		// Получаем длину хеша расписания ключей
 		const size_t length = digest::length(algorithm);
 		// Место, в которое помещается хеш пустой переписки
@@ -407,9 +402,10 @@ nts::session::error_t nts::session::Transcript::replace() noexcept {
 	/**
 	 * @brief Метод выбора хеша переписки рукопожатия
 	 *
+	 * @note Замена закрепляет хеш переписки: прочие хеши от неё отстают безвозвратно
+	 *
 	 * @param algorithm хеш, выбранный набором шифрования
 	 * @return          отказ выбора хеша переписки
-	 * Замена закрепляет хеш переписки: прочие хеши от неё отстают безвозвратно
 	 *
 	 */
 	const error_t chosen = this->select(algorithm);
@@ -544,10 +540,10 @@ nts::session::error_t nts::session::Secrets::start(const digest::hash_t algorith
 	if((length == 0) || (length > schedule::SCHEDULE_WIDEST))
 		// Выводим отказ заведения начальной ступени
 		return error_t::DIGEST;
-	// Запоминаем хеш расписания ключей
-	this->_algorithm = algorithm;
 	// Запоминаем длину значения расписания ключей
 	this->_length = length;
+	// Запоминаем хеш расписания ключей
+	this->_algorithm = algorithm;
 	// Строка нулей длиною в хеш
 	uint8_t zeroes[schedule::SCHEDULE_WIDEST];
 	// Обнуляем строку нулей
@@ -804,10 +800,12 @@ nts::session::error_t nts::session::Secrets::early(const view_t & transcript) no
 		// Выводим отказ вывода значения упреждающих данных
 		return error_t::SCHEDULE;
 	/**
-	 * Раздел 7.2 RFC 8446: значение раннего экспорта выводится на этой же ступени
-	 * меткою «e exp master» от той же переписки - одного лишь приветствия клиента
-	 */
-	// Если значение раннего экспорта вывести не удалось
+	 * @brief Если значение раннего экспорта вывести не удалось
+	 *
+	 * @details Раздел 7.2 RFC 8446: значение раннего экспорта выводится на этой же ступени
+	 *          меткою «e exp master» от той же переписки - одного лишь приветствия клиента.
+	 *
+	 */ 
 	if(!schedule::secret(this->_algorithm, view_t(this->_keys->secret, this->_length), ::__nts_label__(EARLY_EXPORTER), transcript, this->_keys->early_exporter))
 		// Выводим отказ вывода значения раннего экспорта
 		return error_t::SCHEDULE;

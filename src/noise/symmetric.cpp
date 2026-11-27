@@ -24,27 +24,16 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "noise/symmetric.hpp"
-#include "digest/hkdf.hpp"
 #include "sys/wipe.hpp"
-
-/**
- * @brief Служебные объекты модуля
- *
- */
-namespace {
-	/**
-	 * Подписываемся на метод затирания памяти
-	 */
-	using nts::sys::wipe;
-};
+#include "digest/hkdf.hpp"
+#include "noise/symmetric.hpp"
 
 /**
  * @brief Метод вывода ключевого материала (HKDF Noise)
@@ -61,7 +50,7 @@ bool nts::noise::Symmetric::kdf(const view_t & material, uint8_t * result, const
 	// Извлекаем ключ с солью ck и развёртываем без привязки
 	const bool status = (digest::extract(this->_hash, view_t(this->_chain, this->_length), material, key, HASH_MAX) && digest::expand(this->_hash, view_t(key, this->_length), view_t(), result, count * this->_length));
 	// Затираем псевдослучайный ключ
-	wipe(key, HASH_MAX);
+	sys::wipe(key, HASH_MAX);
 	// Возвращаем итог развёртывания
 	return status;
 }
@@ -128,7 +117,7 @@ bool nts::noise::Symmetric::key(const view_t & material) noexcept {
 		status = this->_cipher.key(view_t(output + this->_length, KEY));
 	}
 	// Затираем выходы
-	wipe(output, sizeof(output));
+	sys::wipe(output, sizeof(output));
 	// Возвращаем итог примешивания ключа
 	return status;
 }
@@ -179,7 +168,7 @@ bool nts::noise::Symmetric::blend(const view_t & material) noexcept {
 		status = (status && this->_cipher.key(view_t(output + (2 * this->_length), KEY)));
 	}
 	// Затираем выходы
-	wipe(output, sizeof(output));
+	sys::wipe(output, sizeof(output));
 	// Возвращаем итог примешивания
 	return status;
 }
@@ -318,7 +307,7 @@ bool nts::noise::Symmetric::split(cipher_t & one, cipher_t & two) const noexcept
 	// Выводим материал из пустого входа и заводим оба состояния функцией набора
 	const bool status = (this->kdf(view_t(), output, 2) && one.start(this->_aead) && two.start(this->_aead) && one.key(view_t(output, KEY)) && two.key(view_t(output + this->_length, KEY)));
 	// Затираем выходы
-	wipe(output, sizeof(output));
+	sys::wipe(output, sizeof(output));
 	// Возвращаем итог раскола
 	return status;
 }
@@ -365,8 +354,8 @@ bool nts::noise::Symmetric::has() const noexcept {
  */
 void nts::noise::Symmetric::clear() noexcept {
 	// Затираем цепной ключ и хеш
-	wipe(this->_chain, HASH_MAX);
-	wipe(this->_digest, HASH_MAX);
+	sys::wipe(this->_chain, HASH_MAX);
+	sys::wipe(this->_digest, HASH_MAX);
 	// Затираем состояние шифра
 	this->_cipher.clear();
 	// Сбрасываем хеш и длину

@@ -47,9 +47,13 @@
  * Подключаем заголовочные файлы проекта
  */
 #include "field/field.hpp"
-#include "extension/extension.hpp"
 #include "agreement/mlkem.hpp"
 #include "agreement/x25519.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "extension/extension.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -81,20 +85,20 @@ namespace {
 	 *       находит прежде глобального, и двусмысленности не возникает
 	 *
 	 */
-	typedef extension::error_t error_t;
+	using error_t = extension::error_t;
 
 	/**
 	 * @brief Функция перевода отказа составителя полей в отказ модуля
-	 *
-	 * @param failure отказ, которым ответил составитель полей
-	 * @return        отказ модуля, отвечающий отказу составителя
 	 *
 	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
 	 *       перехватывает её сам и отвечает отказом, а не исключением, и молчаливый
 	 *       перевод этого отказа в невхождение поля прятал бы истинную причину
 	 *
+	 * @param failure отказ, которым ответил составитель полей
+	 * @return        отказ модуля, отвечающий отказу составителя
+	 *
 	 */
-	static error_t __nts_translate__(const field::error_t failure) noexcept {
+	static constexpr error_t __nts_translate__(const field::error_t failure) noexcept {
 		// Если составитель полей отказом не ответил
 		if(failure == field::error_t::NONE)
 			// Выводим успешность составления
@@ -186,7 +190,7 @@ namespace {
 	 * @return       отказ разбора перечня чисел
 	 *
 	 */
-	static error_t __nts_numbers__(const view_t & data, const size_t width, const size_t size, vector <uint32_t> & result) noexcept {
+	static __NTS_INLINE__ error_t __nts_numbers__(const view_t & data, const size_t width, const size_t size, vector <uint32_t> & result) noexcept {
 		// Объект разборщика полей тела расширения
 		field::scanner_t scanner;
 		// Устанавливаем разбираемое тело расширения
@@ -248,7 +252,7 @@ namespace {
 	 * @return       отказ составления перечня чисел
 	 *
 	 */
-	static error_t __nts_compose__(const vector <uint32_t> & values, const size_t width, const size_t size, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ error_t __nts_compose__(const vector <uint32_t> & values, const size_t width, const size_t size, vector <uint8_t> & result) noexcept {
 		// Если составляемый перечень чисел пуст
 		if(values.empty())
 			// Выводим отказ пустого перечня тела расширения
@@ -302,17 +306,17 @@ namespace {
 	/**
 	 * @brief Функция составления одиночного поля переменной длины
 	 *
+	 * @note Имя «single» здесь не годится: у Solaris оно занято под вид числа с
+	 *       плавающей запятой в глобальном пространстве имён, и обращение к помощнику
+	 *       из безымянного пространства выходит там двусмысленным
+	 *
 	 * @param data   составляемое содержимое поля
 	 * @param width  ширина записи длины поля в байтах
 	 * @param result накопитель, в конец которого дописывается тело расширения
 	 * @return       отказ составления поля переменной длины
 	 *
-	 * @note Имя «single» здесь не годится: у Solaris оно занято под вид числа с
-	 *       плавающей запятой в глобальном пространстве имён, и обращение к помощнику
-	 *       из безымянного пространства выходит там двусмысленным
-	 *
 	 */
-	static error_t __nts_alone__(const view_t & data, const size_t width, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ error_t __nts_alone__(const view_t & data, const size_t width, vector <uint8_t> & result) noexcept {
 		// Объект составителя полей тела расширения
 		field::builder_t builder;
 		// Отказ, которым ответил составитель полей
@@ -588,7 +592,7 @@ nts::extension::error_t nts::extension::versions(const vector <uint16_t> & versi
 		return error_t::MEMORY;
 	}
 	// Выводим итог составления перечня изданий протокола
-	return __nts_compose__(values, 1, 2, result);
+	return ::__nts_compose__(values, 1, 2, result);
 }
 /**
  * @brief Функция разбора выбранного издания протокола
@@ -657,7 +661,7 @@ nts::extension::error_t nts::extension::groups(const view_t & data, vector <grou
 	// Прочитанный перечень групп обмена ключами
 	vector <uint32_t> values;
 	// Разбор перечня групп обмена ключами
-	const error_t error = __nts_numbers__(data, 2, 2, values);
+	const error_t error = ::__nts_numbers__(data, 2, 2, values);
 	// Если перечень групп обмена разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора тела расширения
@@ -711,7 +715,7 @@ nts::extension::error_t nts::extension::groups(const vector <group_t> & groups, 
 		return error_t::MEMORY;
 	}
 	// Выводим итог составления перечня групп обмена ключами
-	return __nts_compose__(values, 2, 2, result);
+	return ::__nts_compose__(values, 2, 2, result);
 }
 /**
  * @brief Функция разбора перечня поддерживаемых схем подписи
@@ -725,7 +729,7 @@ nts::extension::error_t nts::extension::schemes(const view_t & data, vector <sch
 	// Прочитанный перечень схем подписи
 	vector <uint32_t> values;
 	// Разбор перечня схем подписи
-	const error_t error = __nts_numbers__(data, 2, 2, values);
+	const error_t error = ::__nts_numbers__(data, 2, 2, values);
 	// Если перечень схем подписи разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора тела расширения
@@ -779,7 +783,7 @@ nts::extension::error_t nts::extension::schemes(const vector <scheme_t> & scheme
 		return error_t::MEMORY;
 	}
 	// Выводим итог составления перечня схем подписи
-	return __nts_compose__(values, 2, 2, result);
+	return ::__nts_compose__(values, 2, 2, result);
 }
 /**
  * @brief Функция разбора перечня видов сертификатов certificate_type
@@ -793,7 +797,7 @@ nts::extension::error_t nts::extension::certtypes(const view_t & data, vector <c
 	// Прочитанный перечень видов сертификатов
 	vector <uint32_t> values;
 	// Раздел 4.1 RFC 7250: перечень с однобайтовой длиной и однобайтовыми записями
-	const error_t error = __nts_numbers__(data, 1, 1, values);
+	const error_t error = ::__nts_numbers__(data, 1, 1, values);
 	// Если перечень видов сертификатов разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора тела расширения
@@ -847,7 +851,7 @@ nts::extension::error_t nts::extension::certtypes(const vector <cert_t> & types,
 		return error_t::MEMORY;
 	}
 	// Выводим итог составления перечня видов сертификатов
-	return __nts_compose__(values, 1, 1, result);
+	return ::__nts_compose__(values, 1, 1, result);
 }
 /**
  * @brief Функция разбора перечня профилей защиты RTP use_srtp
@@ -944,7 +948,7 @@ nts::extension::error_t nts::extension::profiles(const vector <uint16_t> & profi
 		return error_t::MEMORY;
 	}
 	// Отказ составления перечня профилей защиты
-	const error_t error = __nts_compose__(values, 2, 2, result);
+	const error_t error = ::__nts_compose__(values, 2, 2, result);
 	// Если перечень профилей составлен
 	if(error == error_t::NONE)
 		// Раздел 4.1.1 RFC 5764: за перечнем записывается пустой опознаватель MKI
@@ -964,7 +968,7 @@ nts::extension::error_t nts::extension::formats(const view_t & data, vector <uin
 	// Прочитанный перечень записей точек кривой
 	vector <uint32_t> values;
 	// Раздел 5.1.2 RFC 8422: перечень с однобайтовой длиной и однобайтовыми записями
-	const error_t error = __nts_numbers__(data, 1, 1, values);
+	const error_t error = ::__nts_numbers__(data, 1, 1, values);
 	// Если перечень записей точек разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора тела расширения
@@ -1018,7 +1022,7 @@ nts::extension::error_t nts::extension::formats(const vector <uint8_t> & formats
 		return error_t::MEMORY;
 	}
 	// Выводим итог составления перечня записей точек кривой
-	return __nts_compose__(values, 1, 1, result);
+	return ::__nts_compose__(values, 1, 1, result);
 }
 /**
  * @brief Функция разбора перечня открытых частей ключей обмена
@@ -1104,7 +1108,7 @@ nts::extension::error_t nts::extension::shares(const vector <share_t> & shares, 
 		// Открываем перечень открытых частей ключей обмена
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		/**
 		 * Перебираем составляемые открытые части ключей обмена
 		 */
@@ -1112,24 +1116,24 @@ nts::extension::error_t nts::extension::shares(const vector <share_t> & shares, 
 			// Записываем группу обмена очередной открытой части ключа
 			if((failure = builder.number(static_cast <uint32_t> (item.group), 2)) != field::error_t::NONE)
 				// Выводим отказ, которым ответил составитель полей
-				return __nts_translate__(failure);
+				return ::__nts_translate__(failure);
 			// Открываем поле открытой части ключа обмена
 			if((failure = builder.open(2)) != field::error_t::NONE)
 				// Выводим отказ, которым ответил составитель полей
-				return __nts_translate__(failure);
+				return ::__nts_translate__(failure);
 			// Записываем открытую часть ключа обмена
 			if((failure = builder.bytes(item.key)) != field::error_t::NONE)
 				// Выводим отказ, которым ответил составитель полей
-				return __nts_translate__(failure);
+				return ::__nts_translate__(failure);
 			// Если поле открытой части ключа закрыть не удалось
 			if((failure = builder.close()) != field::error_t::NONE)
 				// Выводим отказ, которым ответил составитель полей
-				return __nts_translate__(failure);
+				return ::__nts_translate__(failure);
 		}
 		// Если перечень открытых частей ключей закрыть не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
 		// Дописывание тела расширения в накопитель
@@ -1204,19 +1208,19 @@ nts::extension::error_t nts::extension::share(const share_t & share, vector <uin
 		// Записываем группу обмена открытой части ключа
 		if((failure = builder.number(static_cast <uint32_t> (share.group), 2)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Открываем поле открытой части ключа обмена
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Записываем открытую часть ключа обмена
 		if((failure = builder.bytes(share.key)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если поле открытой части ключа закрыть не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
 		// Дописывание тела расширения в накопитель
@@ -1341,7 +1345,7 @@ nts::extension::error_t nts::extension::timestamps(const vector <vector <uint8_t
 	// Если перечень открыть не удалось
 	if((failure = builder.open(2)) != field::error_t::NONE)
 		// Выводим отказ составления
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	/**
 	 * Перебираем записи перечня
 	 */
@@ -1353,20 +1357,20 @@ nts::extension::error_t nts::extension::timestamps(const vector <vector <uint8_t
 		// Если запись открыть не удалось
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если запись записать не удалось
 		if((failure = builder.bytes(view_t(entries[i].data(), entries[i].size()))) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если запись закрыть не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 	}
 	// Если перечень закрыть не удалось
 	if((failure = builder.close()) != field::error_t::NONE)
 		// Выводим отказ составления
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	// Составленное тело расширения
 	const view_t data = builder.data();
 	/**
@@ -1467,7 +1471,7 @@ nts::extension::error_t nts::extension::authorities(const vector <vector <uint8_
 	// Если перечень открыть не удалось
 	if((failure = builder.open(2)) != field::error_t::NONE)
 		// Выводим отказ составления
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	/**
 	 * Перебираем имена перечня
 	 */
@@ -1479,20 +1483,20 @@ nts::extension::error_t nts::extension::authorities(const vector <vector <uint8_
 		// Если имя открыть не удалось
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если имя записать не удалось
 		if((failure = builder.bytes(view_t(names[i].data(), names[i].size()))) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если имя закрыть не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 	}
 	// Если перечень закрыть не удалось
 	if((failure = builder.close()) != field::error_t::NONE)
 		// Выводим отказ составления
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	// Составленное тело расширения
 	const view_t data = builder.data();
 	/**
@@ -1579,15 +1583,15 @@ nts::extension::error_t nts::extension::negotiation(const vector <string> & prot
 		// Если имя открыть не удалось
 		if((failure = builder.open(1)) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если имя записать не удалось
 		if((failure = builder.bytes(view_t(reinterpret_cast <const uint8_t *> (protocols[i].data()), protocols[i].size()))) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если имя закрыть не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ составления
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 	}
 	// Составленное тело расширения
 	const view_t data = builder.data();
@@ -1623,7 +1627,7 @@ nts::extension::error_t nts::extension::early(const uint32_t limit, vector <uint
 	// Если предел упреждающих данных записать не удалось
 	if((failure = builder.number(limit, 4)) != field::error_t::NONE)
 		// Выводим отказ, которым ответил составитель полей
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	// Получаем составленное тело расширения приветствия
 	const view_t data = builder.data();
 	/**
@@ -1657,7 +1661,7 @@ nts::extension::error_t nts::extension::algorithms(const view_t & data, vector <
 	 * Раздел 3 RFC 8879: перечень идёт с однобайтовой длиной впереди, а всякий
 	 * опознаватель алгоритма занимает два байта
 	 */
-	const error_t error = __nts_numbers__(data, 1, 2, values);
+	const error_t error = ::__nts_numbers__(data, 1, 2, values);
 	// Если перечень алгоритмов разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора тела расширения
@@ -1711,7 +1715,7 @@ nts::extension::error_t nts::extension::algorithms(const vector <uint16_t> & alg
 		return error_t::MEMORY;
 	}
 	// Выводим итог составления перечня опознавателей алгоритмов
-	return __nts_compose__(values, 1, 2, result);
+	return ::__nts_compose__(values, 1, 2, result);
 }
 /**
  * @brief Функция разбора перечня прикладных протоколов
@@ -1801,7 +1805,7 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 		// Открываем перечень прикладных протоколов
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		/**
 		 * Перебираем составляемый перечень прикладных протоколов
 		 */
@@ -1815,20 +1819,20 @@ nts::extension::error_t nts::extension::protocols(const vector <string> & protoc
 			// Открываем поле названия прикладного протокола
 			if((failure = builder.open(1)) != field::error_t::NONE)
 				// Выводим отказ, которым ответил составитель полей
-				return __nts_translate__(failure);
+				return ::__nts_translate__(failure);
 			// Записываем название прикладного протокола
 			if((failure = builder.bytes(view_t(reinterpret_cast <const uint8_t *> (protocols[i].data()), protocols[i].size()))) != field::error_t::NONE)
 				// Выводим отказ, которым ответил составитель полей
-				return __nts_translate__(failure);
+				return ::__nts_translate__(failure);
 			// Если поле названия прикладного протокола закрыть не удалось
 			if((failure = builder.close()) != field::error_t::NONE)
 				// Выводим отказ, которым ответил составитель полей
-				return __nts_translate__(failure);
+				return ::__nts_translate__(failure);
 		}
 		// Если перечень прикладных протоколов закрыть не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
 		// Дописывание тела расширения в накопитель
@@ -2056,7 +2060,7 @@ nts::extension::error_t nts::extension::identities(const vector <identity_t> & i
 	// Если место под перечень опознавателей ключей занять не удалось
 	if((failure = builder.open(2)) != field::error_t::NONE)
 		// Выводим отказ, которым ответил составитель полей
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	/**
 	 * Перебираем составляемые опознаватели ключей
 	 */
@@ -2064,28 +2068,28 @@ nts::extension::error_t nts::extension::identities(const vector <identity_t> & i
 		// Если место под опознаватель ключа занять не удалось
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если опознаватель ключа записать не удалось
 		if((failure = builder.bytes(identities[i].identity)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если длину опознавателя ключа проставить не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если скрытый возраст билета записать не удалось
 		if((failure = builder.number(identities[i].age, 4)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 	}
 	// Если длину перечня опознавателей ключей проставить не удалось
 	if((failure = builder.close()) != field::error_t::NONE)
 		// Выводим отказ, которым ответил составитель полей
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	// Если место под перечень привязок ключей занять не удалось
 	if((failure = builder.open(2)) != field::error_t::NONE)
 		// Выводим отказ, которым ответил составитель полей
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	/**
 	 * Перебираем составляемые привязки ключей
 	 */
@@ -2093,20 +2097,20 @@ nts::extension::error_t nts::extension::identities(const vector <identity_t> & i
 		// Если место под привязку ключа занять не удалось
 		if((failure = builder.open(1)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если привязку ключа записать не удалось
 		if((failure = builder.bytes(binders[i])) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если длину привязки ключа проставить не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 	}
 	// Если длину перечня привязок ключей проставить не удалось
 	if((failure = builder.close()) != field::error_t::NONE)
 		// Выводим отказ, которым ответил составитель полей
-		return __nts_translate__(failure);
+		return ::__nts_translate__(failure);
 	// Получаем составленное тело расширения приветствия
 	const view_t data = builder.data();
 	/**
@@ -2193,7 +2197,7 @@ nts::extension::error_t nts::extension::modes(const view_t & data, vector <regim
 	// Прочитанный перечень способов обмена
 	vector <uint32_t> values;
 	// Разбор перечня способов обмена
-	const error_t error = __nts_numbers__(data, 1, 1, values);
+	const error_t error = ::__nts_numbers__(data, 1, 1, values);
 	// Если перечень способов обмена разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора тела расширения
@@ -2247,7 +2251,7 @@ nts::extension::error_t nts::extension::modes(const vector <regime_t> & modes, v
 		return error_t::MEMORY;
 	}
 	// Выводим итог составления перечня способов обмена
-	return __nts_compose__(values, 1, 1, result);
+	return ::__nts_compose__(values, 1, 1, result);
 }
 /**
  * @brief Функция разбора метки возврата состояния сервера
@@ -2295,7 +2299,7 @@ nts::extension::error_t nts::extension::cookie(const view_t & cookie, vector <ui
 		// Выводим отказ пустой метки возврата состояния
 		return error_t::EMPTY;
 	// Выводим итог составления метки возврата состояния
-	return __nts_alone__(cookie, 2, result);
+	return ::__nts_alone__(cookie, 2, result);
 }
 /**
  * @brief Функция разбора имени запрашиваемого узла
@@ -2333,11 +2337,13 @@ nts::extension::error_t nts::extension::name(const view_t & data, view_t & resul
 		// Вид очередного имени узла
 		uint32_t type = 0;
 		/**
-		 * Заслон этот недостижим: перебор идёт, пока в перечне остаётся хоть байт, а
-		 * вид имени занимает ровно один - чтение его отказать не может. Стоит он ради
-		 * связности разбора: вид имени, молча принятый нулём, отвечал бы имени узла
+		 * @brief Если вид очередного имени узла прочитать не удалось
+		 *
+		 * @details Заслон этот недостижим: перебор идёт, пока в перечне остаётся хоть байт, а
+		 *          вид имени занимает ровно один - чтение его отказать не может. Стоит он ради
+		 *          связности разбора: вид имени, молча принятый нулём, отвечал бы имени узла.
+		 *
 		 */
-		// Если вид очередного имени узла прочитать не удалось
 		if(reader.number(type, 1) != field::error_t::NONE)
 			// Выводим отказ обрыва тела расширения
 			return error_t::HUNGRY;
@@ -2356,7 +2362,6 @@ nts::extension::error_t nts::extension::name(const view_t & data, view_t & resul
 		/**
 		 * Раздел 3 RFC 6066: имени вида «host_name» отведено значение нуль
 		 */
-		// Раздел 3 RFC 6066: двух имён одного вида в перечне быть не вправе
 		if((type == 0) && found)
 			// Выводим отказ лишних записей
 			return error_t::TRAILING;
@@ -2418,27 +2423,27 @@ nts::extension::error_t nts::extension::name(const view_t & name, vector <uint8_
 		// Открываем перечень имён узлов
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Записываем вид имени узла «host_name»
 		if((failure = builder.number(0, 1)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Открываем поле имени запрашиваемого узла
 		if((failure = builder.open(2)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Записываем имя запрашиваемого узла
 		if((failure = builder.bytes(name)) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если поле имени запрашиваемого узла закрыть не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Если перечень имён узлов закрыть не удалось
 		if((failure = builder.close()) != field::error_t::NONE)
 			// Выводим отказ, которым ответил составитель полей
-			return __nts_translate__(failure);
+			return ::__nts_translate__(failure);
 		// Получаем составленное тело расширения
 		const view_t data = builder.data();
 		// Дописывание тела расширения в накопитель

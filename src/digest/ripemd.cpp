@@ -30,12 +30,18 @@
 #include <utility>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
  */
-#include "digest/ripemd.hpp"
 #include "sys/wipe.hpp"
 
 /**
+ * Подключаем заголовочный файл модуля
+ */
+#include "digest/ripemd.hpp"
+
+/**
+ * @brief Служебные объекты модуля
+ *
  * @note Проход ведётся развёрткой восьмидесяти шагов по номеру шага в шаблоне, а не циклом:
  *       номер шага в шаблоне превращает номер круга, порядок слова сообщения и величину
  *       сдвига в непосредственные операнды, отчего функция круга сворачивается в одну-две
@@ -50,16 +56,12 @@
  *       порядка слов и величин сдвигов
  *
  */
-
-/**
- * @brief Служебные объекты модуля
- *
- */
 namespace {
 	/**
 	 * Подписываемся на метод затирания памяти
 	 */
 	using nts::sys::wipe;
+
 	/**
 	 * @brief Порядок слов сообщения у левого потока по кругам
 	 *
@@ -123,6 +125,7 @@ namespace {
 	 *
 	 */
 	constexpr uint32_t H[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+
 	/**
 	 * @brief Функция кругового сдвига слова влево
 	 *
@@ -131,7 +134,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
+	static constexpr uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -145,7 +148,7 @@ namespace {
 	 * @return      значение функции круга
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_fn__(const size_t round, const uint32_t x, const uint32_t y, const uint32_t z) noexcept {
+	static constexpr uint32_t __nts_fn__(const size_t round, const uint32_t x, const uint32_t y, const uint32_t z) noexcept {
 		/**
 		 * Выбираем функцию по номеру круга
 		 */
@@ -171,8 +174,10 @@ namespace {
 	 */
 	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
-		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) |
-		        (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
+		return (
+			static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) |
+			(static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24)
+		);
 	}
 	/**
 	 * @brief Функция записи слова от младшего байта
@@ -192,7 +197,14 @@ namespace {
 		data[3] = static_cast <uint8_t> (value >> 24);
 	}
 	/**
-	 * @brief Шаг левого потока с номером шага в шаблоне
+	 * @brief Шаблон функции шага левого потока с номером шага в шаблоне
+	 *
+	 * @tparam STEP тип размера шага
+	 *
+	 */
+	template <size_t STEP>
+	/**
+	 * @brief Функция шага левого потока с номером шага в шаблоне
 	 *
 	 * @param first   первое рабочее слово потока
 	 * @param second  второе рабочее слово потока
@@ -202,7 +214,6 @@ namespace {
 	 * @param message слова блока сообщения
 	 *
 	 */
-	template <size_t STEP>
 	static __NTS_INLINE__ void __nts_left_step__(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
 		// Номер круга шага
 		constexpr size_t round = (STEP / 16);
@@ -214,7 +225,16 @@ namespace {
 		first = fifth; fifth = fourth; fourth = __nts_rotl__(third, 10); third = second; second = item;
 	}
 	/**
-	 * @brief Шаг правого потока с номером шага в шаблоне
+	 * @brief Шаблон функции шага правого потока с номером шага в шаблоне
+	 *
+	 * @tparam STEP тип размера шага
+	 *
+	 */
+	template <size_t STEP>
+	/**
+	 * @brief Функция шага правого потока с номером шага в шаблоне
+	 *
+	 * @note Функции кругов правого потока идут в обратном порядке относительно левого
 	 *
 	 * @param first   первое рабочее слово потока
 	 * @param second  второе рабочее слово потока
@@ -223,10 +243,7 @@ namespace {
 	 * @param fifth   пятое рабочее слово потока
 	 * @param message слова блока сообщения
 	 *
-	 * @note Функции кругов правого потока идут в обратном порядке относительно левого
-	 *
 	 */
-	template <size_t STEP>
 	static __NTS_INLINE__ void __nts_right_step__(uint32_t & first, uint32_t & second, uint32_t & third, uint32_t & fourth, uint32_t & fifth, const uint32_t * message) noexcept {
 		// Номер круга шага
 		constexpr size_t round = (STEP / 16);
@@ -238,7 +255,14 @@ namespace {
 		first = fifth; fifth = fourth; fourth = __nts_rotl__(third, 10); third = second; second = item;
 	}
 	/**
-	 * @brief Проход восьмидесяти шагов обоих потоков развёрткой по номеру шага
+	 * @brief Шаблон функции прохода восьмидесяти шагов обоих потоков развёрткой по номеру шага
+	 *
+	 * @tparam STEP тип размера шага
+	 *
+	 */
+	template <size_t... STEP>
+	/**
+	 * @brief Функция прохода восьмидесяти шагов обоих потоков развёрткой по номеру шага
 	 *
 	 * @param leftA      первое рабочее слово левого потока
 	 * @param leftB      второе рабочее слово левого потока
@@ -254,7 +278,6 @@ namespace {
 	 * @param steps   перечень номеров шагов
 	 *
 	 */
-	template <size_t... STEP>
 	static __NTS_INLINE__ void passSteps(uint32_t & leftA, uint32_t & leftB, uint32_t & leftC, uint32_t & leftD, uint32_t & leftE,
 	                                      uint32_t & rightA, uint32_t & rightB, uint32_t & rightC, uint32_t & rightD, uint32_t & rightE,
 	                                      const uint32_t * message, const std::index_sequence <STEP...> &) noexcept {

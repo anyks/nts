@@ -22,10 +22,14 @@
  */
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "digest/md5.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -47,7 +51,9 @@ namespace {
 	 */
 	using namespace nts::digest;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
 	/**
@@ -67,7 +73,6 @@ namespace {
 		0xF4292244, 0x432AFF97, 0xAB9423A7, 0xFC93A039, 0x655B59C3, 0x8F0CCC92, 0xFFEFF47D, 0x85845DD1,
 		0x6FA87E4F, 0xFE2CE6E0, 0xA3014314, 0x4E0811A1, 0xF7537E82, 0xBD3AF235, 0x2AD7D2BB, 0xEB86D391
 	};
-
 	/**
 	 * @brief Величины круговых сдвигов по кругам
 	 *
@@ -81,7 +86,6 @@ namespace {
 		4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
 		6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21
 	};
-
 	/**
 	 * @brief Начальные значения хеша
 	 *
@@ -98,11 +102,10 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
+	static constexpr uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
-
 	/**
 	 * @brief Функция чтения слова от младшего байта
 	 *
@@ -112,10 +115,11 @@ namespace {
 	 */
 	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
-		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) |
-		        (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
+		return (
+			static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) |
+			(static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24)
+		);
 	}
-
 	/**
 	 * @brief Функция записи слова от младшего байта
 	 *

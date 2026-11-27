@@ -61,17 +61,21 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <new>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "sign/rsa.hpp"
+#include "sys/wipe.hpp"
 #include "asn1/asn1.hpp"
 #include "entropy/entropy.hpp"
-#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "sign/rsa.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -87,17 +91,49 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
 	using namespace nts::sign;
 
 	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
+
+	/**
+	 * @brief Наименьшая длина дополнения PKCS #1 v1.5 в байтах
+	 *
+	 * @details Раздел 7.2.1 RFC 8017: не менее восьми байтов.
+	 *
+	 */
+	static constexpr size_t PADDING = 8;
+	/**
+	 * @brief Количество секретных действий с одной парой ослепления
+	 *
+	 * @details Пара обновляется квадратами на каждом действии, а свежая берётся, когда
+	 *          счётчик доходит до предела (решение 1 шапки).
+	 *
+	 */
+	static constexpr size_t REFRESH = 32;
+	/**
+	 * @brief Наибольшая длина хеша в байтах
+	 *
+	 */
+	static constexpr size_t HASH_SIZE = 64;
+	/**
+	 * @brief Количество попыток выработки ослепляющего числа
+	 *
+	 * @details Число на разряд короче модуля всегда меньше него; попытка срывается
+	 *          лишь на нулевом вычете по сомножителю, вероятность чего ничтожна.
+	 *
+	 */
+	static constexpr size_t BLINDING = 100;
+	/**
 	 * @brief Наименьшее количество разрядов устанавливаемого модуля
 	 *
 	 * @details Ключи короче порождать нельзя, но установить для проверок и
-	 *          разбора старых записей можно
+	 *          разбора старых записей можно.
 	 *
 	 */
 	static constexpr size_t LEAST_BITS = 512;
@@ -108,49 +144,16 @@ namespace {
 	 * BoringSSL (e < 2^33). Условие пересмотра: потребитель с ключами шире
 	 */
 	static constexpr size_t EXPONENT_BITS = 33;
-
 	/**
 	 * @brief Наибольшее количество попыток выработки простого сомножителя
 	 *
 	 * @details Доля простых среди нечётных чисел длиной 2048 разрядов - около
 	 *          одного на семьсот; предел стоит заслоном от вечного круга при
-	 *          отказе источника случайности
+	 *          отказе источника случайности.
 	 *
 	 */
 	static constexpr size_t ATTEMPTS = 100000;
 
-	/**
-	 * @brief Наибольшая длина хеша в байтах
-	 *
-	 */
-	static constexpr size_t HASH_SIZE = 64;
-
-	/**
-	 * @brief Наименьшая длина дополнения PKCS #1 v1.5 в байтах
-	 *
-	 * @details Раздел 7.2.1 RFC 8017: не менее восьми байтов
-	 *
-	 */
-	static constexpr size_t PADDING = 8;
-	/**
-	 * @brief Количество попыток выработки ослепляющего числа
-	 *
-	 * @details Число на разряд короче модуля всегда меньше него; попытка срывается
-	 *          лишь на нулевом вычете по сомножителю, вероятность чего ничтожна
-	 *
-	 */
-	static constexpr size_t BLINDING = 100;
-	/**
-	 * @brief Количество секретных действий с одной парой ослепления
-	 *
-	 * @details Пара обновляется квадратами на каждом действии, а свежая берётся, когда
-	 *          счётчик доходит до предела (решение 1 шапки)
-	 *
-	 */
-	static constexpr size_t REFRESH = 32;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * @brief Функция получения маски равенства слов
 	 *
@@ -159,7 +162,7 @@ namespace {
 	 * @return       маска: все разряды единичны при равенстве слов
 	 *
 	 */
-	static uint64_t __nts_same__(const uint64_t first, const uint64_t second) noexcept {
+	static constexpr uint64_t __nts_same__(const uint64_t first, const uint64_t second) noexcept {
 		// Различие слов
 		const uint64_t value = (first ^ second);
 		// Выводим признак нуля различия, растянутый на всё слово
@@ -173,7 +176,7 @@ namespace {
 	 * @return       маска: все разряды единичны, если первое слово меньше второго
 	 *
 	 */
-	static uint64_t __nts_below__(const uint64_t first, const uint64_t second) noexcept {
+	static constexpr uint64_t __nts_below__(const uint64_t first, const uint64_t second) noexcept {
 		// Выводим заём вычитания второго слова из первого, растянутый на всё слово
 		return (0 - (((~first & second) | (~(first ^ second) & (first - second))) >> 63));
 	}
@@ -186,7 +189,7 @@ namespace {
 	 * @return       выбранное слово
 	 *
 	 */
-	static uint64_t __nts_select__(const uint64_t mask, const uint64_t first, const uint64_t second) noexcept {
+	static constexpr uint64_t __nts_select__(const uint64_t mask, const uint64_t first, const uint64_t second) noexcept {
 		// Выводим выбранное наложением маски слово
 		return (second ^ (mask & (first ^ second)));
 	}
@@ -199,7 +202,7 @@ namespace {
 	 * @return       маска: все разряды единичны при равенстве областей
 	 *
 	 */
-	static uint64_t __nts_match__(const uint8_t * first, const uint8_t * second, const size_t size) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_match__(const uint8_t * first, const uint8_t * second, const size_t size) noexcept {
 		// Объединение различий байтов
 		uint64_t result = 0;
 		/**
@@ -215,26 +218,26 @@ namespace {
 	 * @brief Функция получения записи DigestInfo алгоритма хеширования
 	 *
 	 * @details Раздел 9.2 RFC 8017, замечание 1: записи DigestInfo без самого хеша
-	 *          для каждого допустимого алгоритма
+	 *          для каждого допустимого алгоритма.
 	 *
 	 * @param algorithm алгоритм хеширования
 	 * @param size      переменная, в которую помещается длина записи
 	 * @return          запись DigestInfo без хеша либо nullptr у недопустимого алгоритма
 	 *
 	 */
-	static const uint8_t * __nts_prefix__(const digest::hash_t algorithm, size_t & size) noexcept {
+	static __NTS_INLINE__ const uint8_t * __nts_prefix__(const digest::hash_t algorithm, size_t & size) noexcept {
 		// Запись DigestInfo хеша MD5
-		static const uint8_t MD5[] = {0x30, 0x20, 0x30, 0x0C, 0x06, 0x08, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x02, 0x05, 0x05, 0x00, 0x04, 0x10};
+		static constexpr const uint8_t MD5[] = {0x30, 0x20, 0x30, 0x0C, 0x06, 0x08, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x02, 0x05, 0x05, 0x00, 0x04, 0x10};
 		// Запись DigestInfo хеша SHA-1
-		static const uint8_t SHA1[] = {0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2B, 0x0E, 0x03, 0x02, 0x1A, 0x05, 0x00, 0x04, 0x14};
+		static constexpr const uint8_t SHA1[] = {0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2B, 0x0E, 0x03, 0x02, 0x1A, 0x05, 0x00, 0x04, 0x14};
 		// Запись DigestInfo хеша SHA-224
-		static const uint8_t SHA224[] = {0x30, 0x2D, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x05, 0x00, 0x04, 0x1C};
+		static constexpr const uint8_t SHA224[] = {0x30, 0x2D, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x05, 0x00, 0x04, 0x1C};
 		// Запись DigestInfo хеша SHA-256
-		static const uint8_t SHA256[] = {0x30, 0x31, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20};
+		static constexpr const uint8_t SHA256[] = {0x30, 0x31, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20};
 		// Запись DigestInfo хеша SHA-384
-		static const uint8_t SHA384[] = {0x30, 0x41, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02, 0x05, 0x00, 0x04, 0x30};
+		static constexpr const uint8_t SHA384[] = {0x30, 0x41, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02, 0x05, 0x00, 0x04, 0x30};
 		// Запись DigestInfo хеша SHA-512
-		static const uint8_t SHA512[] = {0x30, 0x51, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x05, 0x00, 0x04, 0x40};
+		static constexpr const uint8_t SHA512[] = {0x30, 0x51, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x05, 0x00, 0x04, 0x40};
 		/**
 		 * Определяем алгоритм хеширования
 		 */
@@ -291,7 +294,7 @@ namespace {
 	 * @brief Функция выработки маски MGF1
 	 *
 	 * @details Приложение B.2.1 RFC 8017: маска собирается из хешей затравки с
-	 *          приписанным счётчиком в четыре байта от старшего к младшему
+	 *          приписанным счётчиком в четыре байта от старшего к младшему.
 	 *
 	 * @param algorithm алгоритм хеширования
 	 * @param seed      затравка маски
@@ -301,7 +304,7 @@ namespace {
 	 * @return          признак успешности выработки
 	 *
 	 */
-	static bool __nts_mgf1__(const digest::hash_t algorithm, const uint8_t * seed, const size_t size, uint8_t * mask, const size_t length) noexcept {
+	static __NTS_INLINE__ bool __nts_mgf1__(const digest::hash_t algorithm, const uint8_t * seed, const size_t size, uint8_t * mask, const size_t length) noexcept {
 		// Длина хеша
 		const size_t hash = digest::length(algorithm);
 		// Если длина хеша неизвестна
@@ -353,7 +356,7 @@ namespace {
 	 * @brief Функция выработки хеша PSS
 	 *
 	 * @details Шаги 5 и 6 раздела 9.1.1 RFC 8017: хеш восьми нулевых байтов,
-	 *          хеша сообщения и соли
+	 *          хеша сообщения и соли.
 	 *
 	 * @param algorithm алгоритм хеширования
 	 * @param digest    хеш сообщения
@@ -363,7 +366,7 @@ namespace {
 	 * @return          признак успешности выработки
 	 *
 	 */
-	static bool __nts_salted__(const digest::hash_t algorithm, const view_t & digest, const uint8_t * salt, const size_t size, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_salted__(const digest::hash_t algorithm, const view_t & digest, const uint8_t * salt, const size_t size, uint8_t * result) noexcept {
 		// Восемь нулевых байтов
 		static const uint8_t ZEROS[8] = {};
 		// Объект хеширования
@@ -387,7 +390,7 @@ namespace {
 	 * @return       признак успешности записи
 	 *
 	 */
-	static bool __nts_number__(asn1::writer_t & writer, const math::integer_t & value) noexcept {
+	static __NTS_INLINE__ bool __nts_number__(asn1::writer_t & writer, const math::integer_t & value) noexcept {
 		// Байты числа с местом под ведущий ноль
 		uint8_t buffer[math::INTEGER_SIZE + 1] = {};
 		// Размер числа: у нуля один байт
@@ -411,12 +414,12 @@ namespace {
 	 * @details Записчик секретного ключа держит приватный DER (d, p, q, dp, dq, коэффициент)
 	 *          в собственном буфере кучи; деструктор asn1::Writer пуст, а clear() буфер не
 	 *          затирает, оттого приватный ключ ушёл бы в кучу незатёртым. Затираем как __nts_scrub__
-	 *          в keys.cpp - на всех путях выхода encode()
+	 *          в keys.cpp - на всех путях выхода encode().
 	 *
 	 * @param writer затираемый записчик
 	 *
 	 */
-	static void __nts_scrub__(asn1::writer_t & writer) noexcept {
+	static __NTS_INLINE__ void __nts_scrub__(asn1::writer_t & writer) noexcept {
 		// Получаем просмотр накопителя записчика целиком: на пути отказа data() пуст
 		const view_t data = writer.buffer();
 		// Если буфер записчика не пуст
@@ -431,7 +434,7 @@ namespace {
 	 *
 	 * @details Каждый байт итога собирается перебором всего буфера под маской
 	 *          совпадения номера: ни адрес обращения, ни количество шагов от начала
-	 *          куска не зависят
+	 *          куска не зависят.
 	 *
 	 * @param source буфер, из которого копируется кусок
 	 * @param size   размер буфера
@@ -440,7 +443,7 @@ namespace {
 	 * @param length количество копируемых байтов: наибольшая возможная длина куска
 	 *
 	 */
-	static void __nts_extract__(const uint8_t * source, const size_t size, const size_t start, uint8_t * target, const size_t length) noexcept {
+	static __NTS_INLINE__ void __nts_extract__(const uint8_t * source, const size_t size, const size_t start, uint8_t * target, const size_t length) noexcept {
 		/**
 		 * Перебираем байты итога
 		 */
@@ -616,46 +619,46 @@ size_t nts::sign::Rsa::bits() const noexcept {
  *
  */
 void nts::sign::Rsa::clear() noexcept {
+	// Обнуляем количество разрядов модуля
+	this->_bits = 0;
+	// Сбрасываем счётчик действий с парой
+	this->_uses = 0;
 	// Снимаем признак открытого ключа
 	this->_public = false;
 	// Снимаем признак секретного ключа
 	this->_secret = false;
-	// Обнуляем количество разрядов модуля
-	this->_bits = 0;
-	// Затираем модуль
-	this->_modulus.clear();
-	// Затираем открытый показатель
-	this->_exponent.clear();
-	// Затираем секретный показатель
-	this->_decryptor.clear();
+	// Сбрасываем предвычисления по модулю и сомножителям
+	this->_field.clear();
 	// Затираем первый сомножитель
 	this->_prime1.clear();
 	// Затираем второй сомножитель
 	this->_prime2.clear();
+	// Затираем предвычисления по первому сомножителю
+	this->_field1.clear();
+	// Затираем предвычисления по второму сомножителю
+	this->_field2.clear();
+	// Затираем модуль
+	this->_modulus.clear();
+	// Затираем коэффициент в области Монтгомери
+	this->_reverse.clear();
+	// Затираем сохранённую пару ослепления
+	this->_raised1.clear();
+	// Затираем открытую степень по второму сомножителю
+	this->_raised2.clear();
+	// Затираем обратное по второму сомножителю
+	this->_inverse2.clear();
+	// Затираем открытый показатель
+	this->_exponent.clear();
+	// Затираем обратное по первому сомножителю
+	this->_inverse1.clear();
+	// Затираем секретный показатель
+	this->_decryptor.clear();
 	// Затираем первый показатель
 	this->_exponent1.clear();
 	// Затираем второй показатель
 	this->_exponent2.clear();
 	// Затираем коэффициент
 	this->_coefficient.clear();
-	// Сбрасываем предвычисления по модулю и сомножителям
-	this->_field.clear();
-	// Затираем предвычисления по первому сомножителю
-	this->_field1.clear();
-	// Затираем предвычисления по второму сомножителю
-	this->_field2.clear();
-	// Затираем коэффициент в области Монтгомери
-	this->_reverse.clear();
-	// Затираем сохранённую пару ослепления
-	this->_raised1.clear();
-	// Затираем обратное по первому сомножителю
-	this->_inverse1.clear();
-	// Затираем открытую степень по второму сомножителю
-	this->_raised2.clear();
-	// Затираем обратное по второму сомножителю
-	this->_inverse2.clear();
-	// Сбрасываем счётчик действий с парой
-	this->_uses = 0;
 	// Отпускаем пару: новому ключу она не принадлежит никому
 	this->_busy.store(false, std::memory_order_relaxed);
 }
@@ -990,30 +993,30 @@ bool nts::sign::Rsa::encode(const bool secret, vector <uint8_t> & result) const 
 		// Записываем издание записи: без дополнительных сомножителей
 		writer.integer(0);
 	// Записываем модуль
-	__nts_number__(writer, this->_modulus);
+	::__nts_number__(writer, this->_modulus);
 	// Записываем открытый показатель
-	__nts_number__(writer, this->_exponent);
+	::__nts_number__(writer, this->_exponent);
 	// Если записывается секретный ключ
 	if(secret){
 		// Записываем секретный показатель
-		__nts_number__(writer, this->_decryptor);
+		::__nts_number__(writer, this->_decryptor);
 		// Записываем первый сомножитель
-		__nts_number__(writer, this->_prime1);
+		::__nts_number__(writer, this->_prime1);
 		// Записываем второй сомножитель
-		__nts_number__(writer, this->_prime2);
+		::__nts_number__(writer, this->_prime2);
 		// Записываем первый показатель
-		__nts_number__(writer, this->_exponent1);
+		::__nts_number__(writer, this->_exponent1);
 		// Записываем второй показатель
-		__nts_number__(writer, this->_exponent2);
+		::__nts_number__(writer, this->_exponent2);
 		// Записываем коэффициент
-		__nts_number__(writer, this->_coefficient);
+		::__nts_number__(writer, this->_coefficient);
 	}
 	// Закрываем набор полей ключа
 	writer.close();
 	// Если запись не удалась
 	if(writer.err() != asn1::error_t::NONE){
 		// Затираем буфер записчика: приватный DER не должен уйти в кучу незатёртым
-		__nts_scrub__(writer);
+		::__nts_scrub__(writer);
 		// Выводим отрицательный результат - ключ не записан
 		return false;
 	}
@@ -1035,7 +1038,7 @@ bool nts::sign::Rsa::encode(const bool secret, vector <uint8_t> & result) const 
 		copied = false;
 	}
 	// Затираем буфер записчика на всех путях: приватный DER остаётся лишь в result у вызывающего
-	__nts_scrub__(writer);
+	::__nts_scrub__(writer);
 	// Выводим признак успешности
 	return copied;
 }
@@ -1509,7 +1512,7 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 	// Алгоритм NONE означает проверку без DigestInfo над готовым хешем (TLS 1.1), лишь для PKCS1
 	const bool bare = ((algorithm == digest::hash_t::NONE) && (scheme == scheme_t::PKCS1));
 	// Получаем запись DigestInfo: она же признак допустимости алгоритма; у голой подписи её нет
-	const uint8_t * info = (bare ? nullptr : __nts_prefix__(algorithm, size));
+	const uint8_t * info = (bare ? nullptr : ::__nts_prefix__(algorithm, size));
 	// Длина хеша: у голой подписи - длина переданного хеша
 	const size_t hash = (bare ? digest.size : digest::length(algorithm));
 	// Размер модуля в байтах
@@ -1562,7 +1565,7 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 			 * Сличается закодированное сообщение целиком, а не разбирается: разбор
 			 * с допущением лишних байтов и открывал подделку Блейхенбахера 2006 года
 			 */
-			return (__nts_match__(encoded, expected, modulus) != 0);
+			return (::__nts_match__(encoded, expected, modulus) != 0);
 		}
 		// Если схема PSS
 		case static_cast <uint8_t> (scheme_t::PSS): {
@@ -1627,7 +1630,7 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 				// Выводим отрицательный результат - хеш не выработан
 				return false;
 			// Выводим итог сличения хешей
-			return (__nts_match__(hashed, message + block, hash) != 0);
+			return (::__nts_match__(hashed, message + block, hash) != 0);
 		}
 	}
 	// Выводим отрицательный результат - хеши не сошлись
@@ -1711,7 +1714,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 			// Длина хеша
 			const size_t hash = digest::length(algorithm);
 			// Если алгоритм недопустим
-			if((__nts_prefix__(algorithm, size) == nullptr) || (hash == 0) || (hash > HASH_SIZE))
+			if((::__nts_prefix__(algorithm, size) == nullptr) || (hash == 0) || (hash > HASH_SIZE))
 				// Выводим отрицательный результат - алгоритм не поддержан
 				return false;
 			// Раздел 7.1.1 RFC 8017: сообщение не длиннее модуля без двух хешей и двух байтов
@@ -1755,7 +1758,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 			// Маска OAEP
 			uint8_t mask[math::INTEGER_SIZE];
 			// Вырабатываем маску блока данных по затравке
-			if(!__nts_mgf1__(algorithm, seed, hash, mask, block)){
+			if(!::__nts_mgf1__(algorithm, seed, hash, mask, block)){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
 				// Выводим отрицательный результат - маска не выработана
@@ -1768,7 +1771,7 @@ bool nts::sign::Rsa::encrypt(const scheme_t scheme, const digest::hash_t algorit
 				// Накладываем очередной байт маски
 				data[i] ^= mask[i];
 			// Вырабатываем маску затравки по блоку данных под маской
-			if(!__nts_mgf1__(algorithm, data, block, mask, hash)){
+			if(!::__nts_mgf1__(algorithm, data, block, mask, hash)){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
 				// Выводим отрицательный результат - сообщение не дополнено
@@ -1822,12 +1825,12 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 	if(!this->decipher(input, encoded))
 		// Выводим отрицательный результат - действие не выполнено
 		return false;
+	// Наибольшая длина сообщения
+	size_t most = 0;
 	// Маска верности дополнения
 	uint64_t good = 0;
 	// Номер байта, с которого начинается сообщение
 	uint64_t start = 0;
-	// Наибольшая длина сообщения
-	size_t most = 0;
 	/**
 	 * Определяем схему шифрования
 	 */
@@ -1842,7 +1845,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 				return false;
 			}
 			// Проверяем ведущий ноль и признак вида блока
-			good = (__nts_same__(encoded[0], 0x00) & __nts_same__(encoded[1], 0x02));
+			good = (::__nts_same__(encoded[0], 0x00) & ::__nts_same__(encoded[1], 0x02));
 			// Маска признака найденного разделителя
 			uint64_t found = 0;
 			/**
@@ -1851,14 +1854,14 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			 */
 			for(size_t i = 2; i < modulus; i++){
 				// Маска первой находки нулевого байта
-				const uint64_t take = (__nts_same__(encoded[i], 0x00) & ~found);
+				const uint64_t take = (::__nts_same__(encoded[i], 0x00) & ~found);
 				// Запоминаем место находки под маской
-				start = __nts_select__(take, static_cast <uint64_t> (i + 1), start);
+				start = ::__nts_select__(take, static_cast <uint64_t> (i + 1), start);
 				// Учитываем находку
 				found |= take;
 			}
 			// Разделитель обязан быть найден после дополнения не короче восьми байтов
-			good &= (found & ~__nts_below__(start, PADDING + 3));
+			good &= (found & ~::__nts_below__(start, PADDING + 3));
 			// Наибольшая длина сообщения
 			most = (modulus - 11);
 		} break;
@@ -1869,7 +1872,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			// Длина хеша
 			const size_t hash = digest::length(algorithm);
 			// Если алгоритм недопустим либо модуль не вмещает дополнение
-			if((__nts_prefix__(algorithm, count) == nullptr) || (hash == 0) || (hash > HASH_SIZE) || (modulus < ((2 * hash) + 2))){
+			if((::__nts_prefix__(algorithm, count) == nullptr) || (hash == 0) || (hash > HASH_SIZE) || (modulus < ((2 * hash) + 2))){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
 				// Выводим отрицательный результат - параметры негодны
@@ -1882,7 +1885,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			// Маска и хеш метки
 			uint8_t mask[math::INTEGER_SIZE], labelled[HASH_SIZE];
 			// Вырабатываем хеш метки и маску затравки по блоку данных под маской
-			if(!digest::hash(algorithm, label, labelled, sizeof(labelled)) || !__nts_mgf1__(algorithm, data, block, mask, hash)){
+			if(!digest::hash(algorithm, label, labelled, sizeof(labelled)) || !::__nts_mgf1__(algorithm, data, block, mask, hash)){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
 				// Выводим отрицательный результат - хеш метки не выработан
@@ -1895,7 +1898,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 				// Снимаем очередной байт маски
 				seed[i] ^= mask[i];
 			// Вырабатываем маску блока данных по затравке
-			if(!__nts_mgf1__(algorithm, seed, hash, mask, block)){
+			if(!::__nts_mgf1__(algorithm, seed, hash, mask, block)){
 				// Затираем закодированное сообщение
 				wipe(encoded, sizeof(encoded));
 				// Выводим отрицательный результат - маска не выработана
@@ -1910,7 +1913,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			// Затираем маску
 			wipe(mask, sizeof(mask));
 			// Проверяем ведущий ноль и хеш метки
-			good = (__nts_same__(encoded[0], 0x00) & __nts_match__(data, labelled, hash));
+			good = (::__nts_same__(encoded[0], 0x00) & ::__nts_match__(data, labelled, hash));
 			// Маски признаков найденного разделителя и порчи дополнения
 			uint64_t found = 0, broken = 0;
 			/**
@@ -1919,13 +1922,13 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 			 */
 			for(size_t i = hash; i < block; i++){
 				// Маски единичного и нулевого байта
-				const uint64_t one = __nts_same__(data[i], 0x01), zero = __nts_same__(data[i], 0x00);
+				const uint64_t one = ::__nts_same__(data[i], 0x01), zero = ::__nts_same__(data[i], 0x00);
 				// Маска первой находки разделителя
 				const uint64_t take = (one & ~found);
 				// До разделителя всякий байт, кроме нуля и единицы, портит дополнение
 				broken |= (~found & ~one & ~zero);
 				// Запоминаем место находки под маской
-				start = __nts_select__(take, static_cast <uint64_t> (i + 1), start);
+				start = ::__nts_select__(take, static_cast <uint64_t> (i + 1), start);
 				// Учитываем находку
 				found |= take;
 			}
@@ -1945,7 +1948,7 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
 		}
 	}
 	// Копируем сообщение за постоянное время по наибольшей длине
-	__nts_extract__(encoded, modulus, static_cast <size_t> (start), output, most);
+	::__nts_extract__(encoded, modulus, static_cast <size_t> (start), output, most);
 	// Записываем длину сообщения под маской верности дополнения
 	size = static_cast <size_t> ((modulus - start) & good);
 	// Затираем закодированное сообщение

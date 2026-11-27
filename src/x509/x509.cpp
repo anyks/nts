@@ -32,10 +32,14 @@
 #include <vector>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sign/rsa.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "x509/x509.hpp"
-#include "sign/rsa.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -51,7 +55,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -67,13 +70,13 @@ namespace {
 	 *          обозначение вне стандарта разбирается лишь тем, кто знает ту же
 	 *          таблицу, тогда как запись опознавателем разбирается всяким.
 	 *          Расхождение это намеренное и проверено сличением: из 128 корневых
-	 *          сертификатов доверенного набора оно затрагивает четыре записи
+	 *          сертификатов доверенного набора оно затрагивает четыре записи.
 	 *
 	 * @param oid опознаватель признака имени
 	 * @return    короткое обозначение признака либо сам опознаватель
 	 *
 	 */
-	static const char * __nts_shorten__(const string & oid) noexcept {
+	static __NTS_INLINE__ const char * __nts_shorten__(const string & oid) noexcept {
 		/**
 		 * @brief Соответствие опознавателя признака его короткому обозначению
 		 *
@@ -114,7 +117,7 @@ namespace {
 	 * @return           признак хеша SHA-1: явно записанного либо подразумеваемого умолчанием
 	 *
 	 */
-	static bool __nts_pssweak__(const view_t & parameters) noexcept {
+	static __NTS_INLINE__ bool __nts_pssweak__(const view_t & parameters) noexcept {
 		// Без настроек умолчание по разделу 3.1 RFC 4055 - SHA-1
 		if((parameters.data == nullptr) || (parameters.size == 0))
 			// Выводим признак слабого хеша
@@ -150,7 +153,7 @@ namespace {
 			// Выводим признак слабого хеша
 			return true;
 		// Опознаватель хеша
-		string oid;
+		string oid = "";
 		// Если опознаватель не разобрался
 		if(asn1::oid(object, oid) != asn1::error_t::NONE)
 			// Выводим признак слабого хеша
@@ -161,16 +164,16 @@ namespace {
 	/**
 	 * @brief Функция разбора отличительного имени
 	 *
-	 * @param element элемент записи имени
-	 * @param result  объект имени, в который производится разбор
-	 * @return        причина отказа либо nts::x509::error_t::NONE
-	 *
 	 * @note Разборщик вынесен из сертификата: им же разбираются имена вида directoryName
 	 *       в subjectAltName и в nameConstraints, и негодная запись там отвергается так
 	 *       же строго, как и в поле subject
 	 *
+	 * @param element элемент записи имени
+	 * @param result  объект имени, в который производится разбор
+	 * @return        причина отказа либо nts::x509::error_t::NONE
+	 *
 	 */
-	static nts::x509::error_t __nts_distinguished__(const asn1::element_t & element, name_t & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_distinguished__(const asn1::element_t & element, name_t & result) noexcept {
 		// Если запись имени имеет простой вид метки
 		if(!element.constructed)
 			// Выводим причину отказа
@@ -266,10 +269,12 @@ namespace {
 					if(!fields.empty())
 						// Выводим причину отказа
 						return nts::x509::error_t::STRUCTURE;
-					// Добавляем признак в набор признаков составляющей
 					/**
-					 * Раздел 4.1.2.4 RFC 5280 и X.501: признаки одной составляющей имени
-					 * различны по виду, повтор вида - оплошность записи
+					 * @brief Добавляем признак в набор признаков составляющей
+					 *
+					 * @details Раздел 4.1.2.4 RFC 5280 и X.501: признаки одной составляющей имени
+					 *          различны по виду, повтор вида - оплошность записи.
+					 *
 					 */
 					for(size_t i = 0; i < part.size(); i++){
 						// Если признак такого вида в составляющей уже есть
@@ -346,7 +351,6 @@ nts::x509::error_t nts::x509::Certificate::identifier(const asn1::element_t & el
 	// Выводим успешность разбора
 	return nts::x509::error_t::NONE;
 }
-
 /**
  * @brief Метод разбора отличительного имени
  *
@@ -359,7 +363,6 @@ nts::x509::error_t nts::x509::Certificate::name(const asn1::element_t & element,
 	// Выводим итог разбора отличительного имени вынесенным разборщиком
 	return __nts_distinguished__(element, result);
 }
-
 /**
  * @brief Метод разбора записи сертификата
  *
@@ -788,22 +791,33 @@ nts::x509::error_t nts::x509::Certificate::parse(const view_t & data) noexcept {
 	// Выводим успешность разбора
 	return error_t::NONE;
 }
-
 /**
  * @brief Метод очистки разобранных сведений
  *
  */
 void nts::x509::Certificate::clear() noexcept {
-	// Сбрасываем издание сертификата
-	this->_version = version_t::V1;
+	// Сбрасываем конец срока действия
+	this->_after = 0;
+	// Сбрасываем количество неиспользуемых разрядов подписи
+	this->_unused = 0;
+	// Сбрасываем срок действия сертификата
+	this->_before = 0;
 	// Сбрасываем причину последнего отказа
 	this->_error = error_t::NONE;
-	// Сбрасываем просмотры записи сертификата
-	this->_element = view_t();
+	// Сбрасываем издание сертификата
+	this->_version = version_t::V1;
+	// Сбрасываем сведения об открытом ключе
+	this->_key = key_t();
+	// Сбрасываем имена издателя и владельца сертификата
+	this->_issuer = name_t();
+	// Сбрасываем имя владельца сертификата
+	this->_subject = name_t();
 	// Сбрасываем просмотр тела сертификата
 	this->_body = view_t();
 	// Сбрасываем просмотр серийного номера
 	this->_serial = view_t();
+	// Сбрасываем просмотры записи сертификата
+	this->_element = view_t();
 	// Сбрасываем просмотр подписи
 	this->_signature = view_t();
 	// Сбрасываем просмотр опознавателя издателя
@@ -812,26 +826,13 @@ void nts::x509::Certificate::clear() noexcept {
 	this->_subjectUID = view_t();
 	// Сбрасываем просмотр параметров ключа
 	this->_parameters = view_t();
-	// Сбрасываем количество неиспользуемых разрядов подписи
-	this->_unused = 0;
-	// Сбрасываем опознаватели алгоритма подписи
-	this->_algorithm.clear();
 	// Сбрасываем опознаватель подписи снаружи тела
 	this->_outer.clear();
-	// Сбрасываем имена издателя и владельца сертификата
-	this->_issuer = name_t();
-	// Сбрасываем имя владельца сертификата
-	this->_subject = name_t();
-	// Сбрасываем срок действия сертификата
-	this->_before = 0;
-	// Сбрасываем конец срока действия
-	this->_after = 0;
-	// Сбрасываем сведения об открытом ключе
-	this->_key = key_t();
+	// Сбрасываем опознаватели алгоритма подписи
+	this->_algorithm.clear();
 	// Сбрасываем набор расширений сертификата
 	this->_extensions.clear();
 }
-
 /**
  * @brief Метод извлечения причины последнего отказа
  *
@@ -842,7 +843,6 @@ nts::x509::error_t nts::x509::Certificate::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
-
 /**
  * @brief Метод извлечения издания сертификата
  *
@@ -853,7 +853,6 @@ nts::x509::version_t nts::x509::Certificate::release() const noexcept {
 	// Выводим издание сертификата
 	return this->_version;
 }
-
 /**
  * @brief Метод извлечения подписываемой части сертификата
  *
@@ -864,7 +863,6 @@ const nts::view_t & nts::x509::Certificate::body() const noexcept {
 	// Выводим подписываемую часть сертификата
 	return this->_body;
 }
-
 /**
  * @brief Метод извлечения порядкового номера сертификата
  *
@@ -875,7 +873,6 @@ const nts::view_t & nts::x509::Certificate::number() const noexcept {
 	// Выводим порядковый номер сертификата
 	return this->_serial;
 }
-
 /**
  * @brief Метод извлечения подписи сертификата
  *
@@ -889,7 +886,6 @@ const nts::view_t & nts::x509::Certificate::sign(uint8_t & unused) const noexcep
 	// Выводим подпись сертификата
 	return this->_signature;
 }
-
 /**
  * @brief Метод извлечения опознавателя алгоритма подписи
  *
@@ -910,7 +906,6 @@ const view_t & nts::x509::Certificate::settings() const noexcept {
 	// Выводим просмотр записи настроек алгоритма подписи
 	return this->_parameters;
 }
-
 /**
  * @brief Метод извлечения имени издателя сертификата
  *
@@ -921,7 +916,6 @@ const nts::x509::name_t & nts::x509::Certificate::issuers() const noexcept {
 	// Выводим имя издателя сертификата
 	return this->_issuer;
 }
-
 /**
  * @brief Метод извлечения имени владельца сертификата
  *
@@ -932,7 +926,6 @@ const nts::x509::name_t & nts::x509::Certificate::subjects() const noexcept {
 	// Выводим имя владельца сертификата
 	return this->_subject;
 }
-
 /**
  * @brief Метод извлечения срока действия сертификата
  *
@@ -941,12 +934,11 @@ const nts::x509::name_t & nts::x509::Certificate::subjects() const noexcept {
  *
  */
 void nts::x509::Certificate::validity(int64_t & before, int64_t & after) const noexcept {
-	// Запоминаем начало срока действия сертификата
-	before = this->_before;
 	// Запоминаем окончание срока действия сертификата
 	after = this->_after;
+	// Запоминаем начало срока действия сертификата
+	before = this->_before;
 }
-
 /**
  * @brief Метод извлечения сведений об открытом ключе
  *
@@ -957,7 +949,6 @@ const nts::x509::key_t & nts::x509::Certificate::key() const noexcept {
 	// Выводим сведения об открытом ключе
 	return this->_key;
 }
-
 /**
  * @brief Метод извлечения набора расширений сертификата
  *
@@ -969,7 +960,6 @@ const vector <nts::x509::extension_t> & nts::x509::Certificate::extension() cons
 	// Выводим набор расширений сертификата
 	return this->_extensions;
 }
-
 /**
  * @brief Метод поиска расширения сертификата по опознавателю
  *
@@ -990,7 +980,6 @@ const nts::x509::extension_t * nts::x509::Certificate::extension(const string & 
 	// Выводим отсутствие расширения
 	return nullptr;
 }
-
 /**
  * @brief Метод поиска расширения сертификата по опознавателю-литералу
  *
@@ -1015,13 +1004,18 @@ const nts::x509::extension_t * nts::x509::Certificate::extension(const char * oi
 	// Выводим отсутствие расширения
 	return nullptr;
 }
-
 /**
  * @brief Конструктор сертификата
  *
  */
 nts::x509::Certificate::Certificate() noexcept :
-	_version(version_t::V1), _error(error_t::NONE), _unused(0), _before(0), _after(0) {}
+ _version(version_t::V1), _error(error_t::NONE),
+ _unused(0), _before(0), _after(0) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::x509::Certificate::~Certificate() noexcept = default;
 
 /**
  * @brief Функция поиска признака имени по опознавателю
@@ -1049,7 +1043,6 @@ const nts::x509::attribute_t * nts::x509::attribute(const name_t & name, const s
 	// Выводим отсутствие признака имени
 	return nullptr;
 }
-
 /**
  * @brief Функция сборки записи имени в виде строки
  *
@@ -1144,7 +1137,6 @@ nts::x509::error_t nts::x509::text(const name_t & name, string & result) noexcep
 	// Выводим успешность сборки
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения основных ограничений сертификата
  *
@@ -1227,7 +1219,6 @@ nts::x509::error_t nts::x509::constraints(const extension_t & extension, bool & 
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения назначения открытого ключа
  *
@@ -1275,7 +1266,6 @@ nts::x509::error_t nts::x509::usage(const extension_t & extension, uint16_t & re
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения расширенного назначения открытого ключа
  *
@@ -1320,7 +1310,7 @@ nts::x509::error_t nts::x509::purpose(const extension_t & extension, vector <str
 				// Выводим причину отказа
 				return error_t::ENCODING;
 			// Извлекаемый опознаватель назначения ключа
-			string oid;
+			string oid = "";
 			// Итог извлечения опознавателя назначения ключа
 			const asn1::error_t status = asn1::oid(entry, oid);
 			// Если память под опознаватель назначения ключа выделить не удалось
@@ -1344,7 +1334,6 @@ nts::x509::error_t nts::x509::purpose(const extension_t & extension, vector <str
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения дополнительных имён владельца
  *
@@ -1484,7 +1473,6 @@ nts::x509::error_t nts::x509::alternatives(const extension_t & extension, vector
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения опознавателя ключа владельца
  *
@@ -1513,7 +1501,6 @@ nts::x509::error_t nts::x509::subjectKey(const extension_t & extension, view_t &
 	// Выводим успешность извлечения
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция извлечения опознавателя ключа издателя
  *
@@ -1582,7 +1569,11 @@ nts::x509::error_t nts::x509::authorityKey(const extension_t & extension, view_t
  */
 bool nts::x509::recognized(const certificate_t & certificate) noexcept {
 	// Известные расширения: subjectKeyIdentifier, keyUsage, subjectAltName, basicConstraints, authorityKeyIdentifier, extendedKeyUsage
-	static const char * RECOGNIZED[] = {"2.5.29.14", "2.5.29.15", "2.5.29.17", "2.5.29.19", "2.5.29.30", "2.5.29.35", "2.5.29.37"};
+	static constexpr const char * RECOGNIZED[] = {
+		"2.5.29.14", "2.5.29.15",
+		"2.5.29.17", "2.5.29.19",
+		"2.5.29.30", "2.5.29.35", "2.5.29.37"
+	};
 	// Расширения сертификата
 	const vector <extension_t> & extensions = certificate.extension();
 	/**
@@ -1609,7 +1600,6 @@ bool nts::x509::recognized(const certificate_t & certificate) noexcept {
 	// Сообщаем, что расширения знакомы
 	return true;
 }
-
 /**
  * @brief Функция проверки стойкости алгоритма подписи
  *
@@ -1620,7 +1610,11 @@ bool nts::x509::recognized(const certificate_t & certificate) noexcept {
  */
 bool nts::x509::weak(const string & algorithm, const view_t & parameters) noexcept {
 	// Подписи с хешами MD2/MD4/MD5/SHA-1: RSA (RFC 3279, RFC 8017), ECDSA (RFC 3279), DSA
-	static const char * const HASHES[] = {"1.2.840.113549.1.1.2", "1.2.840.113549.1.1.3", "1.2.840.113549.1.1.4", "1.2.840.113549.1.1.5", "1.3.14.3.2.29", "1.2.840.10045.4.1", "1.2.840.10040.4.3"};
+	static constexpr const char * const HASHES[] = {
+		"1.2.840.113549.1.1.2", "1.2.840.113549.1.1.3",
+		"1.2.840.113549.1.1.4", "1.2.840.113549.1.1.5",
+		"1.3.14.3.2.29", "1.2.840.10045.4.1", "1.2.840.10040.4.3"
+	};
 	/**
 	 * Перебираем слабые алгоритмы
 	 */
@@ -1631,9 +1625,8 @@ bool nts::x509::weak(const string & algorithm, const view_t & parameters) noexce
 			return true;
 	}
 	// Подпись RSASSA-PSS: хеш из настроек, без настроек - SHA-1 (раздел 3.1 RFC 4055)
-	return ((algorithm.compare("1.2.840.113549.1.1.10") == 0) && __nts_pssweak__(parameters));
+	return ((algorithm.compare("1.2.840.113549.1.1.10") == 0) && ::__nts_pssweak__(parameters));
 }
-
 /**
  * @brief Функция проверки стойкости открытого ключа
  *
@@ -1652,7 +1645,6 @@ bool nts::x509::weak(const key_t & key) noexcept {
 	// Ключ стоек
 	return false;
 }
-
 /**
  * @brief Функция проверки стойкости сертификата как звена доверия
  *
@@ -1860,9 +1852,3 @@ nts::x509::Extension::Extension() noexcept : critical(false) {}
  *
  */
 nts::x509::Key::Key() noexcept : unused(0) {}
-
-/**
- * @brief Деструктор
- *
- */
-nts::x509::Certificate::~Certificate() noexcept {}

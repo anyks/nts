@@ -33,16 +33,20 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <new>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "server/server.hpp"
 #include "record/record.hpp"
 #include "internal/engine/engine.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "server/server.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -50,17 +54,12 @@
 using namespace std;
 
 /**
- * Подписываемся на пространство имён библиотеки
- */
-using namespace nts;
-
-/**
  * @brief Метод получения состояния связи
  *
  * @return состояние связи
  *
  */
-context::state_t nts::server::Context::state() const noexcept {
+nts::context::state_t nts::server::Context::state() const noexcept {
 	// Выводим состояние связи
 	return (this->_engine != nullptr ? this->_engine->state() : context::state_t::NONE);
 }
@@ -70,7 +69,7 @@ context::state_t nts::server::Context::state() const noexcept {
  * @return отказ, которым связь оборвана
  *
  */
-context::error_t nts::server::Context::error() const noexcept {
+nts::context::error_t nts::server::Context::error() const noexcept {
 	// Выводим отказ, которым связь оборвана
 	return (this->_engine != nullptr ? this->_engine->error() : context::error_t::MEMORY);
 }
@@ -94,7 +93,7 @@ bool nts::server::Context::established() const noexcept {
  *          расширения либо дозволения, LIMIT при нагрузке шире записи
  *
  */
-context::error_t nts::server::Context::heartbeat(const view_t & payload) noexcept {
+nts::context::error_t nts::server::Context::heartbeat(const view_t & payload) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -138,7 +137,7 @@ size_t nts::server::Context::threshold() const noexcept {
  * @return извещение, которым связь оборвана
  *
  */
-const alert::alert_t & nts::server::Context::alert() const noexcept {
+const nts::alert::alert_t & nts::server::Context::alert() const noexcept {
 	// Извещение, выводимое при незаведённом ведении связи
 	static const alert::alert_t alert;
 	// Выводим извещение, которым связь оборвана
@@ -150,7 +149,7 @@ const alert::alert_t & nts::server::Context::alert() const noexcept {
  * @return согласованный сторонами набор шифрования
  *
  */
-protect::suite_t nts::server::Context::suite() const noexcept {
+nts::protect::suite_t nts::server::Context::suite() const noexcept {
 	// Выводим согласованный сторонами набор шифрования
 	return (this->_engine != nullptr ? this->_engine->suite() : protect::suite_t::NONE);
 }
@@ -160,7 +159,7 @@ protect::suite_t nts::server::Context::suite() const noexcept {
  * @return согласованная сторонами группа обмена ключами
  *
  */
-extension::group_t nts::server::Context::group() const noexcept {
+nts::extension::group_t nts::server::Context::group() const noexcept {
 	// Выводим согласованную сторонами группу обмена ключами
 	return (this->_engine != nullptr ? this->_engine->group() : extension::group_t::NONE);
 }
@@ -217,7 +216,7 @@ const string & nts::server::Context::protocol() const noexcept {
  * @return билеты возобновления связи, выданные клиенту
  *
  */
-const vector <context::ticket_t> & nts::server::Context::tickets() const noexcept {
+const vector <nts::context::ticket_t> & nts::server::Context::tickets() const noexcept {
 	// Билеты, выводимые при незаведённом ведении связи
 	static const vector <context::ticket_t> tickets;
 	// Выводим билеты возобновления связи
@@ -229,7 +228,7 @@ const vector <context::ticket_t> & nts::server::Context::tickets() const noexcep
  * @return отказ выдачи билета возобновления связи
  *
  */
-context::error_t nts::server::Context::issue() noexcept {
+nts::context::error_t nts::server::Context::issue() noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -294,10 +293,8 @@ const vector <nts::protect::suite_t> & nts::server::Context::suites() const noex
  * @return        отказ установки: SETTINGS у издания ниже TLS 1.2 либо перевёрнутых
  *                пределов, STATE у уже заведённой связи
  *
- *                пределов, STATE у уже заведённой связи
- *
  */
-context::error_t nts::server::Context::versions(const uint16_t lowest, const uint16_t highest) noexcept {
+nts::context::error_t nts::server::Context::versions(const uint16_t lowest, const uint16_t highest) noexcept {
 	// Выводим итог установки пределов издания протокола
 	return (this->_engine != nullptr ? this->_engine->versions(lowest, highest) : context::error_t::MEMORY);
 }
@@ -503,7 +500,7 @@ const vector <vector <uint8_t>> & nts::server::Context::statuses() const noexcep
  * @return        отказ вывода экспортируемого материала
  *
  */
-context::error_t nts::server::Context::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size, const bool early) const noexcept {
+nts::context::error_t nts::server::Context::exporting(const view_t & label, const view_t & context, uint8_t * result, const size_t size, const bool early) const noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ вызова не в том состоянии связи
@@ -527,9 +524,6 @@ void nts::server::Context::profiles(const vector <uint16_t> & profiles) noexcept
  * @brief Метод получения профиля защиты RTP, выбранного сторонами связи
  *
  * @return выбранный профиль защиты RTP; 0, если профиль не выбран
- * @param profile место, в которое помещается разобранный профиль приветствия
- *
- *                (`fingerprint::error_t` сведён к MESSAGE, MEMORY при нехватке памяти)
  *
  */
 uint16_t nts::server::Context::profile() const noexcept {
@@ -639,7 +633,7 @@ const vector <uint8_t> & nts::server::Context::settings() const noexcept {
  * @return вид расширения, которым ведётся связь: SETTINGS либо SETTINGS_OLD
  *
  */
-extension::type_t nts::server::Context::codepoint() const noexcept {
+nts::extension::type_t nts::server::Context::codepoint() const noexcept {
 	// Выводим точку кода
 	return (this->_engine != nullptr ? static_cast <extension::type_t> (this->_engine->codepoint()) : extension::type_t::SETTINGS);
 }
@@ -839,7 +833,7 @@ void nts::server::Context::wiping(const vector <context::wiping_t> & classes) no
  * @return классы затирания, объявленные потребителем; умолчание - SECRETS
  *
  */
-const vector <context::wiping_t> & nts::server::Context::wiping() const noexcept {
+const vector <nts::context::wiping_t> & nts::server::Context::wiping() const noexcept {
 	// Пустой перечень на случай незаведённого ведения связи
 	static const vector <context::wiping_t> NOTHING;
 	// Выводим классы затирания
@@ -852,10 +846,8 @@ const vector <context::wiping_t> & nts::server::Context::wiping() const noexcept
  * @return        отказ снятия: STATE до приёма приветствия, иначе отказ разбора
  *                (`fingerprint::error_t` сведён к MESSAGE, MEMORY при нехватке памяти)
  *
- *                (`fingerprint::error_t` сведён к MESSAGE, MEMORY при нехватке памяти)
- *
  */
-context::error_t nts::server::Context::profile(fingerprint::profile_t & profile) const noexcept {
+nts::context::error_t nts::server::Context::profile(fingerprint::profile_t & profile) const noexcept {
 	// Если ведение связи не заведено либо приветствие не принято
 	if((this->_engine == nullptr) || this->_engine->received().empty())
 		// Выводим отказ негодного состояния связи
@@ -871,7 +863,7 @@ context::error_t nts::server::Context::profile(fingerprint::profile_t & profile)
  * @return байты приветствия клиента вместе с обвязкой сообщения рукопожатия (пусто до приёма)
  *
  */
-view_t nts::server::Context::greeting() const noexcept {
+nts::view_t nts::server::Context::greeting() const noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим пустоту
@@ -889,7 +881,7 @@ view_t nts::server::Context::greeting() const noexcept {
  * @return       отказ установки: STATE после `start()`, SETTINGS при негодном ключе либо имени, MEMORY
  *
  */
-context::error_t nts::server::Context::ech(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+nts::context::error_t nts::server::Context::ech(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -907,7 +899,7 @@ context::error_t nts::server::Context::ech(const vector <uint8_t> & secret, cons
  * @return  отказ установки: STATE после `start()`, SETTINGS при негодном ключе либо имени, MEMORY
  *
  */
-context::error_t nts::server::Context::retain(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+nts::context::error_t nts::server::Context::retain(const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -926,7 +918,7 @@ context::error_t nts::server::Context::retain(const vector <uint8_t> & secret, c
  * @return       отказ установки: STATE после `start()`, SETTINGS при негодном ключе, имени либо способе, MEMORY
  *
  */
-context::error_t nts::server::Context::ech(const hpke::kem_t kem, const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+nts::context::error_t nts::server::Context::ech(const hpke::kem_t kem, const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -945,7 +937,7 @@ context::error_t nts::server::Context::ech(const hpke::kem_t kem, const vector <
  * @return       отказ установки: STATE после `start()`, SETTINGS при негодном ключе, имени либо способе, MEMORY
  *
  */
-context::error_t nts::server::Context::retain(const hpke::kem_t kem, const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
+nts::context::error_t nts::server::Context::retain(const hpke::kem_t kem, const vector <uint8_t> & secret, const string & name, const uint8_t id, const uint8_t length) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -1063,7 +1055,7 @@ void nts::server::Context::transport(const context::transport_t transport) noexc
  * @return способ переноса рукопожатия связи
  *
  */
-context::transport_t nts::server::Context::transport() const noexcept {
+nts::context::transport_t nts::server::Context::transport() const noexcept {
 	// Выводим способ переноса рукопожатия связи
 	return (this->_engine != nullptr ? this->_engine->transport() : context::transport_t::RECORDS);
 }
@@ -1110,7 +1102,7 @@ bool nts::server::Context::acquired() const noexcept {
  * @return      отказ разбора принятых сообщений
  *
  */
-context::error_t nts::server::Context::push(const context::level_t level, const view_t & data) noexcept {
+nts::context::error_t nts::server::Context::push(const context::level_t level, const view_t & data) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -1125,7 +1117,7 @@ context::error_t nts::server::Context::push(const context::level_t level, const 
  * @return      накопленные сообщения рукопожатия уровня без обвязки записей
  *
  */
-view_t nts::server::Context::output(const context::level_t level) const noexcept {
+nts::view_t nts::server::Context::output(const context::level_t level) const noexcept {
 	// Выводим накопленные сообщения рукопожатия уровня
 	return (this->_engine != nullptr ? this->_engine->output(level) : view_t());
 }
@@ -1163,7 +1155,7 @@ bool nts::server::Context::secret(const context::level_t level, const context::d
  * @return          наивысший уровень защиты, ключи которого у направления есть
  *
  */
-context::level_t nts::server::Context::level(const context::direction_t direction) const noexcept {
+nts::context::level_t nts::server::Context::level(const context::direction_t direction) const noexcept {
 	// Выводим уровень защиты, ключи которого готовы направлению
 	return (this->_engine != nullptr ? this->_engine->level(direction) : context::level_t::NONE);
 }
@@ -1239,7 +1231,7 @@ uint32_t nts::server::Context::timeout() const noexcept {
  * @return отказ повторной передачи: TIMEOUT по исчерпании попыток
  *
  */
-context::error_t nts::server::Context::elapsed() noexcept {
+nts::context::error_t nts::server::Context::elapsed() noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -1308,7 +1300,7 @@ void nts::server::Context::restamp() noexcept {
  * @return отказ заведения связи
  *
  */
-context::error_t nts::server::Context::start() noexcept {
+nts::context::error_t nts::server::Context::start() noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -1333,7 +1325,7 @@ void nts::server::Context::clear() noexcept {
  * @return     отказ разбора принятых байтов
  *
  */
-context::error_t nts::server::Context::push(const view_t & data) noexcept {
+nts::context::error_t nts::server::Context::push(const view_t & data) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -1347,7 +1339,7 @@ context::error_t nts::server::Context::push(const view_t & data) noexcept {
  * @return накопленные байты, отправляемые собеседнику
  *
  */
-view_t nts::server::Context::output() const noexcept {
+nts::view_t nts::server::Context::output() const noexcept {
 	// Выводим накопленные байты, отправляемые собеседнику
 	return (this->_engine != nullptr ? this->_engine->output() : view_t());
 }
@@ -1370,7 +1362,7 @@ void nts::server::Context::consume(const size_t size) noexcept {
  * @return     отказ отправки прикладных данных
  *
  */
-context::error_t nts::server::Context::write(const view_t & data) noexcept {
+nts::context::error_t nts::server::Context::write(const view_t & data) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -1385,7 +1377,7 @@ context::error_t nts::server::Context::write(const view_t & data) noexcept {
  * @return       отказ получения принятых прикладных данных
  *
  */
-context::error_t nts::server::Context::read(vector <uint8_t> & result) noexcept {
+nts::context::error_t nts::server::Context::read(vector <uint8_t> & result) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -1400,7 +1392,7 @@ context::error_t nts::server::Context::read(vector <uint8_t> & result) noexcept 
  * @return        отказ смены ключевого материала своего направления
  *
  */
-context::error_t nts::server::Context::update(const bool request) noexcept {
+nts::context::error_t nts::server::Context::update(const bool request) noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти
@@ -1414,7 +1406,7 @@ context::error_t nts::server::Context::update(const bool request) noexcept {
  * @return отказ закрытия связи
  *
  */
-context::error_t nts::server::Context::close() noexcept {
+nts::context::error_t nts::server::Context::close() noexcept {
 	// Если ведение связи не заведено
 	if(this->_engine == nullptr)
 		// Выводим отказ нехватки памяти

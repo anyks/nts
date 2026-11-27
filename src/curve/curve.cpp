@@ -221,7 +221,9 @@ namespace {
 		#else
 			// Перезапись области стека
 			::memset(area, 0, sizeof(area));
-			// Пустая вставка с областью на входе и порчей памяти: запись перед нею сохраняется
+			/**
+			 * Пустая вставка с областью на входе и порчей памяти: запись перед нею сохраняется
+			 */
 			__asm__ __volatile__("" : : "r"(area) : "memory");
 		#endif
 	}
@@ -418,7 +420,7 @@ namespace {
 			 */
 			__NTS_INLINE__ void multiply(const value_t & first, const value_t & second, value_t & result) const noexcept {
 				// Умножаем встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
-				math::kernel::__nts_multiply__ <WORDS, ADX> (this->layout, first, second, result);
+				math::kernel::multiply <WORDS, ADX> (this->layout, first, second, result);
 			}
 			/**
 			 * @brief Метод возведения значения поля в квадрат по модулю
@@ -429,7 +431,7 @@ namespace {
 			 */
 			__NTS_INLINE__ void square(const value_t & value, value_t & result) const noexcept {
 				// Возводим в квадрат встраиваемым ядром: ядра MULX у простого P-256 по признаку шаблона
-				math::kernel::__nts_square__ <WORDS, ADX> (this->layout, value, result);
+				math::kernel::square <WORDS, ADX> (this->layout, value, result);
 			}
 			/**
 			 * @brief Метод сложения двух значений поля по модулю
@@ -441,7 +443,7 @@ namespace {
 			 */
 			__NTS_INLINE__ void add(const value_t & first, const value_t & second, value_t & result) const noexcept {
 				// Складываем встраиваемым ядром
-				math::kernel::__nts_add__ <WORDS> (this->layout, first, second, result);
+				math::kernel::add <WORDS> (this->layout, first, second, result);
 			}
 			/**
 			 * @brief Метод вычитания двух значений поля по модулю
@@ -453,7 +455,7 @@ namespace {
 			 */
 			__NTS_INLINE__ void subtract(const value_t & first, const value_t & second, value_t & result) const noexcept {
 				// Вычитаем встраиваемым ядром
-				math::kernel::__nts_subtract__ <WORDS> (this->layout, first, second, result);
+				math::kernel::subtract <WORDS> (this->layout, first, second, result);
 			}
 			/**
 			 * @brief Метод выбора одного из двух значений поля наложением маски
@@ -466,7 +468,7 @@ namespace {
 			 */
 			__NTS_INLINE__ void choose(const uint64_t mask, const value_t & first, const value_t & second, value_t & result) const noexcept {
 				// Выбираем наложением маски
-				math::kernel::__nts_choose__ <WORDS> (mask, first, second, result);
+				math::kernel::choose <WORDS> (mask, first, second, result);
 			}
 			/**
 			 * @brief Метод получения маски равенства значения поля нулю
@@ -477,7 +479,7 @@ namespace {
 			 */
 			__NTS_INLINE__ uint64_t zero(const value_t & value) const noexcept {
 				// Выводим маску равенства нулю
-				return math::kernel::__nts_zero__ <WORDS> (value);
+				return math::kernel::zero <WORDS> (value);
 			}
 			/**
 			 * @brief Метод чтения значения поля из слов числа
@@ -520,7 +522,7 @@ namespace {
 				// Обнуляем число: слова выше ширины поля нулевые
 				number = math::number_t();
 				// Записываем слова значения
-				math::kernel::__nts_put__ <WORDS> (value, number.words);
+				math::kernel::put <WORDS> (value, number.words);
 			}
 			/**
 			 * @brief Метод выборки строки слов из таблицы наложением маски
@@ -633,7 +635,6 @@ namespace {
 				#endif
 			}
 	};
-
 	/**
 	 * @brief Шаблон типа данных арифметики поля, встраиваемая по количеству слов
 	 *

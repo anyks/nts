@@ -133,7 +133,7 @@ namespace nts {
 			 *          не стоит записи с последующим чтением. Замер 22.09.2026 на M4: та же
 			 *          формула удвоения через память 80 нс, на значениях 57 при 53 у
 			 *          ассемблерного point_double OpenSSL (ecp_nistz256); Astra (gcc 12)
-			 *          удвоение 334 → 260 за счёт сложений на ассемблере
+			 *          удвоение 334 → 260 за счёт сложений на ассемблере.
 			 *
 			 */
 			struct Words {
@@ -167,7 +167,7 @@ namespace nts {
 			 * @return      значение в регистрах
 			 *
 			 */
-			static __NTS_INLINE__ words_t <WORDS> __nts_fetch__(const uint64_t * value) noexcept {
+			static __NTS_INLINE__ words_t <WORDS> fetch(const uint64_t * value) noexcept {
 				// Значение, собираемое из слов памяти в регистры
 				words_t <WORDS> result;
 				/**
@@ -193,7 +193,7 @@ namespace nts {
 			 * @param result место, в которое записываются слова
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_put__(const words_t <WORDS> & value, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void put(const words_t <WORDS> & value, uint64_t * result) noexcept {
 				/**
 				 * Записываем слова значения из регистров в память по порядку от младшего к старшему
 				 */
@@ -219,7 +219,7 @@ namespace nts {
 			 * @return        старшее слово переноса произведения
 			 *
 			 */
-			static __NTS_INLINE__ uint64_t __nts_montgomery__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const uint64_t factor, uint64_t * result) noexcept {
+			static __NTS_INLINE__ uint64_t montgomery(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const uint64_t factor, uint64_t * result) noexcept {
 				// Накопитель произведения: WORDS слов итога и старшее слово переноса
 				uint64_t buffer[WORDS + 1] = {};
 				// Слова сомножителей и модуля, снятые в регистры до первой записи
@@ -307,14 +307,14 @@ namespace nts {
 			 *          разных слов встречается дважды, и шесть удвоенных произведений вместе с
 			 *          четырьмя квадратами слов заменяют шестнадцать произведений. Приведение
 			 *          затем идёт словами модуля, как у умножения: множитель приведения есть само
-			 *          младшее слово, третье слово модуля не умножается вовсе
+			 *          младшее слово, третье слово модуля не умножается вовсе.
 			 *
 			 * @param value  возводимое число
 			 * @param result место, в которое помещается квадрат
 			 * @return       старшее слово переноса квадрата
 			 *
 			 */
-			static __NTS_INLINE__ uint64_t __nts_nist256square__(const uint64_t * value, uint64_t * result) noexcept {
+			static __NTS_INLINE__ uint64_t nist256Square(const uint64_t * value, uint64_t * result) noexcept {
 				// Слова возводимого числа, снятые в регистры до первой записи
 				const uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3];
 				// Полное произведение в восемь слов
@@ -458,7 +458,7 @@ namespace nts {
 			 * @return       старшее слово переноса произведения
 			 *
 			 */
-			static __NTS_INLINE__ uint64_t __nts_nist256__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+			static __NTS_INLINE__ uint64_t nist256(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 				// Слова сомножителей, снятые в регистры до первой записи
 				uint64_t firstWords[4], secondWords[4];
 				/**
@@ -552,7 +552,7 @@ namespace nts {
 			 * @return       выбранное слово
 			 *
 			 */
-			static __NTS_INLINE__ uint64_t __nts_select__(const uint64_t mask, const uint64_t first, const uint64_t second) noexcept {
+			static __NTS_INLINE__ uint64_t select(const uint64_t mask, const uint64_t first, const uint64_t second) noexcept {
 				// Выводим выбранное наложением маски слово
 				return (second ^ (mask & (first ^ second)));
 			}
@@ -580,7 +580,7 @@ namespace nts {
 			 * @param result  место, в которое помещается приведённое значение
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_shrink__(const uint64_t * value, const uint64_t * modulus, const uint64_t carry, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void shrink(const uint64_t * value, const uint64_t * modulus, const uint64_t carry, uint64_t * result) noexcept {
 				// Слова приводимого значения, снятые в регистры
 				uint64_t item[WORDS];
 				// Буфер разности значения с модулем для условного выбора
@@ -603,7 +603,7 @@ namespace nts {
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Выбираем очередное слово итога наложением маски
-					result[i] = __nts_select__(mask, buffer[i], item[i]);
+					result[i] = select(mask, buffer[i], item[i]);
 				/**
 				 * Буфер не затирается намеренно: его перезаписывает следующее же действие (см. заголовок)
 				 */
@@ -627,7 +627,7 @@ namespace nts {
 			 * @param result  место, в которое помещается сумма
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_addition__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void addition(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Буфер суммы слагаемых до приведения по модулю
 				uint64_t sum[WORDS];
 				// Перенос из очередного слова суммы
@@ -658,7 +658,7 @@ namespace nts {
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Выбираем очередное слово итога наложением маски
-					result[i] = __nts_select__(mask, buffer[i], sum[i]);
+					result[i] = select(mask, buffer[i], sum[i]);
 				/**
 				 * Буфер не затирается намеренно: его перезаписывает следующее же действие (см. заголовок)
 				 */
@@ -679,7 +679,7 @@ namespace nts {
 			 * @param result  место, в которое помещается разность
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_subtraction__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void subtraction(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Значение разности, собираемое в регистрах
 				uint64_t difference[WORDS];
 				// Заём из очередного слова разности
@@ -705,7 +705,7 @@ namespace nts {
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Выбираем очередное слово итога наложением маски заёма
-					result[i] = __nts_select__(0 - borrow, buffer[i], difference[i]);
+					result[i] = select(0 - borrow, buffer[i], difference[i]);
 				/**
 				 * Буфер не затирается намеренно: его перезаписывает следующее же действие (см. заголовок)
 				 */
@@ -725,7 +725,7 @@ namespace nts {
 			 * @param result место, в которое помещается произведение вдвое большего количества слов
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_product__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void product(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 				/**
 				 * Обнуляем слова накопителя произведения перед накоплением
 				 */
@@ -773,7 +773,7 @@ namespace nts {
 			 * @param result место, в которое помещается квадрат вдвое большего количества слов
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_squared__(const uint64_t * value, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void squared(const uint64_t * value, uint64_t * result) noexcept {
 				/**
 				 * Обнуляем слова накопителя квадрата перед накоплением
 				 */
@@ -848,7 +848,7 @@ namespace nts {
 			 * @return       перенос из старшего слова свёрнутого значения
 			 *
 			 */
-			static __NTS_INLINE__ uint64_t __nts_foldminus__(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
+			static __NTS_INLINE__ uint64_t foldMinus(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
 				// Перенос в следующее слово свёртки
 				uint64_t carry = 0;
 				/**
@@ -906,7 +906,7 @@ namespace nts {
 			 * @param result  место, в которое помещается приведённое значение
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_foldplus__(const uint64_t * wide, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void foldPlus(const uint64_t * wide, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Слова модуля, снятые в регистры до первой записи
 				uint64_t modulusWords[WORDS];
 				/**
@@ -990,7 +990,7 @@ namespace nts {
 					// Прибавляем очередное слово модуля под маской
 					carry = nts::math::adc(value[j], (modulusWords[j] & mask), carry, value[j]);
 				// Условное вычитание модуля: значение не превосходит удвоенного модуля
-				__nts_shrink__ <WORDS> (value, modulusWords, 0, result);
+				shrink <WORDS> (value, modulusWords, 0, result);
 			}
 			/**
 			 * Ядра на четыре слова для AArch64 на встроенном ассемблере: те же действия, что у
@@ -1089,10 +1089,12 @@ namespace nts {
 				 * @return       произведение
 				 *
 				 */
-				static __NTS_INLINE__ words_t <4> __nts_multiplyminus4r__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
+				static __NTS_INLINE__ words_t <4> multiplyMinus4r(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
 					// Значение произведения, собираемое в регистрах
 					words_t <4> result;
-					// Произведение со свёрткой и условным вычитанием ядром на ассемблере
+					/**
+					 * Произведение со свёрткой и условным вычитанием ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_AARCH64_PRODUCT4__
 						__NTS_AARCH64_FOLD_SHRINK__
@@ -1111,12 +1113,14 @@ namespace nts {
 				 * @return      квадрат
 				 *
 				 */
-				static __NTS_INLINE__ words_t <4> __nts_squareminus4r__(const words_t <4> & value, const uint64_t tail) noexcept {
+				static __NTS_INLINE__ words_t <4> squareMinus4r(const words_t <4> & value, const uint64_t tail) noexcept {
 					// Значение квадрата, собираемое в регистрах
 					words_t <4> result;
 					// Слова возводимого числа: по ходу счёта замещаются квадратами слов
 					uint64_t value0 = value.words[0], value1 = value.words[1], value2 = value.words[2], value3 = value.words[3];
-					// Квадрат со свёрткой и условным вычитанием ядром на ассемблере
+					/**
+					 * Квадрат со свёрткой и условным вычитанием ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_AARCH64_SQUARE4__
 						__NTS_AARCH64_FOLD_SHRINK__
@@ -1142,10 +1146,12 @@ namespace nts {
 				 * @return       сумма
 				 *
 				 */
-				static __NTS_INLINE__ words_t <4> __nts_addminus4r__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
+				static __NTS_INLINE__ words_t <4> addMinus4r(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
 					// Значение суммы, собираемое в регистрах
 					words_t <4> result;
-					// Сложение со свёрткой и условным вычитанием ядром на ассемблере
+					/**
+					 * Сложение со свёрткой и условным вычитанием ядром на ассемблере
+					 */
 					__asm__(
 						"adds %[c0], %[a0], %[b0]\n\t" "adcs %[c1], %[a1], %[b1]\n\t" "adcs %[c2], %[a2], %[b2]\n\t" "adcs %[c3], %[a3], %[b3]\n\t" "adc x9, xzr, xzr\n\t"
 						// Вычитание модуля есть прибавление хвоста: берётся при выходе за 2^256 самой суммы либо суммы с хвостом
@@ -1168,10 +1174,12 @@ namespace nts {
 				 * @return       разность
 				 *
 				 */
-				static __NTS_INLINE__ words_t <4> __nts_subtractminus4r__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
+				static __NTS_INLINE__ words_t <4> subtractMinus4r(const words_t <4> & first, const words_t <4> & second, const uint64_t tail) noexcept {
 					// Значение разности, собираемое в регистрах
 					words_t <4> result;
-					// Вычитание со свёрткой и условным вычитанием ядром на ассемблере
+					/**
+					 * Вычитание со свёрткой и условным вычитанием ядром на ассемблере
+					 */
 					__asm__(
 						"subs %[c0], %[a0], %[b0]\n\t" "sbcs %[c1], %[a1], %[b1]\n\t" "sbcs %[c2], %[a2], %[b2]\n\t" "sbcs %[c3], %[a3], %[b3]\n\t" "csetm x9, cc\n\t"
 						// Прибавление модуля при займе есть вычитание хвоста
@@ -1217,10 +1225,12 @@ namespace nts {
 				 * @return       произведение в области Монтгомери
 				 *
 				 */
-				static __NTS_INLINE__ words_t <4> __nts_multiplynist4r__(const words_t <4> & first, const words_t <4> & second) noexcept {
+				static __NTS_INLINE__ words_t <4> multiplyNist4r(const words_t <4> & first, const words_t <4> & second) noexcept {
 					// Значение произведения, собираемое в регистрах
 					words_t <4> result;
-					// Произведение с приведением Монтгомери ядром на ассемблере
+					/**
+					 * Произведение с приведением Монтгомери ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_AARCH64_PRODUCT4__
 						__NTS_AARCH64_NIST_SHRINK__
@@ -1238,12 +1248,14 @@ namespace nts {
 				 * @return      квадрат в области Монтгомери
 				 *
 				 */
-				static __NTS_INLINE__ words_t <4> __nts_squarenist4r__(const words_t <4> & value) noexcept {
+				static __NTS_INLINE__ words_t <4> squareNist4r(const words_t <4> & value) noexcept {
 					// Значение квадрата, собираемое в регистрах
 					words_t <4> result;
 					// Слова возводимого числа: по ходу счёта замещаются квадратами слов
 					uint64_t value0 = value.words[0], value1 = value.words[1], value2 = value.words[2], value3 = value.words[3];
-					// Квадрат с приведением Монтгомери ядром на ассемблере
+					/**
+					 * Квадрат с приведением Монтгомери ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_AARCH64_SQUARE4__
 						__NTS_AARCH64_NIST_SHRINK__
@@ -1268,10 +1280,12 @@ namespace nts {
 				 * @return       сумма
 				 *
 				 */
-				static __NTS_INLINE__ words_t <4> __nts_addnist4r__(const words_t <4> & first, const words_t <4> & second) noexcept {
+				static __NTS_INLINE__ words_t <4> addNist4r(const words_t <4> & first, const words_t <4> & second) noexcept {
 					// Значение суммы, собираемое в регистрах
 					words_t <4> result;
-					// Сложение со словами модуля ядром на ассемблере
+					/**
+					 * Сложение со словами модуля ядром на ассемблере
+					 */
 					__asm__(
 						"adds %[c0], %[a0], %[b0]\n\t" "adcs %[c1], %[a1], %[b1]\n\t" "adcs %[c2], %[a2], %[b2]\n\t" "adcs %[c3], %[a3], %[b3]\n\t" "adc x13, xzr, xzr\n\t"
 						// Слова модуля 2^32 - 1 и 2^64 - 2^32 + 1
@@ -1294,10 +1308,12 @@ namespace nts {
 				 * @return       разность
 				 *
 				 */
-				static __NTS_INLINE__ words_t <4> __nts_subtractnist4r__(const words_t <4> & first, const words_t <4> & second) noexcept {
+				static __NTS_INLINE__ words_t <4> subtractNist4r(const words_t <4> & first, const words_t <4> & second) noexcept {
 					// Значение разности, собираемое в регистрах
 					words_t <4> result;
-					// Вычитание со словами модуля ядром на ассемблере
+					/**
+					 * Вычитание со словами модуля ядром на ассемблере
+					 */
 					__asm__(
 						"subs %[c0], %[a0], %[b0]\n\t" "sbcs %[c1], %[a1], %[b1]\n\t" "sbcs %[c2], %[a2], %[b2]\n\t" "sbcs %[c3], %[a3], %[b3]\n\t" "csetm x9, cc\n\t"
 						// Слова модуля под маской займа: младшее слово из одних единиц есть сама маска
@@ -1320,9 +1336,9 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_nistmultiply4__(const uint64_t * first, const uint64_t * second, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void nistMultiply4(const uint64_t * first, const uint64_t * second, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Умножение регистровым ядром с записью итога
-					__nts_put__ <4> (__nts_multiplynist4r__(__nts_fetch__ <4> (first), __nts_fetch__ <4> (second)), result);
+					put <4> (multiplyNist4r(fetch <4> (first), fetch <4> (second)), result);
 				}
 				/**
 				 * @brief Функция возведения в квадрат Монтгомери по простому P-256 через указатели
@@ -1332,9 +1348,9 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_nistsquare4__(const uint64_t * value, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void nistSquare4(const uint64_t * value, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Возведение в квадрат регистровым ядром с записью итога
-					__nts_put__ <4> (__nts_squarenist4r__(__nts_fetch__ <4> (value)), result);
+					put <4> (squareNist4r(fetch <4> (value)), result);
 				}
 				/**
 				 * @brief Функция умножения по модулю вида 2^256 - c через указатели
@@ -1346,9 +1362,9 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_multiplyminus4__(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void multiplyMinus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Умножение регистровым ядром с записью итога
-					__nts_put__ <4> (__nts_multiplyminus4r__(__nts_fetch__ <4> (first), __nts_fetch__ <4> (second), tail), result);
+					put <4> (multiplyMinus4r(fetch <4> (first), fetch <4> (second), tail), result);
 				}
 				/**
 				 * @brief Функция возведения в квадрат по модулю вида 2^256 - c через указатели
@@ -1359,9 +1375,9 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_squareminus4__(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void squareMinus4(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Возведение в квадрат регистровым ядром с записью итога
-					__nts_put__ <4> (__nts_squareminus4r__(__nts_fetch__ <4> (value), tail), result);
+					put <4> (squareMinus4r(fetch <4> (value), tail), result);
 				}
 				/**
 				 * Ядра на восемь слов (кривые ГОСТ-512, модуль 2^512 - c) через указатели: значения
@@ -1573,12 +1589,14 @@ namespace nts {
 				 * @param result место, в которое помещается произведение в шестнадцать слов
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_product8__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void product8(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 					// Слова первого сомножителя, снятые в регистры до первой записи
 					uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3], first4 = first[4], first5 = first[5], first6 = first[6], first7 = first[7];
 					// Окно накопителя, временные и слово второго сомножителя
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, temp0, temp1, temp2, temp3, secondWord;
-					// Полное произведение восьми слов ядром на ассемблере
+					/**
+					 * Полное произведение восьми слов ядром на ассемблере
+					 */
 					__asm__ volatile(
 						__NTS_AARCH64_PRODUCT8__
 						__NTS_AARCH64_HIGH8_PRODUCT__
@@ -1594,21 +1612,25 @@ namespace nts {
 				 * @param result место, в которое помещается квадрат в шестнадцать слов
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_square8__(const uint64_t * value, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void square8(const uint64_t * value, uint64_t * result) noexcept {
 					// Буфер треугольника произведений разных слов до удвоения
 					uint64_t triangle[16];
 					// Слова числа, снятые в регистры до первой записи
 					uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3], value4 = value[4], value5 = value[5], value6 = value[6], value7 = value[7];
 					// Окно накопителя, временные и слово переноса
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, temp0, temp1, temp2, temp3, carryWord;
-					// Накопление треугольника произведений разных слов ядром на ассемблере
+					/**
+					 * Накопление треугольника произведений разных слов ядром на ассемблере
+					 */
 					__asm__ volatile(
 						__NTS_AARCH64_TRIANGLE8__
 						: [w0] "=&r" (acc0), [w1] "=&r" (acc1), [w2] "=&r" (acc2), [w3] "=&r" (acc3), [w4] "=&r" (acc4), [w5] "=&r" (acc5), [w6] "=&r" (acc6), [w7] "=&r" (acc7), [w8] "=&r" (acc8), [t0] "=&r" (temp0), [t1] "=&r" (temp1), [t2] "=&r" (temp2), [t3] "=&r" (temp3)
 						: [a0] "r" (value0), [a1] "r" (value1), [a2] "r" (value2), [a3] "r" (value3), [a4] "r" (value4), [a5] "r" (value5), [a6] "r" (value6), [a7] "r" (value7), [q] "r" (triangle)
 						: "cc", "memory"
 					);
-					// Удвоение треугольника и прибавление квадратов слов ядром на ассемблере
+					/**
+					 * Удвоение треугольника и прибавление квадратов слов ядром на ассемблере
+					 */
 					__asm__ volatile(
 						__NTS_AARCH64_DIAGONAL8__
 						__NTS_AARCH64_HIGH8_SQUARE__
@@ -1634,12 +1656,14 @@ namespace nts {
 					 * @param result  место, в которое помещается произведение
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_multiplyminus8__(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+					static __NTS_INLINE__ void multiplyMinus8(const uint64_t * first, const uint64_t * second, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова первого сомножителя, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
 						uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3], first4 = first[4], first5 = first[5], first6 = first[6], first7 = first[7];
 						// Окно накопителя, временные и слово второго сомножителя
 						uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, temp0, temp1, temp2, temp3, secondWord;
-						// Произведение со свёрткой ядром на ассемблере
+						/**
+						 * Произведение со свёрткой ядром на ассемблере
+						 */
 						__asm__ volatile(
 							__NTS_AARCH64_PRODUCT8__
 							__NTS_AARCH64_FOLD8_PRODUCT__
@@ -1657,21 +1681,25 @@ namespace nts {
 					 * @param result  место, в которое помещается квадрат
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_squareminus8__(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+					static __NTS_INLINE__ void squareMinus8(const uint64_t * value, const uint64_t tail, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 						// Буфер треугольника произведений разных слов до удвоения
 						uint64_t triangle[16];
 						// Слова числа, снятые в регистры до первой записи; при свёртке замещаются младшей половиной
 						uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3], value4 = value[4], value5 = value[5], value6 = value[6], value7 = value[7];
 						// Окно накопителя, временные и слово переноса
 						uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, temp0, temp1, temp2, temp3, carryWord;
-						// Накопление треугольника произведений разных слов ядром на ассемблере
+						/**
+						 * Накопление треугольника произведений разных слов ядром на ассемблере
+						 */
 						__asm__ volatile(
 							__NTS_AARCH64_TRIANGLE8__
 							: [w0] "=&r" (acc0), [w1] "=&r" (acc1), [w2] "=&r" (acc2), [w3] "=&r" (acc3), [w4] "=&r" (acc4), [w5] "=&r" (acc5), [w6] "=&r" (acc6), [w7] "=&r" (acc7), [w8] "=&r" (acc8), [t0] "=&r" (temp0), [t1] "=&r" (temp1), [t2] "=&r" (temp2), [t3] "=&r" (temp3)
 							: [a0] "r" (value0), [a1] "r" (value1), [a2] "r" (value2), [a3] "r" (value3), [a4] "r" (value4), [a5] "r" (value5), [a6] "r" (value6), [a7] "r" (value7), [q] "r" (triangle)
 							: "cc", "memory"
 						);
-						// Удвоение треугольника, прибавление квадратов слов и свёртку ядром на ассемблере
+						/**
+						 * Удвоение треугольника, прибавление квадратов слов и свёртку ядром на ассемблере
+						 */
 						__asm__ volatile(
 							__NTS_AARCH64_DIAGONAL8__
 							__NTS_AARCH64_FOLD8_SQUARE__
@@ -1832,10 +1860,12 @@ namespace nts {
 				 * @param result место, в которое помещается итог
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_settle4__(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, const fold_t * fold, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void settle4(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, const fold_t * fold, uint64_t * result) noexcept {
 					// Слово переноса и указатель на слова модуля
 					uint64_t temp, modulusPtr;
-					// Свёртку, условное вычитание и запись итога ядром на ассемблере
+					/**
+					 * Свёртку, условное вычитание и запись итога ядром на ассемблере
+					 */
 					__asm__ volatile(__NTS_X86_64_FOLD_SHRINK__ __NTS_X86_64_STORE4__
 						: [c0] "+r" (acc0), [c1] "+r" (acc1), [c2] "+r" (acc2), [c3] "+r" (acc3), [c4] "+r" (acc4), [c5] "+r" (acc5), [c6] "+r" (acc6), [c7] "+r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusPtr)
 						: [f] "r" (fold), [r] "r" (result)
@@ -1853,10 +1883,12 @@ namespace nts {
 				 * @param fold хвост и слова модуля
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_settle4v__(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, const fold_t * fold) noexcept {
+				static __NTS_INLINE__ void settle4v(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, const fold_t * fold) noexcept {
 					// Слово переноса и указатель на слова модуля
 					uint64_t temp, modulusPtr;
-					// Свёртка и условное вычитание ядром на ассемблере
+					/**
+					 * Свёртка и условное вычитание ядром на ассемблере
+					 */
 					__asm__(__NTS_X86_64_FOLD_SHRINK__
 						: [c0] "+r" (acc0), [c1] "+r" (acc1), [c2] "+r" (acc2), [c3] "+r" (acc3), [c4] "+r" (acc4), [c5] "+r" (acc5), [c6] "+r" (acc6), [c7] "+r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusPtr)
 						: [f] "r" (fold)
@@ -1901,10 +1933,12 @@ namespace nts {
 				 * @param result место, в которое помещается итог
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_settlenist4__(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void settleNist4(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7, uint64_t * result) noexcept {
 					// Временные слова приведения: множители модуля для обращения младших слов в ноль
 					uint64_t temp, modulusPtr;
-					// Приведение Монтгомери и запись итога ядром на ассемблере
+					/**
+					 * Приведение Монтгомери и запись итога ядром на ассемблере
+					 */
 					__asm__ volatile(__NTS_X86_64_NIST_SHRINK__ __NTS_X86_64_STORE4__
 						: [c0] "+r" (acc0), [c1] "+r" (acc1), [c2] "+r" (acc2), [c3] "+r" (acc3), [c4] "+r" (acc4), [c5] "+r" (acc5), [c6] "+r" (acc6), [c7] "+r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusPtr)
 						: [r] "r" (result)
@@ -1918,10 +1952,12 @@ namespace nts {
 				 * @param acc4 старшие слова произведения
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_settlenist4v__(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7) noexcept {
+				static __NTS_INLINE__ void settleNist4v(uint64_t & acc0, uint64_t & acc1, uint64_t & acc2, uint64_t & acc3, uint64_t & acc4, uint64_t & acc5, uint64_t & acc6, uint64_t & acc7) noexcept {
 					// Временные слова приведения: множители модуля для обращения младших слов в ноль
 					uint64_t temp, modulusPtr;
-					// Приведение Монтгомери ядром на ассемблере
+					/**
+					 * Приведение Монтгомери ядром на ассемблере
+					 */
 					__asm__(__NTS_X86_64_NIST_SHRINK__
 						: [c0] "+r" (acc0), [c1] "+r" (acc1), [c2] "+r" (acc2), [c3] "+r" (acc3), [c4] "+r" (acc4), [c5] "+r" (acc5), [c6] "+r" (acc6), [c7] "+r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusPtr)
 						:
@@ -2007,10 +2043,12 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_nistmultiply4__(const uint64_t * first, const uint64_t * second, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void nistMultiply4(const uint64_t * first, const uint64_t * second, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Слова накопителя, старшее слово модуля, временное и слово второго сомножителя
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp, modulusWord;
-					// Умножение Монтгомери ядром на ассемблере
+					/**
+					 * Умножение Монтгомери ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_X86_64_NIST_MULMONT__
 						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusWord)
@@ -2034,10 +2072,12 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_nistsquare4__(const uint64_t * value, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void nistSquare4(const uint64_t * value, [[maybe_unused]] const uint64_t * modulus, uint64_t * result) noexcept {
 					// Слова полного квадрата и слово переноса
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
-					// Возведение в квадрат Монтгомери ядром на ассемблере
+					/**
+					 * Возведение в квадрат Монтгомери ядром на ассемблере
+					 */
 					__asm__ volatile(
 						__NTS_X86_64_SQUARE4__
 						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
@@ -2045,7 +2085,7 @@ namespace nts {
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Приведение и условное вычитание модуля с записью итога
-					__nts_settlenist4__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, result);
+					settleNist4(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, result);
 				}
 				/**
 				 * @brief Функция сложения по простому P-256 на встроенном ассемблере x86-64
@@ -2059,10 +2099,12 @@ namespace nts {
 				 * @param result место, в которое помещается сумма
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_addnist4__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void addNist4(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 					// Слова суммы и её старший разряд
 					uint64_t sum0, sum1, sum2, sum3, carry;
-					// Сложение со словами модуля ядром на ассемблере
+					/**
+					 * Сложение со словами модуля ядром на ассемблере
+					 */
 					__asm__ volatile(
 						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
 						"addq 0(%[b]), %[c0]\n\t" "adcq 8(%[b]), %[c1]\n\t" "adcq 16(%[b]), %[c2]\n\t" "adcq 24(%[b]), %[c3]\n\t"
@@ -2087,10 +2129,12 @@ namespace nts {
 				 * @param result место, в которое помещается разность
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_subtractnist4__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void subtractNist4(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 					// Слова разности и маска займа
 					uint64_t diff0, diff1, diff2, diff3, carry;
-					// Вычитание со словами модуля ядром на ассемблере
+					/**
+					 * Вычитание со словами модуля ядром на ассемблере
+					 */
 					__asm__ volatile(
 						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
 						"subq 0(%[b]), %[c0]\n\t" "sbbq 8(%[b]), %[c1]\n\t" "sbbq 16(%[b]), %[c2]\n\t" "sbbq 24(%[b]), %[c3]\n\t"
@@ -2113,12 +2157,14 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_multiplyminus4__(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void multiplyMinus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 					// Хвост c и слова модуля для свёртки и условного вычитания
 					const fold_t fold = {tail, modulus};
 					// Слова полного произведения и слово переноса
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
-					// Полное произведение ядром на ассемблере
+					/**
+					 * Полное произведение ядром на ассемблере
+					 */
 					__asm__ volatile(
 						__NTS_X86_64_PRODUCT4__
 						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
@@ -2126,7 +2172,7 @@ namespace nts {
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Свёртка и условное вычитание модуля с записью итога
-					__nts_settle4__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold, result);
+					settle4(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold, result);
 				}
 				/**
 				 * @brief Функция возведения в квадрат по модулю вида 2^256 - c на встроенном ассемблере x86-64
@@ -2137,12 +2183,14 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_squareminus4__(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void squareMinus4(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 					// Хвост c и слова модуля для свёртки и условного вычитания
 					const fold_t fold = {tail, modulus};
 					// Слова полного квадрата и слово переноса
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
-					// Полный квадрат ядром на ассемблере
+					/**
+					 * Полный квадрат ядром на ассемблере
+					 */
 					__asm__ volatile(
 						__NTS_X86_64_SQUARE4__
 						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
@@ -2150,7 +2198,7 @@ namespace nts {
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Свёртка и условное вычитание модуля с записью итога
-					__nts_settle4__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold, result);
+					settle4(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold, result);
 				}
 				/**
 				 * @brief Функция сложения по модулю вида 2^256 - c на встроенном ассемблере x86-64
@@ -2166,10 +2214,12 @@ namespace nts {
 				 * @param result место, в которое помещается сумма
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_addminus4__(const uint64_t * first, const uint64_t * second, const uint64_t tail, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void addMinus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, uint64_t * result) noexcept {
 					// Слова суммы и признак выхода за разрядную сетку
 					uint64_t sum0, sum1, sum2, sum3, carry;
-					// Сложение со свёрткой ядром на ассемблере
+					/**
+					 * Сложение со свёрткой ядром на ассемблере
+					 */
 					__asm__ volatile(
 						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
 						"addq 0(%[b]), %[c0]\n\t" "adcq 8(%[b]), %[c1]\n\t" "adcq 16(%[b]), %[c2]\n\t" "adcq 24(%[b]), %[c3]\n\t"
@@ -2196,10 +2246,12 @@ namespace nts {
 				 * @param result место, в которое помещается разность
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_subtractminus4__(const uint64_t * first, const uint64_t * second, const uint64_t tail, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void subtractMinus4(const uint64_t * first, const uint64_t * second, const uint64_t tail, uint64_t * result) noexcept {
 					// Слова разности и маска займа
 					uint64_t diff0, diff1, diff2, diff3, carry;
-					// Вычитание со свёрткой ядром на ассемблере
+					/**
+					 * Вычитание со свёрткой ядром на ассемблере
+					 */
 					__asm__ volatile(
 						"movq 0(%[a]), %[c0]\n\t" "movq 8(%[a]), %[c1]\n\t" "movq 16(%[a]), %[c2]\n\t" "movq 24(%[a]), %[c3]\n\t"
 						"subq 0(%[b]), %[c0]\n\t" "sbbq 8(%[b]), %[c1]\n\t" "sbbq 16(%[b]), %[c2]\n\t" "sbbq 24(%[b]), %[c3]\n\t"
@@ -2239,12 +2291,14 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение: вправе совпадать с сомножителем
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_multiplyminus4v__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, const uint64_t * modulus, words_t <4> & result) noexcept {
+				static __NTS_INLINE__ void multiplyMinus4v(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, const uint64_t * modulus, words_t <4> & result) noexcept {
 					// Хвост c и слова модуля для свёртки и условного вычитания
 					const fold_t fold = {tail, modulus};
 					// Слова полного произведения и слово переноса
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
-					// Полное произведение ядром на ассемблере
+					/**
+					 * Полное произведение ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_X86_64_PRODUCT4__
 						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
@@ -2252,7 +2306,7 @@ namespace nts {
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Свёртка и условное вычитание модуля в регистрах
-					__nts_settle4v__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold);
+					settle4v(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold);
 					// Записываем слова произведения
 					result.words[0] = acc0;
 					// Записываем второе слово произведения
@@ -2271,12 +2325,14 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат: вправе совпадать с числом
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_squareminus4v__(const words_t <4> & value, const uint64_t tail, const uint64_t * modulus, words_t <4> & result) noexcept {
+				static __NTS_INLINE__ void squareMinus4v(const words_t <4> & value, const uint64_t tail, const uint64_t * modulus, words_t <4> & result) noexcept {
 					// Хвост c и слова модуля для свёртки и условного вычитания
 					const fold_t fold = {tail, modulus};
 					// Слова полного квадрата и слово переноса
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
-					// Полный квадрат ядром на ассемблере
+					/**
+					 * Полный квадрат ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_X86_64_SQUARE4__
 						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
@@ -2284,7 +2340,7 @@ namespace nts {
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Свёртка и условное вычитание модуля в регистрах
-					__nts_settle4v__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold);
+					settle4v(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, &fold);
 					// Записываем слова квадрата
 					result.words[0] = acc0;
 					// Записываем второе слово квадрата
@@ -2305,10 +2361,12 @@ namespace nts {
 				 * @param result место, в которое помещается произведение: вправе совпадать с сомножителем
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_nistmultiply4v__(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
+				static __NTS_INLINE__ void nistMultiply4v(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
 					// Слова накопителя, старшее слово модуля, временное и слово второго сомножителя
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp, modulusWord;
-					// Умножение Монтгомери ядром на ассемблере
+					/**
+					 * Умножение Монтгомери ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_X86_64_NIST_MULMONT__
 						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp), [m] "=&r" (modulusWord)
@@ -2331,10 +2389,12 @@ namespace nts {
 				 * @param result место, в которое помещается квадрат: вправе совпадать с числом
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_nistsquare4v__(const words_t <4> & value, words_t <4> & result) noexcept {
+				static __NTS_INLINE__ void nistSquare4v(const words_t <4> & value, words_t <4> & result) noexcept {
 					// Слова полного квадрата и слово переноса
 					uint64_t acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7, temp;
-					// Возведение в квадрат Монтгомери ядром на ассемблере
+					/**
+					 * Возведение в квадрат Монтгомери ядром на ассемблере
+					 */
 					__asm__(
 						__NTS_X86_64_SQUARE4__
 						: [c0] "=&r" (acc0), [c1] "=&r" (acc1), [c2] "=&r" (acc2), [c3] "=&r" (acc3), [c4] "=&r" (acc4), [c5] "=&r" (acc5), [c6] "=&r" (acc6), [c7] "=&r" (acc7), [t] "=&r" (temp)
@@ -2342,7 +2402,7 @@ namespace nts {
 						: "rax", "rdx", "cc", "memory"
 					);
 					// Приведение и условное вычитание модуля в регистрах
-					__nts_settlenist4v__(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7);
+					settleNist4v(acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7);
 					// Записываем слова квадрата
 					result.words[0] = acc0;
 					// Записываем второе слово квадрата
@@ -2370,10 +2430,12 @@ namespace nts {
 				 * @param result место, в которое помещается сумма: вправе совпадать со слагаемым
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_addminus4v__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, words_t <4> & result) noexcept {
+				static __NTS_INLINE__ void addMinus4v(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, words_t <4> & result) noexcept {
 					// Слова суммы, слова второго слагаемого (затем копии суммы с хвостом) и признак выбора
 					uint64_t sum0 = first.words[0], sum1 = first.words[1], sum2 = first.words[2], sum3 = first.words[3], second0 = second.words[0], second1 = second.words[1], second2 = second.words[2], second3 = second.words[3], carry;
-					// Сложение со свёрткой ядром на ассемблере
+					/**
+					 * Сложение со свёрткой ядром на ассемблере
+					 */
 					__asm__(
 						"addq %[b0], %[c0]\n\t" "adcq %[b1], %[c1]\n\t" "adcq %[b2], %[c2]\n\t" "adcq %[b3], %[c3]\n\t"
 						"sbbq %[k], %[k]\n\t"
@@ -2403,10 +2465,12 @@ namespace nts {
 				 * @param result место, в которое помещается разность: вправе совпадать с уменьшаемым
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_subtractminus4v__(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, words_t <4> & result) noexcept {
+				static __NTS_INLINE__ void subtractMinus4v(const words_t <4> & first, const words_t <4> & second, const uint64_t tail, words_t <4> & result) noexcept {
 					// Слова разности и маска займа
 					uint64_t diff0 = first.words[0], diff1 = first.words[1], diff2 = first.words[2], diff3 = first.words[3], carry;
-					// Вычитание со свёрткой ядром на ассемблере
+					/**
+					 * Вычитание со свёрткой ядром на ассемблере
+					 */
 					__asm__(
 						"subq %[b0], %[c0]\n\t" "sbbq %[b1], %[c1]\n\t" "sbbq %[b2], %[c2]\n\t" "sbbq %[b3], %[c3]\n\t"
 						"sbbq %[k], %[k]\n\t"
@@ -2440,10 +2504,12 @@ namespace nts {
 				 * @param result место, в которое помещается сумма: вправе совпадать со слагаемым
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_addnist4v__(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
+				static __NTS_INLINE__ void addNist4v(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
 					// Слова суммы, слова второго слагаемого (затем копии суммы без модуля) и признак выбора
 					uint64_t sum0 = first.words[0], sum1 = first.words[1], sum2 = first.words[2], sum3 = first.words[3], second0 = second.words[0], second1 = second.words[1], second2 = second.words[2], second3 = second.words[3], k;
-					// Сложение со словами модуля ядром на ассемблере
+					/**
+					 * Сложение со словами модуля ядром на ассемблере
+					 */
 					__asm__(
 						"addq %[b0], %[c0]\n\t" "adcq %[b1], %[c1]\n\t" "adcq %[b2], %[c2]\n\t" "adcq %[b3], %[c3]\n\t"
 						"sbbq %[k], %[k]\n\t" "negq %[k]\n\t"
@@ -2472,10 +2538,12 @@ namespace nts {
 				 * @param result место, в которое помещается разность: вправе совпадать с уменьшаемым
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_subtractnist4v__(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
+				static __NTS_INLINE__ void subtractNist4v(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
 					// Слова разности и маска займа
 					uint64_t diff0 = first.words[0], diff1 = first.words[1], diff2 = first.words[2], diff3 = first.words[3], carry;
-					// Вычитание со словами модуля ядром на ассемблере
+					/**
+					 * Вычитание со словами модуля ядром на ассемблере
+					 */
 					__asm__(
 						"subq %[b0], %[c0]\n\t" "sbbq %[b1], %[c1]\n\t" "sbbq %[b2], %[c2]\n\t" "sbbq %[b3], %[c3]\n\t"
 						"sbbq %[k], %[k]\n\t"
@@ -2543,10 +2611,12 @@ namespace nts {
 					 * @param result место, в которое помещается произведение: вправе совпадать с сомножителем
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_nistmultiply4x__(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
+					static __NTS_INLINE__ void nistMultiply4x(const words_t <4> & first, const words_t <4> & second, words_t <4> & result) noexcept {
 						// Указатель второго сомножителя: после последней строки служит копией слова
 						const uint64_t * secondWords = second.words;
-						// Умножение Монтгомери ядром с двумя независимыми цепочками переносов
+						/**
+						 * Умножение Монтгомери ядром с двумя независимыми цепочками переносов
+						 */
 						__asm__ __volatile__(
 						"mov   8*0(%[b]), %%rdx\n\t"
 						"mov   8*0(%[a]), %%r9\n\t"
@@ -2682,10 +2752,12 @@ namespace nts {
 					 * @param result место, в которое помещается квадрат: вправе совпадать с числом
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_nistsquare4x__(const words_t <4> & value, words_t <4> & result) noexcept {
+					static __NTS_INLINE__ void nistSquare4x(const words_t <4> & value, words_t <4> & result) noexcept {
 						// Указатель числа: после чтения слов служит счётчиком сдвига и словом модуля
 						const uint64_t * valueWords = value.words;
-						// Возведение в квадрат Монтгомери ядром с двумя независимыми цепочками переносов
+						/**
+						 * Возведение в квадрат Монтгомери ядром с двумя независимыми цепочками переносов
+						 */
 						__asm__ __volatile__(
 						"mov   8*0(%[a]), %%rdx\n\t"
 						"mov   8*1(%[a]), %%r14\n\t"
@@ -2856,8 +2928,10 @@ namespace nts {
 					 * @param result место, в которое помещается произведение: вправе совпадать с сомножителем
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_multiplyminus4x__(const words_t <4> & first, const words_t <4> & second, const uint64_t & tail, words_t <4> & result) noexcept {
-						// Умножение со свёрткой ядром с двумя независимыми цепочками переносов
+					static __NTS_INLINE__ void multiplyMinus4x(const words_t <4> & first, const words_t <4> & second, const uint64_t & tail, words_t <4> & result) noexcept {
+						/**
+						 * Умножение со свёрткой ядром с двумя независимыми цепочками переносов
+						 */
 						__asm__ __volatile__(
 						"mov   %[b0], %%rdx\n\t"
 						"mulx  %[a0], %%r8, %%r9\n\t"
@@ -2931,8 +3005,10 @@ namespace nts {
 					 * @param result место, в которое помещается квадрат: вправе совпадать с числом
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_squareminus4x__(const words_t <4> & value, const uint64_t & tail, words_t <4> & result) noexcept {
-						// Квадрат со свёрткой ядром с двумя независимыми цепочками переносов
+					static __NTS_INLINE__ void squareMinus4x(const words_t <4> & value, const uint64_t & tail, words_t <4> & result) noexcept {
+						/**
+						 * Квадрат со свёрткой ядром с двумя независимыми цепочками переносов
+						 */
 						__asm__ __volatile__(
 						"mov   %[a0], %%rdx\n\t"
 						"mulx  %[a1], %%r9, %%r10\n\t"
@@ -3015,8 +3091,10 @@ namespace nts {
 				 * @param result место, в которое помещаются шестнадцать слов произведения
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_product8__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
-					// Полное произведение восьми слов ядром на ассемблере
+				static __NTS_INLINE__ void product8(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+					/**
+					 * Полное произведение восьми слов ядром на ассемблере
+					 */
 					__asm__ __volatile__(
 					"xorl  %%r9d, %%r9d\n\t" "xorl  %%r10d, %%r10d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  (%[b])\n\t" "movq  %%rax, %%r8\n\t"
 					"movq  %%rdx, %%r9\n\t" "movq  %%r8, (%[r])\n\t"
@@ -3110,8 +3188,10 @@ namespace nts {
 				 * @param result место, в которое помещаются шестнадцать слов квадрата
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_square8__(const uint64_t * value, uint64_t * result) noexcept {
-					// Полный квадрат восьми слов ядром на ассемблере
+				static __NTS_INLINE__ void square8(const uint64_t * value, uint64_t * result) noexcept {
+					/**
+					 * Полный квадрат восьми слов ядром на ассемблере
+					 */
 					__asm__ __volatile__(
 					"xorl  %%r9d, %%r9d\n\t" "xorl  %%r10d, %%r10d\n\t" "movq  (%[a]), %%rax\n\t" "mulq  %%rax\n\t" "movq  %%rax, %%r8\n\t"
 					"movq  %%rdx, %%r9\n\t" "movq  %%r8, (%[r])\n\t"
@@ -3192,8 +3272,10 @@ namespace nts {
 				 * @param result место, в которое помещаются восемь слов итога, меньшего модуля
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_foldminus8__(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
-					// Свёртка произведения восьми слов ядром на ассемблере
+				static __NTS_INLINE__ void foldMinus8(uint64_t * wide, const uint64_t tail, uint64_t * result) noexcept {
+					/**
+					 * Свёртка произведения восьми слов ядром на ассемблере
+					 */
 					__asm__ __volatile__(
 					"movq  (%[r]), %%r8\n\t" "movq  8(%[r]), %%r9\n\t" "movq  16(%[r]), %%r10\n\t" "movq  24(%[r]), %%r11\n\t" "movq  32(%[r]), %%r12\n\t"
 					"movq  40(%[r]), %%r13\n\t" "movq  48(%[r]), %%r14\n\t" "movq  56(%[r]), %%r15\n\t" "xorl  %%ecx, %%ecx\n\t" "movq  64(%[r]), %%rax\n\t"
@@ -3279,7 +3361,7 @@ namespace nts {
 					 * @return        старшее слово переноса произведения
 					 *
 					 */
-					static __NTS_INLINE__ uint64_t __nts_nist256msvc__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+					static __NTS_INLINE__ uint64_t nist256Msvc(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 						// Слова первого сомножителя, снятые в регистры
 						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова второго сомножителя, снятые в регистры
@@ -3585,7 +3667,7 @@ namespace nts {
 					 * @return       старшее слово переноса квадрата
 					 *
 					 */
-					static __NTS_INLINE__ uint64_t __nts_nist256squaremsvc__(const uint64_t * value, uint64_t * result) noexcept {
+					static __NTS_INLINE__ uint64_t nist256SquareMsvc(const uint64_t * value, uint64_t * result) noexcept {
 						// Слова возводимого числа, снятые в регистры
 						const uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3];
 						// Накопитель квадрата в девять слов
@@ -3819,7 +3901,7 @@ namespace nts {
 					 * @param result  место, в которое помещается сумма
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_addnist4msvc__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+					static __NTS_INLINE__ void addNist4Msvc(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 						// Слова первого слагаемого, снятые в регистры
 						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова второго слагаемого, снятые в регистры
@@ -3872,7 +3954,7 @@ namespace nts {
 					 * @param result  место, в которое помещается разность
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_subtractnist4msvc__(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+					static __NTS_INLINE__ void subtractNist4Msvc(const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 						// Слова уменьшаемого, снятые в регистры
 						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова вычитаемого, снятые в регистры
@@ -3930,7 +4012,7 @@ namespace nts {
 					 * @param result  место, в которое помещается произведение
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_multiplyminus4msvc__(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+					static __NTS_INLINE__ void multiplyMinus4Msvc(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова первого сомножителя, снятые в регистры
 						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова второго сомножителя, снятые в регистры
@@ -4158,7 +4240,7 @@ namespace nts {
 					 * @param result  место, в которое помещается квадрат
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_squareminus4msvc__(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+					static __NTS_INLINE__ void squareMinus4Msvc(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова возводимого числа, снятые в регистры
 						const uint64_t value0 = value[0], value1 = value[1], value2 = value[2], value3 = value[3];
 						// Полный квадрат в восемь слов
@@ -4368,7 +4450,7 @@ namespace nts {
 					 * @param result  место, в которое помещается сумма
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_addmod4msvc__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+					static __NTS_INLINE__ void addMod4Msvc(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова первого слагаемого, снятые в регистры
 						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова второго слагаемого, снятые в регистры
@@ -4425,7 +4507,7 @@ namespace nts {
 					 * @param result  место, в которое помещается разность
 					 *
 					 */
-					static __NTS_INLINE__ void __nts_subtractmod4msvc__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+					static __NTS_INLINE__ void subtractMod4Msvc(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 						// Слова уменьшаемого, снятые в регистры
 						const uint64_t first0 = first[0], first1 = first[1], first2 = first[2], first3 = first[3];
 						// Слова вычитаемого, снятые в регистры
@@ -4478,7 +4560,7 @@ namespace nts {
 				 * @param result  место, в которое помещается произведение
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_nistmultiply4__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void nistMultiply4(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, uint64_t * result) noexcept {
 					// Произведение до условного вычитания модуля
 					uint64_t buffer[4];
 					/**
@@ -4486,16 +4568,16 @@ namespace nts {
 					 */
 					#if defined(__NTS_MSVC_X64__)
 						// Умножаем значения ядром на интринсиках MSVC с записью в приёмник
-						const uint64_t carry = __nts_nist256msvc__(first, second, buffer);
+						const uint64_t carry = nist256Msvc(first, second, buffer);
 					/**
 					 * Иначе переносимое ядро на C++
 					 */
 					#else
 						// Умножаем значения ядром простого P-256 с записью в приёмник
-						const uint64_t carry = __nts_nist256__(first, second, buffer);
+						const uint64_t carry = nist256(first, second, buffer);
 					#endif
 					// Условное вычитание модуля с записью итога
-					__nts_shrink__ <4> (buffer, modulus, carry, result);
+					shrink <4> (buffer, modulus, carry, result);
 				}
 				/**
 				 * @brief Функция возведения в квадрат Монтгомери по простому P-256 на C++
@@ -4505,7 +4587,7 @@ namespace nts {
 				 * @param result  место, в которое помещается квадрат
 				 *
 				 */
-				static __NTS_INLINE__ void __nts_nistsquare4__(const uint64_t * value, const uint64_t * modulus, uint64_t * result) noexcept {
+				static __NTS_INLINE__ void nistSquare4(const uint64_t * value, const uint64_t * modulus, uint64_t * result) noexcept {
 					// Квадрат до условного вычитания модуля
 					uint64_t buffer[4];
 					/**
@@ -4513,16 +4595,16 @@ namespace nts {
 					 */
 					#if defined(__NTS_MSVC_X64__)
 						// Возведение в квадрат ядром на интринсиках
-						const uint64_t carry = __nts_nist256squaremsvc__(value, buffer);
+						const uint64_t carry = nist256SquareMsvc(value, buffer);
 					/**
 					 * Иначе переносимое ядро на C++
 					 */
 					#else
 						// Возведение в квадрат ядром P-256
-						const uint64_t carry = __nts_nist256square__(value, buffer);
+						const uint64_t carry = nist256Square(value, buffer);
 					#endif
 					// Условное вычитание модуля с записью итога
-					__nts_shrink__ <4> (buffer, modulus, carry, result);
+					shrink <4> (buffer, modulus, carry, result);
 				}
 			#endif
 
@@ -4547,7 +4629,7 @@ namespace nts {
 			 * @param result  место, в которое помещается произведение
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_multiplyminus__(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void multiplyMinus(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				/**
 				 * Экранируем путь умножения четырёх слов ядром на ассемблере
 				 */
@@ -4555,7 +4637,7 @@ namespace nts {
 					// Четыре слова на AArch64 и x86-64 (gcc) идут ядром на встроенном ассемблере
 					if constexpr (WORDS == 4){
 						// Умножаем значения ядром на ассемблере с записью в приёмник
-						__nts_multiplyminus4__(first, second, tail, modulus, result);
+						multiplyMinus4(first, second, tail, modulus, result);
 						// Выходим: произведение записано ядром в приёмник
 						return;
 					}
@@ -4567,7 +4649,7 @@ namespace nts {
 					// Модуль вида 2^256 - c на четыре слова идёт ядром на интринсиках MSVC
 					if constexpr (WORDS == 4){
 						// Умножение ядром на интринсиках MSVC
-						__nts_multiplyminus4msvc__(first, second, tail, modulus, result);
+						multiplyMinus4Msvc(first, second, tail, modulus, result);
 						// Выходим: произведение записано ядром в приёмник
 						return;
 					}
@@ -4579,7 +4661,7 @@ namespace nts {
 					// Восемь слов на AArch64 идут ядром на встроенном ассемблере
 					if constexpr (WORDS == 8){
 						// Умножаем значения ядром на ассемблере с записью в приёмник
-						__nts_multiplyminus8__(first, second, tail, modulus, result);
+						multiplyMinus8(first, second, tail, modulus, result);
 						// Выходим: произведение записано ядром в приёмник
 						return;
 					}
@@ -4593,9 +4675,9 @@ namespace nts {
 						// Буфер полного произведения сомножителей до свёртки по модулю
 						uint64_t wide[2 * WORDS];
 						// Полное умножение ядром на ассемблере
-						__nts_product8__(first, second, wide);
+						product8(first, second, wide);
 						// Свёртка с условным вычитанием модуля ядром на ассемблере
-						__nts_foldminus8__(wide, tail, result);
+						foldMinus8(wide, tail, result);
 						// Выходим: произведение записано ядром в приёмник
 						return;
 					}
@@ -4603,13 +4685,13 @@ namespace nts {
 				// Буфер полного произведения сомножителей до свёртки по модулю
 				uint64_t wide[2 * WORDS];
 				// Полное умножение сомножителей ядром до свёртки по модулю
-				__nts_product__ <WORDS> (first, second, wide);
+				product <WORDS> (first, second, wide);
 				// Буфер свёрнутого произведения по модулю
 				uint64_t folded[WORDS];
 				// Сворачиваем произведение по модулю вида 2^(64·слов-1)+c и получаем перенос
-				const uint64_t carry = __nts_foldminus__ <WORDS> (wide, tail, folded);
+				const uint64_t carry = foldMinus <WORDS> (wide, tail, folded);
 				// Условное вычитание модуля с записью итога
-				__nts_shrink__ <WORDS> (folded, modulus, carry, result);
+				shrink <WORDS> (folded, modulus, carry, result);
 			}
 			/**
 			 * @brief Шаблон функции возведения в квадрат по модулю вида 2^(64·слов) - c
@@ -4627,7 +4709,7 @@ namespace nts {
 			 * @param result  место, в которое помещается квадрат
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_squareminus__(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void squareMinus(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				/**
 				 * Экранируем путь квадрата четырёх слов ядром на ассемблере
 				 */
@@ -4635,7 +4717,7 @@ namespace nts {
 					// Четыре слова на AArch64 и x86-64 (gcc) идут ядром на встроенном ассемблере
 					if constexpr (WORDS == 4){
 						// Возведение в квадрат ядром на ассемблере
-						__nts_squareminus4__(value, tail, modulus, result);
+						squareMinus4(value, tail, modulus, result);
 						// Выходим из возведения в квадрат
 						return;
 					}
@@ -4647,7 +4729,7 @@ namespace nts {
 					// Модуль вида 2^256 - c на четыре слова идёт ядром на интринсиках MSVC
 					if constexpr (WORDS == 4){
 						// Возведение в квадрат ядром на интринсиках MSVC
-						__nts_squareminus4msvc__(value, tail, modulus, result);
+						squareMinus4Msvc(value, tail, modulus, result);
 						// Выходим из возведения в квадрат
 						return;
 					}
@@ -4659,7 +4741,7 @@ namespace nts {
 					// Восемь слов на AArch64 идут ядром на встроенном ассемблере
 					if constexpr (WORDS == 8){
 						// Возведение в квадрат ядром на ассемблере
-						__nts_squareminus8__(value, tail, modulus, result);
+						squareMinus8(value, tail, modulus, result);
 						// Выходим из возведения в квадрат
 						return;
 					}
@@ -4673,9 +4755,9 @@ namespace nts {
 						// Буфер полного квадрата числа до свёртки по модулю
 						uint64_t wide[2 * WORDS];
 						// Возведение числа в квадрат ядром на ассемблере
-						__nts_square8__(value, wide);
+						square8(value, wide);
 						// Свёртка с условным вычитанием модуля ядром на ассемблере
-						__nts_foldminus8__(wide, tail, result);
+						foldMinus8(wide, tail, result);
 						// Выходим из возведения в квадрат
 						return;
 					}
@@ -4683,13 +4765,13 @@ namespace nts {
 				// Буфер полного квадрата числа до свёртки по модулю
 				uint64_t wide[2 * WORDS];
 				// Возводим число в квадрат ядром с записью в буфер
-				__nts_squared__ <WORDS> (value, wide);
+				squared <WORDS> (value, wide);
 				// Буфер свёрнутого квадрата по модулю
 				uint64_t folded[WORDS];
 				// Сворачиваем квадрат по модулю вида 2^(64·слов-1)+c и получаем перенос
-				const uint64_t carry = __nts_foldminus__ <WORDS> (wide, tail, folded);
+				const uint64_t carry = foldMinus <WORDS> (wide, tail, folded);
 				// Условное вычитание модуля с записью итога
-				__nts_shrink__ <WORDS> (folded, modulus, carry, result);
+				shrink <WORDS> (folded, modulus, carry, result);
 			}
 			/**
 			 * @brief Шаблон функции умножения по модулю вида 2^(64·слов - 1) + c
@@ -4708,7 +4790,7 @@ namespace nts {
 			 * @param result  место, в которое помещается произведение
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_multiplyplus__(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void multiplyPlus(const uint64_t * first, const uint64_t * second, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Буфер полного произведения сомножителей до свёртки по модулю
 				uint64_t wide[2 * WORDS];
 				/**
@@ -4718,13 +4800,13 @@ namespace nts {
 					// Восемь слов на AArch64 и x86-64: произведение ядром на ассемблере
 					if constexpr (WORDS == 8)
 						// Произведение восьми слов ядром на ассемблере
-						__nts_product8__(first, second, wide);
+						product8(first, second, wide);
 					else
 				#endif
 				// Полное умножение сомножителей ядром до свёртки по модулю
-				__nts_product__ <WORDS> (first, second, wide);
+				product <WORDS> (first, second, wide);
 				// Сворачиваем произведение по модулю вида 2^(64·слов-1)+c и получаем перенос
-				__nts_foldplus__ <WORDS> (wide, tail, modulus, result);
+				foldPlus <WORDS> (wide, tail, modulus, result);
 			}
 			/**
 			 * @brief Шаблон функции возведения в квадрат по модулю вида 2^(64·слов - 1) + c
@@ -4742,7 +4824,7 @@ namespace nts {
 			 * @param result  место, в которое помещается квадрат
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_squareplus__(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void squarePlus(const uint64_t * value, const uint64_t tail, const uint64_t * modulus, uint64_t * result) noexcept {
 				// Буфер полного квадрата числа до свёртки по модулю
 				uint64_t wide[2 * WORDS];
 				/**
@@ -4752,13 +4834,13 @@ namespace nts {
 					// Восемь слов на AArch64 и x86-64: квадрат ядром на ассемблере
 					if constexpr (WORDS == 8)
 						// Возведение в квадрат восьми слов ядром на ассемблере
-						__nts_square8__(value, wide);
+						square8(value, wide);
 					else
 				#endif
 				// Возводим число в квадрат ядром с записью в буфер
-				__nts_squared__ <WORDS> (value, wide);
+				squared <WORDS> (value, wide);
 				// Сворачиваем квадрат по модулю вида 2^(64·слов-1)+c и получаем перенос
-				__nts_foldplus__ <WORDS> (wide, tail, modulus, result);
+				foldPlus <WORDS> (wide, tail, modulus, result);
 			}
 			/**
 			 * @brief Шаблон функции умножения по модулю ядром, отвечающим виду модуля
@@ -4781,7 +4863,7 @@ namespace nts {
 			 * @param result место, в которое помещается произведение
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_multiply__(const Modulus::layout_t & layout, const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void multiply(const Modulus::layout_t & layout, const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 				/**
 				 * Выбираем ядро по виду модуля
 				 */
@@ -4791,33 +4873,33 @@ namespace nts {
 						// На четырёх словах путь P-256 идёт своим ядром: ассемблер там, где он есть, иначе C++
 						if constexpr (WORDS == 4)
 							// Умножение ядром пути простого числа кривой
-							__nts_nistmultiply4__(first, second, layout.modulus, result);
+							nistMultiply4(first, second, layout.modulus, result);
 						// На прочих числах слов вид P-256 не ставится: общий Монтгомери на всякий случай
 						else {
 							// Произведение до условного вычитания модуля
 							uint64_t buffer[WORDS];
 							// Умножаем значения общим ядром Монтгомери с записью в приёмник
-							const uint64_t carry = __nts_montgomery__ <WORDS> (first, second, layout.modulus, layout.factor, buffer);
+							const uint64_t carry = montgomery <WORDS> (first, second, layout.modulus, layout.factor, buffer);
 							// Условное вычитание модуля с записью итога
-							__nts_shrink__ <WORDS> (buffer, layout.modulus, carry, result);
+							shrink <WORDS> (buffer, layout.modulus, carry, result);
 						}
 					} break;
 					// Простое число вида 2^(64·слов) - c
 					case static_cast <uint8_t> (Modulus::form_t::MINUS):
-						__nts_multiplyminus__ <WORDS> (first, second, layout.tail, layout.modulus, result);
+						multiplyMinus <WORDS> (first, second, layout.tail, layout.modulus, result);
 					break;
 					// Простое число вида 2^(64·слов - 1) + c
 					case static_cast <uint8_t> (Modulus::form_t::PLUS):
-						__nts_multiplyplus__ <WORDS> (first, second, layout.tail, layout.modulus, result);
+						multiplyPlus <WORDS> (first, second, layout.tail, layout.modulus, result);
 					break;
 					// Приведение по произвольному модулю общим ядром Монтгомери
 					default: {
 						// Произведение до условного вычитания модуля
 						uint64_t buffer[WORDS];
 						// Умножаем значения общим ядром Монтгомери с записью в приёмник
-						const uint64_t carry = __nts_montgomery__ <WORDS> (first, second, layout.modulus, layout.factor, buffer);
+						const uint64_t carry = montgomery <WORDS> (first, second, layout.modulus, layout.factor, buffer);
 						// Условное вычитание модуля с записью итога
-						__nts_shrink__ <WORDS> (buffer, layout.modulus, carry, result);
+						shrink <WORDS> (buffer, layout.modulus, carry, result);
 					}
 				}
 			}
@@ -4836,7 +4918,7 @@ namespace nts {
 			 * @param result место, в которое помещается квадрат
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_square__(const Modulus::layout_t & layout, const uint64_t * value, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void square(const Modulus::layout_t & layout, const uint64_t * value, uint64_t * result) noexcept {
 				/**
 				 * Выбираем ядро по виду модуля
 				 */
@@ -4846,33 +4928,33 @@ namespace nts {
 						// На четырёх словах путь P-256 идёт своим ядром: ассемблер там, где он есть, иначе C++
 						if constexpr (WORDS == 4)
 							// Возведение в квадрат ядром пути простого числа кривой
-							__nts_nistsquare4__(value, layout.modulus, result);
+							nistSquare4(value, layout.modulus, result);
 						// На прочих числах слов вид P-256 не ставится: общий Монтгомери на всякий случай
 						else {
 							// Квадрат до условного вычитания модуля
 							uint64_t buffer[WORDS];
 							// Умножение числа на себя общим Монтгомери
-							const uint64_t carry = __nts_montgomery__ <WORDS> (value, value, layout.modulus, layout.factor, buffer);
+							const uint64_t carry = montgomery <WORDS> (value, value, layout.modulus, layout.factor, buffer);
 							// Условное вычитание модуля с записью итога
-							__nts_shrink__ <WORDS> (buffer, layout.modulus, carry, result);
+							shrink <WORDS> (buffer, layout.modulus, carry, result);
 						}
 					} break;
 					// Простое число вида 2^(64·слов) - c
 					case static_cast <uint8_t> (Modulus::form_t::MINUS):
-						__nts_squareminus__ <WORDS> (value, layout.tail, layout.modulus, result);
+						squareMinus <WORDS> (value, layout.tail, layout.modulus, result);
 					break;
 					// Простое число вида 2^(64·слов - 1) + c
 					case static_cast <uint8_t> (Modulus::form_t::PLUS):
-						__nts_squareplus__ <WORDS> (value, layout.tail, layout.modulus, result);
+						squarePlus <WORDS> (value, layout.tail, layout.modulus, result);
 					break;
 					// Произвольный модуль: у общего Монтгомери своего квадрата нет
 					default: {
 						// Квадрат до условного вычитания модуля
 						uint64_t buffer[WORDS];
 						// Умножение числа на себя общим Монтгомери
-						const uint64_t carry = __nts_montgomery__ <WORDS> (value, value, layout.modulus, layout.factor, buffer);
+						const uint64_t carry = montgomery <WORDS> (value, value, layout.modulus, layout.factor, buffer);
 						// Условное вычитание модуля с записью итога
-						__nts_shrink__ <WORDS> (buffer, layout.modulus, carry, result);
+						shrink <WORDS> (buffer, layout.modulus, carry, result);
 					}
 				}
 			}
@@ -4892,7 +4974,7 @@ namespace nts {
 			 * @param result место, в которое помещается сумма
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_add__(const Modulus::layout_t & layout, const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void add(const Modulus::layout_t & layout, const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 				/**
 				 * Экранируем путь сложения четырёх слов ядром на ассемблере
 				 */
@@ -4902,14 +4984,14 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							// Складываем значения ядром на ассемблере с записью в приёмник
-							__nts_addminus4__(first, second, layout.tail, result);
+							addMinus4(first, second, layout.tail, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 сложение идёт своим ядром на ассемблере
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение ядром на ассемблере по пути простого числа кривой
-							__nts_addnist4__(first, second, result);
+							addNist4(first, second, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -4924,18 +5006,18 @@ namespace nts {
 						// У простого P-256 сложение идёт своим ядром с заложенными словами
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение ядром на интринсиках по пути простого числа кривой
-							__nts_addnist4msvc__(first, second, result);
+							addNist4Msvc(first, second, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// Сложение ядром на интринсиках по словам модуля из указателя
-						__nts_addmod4msvc__(first, second, layout.modulus, result);
+						addMod4Msvc(first, second, layout.modulus, result);
 						// Выходим: итог уже записан ядром в приёмник
 						return;
 					}
 				#endif
 				// Складываем значения развёрнутым ядром на значениях в регистрах
-				__nts_addition__ <WORDS> (first, second, layout.modulus, result);
+				addition <WORDS> (first, second, layout.modulus, result);
 			}
 			/**
 			 * @brief Шаблон функции вычитания по модулю ядром известного количества слов
@@ -4953,7 +5035,7 @@ namespace nts {
 			 * @param result место, в которое помещается разность
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_subtract__(const Modulus::layout_t & layout, const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
+			static __NTS_INLINE__ void subtract(const Modulus::layout_t & layout, const uint64_t * first, const uint64_t * second, uint64_t * result) noexcept {
 				/**
 				 * Экранируем путь вычитания четырёх слов ядром на ассемблере
 				 */
@@ -4963,14 +5045,14 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							// Вычитаем значения ядром на ассемблере с записью в приёмник
-							__nts_subtractminus4__(first, second, layout.tail, result);
+							subtractMinus4(first, second, layout.tail, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 вычитание идёт своим ядром на ассемблере
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание ядром на ассемблере по пути простого числа кривой
-							__nts_subtractnist4__(first, second, result);
+							subtractNist4(first, second, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -4985,18 +5067,18 @@ namespace nts {
 						// У простого P-256 вычитание идёт своим ядром с заложенными словами
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание ядром на интринсиках по пути простого числа кривой
-							__nts_subtractnist4msvc__(first, second, result);
+							subtractNist4Msvc(first, second, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// Вычитание ядром на интринсиках по словам модуля из указателя
-						__nts_subtractmod4msvc__(first, second, layout.modulus, result);
+						subtractMod4Msvc(first, second, layout.modulus, result);
 						// Выходим: итог уже записан ядром в приёмник
 						return;
 					}
 				#endif
 				// Вычитаем значения развёрнутым ядром на значениях в регистрах
-				__nts_subtraction__ <WORDS> (first, second, layout.modulus, result);
+				subtraction <WORDS> (first, second, layout.modulus, result);
 			}
 			/**
 			 * @brief Шаблон функции умножения значений по модулю
@@ -5026,7 +5108,7 @@ namespace nts {
 			 * @param result место, в которое помещается произведение
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_multiply__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
+			static __NTS_INLINE__ void multiply(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
 				/**
 				 * Экранируем регистровый путь произведения четырёх слов
 				 */
@@ -5036,14 +5118,14 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							// Умножаем значения регистровым ядром на значениях
-							result = __nts_multiplyminus4r__(first, second, layout.tail);
+							result = multiplyMinus4r(first, second, layout.tail);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							// Умножение регистровым ядром по пути простого числа кривой
-							result = __nts_multiplynist4r__(first, second);
+							result = multiplyNist4r(first, second);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -5063,13 +5145,13 @@ namespace nts {
 								// Проверяем признак наличия ядра с двумя независимыми цепочками переносов
 								if constexpr (ADX){
 									// Умножение ядром с двумя независимыми цепочками переносов
-									__nts_multiplyminus4x__(first, second, layout.tail, result);
+									multiplyMinus4x(first, second, layout.tail, result);
 									// Выходим: итог уже записан ядром в приёмник
 									return;
 								}
 							#endif
 							// Умножаем значения ядром на значениях в регистрах
-							__nts_multiplyminus4v__(first, second, layout.tail, layout.modulus, result);
+							multiplyMinus4v(first, second, layout.tail, layout.modulus, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -5082,20 +5164,20 @@ namespace nts {
 								// Проверяем признак наличия ядра с двумя независимыми цепочками переносов
 								if constexpr (ADX){
 									// Умножение ядром с двумя независимыми цепочками переносов
-									__nts_nistmultiply4x__(first, second, result);
+									nistMultiply4x(first, second, result);
 									// Выходим: итог уже записан ядром в приёмник
 									return;
 								}
 							#endif
 							// Умножаем значения ядром на значениях в регистрах
-							__nts_nistmultiply4v__(first, second, result);
+							nistMultiply4v(first, second, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
 				#endif
 				// Умножение ядром через указатели прямо в приёмник
-				__nts_multiply__ <WORDS> (layout, first.words, second.words, result.words);
+				multiply <WORDS> (layout, first.words, second.words, result.words);
 			}
 			/**
 			 * @brief Шаблон функции возведения значения в квадрат по модулю
@@ -5114,7 +5196,7 @@ namespace nts {
 			 * @param result место, в которое помещается квадрат
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_square__(const Modulus::layout_t & layout, const words_t <WORDS> & value, words_t <WORDS> & result) noexcept {
+			static __NTS_INLINE__ void square(const Modulus::layout_t & layout, const words_t <WORDS> & value, words_t <WORDS> & result) noexcept {
 				/**
 				 * Экранируем регистровый путь квадрата четырёх слов
 				 */
@@ -5124,14 +5206,14 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							// Возведение в квадрат регистровым ядром
-							result = __nts_squareminus4r__(value, layout.tail);
+							result = squareMinus4r(value, layout.tail);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							// Возведение в квадрат регистровым ядром по пути простого числа кривой
-							result = __nts_squarenist4r__(value);
+							result = squareNist4r(value);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -5151,13 +5233,13 @@ namespace nts {
 								// Проверяем признак наличия ядра с двумя независимыми цепочками переносов
 								if constexpr (ADX){
 									// Возведение в квадрат ядром с двумя независимыми цепочками переносов
-									__nts_squareminus4x__(value, layout.tail, result);
+									squareMinus4x(value, layout.tail, result);
 									// Выходим: итог уже записан ядром в приёмник
 									return;
 								}
 							#endif
 							// Возведение в квадрат ядром на значениях
-							__nts_squareminus4v__(value, layout.tail, layout.modulus, result);
+							squareMinus4v(value, layout.tail, layout.modulus, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -5170,20 +5252,20 @@ namespace nts {
 								// Проверяем признак наличия ядра с двумя независимыми цепочками переносов
 								if constexpr (ADX){
 									// Возведение в квадрат ядром с двумя независимыми цепочками переносов
-									__nts_nistsquare4x__(value, result);
+									nistSquare4x(value, result);
 									// Выходим: итог уже записан ядром в приёмник
 									return;
 								}
 							#endif
 							// Возведение в квадрат ядром на значениях
-							__nts_nistsquare4v__(value, result);
+							nistSquare4v(value, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
 				#endif
 				// Возведение в квадрат ядром через указатели прямо в приёмник
-				__nts_square__ <WORDS> (layout, value.words, result.words);
+				square <WORDS> (layout, value.words, result.words);
 			}
 			/**
 			 * @brief Шаблон функции сложения значений по модулю
@@ -5201,7 +5283,7 @@ namespace nts {
 			 * @param result место, в которое помещается сумма
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_add__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
+			static __NTS_INLINE__ void add(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
 				/**
 				 * Экранируем регистровый путь сложения четырёх слов
 				 */
@@ -5211,14 +5293,14 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							// Складываем значения регистровым ядром на значениях
-							result = __nts_addminus4r__(first, second, layout.tail);
+							result = addMinus4r(first, second, layout.tail);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение регистровым ядром по пути простого числа кривой
-							result = __nts_addnist4r__(first, second);
+							result = addNist4r(first, second);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -5232,14 +5314,14 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							// Складываем значения ядром на значениях в регистрах
-							__nts_addminus4v__(first, second, layout.tail, result);
+							addMinus4v(first, second, layout.tail, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим ядром на значениях
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение ядром на значениях по пути простого числа кривой
-							__nts_addnist4v__(first, second, result);
+							addNist4v(first, second, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -5254,14 +5336,14 @@ namespace nts {
 						// Проверяем вид простого числа кривой
 						if(layout.form == Modulus::form_t::NIST){
 							// Сложение ядром на интринсиках по пути простого числа кривой
-							__nts_addnist4msvc__(first.words, second.words, result.words);
+							addNist4Msvc(first.words, second.words, result.words);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
 				#endif
 				// Сложение ядром через указатели прямо в приёмник
-				__nts_add__ <WORDS> (layout, first.words, second.words, result.words);
+				add <WORDS> (layout, first.words, second.words, result.words);
 			}
 			/**
 			 * @brief Шаблон функции вычитания значений по модулю
@@ -5279,7 +5361,7 @@ namespace nts {
 			 * @param result место, в которое помещается разность
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_subtract__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
+			static __NTS_INLINE__ void subtract(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
 				/**
 				 * Экранируем регистровый путь вычитания четырёх слов
 				 */
@@ -5289,14 +5371,14 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							// Вычитаем значения регистровым ядром на значениях
-							result = __nts_subtractminus4r__(first, second, layout.tail);
+							result = subtractMinus4r(first, second, layout.tail);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим регистровым ядром
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание регистровым ядром по пути простого числа кривой
-							result = __nts_subtractnist4r__(first, second);
+							result = subtractNist4r(first, second);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -5310,14 +5392,14 @@ namespace nts {
 						// Проверяем модуль вида 2^256 минус хвост
 						if(layout.form == Modulus::form_t::MINUS){
 							// Вычитаем значения ядром на значениях в регистрах
-							__nts_subtractminus4v__(first, second, layout.tail, result);
+							subtractMinus4v(first, second, layout.tail, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 						// У простого P-256 - своим ядром на значениях
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание ядром на значениях по пути простого числа кривой
-							__nts_subtractnist4v__(first, second, result);
+							subtractNist4v(first, second, result);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
@@ -5332,14 +5414,14 @@ namespace nts {
 						// Проверяем вид простого числа кривой
 						if(layout.form == Modulus::form_t::NIST){
 							// Вычитание ядром на интринсиках по пути простого числа кривой
-							__nts_subtractnist4msvc__(first.words, second.words, result.words);
+							subtractNist4Msvc(first.words, second.words, result.words);
 							// Выходим: итог уже записан ядром в приёмник
 							return;
 						}
 					}
 				#endif
 				// Вычитание ядром через указатели прямо в приёмник
-				__nts_subtract__ <WORDS> (layout, first.words, second.words, result.words);
+				subtract <WORDS> (layout, first.words, second.words, result.words);
 			}
 			/**
 			 * @brief Шаблон функции умножения значений по модулю с возвратом
@@ -5357,11 +5439,11 @@ namespace nts {
 			 * @return       произведение
 			 *
 			 */
-			static __NTS_INLINE__ words_t <WORDS> __nts_multiply__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
+			static __NTS_INLINE__ words_t <WORDS> multiply(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
 				// Значение произведения, собираемое в регистрах
 				words_t <WORDS> result;
 				// Умножаем значения ядром с записью произведения в приёмник
-				__nts_multiply__ <WORDS> (layout, first, second, result);
+				multiply <WORDS> (layout, first, second, result);
 				// Возвращаем произведение, собранное в регистрах
 				return result;
 			}
@@ -5380,11 +5462,11 @@ namespace nts {
 			 * @return       квадрат
 			 *
 			 */
-			static __NTS_INLINE__ words_t <WORDS> __nts_square__(const Modulus::layout_t & layout, const words_t <WORDS> & value) noexcept {
+			static __NTS_INLINE__ words_t <WORDS> square(const Modulus::layout_t & layout, const words_t <WORDS> & value) noexcept {
 				// Значение квадрата, собираемое в регистрах
 				words_t <WORDS> result;
 				// Возведение в квадрат в приёмник
-				__nts_square__ <WORDS> (layout, value, result);
+				square <WORDS> (layout, value, result);
 				// Возвращаем квадрат, собранный в регистрах
 				return result;
 			}
@@ -5404,11 +5486,11 @@ namespace nts {
 			 * @return       сумма
 			 *
 			 */
-			static __NTS_INLINE__ words_t <WORDS> __nts_add__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
+			static __NTS_INLINE__ words_t <WORDS> add(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
 				// Значение суммы, собираемое в регистрах
 				words_t <WORDS> result;
 				// Складываем значения ядром с записью суммы в приёмник
-				__nts_add__ <WORDS> (layout, first, second, result);
+				add <WORDS> (layout, first, second, result);
 				// Возвращаем сумму, собранную в регистрах
 				return result;
 			}
@@ -5428,11 +5510,11 @@ namespace nts {
 			 * @return       разность
 			 *
 			 */
-			static __NTS_INLINE__ words_t <WORDS> __nts_subtract__(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
+			static __NTS_INLINE__ words_t <WORDS> subtract(const Modulus::layout_t & layout, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
 				// Значение разности, собираемое в регистрах
 				words_t <WORDS> result;
 				// Вычитаем значения ядром с записью разности в приёмник
-				__nts_subtract__ <WORDS> (layout, first, second, result);
+				subtract <WORDS> (layout, first, second, result);
 				// Возвращаем разность, собранную в регистрах
 				return result;
 			}
@@ -5452,13 +5534,13 @@ namespace nts {
 			 * @param result место, в которое помещается выбранное значение: вправе совпадать со вторым
 			 *
 			 */
-			static __NTS_INLINE__ void __nts_choose__(const uint64_t mask, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
+			static __NTS_INLINE__ void choose(const uint64_t mask, const words_t <WORDS> & first, const words_t <WORDS> & second, words_t <WORDS> & result) noexcept {
 				/**
 				 * Выбираем слова из двух значений наложением маски
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Выбираем очередное слово из двух значений наложением маски
-					result.words[i] = __nts_select__(mask, first.words[i], second.words[i]);
+					result.words[i] = select(mask, first.words[i], second.words[i]);
 			}
 			/**
 			 * @brief Шаблон функции выбора одного из двух значений наложением маски
@@ -5476,7 +5558,7 @@ namespace nts {
 			 * @return       выбранное значение
 			 *
 			 */
-			static __NTS_INLINE__ words_t <WORDS> __nts_choose__(const uint64_t mask, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
+			static __NTS_INLINE__ words_t <WORDS> choose(const uint64_t mask, const words_t <WORDS> & first, const words_t <WORDS> & second) noexcept {
 				// Значение, выбираемое из двух наложением маски
 				words_t <WORDS> result;
 				/**
@@ -5484,7 +5566,7 @@ namespace nts {
 				 */
 				for(size_t i = 0; i < WORDS; i++)
 					// Выбираем очередное слово из двух значений наложением маски
-					result.words[i] = __nts_select__(mask, first.words[i], second.words[i]);
+					result.words[i] = select(mask, first.words[i], second.words[i]);
 				// Возвращаем выбранное наложением маски значение
 				return result;
 			}
@@ -5504,7 +5586,7 @@ namespace nts {
 			 * @note Сличение идёт без ветвления: значение вправе зависеть от секретного числа
 			 *
 			 */
-			static __NTS_INLINE__ uint64_t __nts_zero__(const words_t <WORDS> & value) noexcept {
+			static __NTS_INLINE__ uint64_t zero(const words_t <WORDS> & value) noexcept {
 				// Объединяющее слово: собираем слова значения для проверки на ноль
 				uint64_t item = 0;
 				/**

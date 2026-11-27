@@ -29,28 +29,18 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "digest/kdf.hpp"
-#include "digest/hmac.hpp"
 #include "sys/wipe.hpp"
+#include "digest/hmac.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "digest/kdf.hpp"
 
 /**
  * Используем стандартное пространство имён
  */
 using namespace std;
-
-/**
- * @brief Внутренние служебные объекты
- *
- */
-namespace {
-	/**
-	 * Пространство имён библиотеки
-	 */
-	using namespace nts;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
-};
 
 /**
  * @brief Функция выработки производного ключа
@@ -104,11 +94,10 @@ bool nts::digest::kdf(const view_t & key, const view_t & label, const view_t & s
 	// Выработка производного ключа
 	const bool ok = nts::digest::hmac(type_t::SHORT, key, view_t(buffer, offset), result, KDF_KEY);
 	// Затирание слитной строки выработки ключа
-	wipe(buffer, sizeof(buffer));
+	sys::wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки производного ключа
 	return ok;
 }
-
 /**
  * @brief Функция выработки ключа пользователя SNMPv3 из пароля
  *
@@ -154,7 +143,7 @@ bool nts::digest::snmpv3(const hash_t algorithm, const view_t & password, const 
 	// Если ключ Ku снять не удалось
 	if(!hasher.finish(key, width)){
 		// Затирание буфера
-		wipe(buffer, sizeof(buffer));
+		sys::wipe(buffer, sizeof(buffer));
 		// Выводим отказ выработки ключа
 		return false;
 	}
@@ -169,18 +158,17 @@ bool nts::digest::snmpv3(const hash_t algorithm, const view_t & password, const 
 	// Если локализованный ключ Kul снять не удалось
 	if(!hasher.finish(result, width)){
 		// Затирание рабочих областей
-		wipe(key, sizeof(key));
-		wipe(buffer, sizeof(buffer));
+		sys::wipe(key, sizeof(key));
+		sys::wipe(buffer, sizeof(buffer));
 		// Выводим отказ выработки ключа
 		return false;
 	}
 	// Затирание рабочих областей
-	wipe(key, sizeof(key));
-	wipe(buffer, sizeof(buffer));
+	sys::wipe(key, sizeof(key));
+	sys::wipe(buffer, sizeof(buffer));
 	// Выводим признак успешности выработки ключа
 	return true;
 }
-
 /**
  * @brief Функция выработки ключевого материала prf+ протокола IKEv2
  *
@@ -216,7 +204,7 @@ bool nts::digest::prfplus(const hash_t algorithm, const view_t & key, const view
 		// Если ключ имитовставки установить не удалось
 		if(!mac.start(algorithm, key)){
 			// Затирание звена
-			wipe(link, sizeof(link));
+			sys::wipe(link, sizeof(link));
 			// Выводим отказ выработки ключевого материала
 			return false;
 		}
@@ -231,7 +219,7 @@ bool nts::digest::prfplus(const hash_t algorithm, const view_t & key, const view
 		// Если звено цепочки снять не удалось
 		if(!mac.finish(link, width)){
 			// Затирание звена
-			wipe(link, sizeof(link));
+			sys::wipe(link, sizeof(link));
 			// Выводим отказ выработки ключевого материала
 			return false;
 		}
@@ -247,7 +235,7 @@ bool nts::digest::prfplus(const hash_t algorithm, const view_t & key, const view
 		round++;
 	}
 	// Затирание звена цепочки
-	wipe(link, sizeof(link));
+	sys::wipe(link, sizeof(link));
 	// Выводим признак успешности выработки ключевого материала
 	return true;
 }

@@ -22,10 +22,14 @@
  */
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "digest/sm3.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -47,7 +51,9 @@ namespace {
 	 */
 	using namespace nts::digest;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
 	/**
@@ -70,7 +76,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
+	static constexpr uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
 		// Если сдвиг нулевой, слово не меняется: сдвиг вправо на 32 разряда не определён
 		if(count == 0)
 			// Выводим слово без сдвига
@@ -78,7 +84,6 @@ namespace {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
-
 	/**
 	 * @brief Функция чтения слова от старшего байта
 	 *
@@ -88,10 +93,11 @@ namespace {
 	 */
 	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта
-		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
-		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
+		return (
+			(static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
+			(static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3])
+		);
 	}
-
 	/**
 	 * @brief Функция записи слова от старшего байта
 	 *
@@ -109,7 +115,6 @@ namespace {
 		// Записываем младший байт слова
 		data[3] = static_cast <uint8_t> (value);
 	}
-
 	/**
 	 * @brief Функция перестановки P0 расширения расписания
 	 *
@@ -121,7 +126,6 @@ namespace {
 		// Выводим слово, переставленное по правилу P0
 		return (value ^ __nts_rotl__(value, 9) ^ __nts_rotl__(value, 17));
 	}
-
 	/**
 	 * @brief Функция перестановки P1 расширения расписания
 	 *
@@ -133,7 +137,6 @@ namespace {
 		// Выводим слово, переставленное по правилу P1
 		return (value ^ __nts_rotl__(value, 15) ^ __nts_rotl__(value, 23));
 	}
-
 	/**
 	 * @brief Функция функции FF круга
 	 *
@@ -152,7 +155,6 @@ namespace {
 		// Выводим функцию большинства
 		return ((x & y) | (x & z) | (y & z));
 	}
-
 	/**
 	 * @brief Функция функции GG круга
 	 *

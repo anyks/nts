@@ -23,17 +23,21 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "noise/cipher.hpp"
+#include "sys/wipe.hpp"
 #include "cipher/gcm.hpp"
 #include "cipher/chachapoly.hpp"
-#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "noise/cipher.hpp"
 
 /**
  * @brief Служебные объекты модуля
@@ -44,16 +48,18 @@ namespace {
 	 * Подписываемся на метод затирания памяти
 	 */
 	using nts::sys::wipe;
-	/**
-	 * @brief Запретное значение счётчика
-	 *
-	 */
-	static constexpr uint64_t FORBIDDEN = 0xFFFFFFFFFFFFFFFFULL;
+
 	/**
 	 * @brief Длина нонса в байтах
 	 *
 	 */
 	static constexpr size_t NONCE = 12;
+	/**
+	 * @brief Запретное значение счётчика
+	 *
+	 */
+	static constexpr uint64_t FORBIDDEN = 0xFFFFFFFFFFFFFFFFULL;
+
 	/**
 	 * @brief Функция заполнения нонса по счётчику
 	 *
@@ -62,7 +68,7 @@ namespace {
 	 * @param result место нонса в NONCE байтов
 	 *
 	 */
-	static void __nts_fill__(const nts::noise::aead_t aead, const uint64_t nonce, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_fill__(const nts::noise::aead_t aead, const uint64_t nonce, uint8_t * result) noexcept {
 		// Четыре нулевых байта
 		::memset(result, 0, 4);
 		/**
@@ -97,7 +103,7 @@ bool nts::noise::Cipher::seal(const uint64_t nonce, const view_t & associated, c
 	// Нонс шифра
 	uint8_t iv[NONCE];
 	// Заполняем нонс
-	__nts_fill__(this->_aead, nonce, iv);
+	::__nts_fill__(this->_aead, nonce, iv);
 	// Признак успешности
 	bool status = false;
 	/**
@@ -143,7 +149,7 @@ bool nts::noise::Cipher::open(const uint64_t nonce, const view_t & associated, c
 	// Нонс шифра
 	uint8_t iv[NONCE];
 	// Заполняем нонс
-	__nts_fill__(this->_aead, nonce, iv);
+	::__nts_fill__(this->_aead, nonce, iv);
 	// Признак успешности
 	bool status = false;
 	/**
@@ -369,7 +375,7 @@ bool nts::noise::Cipher::rekey() noexcept {
 	// Нонс запретного значения: заполняется напрямую, минуя запрет счётчика
 	uint8_t iv[NONCE];
 	// Заполняем нонс
-	__nts_fill__(this->_aead, FORBIDDEN, iv);
+	::__nts_fill__(this->_aead, FORBIDDEN, iv);
 	// Признак успешности
 	bool status = false;
 	/**

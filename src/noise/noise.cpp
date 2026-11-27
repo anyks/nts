@@ -19,15 +19,19 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "agreement/x25519.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "noise/noise.hpp"
-#include "agreement/x25519.hpp"
 
 /**
  * @brief Служебные объекты модуля
@@ -38,6 +42,7 @@ namespace {
 	 * Подписываемся на пространство имён каркаса
 	 */
 	using namespace nts::noise;
+
 	/**
 	 * @brief Функция возврата имени обмена ключами в протоколе
 	 *
@@ -45,7 +50,7 @@ namespace {
 	 * @return   имя либо пустая строка
 	 *
 	 */
-	static const char * __nts_dhname__(const dh_t dhKind) noexcept {
+	static constexpr const char * __nts_dhname__(const dh_t dhKind) noexcept {
 		// Выводим имя по функции
 		return ((dhKind == dh_t::X25519) ? "25519" : "");
 	}
@@ -56,15 +61,17 @@ namespace {
 	 * @return    имя либо пустая строка
 	 *
 	 */
-	static const char * __nts_kemname__(const kem_t kem) noexcept {
+	static constexpr const char * __nts_kemname__(const kem_t kem) noexcept {
 		/**
 		 * Определяем механизм
 		 */
-		switch(kem){
-			// Составной механизм
-			case kem_t::X25519MLKEM768: return "X25519MLKEM768";
+		switch(static_cast <uint8_t> (kem)){
 			// Чистый ML-KEM-768
-			case kem_t::MLKEM768: return "MLKEM768";
+			case static_cast <uint8_t> (kem_t::MLKEM768):
+				return "MLKEM768";
+			// Составной механизм
+			case static_cast <uint8_t> (kem_t::X25519MLKEM768):
+				return "X25519MLKEM768";
 			// Прочие механизмы
 			default: return "";
 		}
@@ -76,15 +83,17 @@ namespace {
 	 * @return     имя либо пустая строка
 	 *
 	 */
-	static const char * __nts_aeadname__(const aead_t aead) noexcept {
+	static constexpr const char * __nts_aeadname__(const aead_t aead) noexcept {
 		/**
 		 * Определяем функцию
 		 */
-		switch(aead){
-			// ChaCha20-Poly1305
-			case aead_t::CHACHAPOLY: return "ChaChaPoly";
+		switch(static_cast <uint8_t> (aead)){
 			// AES-256-GCM
-			case aead_t::AESGCM: return "AESGCM";
+			case static_cast <uint8_t> (aead_t::AESGCM):
+				return "AESGCM";
+			// ChaCha20-Poly1305
+			case static_cast <uint8_t> (aead_t::CHACHAPOLY):
+				return "ChaChaPoly";
 			// Прочие механизмы
 			default: return "";
 		}
@@ -92,23 +101,27 @@ namespace {
 	/**
 	 * @brief Функция возврата имени хеширования в протоколе
 	 *
-	 * @param hash   функция хеширования
+	 * @param hash функция хеширования
 	 * @return     имя либо пустая строка
 	 *
 	 */
-	static const char * __nts_hashname__(const nts::digest::hash_t hash) noexcept {
+	static constexpr const char * __nts_hashname__(const nts::digest::hash_t hash) noexcept {
 		/**
 		 * Определяем функцию
 		 */
-		switch(hash){
+		switch(static_cast <uint8_t> (hash)){
 			// SHA-256
-			case nts::digest::hash_t::SHA256: return "SHA256";
+			case static_cast <uint8_t> (nts::digest::hash_t::SHA256):
+				return "SHA256";
 			// SHA-512
-			case nts::digest::hash_t::SHA512: return "SHA512";
+			case static_cast <uint8_t> (nts::digest::hash_t::SHA512):
+				return "SHA512";
 			// BLAKE2s
-			case nts::digest::hash_t::BLAKE2S256: return "BLAKE2s";
+			case static_cast <uint8_t> (nts::digest::hash_t::BLAKE2S256):
+				return "BLAKE2s";
 			// BLAKE2b
-			case nts::digest::hash_t::BLAKE2B512: return "BLAKE2b";
+			case static_cast <uint8_t> (nts::digest::hash_t::BLAKE2B512):
+				return "BLAKE2b";
 			// Прочие механизмы
 			default: return "";
 		}
@@ -123,7 +136,7 @@ namespace {
 	 * @return       признак того, что строка уместилась
 	 *
 	 */
-	static bool __nts_append__(const char * text, char * result, const size_t size, size_t & offset) noexcept {
+	static __NTS_INLINE__ bool __nts_append__(const char * text, char * result, const size_t size, size_t & offset) noexcept {
 		// Длина строки
 		const size_t length = ::strlen(text);
 		// Если строка не умещается
@@ -148,7 +161,7 @@ namespace {
 	 * @return       признак совпадения
 	 *
 	 */
-	static bool __nts_same__(const uint8_t * data, const size_t size, const char * text) noexcept {
+	static __NTS_INLINE__ bool __nts_same__(const uint8_t * data, const size_t size, const char * text) noexcept {
 		// Выводим итог сличения при равной длине
 		return ((::strlen(text) == size) && (::memcmp(data, text, size) == 0));
 	}
@@ -163,7 +176,10 @@ namespace {
  */
 bool nts::noise::valid(const suite_t & suite) noexcept {
 	// Ровно одно из двух: DH классики либо KEM PQNoise, и оба имени шифра и хеша
-	return (((suite.dh == dh_t::X25519) != (__nts_kemname__(suite.kem)[0] != 0)) && ((suite.dh == dh_t::X25519) || (suite.dh == dh_t::NONE)) && (__nts_aeadname__(suite.aead)[0] != 0) && (__nts_hashname__(suite.hash)[0] != 0));
+	return (
+		((suite.dh == dh_t::X25519) != (::__nts_kemname__(suite.kem)[0] != 0)) && ((suite.dh == dh_t::X25519) ||
+		(suite.dh == dh_t::NONE)) && (::__nts_aeadname__(suite.aead)[0] != 0) && (::__nts_hashname__(suite.hash)[0] != 0)
+	);
 }
 /**
  * @brief Функция составления имени протокола вида «Noise_XXpsk3_25519_ChaChaPoly_SHA256»
@@ -185,10 +201,10 @@ bool nts::noise::name(const pattern_t pattern, const psk_t psks, const suite_t &
 		return false;
 	// Текущая длина имени
 	size_t offset = 0;
-	// Признак успешности
-	bool status = (__nts_append__(postQuantum ? "PQNoise_" : "Noise_", result, size, offset) && __nts_append__(title(pattern), result, size, offset));
 	// Признак первого видоизменения
 	bool first = true;
+	// Признак успешности
+	bool status = (::__nts_append__(postQuantum ? "PQNoise_" : "Noise_", result, size, offset) && ::__nts_append__(title(pattern), result, size, offset));
 	/**
 	 * Перебираем положения заранее разделённых ключей
 	 */
@@ -198,13 +214,13 @@ bool nts::noise::name(const pattern_t pattern, const psk_t psks, const suite_t &
 			// Строка видоизменения
 			char text[] = {'+', 'p', 's', 'k', static_cast <char> ('0' + i), 0};
 			// Дописываем видоизменение: у первого без знака сложения
-			status = __nts_append__(first ? (text + 1) : text, result, size, offset);
+			status = ::__nts_append__(first ? (text + 1) : text, result, size, offset);
 			// Снимаем признак первого
 			first = false;
 		}
 	}
 	// Дописываем набор примитивов: DH классики либо KEM PQNoise
-	status = (status && __nts_append__("_", result, size, offset) && __nts_append__(postQuantum ? __nts_kemname__(suite.kem) : __nts_dhname__(suite.dh), result, size, offset) && __nts_append__("_", result, size, offset) && __nts_append__(__nts_aeadname__(suite.aead), result, size, offset) && __nts_append__("_", result, size, offset) && __nts_append__(__nts_hashname__(suite.hash), result, size, offset));
+	status = (status && ::__nts_append__("_", result, size, offset) && ::__nts_append__(postQuantum ? ::__nts_kemname__(suite.kem) : ::__nts_dhname__(suite.dh), result, size, offset) && ::__nts_append__("_", result, size, offset) && ::__nts_append__(::__nts_aeadname__(suite.aead), result, size, offset) && ::__nts_append__("_", result, size, offset) && ::__nts_append__(::__nts_hashname__(suite.hash), result, size, offset));
 	// Выводим длину имени
 	size = (status ? offset : 0);
 	// Возвращаем итог составления имени
@@ -254,9 +270,9 @@ bool nts::noise::parse(const view_t & text, pattern_t & pattern, psk_t & psks, s
 		}
 	}
 	// Признак PQNoise по префиксу
-	const bool postQuantum = __nts_same__(text.data, length[0], "PQNoise");
+	const bool postQuantum = ::__nts_same__(text.data, length[0], "PQNoise");
 	// Если отрезков не пять либо первый не «Noise» и не «PQNoise»
-	if((count != 5) || (!postQuantum && !__nts_same__(text.data, length[0], "Noise")))
+	if((count != 5) || (!postQuantum && !::__nts_same__(text.data, length[0], "Noise")))
 		// Выводим отрицательный результат - отрезков не пять
 		return false;
 	// Отрезок узора с видоизменениями
@@ -313,35 +329,35 @@ bool nts::noise::parse(const view_t & text, pattern_t & pattern, psk_t & psks, s
 		offset += 4;
 	}
 	// Определяем функцию хеширования по имени пятого отрезка
-	if(__nts_same__(text.data + begin[4], length[4], "SHA256"))
-	// Назначаем SHA256
+	if(::__nts_same__(text.data + begin[4], length[4], "SHA256"))
+		// Устанавливаем SHA256
 		suite.hash = digest::hash_t::SHA256;
-	else if(__nts_same__(text.data + begin[4], length[4], "SHA512"))
-	// Иначе назначаем SHA512
+	else if(::__nts_same__(text.data + begin[4], length[4], "SHA512"))
+		// Устанавливаем SHA512
 		suite.hash = digest::hash_t::SHA512;
-	else if(__nts_same__(text.data + begin[4], length[4], "BLAKE2s"))
-	// Иначе назначаем BLAKE2s
+	else if(::__nts_same__(text.data + begin[4], length[4], "BLAKE2s"))
+		// Устанавливаем BLAKE2s
 		suite.hash = digest::hash_t::BLAKE2S256;
-	else if(__nts_same__(text.data + begin[4], length[4], "BLAKE2b"))
-	// Иначе назначаем BLAKE2b
+	else if(::__nts_same__(text.data + begin[4], length[4], "BLAKE2b"))
+		// Устанавливаем BLAKE2b
 		suite.hash = digest::hash_t::BLAKE2B512;
 	// Определяем шифр по имени четвёртого отрезка
-	if(__nts_same__(text.data + begin[3], length[3], "ChaChaPoly"))
-	// Назначаем ChaChaPoly
+	if(::__nts_same__(text.data + begin[3], length[3], "ChaChaPoly"))
+		// Устанавливаем ChaChaPoly
 		suite.aead = aead_t::CHACHAPOLY;
-	else if(__nts_same__(text.data + begin[3], length[3], "AESGCM"))
-	// Иначе назначаем AESGCM
+	else if(::__nts_same__(text.data + begin[3], length[3], "AESGCM"))
+		// Устанавливаем AESGCM
 		suite.aead = aead_t::AESGCM;
 	// Разбираем функцию обмена ключами: 448 распознаётся, но не поддержана
-	if(!postQuantum && __nts_same__(text.data + begin[2], length[2], "25519"))
-	// Берём X25519
+	if(!postQuantum && ::__nts_same__(text.data + begin[2], length[2], "25519"))
+		// Устанавливаем X25519
 		suite.dh = dh_t::X25519;
 	// Разбираем механизм упаковки ключа у PQNoise
-	else if(postQuantum && __nts_same__(text.data + begin[2], length[2], "X25519MLKEM768"))
-	// Назначаем смешанную упаковку
+	else if(postQuantum && ::__nts_same__(text.data + begin[2], length[2], "X25519MLKEM768"))
+		// Назначаем смешанную упаковку
 		suite.kem = kem_t::X25519MLKEM768;
-	else if(postQuantum && __nts_same__(text.data + begin[2], length[2], "MLKEM768"))
-	// Иначе назначаем чистую упаковку MLKEM768
+	else if(postQuantum && ::__nts_same__(text.data + begin[2], length[2], "MLKEM768"))
+		// Назначаем чистую упаковку MLKEM768
 		suite.kem = kem_t::MLKEM768;
 	// Выводим итог: набор поддержан целиком; у PQNoise psk не заведён
 	return (valid(suite) && !(postQuantum && (psks != 0)));

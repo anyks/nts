@@ -28,6 +28,10 @@
  */
 #include <cstring>
 #include <cstdint>
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
 #include "sys/wipe.hpp"
 
 /**
@@ -42,7 +46,7 @@ namespace {
 	/**
 	 * Вид указателя на функцию заполнения области памяти
 	 */
-	typedef void * (* filler_t)(void *, int, size_t);
+	typedef void * (* filler_t)(void *, int32_t, size_t);
 	/**
 	 * Изменчивый указатель на memset (путь OpenSSL, crypto/mem_clr.c): собиратель обязан
 	 * прочитать его при каждом вызове и не вправе знать, что за ним стоит memset, оттого

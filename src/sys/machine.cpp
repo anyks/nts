@@ -25,7 +25,7 @@
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл модуля
  */
 #include "sys/machine.hpp"
 
@@ -113,7 +113,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -123,7 +122,7 @@ namespace {
 	 * @brief Признак того, что расширения запрещены вызовом
 	 *
 	 */
-	static bool forbidden = false;
+	static bool __nts_forbidden__ = false;
 
 	/**
 	 * @brief Функция снятия признаков машины
@@ -131,7 +130,7 @@ namespace {
 	 * @return разряды расширений, которые у машины есть
 	 *
 	 */
-	static uint16_t __nts_detect__() noexcept {
+	static __NTS_INLINE__ uint16_t __nts_detect__() noexcept {
 		// Снятые разряды расширений
 		uint16_t result = 0;
 		// Переменная окружения запрета расширений
@@ -151,19 +150,24 @@ namespace {
 		 */
 		#if defined(__aarch64__) && defined(__APPLE__)
 			// Имена признаков расширений и их разряды
-			const char * names[4] = {"hw.optional.arm.FEAT_AES", "hw.optional.arm.FEAT_PMULL", "hw.optional.arm.FEAT_SHA256", "hw.optional.arm.FEAT_SHA512"};
+			static constexpr const char * names[4] = {
+				"hw.optional.arm.FEAT_AES",
+				"hw.optional.arm.FEAT_PMULL",
+				"hw.optional.arm.FEAT_SHA256",
+				"hw.optional.arm.FEAT_SHA512"
+			};
 			/**
 			 * Перебираем признаки
 			 */
 			for(size_t i = 0; i < 4; i++){
 				// Значение признака
-				int value = 0;
+				int32_t value = 0;
 				// Размер значения признака
 				size_t size = sizeof(value);
 				// Если признак снят и установлен
 				if((::sysctlbyname(names[i], &value, &size, nullptr, 0) == 0) && (value != 0))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | (1 << i));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | (1 << i));
 			}
 		/**
 		 * Если сборка ведётся под ARM64 на Linux
@@ -173,24 +177,24 @@ namespace {
 			const unsigned long caps = ::getauxval(AT_HWCAP);
 			// Если команды AES есть
 			if(caps & HWCAP_AES)
-			// Записываем разряд расширения
-			result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AES));
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AES));
 			// Если умножение без переносов есть
 			if(caps & HWCAP_PMULL)
-			// Записываем разряд расширения
-			result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::CARRYLESS));
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::CARRYLESS));
 			// Если команды SHA-256 есть
 			if(caps & HWCAP_SHA2)
-			// Записываем разряд расширения
-			result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA256));
+				// Записываем разряд расширения
+				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA256));
 			/**
 			 * Если признак команд SHA-512 объявлен заголовком
 			 */
 			#if defined(HWCAP_SHA512)
 				// Если команды SHA-512 есть
 				if(caps & HWCAP_SHA512)
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA512));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA512));
 			#endif
 		/**
 		 * Если сборка ведётся под ARM64 на FreeBSD
@@ -202,20 +206,20 @@ namespace {
 			if(::elf_aux_info(AT_HWCAP, &caps, sizeof(caps)) == 0){
 				// Если команды AES есть: разряд 3 HWCAP
 				if(caps & (1UL << 3))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AES));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AES));
 				// Если умножение без переносов есть: разряд 4
 				if(caps & (1UL << 4))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::CARRYLESS));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::CARRYLESS));
 				// Если команды SHA-256 есть: разряд 6
 				if(caps & (1UL << 6))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA256));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA256));
 				// Если команды SHA-512 есть: разряд 21
 				if(caps & (1UL << 21))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA512));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA512));
 			}
 		/**
 		 * Если сборка ведётся под ARM64 на Windows
@@ -223,59 +227,61 @@ namespace {
 		#elif (defined(__aarch64__) || defined(__NTS_MSVC_ARM64__)) && defined(_WIN32)
 			// Если расширение криптографии ARMv8 есть: AES, PMULL и SHA-256 идут вместе
 			if(::IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE))
-			// Записываем разряды расширений
-			result = static_cast <uint16_t> (static_cast <uint16_t> (feature_t::AES) | static_cast <uint16_t> (feature_t::CARRYLESS) | static_cast <uint16_t> (feature_t::SHA256));
+				// Записываем разряды расширений
+				result = static_cast <uint16_t> (static_cast <uint16_t> (feature_t::AES) | static_cast <uint16_t> (feature_t::CARRYLESS) | static_cast <uint16_t> (feature_t::SHA256));
 		/**
 		 * Если сборка ведётся под x86-64 собирателем семейства GCC
 		 */
 		#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
 			// Регистры опроса процессора
-			unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+			uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 			// Если первый лист опроса снят
 			if(::__get_cpuid(1, &eax, &ebx, &ecx, &edx)){
 				// Признак SSSE3: разряд 9 ECX, нужен отражению байтов
 				const bool ssse3 = ((ecx & (1U << 9)) != 0);
 				// Если команды AES-NI есть: разряд 25 ECX
 				if((ecx & (1U << 25)) && ssse3)
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AES));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AES));
 				// Если умножение без переносов есть: разряд 1 ECX
 				if((ecx & (1U << 1)) && ssse3)
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::CARRYLESS));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::CARRYLESS));
 			}
 			// Если седьмой лист опроса снят
 			if(::__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)){
 				// Если команды SHA-NI есть: разряд 29 EBX
 				if(ebx & (1U << 29))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA256));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SHA256));
 				// Если умножение MULX (BMI2, разряд 8 EBX) и сложения ADCX/ADOX (ADX, разряд 19 EBX) есть вместе
 				if((ebx & (1U << 8)) && (ebx & (1U << 19)))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::ADX));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::ADX));
 			}
 			// Регистры повторного опроса первого листа
-			unsigned int eax1 = 0, ebx1 = 0, ecx1 = 0, edx1 = 0;
+			uint32_t eax1 = 0, ebx1 = 0, ecx1 = 0, edx1 = 0;
 			// Если первый лист опроса снят
 			if(::__get_cpuid(1, &eax1, &ebx1, &ecx1, &edx1)){
 				// Если перестановка байтов SSSE3 есть: разряд 9 ECX
 				if(ecx1 & (1U << 9))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SSSE3));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::SSSE3));
 				// Признак того, что система сохраняет верхние половины векторов: OSXSAVE, разряд 27 ECX
 				const bool osxsave = ((ecx1 & (1U << 27)) != 0);
 				// Признак AVX: разряд 28 ECX
 				const bool avx = ((ecx1 & (1U << 28)) != 0);
 				// Если загрузка с перестановкой байтов MOVBE есть: разряд 22 ECX
 				if(ecx1 & (1U << 22))
-				// Записываем разряд расширения
-				result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::MOVBE));
+					// Записываем разряд расширения
+					result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::MOVBE));
 				// Если сохранение верхних половин и AVX объявлены
 				if(osxsave && avx){
 					// Младшая и старшая половины регистра XCR0
-					unsigned int low = 0, high = 0;
-					// Читаем регистр XCR0: разрешённые системой состояния регистров
+					uint32_t low = 0, high = 0;
+					/**
+					 * Читаем регистр XCR0: разрешённые системой состояния регистров
+					 */
 					__asm__ __volatile__("xgetbv" : "=a" (low), "=d" (high) : "c" (0));
 					// Если система сохраняет и XMM, и YMM: разряды 1 и 2
 					if((low & 0x6) == 0x6){
@@ -283,8 +289,8 @@ namespace {
 						result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AVX));
 						// Если седьмой лист несёт AVX2: разряд 5 EBX
 						if(ebx & (1U << 5))
-						// Записываем разряд расширения
-						result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AVX2));
+							// Записываем разряд расширения
+							result = static_cast <uint16_t> (result | static_cast <uint16_t> (feature_t::AVX2));
 					}
 				}
 			}
@@ -299,11 +305,11 @@ namespace {
 		 */
 		#elif defined(_MSC_VER) && defined(_M_X64)
 			// Регистры опроса процессора
-			int regs[4] = {0, 0, 0, 0};
+			int32_t regs[4] = {0, 0, 0, 0};
 			// Опрос первого листа процессора
 			::__cpuid(regs, 1);
 			// Значение ECX первого листа опроса
-			const unsigned int first = static_cast <unsigned int> (regs[2]);
+			const uint32_t first = static_cast <uint32_t> (regs[2]);
 			// Признак перестановки байтов SSSE3: разряд 9 ECX, нужен отражению байтов
 			const bool ssse3 = ((first & (1U << 9)) != 0);
 			// Если команды AES-NI есть: разряд 25 ECX
@@ -325,7 +331,7 @@ namespace {
 			// Опрос седьмого листа процессора
 			::__cpuidex(regs, 7, 0);
 			// Значение EBX седьмого листа опроса
-			const unsigned int seventh = static_cast <unsigned int> (regs[1]);
+			const uint32_t seventh = static_cast <uint32_t> (regs[1]);
 			// Если команды SHA-NI есть: разряд 29 EBX
 			if(seventh & (1U << 29))
 				// Записываем разряд расширения
@@ -388,17 +394,16 @@ namespace {
 		// Выводим снятые разряды расширений без запрещённых окружением
 		return static_cast <uint16_t> (result & static_cast <uint16_t> (~denied));
 	}
-
 	/**
 	 * @brief Функция получения снятых разрядов расширений
 	 *
 	 * @details Признаки снимаются один раз при первом обращении: заведение
-	 *          статического значения потокобезопасно по правилам языка
+	 *          статического значения потокобезопасно по правилам языка.
 	 *
 	 * @return разряды расширений, которые у машины есть
 	 *
 	 */
-	static uint16_t __nts_features__() noexcept {
+	static __NTS_INLINE__ uint16_t __nts_features__() noexcept {
 		// Снятые один раз разряды расширений
 		static const uint16_t result = __nts_detect__();
 		// Выводим снятые разряды
@@ -415,11 +420,11 @@ namespace {
  */
 bool nts::machine::has(const feature_t feature) noexcept {
 	// Если расширения запрещены вызовом
-	if(forbidden)
+	if(::__nts_forbidden__)
 		// Выводим отсутствие расширения
 		return false;
 	// Выводим наличие разряда расширения среди снятых
-	return ((__nts_features__() & static_cast <uint16_t> (feature)) != 0);
+	return ((::__nts_features__() & static_cast <uint16_t> (feature)) != 0);
 }
 /**
  * @brief Функция запрета либо разрешения расширений на исполнении
@@ -429,5 +434,5 @@ bool nts::machine::has(const feature_t feature) noexcept {
  */
 void nts::machine::allow(const bool allowed) noexcept {
 	// Запоминаем запрет расширений
-	forbidden = !allowed;
+	::__nts_forbidden__ = !allowed;
 }

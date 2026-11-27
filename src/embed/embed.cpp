@@ -27,9 +27,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include <embed/embed.hpp>
 #include "sys/wipe.hpp"
 #include "digest/hkdf.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include <embed/embed.hpp>
 
 /**
  * Подписываемся на пространство имён библиотеки
@@ -37,22 +41,27 @@
 using namespace nts;
 
 /**
- * @brief Метка области вывода ключа из материала: разводит контуры вывода материала и пароля
+ * @brief Внутренние служебные объекты
  *
  */
-static constexpr uint8_t EMBED_LABEL_KEY[] = {'A', '-', 'N', 'T', 'S', ' ', 'e', 'm', 'b', 'e', 'd', ' ', 'k', 'e', 'y'};
-
-/**
- * @brief Метка области вывода ключа из пароля
- *
- */
-static constexpr uint8_t EMBED_LABEL_PWD[] = {'A', '-', 'N', 'T', 'S', ' ', 'e', 'm', 'b', 'e', 'd', ' ', 'p', 'w', 'd'};
+namespace {
+	/**
+	 * @brief Метка области вывода ключа из материала: разводит контуры вывода материала и пароля
+	 *
+	 */
+	static constexpr uint8_t EMBED_LABEL_KEY[] = {'A', '-', 'N', 'T', 'S', ' ', 'e', 'm', 'b', 'e', 'd', ' ', 'k', 'e', 'y'};
+	/**
+	 * @brief Метка области вывода ключа из пароля
+	 *
+	 */
+	static constexpr uint8_t EMBED_LABEL_PWD[] = {'A', '-', 'N', 'T', 'S', ' ', 'e', 'm', 'b', 'e', 'd', ' ', 'p', 'w', 'd'};
+};
 
 /**
  * @brief Функция вплетения метки, версии и связки в связной буфер
  *
  * @details Версия кладётся восемью октетами старшим байтом вперёд — вид не зависит от порядка
- *          октетов машины, потому закладка на сборочной машине и запуск дают одинаковый буфер
+ *          октетов машины, потому закладка на сборочной машине и запуск дают одинаковый буфер.
  *
  * @param buffer  собираемый буфер
  * @param label   метка области
@@ -75,7 +84,6 @@ static void weave(std::vector <uint8_t> & buffer, const uint8_t * label, const s
 		// Кладём связку привязки к образу
 		buffer.insert(buffer.end(), context.data, context.data + context.size);
 }
-
 /**
  * @brief Функция вывода зашитого ключа из собранного по образу материала
  *
@@ -127,7 +135,6 @@ bool nts::embed::key(const digest::hash_t algorithm, const view_t & material, co
 			 */
 			done = digest::expand(algorithm, view_t(prk, hashLength), view_t(info.data(), info.size()), result, size);
 		}
-	// Перехватываем нехватку памяти
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -138,17 +145,16 @@ bool nts::embed::key(const digest::hash_t algorithm, const view_t & material, co
 	/**
 	 * @brief Функция затирания области памяти
 	 *
+	 * @note Затираем псевдослучайный ключ на любом выходе: он восстанавливает выведенный ключ
+	 *
 	 * @param data затираемая область памяти
 	 * @param size размер затираемой области памяти в байтах
-	 *
-	 * Затираем псевдослучайный ключ на любом выходе: он восстанавливает выведенный ключ
 	 *
 	 */
 	sys::wipe(prk, sizeof(prk));
 	// Выводим признак успеха вывода
 	return done;
 }
-
 /**
  * @brief Функция вывода зашитого ключа из пароля растяжением Argon2
  *
@@ -185,7 +191,6 @@ bool nts::embed::secret(const digest::argon_params_t & params, const view_t & pa
 		 * Растягиваем пароль в ключ Argon2 с версией и привязкой в связанных данных (раздел 3 RFC 9106)
 		 */
 		done = digest::argon2(params, password, salt, view_t(), view_t(associated.data(), associated.size()), result, size);
-	// Перехватываем нехватку памяти
 	/**
 	 * Выполняем перехват ошибок
 	 */

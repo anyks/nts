@@ -21,24 +21,28 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "cms/cms.hpp"
-#include "asn1/asn1.hpp"
-#include "digest/hkdf.hpp"
-#include "digest/hmac.hpp"
-#include "entropy/entropy.hpp"
-#include "keys/keys.hpp"
+#include "sys/wipe.hpp"
 #include "sign/rsa.hpp"
+#include "asn1/asn1.hpp"
+#include "keys/keys.hpp"
 #include "cipher/aes.hpp"
 #include "cipher/mode.hpp"
+#include "digest/hkdf.hpp"
+#include "digest/hmac.hpp"
 #include "x509/signature.hpp"
-#include "sys/wipe.hpp"
+#include "entropy/entropy.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "cms/cms.hpp"
 
 /**
  * @brief Внутренние служебные объекты
@@ -204,7 +208,7 @@ namespace {
 	 * @return      отказ модуля
 	 *
 	 */
-	static nts::cms::error_t __nts_translate__(const asn1::error_t error) noexcept {
+	static constexpr nts::cms::error_t __nts_translate__(const asn1::error_t error) noexcept {
 		// Выводим отказ модуля: нехватка памяти отдаётся своим отказом, всё прочее - отказом устройства
 		return ((error == asn1::error_t::MEMORY) ? nts::cms::error_t::MEMORY : nts::cms::error_t::STRUCTURE);
 	}
@@ -216,7 +220,7 @@ namespace {
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
-	static nts::cms::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
+	static __NTS_INLINE__ nts::cms::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
 		// Итог разбора опознавателя
 		const asn1::error_t outcome = asn1::oid(element, result);
 		// Выводим переведённый отказ разбора, если он есть
@@ -231,7 +235,7 @@ namespace {
 	 * @return        отказ разбора записи
 	 *
 	 */
-	static nts::cms::error_t __nts_algorithm_identifier__(const asn1::element_t & element, string & oid, view_t & params) noexcept {
+	static __NTS_INLINE__ nts::cms::error_t __nts_algorithm_identifier__(const asn1::element_t & element, string & oid, view_t & params) noexcept {
 		// Если запись алгоритма имеет простой вид метки
 		if(!element.constructed)
 			// Выводим отказ устройства записи
@@ -277,7 +281,7 @@ namespace {
 	 * @return        отказ разбора записи
 	 *
 	 */
-	static nts::cms::error_t __nts_content_info__(const view_t & data, string & kind, view_t & content) noexcept {
+	static __NTS_INLINE__ nts::cms::error_t __nts_content_info__(const view_t & data, string & kind, view_t & content) noexcept {
 		// Разборщик записи
 		asn1::reader_t reader(data);
 		// Элемент записи ContentInfo
@@ -332,7 +336,7 @@ namespace {
 	 * @return        отказ разбора записи
 	 *
 	 */
-	static nts::cms::error_t __nts_issuer_and_serial__(const asn1::element_t & element, view_t & issuer, view_t & serial) noexcept {
+	static __NTS_INLINE__ nts::cms::error_t __nts_issuer_and_serial__(const asn1::element_t & element, view_t & issuer, view_t & serial) noexcept {
 		// Если запись имеет простой вид метки
 		if(!element.constructed)
 			// Выводим отказ устройства записи
@@ -369,7 +373,7 @@ namespace {
 	 * @return    алгоритм хеша, digest::hash_t::NONE у неизвестного
 	 *
 	 */
-	static digest::hash_t __nts_hash_of__(const string & oid) noexcept {
+	static __NTS_INLINE__ digest::hash_t __nts_hash_of__(const string & oid) noexcept {
 		// Если опознаватель — id-sha1: алгоритм хеша SHA-1
 		if(oid == OID_SHA1) return digest::hash_t::SHA1;
 		// Если опознаватель — id-sha224: алгоритм хеша SHA-224
@@ -390,20 +394,20 @@ namespace {
 	 * @return     опознаватель алгоритма хеша либо nullptr
 	 *
 	 */
-	static const char * __nts_oid_of__(const digest::hash_t hash) noexcept {
+	static constexpr const char * __nts_oid_of__(const digest::hash_t hash) noexcept {
 		/**
 		 * Выводим опознаватель по алгоритму хеша
 		 */
-		switch(hash){
-			case digest::hash_t::SHA1:
+		switch(static_cast <uint8_t> (hash)){
+			case static_cast <uint8_t> (digest::hash_t::SHA1):
 				return OID_SHA1;
-			case digest::hash_t::SHA224:
+			case static_cast <uint8_t> (digest::hash_t::SHA224):
 				return OID_SHA224;
-			case digest::hash_t::SHA256:
+			case static_cast <uint8_t> (digest::hash_t::SHA256):
 				return OID_SHA256;
-			case digest::hash_t::SHA384:
+			case static_cast <uint8_t> (digest::hash_t::SHA384):
 				return OID_SHA384;
-			case digest::hash_t::SHA512:
+			case static_cast <uint8_t> (digest::hash_t::SHA512):
 				return OID_SHA512;
 			default: return nullptr;
 		}
@@ -411,25 +415,30 @@ namespace {
 	/**
 	 * @brief Функция получения опознавателя алгоритма подписи RSA по опознавателю хеша
 	 *
-	 * @param digest опознаватель алгоритма хеша
-	 * @return       опознаватель алгоритма подписи либо nullptr
-	 *
 	 * @note Сведения о подписывающем вправе нести rsaEncryption вместо опознавателя
 	 *       подписи: хеш подписи тогда определяется алгоритмом хеша содержимого
 	 *       (примечание к разделу 5.1 RFC 5652)
 	 *
+	 * @param digest опознаватель алгоритма хеша
+	 * @return       опознаватель алгоритма подписи либо nullptr
+	 *
 	 */
-	static const char * __nts_rsa_signature_of__(const string & digest) noexcept {
+	static constexpr const char * __nts_rsa_signature_of__(const string & digest) noexcept {
 		// Если хеш — id-sha1: опознаватель подписи sha1WithRSAEncryption
-		if(digest == OID_SHA1) return OID_SHA1_RSA;
+		if(digest == OID_SHA1)
+			return OID_SHA1_RSA;
 		// Если хеш — id-sha224: опознаватель подписи sha224WithRSAEncryption
-		if(digest == OID_SHA224) return OID_SHA224_RSA;
+		if(digest == OID_SHA224)
+			return OID_SHA224_RSA;
 		// Если хеш — id-sha256: опознаватель подписи sha256WithRSAEncryption
-		if(digest == OID_SHA256) return OID_SHA256_RSA;
+		if(digest == OID_SHA256)
+			return OID_SHA256_RSA;
 		// Если хеш — id-sha384: опознаватель подписи sha384WithRSAEncryption
-		if(digest == OID_SHA384) return OID_SHA384_RSA;
+		if(digest == OID_SHA384)
+			return OID_SHA384_RSA;
 		// Если хеш — id-sha512: опознаватель подписи sha512WithRSAEncryption
-		if(digest == OID_SHA512) return OID_SHA512_RSA;
+		if(digest == OID_SHA512)
+			return OID_SHA512_RSA;
 		// Выводим отсутствие опознавателя
 		return nullptr;
 	}
@@ -441,7 +450,7 @@ namespace {
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 */
-	static const char * __nts_signature_algorithm__(const keys::signer_t & signer, const digest::hash_t hash) noexcept {
+	static __NTS_INLINE__ const char * __nts_signature_algorithm__(const keys::signer_t & signer, const digest::hash_t hash) noexcept {
 		/**
 		 * Определяем опознаватель алгоритма подписи по виду ключа и хешу
 		 */
@@ -514,7 +523,7 @@ namespace {
 	 * @return          отказ выработки подписи
 	 *
 	 */
-	static nts::cms::error_t __nts_make_signature__(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
+	static __NTS_INLINE__ nts::cms::error_t __nts_make_signature__(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -613,7 +622,7 @@ namespace {
 	 * @return       признак успешности записи
 	 *
 	 */
-	static bool __nts_write_algorithm__(asn1::writer_t & writer, const char * oid, const bool empty) noexcept {
+	static __NTS_INLINE__ bool __nts_write_algorithm__(asn1::writer_t & writer, const char * oid, const bool empty) noexcept {
 		// Открываем запись алгоритма
 		if(!writer.open(asn1::tag_t::SEQUENCE))
 			// Выводим отказ записи
@@ -637,7 +646,7 @@ namespace {
 	 * @return       признак успешности переноса
 	 *
 	 */
-	static bool __nts_embed__(asn1::writer_t & writer, const view_t & record) noexcept {
+	static __NTS_INLINE__ bool __nts_embed__(asn1::writer_t & writer, const view_t & record) noexcept {
 		// Разборщик переносимой записи
 		asn1::reader_t reader(record);
 		// Элемент переносимой записи
@@ -658,7 +667,7 @@ namespace {
 	 * @return       признак успешности защиты
 	 *
 	 */
-	static bool __nts_aes_wrap__(const view_t & kek, const view_t & plain, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ bool __nts_aes_wrap__(const view_t & kek, const view_t & plain, vector <uint8_t> & result) noexcept {
 		// Если длина защищаемого ключа не отвечает разделу 2 RFC 3394
 		if((plain.size < 16) || ((plain.size % 8) != 0))
 			// Выводим отказ защиты
@@ -738,7 +747,7 @@ namespace {
 	 * @return       признак успешности снятия защиты: ложь и при нарушении целостности
 	 *
 	 */
-	static bool __nts_aes_unwrap__(const view_t & kek, const view_t & wrapped, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ bool __nts_aes_unwrap__(const view_t & kek, const view_t & wrapped, vector <uint8_t> & result) noexcept {
 		// Если длина защищённого ключа не отвечает разделу 2 RFC 3394
 		if((wrapped.size < 24) || ((wrapped.size % 8) != 0))
 			// Выводим отказ снятия защиты
@@ -832,7 +841,7 @@ namespace {
 	 * @return    набор параметров, agreement::kem_t::NONE у неизвестного
 	 *
 	 */
-	static agreement::kem_t __nts_kem_of__(const string & oid) noexcept {
+	static __NTS_INLINE__ agreement::kem_t __nts_kem_of__(const string & oid) noexcept {
 		// Если опознаватель — id-ml-kem-512: набор параметров ML-KEM-512
 		if(oid == OID_MLKEM512) return agreement::kem_t::MLKEM512;
 		// Если опознаватель — id-ml-kem-768: набор параметров ML-KEM-768
@@ -849,16 +858,16 @@ namespace {
 	 * @return    опознаватель алгоритма либо nullptr
 	 *
 	 */
-	static const char * __nts_oid_of__(const agreement::kem_t kem) noexcept {
+	static constexpr const char * __nts_oid_of__(const agreement::kem_t kem) noexcept {
 		/**
 		 * Выводим опознаватель по набору параметров
 		 */
-		switch(kem){
-			case agreement::kem_t::MLKEM512:
+		switch(static_cast <uint8_t> (kem)){
+			case static_cast <uint8_t> (agreement::kem_t::MLKEM512):
 				return OID_MLKEM512;
-			case agreement::kem_t::MLKEM768:
+			case static_cast <uint8_t> (agreement::kem_t::MLKEM768):
 				return OID_MLKEM768;
-			case agreement::kem_t::MLKEM1024:
+			case static_cast <uint8_t> (agreement::kem_t::MLKEM1024):
 				return OID_MLKEM1024;
 			default: return nullptr;
 		}
@@ -866,18 +875,18 @@ namespace {
 	/**
 	 * @brief Функция выработки ключа KEK по разделу 5 RFC 9629
 	 *
+	 * @details Сведения CMSORIforKEMOtherInfo собираются из алгоритма защиты и длины
+	 *          ключа, поле ukm не записывается; общий секрет пропускается через
+	 *          HKDF-SHA-256 с этими сведениями.
+	 *
 	 * @param shared общий секрет инкапсуляции
 	 * @param wrap   опознаватель алгоритма защиты ключа CEK
 	 * @param length длина ключа KEK в байтах
 	 * @param kek    место, в которое помещается ключ KEK
 	 * @return       признак успешности выработки
 	 *
-	 * @details Сведения CMSORIforKEMOtherInfo собираются из алгоритма защиты и длины
-	 *          ключа, поле ukm не записывается; общий секрет пропускается через
-	 *          HKDF-SHA-256 с этими сведениями.
-	 *
 	 */
-	static bool __nts_derive_kek__(const view_t & shared, const char * wrap, const uint16_t length, uint8_t * kek) noexcept {
+	static __NTS_INLINE__ bool __nts_derive_kek__(const view_t & shared, const char * wrap, const uint16_t length, uint8_t * kek) noexcept {
 		// Записчик сведений CMSORIforKEMOtherInfo
 		asn1::writer_t info;
 		// Открываем набор сведений
@@ -911,7 +920,7 @@ namespace {
 	 * @return        отказ зашифрования
 	 *
 	 */
-	static nts::cms::error_t __nts_encrypt_content__(const view_t & content, const view_t & cek, const view_t & initVector, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cms::error_t __nts_encrypt_content__(const view_t & content, const view_t & cek, const view_t & initVector, vector <uint8_t> & result) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -966,7 +975,7 @@ namespace {
 	 * @return          отказ расшифрования
 	 *
 	 */
-	static nts::cms::error_t __nts_decrypt_content__(const view_t & encrypted, const view_t & cek, const view_t & initVector, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cms::error_t __nts_decrypt_content__(const view_t & encrypted, const view_t & cek, const view_t & initVector, vector <uint8_t> & result) noexcept {
 		// Если длина шифротекста не кратна блоку либо пуста
 		if((encrypted.size == 0) || ((encrypted.size % BLOCK) != 0))
 			// Выводим отказ устройства записи
@@ -1034,7 +1043,7 @@ namespace {
 	 * @return          отказ сборки
 	 *
 	 */
-	static nts::cms::error_t __nts_build_enveloped__(asn1::writer_t & recipient, const int64_t version, const view_t & content, uint8_t * cek, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cms::error_t __nts_build_enveloped__(asn1::writer_t & recipient, const int64_t version, const view_t & content, uint8_t * cek, vector <uint8_t> & result) noexcept {
 		// Синхропосылка шифрования содержимого
 		uint8_t initVector[BLOCK];
 		// Если случайные байты выработать не удалось

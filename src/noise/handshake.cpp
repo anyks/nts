@@ -28,15 +28,19 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "noise/handshake.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * @brief Служебные объекты модуля
@@ -47,6 +51,7 @@ namespace {
 	 * Подписываемся на метод затирания памяти
 	 */
 	using nts::sys::wipe;
+
 	/**
 	 * @brief Функция сличения двух ключей за постоянное время
 	 *
@@ -56,7 +61,7 @@ namespace {
 	 * @return      признак совпадения
 	 *
 	 */
-	static bool __nts_alike__(const uint8_t * one, const uint8_t * two, const size_t size) noexcept {
+	static __NTS_INLINE__ bool __nts_alike__(const uint8_t * one, const uint8_t * two, const size_t size) noexcept {
 		// Накопитель различий
 		uint8_t diff = 0;
 		/**

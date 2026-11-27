@@ -22,10 +22,14 @@
  */
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "digest/sha1.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -47,7 +51,9 @@ namespace {
 	 */
 	using namespace nts::digest;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
 	/**
@@ -66,7 +72,7 @@ namespace {
 	 * @return      сдвинутое слово
 	 *
 	 */
-	static __NTS_INLINE__ uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
+	static constexpr uint32_t __nts_rotl__(const uint32_t value, const unsigned count) noexcept {
 		// Выводим слово, сдвинутое по кругу
 		return ((value << count) | (value >> (32 - count)));
 	}
@@ -80,10 +86,11 @@ namespace {
 	 */
 	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от старшего байта
-		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
-		        (static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3]));
+		return (
+			(static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) |
+			(static_cast <uint32_t> (data[2]) << 8) | static_cast <uint32_t> (data[3])
+		);
 	}
-
 	/**
 	 * @brief Функция записи слова от старшего байта
 	 *
@@ -141,13 +148,13 @@ void nts::digest::Sha1::compress(const uint8_t * block) noexcept {
 			// Постоянная первой двадцатки
 			k = 0x5A827999;
 		// Если идёт вторая двадцатка кругов
-		} else if(i < 40){
+		} else if(i < 40) {
 			// Функция чётности
 			f = (b ^ c ^ d);
 			// Постоянная второй двадцатки
 			k = 0x6ED9EBA1;
 		// Если идёт третья двадцатка кругов
-		} else if(i < 60){
+		} else if(i < 60) {
 			// Функция большинства
 			f = ((b & c) | (b & d) | (c & d));
 			// Постоянная третьей двадцатки

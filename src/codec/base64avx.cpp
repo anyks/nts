@@ -40,6 +40,7 @@
 	 * Системный заголовочный файл
 	 */
 	#include <immintrin.h>
+
 	/**
 	 * Если собиратель Microsoft Visual C++: внутренние функции команд AVX2 доступны ему без ключей
 	 */
@@ -59,119 +60,119 @@
 		#define __NTS_BASE64_TARGET__ __attribute__((target("avx2")))
 	#endif
 
-/**
- * @brief Пространство имён помощников векторного ядра основания 64
- *
- */
-namespace {
 	/**
-	 * @brief Функция сборки слов двадцати четырёх байтов двумя загрузками
-	 *
-	 * @details Блок читается ровно по своей длине: шестнадцать байтов одной
-	 *          загрузкой и восемь второй, чтение за границей входа не нужно.
-	 *          Перестановка слов кладёт в каждую полосу свои двенадцать байтов,
-	 *          поканальная перестановка собирает из них слова по старшим трём
-	 *          байтам троек.
-	 *
-	 * @param data кодируемые двадцать четыре байта
-	 * @return     слова троек, готовые к разбору на шестёрки
+	 * @brief Пространство имён помощников векторного ядра основания 64
 	 *
 	 */
-	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_gather__(const uint8_t * data) noexcept {
-		// Младшие шестнадцать байтов блока
-		const __m128i low = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data));
-		// Старшие восемь байтов блока
-		const __m128i high = _mm_loadl_epi64(reinterpret_cast <const __m128i *> (data + 16));
-		// Пара полос: младшая несёт байты до шестнадцатого, старшая - остальные восемь
-		const __m256i pair = _mm256_set_m128i(high, low);
-		// Слова разложены по полосам: в каждой полосе лежат свои двенадцать байтов
-		const __m256i moved = _mm256_permutevar8x32_epi32(pair, _mm256_setr_epi32(0, 1, 2, 0, 3, 4, 5, 0));
-		// Слова из старших трёх байтов каждой тройки поканальной перестановкой
-		return _mm256_shuffle_epi8(moved, _mm256_setr_epi8(
-			1, 0, 2, 1, 4, 3, 5, 4, 7, 6, 8, 7, 10, 9, 11, 10,
-			1, 0, 2, 1, 4, 3, 5, 4, 7, 6, 8, 7, 10, 9, 11, 10
-		));
-	}
-	/**
-	 * @brief Функция разбора слов на шестёрки разрядов переплетением умножений
-	 *
-	 * @param shuffled слова троек, собранные перестановками
-	 * @return         шестёрки разрядов по одному значению на байт
-	 *
-	 */
-	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_split__(const __m256i shuffled) noexcept {
-		// Старшие шестёрки каждой пары слов: старшие произведения без переносов
-		const __m256i upper = _mm256_mulhi_epu16(_mm256_and_si256(shuffled, _mm256_set1_epi32(0x0fc0fc00)), _mm256_set1_epi32(0x04000040));
-		// Младшие шестёрки каждой пары слов: младшие произведения
-		const __m256i lower = _mm256_mullo_epi16(_mm256_and_si256(shuffled, _mm256_set1_epi32(0x003f03f0)), _mm256_set1_epi32(0x01000010));
-		// Шестёрки разрядов переплетением старших и младших произведений
-		return _mm256_or_si256(upper, lower);
-	}
-	/**
-	 * @brief Функция перевода шестёрок разрядов в знаки таблицей добавок
-	 *
-	 * @details Знак есть значение с добавкой своего диапазона: «A»…«Z» дают
-	 *          добавку шестьдесят пять, «a»…«z» - семьдесят один, цифры - вычет
-	 *          четырёх, хвостовые два знака - свои добавки. Номер диапазона
-	 *          считается насыщающим вычетом пятидесяти одного и признаком
-	 *          значения от двадцати шести, добавка читается перестановкой по
-	 *          номеру. Основание URL отличается лишь добавками хвоста, потому
-	 *          своя таблица снимает правку знаков после перевода.
-	 *
-	 * @param groups   шестёрки разрядов от нуля до шестидесяти трёх
-	 * @param alphabet алфавит записи
-	 * @return         знаки основания 64
-	 *
-	 */
-	__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_convert__(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
-		// Таблица добавок своего алфавита разводится по обеим полосам
-		const __m256i table = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast <const __m128i *> ((alphabet == nts::codec::alphabet_t::URL) ? nts::codec::kernel::OFFSETS_URL : nts::codec::kernel::OFFSETS)));
-		// Номер хвостового диапазона: нуль до пятидесяти одного, далее единица..двенадцать
-		const __m256i tail = _mm256_subs_epu8(groups, _mm256_set1_epi8(51));
-		// Признак значения от двадцати шести сдвигает номер диапазона на единицу
-		const __m256i over = _mm256_and_si256(_mm256_cmpgt_epi8(groups, _mm256_set1_epi8(25)), _mm256_set1_epi8(1));
-		// Добавка диапазона читается перестановкой по его номеру
-		const __m256i shift = _mm256_shuffle_epi8(table, _mm256_add_epi8(tail, over));
-		// Знак есть значение с добавкой своего диапазона
-		return _mm256_add_epi8(groups, shift);
-	}
-};
+	namespace {
+		/**
+		 * @brief Функция сборки слов двадцати четырёх байтов двумя загрузками
+		 *
+		 * @details Блок читается ровно по своей длине: шестнадцать байтов одной
+		 *          загрузкой и восемь второй, чтение за границей входа не нужно.
+		 *          Перестановка слов кладёт в каждую полосу свои двенадцать байтов,
+		 *          поканальная перестановка собирает из них слова по старшим трём
+		 *          байтам троек.
+		 *
+		 * @param data кодируемые двадцать четыре байта
+		 * @return     слова троек, готовые к разбору на шестёрки
+		 *
+		 */
+		__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_gather__(const uint8_t * data) noexcept {
+			// Младшие шестнадцать байтов блока
+			const __m128i low = _mm_loadu_si128(reinterpret_cast <const __m128i *> (data));
+			// Старшие восемь байтов блока
+			const __m128i high = _mm_loadl_epi64(reinterpret_cast <const __m128i *> (data + 16));
+			// Пара полос: младшая несёт байты до шестнадцатого, старшая - остальные восемь
+			const __m256i pair = _mm256_set_m128i(high, low);
+			// Слова разложены по полосам: в каждой полосе лежат свои двенадцать байтов
+			const __m256i moved = _mm256_permutevar8x32_epi32(pair, _mm256_setr_epi32(0, 1, 2, 0, 3, 4, 5, 0));
+			// Слова из старших трёх байтов каждой тройки поканальной перестановкой
+			return _mm256_shuffle_epi8(moved, _mm256_setr_epi8(
+				1, 0, 2, 1, 4, 3, 5, 4, 7, 6, 8, 7, 10, 9, 11, 10,
+				1, 0, 2, 1, 4, 3, 5, 4, 7, 6, 8, 7, 10, 9, 11, 10
+			));
+		}
+		/**
+		 * @brief Функция разбора слов на шестёрки разрядов переплетением умножений
+		 *
+		 * @param shuffled слова троек, собранные перестановками
+		 * @return         шестёрки разрядов по одному значению на байт
+		 *
+		 */
+		__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_split__(const __m256i shuffled) noexcept {
+			// Старшие шестёрки каждой пары слов: старшие произведения без переносов
+			const __m256i upper = _mm256_mulhi_epu16(_mm256_and_si256(shuffled, _mm256_set1_epi32(0x0fc0fc00)), _mm256_set1_epi32(0x04000040));
+			// Младшие шестёрки каждой пары слов: младшие произведения
+			const __m256i lower = _mm256_mullo_epi16(_mm256_and_si256(shuffled, _mm256_set1_epi32(0x003f03f0)), _mm256_set1_epi32(0x01000010));
+			// Шестёрки разрядов переплетением старших и младших произведений
+			return _mm256_or_si256(upper, lower);
+		}
+		/**
+		 * @brief Функция перевода шестёрок разрядов в знаки таблицей добавок
+		 *
+		 * @details Знак есть значение с добавкой своего диапазона: «A»…«Z» дают
+		 *          добавку шестьдесят пять, «a»…«z» - семьдесят один, цифры - вычет
+		 *          четырёх, хвостовые два знака - свои добавки. Номер диапазона
+		 *          считается насыщающим вычетом пятидесяти одного и признаком
+		 *          значения от двадцати шести, добавка читается перестановкой по
+		 *          номеру. Основание URL отличается лишь добавками хвоста, потому
+		 *          своя таблица снимает правку знаков после перевода.
+		 *
+		 * @param groups   шестёрки разрядов от нуля до шестидесяти трёх
+		 * @param alphabet алфавит записи
+		 * @return         знаки основания 64
+		 *
+		 */
+		__NTS_BASE64_TARGET__ static __NTS_INLINE__ __m256i __nts_convert__(const __m256i groups, const nts::codec::alphabet_t alphabet) noexcept {
+			// Таблица добавок своего алфавита разводится по обеим полосам
+			const __m256i table = _mm256_broadcastsi128_si256(_mm_loadu_si128(reinterpret_cast <const __m128i *> ((alphabet == nts::codec::alphabet_t::URL) ? nts::codec::kernel::OFFSETS_URL : nts::codec::kernel::OFFSETS)));
+			// Номер хвостового диапазона: нуль до пятидесяти одного, далее единица..двенадцать
+			const __m256i tail = _mm256_subs_epu8(groups, _mm256_set1_epi8(51));
+			// Признак значения от двадцати шести сдвигает номер диапазона на единицу
+			const __m256i over = _mm256_and_si256(_mm256_cmpgt_epi8(groups, _mm256_set1_epi8(25)), _mm256_set1_epi8(1));
+			// Добавка диапазона читается перестановкой по его номеру
+			const __m256i shift = _mm256_shuffle_epi8(table, _mm256_add_epi8(tail, over));
+			// Знак есть значение с добавкой своего диапазона
+			return _mm256_add_epi8(groups, shift);
+		}
+	};
 
-/**
- * @brief Функция кодирования очереди блоков двадцати четырёх байтов командами AVX2
- *
- * @details Блоки идут парами вперемежку: сборка и разбор двух векторов не ждут
- *          друг друга, а таблицы и постоянные маски держатся в регистрах на всю
- *          очередь. Непарный остаток очереди кодируется тем же ходом одним
- *          вектором.
- *
- * @param data     кодируемые байты, по двадцать четыре на блок
- * @param result   место, в которое помещаются знаки, по тридцать два на блок
- * @param blocks   количество полных блоков очереди
- * @param alphabet алфавит записи
- *
- */
-__NTS_BASE64_TARGET__ void nts::codec::encodeBlocks(const uint8_t * data, uint8_t * result, const size_t blocks, const alphabet_t alphabet) noexcept {
-	// Номер блока очереди
-	size_t blockIndex = 0;
 	/**
-	 * Перебираем пары блоков: два вектора идут вперемежку
+	 * @brief Функция кодирования очереди блоков двадцати четырёх байтов командами AVX2
+	 *
+	 * @details Блоки идут парами вперемежку: сборка и разбор двух векторов не ждут
+	 *          друг друга, а таблицы и постоянные маски держатся в регистрах на всю
+	 *          очередь. Непарный остаток очереди кодируется тем же ходом одним
+	 *          вектором.
+	 *
+	 * @param data     кодируемые байты, по двадцать четыре на блок
+	 * @param result   место, в которое помещаются знаки, по тридцать два на блок
+	 * @param blocks   количество полных блоков очереди
+	 * @param alphabet алфавит записи
+	 *
 	 */
-	for(; (blockIndex + 2) <= blocks; blockIndex += 2){
-		// Шестёрки разрядов первого блока пары
-		const __m256i first = __nts_split__(__nts_gather__(data + (24 * blockIndex)));
-		// Шестёрки разрядов второго блока пары
-		const __m256i second = __nts_split__(__nts_gather__(data + (24 * blockIndex) + 24));
-		// Записываем тридцать два знака первого блока пары
-		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex)), __nts_convert__(first, alphabet));
-		// Записываем тридцать два знака второго блока пары
-		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex) + 32), __nts_convert__(second, alphabet));
+	__NTS_BASE64_TARGET__ void nts::codec::encodeBlocks(const uint8_t * data, uint8_t * result, const size_t blocks, const alphabet_t alphabet) noexcept {
+		// Номер блока очереди
+		size_t blockIndex = 0;
+		/**
+		 * Перебираем пары блоков: два вектора идут вперемежку
+		 */
+		for(; (blockIndex + 2) <= blocks; blockIndex += 2){
+			// Шестёрки разрядов первого блока пары
+			const __m256i first = __nts_split__(__nts_gather__(data + (24 * blockIndex)));
+			// Шестёрки разрядов второго блока пары
+			const __m256i second = __nts_split__(__nts_gather__(data + (24 * blockIndex) + 24));
+			// Записываем тридцать два знака первого блока пары
+			_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex)), __nts_convert__(first, alphabet));
+			// Записываем тридцать два знака второго блока пары
+			_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex) + 32), __nts_convert__(second, alphabet));
+		}
+		/**
+		 * Добираем непарный блок очереди
+		 */
+		for(; blockIndex < blocks; blockIndex++)
+			// Записываем тридцать два знака непарного блока
+			_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex)), __nts_convert__(__nts_split__(__nts_gather__(data + (24 * blockIndex))), alphabet));
 	}
-	/**
-	 * Добираем непарный блок очереди
-	 */
-	for(; blockIndex < blocks; blockIndex++)
-		// Записываем тридцать два знака непарного блока
-		_mm256_storeu_si256(reinterpret_cast <__m256i *> (result + (32 * blockIndex)), __nts_convert__(__nts_split__(__nts_gather__(data + (24 * blockIndex))), alphabet));
-}
 #endif

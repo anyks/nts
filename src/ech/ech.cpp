@@ -29,10 +29,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "ech/ech.hpp"
 #include "sys/wipe.hpp"
-#include "agreement/x25519.hpp"
 #include "digest/hkdf.hpp"
+#include "agreement/x25519.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "ech/ech.hpp"
 
 /**
  * Подписываемся на стандартное пространство имён
@@ -44,52 +48,6 @@ using namespace std;
  *
  */
 namespace {
-	/**
-	 * @brief Функция проверки публичного имени конфигурации на вид имени DNS
-	 *
-	 * @param name публичное имя
-	 * @return     признак годного имени: метки LDH через точку, без дефиса на краях метки, не литерал IPv4 (раздел 4 RFC 9849)
-	 *
-	 */
-	static bool __nts_named__(const string & name) noexcept {
-		// Пустое либо чрезмерное имя негодно
-		if(name.empty() || (name.size() > 253))
-			// Выводим негодность имени
-			return false;
-		// Начало текущей метки и признак того, что все знаки - цифры и точки (литерал IPv4)
-		size_t start = 0;
-		// Признак литерала IPv4: все знаки имени - цифры и точки
-		bool digits = true;
-		/**
-		 * Перебираем знаки имени метка за меткой
-		 */
-		for(size_t i = 0; i <= name.size(); i++){
-			// Если метка кончилась
-			if((i == name.size()) || (name[i] == '.')){
-				// Длина метки
-				const size_t length = (i - start);
-				// Пустая либо длинная метка, дефис на краю метки - негодно
-				if((length == 0) || (length > 63) || (name[start] == '-') || (name[i - 1] == '-'))
-				// Выводим негодность метки
-					return false;
-				// Начало следующей метки
-				start = (i + 1);
-				continue;
-			}
-			// Знак метки
-			const char sign = name[i];
-			// Если знак не буква, не цифра и не дефис
-			if(!(((sign >= 'a') && (sign <= 'z')) || ((sign >= 'A') && (sign <= 'Z')) || ((sign >= '0') && (sign <= '9')) || (sign == '-')))
-				// Выводим негодность знака
-				return false;
-			// Не цифра - не литерал IPv4
-			if(!((sign >= '0') && (sign <= '9')))
-				// Снимаем признак литерала IPv4
-				digits = false;
-		}
-		// Литерал IPv4 негоден (SHOULD раздела 4 RFC 9849)
-		return !digits;
-	}
 	/**
 	 * Пространство имён библиотеки
 	 */
@@ -108,29 +66,79 @@ namespace {
 	 */
 
 	/**
-	 * Привязка HPKE конфигурации: «tls ech» и нулевой байт
-	 */
-	static const uint8_t BINDING[] = {'t', 'l', 's', ' ', 'e', 'c', 'h', 0x00};
-
-	/**
-	 * Метки подтверждения принятия
-	 */
-	static const char ACCEPT[] = "ech accept confirmation";
-	// Метка повторного подтверждения принятия
-	static const char RETRY[] = "hrr ech accept confirmation";
-
-	/**
-	 * Виды расширения encrypted_client_hello
+	 * Вид внешнего расширения encrypted_client_hello
 	 */
 	static constexpr uint8_t OUTER = 0x00;
-	// Вид внутреннего расширения
+	/**
+	 * Вид внутреннего расширения encrypted_client_hello
+	 */
 	static constexpr uint8_t INNER = 0x01;
-
 	/**
 	 * Наибольшая длина перечня вынесенных расширений
 	 */
 	static constexpr size_t OUTSOURCED = 127;
 
+	/**
+	 * Метки подтверждения принятия
+	 */
+	static const char ACCEPT[] = "ech accept confirmation";
+	/**
+	 * Метка повторного подтверждения принятия
+	 */
+	static const char RETRY[] = "hrr ech accept confirmation";
+
+	/**
+	 * Привязка HPKE конфигурации: «tls ech» и нулевой байт
+	 */
+	static const uint8_t BINDING[] = {'t', 'l', 's', ' ', 'e', 'c', 'h', 0x00};
+
+	/**
+	 * @brief Функция проверки публичного имени конфигурации на вид имени DNS
+	 *
+	 * @param name публичное имя
+	 * @return     признак годного имени: метки LDH через точку, без дефиса на краях метки, не литерал IPv4 (раздел 4 RFC 9849)
+	 *
+	 */
+	static __NTS_INLINE__ bool __nts_named__(const string & name) noexcept {
+		// Пустое либо чрезмерное имя негодно
+		if(name.empty() || (name.size() > 253))
+			// Выводим негодность имени
+			return false;
+		// Начало текущей метки и признак того, что все знаки - цифры и точки (литерал IPv4)
+		size_t start = 0;
+		// Признак литерала IPv4: все знаки имени - цифры и точки
+		bool digits = true;
+		/**
+		 * Перебираем знаки имени метка за меткой
+		 */
+		for(size_t i = 0; i <= name.size(); i++){
+			// Если метка кончилась
+			if((i == name.size()) || (name[i] == '.')){
+				// Длина метки
+				const size_t length = (i - start);
+				// Пустая либо длинная метка, дефис на краю метки - негодно
+				if((length == 0) || (length > 63) || (name[start] == '-') || (name[i - 1] == '-'))
+					// Выводим негодность метки
+					return false;
+				// Начало следующей метки
+				start = (i + 1);
+				// Пропускаем текущую итерацию
+				continue;
+			}
+			// Знак метки
+			const char sign = name[i];
+			// Если знак не буква, не цифра и не дефис
+			if(!(((sign >= 'a') && (sign <= 'z')) || ((sign >= 'A') && (sign <= 'Z')) || ((sign >= '0') && (sign <= '9')) || (sign == '-')))
+				// Выводим негодность знака
+				return false;
+			// Не цифра - не литерал IPv4
+			if(!((sign >= '0') && (sign <= '9')))
+				// Снимаем признак литерала IPv4
+				digits = false;
+		}
+		// Литерал IPv4 негоден (SHOULD раздела 4 RFC 9849)
+		return !digits;
+	}
 	/**
 	 * @brief Функция чтения числа в два байта старшим байтом вперёд
 	 *
@@ -138,7 +146,7 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static uint16_t __nts_twain__(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint16_t __nts_twain__(const uint8_t * data) noexcept {
 		// Выводим число из двух байтов
 		return static_cast <uint16_t> ((static_cast <uint16_t> (data[0]) << 8) | static_cast <uint16_t> (data[1]));
 	}
@@ -150,7 +158,7 @@ namespace {
 	 * @param result накопитель
 	 *
 	 */
-	static void __nts_inscribe__(const size_t value, const size_t width, vector <uint8_t> & result) {
+	static __NTS_INLINE__ void __nts_inscribe__(const size_t value, const size_t width, vector <uint8_t> & result) {
 		/**
 		 * Перебираем байты числа от старшего к младшему
 		 */
@@ -166,7 +174,7 @@ namespace {
 	 * @param length записываемая длина
 	 *
 	 */
-	static void __nts_backfill__(vector <uint8_t> & result, const size_t place, const size_t length) noexcept {
+	static __NTS_INLINE__ void __nts_backfill__(vector <uint8_t> & result, const size_t place, const size_t length) noexcept {
 		// Записываем старший байт длины
 		result[place] = static_cast <uint8_t> (length >> 8);
 		// Записываем младший байт длины
@@ -180,7 +188,7 @@ namespace {
 	 * @return       отказ разбора
 	 *
 	 */
-	static ech::error_t __nts_contents__(const view_t & data, ech::config_t & result) {
+	static __NTS_INLINE__ ech::error_t __nts_contents__(const view_t & data, ech::config_t & result) {
 		// Смещение внутри содержимого
 		size_t offset = 0;
 		// Если заголовок ключа не помещается: опознаватель, способ, длина ключа
@@ -249,10 +257,12 @@ namespace {
 		if((offset + length) != data.size)
 			// Выводим отказ записи
 			return ech::error_t::FORMAT;
-		// Читаем расширения конфигурации как записаны
 		/**
-		 * Раздел 4 RFC 9849: перечень расширений есть Extension<0..2^16-1> из вида (2 байта)
-		 * и тела с длиной (2 байта) - обрыв внутри перечня делает конфигурацию негодной
+		 * @brief Читаем расширения конфигурации как записаны
+		 *
+		 * @details Раздел 4 RFC 9849: перечень расширений есть Extension<0..2^16-1> из вида (2 байта)
+		 *          и тела с длиной (2 байта) - обрыв внутри перечня делает конфигурацию негодной.
+		 *
 		 */
 		for(size_t at = 0; at < length;){
 			// Если заголовка расширения не осталось
@@ -282,7 +292,7 @@ namespace {
 	 * @return        отказ разбора: VERSION у чужого издания (конфигурация пропущена по длине)
 	 *
 	 */
-	static ech::error_t __nts_solitary__(const view_t & data, ech::config_t & result, size_t & consumed) {
+	static __NTS_INLINE__ ech::error_t __nts_solitary__(const view_t & data, ech::config_t & result, size_t & consumed) {
 		// Сбрасываем конфигурацию
 		result = ech::config_t();
 		// Если заголовок конфигурации не помещается
@@ -322,7 +332,7 @@ namespace {
 	 * @return       отказ измерения
 	 *
 	 */
-	static ech::error_t __nts_measure__(const view_t & data, const bool datagram, size_t & length) noexcept {
+	static __NTS_INLINE__ ech::error_t __nts_measure__(const view_t & data, const bool datagram, size_t & length) noexcept {
 		// Смещение внутри байтов: издание и случайное значение
 		size_t offset = (2 + hello::HELLO_RANDOM);
 		// Если заголовок приветствия не помещается
@@ -532,29 +542,29 @@ nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & re
 		// Начало конфигурации в накопителе
 		const size_t start = result.size();
 		// Дописываем издание
-		__nts_inscribe__(ECH_VERSION, 2, result);
+		::__nts_inscribe__(ECH_VERSION, 2, result);
 		// Место длины содержимого
 		const size_t place = result.size();
 		// Занимаем место под длину содержимого
-		__nts_inscribe__(0, 2, result);
+		::__nts_inscribe__(0, 2, result);
 		// Дописываем опознаватель
 		result.push_back(config.id);
 		// Дописываем способ инкапсуляции
-		__nts_inscribe__(static_cast <uint16_t> (config.kem), 2, result);
+		::__nts_inscribe__(static_cast <uint16_t> (config.kem), 2, result);
 		// Дописываем длину ключа
-		__nts_inscribe__(config.key.size(), 2, result);
+		::__nts_inscribe__(config.key.size(), 2, result);
 		// Дописываем ключ
 		result.insert(result.end(), config.key.begin(), config.key.end());
 		// Дописываем длину перечня наборов
-		__nts_inscribe__(config.suites.size() * 4, 2, result);
+		::__nts_inscribe__(config.suites.size() * 4, 2, result);
 		/**
 		 * Перебираем наборы
 		 */
 		for(size_t i = 0; i < config.suites.size(); i++){
 			// Дописываем функцию вывода
-			__nts_inscribe__(static_cast <uint16_t> (config.suites[i].kdf), 2, result);
+			::__nts_inscribe__(static_cast <uint16_t> (config.suites[i].kdf), 2, result);
 			// Дописываем шифр
-			__nts_inscribe__(static_cast <uint16_t> (config.suites[i].aead), 2, result);
+			::__nts_inscribe__(static_cast <uint16_t> (config.suites[i].aead), 2, result);
 		}
 		// Дописываем наибольшую длину имени
 		result.push_back(config.length);
@@ -563,7 +573,7 @@ nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & re
 		// Дописываем имя
 		result.insert(result.end(), config.name.begin(), config.name.end());
 		// Дописываем длину расширений
-		__nts_inscribe__(config.extensions.size(), 2, result);
+		::__nts_inscribe__(config.extensions.size(), 2, result);
 		// Дописываем расширения
 		result.insert(result.end(), config.extensions.begin(), config.extensions.end());
 		// Длина содержимого
@@ -576,7 +586,7 @@ nts::ech::error_t nts::ech::build(const config_t & config, vector <uint8_t> & re
 			return error_t::LENGTH;
 		}
 		// Записываем длину содержимого
-		__nts_backfill__(result, place, length);
+		::__nts_backfill__(result, place, length);
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
@@ -609,7 +619,7 @@ nts::ech::error_t nts::ech::build(const vector <config_t> & configs, vector <uin
 		// Место длины перечня
 		const size_t place = result.size();
 		// Занимаем место под длину перечня
-		__nts_inscribe__(0, 2, result);
+		::__nts_inscribe__(0, 2, result);
 		/**
 		 * Перебираем конфигурации
 		 */
@@ -634,7 +644,7 @@ nts::ech::error_t nts::ech::build(const vector <config_t> & configs, vector <uin
 			return error_t::LENGTH;
 		}
 		// Записываем длину перечня
-		__nts_backfill__(result, place, length);
+		::__nts_backfill__(result, place, length);
 		// Выводим успешность составления
 		return error_t::NONE;
 	/**
@@ -686,15 +696,15 @@ nts::ech::error_t nts::ech::parse(const view_t & data, hello_t & result) noexcep
 			// Выводим отказ обрыва
 			return error_t::HUNGRY;
 		// Читаем функцию вывода ключа из двух байтов набора
-		result.suite.kdf = static_cast <hpke::kdf_t> (__nts_twain__(data.data + offset));
+		result.suite.kdf = static_cast <hpke::kdf_t> (::__nts_twain__(data.data + offset));
 		// Читаем шифр
-		result.suite.aead = static_cast <hpke::aead_t> (__nts_twain__(data.data + offset + 2));
+		result.suite.aead = static_cast <hpke::aead_t> (::__nts_twain__(data.data + offset + 2));
 		// Переходим за набор
 		offset += 4;
 		// Читаем опознаватель конфигурации
 		result.id = data.data[offset++];
 		// Длина инкапсулированного ключа
-		size_t length = __nts_twain__(data.data + offset);
+		size_t length = ::__nts_twain__(data.data + offset);
 		// Переходим за длину
 		offset += 2;
 		// Если ключ в тело не входит
@@ -706,7 +716,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, hello_t & result) noexcep
 		// Переходим за ключ
 		offset += length;
 		// Длина шифротекста
-		length = __nts_twain__(data.data + offset);
+		length = ::__nts_twain__(data.data + offset);
 		// Переходим за длину
 		offset += 2;
 		// Если шифротекст пуст
@@ -762,17 +772,17 @@ nts::ech::error_t nts::ech::build(const hello_t & hello, vector <uint8_t> & resu
 		// Дописываем вид
 		result.push_back(OUTER);
 		// Дописываем функцию вывода
-		__nts_inscribe__(static_cast <uint16_t> (hello.suite.kdf), 2, result);
+		::__nts_inscribe__(static_cast <uint16_t> (hello.suite.kdf), 2, result);
 		// Дописываем шифр
-		__nts_inscribe__(static_cast <uint16_t> (hello.suite.aead), 2, result);
+		::__nts_inscribe__(static_cast <uint16_t> (hello.suite.aead), 2, result);
 		// Дописываем опознаватель
 		result.push_back(hello.id);
 		// Дописываем длину инкапсулированного ключа
-		__nts_inscribe__(hello.enc.size(), 2, result);
+		::__nts_inscribe__(hello.enc.size(), 2, result);
 		// Дописываем инкапсулированный ключ
 		result.insert(result.end(), hello.enc.begin(), hello.enc.end());
 		// Дописываем длину шифротекста
-		__nts_inscribe__(hello.payload.size(), 2, result);
+		::__nts_inscribe__(hello.payload.size(), 2, result);
 		// Дописываем шифротекст
 		result.insert(result.end(), hello.payload.begin(), hello.payload.end());
 		// Выводим успешность составления
@@ -900,7 +910,7 @@ nts::ech::error_t nts::ech::encode(const hello::client_t & inner, const vector <
 					// Выводим отказ ссылок
 					return error_t::OUTER;
 				// Дописываем вид расширения
-				__nts_inscribe__(outsourced[i], 2, references);
+				::__nts_inscribe__(outsourced[i], 2, references);
 			}
 		}
 		// Место вынесенных расширений во внутреннем приветствии
@@ -1004,7 +1014,7 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 		// Длина тела без заполнения
 		size_t length = 0;
 		// Отказ измерения тела
-		const error_t measured = __nts_measure__(encoded, datagram, length);
+		const error_t measured = ::__nts_measure__(encoded, datagram, length);
 		// Если тело измерить не удалось
 		if(measured != error_t::NONE)
 			// Выводим отказ измерения
@@ -1076,7 +1086,7 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 			 */
 			for(size_t j = 1; j < data.size; j += 2){
 				// Вид расширения по ссылке
-				const uint16_t type = __nts_twain__(data.data + j);
+				const uint16_t type = ::__nts_twain__(data.data + j);
 				// Разделы 5.1 и 7.1 RFC 9849: ссылка на само encrypted_client_hello либо на ech_outer_extensions негодна - во внутреннем приветствии их быть не вправе
 				if((type == ECH_EXTENSION) || (type == ECH_OUTER))
 					// Выводим отказ ссылок
@@ -1086,7 +1096,7 @@ nts::ech::error_t nts::ech::decode(const view_t & encoded, const hello::client_t
 				 */
 				for(size_t k = 1; k < j; k += 2){
 					// Раздел 7.1 RFC 9849: повторная ссылка негодна
-					if(__nts_twain__(data.data + k) == type)
+					if(::__nts_twain__(data.data + k) == type)
 						// Выводим отказ ссылок
 						return error_t::OUTER;
 				}

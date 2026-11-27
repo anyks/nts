@@ -67,10 +67,14 @@
 #endif
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "math/wide.hpp"
+
+/**
+ * Подключаем заголовочные файлы модуля
  */
 #include "math/field25519.hpp"
-#include "math/wide.hpp"
 #include "internal/math/field25519.hpp"
 
 /**
@@ -96,25 +100,24 @@ namespace {
 	/**
 	 * @brief Удвоенное слово для произведений конечностей
 	 *
+	 * @details Целое число двойной разрядности: __uint128_t либо своя запись у MSVC (math/wide.hpp).
+	 *
 	 */
-	// Целое число двойной разрядности: __uint128_t либо своя запись у MSVC (math/wide.hpp)
-	typedef nts::math::wide_t wide_t;
+	using wide_t = nts::math::wide_t;
 
 	/**
 	 * @brief Маска пятидесяти одного разряда конечности
 	 *
 	 */
 	static constexpr uint64_t MASK = ((static_cast <uint64_t> (1) << 51) - 1);
-
 	/**
 	 * @brief Младшая конечность удвоенного модуля
 	 *
 	 * @details Удвоенный модуль 2^256 - 38 раскладывается на конечности так: младшая
-	 *          равна 2^52 - 38, каждая из прочих равна 2^52 - 2
+	 *          равна 2^52 - 38, каждая из прочих равна 2^52 - 2.
 	 *
 	 */
 	static constexpr uint64_t TWICE_LOW = ((static_cast <uint64_t> (1) << 52) - 38);
-
 	/**
 	 * @brief Старшие конечности удвоенного модуля
 	 *
@@ -127,12 +130,12 @@ namespace {
 	 * @details Разряды всякой конечности сверх пятидесяти одного переносятся в следующую,
 	 *          а перенос из старшей конечности возвращается в младшую с множителем
 	 *          девятнадцать: 2^255 равно 19 по модулю поля. После волны конечности с
-	 *          первой по четвёртую меньше 2^51, а младшая меньше 2^52
+	 *          первой по четвёртую меньше 2^51, а младшая меньше 2^52.
 	 *
 	 * @param value приводимый элемент
 	 *
 	 */
-	static void __nts_carry__(element_t & value) noexcept {
+	static __NTS_INLINE__ void __nts_carry__(element_t & value) noexcept {
 		// Перенос из младшей конечности во вторую
 		uint64_t item = (value.limbs[0] >> 51);
 		// Отбрасываем перенесённые разряды младшей конечности
@@ -170,12 +173,12 @@ namespace {
 	 * @details После двух волн переносов элемент меньше 2^255 и мог остаться в области
 	 *          от модуля до 2^255: признак этого выводится сложением с девятнадцатью
 	 *          сквозь все конечности, и модуль вычитается наложением признака, а не
-	 *          ветвлением по нему
+	 *          ветвлением по нему.
 	 *
 	 * @param value приводимый элемент
 	 *
 	 */
-	static void __nts_reduce__(element_t & value) noexcept {
+	static __NTS_INLINE__ void __nts_reduce__(element_t & value) noexcept {
 		// Первую волну переносов
 		__nts_carry__(value);
 		// Вторую волну переносов: после первой младшая конечность могла вырасти
@@ -213,7 +216,7 @@ namespace {
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void __nts_power__(const element_t & value, const size_t count, element_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_power__(const element_t & value, const size_t count, element_t & result) noexcept {
 		// Переносим возводимый элемент в место итога
 		result = value;
 		/**
@@ -228,14 +231,14 @@ namespace {
 	 *
 	 * @details Общая часть цепочек обращения и извлечения корня: из неё обращение
 	 *          выводится пятью квадратами и умножением на z^11, а корень - двумя
-	 *          квадратами и умножением на z
+	 *          квадратами и умножением на z.
 	 *
 	 * @param value  возводимый элемент
 	 * @param eleven место, в которое помещается z^11
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void __nts_chain__(const element_t & value, element_t & eleven, element_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_chain__(const element_t & value, element_t & eleven, element_t & result) noexcept {
 		// Промежуточные степени цепочки
 		element_t z2, z9, z10, z50, item;
 		// Вырабатываем z^2
@@ -343,7 +346,7 @@ void nts::math::field25519::load(const uint8_t * data, element_t & result) noexc
 	// Выделяем старшую конечность из четвёртого слова с отбрасыванием старшего разряда
 	result.limbs[4] = ((words[3] >> 12) & MASK);
 	// Приведение записи, не меньшей модуля
-	__nts_reduce__(result);
+	::__nts_reduce__(result);
 }
 /**
  * @brief Функция записи элемента поля в тридцать два байта
@@ -356,7 +359,7 @@ void nts::math::field25519::store(const element_t & value, uint8_t * data) noexc
 	// Приводимая копия элемента
 	element_t item = value;
 	// Полное приведение элемента
-	__nts_reduce__(item);
+	::__nts_reduce__(item);
 	// Слова записываемого элемента
 	uint64_t words[4];
 	// Собираем первое слово из младшей и второй конечностей
@@ -395,7 +398,7 @@ void nts::math::field25519::add(const element_t & first, const element_t & secon
 		// Складываем очередные конечности
 		result.limbs[i] = (first.limbs[i] + second.limbs[i]);
 	// Волну переносов
-	__nts_carry__(result);
+	::__nts_carry__(result);
 }
 /**
  * @brief Функция вычитания элементов поля
@@ -415,7 +418,7 @@ void nts::math::field25519::sub(const element_t & first, const element_t & secon
 		// Вычитаем очередные конечности с прибавлением удвоенного модуля
 		result.limbs[i] = ((first.limbs[i] + TWICE_HIGH) - second.limbs[i]);
 	// Волну переносов
-	__nts_carry__(result);
+	::__nts_carry__(result);
 }
 /**
  * @brief Функция умножения элементов поля
@@ -463,9 +466,9 @@ void nts::math::field25519::invert(const element_t & value, element_t & result) 
 	// Степени z^11 и z^(2^250 - 1)
 	element_t eleven, item;
 	// Общую часть цепочки степеней
-	__nts_chain__(value, eleven, item);
+	::__nts_chain__(value, eleven, item);
 	// Вырабатываем z^(2^255 - 32)
-	__nts_power__(item, 5, item);
+	::__nts_power__(item, 5, item);
 	// Вырабатываем z^(2^255 - 21)
 	mul(item, eleven, result);
 }
@@ -480,9 +483,9 @@ void nts::math::field25519::root(const element_t & value, element_t & result) no
 	// Степени z^11 и z^(2^250 - 1)
 	element_t eleven, item;
 	// Общую часть цепочки степеней
-	__nts_chain__(value, eleven, item);
+	::__nts_chain__(value, eleven, item);
 	// Вырабатываем z^(2^252 - 4)
-	__nts_power__(item, 2, item);
+	::__nts_power__(item, 2, item);
 	// Вырабатываем z^(2^252 - 3)
 	mul(item, value, result);
 }

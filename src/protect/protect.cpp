@@ -223,7 +223,9 @@ namespace {
 	 *
 	 */
 	static constexpr sample_t SAMPLES[37] = {
-		// Наборы ГОСТ с построением TLSTREE и режимом MGM
+		/**
+		 * Наборы ГОСТ с построением TLSTREE и режимом MGM
+		 */
 		{false, false, false, false, 32, 16,          16,             0xFFFFFFFFFFFFFFFFULL, suite_t::KUZNYECHIK_MGM_L,         signer_t::NONE, digest::hash_t::NONE, digest::hash_t::STREEBOG256, exchange_t::NONE, {0xF800000000000000ULL, 0xFFFFFFF000000000ULL, 0xFFFFFFFFFFFFE000ULL}},
 		{false, false, false, false, 32, 8,           8,              0xFFFFFFFFFFFFFFFFULL, suite_t::MAGMA_MGM_L,              signer_t::NONE, digest::hash_t::NONE, digest::hash_t::STREEBOG256, exchange_t::NONE, {0xFFE0000000000000ULL, 0xFFFFFFFFC0000000ULL, 0xFFFFFFFFFFFFFF80ULL}},
 		{false, false, false, false, 32, 16,          16,             0x000003FFFFFFFFFFULL, suite_t::KUZNYECHIK_MGM_S,         signer_t::NONE, digest::hash_t::NONE, digest::hash_t::STREEBOG256, exchange_t::NONE, {0xFFFFFFFFE0000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFFF8ULL}},

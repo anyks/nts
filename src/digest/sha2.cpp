@@ -904,7 +904,9 @@ namespace {
 			register size_t x2 __asm__("x2") = count;
 			// Доводы вставки в закреплённых регистрах
 			register uint32_t * x3 __asm__("x3") = words;
-			// Вставка на ассемблере командами ARMv8
+			/**
+			 * Вставка на ассемблере командами ARMv8
+			 */
 			__asm__ __volatile__(
 			"ld1   {v0.4s, v1.4s}, [x3]\n\t"
 			/* Блок: четвёрки слов от старшего байта, первая четвёрка расписания с постоянными, копия состояния */
@@ -1813,17 +1815,17 @@ namespace {
 					// Если пар блоков хотя бы одна
 					if(count >= 2)
 						// Разбор пар блоков ядром AVX2
-						kernel::__nts_sha256_avx2__(words, data, count / 2, PAIRS256.words);
+						kernel::sha256Avx2(words, data, count / 2, PAIRS256.words);
 					// Если остался нечётный блок
 					if((count & 1) != 0)
 						// Разбор последнего блока ядром AVX
-						kernel::__nts_sha256_avx__(words, data + ((count & ~static_cast <size_t> (1)) * 64), 1, K256);
+						kernel::sha256Avx(words, data + ((count & ~static_cast <size_t> (1)) * 64), 1, K256);
 				// Если есть AVX и BMI2
 				} else if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::ADX))
 					// Разбор блоков ядром AVX
-					kernel::__nts_sha256_avx__(words, data, count, K256);
+					kernel::sha256Avx(words, data, count, K256);
 				// Иначе разбираем блоки ядром SSSE3
-				else kernel::__nts_sha256_ssse3__(words, data, count, K256);
+				else kernel::sha256Ssse3(words, data, count, K256);
 				/**
 				 * Переносим слова в значение хеша
 				 */
@@ -1888,17 +1890,17 @@ namespace {
 					// Если пар блоков хотя бы одна
 					if(count >= 2)
 						// Разбор пар блоков ядром AVX2
-						kernel::__nts_sha512_avx2__(hash, data, count / 2, PAIRS512.words);
+						kernel::sha512Avx2(hash, data, count / 2, PAIRS512.words);
 					// Если остался нечётный блок
 					if((count & 1) != 0)
 						// Разбор последнего блока ядром AVX
-						kernel::__nts_sha512_avx__(hash, data + ((count & ~static_cast <size_t> (1)) * 128), 1, K512);
+						kernel::sha512Avx(hash, data + ((count & ~static_cast <size_t> (1)) * 128), 1, K512);
 				// Если есть AVX и BMI2
 				} else if(machine::has(machine::feature_t::AVX) && machine::has(machine::feature_t::ADX))
 					// Разбор блоков ядром AVX
-					kernel::__nts_sha512_avx__(hash, data, count, K512);
+					kernel::sha512Avx(hash, data, count, K512);
 				// Иначе разбираем блоки ядром SSSE3
-				else kernel::__nts_sha512_ssse3__(hash, data, count, K512);
+				else kernel::sha512Ssse3(hash, data, count, K512);
 				// Выходим из метода
 				return;
 			}

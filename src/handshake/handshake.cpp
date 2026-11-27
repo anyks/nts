@@ -40,10 +40,14 @@
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include <handshake/handshake.hpp>
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -75,10 +79,7 @@ namespace {
 	 *       находит прежде глобального, и двусмысленности не возникает
 	 *
 	 */
-	typedef handshake::error_t error_t;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
+	using error_t = handshake::error_t;
 };
 
 /**
@@ -94,23 +95,23 @@ bool nts::handshake::known(const type_t type) noexcept {
 	 */
 	switch(static_cast <uint8_t> (type)){
 		// Если это один из известных видов сообщения рукопожатия
-		case static_cast <uint8_t> (type_t::HELLO_REQUEST):
-		case static_cast <uint8_t> (type_t::VERIFY_REQUEST):
+		case static_cast <uint8_t> (type_t::DONE):
+		case static_cast <uint8_t> (type_t::EARLY):
+		case static_cast <uint8_t> (type_t::VERIFY):
 		case static_cast <uint8_t> (type_t::CLIENT):
 		case static_cast <uint8_t> (type_t::SERVER):
 		case static_cast <uint8_t> (type_t::TICKET):
-		case static_cast <uint8_t> (type_t::EARLY):
-		case static_cast <uint8_t> (type_t::EXTENSIONS):
-		case static_cast <uint8_t> (type_t::CERTIFICATE):
-		case static_cast <uint8_t> (type_t::AGREEMENT):
-		case static_cast <uint8_t> (type_t::REQUEST):
-		case static_cast <uint8_t> (type_t::DONE):
-		case static_cast <uint8_t> (type_t::VERIFY):
-		case static_cast <uint8_t> (type_t::PREMASTER):
-		case static_cast <uint8_t> (type_t::FINISHED):
 		case static_cast <uint8_t> (type_t::STATUS):
 		case static_cast <uint8_t> (type_t::UPDATE):
+		case static_cast <uint8_t> (type_t::REQUEST):
+		case static_cast <uint8_t> (type_t::FINISHED):
+		case static_cast <uint8_t> (type_t::AGREEMENT):
+		case static_cast <uint8_t> (type_t::PREMASTER):
 		case static_cast <uint8_t> (type_t::COMPRESSED):
+		case static_cast <uint8_t> (type_t::EXTENSIONS):
+		case static_cast <uint8_t> (type_t::CERTIFICATE):
+		case static_cast <uint8_t> (type_t::HELLO_REQUEST):
+		case static_cast <uint8_t> (type_t::VERIFY_REQUEST):
 		// Выбранный протокол выработки NPN
 		case static_cast <uint8_t> (type_t::NEXT_PROTOCOL):
 		case static_cast <uint8_t> (type_t::DIGEST):
@@ -238,7 +239,7 @@ void nts::handshake::Reader::clear() noexcept {
 	// Если накопитель сборщика не пустой
 	if(!this->_buffer.empty())
 		// Затирание содержимого накопителя
-		wipe(this->_buffer.data(), this->_buffer.size());
+		sys::wipe(this->_buffer.data(), this->_buffer.size());
 	// Сброс накопителя сборщика
 	this->_buffer.clear();
 	// Сброс смещения начала неразобранных данных
@@ -271,7 +272,7 @@ nts::handshake::error_t nts::handshake::Reader::push(const view_t & data) noexce
 				// Перенос хвоста в начало накопителя (области могут перекрываться)
 				::memmove(this->_buffer.data(), this->_buffer.data() + this->_offset, rest);
 			// Затирание освободившегося места: копия хвоста не переживает уплотнения
-			wipe(this->_buffer.data() + rest, this->_buffer.size() - rest);
+			sys::wipe(this->_buffer.data() + rest, this->_buffer.size() - rest);
 			// Усечение накопителя по хвосту
 			this->_buffer.resize(rest);
 			// Сброс смещения начала неразобранных данных
@@ -376,7 +377,7 @@ void nts::handshake::Writer::clear() noexcept {
 	// Если накопитель составителя не пустой
 	if(!this->_buffer.empty())
 		// Затирание содержимого накопителя
-		wipe(this->_buffer.data(), this->_buffer.size());
+		sys::wipe(this->_buffer.data(), this->_buffer.size());
 	// Сброс накопителя составленных сообщений
 	this->_buffer.clear();
 }

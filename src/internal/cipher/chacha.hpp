@@ -112,7 +112,9 @@
 				 *
 				 */
 				static void chacha8xavx2(const uint32_t * state, uint8_t * frame, const uint8_t * source, uint8_t * result, size_t count) noexcept {
-					// Выводим встроенный ассемблер ядра
+					/**
+					 * Выводим встроенный ассемблер ядра
+					 */
 					__asm__ __volatile__(
 						"vpbroadcastd 0(%[state]), %%ymm0\n\t"
 						"vmovdqa %%ymm0, 0(%[frame])\n\t"
@@ -1647,7 +1649,9 @@
 				 *
 				 */
 				static void chacha4xssse3(const uint32_t * state, uint8_t * frame, const uint8_t * source, uint8_t * result, size_t count) noexcept {
-					// Выводим встроенный ассемблер ядра
+					/**
+					 * Выводим встроенный ассемблер ядра
+					 */
 					__asm__ __volatile__(
 						"movd 0(%[state]), %%xmm0\n\t"
 						"pshufd $0, %%xmm0, %%xmm0\n\t"
@@ -3381,7 +3385,9 @@
 				 *
 				 */
 				static void chacha4xsse2(const uint32_t * state, uint8_t * frame, const uint8_t * source, uint8_t * result, size_t count) noexcept {
-					// Выводим встроенный ассемблер ядра
+					/**
+					 * Выводим встроенный ассемблер ядра
+					 */
 					__asm__ __volatile__(
 						"movd 0(%[state]), %%xmm0\n\t"
 						"pshufd $0, %%xmm0, %%xmm0\n\t"

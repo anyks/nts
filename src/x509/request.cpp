@@ -34,17 +34,21 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "x509/request.hpp"
-#include "x509/signature.hpp"
+#include "sys/wipe.hpp"
 #include "asn1/asn1.hpp"
 #include "sign/rsa.hpp"
-#include "sign/ecdsa.hpp"
-#include "sign/ed25519.hpp"
-#include "sign/gost.hpp"
-#include "sign/mldsa.hpp"
 #include "sign/sm2.hpp"
-#include "sys/wipe.hpp"
+#include "sign/gost.hpp"
+#include "sign/ecdsa.hpp"
+#include "sign/mldsa.hpp"
+#include "sign/ed25519.hpp"
 #include "entropy/entropy.hpp"
+#include "x509/signature.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "x509/request.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -60,146 +64,119 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
 	using namespace nts::x509;
 
 	/**
-	 * Опознаватель атрибута extensionRequest: раздел 5.4.2 RFC 2985
+	 * Опознаватель алгоритма открытого ключа Ed25519: раздел 3 RFC 8410
 	 */
-	static const char * OID_EXTENSION_REQUEST = "1.2.840.113549.1.9.14";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа RSA: раздел 2.3.1 RFC 3279
-	 */
-	static const char * OID_RSA = "1.2.840.113549.1.1.1";
-
+	static constexpr const char * OID_ED25519 = "1.3.101.112";
 	/**
 	 * Опознаватель алгоритма открытого ключа эллиптической кривой: раздел 2.1.1 RFC 5480
 	 */
-	static const char * OID_EC = "1.2.840.10045.2.1";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа Ed25519: раздел 3 RFC 8410
-	 */
-	static const char * OID_ED25519 = "1.3.101.112";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа SM2: GB/T 32918 и RFC 8998
-	 */
-	static const char * OID_SM2 = "1.2.156.10197.1.301";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа ГОСТ Р 34.10-2012 длиной 256 разрядов
-	 */
-	static const char * OID_GOST256 = "1.2.643.7.1.1.1.1";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа ГОСТ Р 34.10-2012 длиной 512 разрядов
-	 */
-	static const char * OID_GOST512 = "1.2.643.7.1.1.1.2";
-
+	static constexpr const char * OID_EC = "1.2.840.10045.2.1";
 	/**
 	 * Опознаватель алгоритма открытого ключа ГОСТ Р 34.10-2001
 	 */
-	static const char * OID_GOST2001 = "1.2.643.2.2.19";
-
+	static constexpr const char * OID_GOST2001 = "1.2.643.2.2.19";
 	/**
-	 * Опознаватель алгоритма открытого ключа ML-DSA-44: раздел 5 RFC 9881
+	 * Опознаватель алгоритма открытого ключа SM2: GB/T 32918 и RFC 8998
 	 */
-	static const char * OID_MLDSA44 = "2.16.840.1.101.3.4.3.17";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа ML-DSA-65: раздел 5 RFC 9881
-	 */
-	static const char * OID_MLDSA65 = "2.16.840.1.101.3.4.3.18";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа ML-DSA-87: раздел 5 RFC 9881
-	 */
-	static const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
-
-	/**
-	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-1: раздел 2.2.1 RFC 3279
-	 */
-	static const char * OID_SHA1_RSA = "1.2.840.113549.1.1.5";
-
-	/**
-	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-256: раздел 5 RFC 4055
-	 */
-	static const char * OID_SHA256_RSA = "1.2.840.113549.1.1.11";
-
-	/**
-	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-384
-	 */
-	static const char * OID_SHA384_RSA = "1.2.840.113549.1.1.12";
-
-	/**
-	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-512
-	 */
-	static const char * OID_SHA512_RSA = "1.2.840.113549.1.1.13";
-
-	/**
-	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-224
-	 */
-	static const char * OID_SHA224_RSA = "1.2.840.113549.1.1.14";
-
-	/**
-	 * Опознаватель алгоритма подписи ECDSA с хешем SHA-224: раздел 3.2 RFC 5758
-	 */
-	static const char * OID_SHA224_ECDSA = "1.2.840.10045.4.3.1";
-
-	/**
-	 * Опознаватель алгоритма подписи ECDSA с хешем SHA-256
-	 */
-	static const char * OID_SHA256_ECDSA = "1.2.840.10045.4.3.2";
-
-	/**
-	 * Опознаватель алгоритма подписи ECDSA с хешем SHA-384
-	 */
-	static const char * OID_SHA384_ECDSA = "1.2.840.10045.4.3.3";
-
-	/**
-	 * Опознаватель алгоритма подписи ECDSA с хешем SHA-512
-	 */
-	static const char * OID_SHA512_ECDSA = "1.2.840.10045.4.3.4";
-
+	static constexpr const char * OID_SM2 = "1.2.156.10197.1.301";
 	/**
 	 * Опознаватель алгоритма подписи Ed25519: раздел 3 RFC 8410
 	 */
-	static const char * OID_ED25519_SIGN = "1.3.101.112";
-
+	static constexpr const char * OID_ED25519_SIGN = "1.3.101.112";
 	/**
-	 * Опознаватель алгоритма подписи ГОСТ Р 34.10-2012 с хешем 256 разрядов
+	 * Опознаватель алгоритма открытого ключа RSA: раздел 2.3.1 RFC 3279
 	 */
-	static const char * OID_GOST256_SIGN = "1.2.643.7.1.1.3.2";
-
+	static constexpr const char * OID_RSA = "1.2.840.113549.1.1.1";
 	/**
-	 * Опознаватель алгоритма подписи ГОСТ Р 34.10-2012 с хешем 512 разрядов
+	 * Опознаватель алгоритма открытого ключа ГОСТ Р 34.10-2012 длиной 256 разрядов
 	 */
-	static const char * OID_GOST512_SIGN = "1.2.643.7.1.1.3.3";
-
+	static constexpr const char * OID_GOST256 = "1.2.643.7.1.1.1.1";
+	/**
+	 * Опознаватель алгоритма открытого ключа ГОСТ Р 34.10-2012 длиной 512 разрядов
+	 */
+	static constexpr const char * OID_GOST512 = "1.2.643.7.1.1.1.2";
 	/**
 	 * Опознаватель алгоритма подписи SM2 с хешем SM3: RFC 8998
 	 */
-	static const char * OID_SM2_SIGN = "1.2.156.10197.1.501";
-
+	static constexpr const char * OID_SM2_SIGN = "1.2.156.10197.1.501";
+	/**
+	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-1: раздел 2.2.1 RFC 3279
+	 */
+	static constexpr const char * OID_SHA1_RSA = "1.2.840.113549.1.1.5";
+	/**
+	 * Опознаватель алгоритма подписи ГОСТ Р 34.10-2012 с хешем 256 разрядов
+	 */
+	static constexpr const char * OID_GOST256_SIGN = "1.2.643.7.1.1.3.2";
+	/**
+	 * Опознаватель алгоритма подписи ГОСТ Р 34.10-2012 с хешем 512 разрядов
+	 */
+	static constexpr const char * OID_GOST512_SIGN = "1.2.643.7.1.1.3.3";
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-44: раздел 5 RFC 9881
+	 */
+	static constexpr const char * OID_MLDSA44 = "2.16.840.1.101.3.4.3.17";
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-65: раздел 5 RFC 9881
+	 */
+	static constexpr const char * OID_MLDSA65 = "2.16.840.1.101.3.4.3.18";
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-87: раздел 5 RFC 9881
+	 */
+	static constexpr const char * OID_MLDSA87 = "2.16.840.1.101.3.4.3.19";
+	/**
+	 * Опознаватель алгоритма подписи ECDSA с хешем SHA-384
+	 */
+	static constexpr const char * OID_SHA384_ECDSA = "1.2.840.10045.4.3.3";
+	/**
+	 * Опознаватель алгоритма подписи ECDSA с хешем SHA-512
+	 */
+	static constexpr const char * OID_SHA512_ECDSA = "1.2.840.10045.4.3.4";
+	/**
+	 * Опознаватель алгоритма подписи ECDSA с хешем SHA-256
+	 */
+	static constexpr const char * OID_SHA256_ECDSA = "1.2.840.10045.4.3.2";
+	/**
+	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-256: раздел 5 RFC 4055
+	 */
+	static constexpr const char * OID_SHA256_RSA = "1.2.840.113549.1.1.11";
+	/**
+	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-384
+	 */
+	static constexpr const char * OID_SHA384_RSA = "1.2.840.113549.1.1.12";
+	/**
+	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-512
+	 */
+	static constexpr const char * OID_SHA512_RSA = "1.2.840.113549.1.1.13";
+	/**
+	 * Опознаватель алгоритма подписи RSA PKCS #1 v1.5 с хешем SHA-224
+	 */
+	static constexpr const char * OID_SHA224_RSA = "1.2.840.113549.1.1.14";
+	/**
+	 * Опознаватель алгоритма подписи ECDSA с хешем SHA-224: раздел 3.2 RFC 5758
+	 */
+	static constexpr const char * OID_SHA224_ECDSA = "1.2.840.10045.4.3.1";
 	/**
 	 * Опознаватель алгоритма подписи ML-DSA-44: раздел 4 RFC 9881
 	 */
-	static const char * OID_MLDSA44_SIGN = "2.16.840.1.101.3.4.3.17";
-
+	static constexpr const char * OID_MLDSA44_SIGN = "2.16.840.1.101.3.4.3.17";
 	/**
 	 * Опознаватель алгоритма подписи ML-DSA-65
 	 */
-	static const char * OID_MLDSA65_SIGN = "2.16.840.1.101.3.4.3.18";
-
+	static constexpr const char * OID_MLDSA65_SIGN = "2.16.840.1.101.3.4.3.18";
 	/**
 	 * Опознаватель алгоритма подписи ML-DSA-87
 	 */
-	static const char * OID_MLDSA87_SIGN = "2.16.840.1.101.3.4.3.19";
+	static constexpr const char * OID_MLDSA87_SIGN = "2.16.840.1.101.3.4.3.19";
+	/**
+	 * Опознаватель атрибута extensionRequest: раздел 5.4.2 RFC 2985
+	 */
+	static constexpr const char * OID_EXTENSION_REQUEST = "1.2.840.113549.1.9.14";
 
 	/**
 	 * @brief Функция перевода отказа разборщика ASN.1 в отказ модуля
@@ -208,7 +185,7 @@ namespace {
 	 * @return      отказ модуля
 	 *
 	 */
-	static nts::x509::error_t __nts_translate__(const asn1::error_t error) noexcept {
+	static constexpr nts::x509::error_t __nts_translate__(const asn1::error_t error) noexcept {
 		// Выводим отказ модуля: нехватка памяти отдаётся своим отказом, всё прочее - отказом устройства
 		return ((error == asn1::error_t::MEMORY) ? nts::x509::error_t::MEMORY : nts::x509::error_t::STRUCTURE);
 	}
@@ -220,7 +197,7 @@ namespace {
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
-	static nts::x509::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
 		// Итог разбора опознавателя
 		const asn1::error_t outcome = asn1::oid(element, result);
 		// Выводим переведённый отказ разбора, если он есть
@@ -234,7 +211,7 @@ namespace {
 	 * @return        отказ разбора числа
 	 *
 	 */
-	static nts::x509::error_t __nts_small_integer__(const asn1::element_t & element, int64_t & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_small_integer__(const asn1::element_t & element, int64_t & result) noexcept {
 		// Итог разбора целого числа
 		const asn1::error_t outcome = asn1::integer(element, result);
 		// Выводим переведённый отказ разбора, если он есть
@@ -250,7 +227,7 @@ namespace {
 	 * @return       отказ разбора записи
 	 *
 	 */
-	static nts::x509::error_t __nts_algorithm_identifier__(asn1::reader_t & reader, string & oid, asn1::element_t & params, bool & present) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_algorithm_identifier__(asn1::reader_t & reader, string & oid, asn1::element_t & params, bool & present) noexcept {
 		// Сбрасываем признак наличия настроек
 		present = false;
 		// Набор алгоритма
@@ -295,7 +272,7 @@ namespace {
 	 * @return       отказ записи опознавателя
 	 *
 	 */
-	static nts::x509::error_t __nts_object__(asn1::writer_t & writer, const char * value) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_object__(asn1::writer_t & writer, const char * value) noexcept {
 		// Опознаватель строкой
 		string oid;
 		/**
@@ -304,7 +281,6 @@ namespace {
 		try {
 			// Копирование опознавателя
 			oid.assign(value);
-		// Если памяти не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -325,7 +301,7 @@ namespace {
 	 * @return       отказ записи набора алгоритма
 	 *
 	 */
-	static nts::x509::error_t __nts_key_algorithm__(asn1::writer_t & writer, const nts::x509::key_t & key) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_key_algorithm__(asn1::writer_t & writer, const nts::x509::key_t & key) noexcept {
 		// Открываем набор алгоритма
 		writer.open(asn1::tag_t::SEQUENCE);
 		// Если ключ RSA
@@ -335,7 +311,7 @@ namespace {
 			// Записываем пустые настройки: раздел 2.3.1 RFC 3279
 			writer.nothing();
 		// Если ключ EC
-		} else if(key.algorithm.compare(OID_EC) == 0){
+		} else if(key.algorithm.compare(OID_EC) == 0) {
 			// Записываем опознаватель алгоритма
 			__nts_object__(writer, OID_EC);
 			// Записываем именованную кривую из настроек ключа
@@ -349,7 +325,7 @@ namespace {
 					// Выводим отказ ключа
 					return nts::x509::error_t::KEY;
 				// Опознаватель кривой
-				string oid;
+				string oid = "";
 				// Итог разбора опознавателя кривой
 				const nts::x509::error_t outcome = __nts_oid_of__(element, oid);
 				// Если опознаватель кривой разобрать не удалось
@@ -361,19 +337,19 @@ namespace {
 			// Если настроек нет
 			} else return nts::x509::error_t::KEY;
 		// Если ключ Ed25519
-		} else if(key.algorithm.compare(OID_ED25519) == 0){
+		} else if(key.algorithm.compare(OID_ED25519) == 0)
 			// Записываем опознаватель алгоритма: настроек у него нет
 			__nts_object__(writer, OID_ED25519);
 		// Если ключ SM2
-		} else if(key.algorithm.compare(OID_SM2) == 0){
+		else if(key.algorithm.compare(OID_SM2) == 0)
 			// Записываем опознаватель алгоритма: настроек у него нет
 			__nts_object__(writer, OID_SM2);
 		// Если ключ ML-DSA
-		} else if((key.algorithm.compare(OID_MLDSA44) == 0) || (key.algorithm.compare(OID_MLDSA65) == 0) || (key.algorithm.compare(OID_MLDSA87) == 0)){
+		else if((key.algorithm.compare(OID_MLDSA44) == 0) || (key.algorithm.compare(OID_MLDSA65) == 0) || (key.algorithm.compare(OID_MLDSA87) == 0))
 			// Записываем опознаватель алгоритма ключа: настроек у него нет
 			writer.oid(key.algorithm);
 		// Если ключ ГОСТ
-		} else if((key.algorithm.compare(OID_GOST256) == 0) || (key.algorithm.compare(OID_GOST512) == 0) || (key.algorithm.compare(OID_GOST2001) == 0)){
+		else if((key.algorithm.compare(OID_GOST256) == 0) || (key.algorithm.compare(OID_GOST512) == 0) || (key.algorithm.compare(OID_GOST2001) == 0)){
 			// Записываем опознаватель алгоритма
 			writer.oid(key.algorithm);
 			// Открываем набор настроек
@@ -389,7 +365,7 @@ namespace {
 					// Выводим отказ ключа
 					return nts::x509::error_t::KEY;
 				// Опознаватель кривой
-				string oid;
+				string oid = "";
 				// Итог разбора опознавателя кривой
 				const nts::x509::error_t outcome = __nts_oid_of__(element, oid);
 				// Если опознаватель кривой разобрать не удалось
@@ -405,7 +381,7 @@ namespace {
 						// Выводим отказ ключа
 						return nts::x509::error_t::KEY;
 					// Опознаватель хеша
-					string digest;
+					string digest = "";
 					// Итог разбора опознавателя хеша
 					const nts::x509::error_t extracted = __nts_oid_of__(element, digest);
 					// Если опознаватель хеша разобрать не удалось
@@ -434,7 +410,7 @@ namespace {
 	 * @return       отказ записи тела ключа
 	 *
 	 */
-	static nts::x509::error_t __nts_key_body__(const nts::x509::key_t & key, asn1::writer_t & writer) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_key_body__(const nts::x509::key_t & key, asn1::writer_t & writer) noexcept {
 		// Если ключ RSA
 		if(key.algorithm.compare(OID_RSA) == 0){
 			// Если запись ключа не передана
@@ -444,7 +420,7 @@ namespace {
 			// Записываем строку битов ключа
 			writer.bits(key.key);
 		// Если ключ EC либо SM2
-		} else if((key.algorithm.compare(OID_EC) == 0) || (key.algorithm.compare(OID_SM2) == 0)){
+		} else if((key.algorithm.compare(OID_EC) == 0) || (key.algorithm.compare(OID_SM2) == 0)) {
 			// Если запись ключа не передана
 			if((key.key.data == nullptr) || (key.key.size == 0))
 				// Выводим отказ ключа
@@ -452,7 +428,8 @@ namespace {
 			// Записываем строку битов ключа
 			writer.bits(key.key);
 		// Если ключ Ed25519 либо ML-DSA
-		} else if((key.algorithm.compare(OID_ED25519) == 0) || (key.algorithm.compare(OID_MLDSA44) == 0) || (key.algorithm.compare(OID_MLDSA65) == 0) || (key.algorithm.compare(OID_MLDSA87) == 0)){
+		} else if((key.algorithm.compare(OID_ED25519) == 0) || (key.algorithm.compare(OID_MLDSA44) == 0) ||
+		          (key.algorithm.compare(OID_MLDSA65) == 0) || (key.algorithm.compare(OID_MLDSA87) == 0)) {
 			// Если запись ключа не передана
 			if((key.key.data == nullptr) || (key.key.size == 0))
 				// Выводим отказ ключа
@@ -460,7 +437,9 @@ namespace {
 			// Записываем строку битов ключа
 			writer.bits(key.key);
 		// Если ключ ГОСТ
-		} else if((key.algorithm.compare(OID_GOST256) == 0) || (key.algorithm.compare(OID_GOST512) == 0) || (key.algorithm.compare(OID_GOST2001) == 0)){
+		} else if((key.algorithm.compare(OID_GOST256) == 0) ||
+		          (key.algorithm.compare(OID_GOST512) == 0) ||
+				  (key.algorithm.compare(OID_GOST2001) == 0)) {
 			// Если запись ключа не передана
 			if((key.key.data == nullptr) || (key.key.size == 0))
 				// Выводим отказ ключа
@@ -475,15 +454,15 @@ namespace {
 	/**
 	 * @brief Функция разбора отличительного имени
 	 *
+	 * @note Разборщик повторяет разборщик имени сертификата: запрос несёт имя
+	 *       по тем же правилам X.501, и негодная запись отвергается так же строго
+	 *
 	 * @param element разбираемый элемент записи имени
 	 * @param result  объект имени, в который производится разбор
 	 * @return        причина отказа либо nts::x509::error_t::NONE
 	 *
-	 * @note Разборщик повторяет разборщик имени сертификата: запрос несёт имя
-	 *       по тем же правилам X.501, и негодная запись отвергается так же строго
-	 *
 	 */
-	static nts::x509::error_t __nts_distinguished__(const asn1::element_t & element, nts::x509::name_t & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_distinguished__(const asn1::element_t & element, nts::x509::name_t & result) noexcept {
 		// Если запись имени имеет простой вид метки
 		if(!element.constructed)
 			// Выводим причину отказа
@@ -613,7 +592,7 @@ namespace {
 	 * @return       отказ записи имени
 	 *
 	 */
-	static nts::x509::error_t __nts_name_body__(asn1::writer_t & writer, const nts::x509::name_t & name) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_name_body__(asn1::writer_t & writer, const nts::x509::name_t & name) noexcept {
 		// Если имя пусто
 		if(name.parts.empty())
 			// Выводим отказ имени
@@ -659,7 +638,7 @@ namespace {
 	 * @return           отказ записи набора расширений
 	 *
 	 */
-	static nts::x509::error_t __nts_extensions_body__(asn1::writer_t & writer, const vector <nts::x509::extension_t> & extensions) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_extensions_body__(asn1::writer_t & writer, const vector <nts::x509::extension_t> & extensions) noexcept {
 		// Открываем набор расширений
 		writer.open(asn1::tag_t::SEQUENCE);
 		/**
@@ -694,7 +673,7 @@ namespace {
 	 * @return          отказ выработки подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_make_signature__(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_make_signature__(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -702,9 +681,9 @@ namespace {
 			/**
 			 * Определяем вид ключа подписи
 			 */
-			switch(signer.kind()){
+			switch(static_cast <uint8_t> (signer.kind())){
 				// Ключ RSA
-				case keys::kind_t::RSA: {
+				case static_cast <uint8_t> (keys::kind_t::RSA): {
 					// Модуль подписи RSA
 					const sign::rsa_t & rsa = signer.rsa();
 					// Место, в которое помещается хеш содержимого
@@ -721,7 +700,7 @@ namespace {
 						return nts::x509::error_t::SIGNATURE;
 				} break;
 				// Ключ ECDSA
-				case keys::kind_t::EC: {
+				case static_cast <uint8_t> (keys::kind_t::EC): {
 					// Модуль подписи ECDSA
 					const sign::ecdsa_t & ecdsa = signer.ecdsa();
 					// Место, в которое помещается хеш содержимого
@@ -748,7 +727,7 @@ namespace {
 					signature.resize(written);
 				} break;
 				// Ключ Ed25519
-				case keys::kind_t::ED25519: {
+				case static_cast <uint8_t> (keys::kind_t::ED25519): {
 					// Модуль подписи Ed25519
 					const sign::ed25519_t & ed25519 = signer.ed25519();
 					// Занимаем место под подпись Ed25519
@@ -759,7 +738,7 @@ namespace {
 						return nts::x509::error_t::SIGNATURE;
 				} break;
 				// Ключ ГОСТ
-				case keys::kind_t::GOST: {
+				case static_cast <uint8_t> (keys::kind_t::GOST): {
 					// Модуль подписи ГОСТ
 					const sign::gost_t & gost = signer.gost();
 					// Длина числа кривой ключа
@@ -786,7 +765,7 @@ namespace {
 					::memcpy(signature.data() + size, raw, size);
 				} break;
 				// Ключ ML-DSA
-				case keys::kind_t::MLDSA: {
+				case static_cast <uint8_t> (keys::kind_t::MLDSA): {
 					// Модуль подписи ML-DSA
 					const sign::mldsa_t & mldsa = signer.mldsa();
 					// Занимаем место под подпись набора ключа
@@ -797,7 +776,7 @@ namespace {
 						return nts::x509::error_t::SIGNATURE;
 				} break;
 				// Ключ SM2
-				case keys::kind_t::SM2: {
+				case static_cast <uint8_t> (keys::kind_t::SM2): {
 					// Модуль подписи SM2
 					const sign::sm2_t & sm2ctx = signer.sm2();
 					// Опознаватель подписи сертификата по RFC 8998
@@ -845,7 +824,6 @@ namespace {
 					// Выводим отказ ключа
 					return nts::x509::error_t::KEY;
 			}
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -864,57 +842,69 @@ namespace {
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 */
-	static const char * __nts_signature_algorithm__(const keys::signer_t & signer, const digest::hash_t hash) noexcept {
+	static __NTS_INLINE__ const char * __nts_signature_algorithm__(const keys::signer_t & signer, const digest::hash_t hash) noexcept {
 		/**
 		 * Определяем вид ключа подписи
 		 */
-		switch(signer.kind()){
+		switch(static_cast <uint8_t> (signer.kind())){
 			// Ключ RSA
-			case keys::kind_t::RSA:
+			case static_cast <uint8_t> (keys::kind_t::RSA):
 				/**
 				 * Выводим опознаватель по хешу
 				 */
-				switch(hash){
-					case digest::hash_t::SHA1: return OID_SHA1_RSA;
-					case digest::hash_t::SHA224: return OID_SHA224_RSA;
-					case digest::hash_t::SHA256: return OID_SHA256_RSA;
-					case digest::hash_t::SHA384: return OID_SHA384_RSA;
-					case digest::hash_t::SHA512: return OID_SHA512_RSA;
+				switch(static_cast <uint8_t> (hash)){
+					case static_cast <uint8_t> (digest::hash_t::SHA1):
+						return OID_SHA1_RSA;
+					case static_cast <uint8_t> (digest::hash_t::SHA224):
+						return OID_SHA224_RSA;
+					case static_cast <uint8_t> (digest::hash_t::SHA256):
+						return OID_SHA256_RSA;
+					case static_cast <uint8_t> (digest::hash_t::SHA384):
+						return OID_SHA384_RSA;
+					case static_cast <uint8_t> (digest::hash_t::SHA512):
+						return OID_SHA512_RSA;
 					default: return nullptr;
 				}
 			// Ключ ECDSA
-			case keys::kind_t::EC:
+			case static_cast <uint8_t> (keys::kind_t::EC):
 				/**
 				 * Выводим опознаватель по хешу
 				 */
-				switch(hash){
-					case digest::hash_t::SHA224: return OID_SHA224_ECDSA;
-					case digest::hash_t::SHA256: return OID_SHA256_ECDSA;
-					case digest::hash_t::SHA384: return OID_SHA384_ECDSA;
-					case digest::hash_t::SHA512: return OID_SHA512_ECDSA;
+				switch(static_cast <uint8_t> (hash)){
+					case static_cast <uint8_t> (digest::hash_t::SHA224):
+						return OID_SHA224_ECDSA;
+					case static_cast <uint8_t> (digest::hash_t::SHA256):
+						return OID_SHA256_ECDSA;
+					case static_cast <uint8_t> (digest::hash_t::SHA384):
+						return OID_SHA384_ECDSA;
+					case static_cast <uint8_t> (digest::hash_t::SHA512):
+						return OID_SHA512_ECDSA;
 					default: return nullptr;
 				}
 			// Ключ Ed25519
-			case keys::kind_t::ED25519:
+			case static_cast <uint8_t> (keys::kind_t::ED25519):
 				// Выводим опознаватель Ed25519
 				return OID_ED25519_SIGN;
 			// Ключ ГОСТ
-			case keys::kind_t::GOST:
+			case static_cast <uint8_t> (keys::kind_t::GOST):
 				// Выводим опознаватель по размеру кривой
 				return ((signer.curve().size() == 32) ? OID_GOST256_SIGN : OID_GOST512_SIGN);
 			// Ключ ML-DSA
-			case keys::kind_t::MLDSA:
+			case static_cast <uint8_t> (keys::kind_t::MLDSA):
 				/**
 				 * Выводим опознаватель по набору ключа
 				 */
-				switch(signer.mldsa().set()){
-					case sign::mldsa_t::set_t::DSA44: return OID_MLDSA44_SIGN;
-					case sign::mldsa_t::set_t::DSA65: return OID_MLDSA65_SIGN;
-					case sign::mldsa_t::set_t::DSA87: return OID_MLDSA87_SIGN;
+				switch(static_cast <uint8_t> (signer.mldsa().set())){
+					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA44):
+						return OID_MLDSA44_SIGN;
+					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA65):
+						return OID_MLDSA65_SIGN;
+					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA87):
+						return OID_MLDSA87_SIGN;
 					default: return nullptr;
 				}
 			// Ключ SM2
-			case keys::kind_t::SM2:
+			case static_cast <uint8_t> (keys::kind_t::SM2):
 				// Выводим опознаватель SM2
 				return OID_SM2_SIGN;
 			// Ключ, подписи не выполняющий
@@ -974,7 +964,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 		// Признак наличия настроек алгоритма подписи
 		bool present = false;
 		// Извлечение опознавателя алгоритма подписи
-		this->_error = __nts_algorithm_identifier__(top, this->_algorithm, params, present);
+		this->_error = ::__nts_algorithm_identifier__(top, this->_algorithm, params, present);
 		// Если извлечение опознавателя алгоритма подписи не удалось
 		if(this->_error != error_t::NONE)
 			// Выводим причину отказа
@@ -1004,7 +994,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 		// Издание запроса
 		int64_t version = -1;
 		// Извлечение издания запроса
-		if(__nts_small_integer__(item, version) != error_t::NONE)
+		if(::__nts_small_integer__(item, version) != error_t::NONE)
 			// Запоминаем причину отказа
 			return (this->_error = error_t::STRUCTURE);
 		// Если издание запроса не первое: раздел 4 RFC 2986
@@ -1016,7 +1006,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			// Запоминаем причину отказа
 			return (this->_error = error_t::ENCODING);
 		// Извлечение имени владельца запрашиваемого сертификата
-		this->_error = __nts_distinguished__(item, this->_subject);
+		this->_error = ::__nts_distinguished__(item, this->_subject);
 		// Если извлечение имени владельца не удалось
 		if(this->_error != error_t::NONE)
 			// Выводим причину отказа
@@ -1037,7 +1027,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			// Объект разобранного поля сведений об открытом ключе
 			asn1::element_t field;
 			// Извлечение опознавателя алгоритма ключа
-			this->_error = __nts_algorithm_identifier__(info, this->_key.algorithm, params, present);
+			this->_error = ::__nts_algorithm_identifier__(info, this->_key.algorithm, params, present);
 			// Если извлечение опознавателя алгоритма ключа не удалось
 			if(this->_error != error_t::NONE)
 				// Выводим причину отказа
@@ -1095,7 +1085,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 			// Опознаватель атрибута
 			string oid;
 			// Итог извлечения опознавателя атрибута
-			const error_t named = __nts_oid_of__(field, oid);
+			const error_t named = ::__nts_oid_of__(field, oid);
 			// Если извлечение опознавателя атрибута не удалось
 			if(named != error_t::NONE)
 				// Запоминаем причину отказа
@@ -1149,7 +1139,7 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 						// Запоминаем причину отказа
 						return (this->_error = error_t::ENCODING);
 					// Итог извлечения опознавателя расширения
-					const error_t status = __nts_oid_of__(extField, extension.oid);
+					const error_t status = ::__nts_oid_of__(extField, extension.oid);
 					// Если извлечение опознавателя расширения не удалось
 					if(status != error_t::NONE)
 						// Запоминаем причину отказа
@@ -1199,34 +1189,32 @@ nts::x509::error_t nts::x509::Request::parse(const view_t & data) noexcept {
 	// Выводим успешность разбора
 	return error_t::NONE;
 }
-
 /**
  * @brief Метод очистки разобранных сведений
  *
  */
 void nts::x509::Request::clear() noexcept {
+	// Сбрасываем количество неиспользуемых разрядов подписи
+	this->_unused = 0;
 	// Сбрасываем причину последнего отказа
 	this->_error = error_t::NONE;
-	// Сбрасываем просмотры записи запроса
-	this->_element = view_t();
+	// Сбрасываем сведения об открытом ключе
+	this->_key = key_t();
+	// Сбрасываем имя владельца
+	this->_subject = name_t();
 	// Сбрасываем просмотр подписываемой части
 	this->_body = view_t();
+	// Сбрасываем просмотры записи запроса
+	this->_element = view_t();
 	// Сбрасываем просмотр подписи
 	this->_signature = view_t();
 	// Сбрасываем просмотр настроек подписи
 	this->_parameters = view_t();
-	// Сбрасываем количество неиспользуемых разрядов подписи
-	this->_unused = 0;
 	// Сбрасываем опознаватель алгоритма подписи
 	this->_algorithm.clear();
-	// Сбрасываем имя владельца
-	this->_subject = name_t();
-	// Сбрасываем сведения об открытом ключе
-	this->_key = key_t();
 	// Сбрасываем набор расширений
 	this->_extensions.clear();
 }
-
 /**
  * @brief Метод извлечения причины последнего отказа
  *
@@ -1237,7 +1225,6 @@ nts::x509::error_t nts::x509::Request::err() const noexcept {
 	// Выводим причину последнего отказа
 	return this->_error;
 }
-
 /**
  * @brief Метод извлечения подписываемой части запроса
  *
@@ -1248,7 +1235,6 @@ const nts::view_t & nts::x509::Request::body() const noexcept {
 	// Выводим подписываемую часть запроса
 	return this->_body;
 }
-
 /**
  * @brief Метод извлечения подписи запроса
  *
@@ -1262,7 +1248,6 @@ const nts::view_t & nts::x509::Request::sign(uint8_t & unused) const noexcept {
 	// Выводим подпись запроса
 	return this->_signature;
 }
-
 /**
  * @brief Метод извлечения опознавателя алгоритма подписи
  *
@@ -1273,7 +1258,6 @@ const string & nts::x509::Request::algorithms() const noexcept {
 	// Выводим опознаватель алгоритма подписи
 	return this->_algorithm;
 }
-
 /**
  * @brief Метод получения записи настроек алгоритма подписи
  *
@@ -1284,7 +1268,6 @@ const nts::view_t & nts::x509::Request::settings() const noexcept {
 	// Выводим просмотр записи настроек алгоритма подписи
 	return this->_parameters;
 }
-
 /**
  * @brief Метод извлечения имени владельца запрашиваемого сертификата
  *
@@ -1295,7 +1278,6 @@ const nts::x509::name_t & nts::x509::Request::subjects() const noexcept {
 	// Выводим имя владельца запрашиваемого сертификата
 	return this->_subject;
 }
-
 /**
  * @brief Метод извлечения сведений об открытом ключе запроса
  *
@@ -1306,7 +1288,6 @@ const nts::x509::key_t & nts::x509::Request::key() const noexcept {
 	// Выводим сведения об открытом ключе запроса
 	return this->_key;
 }
-
 /**
  * @brief Метод извлечения набора запрошенных расширений
  *
@@ -1317,12 +1298,16 @@ const vector <nts::x509::extension_t> & nts::x509::Request::extension() const no
 	// Выводим набор запрошенных расширений
 	return this->_extensions;
 }
-
 /**
  * @brief Конструктор запроса
  *
  */
 nts::x509::Request::Request() noexcept : _error(error_t::NONE), _unused(0) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::x509::Request::~Request() noexcept = default;
 
 /**
  * @brief Функция записи запроса на сертификат PKCS #10
@@ -1342,7 +1327,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 		// Выводим отказ ключа
 		return error_t::KEY;
 	// Получаем опознаватель алгоритма подписи
-	const char * algorithm = __nts_signature_algorithm__(signer, hash);
+	const char * algorithm = ::__nts_signature_algorithm__(signer, hash);
 	// Если алгоритм подписи не определён
 	if(algorithm == nullptr)
 		// Выводим отказ подписи
@@ -1354,7 +1339,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Записываем издание запроса: v1
 	body.integer(0);
 	// Итог записи имени владельца
-	error_t outcome = __nts_name_body__(body, subject);
+	error_t outcome = ::__nts_name_body__(body, subject);
 	// Если имя записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
@@ -1362,13 +1347,13 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Открываем набор сведений об открытом ключе
 	body.open(asn1::tag_t::SEQUENCE);
 	// Итог записи набора алгоритма ключа
-	outcome = __nts_key_algorithm__(body, key);
+	outcome = ::__nts_key_algorithm__(body, key);
 	// Если набор алгоритма записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
 		return outcome;
 	// Итог записи тела открытого ключа
-	outcome = __nts_key_body__(key, body);
+	outcome = ::__nts_key_body__(key, body);
 	// Если тело ключа записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
@@ -1380,11 +1365,11 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Открываем атрибут extensionRequest
 	body.open(asn1::tag_t::SEQUENCE);
 	// Записываем опознаватель атрибута
-	__nts_object__(body, OID_EXTENSION_REQUEST);
+	::__nts_object__(body, OID_EXTENSION_REQUEST);
 	// Открываем набор значений атрибута
 	body.open(asn1::tag_t::SET);
 	// Итог записи набора расширений
-	outcome = __nts_extensions_body__(body, extensions);
+	outcome = ::__nts_extensions_body__(body, extensions);
 	// Если набор расширений записать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ записи
@@ -1400,11 +1385,11 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Если подписываемую часть записать не удалось
 	if(body.err() != asn1::error_t::NONE)
 		// Выводим переведённый отказ записи
-		return __nts_translate__(body.err());
+		return ::__nts_translate__(body.err());
 	// Подпись запроса
 	vector <uint8_t> signature;
 	// Итог выработки подписи
-	outcome = __nts_make_signature__(signer, hash, body.data(), signature);
+	outcome = ::__nts_make_signature__(signer, hash, body.data(), signature);
 	// Если подпись выработать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ подписи
@@ -1414,7 +1399,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Открываем набор алгоритма подписи
 	tail.open(asn1::tag_t::SEQUENCE);
 	// Записываем опознаватель алгоритма подписи
-	__nts_object__(tail, algorithm);
+	::__nts_object__(tail, algorithm);
 	// Если алгоритм подписи несёт настройки NULL (RSA)
 	if(signer.kind() == keys::kind_t::RSA)
 		// Записываем пустые настройки
@@ -1426,7 +1411,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Если хвост записи запроса записать не удалось
 	if(tail.err() != asn1::error_t::NONE)
 		// Выводим переведённый отказ записи
-		return __nts_translate__(tail.err());
+		return ::__nts_translate__(tail.err());
 	// Получаем просмотр подписываемой части
 	const view_t signedPart = body.data();
 	// Получаем просмотр хвоста записи
@@ -1443,7 +1428,6 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 		content.insert(content.end(), signedPart.data, signedPart.data + signedPart.size);
 		// Дописываем хвост записи
 		content.insert(content.end(), tailPart.data, tailPart.data + tailPart.size);
-	// Если памяти не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -1458,7 +1442,7 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Если запись запроса записать не удалось
 	if(writer.err() != asn1::error_t::NONE)
 		// Выводим переведённый отказ записи
-		return __nts_translate__(writer.err());
+		return ::__nts_translate__(writer.err());
 	// Получаем просмотр собранной записи
 	const view_t data = writer.data();
 	/**
@@ -1467,7 +1451,6 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	try {
 		// Копирование записи
 		result.assign(data.data, data.data + data.size);
-	// Если памяти не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -1478,7 +1461,6 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
 	// Выводим успешность записи
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция проверки подписи запроса на сертификат
  *
@@ -1487,7 +1469,6 @@ nts::x509::error_t nts::x509::encode(const name_t & subject, const nts::x509::ke
  * @return        отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
  *                непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
  *
- *                непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
  *
  */
 nts::x509::error_t nts::x509::verify(const request_t & request, const nts::x509::key_t & key) noexcept {
@@ -1502,9 +1483,3 @@ nts::x509::error_t nts::x509::verify(const request_t & request, const nts::x509:
 	// Выводим итог проверки подписи тела запроса
 	return nts::x509::verify(request.body(), signature, request.algorithms(), request.settings(), key);
 }
-
-/**
- * @brief Деструктор
- *
- */
-nts::x509::Request::~Request() noexcept {}

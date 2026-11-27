@@ -47,15 +47,19 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <new>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "record/record.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -71,11 +75,15 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
 	using namespace nts::record;
+
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
 
 	/**
 	 * @brief Отказы работы модуля
@@ -87,10 +95,8 @@ namespace {
 	 *       находит прежде глобального, и двусмысленности не возникает
 	 *
 	 */
-	typedef record::error_t error_t;
+	using error_t = record::error_t;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * @brief Функция проверки известности версии протокола
 	 *
@@ -98,7 +104,7 @@ namespace {
 	 * @return        признак того, что версия протокола определена
 	 *
 	 */
-	static bool __nts_suitable__(const version_t version) noexcept {
+	static constexpr bool __nts_suitable__(const version_t version) noexcept {
 		/**
 		 * Определяем версию протокола
 		 */
@@ -130,12 +136,12 @@ bool nts::record::known(const type_t type) noexcept {
 	 */
 	switch(static_cast <uint8_t> (type)){
 		// Если это один из известных видов содержимого записи
-		case static_cast <uint8_t> (type_t::CHANGE):
-		case static_cast <uint8_t> (type_t::ALERT):
-		case static_cast <uint8_t> (type_t::HANDSHAKE):
-		case static_cast <uint8_t> (type_t::APPLICATION):
-		case static_cast <uint8_t> (type_t::HEARTBEAT):
 		case static_cast <uint8_t> (type_t::ACK):
+		case static_cast <uint8_t> (type_t::ALERT):
+		case static_cast <uint8_t> (type_t::CHANGE):
+		case static_cast <uint8_t> (type_t::HANDSHAKE):
+		case static_cast <uint8_t> (type_t::HEARTBEAT):
+		case static_cast <uint8_t> (type_t::APPLICATION):
 			// Выводим признак известности вида содержимого записи
 			return true;
 	}
@@ -387,6 +393,7 @@ nts::record::Reader::~Reader() noexcept {
 	// Сброс состояния сборщика
 	this->clear();
 }
+
 /**
  * @brief Метод получения предела длины содержимого нарезаемой записи
  *

@@ -41,7 +41,7 @@
  */
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл модуля
  */
 #include <flow/flow.hpp>
 
@@ -75,7 +75,7 @@ namespace {
 	 *       находит прежде глобального, и двусмысленности не возникает
 	 *
 	 */
-	typedef flow::error_t error_t;
+	using error_t = flow::error_t;
 
 	/**
 	 * @brief Функция проверки принадлежности сообщения стороне связи
@@ -85,7 +85,7 @@ namespace {
 	 * @return     отказ проверки принадлежности сообщения стороне
 	 *
 	 */
-	static error_t __nts_belongs__(const session::side_t side, const session::side_t sent) noexcept {
+	static constexpr error_t __nts_belongs__(const session::side_t side, const session::side_t sent) noexcept {
 		// Выводим отказ, если объявленное сообщение отправлено не той стороной
 		return ((side == sent) ? error_t::NONE : error_t::SIDE);
 	}
@@ -158,18 +158,18 @@ bool nts::flow::Machine::start(const role_t role) noexcept {
  *
  */
 void nts::flow::Machine::clear() noexcept {
-	// Сброс роли стороны, ведущей ход рукопожатия
-	this->_role = role_t::NONE;
-	// Сброс ступени хода рукопожатия
-	this->_stage = stage_t::NONE;
+	// Сброс признака защищённых расширений клиента
+	this->_stated = false;
 	// Снимаем признак объявленной просьбы о повторе приветствия
 	this->_retried = false;
 	// Снимаем признак запроса сертификата клиента сервером
 	this->_requested = false;
 	// Снимаем признак присланной клиентом цепочки сертификатов
 	this->_certified = false;
-	// Сброс признака защищённых расширений клиента
-	this->_stated = false;
+	// Сброс роли стороны, ведущей ход рукопожатия
+	this->_role = role_t::NONE;
+	// Сброс ступени хода рукопожатия
+	this->_stage = stage_t::NONE;
 	// Сброс поры ключей записей клиента
 	this->_client = epoch_t::PLAIN;
 	// Сброс поры ключей записей сервера
@@ -244,10 +244,12 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			if(type == handshake::type_t::REQUEST){
 				// Проверяем принадлежность запроса стороне связи
 				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
-				// Если запрос сертификата объявлен сервером
 				/**
-				 * Раздел 4.3.2 RFC 8446: запрос подлинности клиента в рукопожатии один,
-				 * повторный - сообщение не в свой черёд
+				 * @brief Если запрос сертификата объявлен сервером
+				 *
+				 * @details Раздел 4.3.2 RFC 8446: запрос подлинности клиента в рукопожатии один,
+				 *          повторный - сообщение не в свой черёд.
+				 *
 				 */
 				if((outcome == error_t::NONE) && this->_requested)
 					// Выводим отказ повторного запроса подлинности
@@ -271,10 +273,12 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			} else if(type == handshake::type_t::FINISHED) {
 				// Проверяем принадлежность завершения стороне связи
 				outcome = ::__nts_belongs__(session::side_t::SERVER, side);
-				// Если завершение рукопожатия объявлено сервером
 				/**
-				 * Раздел 4.3.2 RFC 8446: сервер, запросивший подлинность, сертификатами
-				 * себя подтверждает, и завершение сразу за запросом невозможно
+				 * @brief Если завершение рукопожатия объявлено сервером
+				 *
+				 * @details Раздел 4.3.2 RFC 8446: сервер, запросивший подлинность, сертификатами
+				 *          себя подтверждает, и завершение сразу за запросом невозможно.
+				 *
 				 */
 				if((outcome == error_t::NONE) && this->_requested)
 					// Выводим отказ завершения без сертификатов сервера
@@ -337,7 +341,7 @@ nts::flow::error_t nts::flow::Machine::accept(const handshake::type_t type, cons
 			 * Черновик draft-vvv-tls-alps: защищённые расширения клиента идут за завершением
 			 * сервера прежде цепочки и завершения клиента, и лишь однажды
 			 */
-			else if(type == handshake::type_t::EXTENSIONS){
+			else if(type == handshake::type_t::EXTENSIONS) {
 				// Проверяем принадлежность защищённых расширений клиента стороне связи
 				outcome = ::__nts_belongs__(session::side_t::CLIENT, side);
 				// Если защищённые расширения клиента уже прошли
@@ -492,4 +496,8 @@ bool nts::flow::Machine::certified() const noexcept {
  * @brief Конструктор
  *
  */
-nts::flow::Machine::Machine() noexcept : _role(role_t::NONE), _stage(stage_t::NONE), _retried(false), _requested(false), _certified(false), _stated(false), _client(epoch_t::PLAIN), _server(epoch_t::PLAIN) {}
+nts::flow::Machine::Machine() noexcept :
+ _role(role_t::NONE), _stage(stage_t::NONE),
+ _retried(false), _requested(false),
+ _certified(false), _stated(false),
+ _client(epoch_t::PLAIN), _server(epoch_t::PLAIN) {}

@@ -25,7 +25,7 @@
 #include <cstdarg>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл модуля
  */
 #include "sys/log.hpp"
 
@@ -35,11 +35,19 @@
 using namespace nts;
 
 /**
- * Сток журнала процесса и контекст потребителя
+ * @brief Внутренние служебные объекты
+ *
  */
-static sys::log::sink_t __nts_sink__ = nullptr;
-// Контекст потребителя журнала
-static void * __nts_context__ = nullptr;
+namespace {
+	/**
+	 * Контекст потребителя журнала
+	 */
+	static void * __nts_context__ = nullptr;
+	/**
+	 * Сток журнала процесса и контекст потребителя
+	 */
+	static sys::log::sink_t __nts_sink__ = nullptr;
+};
 
 /**
  * sink Метод установки стока журнала
@@ -81,7 +89,7 @@ void sys::log::emitf(const level_t level, const char * format, ...) noexcept {
 	// Начинаем разбор доводов
 	va_start(args, format);
 	// Собираем строку
-	const int written = ::vsnprintf(buffer, sizeof(buffer), format, args);
+	const int32_t written = ::vsnprintf(buffer, sizeof(buffer), format, args);
 	// Завершаем разбор доводов
 	va_end(args);
 	// Если строка собрана

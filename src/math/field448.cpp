@@ -67,10 +67,14 @@
 #endif
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "math/wide.hpp"
+
+/**
+ * Подключаем заголовочные файлы модуля
  */
 #include "math/field448.hpp"
-#include "math/wide.hpp"
 #include "internal/math/field448.hpp"
 
 /**
@@ -107,12 +111,12 @@ namespace {
 	 *          сквозь все конечности - вынести за 2^448 способен только элемент, не
 	 *          меньший модуля, ибо модль сам есть 2^448 - 2^224 - 1. Модуль вычитается
 	 *          наложением признака: вычитание модуля есть прибавление 2^224 + 1 со
-	 *          сбросом разряда 2^448
+	 *          сбросом разряда 2^448.
 	 *
 	 * @param value приводимый элемент
 	 *
 	 */
-	static void __nts_reduce__(element_t & value) noexcept {
+	static __NTS_INLINE__ void __nts_reduce__(element_t & value) noexcept {
 		// Первую волну переносов
 		kernel::wave(value);
 		// Вторую волну переносов: после первой конечности могли подрасти
@@ -158,7 +162,7 @@ namespace {
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void __nts_power__(const element_t & value, const size_t count, element_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_power__(const element_t & value, const size_t count, element_t & result) noexcept {
 		// Переносим возводимый элемент в место итога
 		result = value;
 		/**
@@ -174,13 +178,13 @@ namespace {
 	 * @details Тридцать семь единиц набираются скольжением: на всяком шаге накопленное
 	 *          возводится в квадрат и умножается на исходный элемент, отчего за два
 	 *          действия к показателю приписывается один разряд. Степени с единичными
-	 *          показателями нужны цепочке блоками по тридцать семь разрядов
+	 *          показателями нужны цепочке блоками по тридцать семь разрядов.
 	 *
 	 * @param value  возводимый элемент
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void __nts_ones__(const element_t & value, element_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_ones__(const element_t & value, element_t & result) noexcept {
 		// Начинаем с самого элемента: показатель из одной единицы
 		result = value;
 		/**
@@ -200,13 +204,13 @@ namespace {
 	 *          (2^223 - 1) * 2^223 + (2^222 - 1), а степень с единичным показателем
 	 *          2^222 - 1 собирается из шести блоков по тридцать семь разрядов, ибо
 	 *          222 = 6 * 37. Из неё обращение выводится двумя квадратами и умножением
-	 *          на исходный элемент, а корень - одним умножением
+	 *          на исходный элемент, а корень - одним умножением.
 	 *
 	 * @param value  возводимый элемент
 	 * @param result место, в которое помещается степень
 	 *
 	 */
-	static void __nts_chain__(const element_t & value, element_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_chain__(const element_t & value, element_t & result) noexcept {
 		// Блок с единичным показателем 2^37 - 1
 		element_t block;
 		// Вырабатываем блок возведением в степень 2^37 - 1
@@ -299,7 +303,7 @@ void nts::math::field448::load(const uint8_t * data, element_t & result) noexcep
 	// Выделяем старшую конечность из седьмого слова
 	result.limbs[7] = ((words[6] >> 8) & MASK);
 	// Приведение записи, не меньшей модуля
-	__nts_reduce__(result);
+	::__nts_reduce__(result);
 }
 /**
  * @brief Функция записи элемента поля в пятьдесят шесть байтов
@@ -419,7 +423,7 @@ void nts::math::field448::invert(const element_t & value, element_t & result) no
 	// Степень 2^446 - 2^222 - 1
 	element_t item;
 	// Общую часть цепочки степеней
-	__nts_chain__(value, item);
+	::__nts_chain__(value, item);
 	// Вырабатываем x^(2^447 - 2^223 - 2)
 	square(item, item);
 	// Вырабатываем x^(2^448 - 2^224 - 4)
@@ -438,7 +442,7 @@ void nts::math::field448::root(const element_t & value, element_t & result) noex
 	// Степень 2^446 - 2^222 - 1
 	element_t item;
 	// Общую часть цепочки степеней
-	__nts_chain__(value, item);
+	::__nts_chain__(value, item);
 	// Вырабатываем x^(2^446 - 2^222) умножением на исходный элемент
 	mul(item, value, result);
 }

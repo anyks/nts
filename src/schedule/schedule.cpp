@@ -43,17 +43,21 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный фай
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include "sys/wipe.hpp"
 #include "digest/hmac.hpp"
 #include "digest/hkdf.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
 #include "schedule/schedule.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -66,21 +70,13 @@ using namespace std;
  */
 namespace {
 	/**
-	 * Пространство имён библиотеки
-	 */
-	using namespace nts;
-
-	/**
 	 * @brief Приставка меток назначения протокола
 	 *
 	 * @details Раздел 7.1 RFC 8446: приставкой метки отделяются от меток иных протоколов,
-	 *          выводящих ключи из того же значения
+	 *          выводящих ключи из того же значения.
 	 *
 	 */
-	static const char * PREFIX = "tls13 ";
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
+	static constexpr const char * PREFIX = "tls13 ";
 };
 
 /**
@@ -183,7 +179,7 @@ bool nts::schedule::expand(const digest::hash_t algorithm, const view_t & secret
 	// Растяжение значения расписания ключей
 	const bool ok = digest::expand(algorithm, view_t(key, width), (((info.data != nullptr) && (info.size > 0)) ? info : view_t()), result, size);
 	// Затирание ключа растяжения
-	wipe(key, sizeof(key));
+	sys::wipe(key, sizeof(key));
 	// Выводим признак успешности растяжения значения расписания ключей
 	return ok;
 }
@@ -265,7 +261,7 @@ bool nts::schedule::derive(const digest::hash_t algorithm, const view_t & secret
 	// Растяжение значения расписания ключей
 	const bool ok = nts::schedule::expand(algorithm, secret, view_t(info, offset), result, size);
 	// Затирание описания назначения выводимого значения
-	wipe(info, sizeof(info));
+	sys::wipe(info, sizeof(info));
 	// Выводим признак успешности вывода значения расписания ключей
 	return ok;
 }

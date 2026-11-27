@@ -20,16 +20,20 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "sign/lms.hpp"
-#include "digest/hash.hpp"
 #include "sys/wipe.hpp"
+#include "digest/hash.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "sign/lms.hpp"
 
 /**
  * @brief Внутренние служебные объекты
@@ -47,30 +51,34 @@ namespace {
 	using nts::sys::wipe;
 
 	/**
-	 * Доменные константы записей: раздел 4 RFC 8554
-	 */
-	static constexpr uint16_t D_PBLC = 0x8080;
-	// Доменная константа сообщения
-	static constexpr uint16_t D_MESG = 0x8181;
-	// Доменная константа листа
-	static constexpr uint16_t D_LEAF = 0x8282;
-	// Доменная константа внутреннего узла
-	static constexpr uint16_t D_INTR = 0x8383;
-
-	/**
 	 * Наибольшая длина хеша SHA-256 в байтах
 	 */
 	static constexpr size_t M32 = 32;
-
 	/**
 	 * Наибольшее число звеньев цепочек Винтерница (при w = 1)
 	 */
 	static constexpr size_t P_MAX = 265;
-
 	/**
 	 * Наибольшее количество уровней HSS по SP 800-208
 	 */
 	static constexpr size_t LEVELS_MAX = 8;
+
+	/**
+	 * Доменная константа сообщения: раздел 4 RFC 8554
+	 */
+	static constexpr uint16_t D_MESG = 0x8181;
+	/**
+	 * Доменная константа листа: раздел 4 RFC 8554
+	 */
+	static constexpr uint16_t D_LEAF = 0x8282;
+	/**
+	 * Доменная константа внутреннего узла: раздел 4 RFC 8554
+	 */
+	static constexpr uint16_t D_INTR = 0x8383;
+	/**
+	 * Доменная константа открытого ключа: раздел 4 RFC 8554
+	 */
+	static constexpr uint16_t D_PBLC = 0x8080;
 
 	/**
 	 * @brief Функция чтения четырёхбайтового числа старшим байтом вперёд
@@ -79,11 +87,10 @@ namespace {
 	 * @return     прочитанное число
 	 *
 	 */
-	static uint32_t __nts_u32__(const uint8_t * data) noexcept {
+	static __NTS_INLINE__ uint32_t __nts_u32__(const uint8_t * data) noexcept {
 		// Складываем число из байтов
 		return ((static_cast <uint32_t> (data[0]) << 24) | (static_cast <uint32_t> (data[1]) << 16) | (static_cast <uint32_t> (data[2]) << 8) | data[3]);
 	}
-
 	/**
 	 * @brief Функция записи двухбайтового числа старшим байтом вперёд
 	 *
@@ -91,25 +98,24 @@ namespace {
 	 * @param result место записи
 	 *
 	 */
-	static void __nts_u16__(const uint16_t value, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_u16__(const uint16_t value, uint8_t * result) noexcept {
 		// Записываем байты числа
 		result[0] = static_cast <uint8_t> (value >> 8);
 		// Записываем младший байт числа
 		result[1] = static_cast <uint8_t> (value);
 	}
-
 	/**
 	 * @brief Функция извлечения коэффициента Винтерница
+	 *
+	 * @details Раздел 3.1 RFC 8554: __nts_coef__(S, i, w).
 	 *
 	 * @param S строка, из которой извлекается коэффициент
 	 * @param i порядковый номер w-разрядного значения
 	 * @param w разрядность значения: 1, 2, 4 либо 8
 	 * @return  значение коэффициента
 	 *
-	 * @details Раздел 3.1 RFC 8554: __nts_coef__(S, i, w)
-	 *
 	 */
-	static uint8_t __nts_coef__(const uint8_t * S, const size_t i, const uint8_t w) noexcept {
+	static __NTS_INLINE__ uint8_t __nts_coef__(const uint8_t * S, const size_t i, const uint8_t w) noexcept {
 		// Сдвиг значения внутри байта
 		const uint8_t shift = static_cast <uint8_t> (8 - (w * (i % (8 / w)) + w));
 		// Маска w-разрядного значения
@@ -117,9 +123,10 @@ namespace {
 		// Извлекаем значение из байта
 		return static_cast <uint8_t> ((S[(i * w) / 8] >> shift) & mask);
 	}
-
 	/**
 	 * @brief Функция вычисления контрольной суммы строки
+	 *
+	 * @details Алгоритм 2 RFC 8554: Cksm.
 	 *
 	 * @param S  строка из n байтов
 	 * @param n  длина строки в байтах
@@ -127,10 +134,8 @@ namespace {
 	 * @param ls сдвиг контрольной суммы влево
 	 * @return   контрольная сумма
 	 *
-	 * @details Алгоритм 2 RFC 8554: Cksm
-	 *
 	 */
-	static uint16_t __nts_cksm__(const uint8_t * S, const size_t n, const uint8_t w, const uint8_t ls) noexcept {
+	static __NTS_INLINE__ uint16_t __nts_cksm__(const uint8_t * S, const size_t n, const uint8_t w, const uint8_t ls) noexcept {
 		// Накопитель суммы
 		uint16_t sum = 0;
 		/**
@@ -144,58 +149,81 @@ namespace {
 	}
 
 	/**
-	 * @brief Сведения о наборе параметров LM-OTS
+	 * @brief Структура сведений о наборе параметров LM-OTS
 	 *
 	 */
 	typedef struct OtsParams {
-		// Длина хеша в байтах
-		size_t hashSize;
 		// Разрядность значения Винтерница
-		uint8_t w;
-		// Число звеньев цепочек
-		size_t chainCount;
+		uint8_t w = 0;
 		// Сдвиг контрольной суммы
-		uint8_t shift;
+		uint8_t shift = 0;
+		// Длина хеша в байтах
+		size_t hashSize = 0;
+		// Число звеньев цепочек
+		size_t chainCount = 0;
 	} ots_params_t;
 
 	/**
 	 * @brief Функция получения сведений о наборе LM-OTS по коду типа
 	 *
+	 * @details Таблица 1 RFC 8554.
+	 *
 	 * @param type   код типа LM-OTS
 	 * @param params место, в которое помещаются сведения
 	 * @return       признак известного кода типа
 	 *
-	 * @details Таблица 1 RFC 8554
-	 *
 	 */
-	static bool __nts_ots_params__(const uint32_t type, ots_params_t & params) noexcept {
+	static __NTS_INLINE__ bool __nts_ots_params__(const uint32_t type, ots_params_t & params) noexcept {
 		/**
 		 * По коду типа
 		 */
 		switch(type){
 			// LMOTS_SHA256_N32_W1
-			case 1: params.hashSize = 32; params.w = 1; params.chainCount = 265; params.shift = 7; return true;
+			case 1: {
+				params.w = 1;
+				params.shift = 7;
+				params.hashSize = 32;
+				params.chainCount = 265;
+				return true;
+			}
 			// LMOTS_SHA256_N32_W2
-			case 2: params.hashSize = 32; params.w = 2; params.chainCount = 133; params.shift = 6; return true;
+			case 2: {
+				params.w = 2;
+				params.shift = 6;
+				params.hashSize = 32;
+				params.chainCount = 133;
+				return true;
+			}
 			// LMOTS_SHA256_N32_W4
-			case 3: params.hashSize = 32; params.w = 4; params.chainCount = 67; params.shift = 4; return true;
+			case 3: {
+				params.w = 4;
+				params.shift = 4;
+				params.hashSize = 32;
+				params.chainCount = 67;
+				return true;
+			}
 			// LMOTS_SHA256_N32_W8
-			case 4: params.hashSize = 32; params.w = 8; params.chainCount = 34; params.shift = 0; return true;
+			case 4: {
+				params.w = 8;
+				params.shift = 0;
+				params.hashSize = 32;
+				params.chainCount = 34;
+				return true;
+			}
 			// Код типа неизвестен
 			default: return false;
 		}
 	}
-
 	/**
 	 * @brief Функция получения высоты дерева LMS по коду типа
+	 *
+	 * @details Таблица 2 RFC 8554: у всех наборов m = 32, различается лишь высота.
 	 *
 	 * @param type код типа LMS
 	 * @return     высота дерева, ноль у неизвестного кода
 	 *
-	 * @details Таблица 2 RFC 8554: у всех наборов m = 32, различается лишь высота
-	 *
 	 */
-	static size_t __nts_lms_height__(const uint32_t type) noexcept {
+	static constexpr size_t __nts_lms_height__(const uint32_t type) noexcept {
 		/**
 		 * По коду типа
 		 */
@@ -214,9 +242,10 @@ namespace {
 			default: return 0;
 		}
 	}
-
 	/**
 	 * @brief Функция вычисления ключа-кандидата LM-OTS из подписи
+	 *
+	 * @details Алгоритм 4б RFC 8554.
 	 *
 	 * @param signature подпись LM-OTS: тип, C, y[0..chainCount-1]
 	 * @param message   сообщение
@@ -226,10 +255,8 @@ namespace {
 	 * @param result    место, в которое помещается ключ-кандидат (n байтов)
 	 * @return          признак успешности вычисления
 	 *
-	 * @details Алгоритм 4б RFC 8554
-	 *
 	 */
-	static bool __nts_ots_candidate__(const view_t & signature, const view_t & message, const uint8_t * I, const uint32_t q, const uint32_t pubtype, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_ots_candidate__(const view_t & signature, const view_t & message, const uint8_t * I, const uint32_t q, const uint32_t pubtype, uint8_t * result) noexcept {
 		// Если подпись короче кода типа
 		if(signature.size < 4)
 			// Выводим отрицательный результат - подпись короче кода типа
@@ -362,7 +389,6 @@ namespace {
 		// Выводим признак успеха
 		return true;
 	}
-
 	/**
 	 * @brief Функция проверки подписи LMS
 	 *
@@ -374,7 +400,7 @@ namespace {
 	 * @details Алгоритмы 6 и 6а RFC 8554
 	 *
 	 */
-	static bool __nts_lms_verify__(const view_t & key, const view_t & message, const view_t & signature) noexcept {
+	static __NTS_INLINE__ bool __nts_lms_verify__(const view_t & key, const view_t & message, const view_t & signature) noexcept {
 		// Если открытый ключ короче заголовка
 		if(key.size < 24)
 			// Выводим отрицательный результат - ключ короче заголовка
@@ -531,7 +557,7 @@ namespace {
 		// Выводим итог сверки
 		return valid;
 	}
-}
+};
 
 /**
  * @brief Функция проверки подписи LMS либо HSS
@@ -552,11 +578,13 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 		// Выводим отрицательный результат - ключ короче заголовка
 		return false;
 	/**
-	 * Различие записей LMS и HSS: у одноуровневого ключа LMS первые четыре байта -
-	 * код типа LMS (5..9), а длина записи ровно 24 + m; у ключа HSS первые четыре
-	 * байта - количество уровней (1..8), а за ним идёт запись LMS верхнего уровня
+	 * @brief Если длина ключа отвечает записи LMS, а первые байты - коду типа LMS
+	 *
+	 * @details Различие записей LMS и HSS: у одноуровневого ключа LMS первые четыре байта -
+	 *          код типа LMS (5..9), а длина записи ровно 24 + m; у ключа HSS первые четыре
+	 *          байта - количество уровней (1..8), а за ним идёт запись LMS верхнего уровня.
+	 *
 	 */
-	// Если длина ключа отвечает записи LMS, а первые байты - коду типа LMS
 	if((key.size == 24 + M32) && (__nts_lms_height__(__nts_u32__(key.data)) != 0))
 		// Выводим итог проверки подписи LMS
 		return __nts_lms_verify__(key, message, signature);
@@ -567,12 +595,14 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 		// Выводим отрицательный результат - количество уровней вне дозволенного
 		return false;
 	/**
-	 * Раздел 6 RFC 8554: у HSS открытый ключ - количество уровней и открытый ключ LMS
-	 * верхнего уровня; подпись - количество подписанных открытых ключей (уровней минус
-	 * один), затем по каждому уровню подпись LMS и открытый ключ следующего
-	 * уровня, а за ними подпись LMS сообщения нижним уровнем
+	 * @brief Если подпись короче количества подписанных ключей
+	 *
+	 * @details Раздел 6 RFC 8554: у HSS открытый ключ - количество уровней и открытый ключ LMS
+	 *          верхнего уровня; подпись - количество подписанных открытых ключей (уровней минус
+	 *          один), затем по каждому уровню подпись LMS и открытый ключ следующего
+	 *          уровня, а за ними подпись LMS сообщения нижним уровнем.
+	 *
 	 */
-	// Если подпись короче количества подписанных ключей
 	if(signature.size < 4)
 		// Выводим отрицательный результат - подпись короче количества подписанных ключей
 		return false;

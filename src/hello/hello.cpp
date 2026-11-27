@@ -44,9 +44,13 @@
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
  */
 #include "field/field.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
 #include "hello/hello.hpp"
 
 /**
@@ -79,31 +83,7 @@ namespace {
 	 *       находит прежде глобального, и двусмысленности не возникает
 	 *
 	 */
-	typedef hello::error_t error_t;
-
-	/**
-	 * @brief Функция перевода отказа составителя полей в отказ модуля
-	 *
-	 * @param failure отказ, которым ответил составитель полей
-	 * @return        отказ модуля, отвечающий отказу составителя
-	 *
-	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
-	 *       перехватывает её сам и отвечает отказом, а не исключением, и молчаливый
-	 *       перевод этого отказа в невхождение поля прятал бы истинную причину
-	 *
-	 */
-	static error_t __nts_translate__(const field::error_t failure) noexcept {
-		// Если составитель полей отказом не ответил
-		if(failure == field::error_t::NONE)
-			// Выводим успешность составления
-			return error_t::NONE;
-		// Если памяти под накопитель составителя не хватило
-		if(failure == field::error_t::MEMORY)
-			// Выводим отказ нехватки памяти
-			return error_t::MEMORY;
-		// Выводим отказ невхождения поля в свою длину
-		return error_t::LENGTH;
-	}
+	using error_t = hello::error_t;
 
 	/**
 	 * @brief Случайное значение просьбы о повторе приветствия клиента
@@ -119,6 +99,29 @@ namespace {
 	};
 
 	/**
+	 * @brief Функция перевода отказа составителя полей в отказ модуля
+	 *
+	 * @note Нехватка памяти обязана дойти до вызывающего своим именем: составитель
+	 *       перехватывает её сам и отвечает отказом, а не исключением, и молчаливый
+	 *       перевод этого отказа в невхождение поля прятал бы истинную причину
+	 *
+	 * @param failure отказ, которым ответил составитель полей
+	 * @return        отказ модуля, отвечающий отказу составителя
+	 *
+	 */
+	static constexpr error_t __nts_translate__(const field::error_t failure) noexcept {
+		// Если составитель полей отказом не ответил
+		if(failure == field::error_t::NONE)
+			// Выводим успешность составления
+			return error_t::NONE;
+		// Если памяти под накопитель составителя не хватило
+		if(failure == field::error_t::MEMORY)
+			// Выводим отказ нехватки памяти
+			return error_t::MEMORY;
+		// Выводим отказ невхождения поля в свою длину
+		return error_t::LENGTH;
+	}
+	/**
 	 * @brief Функция разбора перечня расширений приветствия
 	 *
 	 * @param data   разбираемая область расширений приветствия
@@ -126,7 +129,7 @@ namespace {
 	 * @return       отказ разбора перечня расширений
 	 *
 	 */
-	static error_t __nts_extensions__(const view_t & data, vector <extension_t> & result) noexcept {
+	static __NTS_INLINE__ error_t __nts_extensions__(const view_t & data, vector <extension_t> & result) noexcept {
 		// Объект разборщика полей перечня расширений
 		field::scanner_t scanner;
 		// Устанавливаем разбираемую область расширений приветствия
@@ -182,7 +185,7 @@ namespace {
 	 * @return           отказ составления перечня расширений
 	 *
 	 */
-	static error_t __nts_compose__(const vector <extension_t> & extensions, field::builder_t & builder) noexcept {
+	static __NTS_INLINE__ error_t __nts_compose__(const vector <extension_t> & extensions, field::builder_t & builder) noexcept {
 		// Отказ, которым ответил составитель полей
 		field::error_t failure = field::error_t::NONE;
 		// Если перечень расширений приветствия открыть не удалось

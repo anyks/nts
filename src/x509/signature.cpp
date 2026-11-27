@@ -31,7 +31,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -39,18 +39,22 @@
  * Подключаем заголовочные файлы проекта
  */
 #include "sign/rsa.hpp"
+#include "sign/sm2.hpp"
 #include "sign/gost.hpp"
 #include "sign/ecdsa.hpp"
-#include "sign/sm2.hpp"
-#include "sign/ed25519.hpp"
 #include "sign/ed448.hpp"
 #include "sign/mldsa.hpp"
 #include "sign/slhdsa.hpp"
+#include "sign/ed25519.hpp"
 #include "asn1/asn1.hpp"
 #include "digest/hash.hpp"
 #include "digest/streebog.hpp"
-#include "x509/signature.hpp"
 #include "curve/parameters.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "x509/signature.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -83,113 +87,37 @@ namespace {
 	};
 
 	/**
-	 * @brief Соответствие опознавателя алгоритма подписи виду и хешу
-	 *
-	 */
-	typedef struct Record {
-		// Опознаватель алгоритма подписи в записи через точку
-		const char * oid;
-		// Семейство алгоритма подписи
-		family_t kind;
-		// Алгоритм хеша подписываемой записи
-		digest::hash_t hash;
-	} record_t;
-
-	/**
 	 * @brief Соответствие опознавателя алгоритма хеша самому хешу
 	 *
 	 */
 	typedef struct Hash {
-		// Опознаватель алгоритма хеша в записи через точку
-		const char * oid;
 		// Алгоритм хеша
 		digest::hash_t hash;
+		// Опознаватель алгоритма хеша в записи через точку
+		const char * oid = nullptr;
 	} hash_t;
+	/**
+	 * @brief Соответствие опознавателя алгоритма подписи виду и хешу
+	 *
+	 */
+	typedef struct Record {
+		// Семейство алгоритма подписи
+		family_t kind;
+		// Алгоритм хеша подписываемой записи
+		digest::hash_t hash;
+		// Опознаватель алгоритма подписи в записи через точку
+		const char * oid = nullptr;
+	} record_t;
 
 	/**
-	 * Известные алгоритмы подписи
+	 * Длина соли подписи RSASSA-PSS по умолчанию: раздел 3.1 RFC 4055
 	 */
-	static const record_t ALGORITHMS[] = {
-		// Подпись ГОСТ Р 34.10-2012 с ключом длиной 256 разрядов и хешем той же длины
-		{"1.2.643.7.1.1.3.2", family_t::GOST, digest::hash_t::STREEBOG256},
-		// Подпись ГОСТ Р 34.10-2012 с ключом длиной 512 разрядов и хешем той же длины
-		{"1.2.643.7.1.1.3.3", family_t::GOST, digest::hash_t::STREEBOG512},
-		// Подпись ECDSA с хешем SHA-224: раздел 3.2 RFC 5758
-		{"1.2.840.10045.4.3.1", family_t::ECDSA, digest::hash_t::SHA224},
-		// Подпись ECDSA с хешем SHA-256
-		{"1.2.840.10045.4.3.2", family_t::ECDSA, digest::hash_t::SHA256},
-		// Подпись ECDSA с хешем SHA-384
-		{"1.2.840.10045.4.3.3", family_t::ECDSA, digest::hash_t::SHA384},
-		// Подпись ECDSA с хешем SHA-512
-		{"1.2.840.10045.4.3.4", family_t::ECDSA, digest::hash_t::SHA512},
-		// Подпись RSA PKCS #1 v1.5 с хешем SHA-1: раздел 2.2.1 RFC 3279
-		{"1.2.840.113549.1.1.5", family_t::PKCS1, digest::hash_t::SHA1},
-		// Подпись RSA PKCS #1 v1.5 с хешем SHA-256: раздел 5 RFC 4055
-		{"1.2.840.113549.1.1.11", family_t::PKCS1, digest::hash_t::SHA256},
-		// Подпись RSA PKCS #1 v1.5 с хешем SHA-384
-		{"1.2.840.113549.1.1.12", family_t::PKCS1, digest::hash_t::SHA384},
-		// Подпись RSA PKCS #1 v1.5 с хешем SHA-512
-		{"1.2.840.113549.1.1.13", family_t::PKCS1, digest::hash_t::SHA512},
-		// Подпись RSA PKCS #1 v1.5 с хешем SHA-224
-		{"1.2.840.113549.1.1.14", family_t::PKCS1, digest::hash_t::SHA224},
-		// Подпись RSASSA-PSS: хеш задаётся настройками алгоритма, раздел 3.1 RFC 4055
-		{"1.2.840.113549.1.1.10", family_t::PSS, digest::hash_t::NONE},
-		// Подпись Ed25519: хеша нет, подписывается само сообщение, раздел 3 RFC 8410
-		{"1.3.101.112", family_t::ED25519, digest::hash_t::NONE},
-		// Подпись Ed448: хеша нет, подписывается само сообщение, раздел 3 RFC 8410
-		{"1.3.101.113", family_t::ED448, digest::hash_t::NONE},
-		// Подпись ML-DSA-44: хеша нет, подписывается само сообщение, раздел 4 RFC 9881
-		{"2.16.840.1.101.3.4.3.17", family_t::MLDSA, digest::hash_t::NONE},
-		// Подпись ML-DSA-65
-		{"2.16.840.1.101.3.4.3.18", family_t::MLDSA, digest::hash_t::NONE},
-		// Подпись ML-DSA-87
-		{"2.16.840.1.101.3.4.3.19", family_t::MLDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHA2-128s: хеша нет, подписывается само сообщение, раздел 4 RFC 9909
-		{"2.16.840.1.101.3.4.3.20", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHA2-128f
-		{"2.16.840.1.101.3.4.3.21", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHAKE-128s
-		{"2.16.840.1.101.3.4.3.22", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHAKE-128f
-		{"2.16.840.1.101.3.4.3.23", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHA2-192s
-		{"2.16.840.1.101.3.4.3.24", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHA2-192f
-		{"2.16.840.1.101.3.4.3.25", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHAKE-192s
-		{"2.16.840.1.101.3.4.3.26", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHAKE-192f
-		{"2.16.840.1.101.3.4.3.27", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHA2-256s
-		{"2.16.840.1.101.3.4.3.28", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHA2-256f
-		{"2.16.840.1.101.3.4.3.29", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHAKE-256s
-		{"2.16.840.1.101.3.4.3.30", family_t::SLHDSA, digest::hash_t::NONE},
-		// Подпись SLH-DSA-SHAKE-256f
-		{"2.16.840.1.101.3.4.3.31", family_t::SLHDSA, digest::hash_t::NONE}
-	};
-
-	/**
-	 * Известные алгоритмы хеша в настройках подписи RSASSA-PSS
-	 */
-	static const hash_t HASHES[] = {
-		// Хеш SHA-1: раздел 2.1 RFC 4055
-		{"1.3.14.3.2.26", digest::hash_t::SHA1},
-		// Хеш SHA-224
-		{"2.16.840.1.101.3.4.2.4", digest::hash_t::SHA224},
-		// Хеш SHA-256
-		{"2.16.840.1.101.3.4.2.1", digest::hash_t::SHA256},
-		// Хеш SHA-384
-		{"2.16.840.1.101.3.4.2.2", digest::hash_t::SHA384},
-		// Хеш SHA-512
-		{"2.16.840.1.101.3.4.2.3", digest::hash_t::SHA512}
-	};
+	static constexpr size_t PSS_SALT = 20;
 
 	/**
 	 * Известные алгоритмы открытого ключа подписи ГОСТ Р 34.10-2012
 	 */
-	static const char * KEYS[] = {
+	static constexpr const char * KEYS[] = {
 		// Открытый ключ по ГОСТ Р 34.10-2012 длиной 256 разрядов
 		"1.2.643.7.1.1.1.1",
 		// Открытый ключ по ГОСТ Р 34.10-2012 длиной 512 разрядов
@@ -200,62 +128,10 @@ namespace {
 		 */
 		"1.2.643.2.2.19"
 	};
-
-	/**
-	 * Опознаватель алгоритма открытого ключа RSA: раздел 2.3.1 RFC 3279
-	 */
-	static const char * RSA_KEY = "1.2.840.113549.1.1.1";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа RSA, назначенного одной подписи
-	 * RSASSA-PSS: раздел 3.1 RFC 4055
-	 */
-	static const char * PSS_KEY = "1.2.840.113549.1.1.10";
-
-	/**
-	 * Опознаватель алгоритма порождения маски MGF1: раздел 2.2 RFC 4055
-	 */
-	static const char * MGF1 = "1.2.840.113549.1.1.8";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа эллиптической кривой: раздел 2.1.1 RFC 5480
-	 */
-	static const char * EC_KEY = "1.2.840.10045.2.1";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа Ed25519: раздел 3 RFC 8410
-	 */
-	static const char * ED_KEY = "1.3.101.112";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа Ed448: раздел 3 RFC 8410
-	 */
-	static const char * ED448_KEY = "1.3.101.113";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа SM2: GB/T 32918 и RFC 8998
-	 */
-	static const char * SM2_KEY = "1.2.156.10197.1.301";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа ML-DSA-44: раздел 5 RFC 9881
-	 */
-	static const char * MLDSA44_KEY = "2.16.840.1.101.3.4.3.17";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа ML-DSA-65: раздел 5 RFC 9881
-	 */
-	static const char * MLDSA65_KEY = "2.16.840.1.101.3.4.3.18";
-
-	/**
-	 * Опознаватель алгоритма открытого ключа ML-DSA-87: раздел 5 RFC 9881
-	 */
-	static const char * MLDSA87_KEY = "2.16.840.1.101.3.4.3.19";
-
 	/**
 	 * Опознаватели алгоритмов открытых ключей SLH-DSA: раздел 4 RFC 9909
 	 */
-	static const char * SLHDSA_KEYS[12] = {
+	static constexpr const char * SLHDSA_KEYS[12] = {
 		// Опознаватели алгоритмов SLH-DSA со 128-битной стойкостью
 		"2.16.840.1.101.3.4.3.20", "2.16.840.1.101.3.4.3.21",
 		"2.16.840.1.101.3.4.3.22", "2.16.840.1.101.3.4.3.23",
@@ -264,11 +140,88 @@ namespace {
 		"2.16.840.1.101.3.4.3.28", "2.16.840.1.101.3.4.3.29",
 		"2.16.840.1.101.3.4.3.30", "2.16.840.1.101.3.4.3.31"
 	};
-
+	/**
+	 * Известные алгоритмы хеша в настройках подписи RSASSA-PSS
+	 */
+	static constexpr const hash_t HASHES[] = {
+		// Хеш SHA-1: раздел 2.1 RFC 4055
+		{digest::hash_t::SHA1, "1.3.14.3.2.26"},
+		// Хеш SHA-224
+		{digest::hash_t::SHA224, "2.16.840.1.101.3.4.2.4"},
+		// Хеш SHA-256
+		{digest::hash_t::SHA256, "2.16.840.1.101.3.4.2.1"},
+		// Хеш SHA-384
+		{digest::hash_t::SHA384, "2.16.840.1.101.3.4.2.2"},
+		// Хеш SHA-512
+		{digest::hash_t::SHA512, "2.16.840.1.101.3.4.2.3"}
+	};
+	/**
+	 * Известные алгоритмы подписи
+	 */
+	static constexpr const record_t ALGORITHMS[] = {
+		// Подпись ГОСТ Р 34.10-2012 с ключом длиной 256 разрядов и хешем той же длины
+		{family_t::GOST, digest::hash_t::STREEBOG256, "1.2.643.7.1.1.3.2"},
+		// Подпись ГОСТ Р 34.10-2012 с ключом длиной 512 разрядов и хешем той же длины
+		{family_t::GOST, digest::hash_t::STREEBOG512, "1.2.643.7.1.1.3.3"},
+		// Подпись ECDSA с хешем SHA-224: раздел 3.2 RFC 5758
+		{family_t::ECDSA, digest::hash_t::SHA224, "1.2.840.10045.4.3.1"},
+		// Подпись ECDSA с хешем SHA-256
+		{family_t::ECDSA, digest::hash_t::SHA256, "1.2.840.10045.4.3.2"},
+		// Подпись ECDSA с хешем SHA-384
+		{family_t::ECDSA, digest::hash_t::SHA384, "1.2.840.10045.4.3.3"},
+		// Подпись ECDSA с хешем SHA-512
+		{family_t::ECDSA, digest::hash_t::SHA512, "1.2.840.10045.4.3.4"},
+		// Подпись RSA PKCS #1 v1.5 с хешем SHA-1: раздел 2.2.1 RFC 3279
+		{family_t::PKCS1, digest::hash_t::SHA1, "1.2.840.113549.1.1.5"},
+		// Подпись RSA PKCS #1 v1.5 с хешем SHA-256: раздел 5 RFC 4055
+		{family_t::PKCS1, digest::hash_t::SHA256, "1.2.840.113549.1.1.11"},
+		// Подпись RSA PKCS #1 v1.5 с хешем SHA-384
+		{family_t::PKCS1, digest::hash_t::SHA384, "1.2.840.113549.1.1.12"},
+		// Подпись RSA PKCS #1 v1.5 с хешем SHA-512
+		{family_t::PKCS1, digest::hash_t::SHA512, "1.2.840.113549.1.1.13"},
+		// Подпись RSA PKCS #1 v1.5 с хешем SHA-224
+		{family_t::PKCS1, digest::hash_t::SHA224, "1.2.840.113549.1.1.14"},
+		// Подпись RSASSA-PSS: хеш задаётся настройками алгоритма, раздел 3.1 RFC 4055
+		{family_t::PSS, digest::hash_t::NONE, "1.2.840.113549.1.1.10"},
+		// Подпись Ed25519: хеша нет, подписывается само сообщение, раздел 3 RFC 8410
+		{family_t::ED25519, digest::hash_t::NONE, "1.3.101.112"},
+		// Подпись Ed448: хеша нет, подписывается само сообщение, раздел 3 RFC 8410
+		{family_t::ED448, digest::hash_t::NONE, "1.3.101.113"},
+		// Подпись ML-DSA-44: хеша нет, подписывается само сообщение, раздел 4 RFC 9881
+		{family_t::MLDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.17"},
+		// Подпись ML-DSA-65
+		{family_t::MLDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.18"},
+		// Подпись ML-DSA-87
+		{family_t::MLDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.19"},
+		// Подпись SLH-DSA-SHA2-128s: хеша нет, подписывается само сообщение, раздел 4 RFC 9909
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.20"},
+		// Подпись SLH-DSA-SHA2-128f
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.21"},
+		// Подпись SLH-DSA-SHAKE-128s
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.22"},
+		// Подпись SLH-DSA-SHAKE-128f
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.23"},
+		// Подпись SLH-DSA-SHA2-192s
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.24"},
+		// Подпись SLH-DSA-SHA2-192f
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.25"},
+		// Подпись SLH-DSA-SHAKE-192s
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.26"},
+		// Подпись SLH-DSA-SHAKE-192f
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.27"},
+		// Подпись SLH-DSA-SHA2-256s
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.28"},
+		// Подпись SLH-DSA-SHA2-256f
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.29"},
+		// Подпись SLH-DSA-SHAKE-256s
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.30"},
+		// Подпись SLH-DSA-SHAKE-256f
+		{family_t::SLHDSA, digest::hash_t::NONE, "2.16.840.1.101.3.4.3.31"}
+	};
 	/**
 	 * Наборы SLH-DSA по месту опознавателя: сперва SHA2, затем SHAKE (раздел 4 RFC 9909)
 	 */
-	static const sign::slh_dsa_t::set_t SLHDSA_SETS[12] = {
+	static constexpr const sign::slh_dsa_t::set_t SLHDSA_SETS[12] = {
 		// Наборы SHA2 со 128-битной стойкостью: малое и полное дерево
 		sign::slh_dsa_t::set_t::SHA2_128S, sign::slh_dsa_t::set_t::SHA2_128F,
 		sign::slh_dsa_t::set_t::SHA2_192S, sign::slh_dsa_t::set_t::SHA2_192F,
@@ -279,9 +232,46 @@ namespace {
 	};
 
 	/**
-	 * Длина соли подписи RSASSA-PSS по умолчанию: раздел 3.1 RFC 4055
+	 * Опознаватель алгоритма открытого ключа Ed25519: раздел 3 RFC 8410
 	 */
-	static constexpr size_t PSS_SALT = 20;
+	static constexpr const char * ED_KEY = "1.3.101.112";
+	/**
+	 * Опознаватель алгоритма открытого ключа Ed448: раздел 3 RFC 8410
+	 */
+	static constexpr const char * ED448_KEY = "1.3.101.113";
+	/**
+	 * Опознаватель алгоритма открытого ключа эллиптической кривой: раздел 2.1.1 RFC 5480
+	 */
+	static constexpr const char * EC_KEY = "1.2.840.10045.2.1";
+	/**
+	 * Опознаватель алгоритма порождения маски MGF1: раздел 2.2 RFC 4055
+	 */
+	static constexpr const char * MGF1 = "1.2.840.113549.1.1.8";
+	/**
+	 * Опознаватель алгоритма открытого ключа SM2: GB/T 32918 и RFC 8998
+	 */
+	static constexpr const char * SM2_KEY = "1.2.156.10197.1.301";
+	/**
+	 * Опознаватель алгоритма открытого ключа RSA: раздел 2.3.1 RFC 3279
+	 */
+	static constexpr const char * RSA_KEY = "1.2.840.113549.1.1.1";
+	/**
+	 * Опознаватель алгоритма открытого ключа RSA, назначенного одной подписи
+	 * RSASSA-PSS: раздел 3.1 RFC 4055
+	 */
+	static constexpr const char * PSS_KEY = "1.2.840.113549.1.1.10";
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-44: раздел 5 RFC 9881
+	 */
+	static constexpr const char * MLDSA44_KEY = "2.16.840.1.101.3.4.3.17";
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-65: раздел 5 RFC 9881
+	 */
+	static constexpr const char * MLDSA65_KEY = "2.16.840.1.101.3.4.3.18";
+	/**
+	 * Опознаватель алгоритма открытого ключа ML-DSA-87: раздел 5 RFC 9881
+	 */
+	static constexpr const char * MLDSA87_KEY = "2.16.840.1.101.3.4.3.19";
 
 	/**
 	 * @brief Функция розыска алгоритма подписи по опознавателю
@@ -290,7 +280,7 @@ namespace {
 	 * @return          запись известного алгоритма либо нулевой указатель
 	 *
 	 */
-	static const record_t * __nts_lookup__(const string & algorithm) noexcept {
+	static __NTS_INLINE__ const record_t * __nts_lookup__(const string & algorithm) noexcept {
 		/**
 		 * Перебираем известные алгоритмы подписи
 		 */
@@ -311,7 +301,7 @@ namespace {
 	 * @return       признак того, что алгоритм хеша известен
 	 *
 	 */
-	static bool __nts_hashing__(const string & oid, digest::hash_t & result) noexcept {
+	static __NTS_INLINE__ bool __nts_hashing__(const string & oid, digest::hash_t & result) noexcept {
 		/**
 		 * Перебираем известные алгоритмы хеша
 		 */
@@ -334,7 +324,7 @@ namespace {
 	 * @return          признак пригодности алгоритма открытого ключа
 	 *
 	 */
-	static bool __nts_suitable__(const string & algorithm) noexcept {
+	static __NTS_INLINE__ bool __nts_suitable__(const string & algorithm) noexcept {
 		/**
 		 * Перебираем известные алгоритмы открытого ключа
 		 */
@@ -350,19 +340,17 @@ namespace {
 	/**
 	 * @brief Функция извлечения опознавателя набора параметров кривой ключа
 	 *
+	 * @details Настройки алгоритма ключа записаны набором из опознавателя набора
+	 *          параметров кривой и, необязательно, опознавателя хеша: раздел 2.1
+	 *          RFC 9215.
+	 *
 	 * @param key    сведения об открытом ключе, набор параметров которого извлекается
 	 * @param result строка, в которую помещается опознаватель набора параметров
 	 * @return       отказ извлечения опознавателя: KEY - ключ чужого алгоритма либо
 	 *               негодная запись настроек, MEMORY - памяти под опознаватель не хватило
 	 *
-	 *               негодная запись настроек, MEMORY - памяти под опознаватель не хватило
-	 *
-	 * @details Настройки алгоритма ключа записаны набором из опознавателя набора
-	 *          параметров кривой и, необязательно, опознавателя хеша: раздел 2.1
-	 *          RFC 9215
-	 *
 	 */
-	static nts::x509::error_t __nts_identifier__(const view_t & parameters, string & result) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_identifier__(const view_t & parameters, string & result) noexcept {
 		// Сброс извлекаемого опознавателя
 		result.clear();
 		// Если запись настроек алгоритма ключа не передана
@@ -396,7 +384,7 @@ namespace {
 	 * @brief Функция извлечения координат открытого ключа ГОСТ
 	 *
 	 * @details Раздел 4 RFC 9215: разряды открытого ключа несут запись строки байтов, а
-	 *          в ней подряд лежат координаты, записанные от младшего байта к старшему
+	 *          в ней подряд лежат координаты, записанные от младшего байта к старшему.
 	 *
 	 * @param data разбираемая запись открытого ключа
 	 * @param size размер координаты точки кривой в байтах
@@ -405,7 +393,7 @@ namespace {
 	 * @return     признак успешности извлечения координат открытого ключа
 	 *
 	 */
-	static bool __nts_coordinates__(const view_t & data, const size_t size, uint8_t * xCoord, uint8_t * yCoord) noexcept {
+	static __NTS_INLINE__ bool __nts_coordinates__(const view_t & data, const size_t size, uint8_t * xCoord, uint8_t * yCoord) noexcept {
 		// Если запись открытого ключа не передана
 		if((data.data == nullptr) || (data.size == 0))
 			// Выводим отказ извлечения координат открытого ключа
@@ -444,7 +432,7 @@ namespace {
 	 * @return      отказ заведения подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_establish__(const nts::x509::key_t & key, curve::curve_t & curve, sign::gost_t & gost) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_establish__(const nts::x509::key_t & key, curve::curve_t & curve, sign::gost_t & gost) noexcept {
 		// Если алгоритм открытого ключа непригоден
 		if(!__nts_suitable__(key.algorithm))
 			// Выводим отказ ключа чужого алгоритма
@@ -452,7 +440,7 @@ namespace {
 		// Опознаватель набора параметров кривой
 		string oid;
 		// Итог извлечения опознавателя набора параметров кривой
-		const nts::x509::error_t extracted = ::__nts_identifier__(key.parameters, oid);
+		const nts::x509::error_t extracted = __nts_identifier__(key.parameters, oid);
 		// Если опознаватель набора параметров кривой извлечь не удалось
 		if(extracted != nts::x509::error_t::NONE)
 			// Выводим отказ извлечения опознавателя
@@ -493,7 +481,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_gost__(const view_t & body, const view_t & signature, const size_t size, const nts::x509::key_t & key) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_gost__(const view_t & body, const view_t & signature, const size_t size, const nts::x509::key_t & key) noexcept {
 		// Эллиптическая кривая проверки подписи
 		curve::curve_t curve;
 		// Объект модуля электронной подписи
@@ -546,7 +534,7 @@ namespace {
 	 * @brief Функция разбора записи опознавателя алгоритма
 	 *
 	 * @details Запись AlgorithmIdentifier раздела 4.1.1.2 RFC 5280: набор из опознавателя
-	 *          и, необязательно, настроек алгоритма
+	 *          и, необязательно, настроек алгоритма.
 	 *
 	 * @param data   разбираемая запись опознавателя алгоритма
 	 * @param oid    место, в которое помещается опознаватель алгоритма
@@ -554,7 +542,7 @@ namespace {
 	 * @return       отказ разбора записи опознавателя алгоритма
 	 *
 	 */
-	static nts::x509::error_t __nts_algorithm__(const view_t & data, string & oid, view_t & params) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_algorithm__(const view_t & data, string & oid, view_t & params) noexcept {
 		// Сброс записи настроек алгоритма
 		params = view_t();
 		// Разборщик записи опознавателя алгоритма
@@ -602,13 +590,13 @@ namespace {
 	 *
 	 * @details Настройки алгоритма ключа RSA записываются значением NULL (раздел 2.3.1
 	 *          RFC 3279), а у ключа Ed25519 отсутствуют вовсе (раздел 3 RFC 8410);
-	 *          и то и другое считается отсутствием настроек
+	 *          и то и другое считается отсутствием настроек.
 	 *
 	 * @param parameters запись настроек алгоритма
 	 * @return           признак того, что настроек алгоритма нет
 	 *
 	 */
-	static bool __nts_absent__(const view_t & parameters) noexcept {
+	static __NTS_INLINE__ bool __nts_absent__(const view_t & parameters) noexcept {
 		// Если запись настроек алгоритма не передана
 		if((parameters.data == nullptr) || (parameters.size == 0))
 			// Выводим признак отсутствия настроек
@@ -629,14 +617,14 @@ namespace {
 	 *
 	 * @details Раздел 2.3.1 RFC 3279: разряды открытого ключа несут запись RSAPublicKey.
 	 *          Ключ, объявленный алгоритмом id-RSASSA-PSS, устроен так же (раздел 3.1
-	 *          RFC 4055), а ограничения его настроек на подпись здесь не рассматриваются
+	 *          RFC 4055), а ограничения его настроек на подпись здесь не рассматриваются.
 	 *
 	 * @param key сведения об открытом ключе подписавшей стороны
 	 * @param rsa объект подписи, в который устанавливается открытый ключ
 	 * @return    отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t __nts_rsa__(const nts::x509::key_t & key, sign::rsa_t & rsa, const bool pss) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_rsa__(const nts::x509::key_t & key, sign::rsa_t & rsa, const bool pss) noexcept {
 		// Если алгоритм открытого ключа не есть RSA
 		if((key.algorithm.compare(RSA_KEY) != 0) && (key.algorithm.compare(PSS_KEY) != 0))
 			// Выводим отказ ключа чужого алгоритма
@@ -673,7 +661,7 @@ namespace {
 	 * @details Раздел 2.1.1 RFC 5480: настройки ключа несут опознаватель именованной
 	 *          кривой, а разряды ключа - точку в несжатой записи 0x04 || x || y
 	 *          (раздел 2.2). Сжатая запись точки не поддерживается: раздел 2.2 велит
-	 *          её лишь принимать по возможности, а издатели её не выпускают
+	 *          её лишь принимать по возможности, а издатели её не выпускают.
 	 *
 	 * @param key   сведения об открытом ключе подписавшей стороны
 	 * @param curve кривая, в которую помещается набор параметров ключа
@@ -681,7 +669,7 @@ namespace {
 	 * @return      отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t __nts_ecdsa__(const nts::x509::key_t & key, curve::curve_t & curve, sign::ecdsa_t & ecdsa) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_ecdsa__(const nts::x509::key_t & key, curve::curve_t & curve, sign::ecdsa_t & ecdsa) noexcept {
 		// Если алгоритм открытого ключа не есть ключ эллиптической кривой
 		if(key.algorithm.compare(EC_KEY) != 0)
 			// Выводим отказ ключа чужого алгоритма
@@ -699,7 +687,7 @@ namespace {
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		// Опознаватель именованной кривой
-		string oid;
+		string oid = "";
 		// Итог извлечения опознавателя именованной кривой
 		const asn1::error_t outcome = asn1::oid(element, oid);
 		// Если памяти под опознаватель не хватило
@@ -723,11 +711,13 @@ namespace {
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		/**
-		 * Заслон этот недостижим извне: кривая приходит сюда из набора известных, заведённого
-		 * самим составом библиотеки, и установка её отказом ответить не может. Стоит он ради
-		 * связности: молчаливый счёт подписи на незаведённой кривой был бы хуже
+		 * @brief Если эллиптическую кривую установить не удалось
+		 *
+		 * @details Заслон этот недостижим извне: кривая приходит сюда из набора известных, заведённого
+		 *          самим составом библиотеки, и установка её отказом ответить не может. Стоит он ради
+		 *          связности: молчаливый счёт подписи на незаведённой кривой был бы хуже.
+		 *
 		 */
-		// Если эллиптическую кривую установить не удалось
 		if(!ecdsa.start(curve))
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
@@ -742,14 +732,14 @@ namespace {
 	 * @brief Функция заведения открытого ключа Ed25519
 	 *
 	 * @details Раздел 4 RFC 8410: настроек у алгоритма нет, разряды ключа несут сжатую
-	 *          точку в тридцать два байта
+	 *          точку в тридцать два байта.
 	 *
 	 * @param key     сведения об открытом ключе подписавшей стороны
 	 * @param ed25519 объект подписи, в который устанавливается открытый ключ
 	 * @return        отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t __nts_ed25519__(const nts::x509::key_t & key, sign::ed25519_t & ed25519) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_ed25519__(const nts::x509::key_t & key, sign::ed25519_t & ed25519) noexcept {
 		// Если алгоритм открытого ключа не есть Ed25519
 		if(key.algorithm.compare(ED_KEY) != 0)
 			// Выводим отказ ключа чужого алгоритма
@@ -777,7 +767,7 @@ namespace {
 	 * @return      отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t __nts_ed448__(const nts::x509::key_t & key, sign::ed448_t & ed448) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_ed448__(const nts::x509::key_t & key, sign::ed448_t & ed448) noexcept {
 		// Если алгоритм открытого ключа не есть Ed448
 		if(key.algorithm.compare(ED448_KEY) != 0)
 			// Выводим отказ ключа чужого алгоритма
@@ -806,7 +796,7 @@ namespace {
 	 *          соли и хвостовое поле. Умолчания: SHA-1, MGF1 с SHA-1, двадцать байтов
 	 *          соли и хвостовое поле единица. Хеш порождения маски обязан совпадать с
 	 *          хешем подписи: того требует раздел 4.2.3 RFC 8446, а раздел 3.1 RFC 4055
-	 *          настоятельно советует, - иного сочетания никто не выпускает
+	 *          настоятельно советует, - иного сочетания никто не выпускает.
 	 *
 	 * @param parameters запись настроек алгоритма подписи целиком либо пустой просмотр
 	 * @param hash       место, в которое помещается алгоритм хеша подписи
@@ -814,7 +804,7 @@ namespace {
 	 * @return           отказ разбора настроек подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_settings__(const view_t & parameters, digest::hash_t & hash, size_t & salt) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_settings__(const view_t & parameters, digest::hash_t & hash, size_t & salt) noexcept {
 		// Устанавливаем умолчание алгоритма хеша подписи
 		hash = digest::hash_t::SHA1;
 		// Устанавливаем умолчание длины соли
@@ -967,14 +957,14 @@ namespace {
 	 *          алгоритма подписи с настройками третьим полем, за изданием и порядковым
 	 *          номером, и разбор сертификата уже сверил его с внешним. Извлечение
 	 *          идёт из тела, поскольку разобранный сертификат наружу отдаёт один лишь
-	 *          опознаватель
+	 *          опознаватель.
 	 *
 	 * @param body       тело сертификата
 	 * @param parameters место, в которое помещается запись настроек алгоритма целиком
 	 * @return           признак успешности извлечения настроек
 	 *
 	 */
-	static bool __nts_declared__(const view_t & body, view_t & parameters) noexcept {
+	static __NTS_INLINE__ bool __nts_declared__(const view_t & body, view_t & parameters) noexcept {
 		// Сброс извлекаемой записи настроек
 		parameters = view_t();
 		// Разборщик тела сертификата
@@ -1021,18 +1011,18 @@ namespace {
 	/**
 	 * @brief Функция проверки подписи SM2 содержимого открытым ключом
 	 *
+	 * @details Подписываемое значение e = SM3(Z_A ‖ M): Z_A вяжет подпись с
+	 *          опознавателем, параметрами кривой и ключом; хеш считается самим
+	 *          модулем, отдельного хеширования содержимого здесь не ведётся.
+	 *
 	 * @param content   подписанное содержимое
 	 * @param signature подпись в записи протокола: SEQUENCE {INTEGER r, INTEGER s}
 	 * @param key       сведения об открытом ключе подписавшей стороны
 	 * @param id        опознаватель подписывающего для выработки Z_A
 	 * @return          отказ проверки подписи
 	 *
-	 * @details Подписываемое значение e = SM3(Z_A ‖ M): Z_A вяжет подпись с
-	 *          опознавателем, параметрами кривой и ключом; хеш считается самим
-	 *          модулем, отдельного хеширования содержимого здесь не ведётся
-	 *
 	 */
-	static nts::x509::error_t __nts_sm2__(const view_t & content, const view_t & signature, const nts::x509::key_t & key, const view_t & id) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_sm2__(const view_t & content, const view_t & signature, const nts::x509::key_t & key, const view_t & id) noexcept {
 		// Если ключ не эллиптической кривой: ключ SM2 идёт записью id-ecPublicKey с кривой curveSM2
 		if(key.algorithm.compare(EC_KEY) != 0)
 			// Выводим отказ ключа чужого алгоритма
@@ -1052,7 +1042,7 @@ namespace {
 			// Выводим отказ заведения открытого ключа
 			return nts::x509::error_t::SIGNATURE;
 		// Опознаватель именованной кривой
-		string oid;
+		string oid = "";
 		// Итог извлечения опознавателя именованной кривой
 		const asn1::error_t outcome = asn1::oid(element, oid);
 		// Если памяти под опознаватель не хватило
@@ -1108,7 +1098,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_ecdsa__(const digest::hash_t hash, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_ecdsa__(const digest::hash_t hash, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Если алгоритм хеша не установлен
 		if(hash == digest::hash_t::NONE)
 			// Выводим отказ проверки подписи
@@ -1148,26 +1138,26 @@ namespace {
 	/**
 	 * @brief Функция суда настроек ключа id-RSASSA-PSS над хешем и солью подписи
 	 *
+	 * @details Раздел 3.3 RFC 4055: ключ id-RSASSA-PSS с настройками ограничивает подпись
+	 *          тем же хешем и солью не короче заданной. Суд един для подписи сертификата
+	 *          и для подписи содержимого открытым ключом (CertificateVerify TLS 1.3):
+	 *          политика ключа, объявленная издателем, не зависит от места проверки.
+	 *
 	 * @param key  сведения об открытом ключе подписавшей стороны
 	 * @param hash алгоритм хеша проверяемой подписи
 	 * @param salt длина соли проверяемой подписи
 	 * @return     признак того, что настройки ключа подпись дозволяют
 	 *
-	 * @details Раздел 3.3 RFC 4055: ключ id-RSASSA-PSS с настройками ограничивает подпись
-	 *          тем же хешем и солью не короче заданной. Суд един для подписи сертификата
-	 *          и для подписи содержимого открытым ключом (CertificateVerify TLS 1.3):
-	 *          политика ключа, объявленная издателем, не зависит от места проверки
-	 *
 	 */
-	static bool __nts_bounded__(const nts::x509::key_t & key, const digest::hash_t hash, const size_t salt) noexcept {
+	static __NTS_INLINE__ bool __nts_bounded__(const nts::x509::key_t & key, const digest::hash_t hash, const size_t salt) noexcept {
 		// Если ключ не id-RSASSA-PSS либо настроек у него нет - ограничений нет
 		if((key.algorithm.compare(PSS_KEY) != 0) || __nts_absent__(key.parameters))
 			// Выводим признак дозволенной подписи
 			return true;
-		// Настройки ключа
-		digest::hash_t bound = digest::hash_t::NONE;
 		// Наименьшая соль по ключу
 		size_t least = 0;
+		// Настройки ключа
+		digest::hash_t bound = digest::hash_t::NONE;
 		// Если настройки ключа разобрать не удалось
 		if(__nts_settings__(key.parameters, bound, least) != nts::x509::error_t::NONE)
 			// Выводим отказ: неразбираемые настройки ключа подписи не дозволяют
@@ -1187,7 +1177,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_rsa__(const sign::scheme_t scheme, const digest::hash_t hash, const size_t salt, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_rsa__(const sign::scheme_t scheme, const digest::hash_t hash, const size_t salt, const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Если алгоритм хеша не установлен
 		if(hash == digest::hash_t::NONE)
 			// Выводим отказ проверки подписи
@@ -1227,7 +1217,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_ed25519__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_ed25519__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
 		sign::ed25519_t ed25519;
 		// Итог заведения открытого ключа
@@ -1252,7 +1242,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_ed448__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_ed448__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
 		sign::ed448_t ed448;
 		// Итог заведения открытого ключа
@@ -1276,7 +1266,7 @@ namespace {
 	 * @return      отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t __nts_mldsa__(const nts::x509::key_t & key, sign::mldsa_t & mldsa) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_mldsa__(const nts::x509::key_t & key, sign::mldsa_t & mldsa) noexcept {
 		// Набор параметров по опознавателю алгоритма
 		sign::mldsa_t::set_t set = sign::mldsa_t::set_t::NONE;
 		// Если алгоритм открытого ключа ML-DSA-44
@@ -1313,7 +1303,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_mldsa__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_mldsa__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
 		sign::mldsa_t mldsa;
 		// Итог заведения открытого ключа
@@ -1337,7 +1327,7 @@ namespace {
 	 * @return       отказ заведения открытого ключа
 	 *
 	 */
-	static nts::x509::error_t __nts_slhdsa__(const nts::x509::key_t & key, sign::slh_dsa_t & slhdsa) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_slhdsa__(const nts::x509::key_t & key, sign::slh_dsa_t & slhdsa) noexcept {
 		// Набор параметров по опознавателю алгоритма
 		sign::slh_dsa_t::set_t set = sign::slh_dsa_t::set_t::NONE;
 		/**
@@ -1375,7 +1365,7 @@ namespace {
 	 * @return          отказ проверки подписи
 	 *
 	 */
-	static nts::x509::error_t __nts_slhdsa__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
+	static __NTS_INLINE__ nts::x509::error_t __nts_slhdsa__(const view_t & content, const view_t & signature, const nts::x509::key_t & key) noexcept {
 		// Объект модуля электронной подписи
 		sign::slh_dsa_t slhdsa;
 		// Итог заведения открытого ключа
@@ -1411,7 +1401,7 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 		// Выводим отказ проверки подписи
 		return nts::x509::error_t::SIGNATURE;
 	// Разыскиваем алгоритм подписи по опознавателю
-	const record_t * record = __nts_lookup__(algorithm);
+	const record_t * record = ::__nts_lookup__(algorithm);
 	// Если алгоритм подписи неизвестен
 	if(record == nullptr)
 		// Выводим отказ проверки подписи
@@ -1439,13 +1429,13 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
 			// Длина соли подписи
 			size_t salt = 0;
 			// Итог разбора настроек подписи
-			const nts::x509::error_t outcome = __nts_settings__(parameters, hash, salt);
+			const nts::x509::error_t outcome = ::__nts_settings__(parameters, hash, salt);
 			// Если настройки подписи разобрать не удалось
 			if(outcome != nts::x509::error_t::NONE)
 				// Выводим отказ разбора настроек подписи
 				return outcome;
 			// Если настройки ключа id-RSASSA-PSS подписи не дозволяют
-			if(!__nts_bounded__(key, hash, salt))
+			if(!::__nts_bounded__(key, hash, salt))
 				// Выводим отказ проверки подписи
 				return nts::x509::error_t::SIGNATURE;
 			// Выводим итог проверки подписи RSA по схеме RSASSA-PSS
@@ -1528,7 +1518,7 @@ nts::x509::error_t nts::x509::verify(const view_t & body, const view_t & signatu
  */
 nts::x509::error_t nts::x509::identifier(const key_t & key, string & result) noexcept {
 	// Если алгоритм ключа модулем не поддержан
-	if(!__nts_suitable__(key.algorithm))
+	if(!::__nts_suitable__(key.algorithm))
 		// Выводим отказ ключа чужого алгоритма
 		return error_t::KEY;
 	// Выводим итог извлечения опознавателя набора параметров
@@ -1542,8 +1532,6 @@ nts::x509::error_t nts::x509::identifier(const key_t & key, string & result) noe
  * @return       отказ заведения кривой: KEY - ключ чужого алгоритма либо неизвестной
  *               кривой, MEMORY - памяти под опознаватель не хватило
  *
- *               кривой, MEMORY - памяти под опознаватель не хватило
- *
  */
 nts::x509::error_t nts::x509::parameters(const key_t & key, curve::curve_t & result) noexcept {
 	// Если алгоритм ключа модулем не поддержан
@@ -1551,7 +1539,7 @@ nts::x509::error_t nts::x509::parameters(const key_t & key, curve::curve_t & res
 		// Выводим отказ ключа чужого алгоритма
 		return error_t::KEY;
 	// Опознаватель набора параметров кривой ключа
-	string oid;
+	string oid = "";
 	// Итог извлечения опознавателя набора параметров
 	const error_t outcome = nts::x509::identifier(key, oid);
 	// Если опознаватель набора параметров извлечь не удалось
@@ -1581,7 +1569,7 @@ nts::x509::error_t nts::x509::check(const key_t & key, const view_t & content, c
 	// Объект модуля электронной подписи
 	sign::gost_t gost;
 	// Итог заведения подписи по открытому ключу
-	const nts::x509::error_t established = __nts_establish__(key, curve, gost);
+	const nts::x509::error_t established = ::__nts_establish__(key, curve, gost);
 	// Если подпись по открытому ключу завести не удалось
 	if(established != nts::x509::error_t::NONE)
 		// Выводим отказ заведения подписи
@@ -1626,7 +1614,7 @@ nts::x509::error_t nts::x509::check(const key_t & key, const digest::hash_t algo
 		// Выводим отказ проверки подписи содержимого
 		return nts::x509::error_t::SIGNATURE;
 	// Если ключ подписи по ГОСТ Р 34.10-2012, алгоритм хеша задан самим ключом
-	if(__nts_suitable__(key.algorithm))
+	if(::__nts_suitable__(key.algorithm))
 		// Выводим итог проверки подписи содержимого ключом ГОСТ
 		return nts::x509::check(key, content, signature);
 	// Если ключ эллиптической кривой, подпись записана набором SEQUENCE {r, s}
@@ -1696,7 +1684,7 @@ nts::x509::error_t nts::x509::verify(const certificate_t & certificate, const ke
 	 * Заслон этот недостижим извне: тело сертификата уже разобрано разбором сертификата,
 	 * и опознаватель алгоритма подписи в нём сверен с внешним. Стоит он ради связности
 	 */
-	if(!__nts_declared__(certificate.body(), parameters))
+	if(!::__nts_declared__(certificate.body(), parameters))
 		// Выводим отказ проверки подписи сертификата
 		return nts::x509::error_t::SIGNATURE;
 	// Выводим итог проверки подписи тела сертификата
