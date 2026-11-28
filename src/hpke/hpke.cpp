@@ -968,7 +968,7 @@ namespace {
 	 * @return    длина общего значения в байтах (Nsecret)
 	 *
 	 */
-	static constexpr size_t __nts_nsecret__(const kem_t kem) noexcept {
+	static __NTS_INLINE__ size_t __nts_nsecret__(const kem_t kem) noexcept {
 		// У чистого ML-KEM и гибридов общее значение в тридцать два байта
 		if(::__nts_puremlkem__(kem) || ::__nts_hybrid__(kem))
 			// Выводим длину общего значения
