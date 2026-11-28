@@ -296,7 +296,7 @@ namespace {
 				// Вычисляем нижнюю границу стека
 				low = (static_cast <const uint8_t *> (segment.ss_sp) - segment.ss_size);
 		/** Во FreeBSD, DragonFly и Solaris/illumos признаки потока даёт pthread_attr_get_np */
-		#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun)
+		#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun) || defined(__sun__) || defined(__illumos__)
 			// У FreeBSD, DragonFly и Solaris/illumos признаки потока берутся pthread_attr_get_np
 			pthread_attr_t attr;
 			// Готовим приёмники границ стека
