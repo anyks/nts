@@ -25,7 +25,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <utility>
 
@@ -66,7 +66,7 @@ namespace {
 	 * @brief Порядок слов сообщения у левого потока по кругам
 	 *
 	 */
-	constexpr uint8_t LEFT_ORDER[80] = {
+	static constexpr uint8_t LEFT_ORDER[80] = {
 		// Первый круг: слова блока по порядку
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 		7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8,
@@ -78,7 +78,7 @@ namespace {
 	 * @brief Порядок слов сообщения у правого потока по кругам
 	 *
 	 */
-	constexpr uint8_t RIGHT_ORDER[80] = {
+	static constexpr uint8_t RIGHT_ORDER[80] = {
 		// Первый круг: сдвинутая последовательность слов
 		5, 14, 7, 0, 9, 2, 11, 4, 13, 6, 15, 8, 1, 10, 3, 12,
 		6, 11, 3, 7, 0, 13, 5, 10, 14, 15, 8, 12, 4, 9, 1, 2,
@@ -90,7 +90,7 @@ namespace {
 	 * @brief Величины круговых сдвигов у левого потока по кругам
 	 *
 	 */
-	constexpr uint8_t LEFT_SHIFT[80] = {
+	static constexpr uint8_t LEFT_SHIFT[80] = {
 		// Сдвиги первого круга левого потока
 		11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8,
 		7, 6, 8, 13, 11, 9, 7, 15, 7, 12, 15, 9, 11, 7, 13, 12,
@@ -102,7 +102,7 @@ namespace {
 	 * @brief Величины круговых сдвигов у правого потока по кругам
 	 *
 	 */
-	constexpr uint8_t RIGHT_SHIFT[80] = {
+	static constexpr uint8_t RIGHT_SHIFT[80] = {
 		// Сдвиги первого круга правого потока
 		8, 9, 9, 11, 13, 15, 15, 5, 7, 7, 8, 11, 14, 14, 12, 6,
 		9, 13, 15, 7, 12, 8, 9, 11, 7, 7, 12, 7, 6, 15, 13, 11,
@@ -114,17 +114,17 @@ namespace {
 	 * @brief Константы кругов левого потока
 	 *
 	 */
-	constexpr uint32_t LEFT_K[5] = {0x00000000, 0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xA953FD4E};
+	static constexpr uint32_t LEFT_K[5] = {0x00000000, 0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xA953FD4E};
 	/**
 	 * @brief Константы кругов правого потока
 	 *
 	 */
-	constexpr uint32_t RIGHT_K[5] = {0x50A28BE6, 0x5C4DD124, 0x6D703EF3, 0x7A6D76E9, 0x00000000};
+	static constexpr uint32_t RIGHT_K[5] = {0x50A28BE6, 0x5C4DD124, 0x6D703EF3, 0x7A6D76E9, 0x00000000};
 	/**
 	 * @brief Начальные значения хеша
 	 *
 	 */
-	constexpr uint32_t H[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+	static constexpr uint32_t H[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
 
 	/**
 	 * @brief Функция кругового сдвига слова влево
@@ -300,7 +300,7 @@ void nts::digest::Ripemd::compress(const uint8_t * block) noexcept {
 	 */
 	for(size_t i = 0; i < 16; i++)
 		// Читаем очередное слово блока от младшего байта
-		m[i] = __nts_load__(block + (i * 4));
+		m[i] = ::__nts_load__(block + (i * 4));
 	// Рабочие переменные левого потока
 	uint32_t leftA = this->_hash[0], leftB = this->_hash[1], leftC = this->_hash[2], leftD = this->_hash[3], leftE = this->_hash[4];
 	// Рабочие переменные правого потока
@@ -452,9 +452,9 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 		// Записываем очередной нулевой байт
 		this->_block[i] = 0;
 	// Записываем младшую половину длины сообщения от младшего байта
-	__nts_store__(static_cast <uint32_t> (bits), this->_block + 56);
+	::__nts_store__(static_cast <uint32_t> (bits), this->_block + 56);
 	// Записываем старшую половину длины сообщения от младшего байта
-	__nts_store__(static_cast <uint32_t> (bits >> 32), this->_block + 60);
+	::__nts_store__(static_cast <uint32_t> (bits >> 32), this->_block + 60);
 	// Разбор последнего блока
 	this->compress(this->_block);
 	/**
@@ -462,7 +462,7 @@ bool nts::digest::Ripemd::finish(uint8_t * result, const size_t size) noexcept {
 	 */
 	for(size_t i = 0; i < 5; i++)
 		// Записываем очередное слово хеша
-		__nts_store__(this->_hash[i], result + (i * 4));
+		::__nts_store__(this->_hash[i], result + (i * 4));
 	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
 	// Затирание накопителя незавершённого блока

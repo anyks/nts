@@ -184,6 +184,7 @@ namespace {
 	 * Подписываемся на пространство имён библиотеки
 	 */
 	using namespace nts;
+
 	/**
 	 * Подписываемся на метод затирания памяти
 	 */
@@ -1266,6 +1267,7 @@ namespace {
 			return static_cast <int16_t> (value + (Q & (value >> 15)));
 		}
 	#endif
+
 	/**
 	 * @brief Структура таблиц степеней ζ = 17: по BitRev7 для бабочек и нечётные для умножения пар
 	 *
@@ -1380,7 +1382,7 @@ namespace {
 	 * @param poly преобразуемый многочлен
 	 *
 	 */
-	static void __nts_forward__(poly_t & poly) noexcept {
+	static __NTS_INLINE__ void __nts_forward__(poly_t & poly) noexcept {
 		/**
 		 * Векторный путь: слои с длиной от 128 до 8 идут целыми векторами, слои длины 4 и 2 -
 		 * шестнадцатью коэффициентами за шаг с перестановками половин и пар двойных слов
@@ -1495,7 +1497,7 @@ namespace {
 	 * @param poly преобразуемый многочлен
 	 *
 	 */
-	static void __nts_inverse__(poly_t & poly) noexcept {
+	static __NTS_INLINE__ void __nts_inverse__(poly_t & poly) noexcept {
 		/**
 		 * Векторный путь: слои длины 2 и 4 шестнадцатью коэффициентами за шаг с перестановками,
 		 * слои с длиной от 8 до 128 целыми векторами
@@ -1650,7 +1652,7 @@ namespace {
 	 * @param result место, в которое помещается подготовленный сомножитель
 	 *
 	 */
-	static void __nts_prepare__(const poly_t & poly, twisted_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_prepare__(const poly_t & poly, twisted_t & result) noexcept {
 		// Таблицы степеней
 		const tables_t & table = __nts_tables__();
 		/**
@@ -1703,7 +1705,7 @@ namespace {
 	 * @param result накопитель произведений
 	 *
 	 */
-	static void __nts_multiply__(const poly_t & first, const twisted_t & second, wide_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_multiply__(const poly_t & first, const twisted_t & second, wide_t & result) noexcept {
 		/**
 		 * Векторный путь: восемь коэффициентов за шаг, суммы произведений соседних мест одной командой (pmaddwd, qpmaddh)
 		 */
@@ -1744,7 +1746,7 @@ namespace {
 	 * @param result место, в которое помещается многочлен с коэффициентами из [0, q)
 	 *
 	 */
-	static void __nts_settle__(const wide_t & wide, poly_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_settle__(const wide_t & wide, poly_t & result) noexcept {
 		/**
 		 * Векторный путь: редукция Монтгомери четырёх 32-разрядных значений за шаг
 		 */
@@ -1798,7 +1800,7 @@ namespace {
 	 * @param result место, в которое помещаются 384 байта записи
 	 *
 	 */
-	static void __nts_encode__(const poly_t & poly, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_encode__(const poly_t & poly, uint8_t * result) noexcept {
 		/**
 		 * Перебираем пары коэффициентов
 		 */
@@ -1823,7 +1825,7 @@ namespace {
 	 * @return     признак того, что всякий коэффициент лежит в диапазоне модуля
 	 *
 	 */
-	static bool __nts_decode__(const uint8_t * data, poly_t & poly) noexcept {
+	static __NTS_INLINE__ bool __nts_decode__(const uint8_t * data, poly_t & poly) noexcept {
 		// Накопитель признака выхода за модуль
 		uint16_t overflow = 0;
 		/**
@@ -1887,7 +1889,7 @@ namespace {
 	 * @param result место, в которое помещаются 32·bits байтов записи
 	 *
 	 */
-	static void __nts_pack__(const poly_t & poly, const size_t bits, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_pack__(const poly_t & poly, const size_t bits, uint8_t * result) noexcept {
 		// Сжатые коэффициенты
 		uint16_t values[N];
 		/**
@@ -2022,7 +2024,7 @@ namespace {
 	 * @param poly место, в которое помещается многочлен
 	 *
 	 */
-	static void __nts_unpack__(const uint8_t * data, const size_t bits, poly_t & poly) noexcept {
+	static __NTS_INLINE__ void __nts_unpack__(const uint8_t * data, const size_t bits, poly_t & poly) noexcept {
 		// Сжатые коэффициенты
 		uint16_t values[N];
 		/**
@@ -2221,7 +2223,7 @@ namespace {
 	 * @param poly   место, в которое помещается выбранный многочлен
 	 *
 	 */
-	static void __nts_sampling__(const uint8_t * rho, const uint8_t row, const uint8_t column, poly_t & poly) noexcept {
+	static __NTS_INLINE__ void __nts_sampling__(const uint8_t * rho, const uint8_t row, const uint8_t column, poly_t & poly) noexcept {
 		// Поток SHAKE128 над ρ || столбец || строка
 		digest::keccak_t xof(digest::sha3_t::SHAKE128);
 		// Поглощаем зерно
@@ -2262,6 +2264,7 @@ namespace {
 			}
 		}
 	}
+
 	/**
 	 * Параллельная выборка четырёх многочленов матрицы губками Keccak-x4
 	 */
@@ -2279,7 +2282,7 @@ namespace {
 		 * @param polys   места, в которые помещаются четыре многочлена
 		 *
 		 */
-		static void __nts_sampling4__(const uint8_t * rho, const uint8_t indices[4][2], poly_t ** polys) noexcept {
+		static __NTS_INLINE__ void __nts_sampling4__(const uint8_t * rho, const uint8_t indices[4][2], poly_t ** polys) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -2366,7 +2369,7 @@ namespace {
 	 * @param poly   место, в которое помещается многочлен
 	 *
 	 */
-	static void __nts_binomial_parse__(const uint8_t * stream, const size_t eta, poly_t & poly) noexcept {
+	static __NTS_INLINE__ void __nts_binomial_parse__(const uint8_t * stream, const size_t eta, poly_t & poly) noexcept {
 		// Если η равно двум
 		if(eta == 2){
 			/**
@@ -2451,7 +2454,7 @@ namespace {
 		 * @param polys  место, в которое помещаются многочлены
 		 *
 		 */
-		static void __nts_binomial4__(const uint8_t * sigma, const uint8_t * nonces, const size_t eta, poly_t * polys) noexcept {
+		static __NTS_INLINE__ void __nts_binomial4__(const uint8_t * sigma, const uint8_t * nonces, const size_t eta, poly_t * polys) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -2550,7 +2553,7 @@ namespace {
 	 * @return       место k² многочленов матрицы A по строкам
 	 *
 	 */
-	static const poly_t * __nts_expanded__(const sample_t & sample, const uint8_t * rho) noexcept {
+	static __NTS_INLINE__ const poly_t * __nts_expanded__(const sample_t & sample, const uint8_t * rho) noexcept {
 		// Слот кеша матрицы потока
 		static thread_local matrix_t cache;
 		// Если матрица того же зерна развёрнута до нужной размерности
@@ -2643,7 +2646,7 @@ namespace {
 	 * @param cipher  место, в которое помещается шифртекст
 	 *
 	 */
-	static void __nts_encrypt__(const sample_t & sample, const uint8_t * key, const uint8_t * message, const uint8_t * seed, uint8_t * cipher) noexcept {
+	static __NTS_INLINE__ void __nts_encrypt__(const sample_t & sample, const uint8_t * key, const uint8_t * message, const uint8_t * seed, uint8_t * cipher) noexcept {
 		// Вектор t в области NTT
 		poly_t t[K];
 		/**
@@ -2807,7 +2810,7 @@ namespace {
 	 * @param message место, в которое помещаются 32 байта сообщения
 	 *
 	 */
-	static void __nts_decrypt__(const sample_t & sample, const uint8_t * secret, const uint8_t * cipher, uint8_t * message) noexcept {
+	static __NTS_INLINE__ void __nts_decrypt__(const sample_t & sample, const uint8_t * secret, const uint8_t * cipher, uint8_t * message) noexcept {
 		// Накопитель произведений s^T NTT(u)
 		wide_t wide;
 		// Обнуляем накопитель

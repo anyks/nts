@@ -33,28 +33,18 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "cipher/stream.hpp"
-#include "entropy/entropy.hpp"
 #include "sys/wipe.hpp"
+#include "entropy/entropy.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "cipher/stream.hpp"
 
 /**
  * Используем стандартное пространство имён
  */
 using namespace std;
-
-/**
- * @brief Внутренние служебные объекты
- *
- */
-namespace {
-	/**
-	 * Пространство имён библиотеки
-	 */
-	using namespace nts;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
-};
 
 /**
  * @brief Метод пропуска куска через режим с дописыванием в выход
@@ -84,10 +74,10 @@ bool nts::cipher::Stream::pass(const view_t & source, vector <uint8_t> & result)
 		// Выводим отказ пропуска
 		return false;
 	}
-	// Место записи итога
-	uint8_t * output = (result.data() + offset);
 	// Признак успешности пропуска
 	bool passed = false;
+	// Место записи итога
+	uint8_t * output = (result.data() + offset);
 	/**
 	 * Разбираем режим потока
 	 */
@@ -106,7 +96,7 @@ bool nts::cipher::Stream::pass(const view_t & source, vector <uint8_t> & result)
 	// Если пропуск не удался
 	if(!passed){
 		// Затирание недописанного итога
-		wipe(output, source.size);
+		sys::wipe(output, source.size);
 		// Возвращаем накопителю прежнюю длину
 		result.resize(offset);
 		// Выводим отказ пропуска
@@ -231,26 +221,26 @@ bool nts::cipher::Stream::start(const direction_t direction, const block_t & blo
  *
  */
 void nts::cipher::Stream::clear() noexcept {
-	// Сбрасываем признак готовности
-	this->_ready = false;
-	// Сбрасываем признак выданного вектора
-	this->_headed = false;
-	// Сбрасываем направление потока
-	this->_direction = direction_t::NONE;
-	// Сбрасываем режим потока
-	this->_mode = regime_t::NONE;
 	// Сбрасываем длину метки
 	this->_tag = 0;
 	// Сбрасываем длину вектора
 	this->_head = 0;
 	// Сбрасываем количество накопленных байтов вектора
 	this->_gathered = 0;
+	// Сбрасываем признак готовности
+	this->_ready = false;
+	// Сбрасываем признак выданного вектора
+	this->_headed = false;
+	// Сбрасываем режим потока
+	this->_mode = regime_t::NONE;
+	// Сбрасываем направление потока
+	this->_direction = direction_t::NONE;
 	// Затирание вектора
-	wipe(this->_vector, sizeof(this->_vector));
+	sys::wipe(this->_vector, sizeof(this->_vector));
 	// Если удерживаемый хвост непуст
 	if(!this->_tail.empty())
 		// Затирание удерживаемого хвоста
-		wipe(this->_tail.data(), this->_tail.size());
+		sys::wipe(this->_tail.data(), this->_tail.size());
 	// Сбрасываем удерживаемый хвост, память остаётся за ним
 	this->_tail.clear();
 	// Сбрасываем базовый шифр
@@ -388,7 +378,7 @@ bool nts::cipher::Stream::update(const view_t & source, vector <uint8_t> & resul
 		// Сдвигаем остаток хвоста к началу
 		::memmove(this->_tail.data(), this->_tail.data() + held, this->_tail.size() - held);
 	// Затирание выданной части хвоста
-	wipe(this->_tail.data() + (this->_tail.size() - held), held);
+	sys::wipe(this->_tail.data() + (this->_tail.size() - held), held);
 	// Укорачиваем хвост на выданное
 	this->_tail.resize(this->_tail.size() - held);
 	/**
@@ -470,7 +460,7 @@ bool nts::cipher::Stream::finish(vector <uint8_t> & result) noexcept {
 				}
 			}
 			// Затирание метки
-			wipe(tag, sizeof(tag));
+			sys::wipe(tag, sizeof(tag));
 		}
 	// Иначе поток на расшифрование
 	} else {
@@ -492,9 +482,11 @@ bool nts::cipher::Stream::finish(vector <uint8_t> & result) noexcept {
  * @brief Конструктор
  *
  */
-nts::cipher::Stream::Stream() noexcept : _ready(false), _headed(false), _direction(direction_t::NONE), _mode(regime_t::NONE), _tag(0), _head(0), _gathered(0) {
+nts::cipher::Stream::Stream() noexcept :
+ _ready(false), _headed(false), _direction(direction_t::NONE),
+ _mode(regime_t::NONE), _tag(0), _head(0), _gathered(0) {
 	// Затирание вектора
-	wipe(this->_vector, sizeof(this->_vector));
+	sys::wipe(this->_vector, sizeof(this->_vector));
 }
 /**
  * @brief Деструктор

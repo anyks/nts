@@ -631,7 +631,9 @@ bool nts::sign::Sm2::check(const view_t & message, const view_t & signature) con
  * @brief Конструктор
  *
  */
-nts::sign::Sm2::Sm2() noexcept : _secret(false), _public(false), _bits(0), _curve(nullptr) {
+nts::sign::Sm2::Sm2() noexcept :
+ _secret(false), _public(false),
+ _bits(0), _curve(nullptr) {
 	// Затирание выработанного значения Z_A
 	wipe(this->_za, sizeof(this->_za));
 }

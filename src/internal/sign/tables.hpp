@@ -30,11 +30,10 @@
  *
  */
 
-#ifndef __NTS_INTERNAL_SIGN_TABLES__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __NTS_INTERNAL_SIGN_TABLES__
+#pragma once
 
 /**
  * Стандартные заголовочные файлы
@@ -59,125 +58,65 @@ namespace nts {
 	 */
 	namespace sign {
 		/**
-		 * \~russian
 		 * @brief Количество строк гребёнки кратных точки основания
 		 *
 		 * @details Скаляр подписи в двести пятьдесят шесть разрядов делится на
-		 *          шестнадцать строк по шестнадцать разрядов
+		 *          шестнадцать строк по шестнадцать разрядов.
 		 *
-		 * \~english
-		 * @brief Number of the rows of the comb of the multiples of the base point
-		 *
-		 * @details The signature scalar of two hundred fifty six bits is divided into
-		 *          sixteen rows of sixteen bits
-		 *
-		 * \~
 		 */
 		static constexpr size_t COMB_ROWS = 16;
 		/**
-		 * \~russian
 		 * @brief Число мест в строке гребёнки кратных точки основания
 		 *
 		 * @details Место строки держит кратное своему сдвигу по значению полубайта
-		 *          множителя: от нулевого - нейтральной точки - до пятнадцатого
+		 *          множителя: от нулевого - нейтральной точки - до пятнадцатого.
 		 *
-		 * \~english
-		 * @brief Number of the places in a row of the comb of the multiples of the base point
-		 *
-		 * @details A place of a row keeps a multiple of its shift by the value of a nibble
-		 *          of the multiplier: from the zeroth - the neutral point - to the fifteenth
-		 *
-		 * \~
 		 */
 		static constexpr size_t COMB_PLACES = 16;
 		/**
-		 * \~russian
 		 * @brief Число позиций полубайта в строке гребёнки
 		 *
-		 * \~english
-		 * @brief Number of the nibble positions in a row of the comb
-		 *
-		 * \~
 		 */
 		static constexpr size_t COMB_DIGITS = 4;
 		/**
-		 * \~russian
 		 * @brief Число окон позиционной таблицы кратных точки основания
 		 *
 		 * @details Скаляр подписи в двести пятьдесят шесть разрядов делится на
 		 *          шестьдесят четыре окна по четыре разряда: позиция окна прошита
-		 *          в кратные таблицы, оттого умножение идёт без удвоений
+		 *          в кратные таблицы, оттого умножение идёт без удвоений.
 		 *
-		 * \~english
-		 * @brief Number of the windows of the positional table of the base point multiples
-		 *
-		 * @details The signature scalar of two hundred fifty six bits is divided into
-		 *          sixty four windows of four bits: the window position is stitched into
-		 *          the table multiples, so the multiplication goes without doublings
-		 *
-		 * \~
 		 */
 		static constexpr size_t COMB_WINDOWS = 64;
 		/**
-		 * \~russian
 		 * @brief Число мест в окне позиционной таблицы кратных точки основания
 		 *
 		 * @details Место окна держит кратное своего номера: от нулевого -
-		 *          нейтральной точки - до пятнадцатого
+		 *          нейтральной точки - до пятнадцатого.
 		 *
-		 * \~english
-		 * @brief Number of the places in a window of the positional table of the base point multiples
-		 *
-		 * @details A window place keeps a multiple of its number: from the zeroth -
-		 *          the neutral point - to the fifteenth
-		 *
-		 * \~
 		 */
 		static constexpr size_t COMB_CHOICES = 16;
 		/**
-		 * \~russian
 		 * @brief Количество строк гребёнки кратных точки основания Ed448
 		 *
 		 * @details Скаляр Ed448 в четыреста сорок восемь разрядов делится на
-		 *          двадцать восемь строк по шестнадцать разрядов
+		 *          двадцать восемь строк по шестнадцать разрядов.
 		 *
-		 * \~english
-		 * @brief Number of the rows of the comb of the multiples of the Ed448 base point
-		 *
-		 * @details The Ed448 scalar of four hundred forty eight bits is divided into
-		 *          twenty eight rows of sixteen bits
-		 *
-		 * \~
 		 */
 		static constexpr size_t COMB448_ROWS = 28;
 		/**
-		 * \~russian
 		 * @brief Число мест в строке гребёнки кратных точки основания Ed448
 		 *
 		 * @details Место строки держит кратное своему сдвигу по значению полубайта
-		 *          множителя: от нулевого - нейтральной точки - до пятнадцатого
+		 *          множителя: от нулевого - нейтральной точки - до пятнадцатого.
 		 *
-		 * \~english
-		 * @brief Number of the places in a row of the comb of the multiples of the Ed448 base point
-		 *
-		 * @details A place of a row keeps a multiple of its shift by the value of a nibble
-		 *          of the multiplier: from the zeroth - the neutral point - to the fifteenth
-		 *
-		 * \~
 		 */
 		static constexpr size_t COMB448_PLACES = 16;
 		/**
-		 * \~russian
 		 * @brief Число позиций полубайта в строке гребёнки Ed448
 		 *
-		 * \~english
-		 * @brief Number of the nibble positions in a row of the Ed448 comb
-		 *
-		 * \~
 		 */
 		static constexpr size_t COMB448_DIGITS = 4;
 		/**
-		 * \~russian
 		 * @brief Место гребёнки кратных точки основания
 		 *
 		 * @details Точка места в суммарно-разностном виде со знаменателем единица:
@@ -185,45 +124,30 @@ namespace nts {
 		 *          произведение координат с коэффициентом кривой. Место гребёнки -
 		 *          данные, и записывается словами напрямую: три значения вместо
 		 *          четырёх координат точки, и сложение места с накопителем идёт
-		 *          семью умножениями вместо девяти
+		 *          семью умножениями вместо девяти.
 		 *
-		 * \~english
-		 * @brief A place of the comb of the multiples of the base point
-		 *
-		 * @details A place point in the additive difference form with the unit
-		 *          denominator: the sum of the second coordinate with the first one,
-		 *          their difference and the doubled product of the coordinates with
-		 *          the curve coefficient. A place of the comb is data and is written
-		 *          by words directly: three values instead of four point coordinates,
-		 *          and the addition of a place to the accumulator takes seven
-		 *          multiplications instead of nine
-		 *
-		 * \~
 		 */
 		typedef struct Comb {
-			// Слова суммы координат точки места: вторая с первой
+			/**
+			 * Слова суммы координат точки места: вторая с первой
+			 */
 			uint64_t plus[math::field25519::LIMBS];
-			// Слова разности координат точки места: вторая без первой
+			/**
+			 * Слова разности координат точки места: вторая без первой
+			 */
 			uint64_t minus[math::field25519::LIMBS];
-			// Слова удвоенного произведения координат точки места с коэффициентом кривой
+			/**
+			 * Слова удвоенного произведения координат точки места с коэффициентом кривой
+			 */
 			uint64_t crossed[math::field25519::LIMBS];
 		} comb_t;
 		/**
-		 * \~russian
 		 * @brief Место гребёнки кратных точки основания Ed448
 		 *
 		 * @details Точка кривой в словах конечностей поля: элемент поля несёт свой
 		 *          конструктор и литералом из слов не собирается, а место гребёнки -
-		 *          данные, и записывается словами напрямую
+		 *          данные, и записывается словами напрямую.
 		 *
-		 * \~english
-		 * @brief A place of the comb of the multiples of the Ed448 base point
-		 *
-		 * @details A point of the curve in the words of the field limbs: an element of the
-		 *          field carries its own constructor and is not assembled by a literal of
-		 *          words, while a place of the comb is data and is written by words directly
-		 *
-		 * \~
 		 */
 		typedef struct Comb448 {
 			// Слова первой координаты точки места
@@ -236,60 +160,31 @@ namespace nts {
 			uint64_t t[math::field448::LIMBS];
 		} comb448_t;
 		/**
-		 * \~russian
 		 * @brief Функция розыска заготовленной гребёнки кратных точки основания
 		 *
 		 * @return указатель на первую строку гребёнки подряд либо nullptr, когда
 		 *         кратные не заготовлены сборкой: отказом это не считается, и
 		 *         умножение точки основания отступает к общей лестнице
 		 *
-		 * \~english
-		 * @brief Function of the search of the prepared comb of the multiples of the base point
-		 *
-		 * @return the pointer to the first row of the comb in sequence or nullptr when the
-		 *         multiples are not prepared by the build: that is not a refusal, and the
-		 *         multiplication of the base point falls back to the common ladder
-		 *
-		 * \~
 		 */
 		const comb_t * prepared() noexcept;
 		/**
-		 * \~russian
 		 * @brief Функция розыска позиционной таблицы окон кратных точки основания
 		 *
 		 * @return указатель на первое окно таблицы либо nullptr, когда кратные
 		 *         не заготовлены сборкой: отказом это не считается, и умножение
 		 *         точки основания отступает к общей лестнице
 		 *
-		 * \~english
-		 * @brief Function of the search of the positional table of the windows of the base point multiples
-		 *
-		 * @return the pointer to the first window of the table or nullptr when the
-		 *         multiples are not prepared by the build: that is not a refusal, and the
-		 *         multiplication of the base point falls back to the common ladder
-		 *
-		 * \~
 		 */
 		const comb_t (* positioned() noexcept)[COMB_CHOICES];
 		/**
-		 * \~russian
 		 * @brief Функция розыска заготовленной гребёнки кратных точки основания Ed448
 		 *
 		 * @return указатель на первую строку гребёнки подряд либо nullptr, когда
 		 *         кратные не заготовлены сборкой: отказом это не считается, и
 		 *         умножение точки основания отступает к общей лестнице
 		 *
-		 * \~english
-		 * @brief Function of the search of the prepared comb of the multiples of the Ed448 base point
-		 *
-		 * @return the pointer to the first row of the comb in sequence or nullptr when the
-		 *         multiples are not prepared by the build: that is not a refusal, and the
-		 *         multiplication of the base point falls back to the common ladder
-		 *
-		 * \~
 		 */
 		const comb448_t * prepared448() noexcept;
 	};
 };
-
-#endif

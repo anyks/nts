@@ -28,13 +28,9 @@
  */
 
 /**
- * Экранируем повторную инициализацию заголовочного файла
+ * Экранируем повторную инициализацию модуля
  */
-#ifndef __NTS_TESTS_GOST__
-/**
- * Поднимаем макрос предохранителя: повторное подключение заголовочного файла отсекается
- */
-#define __NTS_TESTS_GOST__
+#pragma once
 
 /**
  * Стандартные заголовочные файлы
@@ -130,4 +126,3 @@ inline void gosting(server::context_t & server) noexcept {
 	server.schemes(gostlists::SCHEMES);
 }
 
-#endif

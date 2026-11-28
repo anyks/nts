@@ -84,11 +84,7 @@
 /**
  * Экранируем повторную инициализацию модуля
  */
-#ifndef __NTS_MATH_KERNELS__
-/**
- * Определяем признак инициализации модуля
- */
-#define __NTS_MATH_KERNELS__
+#pragma once
 
 /**
  * Стандартные заголовочные файлы
@@ -4886,10 +4882,12 @@ namespace nts {
 					} break;
 					// Простое число вида 2^(64·слов) - c
 					case static_cast <uint8_t> (Modulus::form_t::MINUS):
+						// Выполняем умножение по модулю вида 2^(64·слов)
 						multiplyMinus <WORDS> (first, second, layout.tail, layout.modulus, result);
 					break;
 					// Простое число вида 2^(64·слов - 1) + c
 					case static_cast <uint8_t> (Modulus::form_t::PLUS):
+						// Выполняем умножение по модулю вида 2^(64·слов - 1) + c
 						multiplyPlus <WORDS> (first, second, layout.tail, layout.modulus, result);
 					break;
 					// Приведение по произвольному модулю общим ядром Монтгомери
@@ -4941,10 +4939,12 @@ namespace nts {
 					} break;
 					// Простое число вида 2^(64·слов) - c
 					case static_cast <uint8_t> (Modulus::form_t::MINUS):
+						// Возводим в квадрат по модулю вида 2^(64·слов)
 						squareMinus <WORDS> (value, layout.tail, layout.modulus, result);
 					break;
 					// Простое число вида 2^(64·слов - 1) + c
 					case static_cast <uint8_t> (Modulus::form_t::PLUS):
+						// Возводим в квадрат по модулю вида 2^(64·слов - 1)
 						squarePlus <WORDS> (value, layout.tail, layout.modulus, result);
 					break;
 					// Произвольный модуль: у общего Монтгомери своего квадрата нет
@@ -5601,5 +5601,3 @@ namespace nts {
 		};
 	};
 };
-
-#endif

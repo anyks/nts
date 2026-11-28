@@ -890,8 +890,6 @@ nts::x509::Revocations::Revocations() noexcept : _error(error_t::NONE), _unused(
  * @return    отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
  *            непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
  *
- *            непригодна, KEY - ключ чужого алгоритма, MEMORY - памяти не хватило
- *
  */
 nts::x509::error_t nts::x509::verify(const crl_t & crl, const nts::x509::key_t & key) noexcept {
 	// Количество неиспользуемых разрядов последнего байта подписи

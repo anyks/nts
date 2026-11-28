@@ -30,7 +30,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -340,7 +340,7 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static void __nts_stream_neon__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_INLINE__ void __nts_stream_neon__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков четырёх блоков
 			const uint32x4_t steps = vld1q_u32(STEPS4);
 			// Перестановка байтов вращения на восемь разрядов
@@ -415,7 +415,7 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static void __nts_stream_neon8__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_INLINE__ void __nts_stream_neon8__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков четырёх блоков
 			const uint32x4_t steps = vld1q_u32(STEPS4);
 			// Сдвиг счётчиков второй четвёрки на четыре блока
@@ -580,7 +580,7 @@ namespace {
 		 * @details Полураунды скалярного блока (столбцы, диагонали) стоят между группами
 		 *          четвертьраундов четвёрок: машина переупорядочивает команды сама, и
 		 *          зернистость перемежения на итог не влияет, а так собирателю проще держать
-		 *          слова обоих путей в регистрах
+		 *          слова обоих путей в регистрахю.
 		 *
 		 * @param first  рабочие слова первой четвёрки блоков
 		 * @param second рабочие слова второй четвёрки блоков
@@ -643,7 +643,7 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static void __nts_stream_neon10__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_INLINE__ void __nts_stream_neon10__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков четвёрки и сдвиг второй четвёрки
 			const uint32x4_t steps = vld1q_u32(STEPS4);
 			// Сдвиг счётчиков второй четвёрки на четыре блока
@@ -1271,7 +1271,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 			 */
 			while(!this->_exhausted && (left >= (PACK8 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK8 - 1)))){
 				// Покрытие восьми блоков разом
-				__nts_stream_avx2__(this->_state, cursor, output);
+				::__nts_stream_avx2__(this->_state, cursor, output);
 				// Продвигаем счётчик на восемь блоков
 				this->_state[12] += PACK8;
 				// Если счётчик обратился в ноль
@@ -1299,7 +1299,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 			 */
 			while(!this->_exhausted && (left >= (PACK10 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK10 - 1)))){
 				// Покрытие пачки
-				__nts_stream_neon10__(this->_state, cursor, output);
+				::__nts_stream_neon10__(this->_state, cursor, output);
 				// Сдвигаем счётчик блоков на пачку
 				this->_state[12] += PACK10;
 				// Если счётчик переполнился, гамма исчерпана
@@ -1318,7 +1318,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 			 */
 			while(!this->_exhausted && (left >= (PACK8 * CHACHA_BLOCK)) && (this->_state[12] <= (UINT32_MAX - (PACK8 - 1)))){
 				// Покрытие восьми блоков разом командами NEON
-				__nts_stream_neon8__(this->_state, cursor, output);
+				::__nts_stream_neon8__(this->_state, cursor, output);
 				// Продвигаем счётчик на восемь блоков
 				this->_state[12] += PACK8;
 				// Если счётчик обратился в ноль
@@ -1356,7 +1356,7 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 				 */
 				#if defined(__NTS_CHACHA_NEON__)
 					// Покрытие четырёх блоков разом командами NEON
-					__nts_stream_neon__(this->_state, cursor, output);
+					::__nts_stream_neon__(this->_state, cursor, output);
 				/**
 				 * Если есть ветви команд x86-64
 				 */
@@ -1364,9 +1364,9 @@ void nts::cipher::Chacha::pack([[maybe_unused]] const uint8_t * & cursor, [[mayb
 					// Если перестановка байтов есть
 					if(shuffle)
 						// Покрытие четырёх блоков разом командами SSSE3
-						__nts_stream_ssse3__(this->_state, cursor, output);
+						::__nts_stream_ssse3__(this->_state, cursor, output);
 					// Иначе обходимся сдвигами
-					else __nts_stream_sse2__(this->_state, cursor, output);
+					else ::__nts_stream_sse2__(this->_state, cursor, output);
 				#endif
 				// Продвигаем счётчик на четыре блока
 				this->_state[12] += PACK4;
@@ -1629,13 +1629,13 @@ bool nts::cipher::Chacha::hchacha(const view_t & key, const view_t & nonce, uint
 	 */
 	for(size_t i = 0; i < 8; i++)
 		// Слово ключа
-		work[4 + i] = __nts_load__(key.data + (i * 4));
+		work[4 + i] = ::__nts_load__(key.data + (i * 4));
 	/**
 	 * Записываем слова начального заполнения
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Слово заполнения
-		work[12 + i] = __nts_load__(nonce.data + (i * 4));
+		work[12 + i] = ::__nts_load__(nonce.data + (i * 4));
 	/**
 	 * Прогоняем двадцать кругов
 	 */

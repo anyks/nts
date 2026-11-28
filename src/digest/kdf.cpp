@@ -22,7 +22,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -117,12 +117,12 @@ bool nts::digest::snmpv3(const hash_t algorithm, const view_t & password, const 
 		return false;
 	// Объект хеширования
 	nts::digest::hasher_t hasher(algorithm);
-	// Буфер повторов пароля: 64 байта за подачу
-	uint8_t buffer[64];
 	// Место пароля в очередном повторе
 	size_t index = 0;
 	// Количество уже поданных байтов
 	size_t count = 0;
+	// Буфер повторов пароля: 64 байта за подачу
+	uint8_t buffer[64];
 	/**
 	 * Приложение A.2 RFC 3414: пароль повторяется до одного мегабайта и хешируется
 	 */

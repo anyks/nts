@@ -87,10 +87,8 @@ bool nts::server::Context::established() const noexcept {
  * @brief Метод отправки запроса сердцебиения (RFC 6520)
  *
  * @param payload нагрузка запроса: ответ собеседника обязан вернуть её слово в слово
- * @return  отказ отправки: STATE вне установленной связи либо при запросе в пути, SETTINGS без
- *          расширения либо дозволения, LIMIT при нагрузке шире записи
- *
- *          расширения либо дозволения, LIMIT при нагрузке шире записи
+ * @return        отказ отправки: STATE вне установленной связи либо при запросе в пути, SETTINGS без
+ *                 расширения либо дозволения, LIMIT при нагрузке шире записи
  *
  */
 nts::context::error_t nts::server::Context::heartbeat(const view_t & payload) noexcept {
@@ -114,7 +112,7 @@ size_t nts::server::Context::pulses() const noexcept {
 /**
  * @brief Метод получения предела длины открытого содержимого отправляемой записи
  *
- * @return  предел в байтах
+ * @return предел в байтах
  *
  */
 size_t nts::server::Context::ceiling() const noexcept {

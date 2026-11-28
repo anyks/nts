@@ -42,8 +42,12 @@
  */
 #include "sys/wipe.hpp"
 #include "cipher/chacha.hpp"
-#include "entropy/entropy.hpp"
 #include "internal/entropy/generator.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "entropy/entropy.hpp"
 
 /**
  * Определяем платформу, под которую ведётся сборка
@@ -439,7 +443,8 @@ namespace {
  * @brief Конструктор: пустое, ненаполненное состояние
  *
  */
-nts::internal::Generator::Generator() noexcept : rest(0), refills(0), stirs(0), generation(0), seeded(false) {
+nts::internal::Generator::Generator() noexcept :
+ seeded(false), rest(0), stirs(0), refills(0), generation(0) {
 	// Обнуление ключа
 	::memset(this->key, 0, sizeof(this->key));
 	// Обнуление заполнения
@@ -463,6 +468,7 @@ nts::internal::Generator::~Generator() noexcept {
 	// Порождатель не наполнен
 	this->seeded = false;
 }
+
 /**
  * @brief Функция получения порождателя текущего потока
  *
@@ -473,6 +479,7 @@ nts::internal::generator_t & nts::internal::generator() noexcept {
 	// Выводим порождатель текущего потока
 	return instance;
 }
+
 /**
  * @brief Функция получения случайных байтов
  *
@@ -499,7 +506,7 @@ bool nts::entropy::bytes(uint8_t * data, const size_t size) noexcept {
 	 */
 	if(!generator.seeded || (generator.generation != generation.load(memory_order_relaxed))){
 		// Если обработчик разветвления завести либо порождатель переналить не удалось
-		if(!__nts_guard__() || !__nts_stir__(generator))
+		if(!::__nts_guard__() || !::__nts_stir__(generator))
 			// Выводим отказ получения случайных байтов
 			return false;
 	}
@@ -512,7 +519,7 @@ bool nts::entropy::bytes(uint8_t * data, const size_t size) noexcept {
 		// Если запас израсходован
 		if(generator.rest == 0){
 			// Каждые RESEED наполнений - переналивка от системы, прочие - наполнение своей гаммой
-			const bool filled = ((generator.refills >= internal::generator_t::RESEED) ? __nts_stir__(generator) : __nts_refill__(generator));
+			const bool filled = ((generator.refills >= internal::generator_t::RESEED) ? ::__nts_stir__(generator) : ::__nts_refill__(generator));
 			// Если наполнить запас не удалось
 			if(!filled)
 				// Выводим отказ получения случайных байтов

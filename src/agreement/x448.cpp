@@ -50,18 +50,22 @@
 #endif
 
 /**
- * Подключаем стандартные заголовочные файлы
+ * Подключаем стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "agreement/x448.hpp"
-#include "math/field448.hpp"
-#include "internal/math/field448.hpp"
-#include "entropy/entropy.hpp"
 #include "sys/wipe.hpp"
+#include "math/field448.hpp"
+#include "entropy/entropy.hpp"
+#include "internal/math/field448.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "agreement/x448.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -77,13 +81,14 @@ namespace {
 	 * Пространство имён проекта
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён арифметики поля
 	 */
 	using namespace nts::math::field448;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
 	/**
@@ -92,16 +97,17 @@ namespace {
 	 * @details Раздел 5 RFC 7748 даёт a24 = (156326 - 2) / 4 = 39081 и z2 = E * (AA + a24 * E).
 	 *          Шаг лестницы считает z2 = E * (BB + (a24 + 1) * E): это то же самое, ибо
 	 *          AA = BB + E, а квадрат суммы AA к тому времени уже занят разностью E и
-	 *          хранить его отдельно не нужно (решение 3 шапки)
+	 *          хранить его отдельно не нужно (решение 3 шапки).
 	 *
 	 */
 	static constexpr uint64_t A24 = 39082;
+
 	/**
 	 * @brief Функция умножения точки на скаляр лестницей Монтгомери
 	 *
 	 * @details Раздел 5 RFC 7748: скаляр обязан быть уже зажатым, точка передаётся
 	 *          первой координатой, итог выходит первой координатой кратной точки
-	 *          либо нулём, коли кратная точка обратилась в нейтральную
+	 *          либо нулём, коли кратная точка обратилась в нейтральную.
 	 *
 	 * @param scalar зажатый скаляр, записанный младшим байтом вперёд
 	 * @param point  первая координата множимой точки
@@ -109,7 +115,7 @@ namespace {
 	 * @return       признак того, что кратная точка не обратилась в ноль
 	 *
 	 */
-	static bool __nts_ladder__(const uint8_t * scalar, const element_t & point, element_t & result) noexcept {
+	static __NTS_INLINE__ bool __nts_ladder__(const uint8_t * scalar, const element_t & point, element_t & result) noexcept {
 		// Координаты двух точек лестницы
 		element_t x2, z2, x3, z3;
 		/**
@@ -217,7 +223,7 @@ namespace {
 	 * @return       признак того, что итог не обратился в ноль
 	 *
 	 */
-	static bool __nts_multiply__(const uint8_t * secret, const uint8_t * point, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_multiply__(const uint8_t * secret, const uint8_t * point, uint8_t * result) noexcept {
 		// Зажатый скаляр
 		uint8_t scalar[agreement::X448_SIZE];
 		// Переносим секретный ключ
@@ -270,7 +276,7 @@ bool nts::agreement::x448(const view_t & secret, const view_t & point, uint8_t *
 		// Выводим отказ выработки общего значения
 		return false;
 	// Умножение открытого ключа на секретный
-	const bool ok = __nts_multiply__(secret.data, point.data, result);
+	const bool ok = ::__nts_multiply__(secret.data, point.data, result);
 	// Если общее значение обратилось в ноль
 	if(!ok)
 		// Затирание места общего значения
@@ -298,7 +304,7 @@ bool nts::agreement::x448(const view_t & secret, uint8_t * result) noexcept {
 	// Точка основания кривой: первая координата пять
 	uint8_t base[X448_SIZE] = {5};
 	// Умножение точки основания на секретный ключ
-	const bool ok = __nts_multiply__(secret.data, base, result);
+	const bool ok = ::__nts_multiply__(secret.data, base, result);
 	// Если открытый ключ обратился в ноль
 	if(!ok)
 		// Затирание места открытого ключа

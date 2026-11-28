@@ -300,14 +300,13 @@ namespace {
 	using nts::sys::wipe;
 
 	/**
-	 * Наибольшая длина открытого текста одного вызова GCM в байтах: (2^39 - 256) / 8
-	 */
-	static constexpr uint64_t GCM_MOST = ((static_cast <uint64_t> (1) << 36) - 32);
-	/**
 	 * Наибольшая длина присоединённых данных в байтах: (2^64 - 1) / 8
 	 */
 	static constexpr uint64_t GCM_ASSOCIATED = (static_cast <uint64_t> (1) << 61);
-	
+	/**
+	 * Наибольшая длина открытого текста одного вызова GCM в байтах: (2^39 - 256) / 8
+	 */
+	static constexpr uint64_t GCM_MOST = ((static_cast <uint64_t> (1) << 36) - 32);
 
 	/**
 	 * Если машина умножает без переносов командой PCLMULQDQ
@@ -331,7 +330,6 @@ namespace {
 			return _mm_shuffle_epi8(value, _mm_setr_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0));
 		}
 	#endif
-
 
 	/**
 	 * @brief Функция чтения слова в 64 разряда от старшего байта
@@ -1370,9 +1368,9 @@ void nts::cipher::Gcm::multiply(uint8_t * value) const noexcept {
 		lowWord ^= this->_table[value[index - 1]][1];
 	}
 	// Записываем старшую половину произведения
-	__nts_store__(highWord, value);
+	::__nts_store__(highWord, value);
 	// Записываем младшую половину произведения
-	__nts_store__(lowWord, value + 8);
+	::__nts_store__(lowWord, value + 8);
 }
 /**
  * @brief Метод сложения восьмёрок блоков в накопитель многочлена по одному приведению на восьмёрку

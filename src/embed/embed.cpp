@@ -33,7 +33,7 @@
 /**
  * Подключаем заголовочный файл модуля
  */
-#include <embed/embed.hpp>
+#include "embed/embed.hpp"
 
 /**
  * Подписываемся на пространство имён библиотеки
@@ -138,7 +138,7 @@ bool nts::embed::key(const digest::hash_t algorithm, const view_t & material, co
 	/**
 	 * Выполняем перехват ошибок
 	 */
-	} catch(const std::bad_alloc &){
+	} catch(const std::bad_alloc &) {
 		// Сообщаем об отказе вывода
 		done = false;
 	}
@@ -194,7 +194,7 @@ bool nts::embed::secret(const digest::argon_params_t & params, const view_t & pa
 	/**
 	 * Выполняем перехват ошибок
 	 */
-	} catch(const std::bad_alloc &){
+	} catch(const std::bad_alloc &) {
 		// Сообщаем об отказе вывода
 		done = false;
 	}

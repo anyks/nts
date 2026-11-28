@@ -19,40 +19,25 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "digest/hkdf.hpp"
-#include "digest/hmac.hpp"
 #include "sys/wipe.hpp"
+#include "digest/hmac.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "digest/hkdf.hpp"
 
 /**
  * Используем стандартное пространство имён
  */
 using namespace std;
-
-/**
- * @brief Внутренние служебные объекты
- *
- */
-namespace {
-	/**
-	 * Пространство имён библиотеки
-	 */
-	using namespace nts;
-
-	/**
-	 * Пространство имён модуля
-	 */
-	using namespace nts::digest;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
-};
 
 /**
  * @brief Функция извлечения псевдослучайного ключа из исходного материала
@@ -109,14 +94,14 @@ bool nts::digest::expand(const hash_t algorithm, const view_t & key, const view_
 	if(!mac.start(algorithm, key))
 		// Выводим отказ развёртывания
 		return false;
+	// Признак успешности развёртывания
+	bool ok = true;
 	// Место, в которое записывается очередной блок материала
 	uint8_t block[64];
 	// Количество уже выведенных байтов материала
 	size_t produced = 0;
 	// Длина прежнего блока: у первого блока прежнего нет
 	size_t previous = 0;
-	// Признак успешности развёртывания
-	bool ok = true;
 	/**
 	 * Выводим блоки материала, пока его не хватает
 	 */
@@ -145,11 +130,11 @@ bool nts::digest::expand(const hash_t algorithm, const view_t & key, const view_
 		previous = length;
 	}
 	// Затирание блока
-	wipe(block, sizeof(block));
+	 sys::wipe(block, sizeof(block));
 	// Если вывод не удался
 	if(!ok)
 		// Затирание недовыведенного материала
-		wipe(result, size);
+		 sys::wipe(result, size);
 	// Выводим признак успешности развёртывания
 	return ok;
 }
@@ -210,7 +195,7 @@ bool nts::digest::label(const hash_t algorithm, const view_t & secret, const vie
 	// Развёртывание секрета с записью HkdfLabel привязкой
 	const bool ok = expand(algorithm, secret, view_t(info, offset), result, size);
 	// Затирание записи: в ней нет секрета, но есть привязка к переписке
-	wipe(info, sizeof(info));
+	 sys::wipe(info, sizeof(info));
 	// Выводим признак успешности развёртывания
 	return ok;
 }
@@ -236,7 +221,7 @@ bool nts::digest::hkdf(const hash_t algorithm, const view_t & salt, const view_t
 		// Развёртывание ключа в материал
 		ok = expand(algorithm, view_t(key, digest::length(algorithm)), info, result, size);
 	// Затирание псевдослучайного ключа
-	wipe(key, sizeof(key));
+	 sys::wipe(key, sizeof(key));
 	// Выводим признак успешности вывода
 	return ok;
 }

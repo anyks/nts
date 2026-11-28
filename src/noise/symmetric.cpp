@@ -33,6 +33,10 @@
  */
 #include "sys/wipe.hpp"
 #include "digest/hkdf.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
 #include "noise/symmetric.hpp"
 
 /**
@@ -82,7 +86,7 @@ bool nts::noise::Symmetric::start(const view_t & name, const suite_t & suite) no
 		// Записываем имя
 		::memcpy(this->_digest, name.data, name.size);
 	// Иначе имя хешируется
-	} else if(!digest::hash(this->_hash, name, this->_digest, HASH_MAX)){
+	} else if(!digest::hash(this->_hash, name, this->_digest, HASH_MAX)) {
 		// Затираем состояние
 		this->clear();
 		// Выводим отрицательный результат - имя не захешировано
@@ -356,14 +360,14 @@ void nts::noise::Symmetric::clear() noexcept {
 	// Затираем цепной ключ и хеш
 	sys::wipe(this->_chain, HASH_MAX);
 	sys::wipe(this->_digest, HASH_MAX);
-	// Затираем состояние шифра
-	this->_cipher.clear();
-	// Сбрасываем хеш и длину
-	this->_hash = digest::hash_t::NONE;
 	// Сбрасываем длину
 	this->_length = 0;
+	// Затираем состояние шифра
+	this->_cipher.clear();
 	// Сбрасываем вид шифра AEAD
 	this->_aead = aead_t::NONE;
+	// Сбрасываем хеш и длину
+	this->_hash = digest::hash_t::NONE;
 }
 /**
  * @brief Конструктор

@@ -374,17 +374,27 @@ namespace {
 	 *
 	 */
 	static __NTS_INLINE__ digest::hash_t __nts_hash_of__(const string & oid) noexcept {
-		// Если опознаватель — id-sha1: алгоритм хеша SHA-1
-		if(oid == OID_SHA1) return digest::hash_t::SHA1;
-		// Если опознаватель — id-sha224: алгоритм хеша SHA-224
-		if(oid == OID_SHA224) return digest::hash_t::SHA224;
-		// Если опознаватель — id-sha256: алгоритм хеша SHA-256
-		if(oid == OID_SHA256) return digest::hash_t::SHA256;
-		// Если опознаватель — id-sha384: алгоритм хеша SHA-384
-		if(oid == OID_SHA384) return digest::hash_t::SHA384;
-		// Если опознаватель — id-sha512: алгоритм хеша SHA-512
-		if(oid == OID_SHA512) return digest::hash_t::SHA512;
-		// Выводим отсутствие алгоритма
+		// Если опознаватель — id-sha1
+		if(oid == OID_SHA1)
+			// Выводим алгоритм хеша SHA-1
+			return digest::hash_t::SHA1;
+		// Если опознаватель — id-sha224
+		if(oid == OID_SHA224)
+			// Выводим алгоритм хеша SHA-224
+			return digest::hash_t::SHA224;
+		// Если опознаватель — id-sha256
+		if(oid == OID_SHA256)
+			// Выводим алгоритм хеша SHA-256
+			return digest::hash_t::SHA256;
+		// Если опознаватель — id-sha384
+		if(oid == OID_SHA384)
+			// Выводим алгоритм хеша SHA-384
+			return digest::hash_t::SHA384;
+		// Если опознаватель — id-sha512
+		if(oid == OID_SHA512)
+			// Выводим алгоритм хеша SHA-512
+			return digest::hash_t::SHA512;
+		// Выводим отсутствие алгоритма у прочего опознавателя
 		return digest::hash_t::NONE;
 	}
 	/**
@@ -399,16 +409,27 @@ namespace {
 		 * Выводим опознаватель по алгоритму хеша
 		 */
 		switch(static_cast <uint8_t> (hash)){
+			// Если хеш — SHA-1
 			case static_cast <uint8_t> (digest::hash_t::SHA1):
+				// Выводим опознаватель id-sha1
 				return OID_SHA1;
+			// Если хеш — SHA-224
 			case static_cast <uint8_t> (digest::hash_t::SHA224):
+				// Выводим опознаватель id-sha224
 				return OID_SHA224;
+			// Если хеш — SHA-256
 			case static_cast <uint8_t> (digest::hash_t::SHA256):
+				// Выводим опознаватель id-sha256
 				return OID_SHA256;
+			// Если хеш — SHA-384
 			case static_cast <uint8_t> (digest::hash_t::SHA384):
+				// Выводим опознаватель id-sha384
 				return OID_SHA384;
+			// Если хеш — SHA-512
 			case static_cast <uint8_t> (digest::hash_t::SHA512):
+				// Выводим опознаватель id-sha512
 				return OID_SHA512;
+			// Если хеш не опознан, выводим отсутствие опознавателя
 			default: return nullptr;
 		}
 	}
@@ -424,23 +445,95 @@ namespace {
 	 *
 	 */
 	static constexpr const char * __nts_rsa_signature_of__(const string & digest) noexcept {
-		// Если хеш — id-sha1: опознаватель подписи sha1WithRSAEncryption
+		// Если хеш — id-sha1
 		if(digest == OID_SHA1)
+			// Выводим опознаватель sha1WithRSAEncryption
 			return OID_SHA1_RSA;
-		// Если хеш — id-sha224: опознаватель подписи sha224WithRSAEncryption
+		// Если хеш — id-sha224
 		if(digest == OID_SHA224)
+			// Выводим опознаватель sha224WithRSAEncryption
 			return OID_SHA224_RSA;
-		// Если хеш — id-sha256: опознаватель подписи sha256WithRSAEncryption
+		// Если хеш — id-sha256
 		if(digest == OID_SHA256)
+			// Выводим опознаватель sha256WithRSAEncryption
 			return OID_SHA256_RSA;
-		// Если хеш — id-sha384: опознаватель подписи sha384WithRSAEncryption
+		// Если хеш — id-sha384
 		if(digest == OID_SHA384)
+			// Выводим опознаватель sha384WithRSAEncryption
 			return OID_SHA384_RSA;
-		// Если хеш — id-sha512: опознаватель подписи sha512WithRSAEncryption
+		// Если хеш — id-sha512
 		if(digest == OID_SHA512)
+			// Выводим опознаватель sha512WithRSAEncryption
 			return OID_SHA512_RSA;
-		// Выводим отсутствие опознавателя
+		// Выводим отсутствие опознавателя у прочего хеша
 		return nullptr;
+	}
+	/**
+	 * @brief Функция получения опознавателя имитовставки HMAC по алгоритму хеша
+	 *
+	 * @param hash алгоритм хеша
+	 * @return     опознаватель алгоритма имитовставки либо nullptr
+	 *
+	 */
+	static constexpr const char * __nts_hmac_oid_of__(const digest::hash_t hash) noexcept {
+		/**
+		 * Выводим опознаватель имитовставки по алгоритму хеша
+		 */
+		switch(static_cast <uint8_t> (hash)){
+			// Если хеш — SHA-1
+			case static_cast <uint8_t> (digest::hash_t::SHA1):
+				// Выводим опознаватель hmacWithSHA1
+				return OID_HMAC_SHA1;
+			// Если хеш — SHA-224
+			case static_cast <uint8_t> (digest::hash_t::SHA224):
+				// Выводим опознаватель hmacWithSHA224
+				return OID_HMAC_SHA224;
+			// Если хеш — SHA-256
+			case static_cast <uint8_t> (digest::hash_t::SHA256):
+				// Выводим опознаватель hmacWithSHA256
+				return OID_HMAC_SHA256;
+			// Если хеш — SHA-384
+			case static_cast <uint8_t> (digest::hash_t::SHA384):
+				// Выводим опознаватель hmacWithSHA384
+				return OID_HMAC_SHA384;
+			// Если хеш — SHA-512
+			case static_cast <uint8_t> (digest::hash_t::SHA512):
+				// Выводим опознаватель hmacWithSHA512
+				return OID_HMAC_SHA512;
+			// Если хеш не опознан, выводим отсутствие опознавателя
+			default: return nullptr;
+		}
+	}
+	/**
+	 * @brief Функция получения алгоритма хеша имитовставки по её опознавателю
+	 *
+	 * @param oid опознаватель алгоритма имитовставки HMAC
+	 * @return    алгоритм хеша, hash_t::NONE у неизвестного
+	 *
+	 */
+	static __NTS_INLINE__ digest::hash_t __nts_hmac_of__(const string & oid) noexcept {
+		// Если опознаватель — hmacWithSHA1
+		if(oid == OID_HMAC_SHA1)
+			// Выводим алгоритм хеша SHA-1
+			return digest::hash_t::SHA1;
+		// Если опознаватель — hmacWithSHA224
+		if(oid == OID_HMAC_SHA224)
+			// Выводим алгоритм хеша SHA-224
+			return digest::hash_t::SHA224;
+		// Если опознаватель — hmacWithSHA256
+		if(oid == OID_HMAC_SHA256)
+			// Выводим алгоритм хеша SHA-256
+			return digest::hash_t::SHA256;
+		// Если опознаватель — hmacWithSHA384
+		if(oid == OID_HMAC_SHA384)
+			// Выводим алгоритм хеша SHA-384
+			return digest::hash_t::SHA384;
+		// Если опознаватель — hmacWithSHA512
+		if(oid == OID_HMAC_SHA512)
+			// Выводим алгоритм хеша SHA-512
+			return digest::hash_t::SHA512;
+		// Выводим отсутствие алгоритма у прочего опознавателя
+		return digest::hash_t::NONE;
 	}
 	/**
 	 * @brief Функция получения опознавателя алгоритма подписи по виду ключа и хешу
@@ -455,62 +548,87 @@ namespace {
 		 * Определяем опознаватель алгоритма подписи по виду ключа и хешу
 		 */
 		switch(signer.kind()){
-			// Ключ RSA
+			// Если ключ — RSA
 			case keys::kind_t::RSA:
 				/**
 				 * Выводим опознаватель по хешу
 				 */
 				switch(hash){
+					// Если хеш — SHA-1
 					case digest::hash_t::SHA1:
+						// Выводим опознаватель подписи RSA с хешем SHA-1
 						return OID_SHA1_RSA;
+					// Если хеш — SHA-224
 					case digest::hash_t::SHA224:
+						// Выводим опознаватель подписи RSA с хешем SHA-224
 						return OID_SHA224_RSA;
+					// Если хеш — SHA-256
 					case digest::hash_t::SHA256:
+						// Выводим опознаватель подписи RSA с хешем SHA-256
 						return OID_SHA256_RSA;
+					// Если хеш — SHA-384
 					case digest::hash_t::SHA384:
+						// Выводим опознаватель подписи RSA с хешем SHA-384
 						return OID_SHA384_RSA;
+					// Если хеш — SHA-512
 					case digest::hash_t::SHA512:
+						// Выводим опознаватель подписи RSA с хешем SHA-512
 						return OID_SHA512_RSA;
+					// Если хеш не опознан, выводим отсутствие опознавателя
 					default: return nullptr;
 				}
-			// Ключ ECDSA
+			// Если ключ — ECDSA
 			case keys::kind_t::EC:
 				/**
 				 * Выводим опознаватель по хешу
 				 */
 				switch(hash){
+					// Если хеш — SHA-224
 					case digest::hash_t::SHA224:
+						// Выводим опознаватель подписи ECDSA с хешем SHA-224
 						return OID_SHA224_ECDSA;
+					// Если хеш — SHA-256
 					case digest::hash_t::SHA256:
+						// Выводим опознаватель подписи ECDSA с хешем SHA-256
 						return OID_SHA256_ECDSA;
+					// Если хеш — SHA-384
 					case digest::hash_t::SHA384:
+						// Выводим опознаватель подписи ECDSA с хешем SHA-384
 						return OID_SHA384_ECDSA;
+					// Если хеш — SHA-512
 					case digest::hash_t::SHA512:
+						// Выводим опознаватель подписи ECDSA с хешем SHA-512
 						return OID_SHA512_ECDSA;
+					// Если хеш не опознан, выводим отсутствие опознавателя
 					default: return nullptr;
 				}
-			// Ключ Ed25519
+			// Если ключ — Ed25519
 			case keys::kind_t::ED25519:
-				// Выводим опознаватель Ed25519
+				// Выводим опознаватель подписи Ed25519
 				return OID_ED25519;
-			// Ключ ML-DSA
+			// Если ключ — ML-DSA
 			case keys::kind_t::MLDSA:
 				/**
 				 * Выводим опознаватель по набору ключа
 				 */
 				switch(signer.mldsa().set()){
+					// Если набор — ML-DSA-44
 					case sign::mldsa_t::set_t::DSA44:
+						// Выводим опознаватель подписи ML-DSA-44
 						return OID_MLDSA44;
+					// Если набор — ML-DSA-65
 					case sign::mldsa_t::set_t::DSA65:
+						// Выводим опознаватель подписи ML-DSA-65
 						return OID_MLDSA65;
+					// Если набор — ML-DSA-87
 					case sign::mldsa_t::set_t::DSA87:
+						// Выводим опознаватель подписи ML-DSA-87
 						return OID_MLDSA87;
+					// Если набор не опознан, выводим отсутствие опознавателя
 					default: return nullptr;
 				}
-			// Ключ, подписи в CMS не выполняющий
-			default:
-				// Выводим отсутствие опознавателя
-				return nullptr;
+			// Если ключ не из числа подписывающих, выводим отсутствие опознавателя
+			default: return nullptr;
 		}
 	}
 	/**
@@ -843,11 +961,17 @@ namespace {
 	 */
 	static __NTS_INLINE__ agreement::kem_t __nts_kem_of__(const string & oid) noexcept {
 		// Если опознаватель — id-ml-kem-512: набор параметров ML-KEM-512
-		if(oid == OID_MLKEM512) return agreement::kem_t::MLKEM512;
+		if(oid == OID_MLKEM512)
+			// Выводим набор параметров ML-KEM
+			return agreement::kem_t::MLKEM512;
 		// Если опознаватель — id-ml-kem-768: набор параметров ML-KEM-768
-		if(oid == OID_MLKEM768) return agreement::kem_t::MLKEM768;
+		if(oid == OID_MLKEM768)
+			// Выводим набор параметров ML-KEM
+			return agreement::kem_t::MLKEM768;
 		// Если опознаватель — id-ml-kem-1024: набор параметров ML-KEM-1024
-		if(oid == OID_MLKEM1024) return agreement::kem_t::MLKEM1024;
+		if(oid == OID_MLKEM1024)
+			// Выводим набор параметров ML-KEM
+			return agreement::kem_t::MLKEM1024;
 		// Выводим отсутствие набора
 		return agreement::kem_t::NONE;
 	}
@@ -863,12 +987,19 @@ namespace {
 		 * Выводим опознаватель по набору параметров
 		 */
 		switch(static_cast <uint8_t> (kem)){
+			// Если механизм — ML-KEM-512
 			case static_cast <uint8_t> (agreement::kem_t::MLKEM512):
+				// Выводим опознаватель ML-KEM-512
 				return OID_MLKEM512;
+			// Если механизм — ML-KEM-768
 			case static_cast <uint8_t> (agreement::kem_t::MLKEM768):
+				// Выводим опознаватель ML-KEM-768
 				return OID_MLKEM768;
+			// Если механизм — ML-KEM-1024
 			case static_cast <uint8_t> (agreement::kem_t::MLKEM1024):
+				// Выводим опознаватель ML-KEM-1024
 				return OID_MLKEM1024;
+			// Если механизм не опознан, выводим отсутствие опознавателя
 			default: return nullptr;
 		}
 	}
@@ -1257,7 +1388,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	// Просмотр содержимого записи ContentInfo
 	view_t body;
 	// Итог разбора записи ContentInfo
-	error_t outcome = __nts_content_info__(data, this->_kind, body);
+	error_t outcome = ::__nts_content_info__(data, this->_kind, body);
 	// Если запись ContentInfo разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -1273,7 +1404,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	// Если запись SignedData разобрать не удалось
 	if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed)
 		// Выводим переведённый отказ разбора
-		return (this->_error = __nts_translate__(reader.err()));
+		return (this->_error = ::__nts_translate__(reader.err()));
 	// Если после записи остался хвост
 	if(!reader.empty())
 		// Выводим отказ устройства записи
@@ -1285,19 +1416,19 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 	// Если издание записи разобрать не удалось
 	if(!items.next(asn1::tag_t::INTEGER, field))
 		// Выводим переведённый отказ разбора
-		return (this->_error = __nts_translate__(items.err()));
+		return (this->_error = ::__nts_translate__(items.err()));
 	// Элемент набора алгоритмов хеша
 	asn1::element_t digests;
 	// Если набор алгоритмов хеша разобрать не удалось
 	if(!items.next(asn1::tag_t::SET, digests) || !digests.constructed)
 		// Выводим переведённый отказ разбора
-		return (this->_error = __nts_translate__(items.err()));
+		return (this->_error = ::__nts_translate__(items.err()));
 	// Элемент записи EncapsulatedContentInfo
 	asn1::element_t encapsulated;
 	// Если запись EncapsulatedContentInfo разобрать не удалось
 	if(!items.next(asn1::tag_t::SEQUENCE, encapsulated) || !encapsulated.constructed)
 		// Выводим переведённый отказ разбора
-		return (this->_error = __nts_translate__(items.err()));
+		return (this->_error = ::__nts_translate__(items.err()));
 	{
 		// Разборщик содержимого записи EncapsulatedContentInfo
 		asn1::reader_t content(encapsulated.content);
@@ -1306,11 +1437,11 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 		// Если опознаватель вида содержимого разобрать не удалось
 		if(!content.next(asn1::tag_t::OBJECT, kind))
 			// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(content.err()));
+			return (this->_error = ::__nts_translate__(content.err()));
 		// Опознаватель вида содержимого
-		string sort;
+		string sort = "";
 		// Если опознаватель вида содержимого разобрать не удалось
-		if((outcome = __nts_oid_of__(kind, sort)) != error_t::NONE)
+		if((outcome = ::__nts_oid_of__(kind, sort)) != error_t::NONE)
 			// Выводим отказ разбора
 			return (this->_error = outcome);
 		// Если содержимое вложено в запись
@@ -1320,7 +1451,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 			// Если содержимое разобрать не удалось
 			if(!content.next(inside))
 				// Выводим переведённый отказ разбора
-				return (this->_error = __nts_translate__(content.err()));
+				return (this->_error = ::__nts_translate__(content.err()));
 			// Если содержимое не несёт метку [0] составного вида
 			if(!inside.constructed || (inside.cls != asn1::cls_t::CONTEXT) || (inside.tag != 0))
 				// Выводим отказ устройства записи
@@ -1332,7 +1463,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 			// Если строка байтов содержимого разобрать не удалось
 			if(!holder.next(asn1::tag_t::OCTET_STRING, octets))
 				// Выводим переведённый отказ разбора
-				return (this->_error = __nts_translate__(holder.err()));
+				return (this->_error = ::__nts_translate__(holder.err()));
 			// Запоминаем просмотр содержимого
 			this->_content = octets.content;
 			// Если после содержимого остался хвост
@@ -1350,7 +1481,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 		// Если очередное поле разобрать не удалось
 		if(!items.next(next))
 			// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(items.err()));
+			return (this->_error = ::__nts_translate__(items.err()));
 		// Набор сертификатов несёт метку [0]
 		if(next.constructed && (next.cls == asn1::cls_t::CONTEXT) && (next.tag == 0)){
 			// Разборщик содержимого набора сертификатов
@@ -1364,7 +1495,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 				// Если запись сертификата разобрать не удалось
 				if(!certificates.next(certificate))
 					// Выводим переведённый отказ разбора
-					return (this->_error = __nts_translate__(certificates.err()));
+					return (this->_error = ::__nts_translate__(certificates.err()));
 				/**
 				 * Выполняем перехват ошибок
 				 */
@@ -1384,7 +1515,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 			// Списки отзыва модулем не рассматриваются
 			continue;
 		// Набор сведений о подписывающих
-		else if(next.constructed && (next.cls == asn1::cls_t::UNIVERSAL) && (next.tag == static_cast <uint32_t> (asn1::tag_t::SET))){
+		else if(next.constructed && (next.cls == asn1::cls_t::UNIVERSAL) && (next.tag == static_cast <uint32_t> (asn1::tag_t::SET))) {
 			// Разборщик содержимого набора подписывающих
 			asn1::reader_t signers(next.content);
 			/**
@@ -1396,7 +1527,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 				// Если запись SignerInfo разобрать не удалось
 				if(!signers.next(asn1::tag_t::SEQUENCE, info) || !info.constructed)
 					// Выводим переведённый отказ разбора
-					return (this->_error = __nts_translate__(signers.err()));
+					return (this->_error = ::__nts_translate__(signers.err()));
 				// Сведения о подписывающем
 				signer_info_t signer;
 				{
@@ -1407,15 +1538,15 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 					// Если издание записи разобрать не удалось
 					if(!fields.next(asn1::tag_t::INTEGER, version))
 						// Выводим переведённый отказ разбора
-						return (this->_error = __nts_translate__(fields.err()));
+						return (this->_error = ::__nts_translate__(fields.err()));
 					// Элемент записи IssuerAndSerialNumber
 					asn1::element_t sid;
 					// Если запись IssuerAndSerialNumber разобрать не удалось
 					if(!fields.next(asn1::tag_t::SEQUENCE, sid))
 						// Выводим переведённый отказ разбора
-						return (this->_error = __nts_translate__(fields.err()));
+						return (this->_error = ::__nts_translate__(fields.err()));
 					// Если запись IssuerAndSerialNumber разобрать не удалось
-					if((outcome = __nts_issuer_and_serial__(sid, signer.issuer, signer.serial)) != error_t::NONE)
+					if((outcome = ::__nts_issuer_and_serial__(sid, signer.issuer, signer.serial)) != error_t::NONE)
 						// Выводим отказ разбора
 						return (this->_error = outcome);
 					// Элемент записи алгоритма хеша
@@ -1423,11 +1554,11 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 					// Если запись алгоритма хеша разобрать не удалось
 					if(!fields.next(asn1::tag_t::SEQUENCE, algorithm))
 						// Выводим переведённый отказ разбора
-						return (this->_error = __nts_translate__(fields.err()));
+						return (this->_error = ::__nts_translate__(fields.err()));
 					// Просмотр настроек алгоритма хеша
 					view_t settings;
 					// Если запись алгоритма хеша разобрать не удалось
-					if((outcome = __nts_algorithm_identifier__(algorithm, signer.digest, settings)) != error_t::NONE)
+					if((outcome = ::__nts_algorithm_identifier__(algorithm, signer.digest, settings)) != error_t::NONE)
 						// Выводим отказ разбора
 						return (this->_error = outcome);
 					// Элемент записи алгоритма подписи
@@ -1453,9 +1584,9 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 					// Если запись алгоритма подписи разобрать не удалось
 					if(!fields.next(asn1::tag_t::SEQUENCE, signature))
 						// Выводим переведённый отказ разбора
-						return (this->_error = __nts_translate__(fields.err()));
+						return (this->_error = ::__nts_translate__(fields.err()));
 					// Если запись алгоритма подписи разобрать не удалось
-					if((outcome = __nts_algorithm_identifier__(signature, signer.algorithm, signer.parameters)) != error_t::NONE)
+					if((outcome = ::__nts_algorithm_identifier__(signature, signer.algorithm, signer.parameters)) != error_t::NONE)
 						// Выводим отказ разбора
 						return (this->_error = outcome);
 					// Элемент подписи
@@ -1463,7 +1594,7 @@ nts::cms::error_t nts::cms::Signed::parse(const view_t & data) noexcept {
 					// Если подпись разобрать не удалось
 					if(!fields.next(asn1::tag_t::OCTET_STRING, value))
 						// Выводим переведённый отказ разбора
-						return (this->_error = __nts_translate__(fields.err()));
+						return (this->_error = ::__nts_translate__(fields.err()));
 					// Запоминаем просмотр подписи
 					signer.signature = value.content;
 				}
@@ -1571,19 +1702,19 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 	this->clear();
 	// Если запись пуста
 	if((data.data == nullptr) || (data.size == 0))
-	// Выводим отказ пустой записи
+		// Выводим отказ пустой записи
 		return (this->_error = error_t::EMPTY);
 	// Просмотр содержимого записи ContentInfo
 	view_t body;
 	// Итог разбора записи ContentInfo
-	error_t outcome = __nts_content_info__(data, this->_kind, body);
+	error_t outcome = ::__nts_content_info__(data, this->_kind, body);
 	// Если запись ContentInfo разобрать не удалось
 	if(outcome != error_t::NONE)
-	// Выводим отказ разбора
+		// Выводим отказ разбора
 		return (this->_error = outcome);
 	// Если вид содержимого не id-envelopedData
 	if(this->_kind != OID_ENVELOPED)
-	// Выводим отказ устройства записи
+		// Выводим отказ устройства записи
 		return (this->_error = error_t::STRUCTURE);
 	// Разборщик содержимого записи EnvelopedData
 	asn1::reader_t reader(body);
@@ -1591,11 +1722,11 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 	asn1::element_t element;
 	// Если запись EnvelopedData разобрать не удалось
 	if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed)
-	// Выводим переведённый отказ разбора
-		return (this->_error = __nts_translate__(reader.err()));
+		// Выводим переведённый отказ разбора
+		return (this->_error = ::__nts_translate__(reader.err()));
 	// Если после записи остался хвост
 	if(!reader.empty())
-	// Выводим отказ устройства записи
+		// Выводим отказ устройства записи
 		return (this->_error = error_t::STRUCTURE);
 	// Разборщик содержимого записи EnvelopedData
 	asn1::reader_t items(element.content);
@@ -1603,14 +1734,14 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 	asn1::element_t version;
 	// Если издание записи разобрать не удалось
 	if(!items.next(asn1::tag_t::INTEGER, version))
-	// Выводим переведённый отказ разбора
-		return (this->_error = __nts_translate__(items.err()));
+		// Выводим переведённый отказ разбора
+		return (this->_error = ::__nts_translate__(items.err()));
 	// Элемент набора сведений о получателях
 	asn1::element_t recipients;
 	// Если набор сведений о получателях разобрать не удалось
 	if(!items.next(asn1::tag_t::SET, recipients) || !recipients.constructed)
-	// Выводим переведённый отказ разбора
-		return (this->_error = __nts_translate__(items.err()));
+		// Выводим переведённый отказ разбора
+		return (this->_error = ::__nts_translate__(items.err()));
 	// Разборщик содержимого набора сведений о получателях
 	asn1::reader_t infos(recipients.content);
 	/**
@@ -1621,74 +1752,74 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 		asn1::element_t info;
 		// Если запись сведений о получателе разобрать не удалось
 		if(!infos.next(asn1::tag_t::SEQUENCE, info) || !info.constructed)
-		// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(infos.err()));
+			// Выводим переведённый отказ разбора
+			return (this->_error = ::__nts_translate__(infos.err()));
 		// Разборщик содержимого записи сведений
 		asn1::reader_t fields(info.content);
 		// Элемент первого поля записи
 		asn1::element_t issue;
 		// Если первое поле записи разобрать не удалось
 		if(!fields.next(issue))
-		// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(fields.err()));
+			// Выводим переведённый отказ разбора
+			return (this->_error = ::__nts_translate__(fields.err()));
 		// Если первое поле - опознаватель: запись OtherRecipientInfo по разделу 6.2.5 RFC 5652
 		if((issue.cls == asn1::cls_t::UNIVERSAL) && (issue.tag == static_cast <uint32_t> (asn1::tag_t::OBJECT))){
 			// Опознаватель вида сведений
-			string ori;
+			string ori = "";
 			// Если опознаватель вида сведений разобрать не удалось
-			if((outcome = __nts_oid_of__(issue, ori)) != error_t::NONE)
-			// Выводим отказ разбора
+			if((outcome = ::__nts_oid_of__(issue, ori)) != error_t::NONE)
+				// Выводим отказ разбора
 				return (this->_error = outcome);
 			// Если вид сведений не KEM по RFC 9629
 			if(ori != OID_ORI_KEM)
-			// Выводим отказ алгоритма
+				// Выводим отказ алгоритма
 				return (this->_error = error_t::ALGORITHM);
 			// Элемент записи KEMRecipientInfo
 			asn1::element_t value;
 			// Если запись KEMRecipientInfo разобрать не удалось
 			if(!fields.next(asn1::tag_t::SEQUENCE, value) || !value.constructed)
-			// Выводим переведённый отказ разбора
-				return (this->_error = __nts_translate__(fields.err()));
+				// Выводим переведённый отказ разбора
+				return (this->_error = ::__nts_translate__(fields.err()));
 			// Если после записи остался хвост
 			if(!fields.empty())
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return (this->_error = error_t::STRUCTURE);
 			// Переходим к содержимому записи KEMRecipientInfo
 			fields = asn1::reader_t(value.content);
 			// Если издание записи разобрать не удалось
 			if(!fields.next(asn1::tag_t::INTEGER, issue))
-			// Выводим переведённый отказ разбора
-				return (this->_error = __nts_translate__(fields.err()));
+				// Выводим переведённый отказ разбора
+				return (this->_error = ::__nts_translate__(fields.err()));
 		// Иное первое поле обязано быть изданием записи KeyTransRecipientInfo
 		} else if((issue.cls != asn1::cls_t::UNIVERSAL) || (issue.tag != static_cast <uint32_t> (asn1::tag_t::INTEGER)))
-		// Выводим отказ устройства записи
+			// Выводим отказ устройства записи
 			return (this->_error = error_t::STRUCTURE);
 		// Элемент записи IssuerAndSerialNumber
 		asn1::element_t rid;
 		// Если запись IssuerAndSerialNumber разобрать не удалось
 		if(!fields.next(asn1::tag_t::SEQUENCE, rid))
-		// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(fields.err()));
+			// Выводим переведённый отказ разбора
+			return (this->_error = ::__nts_translate__(fields.err()));
 		// Сведения о получателе
 		recipient_t recipient;
 		// Если запись IssuerAndSerialNumber разобрать не удалось
-		if((outcome = __nts_issuer_and_serial__(rid, recipient.issuer, recipient.serial)) != error_t::NONE)
-		// Выводим отказ разбора
+		if((outcome = ::__nts_issuer_and_serial__(rid, recipient.issuer, recipient.serial)) != error_t::NONE)
+			// Выводим отказ разбора
 			return (this->_error = outcome);
 		// Элемент записи алгоритма защиты ключа
 		asn1::element_t algorithm;
 		// Если запись алгоритма защиты ключа разобрать не удалось
 		if(!fields.next(asn1::tag_t::SEQUENCE, algorithm))
-		// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(fields.err()));
+			// Выводим переведённый отказ разбора
+			return (this->_error = ::__nts_translate__(fields.err()));
 		// Просмотр настроек алгоритма защиты ключа
 		view_t settings;
 		// Если запись алгоритма защиты ключа разобрать не удалось
-		if((outcome = __nts_algorithm_identifier__(algorithm, recipient.algorithm, settings)) != error_t::NONE)
-		// Выводим отказ разбора
+		if((outcome = ::__nts_algorithm_identifier__(algorithm, recipient.algorithm, settings)) != error_t::NONE)
+			// Выводим отказ разбора
 			return (this->_error = outcome);
 		// Если алгоритм защиты ключа - KEM по RFC 9629
-		if(__nts_kem_of__(recipient.algorithm) != agreement::kem_t::NONE){
+		if(::__nts_kem_of__(recipient.algorithm) != agreement::kem_t::NONE){
 			// Запоминаем вид сведений и опознаватель KEM
 			recipient.kind = recipient_t::kind_t::KEM;
 			// Запоминаем опознаватель KEM
@@ -1697,37 +1828,37 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 			asn1::element_t kemct;
 			// Если текст инкапсуляции разобрать не удалось
 			if(!fields.next(asn1::tag_t::OCTET_STRING, kemct))
-			// Выводим переведённый отказ разбора
-				return (this->_error = __nts_translate__(fields.err()));
+				// Выводим переведённый отказ разбора
+				return (this->_error = ::__nts_translate__(fields.err()));
 			// Запоминаем просмотр текста инкапсуляции
 			recipient.kemct = kemct.content;
 			// Элемент записи алгоритма выработки ключа
 			asn1::element_t kdf;
 			// Если запись алгоритма выработки ключа разобрать не удалось
 			if(!fields.next(asn1::tag_t::SEQUENCE, kdf))
-			// Выводим переведённый отказ разбора
-				return (this->_error = __nts_translate__(fields.err()));
+				// Выводим переведённый отказ разбора
+				return (this->_error = ::__nts_translate__(fields.err()));
 			// Просмотр настроек алгоритма выработки ключа
 			view_t kdfSettings;
 			// Если запись алгоритма выработки ключа разобрать не удалось
-			if((outcome = __nts_algorithm_identifier__(kdf, recipient.kdf, kdfSettings)) != error_t::NONE)
-			// Выводим отказ разбора
+			if((outcome = ::__nts_algorithm_identifier__(kdf, recipient.kdf, kdfSettings)) != error_t::NONE)
+				// Выводим отказ разбора
 				return (this->_error = outcome);
 			// Элемент длины ключа KEK
 			asn1::element_t length;
 			// Если длину ключа KEK разобрать не удалось
 			if(!fields.next(asn1::tag_t::INTEGER, length))
-			// Выводим переведённый отказ разбора
-				return (this->_error = __nts_translate__(fields.err()));
+				// Выводим переведённый отказ разбора
+				return (this->_error = ::__nts_translate__(fields.err()));
 			// Число длины ключа KEK
 			int64_t number = 0;
 			// Если длину ключа KEK извлечь не удалось
 			if(asn1::integer(length, number) != asn1::error_t::NONE)
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return (this->_error = error_t::STRUCTURE);
 			// Если длина ключа KEK вне пределов раздела 3 RFC 9629
 			if((number < 1) || (number > 65535))
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return (this->_error = error_t::STRUCTURE);
 			// Запоминаем длину ключа KEK
 			recipient.kekLength = static_cast <uint16_t> (number);
@@ -1739,28 +1870,28 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 				asn1::element_t peek;
 				// Если очередное поле - ukm с меткой [0]
 				if(ahead.next(peek) && (peek.cls == asn1::cls_t::CONTEXT) && (peek.tag == 0))
-				// Сдвигаем разборщик за поле ukm
+					// Сдвигаем разборщик за поле ukm
 					fields = ahead;
 			}
 			// Элемент записи алгоритма защиты ключа CEK
 			asn1::element_t wrap;
 			// Если запись алгоритма защиты ключа CEK разобрать не удалось
 			if(!fields.next(asn1::tag_t::SEQUENCE, wrap))
-			// Выводим переведённый отказ разбора
-				return (this->_error = __nts_translate__(fields.err()));
+				// Выводим переведённый отказ разбора
+				return (this->_error = ::__nts_translate__(fields.err()));
 			// Просмотр настроек алгоритма защиты ключа CEK
 			view_t wrapSettings;
 			// Если запись алгоритма защиты ключа CEK разобрать не удалось
-			if((outcome = __nts_algorithm_identifier__(wrap, recipient.wrap, wrapSettings)) != error_t::NONE)
-			// Выводим отказ разбора
+			if((outcome = ::__nts_algorithm_identifier__(wrap, recipient.wrap, wrapSettings)) != error_t::NONE)
+				// Выводим отказ разбора
 				return (this->_error = outcome);
 		}
 		// Элемент защищённого ключа
 		asn1::element_t key;
 		// Если защищённый ключ разобрать не удалось
 		if(!fields.next(asn1::tag_t::OCTET_STRING, key))
-		// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(fields.err()));
+			// Выводим переведённый отказ разбора
+			return (this->_error = ::__nts_translate__(fields.err()));
 		// Запоминаем просмотр защищённого ключа
 		recipient.encryptedKey = key.content;
 		/**
@@ -1769,12 +1900,11 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 		try {
 			// Запоминаем сведения о получателе
 			this->_recipients.push_back(recipient);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
-		// Выводим отказ памяти
+			// Выводим отказ памяти
 			return (this->_error = error_t::MEMORY);
 		}
 	}
@@ -1782,48 +1912,48 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
 	asn1::element_t encrypted;
 	// Если запись EncryptedContentInfo разобрать не удалось
 	if(!items.next(asn1::tag_t::SEQUENCE, encrypted) || !encrypted.constructed)
-	// Выводим переведённый отказ разбора
-		return (this->_error = __nts_translate__(items.err()));
+		// Выводим переведённый отказ разбора
+		return (this->_error = ::__nts_translate__(items.err()));
 	{
-		// Разборщик содержимого записи EncryptedContentInfo
-		asn1::reader_t content(encrypted.content);
 		// Элемент опознавателя вида содержимого
 		asn1::element_t kind;
+		// Разборщик содержимого записи EncryptedContentInfo
+		asn1::reader_t content(encrypted.content);
 		// Если опознаватель вида содержимого разобрать не удалось
 		if(!content.next(asn1::tag_t::OBJECT, kind))
-		// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(content.err()));
+			// Выводим переведённый отказ разбора
+			return (this->_error = ::__nts_translate__(content.err()));
 		// Опознаватель вида содержимого
-		string sort;
+		string sort = "";
 		// Если опознаватель вида содержимого разобрать не удалось
-		if((outcome = __nts_oid_of__(kind, sort)) != error_t::NONE)
-		// Выводим отказ разбора
+		if((outcome = ::__nts_oid_of__(kind, sort)) != error_t::NONE)
+			// Выводим отказ разбора
 			return (this->_error = outcome);
 		// Элемент записи алгоритма шифрования содержимого
 		asn1::element_t algorithm;
 		// Если запись алгоритма шифрования содержимого разобрать не удалось
 		if(!content.next(asn1::tag_t::SEQUENCE, algorithm))
-		// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(content.err()));
+			// Выводим переведённый отказ разбора
+			return (this->_error = ::__nts_translate__(content.err()));
 		// Если запись алгоритма шифрования содержимого разобрать не удалось
-		if((outcome = __nts_algorithm_identifier__(algorithm, this->_algorithm, this->_parameters)) != error_t::NONE)
-		// Выводим отказ разбора
+		if((outcome = ::__nts_algorithm_identifier__(algorithm, this->_algorithm, this->_parameters)) != error_t::NONE)
+			// Выводим отказ разбора
 			return (this->_error = outcome);
 		// Элемент зашифрованного содержимого
 		asn1::element_t inside;
 		// Если зашифрованное содержимое разобрать не удалось
 		if(!content.next(inside))
-		// Выводим переведённый отказ разбора
-			return (this->_error = __nts_translate__(content.err()));
+			// Выводим переведённый отказ разбора
+			return (this->_error = ::__nts_translate__(content.err()));
 		// Если зашифрованное содержимое не несёт метку [0] простого вида
 		if(inside.constructed || (inside.cls != asn1::cls_t::CONTEXT) || (inside.tag != 0))
-		// Выводим отказ устройства записи
+			// Выводим отказ устройства записи
 			return (this->_error = error_t::STRUCTURE);
 		// Запоминаем просмотр зашифрованного содержимого
 		this->_content = inside.content;
 		// Если после содержимого остался хвост
 		if(!content.empty())
-		// Выводим отказ устройства записи
+			// Выводим отказ устройства записи
 			return (this->_error = error_t::STRUCTURE);
 	}
 	// Выводим успешность разбора записи
@@ -1834,16 +1964,16 @@ nts::cms::error_t nts::cms::Enveloped::parse(const view_t & data) noexcept {
  *
  */
 void nts::cms::Enveloped::clear() noexcept {
+	// Сбрасываем просмотр зашифрованного содержимого
+	this->_content = view_t();
+	// Сбрасываем просмотр настроек шифра
+	this->_parameters = view_t();
 	// Сбрасываем причину последнего отказа
 	this->_error = error_t::NONE;
 	// Сбрасываем опознаватель вида содержимого
 	this->_kind.clear();
 	// Сбрасываем опознаватель шифра содержимого
 	this->_algorithm.clear();
-	// Сбрасываем просмотр настроек шифра
-	this->_parameters = view_t();
-	// Сбрасываем просмотр зашифрованного содержимого
-	this->_content = view_t();
 	// Сбрасываем набор получателей
 	this->_recipients.clear();
 }
@@ -1912,6 +2042,11 @@ const vector <nts::cms::recipient_t> & nts::cms::Enveloped::recipients() const n
  *
  */
 nts::cms::Enveloped::Enveloped() noexcept : _error(error_t::NONE) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Enveloped::~Enveloped() noexcept = default;
 
 /**
  * @brief Функция определения вида записи ContentInfo
@@ -1921,26 +2056,38 @@ nts::cms::Enveloped::Enveloped() noexcept : _error(error_t::NONE) {}
  *
  */
 nts::cms::content_t nts::cms::content(const view_t & data) noexcept {
-	// Опознаватель вида содержимого и просмотр содержимого
-	string kind;
 	// Просмотр содержимого записи
 	view_t body;
+	// Опознаватель вида содержимого и просмотр содержимого
+	string kind = "";
 	// Если запись ContentInfo разобрать не удалось
-	if(__nts_content_info__(data, kind, body) != error_t::NONE)
-	// Выводим отсутствие вида
+	if(::__nts_content_info__(data, kind, body) != error_t::NONE)
+		// Выводим отсутствие вида
 		return content_t::NONE;
 	// Если опознаватель — id-data: вид содержимого data
-	if(kind == OID_DATA) return content_t::DATA;
+	if(kind == OID_DATA)
+		// Выводим вид содержимого записи: data
+		return content_t::DATA;
 	// Если опознаватель — id-signedData: вид содержимого signedData
-	if(kind == OID_SIGNED) return content_t::SIGNED;
+	if(kind == OID_SIGNED)
+		// Выводим вид содержимого записи: signedData
+		return content_t::SIGNED;
 	// Если опознаватель — id-envelopedData: вид содержимого envelopedData
-	if(kind == OID_ENVELOPED) return content_t::ENVELOPED;
+	if(kind == OID_ENVELOPED)
+		// Выводим вид содержимого записи: envelopedData
+		return content_t::ENVELOPED;
 	// Если опознаватель — id-digestedData: вид содержимого digestedData
-	if(kind == OID_DIGESTED) return content_t::DIGESTED;
+	if(kind == OID_DIGESTED)
+		// Выводим вид содержимого записи: digestedData
+		return content_t::DIGESTED;
 	// Если опознаватель — id-encryptedData: вид содержимого encryptedData
-	if(kind == OID_ENCRYPTED) return content_t::ENCRYPTED;
+	if(kind == OID_ENCRYPTED)
+		// Выводим вид содержимого записи: encryptedData
+		return content_t::ENCRYPTED;
 	// Если опознаватель — id-authenticatedData: вид содержимого authenticatedData
-	if(kind == OID_AUTHENTICATED) return content_t::AUTHENTICATED;
+	if(kind == OID_AUTHENTICATED)
+		// Выводим вид содержимого записи: authenticatedData
+		return content_t::AUTHENTICATED;
 	// Выводим отсутствие вида
 	return content_t::NONE;
 }
@@ -1960,29 +2107,29 @@ nts::cms::content_t nts::cms::content(const view_t & data) noexcept {
 nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const view_t & issuer, const view_t & serial, const view_t & content, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Если содержимое либо опознавание подписывающего не установлены
 	if((content.data == nullptr) || (issuer.data == nullptr) || (issuer.size == 0) || (serial.data == nullptr) || (serial.size == 0))
-	// Выводим отказ пустых данных
+		// Выводим отказ пустых данных
 		return error_t::EMPTY;
 	// Если ключ не подготовлен
 	if(!signer.ready())
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Опознаватель алгоритма подписи
-	const char * algorithm = __nts_signature_algorithm__(signer, hash);
+	const char * algorithm = ::__nts_signature_algorithm__(signer, hash);
 	// Если алгоритм подписи неизвестен
 	if(algorithm == nullptr)
-	// Выводим отказ алгоритма
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Опознаватель алгоритма хеша содержимого
-	const char * digestOid = __nts_oid_of__(hash);
+	const char * digestOid = ::__nts_oid_of__(hash);
 	// Если алгоритм хеша неизвестен
 	if(digestOid == nullptr)
-	// Выводим отказ алгоритма
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Место, в которое помещается хеш содержимого
 	uint8_t digest[64];
 	// Если хеш содержимого выработать не удалось
 	if(!digest::hash(hash, content, digest, sizeof(digest)))
-	// Выводим отказ алгоритма
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Длина хеша содержимого
 	const size_t width = digest::length(hash);
@@ -1994,60 +2141,62 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 		asn1::writer_t attributes;
 		// Открываем набор атрибутов меткой [0]
 		if(!attributes.open(asn1::cls_t::CONTEXT, 0))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем атрибут contentType
 		if(!attributes.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем опознаватель атрибута contentType
 		if(!attributes.oid(OID_CONTENT_TYPE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем набор значений атрибута
 		if(!attributes.open(asn1::tag_t::SET))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем вид содержимого id-data
 		if(!attributes.oid(OID_DATA))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем набор значений и атрибут
 		if(!attributes.close() || !attributes.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем атрибут messageDigest
 		if(!attributes.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем опознаватель атрибута messageDigest
 		if(!attributes.oid(OID_MESSAGE_DIGEST))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем набор значений атрибута
 		if(!attributes.open(asn1::tag_t::SET))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем хеш содержимого
 		if(!attributes.octets(view_t(digest, width)))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем набор значений и атрибут
 		if(!attributes.close() || !attributes.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем набор атрибутов
 		if(!attributes.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Просмотр записи атрибутов
 		const view_t signedAttributes = attributes.data();
-		// Подпись ставится под записью SET OF атрибутов с универсальной меткой SET
-		// по разделу 5.4 RFC 5652: пересобираем содержимое атрибутов под меткой SET
+		/**
+		 * Подпись ставится под записью SET OF атрибутов с универсальной меткой SET
+		 * по разделу 5.4 RFC 5652: пересобираем содержимое атрибутов под меткой SET
+		 */
 		asn1::writer_t imprint;
 		// Открываем набор атрибутов универсальной меткой SET
 		if(!imprint.open(asn1::tag_t::SET))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Переносим содержимое атрибутов: разбираем элементы записи [0] и переписываем
 		{
@@ -2057,7 +2206,7 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 			asn1::element_t wrapper_;
 			// Если запись атрибутов разобрать не удалось
 			if(!holder.next(wrapper_))
-			// Выводим отказ сборки
+				// Выводим отказ сборки
 				return error_t::MEMORY;
 			// Разборщик содержимого записи атрибутов
 			asn1::reader_t items(wrapper_.content);
@@ -2069,41 +2218,41 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 				asn1::element_t attribute;
 				// Если атрибут разобрать не удалось
 				if(!items.next(attribute))
-				// Выводим отказ сборки
+					// Выводим отказ сборки
 					return error_t::MEMORY;
 				// Переносим атрибут как готовый элемент
 				if(!imprint.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), attribute.content))
-				// Выводим отказ сборки
+					// Выводим отказ сборки
 					return error_t::MEMORY;
 			}
 		}
 		// Закрываем набор атрибутов
 		if(!imprint.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Просмотр записи атрибутов под меткой SET
 		const view_t body = imprint.data();
 		// Подпись записи атрибутов
 		vector <uint8_t> signature;
 		// Итог выработки подписи
-		const error_t outcome = __nts_make_signature__(signer, hash, body, signature);
+		const error_t outcome = ::__nts_make_signature__(signer, hash, body, signature);
 		// Если подпись выработать не удалось
 		if(outcome != error_t::NONE)
-		// Выводим отказ подписи
+			// Выводим отказ подписи
 			return outcome;
 		// Записчик записи SignerInfo
 		asn1::writer_t info;
 		// Открываем запись SignerInfo
 		if(!info.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем издание записи: у sid issuerAndSerialNumber издание 1
 		if(!info.integer(1))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем запись IssuerAndSerialNumber
 		if(!info.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Переносим запись имени издателя как готовый элемент
 		{
@@ -2113,88 +2262,88 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 			asn1::element_t element;
 			// Если запись имени издателя разобрать не удалось
 			if(!name.next(asn1::tag_t::SEQUENCE, element))
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return error_t::STRUCTURE;
 			// Переносим содержимое имени издателя
 			if(!info.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), element.content))
-			// Выводим отказ сборки
+				// Выводим отказ сборки
 				return error_t::MEMORY;
 		}
 		// Записываем порядковый номер сертификата
 		if(!info.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), serial))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем запись IssuerAndSerialNumber
 		if(!info.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем алгоритм хеша с пустыми настройками
-		if(!__nts_write_algorithm__(info, digestOid, true))
-		// Выводим отказ сборки
+		if(!::__nts_write_algorithm__(info, digestOid, true))
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Переносим запись атрибутов как готовый элемент метки [0]
-		if(!__nts_embed__(info, signedAttributes))
-		// Выводим отказ сборки
+		if(!::__nts_embed__(info, signedAttributes))
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем алгоритм подписи с пустыми настройками
-		if(!__nts_write_algorithm__(info, algorithm, true))
-		// Выводим отказ сборки
+		if(!::__nts_write_algorithm__(info, algorithm, true))
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем подпись
 		if(!info.octets(view_t(signature.data(), signature.size())))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем запись SignerInfo
 		if(!info.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записчик записи SignedData
 		asn1::writer_t signedData;
 		// Открываем запись SignedData
 		if(!signedData.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем издание записи: у подписанных атрибутов и сертификатов издание 3
 		if(!signedData.integer(3))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем набор алгоритмов хеша
 		if(!signedData.open(asn1::tag_t::SET))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем алгоритм хеша с пустыми настройками
-		if(!__nts_write_algorithm__(signedData, digestOid, true))
-		// Выводим отказ сборки
+		if(!::__nts_write_algorithm__(signedData, digestOid, true))
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем набор алгоритмов хеша
 		if(!signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем запись EncapsulatedContentInfo
 		if(!signedData.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем вид содержимого id-data
 		if(!signedData.oid(OID_DATA))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем содержимое меткой [0]
 		if(!signedData.open(asn1::cls_t::CONTEXT, 0))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем содержимое строкой байтов
 		if(!signedData.octets(content))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем содержимое и запись EncapsulatedContentInfo
 		if(!signedData.close() || !signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Если сертификаты записаны
 		if(!certificates.empty()){
 			// Открываем набор сертификатов меткой [0]
 			if(!signedData.open(asn1::cls_t::CONTEXT, 0))
-			// Выводим отказ сборки
+				// Выводим отказ сборки
 				return error_t::MEMORY;
 			/**
 			 * Переносим записи сертификатов
@@ -2206,70 +2355,69 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
 				asn1::element_t element;
 				// Если запись сертификата разобрать не удалось
 				if(!certificate.next(element))
-				// Выводим отказ устройства записи
+					// Выводим отказ устройства записи
 					return error_t::STRUCTURE;
 				// Переносим запись сертификата как готовый элемент
 				if(!signedData.element(element.cls, element.constructed, element.tag, element.content))
-				// Выводим отказ сборки
+					// Выводим отказ сборки
 					return error_t::MEMORY;
 			}
 			// Закрываем набор сертификатов
 			if(!signedData.close())
-			// Выводим отказ сборки
+				// Выводим отказ сборки
 				return error_t::MEMORY;
 		}
 		// Открываем набор подписывающих
 		if(!signedData.open(asn1::tag_t::SET))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Просмотр записи SignerInfo
 		const view_t record = info.data();
 		// Переносим запись SignerInfo как готовый элемент
-		if(!__nts_embed__(signedData, record))
-		// Выводим отказ сборки
+		if(!::__nts_embed__(signedData, record))
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем набор подписывающих
 		if(!signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем запись SignedData
 		if(!signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записчик обёртки ContentInfo
 		asn1::writer_t wrapper;
 		// Открываем запись ContentInfo
 		if(!wrapper.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем вид содержимого id-signedData
 		if(!wrapper.oid(OID_SIGNED))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем содержимое записи меткой [0]
 		if(!wrapper.open(asn1::cls_t::CONTEXT, 0))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Просмотр записи SignedData
 		const view_t signedRecord = signedData.data();
 		// Переносим запись SignedData как готовый элемент
-		if(!__nts_embed__(wrapper, signedRecord))
-		// Выводим отказ сборки
+		if(!::__nts_embed__(wrapper, signedRecord))
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем содержимое и запись ContentInfo
 		if(!wrapper.close() || !wrapper.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Просмотр собранной записи
 		const view_t data = wrapper.data();
 		// Переносим запись в итог
 		result.assign(data.data, data.data + data.size);
-	// Если памяти под итог не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
-	// Выводим отказ памяти
+		// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
 	// Выводим успешность сборки
@@ -2285,29 +2433,27 @@ nts::cms::error_t nts::cms::sign(const vector <view_t> & certificates, const vie
  * @return        отказ проверки: NONE - подпись сошлась, SIGNATURE - не сошлась либо
  *                непригодна, ALGORITHM - алгоритм неизвестен, KEY - ключ чужого алгоритма
  *
- *                непригодна, ALGORITHM - алгоритм неизвестен, KEY - ключ чужого алгоритма
- *
  */
 nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t & signer, const view_t & content, const x509::key_t & key) noexcept {
 	// Просмотр содержимого: отделённое либо вложенное в запись
 	view_t body = content;
 	// Если содержимое не передано
 	if(body.data == nullptr)
-	// Берём содержимое из записи
+		// Берём содержимое из записи
 		body = signed_.content();
 	// Если содержимого нет
 	if(body.data == nullptr)
-	// Выводим отказ пустых данных
+		// Выводим отказ пустых данных
 		return error_t::EMPTY;
 	// Опознаватель алгоритма подписи: rsaEncryption заменяется опознавателем подписи по хешу
 	string algorithm = signer.algorithm;
 	// Если записан голый rsaEncryption
 	if(algorithm == OID_RSA){
 		// Опознаватель подписи по опознавателю хеша
-		const char * mapped = __nts_rsa_signature_of__(signer.digest);
+		const char * mapped = ::__nts_rsa_signature_of__(signer.digest);
 		// Если опознаватель подписи не найден
 		if(mapped == nullptr)
-		// Выводим отказ алгоритма
+			// Выводим отказ алгоритма
 			return error_t::ALGORITHM;
 		// Запоминаем опознаватель подписи
 		algorithm = mapped;
@@ -2315,16 +2461,16 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 	// Если подписанные атрибуты записаны
 	if(signer.attributes.data != nullptr){
 		// Алгоритм хеша содержимого
-		const digest::hash_t hash = __nts_hash_of__(signer.digest);
+		const digest::hash_t hash = ::__nts_hash_of__(signer.digest);
 		// Если алгоритм хеша неизвестен
 		if(hash == digest::hash_t::NONE)
-		// Выводим отказ алгоритма
+			// Выводим отказ алгоритма
 			return error_t::ALGORITHM;
 		// Место, в которое помещается хеш содержимого
 		uint8_t digest[64];
 		// Если хеш содержимого выработать не удалось
 		if(!digest::hash(hash, body, digest, sizeof(digest)))
-		// Выводим отказ алгоритма
+			// Выводим отказ алгоритма
 			return error_t::ALGORITHM;
 		// Длина хеша содержимого
 		const size_t width = digest::length(hash);
@@ -2334,7 +2480,7 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 		asn1::element_t element;
 		// Если запись атрибутов разобрать не удалось
 		if(!attributes.next(element) || !element.constructed || (element.cls != asn1::cls_t::CONTEXT) || (element.tag != 0))
-		// Выводим отказ устройства записи
+			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
 		// Разборщик содержимого записи атрибутов
 		asn1::reader_t items(element.content);
@@ -2348,59 +2494,59 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 			asn1::element_t attribute;
 			// Если атрибут разобрать не удалось
 			if(!items.next(asn1::tag_t::SEQUENCE, attribute) || !attribute.constructed)
-			// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				// Выводим переведённый отказ разбора
+				return ::__nts_translate__(items.err());
 			// Разборщик содержимого атрибута
 			asn1::reader_t fields(attribute.content);
 			// Элемент опознавателя атрибута
 			asn1::element_t oid;
 			// Если опознаватель атрибута разобрать не удалось
 			if(!fields.next(asn1::tag_t::OBJECT, oid))
-			// Выводим переведённый отказ разбора
-				return __nts_translate__(fields.err());
+				// Выводим переведённый отказ разбора
+				return ::__nts_translate__(fields.err());
 			// Опознаватель атрибута
 			string name;
 			// Если опознаватель атрибута разобрать не удалось
-			if(__nts_oid_of__(oid, name) != error_t::NONE)
-			// Выводим отказ разбора
+			if(::__nts_oid_of__(oid, name) != error_t::NONE)
+				// Выводим отказ разбора
 				return error_t::STRUCTURE;
 			// Элемент набора значений атрибута
 			asn1::element_t values;
 			// Если набор значений атрибута разобрать не удалось
 			if(!fields.next(asn1::tag_t::SET, values) || !values.constructed)
-			// Выводим переведённый отказ разбора
-				return __nts_translate__(fields.err());
+				// Выводим переведённый отказ разбора
+				return ::__nts_translate__(fields.err());
 			// Разборщик содержимого набора значений
 			asn1::reader_t entries(values.content);
 			// Элемент значения атрибута
 			asn1::element_t value;
 			// Если значение атрибута разобрать не удалось
 			if(!entries.next(value))
-			// Выводим переведённый отказ разбора
-				return __nts_translate__(entries.err());
+				// Выводим переведённый отказ разбора
+				return ::__nts_translate__(entries.err());
 			// Атрибут contentType
 			if(name == OID_CONTENT_TYPE){
 				// Опознаватель вида содержимого
 				string sort;
 				// Если значение атрибута не опознаватель
-				if(__nts_oid_of__(value, sort) != error_t::NONE)
-				// Выводим отказ устройства записи
+				if(::__nts_oid_of__(value, sort) != error_t::NONE)
+					// Выводим отказ устройства записи
 					return error_t::STRUCTURE;
 				// Если вид содержимого не id-data
 				if(sort != OID_DATA)
-				// Выводим отказ устройства записи
+					// Выводим отказ устройства записи
 					return error_t::STRUCTURE;
 				// Запоминаем признак атрибута
 				typed = true;
 			// Атрибут messageDigest
-			} else if(name == OID_MESSAGE_DIGEST){
+			} else if(name == OID_MESSAGE_DIGEST) {
 				// Если значение атрибута не строка байтов
 				if((value.cls != asn1::cls_t::UNIVERSAL) || (value.tag != static_cast <uint32_t> (asn1::tag_t::OCTET_STRING)))
-				// Выводим отказ устройства записи
+					// Выводим отказ устройства записи
 					return error_t::STRUCTURE;
 				// Если хеш содержимого не сошёлся
 				if((value.content.size != width) || (::memcmp(value.content.data, digest, width) != 0))
-				// Выводим отказ подписи
+					// Выводим отказ подписи
 					return error_t::SIGNATURE;
 				// Запоминаем признак атрибута
 				digested = true;
@@ -2408,10 +2554,12 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 		}
 		// Если обязательные атрибуты не найдены
 		if(!typed || !digested)
-		// Выводим отказ устройства записи
+			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
-		// Подпись проверяется под записью SET OF атрибутов с универсальной меткой SET
-		// по разделу 5.4 RFC 5652: пересобираем содержимое атрибутов под меткой SET
+		/**
+		 * Подпись проверяется под записью SET OF атрибутов с универсальной меткой SET
+		 * по разделу 5.4 RFC 5652: пересобираем содержимое атрибутов под меткой SET
+		 */
 		asn1::writer_t imprint;
 		/**
 		 * Выполняем перехват ошибок
@@ -2419,7 +2567,7 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 		try {
 			// Открываем набор атрибутов универсальной меткой SET
 			if(!imprint.open(asn1::tag_t::SET))
-			// Выводим отказ памяти
+				// Выводим отказ памяти
 				return error_t::MEMORY;
 			// Разборщик содержимого записи атрибутов
 			asn1::reader_t rest(element.content);
@@ -2431,23 +2579,22 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 				asn1::element_t attribute;
 				// Если атрибут разобрать не удалось
 				if(!rest.next(attribute))
-				// Выводим переведённый отказ разбора
-					return __nts_translate__(rest.err());
+					// Выводим переведённый отказ разбора
+					return ::__nts_translate__(rest.err());
 				// Переносим атрибут как готовый элемент
 				if(!imprint.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), attribute.content))
-				// Выводим отказ памяти
+					// Выводим отказ памяти
 					return error_t::MEMORY;
 			}
 			// Закрываем набор атрибутов
 			if(!imprint.close())
-			// Выводим отказ памяти
+				// Выводим отказ памяти
 				return error_t::MEMORY;
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
 		} catch(const std::bad_alloc &) {
-		// Выводим отказ памяти
+			// Выводим отказ памяти
 			return error_t::MEMORY;
 		}
 		// Просмотр записи атрибутов под меткой SET
@@ -2458,9 +2605,19 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 		 * Выводим переведённый отказ проверки
 		 */
 		switch(outcome){
-			case nts::x509::error_t::NONE: return error_t::NONE;
-			case nts::x509::error_t::KEY: return error_t::KEY;
-			case nts::x509::error_t::MEMORY: return error_t::MEMORY;
+			// Если проверка прошла без отказа
+			case nts::x509::error_t::NONE:
+				// Выводим отсутствие отказа
+				return error_t::NONE;
+			// Если отказ связан с ключом
+			case nts::x509::error_t::KEY:
+				// Выводим отказ ключа
+				return error_t::KEY;
+			// Если отказ связан с памятью
+			case nts::x509::error_t::MEMORY:
+				// Выводим отказ памяти
+				return error_t::MEMORY;
+			// В остальных случаях выводим отказ подписи
 			default: return error_t::SIGNATURE;
 		}
 	}
@@ -2470,9 +2627,19 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 	 * Выводим переведённый отказ проверки
 	 */
 	switch(outcome){
-		case nts::x509::error_t::NONE: return error_t::NONE;
-		case nts::x509::error_t::KEY: return error_t::KEY;
-		case nts::x509::error_t::MEMORY: return error_t::MEMORY;
+		// Если проверка прошла без отказа
+		case nts::x509::error_t::NONE:
+			// Выводим отсутствие отказа
+			return error_t::NONE;
+		// Если отказ связан с ключом
+		case nts::x509::error_t::KEY:
+			// Выводим отказ ключа
+			return error_t::KEY;
+		// Если отказ связан с памятью
+		case nts::x509::error_t::MEMORY:
+			// Выводим отказ памяти
+			return error_t::MEMORY;
+		// В остальных случаях выводим отказ подписи
 		default: return error_t::SIGNATURE;
 	}
 }
@@ -2487,7 +2654,7 @@ nts::cms::error_t nts::cms::verify(const signed_t & signed_, const signer_info_t
 nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, vector <uint8_t> & result) noexcept {
 	// Если набор сертификатов пуст
 	if(certificates.empty())
-	// Выводим отказ пустых данных
+		// Выводим отказ пустых данных
 		return error_t::EMPTY;
 	/**
 	 * Выполняем перехват ошибок
@@ -2497,31 +2664,31 @@ nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, v
 		asn1::writer_t signedData;
 		// Открываем запись SignedData
 		if(!signedData.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем издание записи: у сертификатов издание 3
 		if(!signedData.integer(3))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем пустой набор алгоритмов хеша
 		if(!signedData.open(asn1::tag_t::SET) || !signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем запись EncapsulatedContentInfo
 		if(!signedData.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем вид содержимого id-data без содержимого
 		if(!signedData.oid(OID_DATA))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем запись EncapsulatedContentInfo
 		if(!signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем набор сертификатов меткой [0]
 		if(!signedData.open(asn1::cls_t::CONTEXT, 0))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		/**
 		 * Переносим записи сертификатов
@@ -2533,65 +2700,63 @@ nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, v
 			asn1::element_t element;
 			// Если запись сертификата разобрать не удалось
 			if(!certificate.next(element))
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return error_t::STRUCTURE;
 			// Переносим запись сертификата как готовый элемент
 			if(!signedData.element(element.cls, element.constructed, element.tag, element.content))
-			// Выводим отказ сборки
+				// Выводим отказ сборки
 				return error_t::MEMORY;
 		}
 		// Закрываем набор сертификатов
 		if(!signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем пустой набор подписывающих
 		if(!signedData.open(asn1::tag_t::SET) || !signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем запись SignedData
 		if(!signedData.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записчик обёртки ContentInfo
 		asn1::writer_t wrapper;
 		// Открываем запись ContentInfo
 		if(!wrapper.open(asn1::tag_t::SEQUENCE))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Записываем вид содержимого id-signedData
 		if(!wrapper.oid(OID_SIGNED))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Открываем содержимое записи меткой [0]
 		if(!wrapper.open(asn1::cls_t::CONTEXT, 0))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Просмотр записи SignedData
 		const view_t record = signedData.data();
 		// Переносим запись SignedData как готовый элемент
 		if(!__nts_embed__(wrapper, record))
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем содержимое и запись ContentInfo
 		if(!wrapper.close() || !wrapper.close())
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Просмотр собранной записи
 		const view_t data = wrapper.data();
 		// Переносим запись в итог
 		result.assign(data.data, data.data + data.size);
-	// Если памяти под итог не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
-	// Выводим отказ памяти
+		// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
 	// Выводим успешность сборки
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция сборки зашифрованного сообщения с передачей ключа по RSA
  *
@@ -2606,23 +2771,23 @@ nts::cms::error_t nts::cms::certificates(const vector <view_t> & certificates, v
 nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issuer, const view_t & serial, const x509::key_t & key, vector <uint8_t> & result) noexcept {
 	// Если содержимое либо опознавание получателя не установлены
 	if((content.data == nullptr) || (issuer.data == nullptr) || (issuer.size == 0) || (serial.data == nullptr) || (serial.size == 0))
-	// Выводим отказ пустых данных
+		// Выводим отказ пустых данных
 		return error_t::EMPTY;
 	// Если ключ чужого алгоритма
 	if(key.algorithm != OID_RSA)
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Разбираем сведения об открытом ключе RSA
 	keys::key_t public_;
 	// Если запись SubjectPublicKeyInfo разобрать не удалось
 	if(keys::decodeSubjectPublicKeyInfo(key.element, public_) != keys::error_t::NONE)
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Ключ шифрования содержимого
 	uint8_t cek[CEK];
 	// Если случайные байты выработать не удалось
 	if(!entropy::bytes(cek, sizeof(cek)))
-	// Выводим отказ случайности
+		// Выводим отказ случайности
 		return error_t::RANDOM;
 	// Модуль подписи RSA для зашифрования ключа
 	sign::rsa_t rsa;
@@ -2641,14 +2806,13 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	try {
 		// Занимаем место под защищённый ключ длиною в модуль
 		wrapped.assign(rsa.size(), 0);
-	// Если памяти под итог не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
-	// Выводим отказ памяти
+		// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
 	// Если ключ защитить не удалось
@@ -2672,21 +2836,21 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		if(!recipient.open(asn1::tag_t::SEQUENCE)){
 			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем издание записи: у rid issuerAndSerialNumber издание 0
 		if(!recipient.integer(0)){
 			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Открываем запись IssuerAndSerialNumber
 		if(!recipient.open(asn1::tag_t::SEQUENCE)){
 			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Переносим запись имени издателя как готовый элемент
@@ -2699,14 +2863,14 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			if(!name.next(asn1::tag_t::SEQUENCE, element)){
 				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return error_t::STRUCTURE;
 			}
 			// Переносим содержимое имени издателя
 			if(!recipient.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), element.content)){
 				// Затирание ключа
 				nts::sys::wipe(cek, sizeof(cek));
-			// Выводим отказ сборки
+				// Выводим отказ сборки
 				return error_t::MEMORY;
 			}
 		}
@@ -2714,47 +2878,46 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		if(!recipient.element(asn1::cls_t::UNIVERSAL, false, static_cast <uint32_t> (asn1::tag_t::INTEGER), serial)){
 			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Закрываем запись IssuerAndSerialNumber
 		if(!recipient.close()){
 			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем алгоритм rsaEncryption с пустыми настройками
-		if(!__nts_write_algorithm__(recipient, OID_RSA, true)){
+		if(!::__nts_write_algorithm__(recipient, OID_RSA, true)){
 			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем защищённый ключ
 		if(!recipient.octets(view_t(wrapped.data(), wrapped.size()))){
 			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Закрываем запись KeyTransRecipientInfo
 		if(!recipient.close()){
 			// Затирание ключа
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Собираем запись EnvelopedData: издание 0 у сведений KeyTrans
-		outcome = __nts_build_enveloped__(recipient, 0, content, cek, result);
-	// Если памяти под итог не хватило
+		outcome = ::__nts_build_enveloped__(recipient, 0, content, cek, result);
 	/**
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
-	// Выводим отказ памяти
+		// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
 	// Затирание ключа шифрования содержимого
@@ -2777,23 +2940,23 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issuer, const view_t & serial, const agreement::kem_t kem, const view_t & key, vector <uint8_t> & result) noexcept {
 	// Если содержимое либо опознавание получателя не установлены
 	if((content.data == nullptr) || (issuer.data == nullptr) || (issuer.size == 0) || (serial.data == nullptr) || (serial.size == 0))
-	// Выводим отказ пустых данных
+		// Выводим отказ пустых данных
 		return error_t::EMPTY;
 	// Опознаватель алгоритма ML-KEM
-	const char * kemOid = __nts_oid_of__(kem);
+	const char * kemOid = ::__nts_oid_of__(kem);
 	// Если набор параметров неизвестен
 	if(kemOid == nullptr)
-	// Выводим отказ алгоритма
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Если открытый ключ негоден
 	if(!agreement::validate(kem, key))
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Ключ шифрования содержимого
 	uint8_t cek[CEK];
 	// Если случайные байты выработать не удалось
 	if(!entropy::bytes(cek, sizeof(cek)))
-	// Выводим отказ случайности
+		// Выводим отказ случайности
 		return error_t::RANDOM;
 	// Текст инкапсуляции и общий секрет
 	vector <uint8_t> kemct;
@@ -2805,14 +2968,13 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	try {
 		// Занимаем место под текст инкапсуляции
 		kemct.assign(agreement::ciphertext(kem), 0);
-	// Если памяти под итог не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
 	} catch(const std::bad_alloc &) {
 		// Затирание ключа
 		nts::sys::wipe(cek, sizeof(cek));
-	// Выводим отказ памяти
+		// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
 	// Если инкапсуляцию выполнить не удалось
@@ -2825,7 +2987,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	// Ключ KEK длиною под AES-256
 	uint8_t kek[32];
 	// Вырабатываем ключ KEK по разделу 5 RFC 9629
-	if(!__nts_derive_kek__(view_t(shared, sizeof(shared)), OID_AES256_WRAP, sizeof(kek), kek)){
+	if(!::__nts_derive_kek__(view_t(shared, sizeof(shared)), OID_AES256_WRAP, sizeof(kek), kek)){
 		// Затирание секретов
 		nts::sys::wipe(shared, sizeof(shared));
 		nts::sys::wipe(cek, sizeof(cek));
@@ -2837,7 +2999,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 	// Защищённый ключ содержимого
 	vector <uint8_t> wrapped;
 	// Если ключ содержимого защитить не удалось
-	if(!__nts_aes_wrap__(view_t(kek, sizeof(kek)), view_t(cek, sizeof(cek)), wrapped)){
+	if(!::__nts_aes_wrap__(view_t(kek, sizeof(kek)), view_t(cek, sizeof(cek)), wrapped)){
 		// Затирание секретов
 		nts::sys::wipe(kek, sizeof(kek));
 		nts::sys::wipe(cek, sizeof(cek));
@@ -2859,7 +3021,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем издание записи: по разделу 3 RFC 9629 издание всегда 0
@@ -2867,7 +3029,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Открываем запись IssuerAndSerialNumber
@@ -2875,7 +3037,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Переносим запись имени издателя как готовый элемент
@@ -2889,7 +3051,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 				// Затирание секретов
 				nts::sys::wipe(kek, sizeof(kek));
 				nts::sys::wipe(cek, sizeof(cek));
-			// Выводим отказ устройства записи
+				// Выводим отказ устройства записи
 				return error_t::STRUCTURE;
 			}
 			// Переносим содержимое имени издателя
@@ -2897,7 +3059,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 				// Затирание секретов
 				nts::sys::wipe(kek, sizeof(kek));
 				nts::sys::wipe(cek, sizeof(cek));
-			// Выводим отказ сборки
+				// Выводим отказ сборки
 				return error_t::MEMORY;
 			}
 		}
@@ -2906,7 +3068,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Закрываем запись IssuerAndSerialNumber
@@ -2914,15 +3076,15 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем алгоритм KEM без настроек
-		if(!__nts_write_algorithm__(recipient, kemOid, false)){
+		if(!::__nts_write_algorithm__(recipient, kemOid, false)){
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем текст инкапсуляции
@@ -2930,15 +3092,15 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем алгоритм выработки ключа HKDF-SHA-256 без настроек
-		if(!__nts_write_algorithm__(recipient, OID_HKDF_SHA256, false)){
+		if(!::__nts_write_algorithm__(recipient, OID_HKDF_SHA256, false)){
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем длину ключа KEK
@@ -2946,15 +3108,15 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем алгоритм защиты ключа AES-256-KW без настроек
-		if(!__nts_write_algorithm__(recipient, OID_AES256_WRAP, false)){
+		if(!::__nts_write_algorithm__(recipient, OID_AES256_WRAP, false)){
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем защищённый ключ содержимого
@@ -2962,7 +3124,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Закрываем запись KEMRecipientInfo
@@ -2970,7 +3132,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записчик обёртки OtherRecipientInfo по разделу 6.2.5 RFC 5652
@@ -2980,7 +3142,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Записываем опознаватель сведений KEM
@@ -2988,15 +3150,15 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Переносим запись KEMRecipientInfo как готовый элемент
-		if(!__nts_embed__(ori, recipient.data())){
+		if(!::__nts_embed__(ori, recipient.data())){
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Закрываем запись OtherRecipientInfo
@@ -3004,12 +3166,11 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 			// Затирание секретов
 			nts::sys::wipe(kek, sizeof(kek));
 			nts::sys::wipe(cek, sizeof(cek));
-		// Выводим отказ сборки
+			// Выводим отказ сборки
 			return error_t::MEMORY;
 		}
 		// Собираем запись EnvelopedData: издание 2 у сведений OtherRecipientInfo
-		outcome = __nts_build_enveloped__(ori, 2, content, cek, result);
-	// Если памяти под итог не хватило
+		outcome = ::__nts_build_enveloped__(ori, 2, content, cek, result);
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -3017,7 +3178,7 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 		// Затирание секретов
 		nts::sys::wipe(kek, sizeof(kek));
 		nts::sys::wipe(cek, sizeof(cek));
-	// Выводим отказ памяти
+		// Выводим отказ памяти
 		return error_t::MEMORY;
 	}
 	// Затирание секретов
@@ -3038,17 +3199,25 @@ nts::cms::error_t nts::cms::envelop(const view_t & content, const view_t & issue
 nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys::key_t & key, vector <uint8_t> & result) noexcept {
 	// Если ключ не RSA либо без секретной части
 	if((key.kind != keys::kind_t::RSA) || !key.secret())
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Если шифр содержимого не AES-CBC
 	size_t bits = 0;
-	// Определяем длину ключа шифра содержимого
-	if(enveloped.algorithm() == OID_AES128_CBC) bits = 128;
-	else if(enveloped.algorithm() == OID_AES192_CBC) bits = 192;
-	else if(enveloped.algorithm() == OID_AES256_CBC) bits = 256;
+	// Если шифр содержимого — AES-128-CBC
+	if(enveloped.algorithm() == OID_AES128_CBC)
+		// Задаём длину ключа AES-128
+		bits = 128;
+	// Если шифр содержимого — AES-192-CBC
+	else if(enveloped.algorithm() == OID_AES192_CBC)
+		// Задаём длину ключа AES-192
+		bits = 192;
+	// Если шифр содержимого — AES-256-CBC
+	else if(enveloped.algorithm() == OID_AES256_CBC)
+		// Задаём длину ключа AES-256
+		bits = 256;
 	// Если шифр содержимого неизвестен
 	if(bits == 0)
-	// Выводим отказ алгоритма
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Синхропосылка из настроек шифра содержимого
 	view_t initVector;
@@ -3059,14 +3228,14 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys:
 		asn1::element_t element;
 		// Если синхропосылку разобрать не удалось
 		if(!settings.next(asn1::tag_t::OCTET_STRING, element))
-		// Выводим отказ устройства записи
+			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
 		// Запоминаем синхропосылку
 		initVector = element.content;
 	}
 	// Если синхропосылка негодна
 	if(initVector.size != BLOCK)
-	// Выводим отказ устройства записи
+		// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
 	// Разыскиваем сведения KeyTrans
 	const recipient_t * recipient = nullptr;
@@ -3084,13 +3253,13 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys:
 	}
 	// Если сведения KeyTrans не найдены
 	if(recipient == nullptr)
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Модуль RSA для расшифрования ключа
 	sign::rsa_t rsa;
 	// Если секретный ключ установить не удалось
 	if(!rsa.key(view_t(key.n.data(), key.n.size()), view_t(key.e.data(), key.e.size()), view_t(key.d.data(), key.d.size()), view_t(key.p.data(), key.p.size()), view_t(key.q.data(), key.q.size()), view_t(key.dP.data(), key.dP.size()), view_t(key.dQ.data(), key.dQ.size()), view_t(key.qInv.data(), key.qInv.size())))
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Ключ шифрования содержимого: место отводится по размеру модуля ключа
 	uint8_t cek[512];
@@ -3111,7 +3280,7 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys:
 		return error_t::KEY;
 	}
 	// Расшифровываем содержимое
-	const error_t outcome = __nts_decrypt_content__(enveloped.content(), view_t(cek, size), initVector, result);
+	const error_t outcome = ::__nts_decrypt_content__(enveloped.content(), view_t(cek, size), initVector, result);
 	// Затирание ключа
 	nts::sys::wipe(cek, sizeof(cek));
 	// Выводим итог расшифрования
@@ -3129,22 +3298,30 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const keys:
  */
 nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agreement::kem_t kem, const view_t & secret, vector <uint8_t> & result) noexcept {
 	// Если набор параметров неизвестен
-	if(__nts_oid_of__(kem) == nullptr)
-	// Выводим отказ алгоритма
+	if(::__nts_oid_of__(kem) == nullptr)
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Если секретный ключ негоден
 	if((secret.data == nullptr) || (secret.size != agreement::decapsulation(kem)))
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Если шифр содержимого не AES-CBC
 	size_t bits = 0;
-	// Определяем длину ключа шифра содержимого
-	if(enveloped.algorithm() == OID_AES128_CBC) bits = 128;
-	else if(enveloped.algorithm() == OID_AES192_CBC) bits = 192;
-	else if(enveloped.algorithm() == OID_AES256_CBC) bits = 256;
+	// Если шифр содержимого — AES-128-CBC
+	if(enveloped.algorithm() == OID_AES128_CBC)
+		// Задаём длину ключа AES-128
+		bits = 128;
+	// Если шифр содержимого — AES-192-CBC
+	else if(enveloped.algorithm() == OID_AES192_CBC)
+		// Задаём длину ключа AES-192
+		bits = 192;
+	// Если шифр содержимого — AES-256-CBC
+	else if(enveloped.algorithm() == OID_AES256_CBC)
+		// Задаём длину ключа AES-256
+		bits = 256;
 	// Если шифр содержимого неизвестен
 	if(bits == 0)
-	// Выводим отказ алгоритма
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Синхропосылка из настроек шифра содержимого
 	view_t initVector;
@@ -3155,14 +3332,14 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 		asn1::element_t element;
 		// Если синхропосылку разобрать не удалось
 		if(!settings.next(asn1::tag_t::OCTET_STRING, element))
-		// Выводим отказ устройства записи
+			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
 		// Запоминаем синхропосылку
 		initVector = element.content;
 	}
 	// Если синхропосылка негодна
 	if(initVector.size != BLOCK)
-	// Выводим отказ устройства записи
+		// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
 	// Разыскиваем сведения KEM
 	const recipient_t * recipient = nullptr;
@@ -3180,29 +3357,37 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 	}
 	// Если сведения KEM не найдены
 	if(recipient == nullptr)
-	// Выводим отказ ключа
+		// Выводим отказ ключа
 		return error_t::KEY;
 	// Если алгоритм выработки ключа не HKDF-SHA-256
 	if(recipient->kdf != OID_HKDF_SHA256)
-	// Выводим отказ алгоритма
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Если алгоритм защиты ключа не AES-KW
 	size_t kekBits = 0;
-	// Определяем длину ключа KEK
-	if(recipient->wrap == OID_AES128_WRAP) kekBits = 128;
-	else if(recipient->wrap == OID_AES192_WRAP) kekBits = 192;
-	else if(recipient->wrap == OID_AES256_WRAP) kekBits = 256;
+	// Если алгоритм защиты ключа — AES-128-KW
+	if(recipient->wrap == OID_AES128_WRAP)
+		// Задаём длину ключа KEK AES-128
+		kekBits = 128;
+	// Если алгоритм защиты ключа — AES-192-KW
+	else if(recipient->wrap == OID_AES192_WRAP)
+		// Задаём длину ключа KEK AES-192
+		kekBits = 192;
+	// Если алгоритм защиты ключа — AES-256-KW
+	else if(recipient->wrap == OID_AES256_WRAP)
+		// Задаём длину ключа KEK AES-256
+		kekBits = 256;
 	// Если алгоритм защиты ключа неизвестен
 	if(kekBits == 0)
-	// Выводим отказ алгоритма
+		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
 	// Если длина ключа KEK не отвечает алгоритму защиты
 	if(recipient->kekLength != kekBits / 8)
-	// Выводим отказ устройства записи
+		// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
 	// Если текст инкапсуляции негоден
 	if(recipient->kemct.size != agreement::ciphertext(kem))
-	// Выводим отказ устройства записи
+		// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
 	// Общий секрет декапсуляции
 	uint8_t shared[agreement::MLKEM_SHARED];
@@ -3216,7 +3401,7 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 	// Ключ KEK
 	uint8_t kek[32];
 	// Вырабатываем ключ KEK по разделу 5 RFC 9629
-	if(!__nts_derive_kek__(view_t(shared, sizeof(shared)), recipient->wrap.c_str(), recipient->kekLength, kek)){
+	if(!::__nts_derive_kek__(view_t(shared, sizeof(shared)), recipient->wrap.c_str(), recipient->kekLength, kek)){
 		// Затирание секрета
 		nts::sys::wipe(shared, sizeof(shared));
 		// Выводим отказ алгоритма
@@ -3227,7 +3412,7 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 	// Ключ шифрования содержимого
 	vector <uint8_t> cek;
 	// Если ключ содержимого снять с защиты не удалось
-	if(!__nts_aes_unwrap__(view_t(kek, recipient->kekLength), recipient->encryptedKey, cek)){
+	if(!::__nts_aes_unwrap__(view_t(kek, recipient->kekLength), recipient->encryptedKey, cek)){
 		// Затирание ключа KEK
 		nts::sys::wipe(kek, sizeof(kek));
 		// Выводим отказ ключа
@@ -3245,7 +3430,7 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 		return error_t::KEY;
 	}
 	// Расшифровываем содержимое
-	const error_t outcome = __nts_decrypt_content__(enveloped.content(), view_t(cek.data(), cek.size()), initVector, result);
+	const error_t outcome = ::__nts_decrypt_content__(enveloped.content(), view_t(cek.data(), cek.size()), initVector, result);
 	// Затирание ключа
 	if(!cek.empty())
 		// Затирание ключа
@@ -3254,11 +3439,6 @@ nts::cms::error_t nts::cms::unenvelop(const enveloped_t & enveloped, const agree
 	return outcome;
 }
 
-/**
- * @brief Конструктор
- *
- */
-nts::cms::Digested::Digested() noexcept : _error(error_t::NONE) {}
 /**
  * @brief Метод разбора записи ContentInfo вида id-digestedData
  *
@@ -3276,12 +3456,12 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Выводим причину отказа
 		return this->_error;
 	}
-	// Опознаватель вида содержимого
-	string kind;
 	// Просмотр содержимого записи
 	view_t body;
+	// Опознаватель вида содержимого
+	string kind = "";
 	// Если запись ContentInfo разобрать не удалось
-	if(__nts_content_info__(data, kind, body) != error_t::NONE){
+	if(::__nts_content_info__(data, kind, body) != error_t::NONE){
 		// Запоминаем причину отказа
 		this->_error = error_t::STRUCTURE;
 		// Выводим причину отказа
@@ -3305,7 +3485,7 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Если запись разобрать не удалось
 		if(!reader.next(asn1::tag_t::SEQUENCE, digested) || !digested.constructed){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(reader.err());
+			this->_error = ::__nts_translate__(reader.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3332,7 +3512,7 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Просмотр настроек алгоритма
 		view_t params;
 		// Итог разбора записи алгоритма
-		const error_t outcome = __nts_algorithm_identifier__(algorithm, this->_algorithm, params);
+		const error_t outcome = ::__nts_algorithm_identifier__(algorithm, this->_algorithm, params);
 		// Если запись алгоритма разобрать не удалось
 		if(outcome != error_t::NONE){
 			// Запоминаем причину отказа
@@ -3345,7 +3525,7 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Если запись разобрать не удалось
 		if(!items.next(asn1::tag_t::SEQUENCE, encap) || !encap.constructed){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3356,7 +3536,7 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Если опознаватель разобрать не удалось
 		if(!fields.next(asn1::tag_t::OBJECT, contentType)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(fields.err());
+			this->_error = ::__nts_translate__(fields.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3365,7 +3545,7 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Если содержимое разобрать не удалось
 		if(!fields.next(content) || (content.cls != asn1::cls_t::CONTEXT) || (content.tag != 0)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(fields.err());
+			this->_error = ::__nts_translate__(fields.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3376,7 +3556,7 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Если строку байтов разобрать не удалось
 		if(!inner.next(asn1::tag_t::OCTET_STRING, octets)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(inner.err());
+			this->_error = ::__nts_translate__(inner.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3387,13 +3567,12 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
 		// Если хеш разобрать не удалось
 		if(!items.next(asn1::tag_t::OCTET_STRING, digest)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
 		// Запоминаем хеш
 		this->_digest = digest.content;
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -3413,14 +3592,14 @@ nts::cms::error_t nts::cms::Digested::parse(const view_t & data) noexcept {
  *
  */
 void nts::cms::Digested::clear() noexcept {
-	// Сбрасываем причину отказа
-	this->_error = error_t::NONE;
 	// Сбрасываем опознаватель алгоритма
 	this->_algorithm.clear();
 	// Сбрасываем просмотры
 	this->_content = view_t();
 	// Сбрасываем просмотр импринта
 	this->_digest = view_t();
+	// Сбрасываем причину отказа
+	this->_error = error_t::NONE;
 }
 /**
  * @brief Метод извлечения причины последнего отказа
@@ -3462,12 +3641,17 @@ const nts::view_t & nts::cms::Digested::digest() const noexcept {
 	// Выводим просмотр хеша
 	return this->_digest;
 }
-
 /**
  * @brief Конструктор
  *
  */
-nts::cms::Encrypted::Encrypted() noexcept : _error(error_t::NONE) {}
+nts::cms::Digested::Digested() noexcept : _error(error_t::NONE) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Digested::~Digested() noexcept = default;
+
 /**
  * @brief Метод разбора записи ContentInfo вида id-encryptedData
  *
@@ -3485,12 +3669,12 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		// Выводим причину отказа
 		return this->_error;
 	}
-	// Опознаватель вида содержимого
-	string kind;
 	// Просмотр содержимого записи
 	view_t body;
+	// Опознаватель вида содержимого
+	string kind = "";
 	// Если запись ContentInfo разобрать не удалось
-	if(__nts_content_info__(data, kind, body) != error_t::NONE){
+	if(::__nts_content_info__(data, kind, body) != error_t::NONE){
 		// Запоминаем причину отказа
 		this->_error = error_t::STRUCTURE;
 		// Выводим причину отказа
@@ -3514,7 +3698,7 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		// Если запись разобрать не удалось
 		if(!reader.next(asn1::tag_t::SEQUENCE, encrypted) || !encrypted.constructed){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(reader.err());
+			this->_error = ::__nts_translate__(reader.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3525,7 +3709,7 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		// Если издание разобрать не удалось
 		if(!items.next(asn1::tag_t::INTEGER, version)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3534,7 +3718,7 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		// Если запись разобрать не удалось
 		if(!items.next(asn1::tag_t::SEQUENCE, encap) || !encap.constructed){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3545,7 +3729,7 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		// Если опознаватель разобрать не удалось
 		if(!fields.next(asn1::tag_t::OBJECT, contentType)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(fields.err());
+			this->_error = ::__nts_translate__(fields.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3554,12 +3738,12 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		// Если запись алгоритма разобрать не удалось
 		if(!fields.next(asn1::tag_t::SEQUENCE, algorithm)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(fields.err());
+			this->_error = ::__nts_translate__(fields.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
 		// Итог разбора записи алгоритма
-		const error_t outcome = __nts_algorithm_identifier__(algorithm, this->_algorithm, this->_parameters);
+		const error_t outcome = ::__nts_algorithm_identifier__(algorithm, this->_algorithm, this->_parameters);
 		// Если запись алгоритма разобрать не удалось
 		if(outcome != error_t::NONE){
 			// Запоминаем причину отказа
@@ -3572,13 +3756,12 @@ nts::cms::error_t nts::cms::Encrypted::parse(const view_t & data) noexcept {
 		// Если содержимое разобрать не удалось
 		if(!fields.next(content) || (content.cls != asn1::cls_t::CONTEXT) || (content.tag != 0)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(fields.err());
+			this->_error = ::__nts_translate__(fields.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
 		// Запоминаем зашифрованное содержимое
 		this->_content = content.content;
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -3647,12 +3830,17 @@ const nts::view_t & nts::cms::Encrypted::content() const noexcept {
 	// Выводим просмотр зашифрованного содержимого
 	return this->_content;
 }
-
 /**
  * @brief Конструктор
  *
  */
-nts::cms::Authenticated::Authenticated() noexcept : _error(error_t::NONE) {}
+nts::cms::Encrypted::Encrypted() noexcept : _error(error_t::NONE) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Encrypted::~Encrypted() noexcept = default;
+
 /**
  * @brief  Метод разбора записи ContentInfo вида id-authenticatedData
  *
@@ -3675,7 +3863,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 	// Просмотр содержимого записи
 	view_t body;
 	// Если запись ContentInfo разобрать не удалось
-	if(__nts_content_info__(data, kind, body) != error_t::NONE){
+	if(::__nts_content_info__(data, kind, body) != error_t::NONE){
 		// Запоминаем причину отказа
 		this->_error = error_t::STRUCTURE;
 		// Выводим причину отказа
@@ -3699,7 +3887,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если запись разобрать не удалось
 		if(!reader.next(asn1::tag_t::SEQUENCE, authenticated) || !authenticated.constructed){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(reader.err());
+			this->_error = ::__nts_translate__(reader.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3710,7 +3898,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если издание разобрать не удалось
 		if(!items.next(asn1::tag_t::INTEGER, version)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3719,7 +3907,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если поле разобрать не удалось
 		if(!items.next(field)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3728,7 +3916,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 			// Если поле recipientInfos разобрать не удалось
 			if(!items.next(field)){
 				// Запоминаем причину отказа
-				this->_error = __nts_translate__(items.err());
+				this->_error = ::__nts_translate__(items.err());
 				// Выводим причину отказа
 				return this->_error;
 			}
@@ -3745,14 +3933,14 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если запись алгоритма разобрать не удалось
 		if(!items.next(asn1::tag_t::SEQUENCE, macAlgorithm)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
 		// Просмотр настроек алгоритма имитовставки
 		view_t params;
 		// Итог разбора записи алгоритма
-		const error_t outcome = __nts_algorithm_identifier__(macAlgorithm, this->_algorithm, params);
+		const error_t outcome = ::__nts_algorithm_identifier__(macAlgorithm, this->_algorithm, params);
 		// Если запись алгоритма разобрать не удалось
 		if(outcome != error_t::NONE){
 			// Запоминаем причину отказа
@@ -3765,7 +3953,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если поле разобрать не удалось
 		if(!items.next(next)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3774,7 +3962,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 			// Если поле encapContentInfo разобрать не удалось
 			if(!items.next(next)){
 				// Запоминаем причину отказа
-				this->_error = __nts_translate__(items.err());
+				this->_error = ::__nts_translate__(items.err());
 				// Выводим причину отказа
 				return this->_error;
 			}
@@ -3793,7 +3981,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если опознаватель разобрать не удалось
 		if(!fields.next(asn1::tag_t::OBJECT, contentType)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(fields.err());
+			this->_error = ::__nts_translate__(fields.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3802,7 +3990,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если содержимое разобрать не удалось
 		if(!fields.next(content) || (content.cls != asn1::cls_t::CONTEXT) || (content.tag != 0)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(fields.err());
+			this->_error = ::__nts_translate__(fields.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3813,7 +4001,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если строку байтов разобрать не удалось
 		if(!inner.next(asn1::tag_t::OCTET_STRING, octets)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(inner.err());
+			this->_error = ::__nts_translate__(inner.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3824,7 +4012,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		// Если поле разобрать не удалось
 		if(!items.next(mac)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -3833,7 +4021,7 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 			// Если поле mac разобрать не удалось
 			if(!items.next(mac)){
 				// Запоминаем причину отказа
-				this->_error = __nts_translate__(items.err());
+				this->_error = ::__nts_translate__(items.err());
 				// Выводим причину отказа
 				return this->_error;
 			}
@@ -3847,7 +4035,6 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
 		}
 		// Запоминаем имитовставку
 		this->_mac = mac.content;
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -3867,14 +4054,14 @@ nts::cms::error_t nts::cms::Authenticated::parse(const view_t & data) noexcept {
  *
  */
 void nts::cms::Authenticated::clear() noexcept {
-	// Сбрасываем причину отказа
-	this->_error = error_t::NONE;
 	// Сбрасываем опознаватель алгоритма
 	this->_algorithm.clear();
-	// Сбрасываем просмотры
-	this->_content = view_t();
 	// Сбрасываем просмотр имитовставки
 	this->_mac = view_t();
+	// Сбрасываем просмотры
+	this->_content = view_t();
+	// Сбрасываем причину отказа
+	this->_error = error_t::NONE;
 }
 /**
  * @brief Метод извлечения причины последнего отказа
@@ -3916,6 +4103,16 @@ const nts::view_t & nts::cms::Authenticated::mac() const noexcept {
 	// Выводим просмотр имитовставки
 	return this->_mac;
 }
+/**
+ * @brief Конструктор
+ *
+ */
+nts::cms::Authenticated::Authenticated() noexcept : _error(error_t::NONE) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cms::Authenticated::~Authenticated() noexcept = default;
 
 /**
  * @brief Функция сборки записи DigestedData
@@ -3928,7 +4125,7 @@ const nts::view_t & nts::cms::Authenticated::mac() const noexcept {
  */
 nts::cms::error_t nts::cms::digest(const view_t & content, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 	// Опознаватель алгоритма хеша
-	const char * algorithm = __nts_oid_of__(hash);
+	const char * algorithm = ::__nts_oid_of__(hash);
 	// Если алгоритм хеша неизвестен
 	if(algorithm == nullptr)
 		// Выводим отказ алгоритма
@@ -3950,7 +4147,7 @@ nts::cms::error_t nts::cms::digest(const view_t & content, const digest::hash_t 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Записываем алгоритм хеша с пустыми настройками
-	if(!__nts_write_algorithm__(digested, algorithm, true))
+	if(!::__nts_write_algorithm__(digested, algorithm, true))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Записываем EncapsulatedContentInfo
@@ -3976,7 +4173,7 @@ nts::cms::error_t nts::cms::digest(const view_t & content, const digest::hash_t 
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 			// Переносим запись строки байтов
-			if(!__nts_embed__(digested, octets.data()))
+			if(!::__nts_embed__(digested, octets.data()))
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 			// Закрываем явную метку [0]
@@ -4014,7 +4211,7 @@ nts::cms::error_t nts::cms::digest(const view_t & content, const digest::hash_t 
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Переносим запись DigestedData
-		if(!__nts_embed__(wrapper, digested.data()))
+		if(!::__nts_embed__(wrapper, digested.data()))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем явную метку [0]
@@ -4032,7 +4229,6 @@ nts::cms::error_t nts::cms::digest(const view_t & content, const digest::hash_t 
 	try {
 		// Переносим запись ContentInfo в итог
 		result.assign(wrapper.data().data, wrapper.data().data + wrapper.data().size);
-	// Если памяти под итог не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -4056,7 +4252,7 @@ nts::cms::error_t nts::cms::digestVerify(const digested_t & digested) noexcept {
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	// Алгоритм хеша
-	const digest::hash_t hash = __nts_hash_of__(digested.algorithm());
+	const digest::hash_t hash = ::__nts_hash_of__(digested.algorithm());
 	// Если алгоритм хеша неизвестен
 	if(hash == digest::hash_t::NONE)
 		// Выводим отказ алгоритма
@@ -4084,7 +4280,6 @@ nts::cms::error_t nts::cms::digestVerify(const digested_t & digested) noexcept {
 	// Выводим итог сверки
 	return ((difference == 0) ? error_t::NONE : error_t::SIGNATURE);
 }
-
 /**
  * @brief Функция сборки записи EncryptedData
  *
@@ -4125,7 +4320,7 @@ nts::cms::error_t nts::cms::encrypt(const view_t & content, const view_t & key, 
 	// Место, в которое помещается шифротекст
 	vector <uint8_t> encrypted;
 	// Итог зашифрования содержимого
-	const error_t outcome = __nts_encrypt_content__(content, key, view_t(initVector, sizeof(initVector)), encrypted);
+	const error_t outcome = ::__nts_encrypt_content__(content, key, view_t(initVector, sizeof(initVector)), encrypted);
 	// Если содержимое зашифровать не удалось
 	if(outcome != error_t::NONE){
 		// Затираем синхропосылку
@@ -4244,7 +4439,7 @@ nts::cms::error_t nts::cms::encrypt(const view_t & content, const view_t & key, 
 			return error_t::MEMORY;
 		}
 		// Переносим запись EncryptedData
-		if(!__nts_embed__(wrapper, record.data())){
+		if(!::__nts_embed__(wrapper, record.data())){
 			// Затираем синхропосылку
 			nts::sys::wipe(initVector, sizeof(initVector));
 			// Выводим отказ сборки
@@ -4326,55 +4521,13 @@ nts::cms::error_t nts::cms::decrypt(const encrypted_t & encrypted, const view_t 
 	// Если запись синхропосылки разобрать не удалось
 	if(!reader.next(asn1::tag_t::OCTET_STRING, initVector))
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(reader.err());
+		return ::__nts_translate__(reader.err());
 	// Если длина синхропосылки не та
 	if(initVector.content.size != BLOCK)
 		// Выводим отказ устройства записи
 		return error_t::STRUCTURE;
 	// Расшифровываем содержимое
-	return __nts_decrypt_content__(encrypted.content(), key, initVector.content, result);
-}
-
-/**
- * @brief Функция получения опознавателя имитовставки HMAC по алгоритму хеша
- *
- * @param hash алгоритм хеша
- * @return     опознаватель алгоритма имитовставки либо nullptr
- *
- */
-static const char * cmsHmacOidOf(const digest::hash_t hash) noexcept {
-	/**
-	 * Выводим опознаватель имитовставки по алгоритму хеша
-	 */
-	switch(hash){
-		case digest::hash_t::SHA1: return OID_HMAC_SHA1;
-		case digest::hash_t::SHA224: return OID_HMAC_SHA224;
-		case digest::hash_t::SHA256: return OID_HMAC_SHA256;
-		case digest::hash_t::SHA384: return OID_HMAC_SHA384;
-		case digest::hash_t::SHA512: return OID_HMAC_SHA512;
-		default: return nullptr;
-	}
-}
-/**
- * @brief Функция получения алгоритма хеша имитовставки по её опознавателю
- *
- * @param oid опознаватель алгоритма имитовставки HMAC
- * @return    алгоритм хеша, hash_t::NONE у неизвестного
- *
- */
-static digest::hash_t cmsHmacOf(const string & oid) noexcept {
-	// Если опознаватель — hmacWithSHA1: алгоритм хеша имитовставки SHA-1
-	if(oid == OID_HMAC_SHA1) return digest::hash_t::SHA1;
-	// Если опознаватель — hmacWithSHA224: алгоритм хеша имитовставки SHA-224
-	if(oid == OID_HMAC_SHA224) return digest::hash_t::SHA224;
-	// Если опознаватель — hmacWithSHA256: алгоритм хеша имитовставки SHA-256
-	if(oid == OID_HMAC_SHA256) return digest::hash_t::SHA256;
-	// Если опознаватель — hmacWithSHA384: алгоритм хеша имитовставки SHA-384
-	if(oid == OID_HMAC_SHA384) return digest::hash_t::SHA384;
-	// Если опознаватель — hmacWithSHA512: алгоритм хеша имитовставки SHA-512
-	if(oid == OID_HMAC_SHA512) return digest::hash_t::SHA512;
-	// Выводим отсутствие алгоритма
-	return digest::hash_t::NONE;
+	return ::__nts_decrypt_content__(encrypted.content(), key, initVector.content, result);
 }
 /**
  * @brief Функция сборки записи AuthenticatedData
@@ -4392,7 +4545,7 @@ nts::cms::error_t nts::cms::authenticate(const view_t & content, const view_t & 
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	// Опознаватель алгоритма имитовставки
-	const char * algorithm = cmsHmacOidOf(hash);
+	const char * algorithm = ::__nts_hmac_oid_of__(hash);
 	// Если алгоритм имитовставки неизвестен
 	if(algorithm == nullptr)
 		// Выводим отказ алгоритма
@@ -4418,7 +4571,7 @@ nts::cms::error_t nts::cms::authenticate(const view_t & content, const view_t & 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Записываем алгоритм имитовставки с пустыми настройками
-	if(!__nts_write_algorithm__(record, algorithm, true))
+	if(!::__nts_write_algorithm__(record, algorithm, true))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Записываем EncapsulatedContentInfo
@@ -4444,7 +4597,7 @@ nts::cms::error_t nts::cms::authenticate(const view_t & content, const view_t & 
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 			// Переносим запись строки байтов
-			if(!__nts_embed__(record, octets.data()))
+			if(!::__nts_embed__(record, octets.data()))
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 			// Закрываем явную метку [0]
@@ -4482,7 +4635,7 @@ nts::cms::error_t nts::cms::authenticate(const view_t & content, const view_t & 
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Переносим запись AuthenticatedData
-		if(!__nts_embed__(wrapper, record.data()))
+		if(!::__nts_embed__(wrapper, record.data()))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем явную метку [0]
@@ -4500,7 +4653,6 @@ nts::cms::error_t nts::cms::authenticate(const view_t & content, const view_t & 
 	try {
 		// Переносим запись ContentInfo в итог
 		result.assign(wrapper.data().data, wrapper.data().data + wrapper.data().size);
-	// Если памяти под итог не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -4525,7 +4677,7 @@ nts::cms::error_t nts::cms::authenticateVerify(const authenticated_t & authentic
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
 	// Алгоритм хеша имитовставки
-	const digest::hash_t hash = cmsHmacOf(authenticated.algorithm());
+	const digest::hash_t hash = ::__nts_hmac_of__(authenticated.algorithm());
 	// Если алгоритм имитовставки неизвестен
 	if(hash == digest::hash_t::NONE)
 		// Выводим отказ алгоритма
@@ -4558,40 +4710,15 @@ nts::cms::error_t nts::cms::authenticateVerify(const authenticated_t & authentic
  * @brief Конструктор
  *
  */
-nts::cms::Signer::Signer() noexcept {}
-
+nts::cms::Signer::Signer() noexcept = default;
 /**
  * @brief Деструктор
  *
  */
-nts::cms::Signed::~Signed() noexcept {}
+nts::cms::Signed::~Signed() noexcept = default;
 
 /**
  * @brief Конструктор
  *
  */
 nts::cms::Recipient::Recipient() noexcept : kind(kind_t::RSA), kekLength(0) {}
-
-/**
- * @brief Деструктор
- *
- */
-nts::cms::Enveloped::~Enveloped() noexcept {}
-
-/**
- * @brief Деструктор
- *
- */
-nts::cms::Digested::~Digested() noexcept {}
-
-/**
- * @brief Деструктор
- *
- */
-nts::cms::Encrypted::~Encrypted() noexcept {}
-
-/**
- * @brief Деструктор
- *
- */
-nts::cms::Authenticated::~Authenticated() noexcept {}

@@ -763,7 +763,7 @@ namespace {
 	 * @return признак того, что векторные команды машина исполняет честно
 	 *
 	 */
-	static bool __nts_vectors__() noexcept {
+	static __NTS_INLINE__ bool __nts_vectors__() noexcept {
 		/**
 		 * Готовность ветви SSE2 выясняется по заявке AVX машины
 		 */
@@ -793,7 +793,7 @@ namespace {
 		 * @param poly многочлен, переводится в область NTT на месте
 		 *
 		 */
-		static void __nts_forward_vector__(int32_t * poly) noexcept {
+		static __NTS_INLINE__ void __nts_forward_vector__(int32_t * poly) noexcept {
 			// Место в таблице степеней
 			size_t index = 0;
 			// Таблица степеней в векторном чтении
@@ -936,7 +936,7 @@ namespace {
 		 * @param poly многочлен из области NTT, переводится в обычную форму на месте
 		 *
 		 */
-		static void __nts_backward_vector__(int32_t * poly) noexcept {
+		static __NTS_INLINE__ void __nts_backward_vector__(int32_t * poly) noexcept {
 			// Место в таблице степеней после хвостовых слоёв
 			size_t index = 64;
 			// Таблица степеней в векторном чтении
@@ -1345,7 +1345,7 @@ namespace {
 		 * @param outs    места, в которые помещаются четыре многочлена
 		 *
 		 */
-		static void __nts_expand_a4__(const uint8_t * rho, const uint8_t indices[4][2], int32_t * const outs[4]) noexcept {
+		static __NTS_INLINE__ void __nts_expand_a4__(const uint8_t * rho, const uint8_t indices[4][2], int32_t * const outs[4]) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -1423,6 +1423,7 @@ namespace {
 			sys::wipe(blocks, sizeof(blocks));
 		}
 	#endif
+
 	/**
 	 * @brief Функция отклоняющей выборки многочлена матрицы в области NTT
 	 *
@@ -1432,7 +1433,7 @@ namespace {
 	 * @param poly   многочлен в области NTT
 	 *
 	 */
-	static void __nts_expand_a__(const uint8_t * rho, const uint8_t row, const uint8_t column, int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_expand_a__(const uint8_t * rho, const uint8_t row, const uint8_t column, int32_t * poly) noexcept {
 		// Поток SHAKE128 над ρ ‖ столбец ‖ строка
 		digest::keccak_t xof(digest::sha3_t::SHAKE128);
 		// Подаём зерно матрицы в поток
@@ -1481,7 +1482,7 @@ namespace {
 	 * @param matrix  место, в которое помещаются многочлены матрицы строками подряд
 	 *
 	 */
-	static void __nts_matrix_expand__(const uint8_t * rho, const size_t rows, const size_t columns, const size_t stride, int32_t * const matrix) noexcept {
+	static __NTS_INLINE__ void __nts_matrix_expand__(const uint8_t * rho, const size_t rows, const size_t columns, const size_t stride, int32_t * const matrix) noexcept {
 		/**
 		 * Параллельный разворот матрицы губками Keccak-x4
 		 */
@@ -1546,7 +1547,7 @@ namespace {
 	 * @param poly     многочлен секрета
 	 *
 	 */
-	static void __nts_expand_s__(const uint8_t * rhoprime, const uint16_t nonce, const uint8_t eta, int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_expand_s__(const uint8_t * rhoprime, const uint16_t nonce, const uint8_t eta, int32_t * poly) noexcept {
 		// Поток SHAKE256 над ρ′ ‖ номер многочлена младшим байтом вперёд
 		digest::keccak_t xof(digest::sha3_t::SHAKE256);
 		// Подаём зерно секрета в поток
@@ -1642,7 +1643,7 @@ namespace {
 		 * @param outs     места, в которые помещаются четыре многочлена
 		 *
 		 */
-		static void __nts_expand_s4__(const uint8_t * rhoprime, const uint16_t nonces[4], const uint8_t eta, int32_t * const outs[4]) noexcept {
+		static __NTS_INLINE__ void __nts_expand_s4__(const uint8_t * rhoprime, const uint16_t nonces[4], const uint8_t eta, int32_t * const outs[4]) noexcept {
 			// Состояния четырёх губок
 			uint64_t states[4][25];
 			// Обнуляем состояния
@@ -1772,7 +1773,7 @@ namespace {
 	 * @param s2       вектор секрета s2
 	 *
 	 */
-	static void __nts_expand_secrets__(const uint8_t * rhoprime, const size_t lengthS1, const size_t lengthS2, const uint8_t eta, int32_t s1[7][N], int32_t s2[8][N]) noexcept {
+	static __NTS_INLINE__ void __nts_expand_secrets__(const uint8_t * rhoprime, const size_t lengthS1, const size_t lengthS2, const uint8_t eta, int32_t s1[7][N], int32_t s2[8][N]) noexcept {
 		/**
 		 * Если параллельное ядро губок готово, секреты выбираются четвёрками губок
 		 */
@@ -1845,7 +1846,7 @@ namespace {
 	 * @param poly   многочлен маски
 	 *
 	 */
-	static void __nts_expand_mask__(const uint8_t * rhodbl, const uint16_t nonce, const uint32_t gamma1, int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_expand_mask__(const uint8_t * rhodbl, const uint16_t nonce, const uint32_t gamma1, int32_t * poly) noexcept {
 		// Поток SHAKE256 над ρ″ ‖ номер многочлена младшим байтом вперёд
 		digest::keccak_t xof(digest::sha3_t::SHAKE256);
 		// Подаём зерно маски в поток
@@ -1929,7 +1930,7 @@ namespace {
 	 * @param poly многочлен вызова с τ коэффициентами ±1
 	 *
 	 */
-	static void __nts_sample_in_ball__(const uint8_t * seed, const size_t size, const uint8_t tau, int32_t * poly) noexcept {
+	static __NTS_INLINE__ void __nts_sample_in_ball__(const uint8_t * seed, const size_t size, const uint8_t tau, int32_t * poly) noexcept {
 		// Поток SHAKE256 над зерном вызова
 		digest::keccak_t xof(digest::sha3_t::SHAKE256);
 		// Подаём зерно вызова в поток
@@ -1997,7 +1998,7 @@ namespace {
 	 * @return       старшая часть из [0, (q − 1)/(2γ2) − 1]
 	 *
 	 */
-	static int32_t __nts_decompose__(const int32_t value, const uint32_t gamma2, int32_t & low) noexcept {
+	static __NTS_INLINE__ int32_t __nts_decompose__(const int32_t value, const uint32_t gamma2, int32_t & low) noexcept {
 		// Старшая часть округлением к ближайшему кратному 2γ2
 		int32_t high = ((value + 127) >> 7);
 		// Если граница младшей части γ2 = (q − 1)/32
@@ -2396,7 +2397,7 @@ namespace {
 	 * @param secret место для записи ключа подписи ρ ‖ K ‖ tr ‖ s1 ‖ s2 ‖ productEven
 	 *
 	 */
-	static void __nts_keygen__(const params_t & setup, const uint8_t * seed, uint8_t * key, uint8_t * secret) noexcept {
+	static __NTS_INLINE__ void __nts_keygen__(const params_t & setup, const uint8_t * seed, uint8_t * key, uint8_t * secret) noexcept {
 		// Расширение зерна: (ρ, ρ′, K) = H(ξ ‖ k ‖ l, 128)
 		uint8_t expanded[128];
 		{
@@ -2551,7 +2552,6 @@ namespace {
 		// Затираем трассировку
 		sys::wipe(trace, sizeof(trace));
 	}
-
 	/**
 	 * @brief Функция выработки подписи (раздел 6.2 FIPS 204)
 	 *
@@ -2563,7 +2563,7 @@ namespace {
 	 * @param result  место для записи подписи c~ ‖ z ‖ h
 	 *
 	 */
-	static void __nts_signing__(const params_t & setup, const uint8_t * secret, const uint8_t * rnd, const view_t & message, const view_t & context, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_signing__(const params_t & setup, const uint8_t * secret, const uint8_t * rnd, const view_t & message, const view_t & context, uint8_t * result) noexcept {
 		// Зерно матрицы ρ из записи ключа
 		const uint8_t * rho = secret;
 		// Ключ случайности K из записи ключа
@@ -2914,7 +2914,7 @@ namespace {
 	 * @return          признак того, что подпись сошлась
 	 *
 	 */
-	static bool __nts_checking__(const params_t & setup, const uint8_t * key, const view_t & message, const view_t & context, const uint8_t * signature) noexcept {
+	static __NTS_INLINE__ bool __nts_checking__(const params_t & setup, const uint8_t * key, const view_t & message, const view_t & context, const uint8_t * signature) noexcept {
 		// Зерно матрицы ρ из записи ключа
 		const uint8_t * rho = key;
 		// Трассировка ключа проверки: tr = H(ρ ‖ productOdd, 64)
@@ -3145,7 +3145,7 @@ namespace {
 	 * @return       признак того, что трассировка tr сошлась с пересчитанной из частей записи
 	 *
 	 */
-	static bool __nts_consistent__(const params_t & setup, const uint8_t * secret, uint8_t * key) noexcept {
+	static __NTS_INLINE__ bool __nts_consistent__(const params_t & setup, const uint8_t * secret, uint8_t * key) noexcept {
 		// Зерно матрицы ρ из записи ключа
 		const uint8_t * rho = secret;
 		// Записанная трассировка ключа проверки

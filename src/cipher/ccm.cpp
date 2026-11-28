@@ -23,7 +23,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -232,7 +232,7 @@ namespace {
 	 * @return признак успешности выработки начала имитовставки
 	 *
 	 */
-	static bool __nts_heading__(const block_t & block, const uint8_t * nonce, const size_t length, const size_t width, const size_t size, const view_t & associated, const size_t message, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_heading__(const block_t & block, const uint8_t * nonce, const size_t length, const size_t width, const size_t size, const view_t & associated, const size_t message, uint8_t * result) noexcept {
 		// Текущий блок форматированного сообщения
 		uint8_t item[16];
 		// Записываем признаки блока B0: связанные данные, длина метки и длина поля длины
@@ -353,7 +353,7 @@ namespace {
 	 * @return признак успешности выработки имитовставки
 	 *
 	 */
-	static bool __nts_mac__(const block_t & block, const uint8_t * nonce, const size_t length, const size_t width, const size_t size, const view_t & associated, const view_t & source, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_mac__(const block_t & block, const uint8_t * nonce, const size_t length, const size_t width, const size_t size, const view_t & associated, const view_t & source, uint8_t * result) noexcept {
 		// Накопитель имитовставки
 		uint8_t accumulator[16];
 		// Если начало имитовставки выработать не удалось
@@ -844,7 +844,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 			// Значение имитовставки сообщения
 			uint8_t value[16];
 			// Если начало имитовставки выработать не удалось
-			if(!__nts_heading__(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, source.size, value)){
+			if(!::__nts_heading__(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, source.size, value)){
 				// Затирание значения имитовставки
 				wipe(value, sizeof(value));
 				// Выводим отказ зашифрования
@@ -855,7 +855,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 			// Целые блоки: имитовставка и гамма одним проходом
 			if(whole > 0)
 				// Слитный проход целых блоков
-				__nts_coupling__(this->_block, this->_nonce, this->_length, this->_width, value, source.data, result, whole >> 4, true);
+				::__nts_coupling__(this->_block, this->_nonce, this->_length, this->_width, value, source.data, result, whole >> 4, true);
 			// Блок счётчика
 			uint8_t item[16];
 			// Гамма блока счётчика
@@ -863,7 +863,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 			// Если остался неполный блок сообщения
 			if(whole < source.size){
 				// Собираем блок счётчика хвоста
-				__nts_counter__(this->_nonce, this->_length, this->_width, (whole >> 4) + 1, item);
+				::__nts_counter__(this->_nonce, this->_length, this->_width, (whole >> 4) + 1, item);
 				// Если гамму блока счётчика выработать не удалось
 				if(!this->_block.encrypt(this->_block.cipher, item, stream)){
 					// Затирание значения имитовставки
@@ -884,7 +884,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 				// Переносим открытый текст хвоста в блок
 				::memcpy(item, source.data + whole, source.size - whole);
 				// Складываем блок с накопителем имитовставки
-				__nts_add__(value, item, item, 16);
+				::__nts_add__(value, item, item, 16);
 				// Если последний блок зашифровать не удалось
 				if(!this->_block.encrypt(this->_block.cipher, item, value)){
 					// Затирание значения имитовставки
@@ -898,7 +898,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 				}
 			}
 			// Собираем блок счётчика A_0
-			__nts_counter__(this->_nonce, this->_length, this->_width, 0, item);
+			::__nts_counter__(this->_nonce, this->_length, this->_width, 0, item);
 			// Если гамму блока A_0 выработать не удалось
 			if(!this->_block.encrypt(this->_block.cipher, item, stream)){
 				// Затирание значения имитовставки
@@ -929,11 +929,11 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 	// Значение имитовставки сообщения
 	uint8_t value[16];
 	// Если имитовставку выработать не удалось
-	if(!__nts_mac__(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, source, value))
+	if(!::__nts_mac__(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, source, value))
 		// Выводим отказ зашифрования
 		return false;
 	// Если гамму на сообщение наложить не удалось
-	if(!__nts_gamma__(this->_block, this->_nonce, this->_length, this->_width, source, result)){
+	if(!::__nts_gamma__(this->_block, this->_nonce, this->_length, this->_width, source, result)){
 		// Затирание значения имитовставки
 		wipe(value, sizeof(value));
 		// Выводим отказ зашифрования
@@ -944,7 +944,7 @@ bool nts::cipher::Ccm::encrypt(const view_t & associated, const view_t & source,
 	// Гамма блока A_0
 	uint8_t stream[16];
 	// Собираем блок счётчика A_0
-	__nts_counter__(this->_nonce, this->_length, this->_width, 0, item);
+	::__nts_counter__(this->_nonce, this->_length, this->_width, 0, item);
 	// Если гамму блока A_0 выработать не удалось
 	if(!this->_block.encrypt(this->_block.cipher, item, stream)){
 		// Затирание значения имитовставки
@@ -997,7 +997,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 			// Значение имитовставки сообщения
 			uint8_t value[16];
 			// Если начало имитовставки выработать не удалось
-			if(!__nts_heading__(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, source.size, value)){
+			if(!::__nts_heading__(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, source.size, value)){
 				// Затирание значения имитовставки
 				wipe(value, sizeof(value));
 				// Выводим отказ расшифрования
@@ -1008,7 +1008,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 			// Целые блоки: открытие гаммой и имитовставка одним проходом
 			if(whole > 0)
 				// Слитный проход целых блоков
-				__nts_coupling__(this->_block, this->_nonce, this->_length, this->_width, value, source.data, result, whole >> 4, false);
+				::__nts_coupling__(this->_block, this->_nonce, this->_length, this->_width, value, source.data, result, whole >> 4, false);
 			// Блок счётчика
 			uint8_t item[16];
 			// Гамма блока счётчика
@@ -1016,7 +1016,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 			// Если остался неполный блок сообщения
 			if(whole < source.size){
 				// Собираем блок счётчика хвоста
-				__nts_counter__(this->_nonce, this->_length, this->_width, (whole >> 4) + 1, item);
+				::__nts_counter__(this->_nonce, this->_length, this->_width, (whole >> 4) + 1, item);
 				// Если гамму блока счётчика выработать не удалось
 				if(!this->_block.encrypt(this->_block.cipher, item, stream)){
 					// Затирание расшифрованного сообщения
@@ -1039,7 +1039,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 				// Переносим открытый текст хвоста в блок
 				::memcpy(item, result + whole, source.size - whole);
 				// Складываем блок с накопителем имитовставки
-				__nts_add__(value, item, item, 16);
+				::__nts_add__(value, item, item, 16);
 				// Если последний блок зашифровать не удалось
 				if(!this->_block.encrypt(this->_block.cipher, item, value)){
 					// Затирание расшифрованного сообщения
@@ -1055,7 +1055,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 				}
 			}
 			// Собираем блок счётчика A_0
-			__nts_counter__(this->_nonce, this->_length, this->_width, 0, item);
+			::__nts_counter__(this->_nonce, this->_length, this->_width, 0, item);
 			// Если гамму блока A_0 выработать не удалось
 			if(!this->_block.encrypt(this->_block.cipher, item, stream)){
 				// Затирание расшифрованного сообщения
@@ -1093,13 +1093,13 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 		}
 	#endif
 	// Если гамму на сообщение наложить не удалось
-	if(!__nts_gamma__(this->_block, this->_nonce, this->_length, this->_width, source, result))
+	if(!::__nts_gamma__(this->_block, this->_nonce, this->_length, this->_width, source, result))
 		// Выводим отказ расшифрования
 		return false;
 	// Значение имитовставки расшифрованного сообщения
 	uint8_t value[16];
 	// Если имитовставку выработать не удалось
-	if(!__nts_mac__(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, view_t(result, source.size), value)){
+	if(!::__nts_mac__(this->_block, this->_nonce, this->_length, this->_width, this->_size, associated, view_t(result, source.size), value)){
 		// Затирание расшифрованного сообщения
 		wipe(result, source.size);
 		// Выводим отказ расшифрования
@@ -1110,7 +1110,7 @@ bool nts::cipher::Ccm::decrypt(const view_t & associated, const view_t & source,
 	// Гамма блока A_0
 	uint8_t stream[16];
 	// Собираем блок счётчика A_0
-	__nts_counter__(this->_nonce, this->_length, this->_width, 0, item);
+	::__nts_counter__(this->_nonce, this->_length, this->_width, 0, item);
 	// Если гамму блока A_0 выработать не удалось
 	if(!this->_block.encrypt(this->_block.cipher, item, stream)){
 		// Затирание расшифрованного сообщения

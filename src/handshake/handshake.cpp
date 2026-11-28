@@ -63,7 +63,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -94,27 +93,44 @@ bool nts::handshake::known(const type_t type) noexcept {
 	 * Определяем вид сообщения рукопожатия
 	 */
 	switch(static_cast <uint8_t> (type)){
-		// Если это один из известных видов сообщения рукопожатия
+		// Если сообщение — конец приветствия сервера (ServerHelloDone)
 		case static_cast <uint8_t> (type_t::DONE):
+		// Если сообщение — конец упреждающих данных (EndOfEarlyData)
 		case static_cast <uint8_t> (type_t::EARLY):
-		case static_cast <uint8_t> (type_t::VERIFY):
-		case static_cast <uint8_t> (type_t::CLIENT):
-		case static_cast <uint8_t> (type_t::SERVER):
-		case static_cast <uint8_t> (type_t::TICKET):
-		case static_cast <uint8_t> (type_t::STATUS):
-		case static_cast <uint8_t> (type_t::UPDATE):
-		case static_cast <uint8_t> (type_t::REQUEST):
-		case static_cast <uint8_t> (type_t::FINISHED):
-		case static_cast <uint8_t> (type_t::AGREEMENT):
-		case static_cast <uint8_t> (type_t::PREMASTER):
-		case static_cast <uint8_t> (type_t::COMPRESSED):
-		case static_cast <uint8_t> (type_t::EXTENSIONS):
-		case static_cast <uint8_t> (type_t::CERTIFICATE):
-		case static_cast <uint8_t> (type_t::HELLO_REQUEST):
-		case static_cast <uint8_t> (type_t::VERIFY_REQUEST):
-		// Выбранный протокол выработки NPN
-		case static_cast <uint8_t> (type_t::NEXT_PROTOCOL):
+		// Если сообщение — хеш приветствия клиента вместо него (message_hash)
 		case static_cast <uint8_t> (type_t::DIGEST):
+		// Если сообщение — подпись владения ключом сертификата (CertificateVerify)
+		case static_cast <uint8_t> (type_t::VERIFY):
+		// Если сообщение — приветствие клиента (ClientHello)
+		case static_cast <uint8_t> (type_t::CLIENT):
+		// Если сообщение — приветствие сервера (ServerHello)
+		case static_cast <uint8_t> (type_t::SERVER):
+		// Если сообщение — билет на возобновление связи (NewSessionTicket)
+		case static_cast <uint8_t> (type_t::TICKET):
+		// Если сообщение — состояние сертификата (CertificateStatus)
+		case static_cast <uint8_t> (type_t::STATUS):
+		// Если сообщение — смена ключевого материала связи (KeyUpdate)
+		case static_cast <uint8_t> (type_t::UPDATE):
+		// Если сообщение — запрос сертификата собеседника (CertificateRequest)
+		case static_cast <uint8_t> (type_t::REQUEST):
+		// Если сообщение — завершение рукопожатия (Finished)
+		case static_cast <uint8_t> (type_t::FINISHED):
+		// Если сообщение — обмен ключами сервера (ServerKeyExchange)
+		case static_cast <uint8_t> (type_t::AGREEMENT):
+		// Если сообщение — обмен ключами клиента (ClientKeyExchange)
+		case static_cast <uint8_t> (type_t::PREMASTER):
+		// Если сообщение — сжатая цепочка сертификатов (CompressedCertificate)
+		case static_cast <uint8_t> (type_t::COMPRESSED):
+		// Если сообщение — защищённые расширения (EncryptedExtensions)
+		case static_cast <uint8_t> (type_t::EXTENSIONS):
+		// Если сообщение — цепочка сертификатов (Certificate)
+		case static_cast <uint8_t> (type_t::CERTIFICATE):
+		// Если сообщение — просьба о пересогласовании (HelloRequest)
+		case static_cast <uint8_t> (type_t::HELLO_REQUEST):
+		// Если сообщение — просьба о подтверждении адреса (HelloVerifyRequest)
+		case static_cast <uint8_t> (type_t::VERIFY_REQUEST):
+		// Если сообщение — выбранный протокол выработки NPN (NextProtocol)
+		case static_cast <uint8_t> (type_t::NEXT_PROTOCOL):
 			// Выводим признак известности вида сообщения рукопожатия
 			return true;
 	}

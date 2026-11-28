@@ -106,12 +106,16 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "internal/flight/flight.hpp"
+#include "sys/log.hpp"
+#include "sys/wipe.hpp"
 #include "digest/hash.hpp"
 #include "digest/hmac.hpp"
 #include "entropy/entropy.hpp"
-#include "sys/wipe.hpp"
-#include "sys/log.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "internal/flight/flight.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -134,19 +138,17 @@ namespace {
 	using nts::sys::wipe;
 
 	/**
-	 * Длина метки возврата состояния издания DTLS 1.3: поколение, хеш приветствия и имитовставка
-	 */
-	static constexpr size_t LABEL = (1 + 32 + 32);
-
-	/**
 	 * Длина метки возврата состояния издания DTLS 1.2: поколение и имитовставка (раздел 4.2.1 RFC 6347)
 	 */
 	static constexpr size_t TOKEN = (1 + 32);
-
 	/**
 	 * Тело записи смены набора шифрования: раздел 7.1 RFC 5246 - единственный байт со значением один
 	 */
 	static const uint8_t CHANGE[1] = {0x01};
+	/**
+	 * Длина метки возврата состояния издания DTLS 1.3: поколение, хеш приветствия и имитовставка
+	 */
+	static constexpr size_t LABEL = (1 + 32 + 32);
 
 	/**
 	 * @brief Функция перевода отказа модуля защиты записей в отказ связи
@@ -156,7 +158,7 @@ namespace {
 	 * @return         отказ связи, отвечающий отказу модуля
 	 *
 	 */
-	static context::error_t __nts_translate__(const protect::error_t error, const context::error_t fallback) noexcept {
+	static constexpr context::error_t __nts_translate__(const protect::error_t error, const context::error_t fallback) noexcept {
 		// Если отказа у модуля нет
 		if(error == protect::error_t::NONE)
 			// Выводим отсутствие отказа связи
@@ -171,7 +173,7 @@ namespace {
 	 * @return      причина отброса записи
 	 *
 	 */
-	static datagram::reason_t __nts_reason__(const datagram::error_t error) noexcept {
+	static constexpr datagram::reason_t __nts_reason__(const datagram::error_t error) noexcept {
 		/**
 		 * Определяем отказ разбора заголовка
 		 */
@@ -875,12 +877,12 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 			fragment.type = static_cast <handshake::type_t> (item.message[0]);
 			// Устанавливаем длину целого сообщения
 			fragment.size = total;
+			// Устанавливаем длину куска
+			fragment.length = take;
 			// Устанавливаем порядковый номер сообщения
 			fragment.sequence = item.sequence;
 			// Устанавливаем смещение куска
 			fragment.offset = (offset + done);
-			// Устанавливаем длину куска
-			fragment.length = take;
 			// Кусок сообщения вместе с обвязкой
 			vector <uint8_t> chunk(datagram::DATAGRAM_FRAGMENT_HEADER + take, 0);
 			// Если обвязку куска записать не удалось
@@ -897,10 +899,10 @@ context::error_t nts::internal::Flight::carve(const size_t index, const size_t o
 			piece.sequence = keys->next;
 			// Запоминаем место сообщения куска
 			piece.index = index;
-			// Запоминаем смещение куска
-			piece.offset = (offset + done);
 			// Запоминаем длину куска
 			piece.length = take;
+			// Запоминаем смещение куска
+			piece.offset = (offset + done);
 			// Отказ составления записи с куском
 			const context::error_t error = this->shield(record::type_t::HANDSHAKE, view_t(chunk.data(), chunk.size()), *keys, this->_packet, (this->_ancient || item.ancient));
 			// Если запись с куском составить не удалось
@@ -2800,105 +2802,109 @@ void nts::internal::Flight::clear() noexcept {
 		 * Перебираем места пор ключей направления
 		 */
 		for(size_t j = 0; j < 2; j++){
-			// Сброс окна повторов поры
-			this->_eras[i][j].window.clear();
 			// Сбрасываем счёт записей поры
 			this->_eras[i][j].next = 0;
 			// Сбрасываем номер поры
 			this->_eras[i][j].epoch = 0;
 			// Защищённые поры пусты
 			this->_eras[i][j].held = false;
+			// Сброс окна повторов поры
+			this->_eras[i][j].window.clear();
 		}
 		// Сбрасываем место защищённой поры
 		this->_slots[i] = 0;
-		// Сброс окна повторов нулевой поры
-		this->_plains[i].window.clear();
 		// Сбрасываем счёт записей нулевой поры
 		this->_plains[i].next = 0;
+		// Сброс окна повторов нулевой поры
+		this->_plains[i].window.clear();
 	}
-	// Сброс набора шифрования
-	this->_suite = protect::suite_t::NONE;
-	// Сбрасываем издание переноса
-	this->_legacy = false;
-	// Сброс издания DTLS 1
-	this->_ancient = false;
-	// Сбрасываем признак сервера без состояния
-	this->_stateless = false;
-	// Адрес собеседника считается подтверждённым, пока сервер не скажет иного
-	this->_verified = true;
-	// Сбрасываем признак последнего залпа
-	this->_concluded = false;
-	// Останавливаем часы повторной передачи
-	this->_timing = false;
-	// Сбрасываем срок ожидания повторной передачи
-	this->_timeout = datagram::DATAGRAM_TIMEOUT;
-	// Сбрасываем количество попыток повторной передачи
-	this->_attempts = 0;
-	// Сбрасываем признак залпа просьбы о повторе
-	this->_challenged = false;
-	// Сбрасываем признак пополнения залпа
-	this->_replied = false;
-	// Сбрасываем признак ожидающей смены ключей
-	this->_rotating = false;
-	// Сбрасываем признак повтора собеседника
-	this->_repeated = false;
-	// Сбрасываем признак просьбы о повторе
-	this->_nudged = false;
-	// Сбрасываем признак раннего повтора
-	this->_prodded = false;
-	// Сбрасываем признак отложенной записи
-	this->_deferring = false;
-	// Сбрасываем признак выданной метки
-	this->_digested = false;
+	// Сбрасываем пору ключей собираемой дейтаграммы
+	this->_bundle = 0;
 	// Сбрасываем номер записи приветствия сервера без состояния
 	this->_greeted = 0;
-	// Затирание хеша приветствия
-	wipe(this->_digest, sizeof(this->_digest));
-	// Сброс залпа
-	this->_flight.clear();
-	// Сброс кусков залпа
-	this->_pieces.clear();
+	// Сбрасываем количество попыток повторной передачи
+	this->_attempts = 0;
 	// Сбрасываем порядковый номер отправляемого сообщения
 	this->_outgoing = 0;
 	// Сбрасываем порядковый номер ожидаемого сообщения
 	this->_incoming = 0;
+	// Останавливаем часы повторной передачи
+	this->_timing = false;
+	// Сбрасываем признак просьбы о повторе
+	this->_nudged = false;
+	// Сбрасываем издание переноса
+	this->_legacy = false;
+	// Сбрасываем признак раннего повтора
+	this->_prodded = false;
+	// Сброс издания DTLS 1
+	this->_ancient = false;
+	// Адрес собеседника считается подтверждённым, пока сервер не скажет иного
+	this->_verified = true;
+	// Сбрасываем признак пополнения залпа
+	this->_replied = false;
+	// Сбрасываем признак выданной метки
+	this->_digested = false;
+	// Сбрасываем признак ожидающей смены ключей
+	this->_rotating = false;
+	// Сбрасываем признак повтора собеседника
+	this->_repeated = false;
+	// Сбрасываем признак отложенной записи
+	this->_deferring = false;
+	// Сбрасываем признак сервера без состояния
+	this->_stateless = false;
+	// Сбрасываем признак последнего залпа
+	this->_concluded = false;
+	// Сбрасываем признак залпа просьбы о повторе
+	this->_challenged = false;
+	// Сброс набора шифрования
+	this->_suite = protect::suite_t::NONE;
+	// Сбрасываем срок ожидания повторной передачи
+	this->_timeout = datagram::DATAGRAM_TIMEOUT;
+	// Сброс залпа
+	this->_flight.clear();
+	// Сброс кусков залпа
+	this->_pieces.clear();
+	// Сброс собираемой дейтаграммы
+	this->_packet.clear();
+	// Сброс адреса собеседника: он принадлежит связи, а не настройкам
+	this->_address.clear();
+	// Сброс отложенных записей
+	this->_deferred.clear();
+	// Сброс готовых дейтаграмм
+	this->_datagrams.clear();
 	// Сброс сборок принимаемых сообщений
 	this->_assemblies.clear();
 	// Сброс номеров записей, ждущих подтверждения
 	this->_acknowledgeable.clear();
-	// Сброс собираемой дейтаграммы
-	this->_packet.clear();
-	// Сбрасываем пору ключей собираемой дейтаграммы
-	this->_bundle = 0;
-	// Сброс готовых дейтаграмм
-	this->_datagrams.clear();
-	// Сброс отложенных записей
-	this->_deferred.clear();
+	// Затирание хеша приветствия
+	wipe(this->_digest, sizeof(this->_digest));
 	// Обнуление счётчиков отброшенного
 	::memset(this->_discarded, 0, sizeof(this->_discarded));
-	// Сброс адреса собеседника: он принадлежит связи, а не настройкам
-	this->_address.clear();
 }
 /**
  * @brief Конструктор
  *
  */
 nts::internal::Flight::Flight() noexcept :
-	_suite(protect::suite_t::NONE), _legacy(false), _ancient(false), _stateless(false), _strict(false), _verified(true), _concluded(false), _mtu(datagram::DATAGRAM_MTU), _limit(record::RECORD_PLAINTEXT), _timeout(datagram::DATAGRAM_TIMEOUT), _attempts(0),
-	_timing(false), _challenged(false), _replied(false), _rotating(false), _repeated(false), _nudged(false), _prodded(false), _deferring(false),
-	_stamped(false), _digested(false), _generation(0), _greeted(0), _outgoing(0), _incoming(0), _bundle(0) {
+ _strict(false), _legacy(false), _nudged(false), _timing(false),
+ _ancient(false), _replied(false), _stamped(false), _prodded(false),
+ _digested(false), _rotating(false), _repeated(false), _verified(true),
+ _concluded(false), _stateless(false), _deferring(false), _challenged(false),
+ _generation(0), _mtu(datagram::DATAGRAM_MTU), _limit(record::RECORD_PLAINTEXT),
+ _bundle(0), _outgoing(0), _incoming(0), _timeout(datagram::DATAGRAM_TIMEOUT),
+ _attempts(0), _greeted(0), _suite(protect::suite_t::NONE) {
+	// Место защищённой поры записи
+	this->_slots[0] = 0;
+	// Место защищённой поры чтения
+	this->_slots[1] = 0;
+	// Нулевая пора записи заведена с самого начала
+	this->_plains[0].held = true;
+	// Нулевая пора чтения заведена с самого начала
+	this->_plains[1].held = true;
 	// Обнуление секретов метки возврата состояния
 	::memset(this->_stamps, 0, sizeof(this->_stamps));
 	// Обнуление хеша приветствия
 	::memset(this->_digest, 0, sizeof(this->_digest));
 	// Обнуление счётчиков отброшенного
 	::memset(this->_discarded, 0, sizeof(this->_discarded));
-	// Нулевая пора записи заведена с самого начала
-	this->_plains[0].held = true;
-	// Нулевая пора чтения заведена с самого начала
-	this->_plains[1].held = true;
-	// Место защищённой поры записи
-	this->_slots[0] = 0;
-	// Место защищённой поры чтения
-	this->_slots[1] = 0;
 }

@@ -559,7 +559,8 @@ bool nts::sign::Gost::check(const view_t & value, const view_t & signature) cons
  * @brief Конструктор
  *
  */
-nts::sign::Gost::Gost() noexcept : _secret(false), _public(false), _curve(nullptr) {}
+nts::sign::Gost::Gost() noexcept :
+ _secret(false), _public(false), _curve(nullptr) {}
 /**
  * @brief Деструктор
  *

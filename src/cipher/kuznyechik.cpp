@@ -40,7 +40,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -845,7 +845,7 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
 	 */
 	#if !defined(NTS_CIPHER_COMPACT)
 		// Получаем развёрнутую таблицу прямого преобразования
-		const spread_t & table = __nts_forward__();
+		const spread_t & table = ::__nts_forward__();
 		/**
 		 * Прогоняем девять раундов зашифрования
 		 */
@@ -853,7 +853,7 @@ bool nts::cipher::Kuznyechik::encrypt(const uint8_t * source, uint8_t * result) 
 			// Складываем блок с раундовым ключом
 			::__nts_add__(block, this->_keys[i]);
 			// Подстановка и линейное преобразование блока
-			__nts_translate__(block, table);
+			::__nts_translate__(block, table);
 		}
 	/**
 	 * Если шифр работает малыми таблицами умножения
@@ -983,7 +983,7 @@ bool nts::cipher::Kuznyechik::decrypt(const uint8_t * source, uint8_t * result) 
 			// Складываем блок с раундовым ключом
 			::__nts_add__(block, this->_keys[i]);
 			// Обратное линейное преобразование блока
-			__nts_translate__(block, table);
+			::__nts_translate__(block, table);
 			// Обратную подстановку байтов блока
 			::__nts_unsubstitute__(block);
 		}

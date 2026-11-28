@@ -55,9 +55,13 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "agreement/ecdhe.hpp"
-#include "entropy/entropy.hpp"
 #include "sys/wipe.hpp"
+#include "entropy/entropy.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "agreement/ecdhe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -74,8 +78,11 @@ namespace {
 	 */
 	using namespace nts;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
+
 	/**
 	 * @brief Функция разворота записи числа
 	 *
@@ -84,7 +91,7 @@ namespace {
 	 * @param size   длина записи числа в байтах
 	 *
 	 */
-	static void __nts_reverse__(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_reverse__(const uint8_t * source, uint8_t * result, const size_t size) noexcept {
 		/**
 		 * Перебираем байты записи числа
 		 */

@@ -39,7 +39,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <new>
 
@@ -69,7 +69,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -538,7 +537,7 @@ nts::extension::error_t nts::extension::versions(const view_t & data, vector <ui
 	// Прочитанный перечень изданий протокола
 	vector <uint32_t> values;
 	// Разбор перечня изданий протокола
-	const error_t error = __nts_numbers__(data, 1, 2, values);
+	const error_t error = ::__nts_numbers__(data, 1, 2, values);
 	// Если перечень изданий протокола разобрать не удалось
 	if(error != error_t::NONE)
 		// Выводим отказ разбора тела расширения

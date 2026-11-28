@@ -34,28 +34,18 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "agreement/vko.hpp"
-#include "digest/streebog.hpp"
 #include "sys/wipe.hpp"
+#include "digest/streebog.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "agreement/vko.hpp"
 
 /**
  * Используем стандартное пространство имён
  */
 using namespace std;
-
-/**
- * @brief Внутренние служебные объекты
- *
- */
-namespace {
-	/**
-	 * Пространство имён библиотеки
-	 */
-	using namespace nts;
-
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
-};
 
 /**
  * @brief Функция выработки общего ключа
@@ -115,7 +105,7 @@ bool nts::agreement::vko(const curve::curve_t & curve, const view_t & secret, co
 	 */
 	if(!curve.point(x, y, point, false)){
 		// Затирание секретного ключа своей стороны
-		wipe(value.words, sizeof(value.words));
+		sys::wipe(value.words, sizeof(value.words));
 		// Выводим отказ выработки общего ключа
 		return false;
 	}
@@ -134,38 +124,38 @@ bool nts::agreement::vko(const curve::curve_t & curve, const view_t & secret, co
 	 * Кофактор не тайна: при единице точка берётся как есть, при степени двойки (4 у
 	 * наборов ГОСТ 512 разрядов) - удвоениями; итог тот же h*Q, и кручение снимается так же
 	 */
-	const uint64_t h = curve.cofactor();
+	const uint64_t cofactor = curve.cofactor();
 	// Кратная точка по кофактору кривой
 	curve::point_t cleared;
-	// Если кофактор единица
-	if(h <= 1)
+	// Если кофактор меньше или соответствует единице
+	if(cofactor <= 1)
 		// Точка берётся как есть
 		cleared = point;
 	// Если кофактор - степень двойки
-	else if((h & (h - 1)) == 0){
+	else if((cofactor & (cofactor - 1)) == 0) {
 		// Берём точку и удваиваем её по разрядам кофактора
 		cleared = point;
 		/**
 		 * Удваиваем точку по разрядам кофактора
 		 */
-		for(uint64_t step = h; step > 1; step >>= 1)
+		for(uint64_t step = cofactor; step > 1; step >>= 1)
 			// Удваиваем точку на очередном разряде
 			curve.twice(cleared, cleared);
 	// Если кофактор иной
 	} else {
 		// Записываем кофактор кривой числом
-		math::number_t cofactor;
+		math::number_t num;
 		// Порождаем число из кофактора
-		order.word(h, cofactor);
+		order.word(cofactor, num);
 		// Умножение точки встречной стороны на кофактор кривой
-		curve.multiply(point, cofactor, cleared);
+		curve.multiply(point, num, cleared);
 	}
 	// Если кратная точка обратилась в ноль: точка малого порядка
 	if(curve.infinity(cleared)){
 		// Затирание приведённого секретного ключа
-		wipe(entered.words, sizeof(entered.words));
+		sys::wipe(entered.words, sizeof(entered.words));
 		// Затирание секретного ключа
-		wipe(value.words, sizeof(value.words));
+		sys::wipe(value.words, sizeof(value.words));
 		// Выводим отказ выработки общего ключа
 		return false;
 	}
@@ -179,18 +169,20 @@ bool nts::agreement::vko(const curve::curve_t & curve, const view_t & secret, co
 		// Записываем единичное добавочное значение
 		order.word(1, addition);
 	/**
-	 * Слагаемое (!order.reduce(...)) ложно всегда: приведение отказывает лишь при
-	 * неустановленной арифметике либо непереданном месте, а то и другое отсечено
-	 * выше - арифметика взята у заведённой кривой, а непереданное место отнесено к
-	 * отсутствию добавочного значения. Слагаемое оставлено ради самостоятельности
-	 * выражения: молчаливый разбор непроверенного итога приведения был бы хуже
+	 * @brief Если добавочное значение сторон передано
+	 *
+	 * @details Слагаемое (!order.reduce(...)) ложно всегда: приведение отказывает лишь при
+	 *          неустановленной арифметике либо непереданном месте, а то и другое отсечено
+	 *          выше - арифметика взята у заведённой кривой, а непереданное место отнесено к
+	 *          отсутствию добавочного значения. Слагаемое оставлено ради самостоятельности
+	 *          выражения: молчаливый разбор непроверенного итога приведения был бы хуже.
+	 *
 	 */
-	// Если добавочное значение сторон передано
 	else if(!order.reduce(ukm, addition) || order.zero(addition)){
 		// Затирание промежуточных значений выработки множителя
-		wipe(entered.words, sizeof(entered.words));
+		sys::wipe(entered.words, sizeof(entered.words));
 		// Затирание секретного ключа своей стороны
-		wipe(value.words, sizeof(value.words));
+		sys::wipe(value.words, sizeof(value.words));
 		// Выводим отказ выработки общего ключа
 		return false;
 	}
@@ -233,20 +225,20 @@ bool nts::agreement::vko(const curve::curve_t & curve, const view_t & secret, co
 			ok = digest::streebog(type, view_t(buffer, curve.size() * 2), result, size);
 		}
 		// Затирание записанных координат кратной точки
-		wipe(buffer, sizeof(buffer));
+		sys::wipe(buffer, sizeof(buffer));
 		// Затирание второй координаты кратной точки
-		wipe(second, sizeof(second));
+		sys::wipe(second, sizeof(second));
 		// Затирание первой координаты кратной точки
-		wipe(first, sizeof(first));
+		sys::wipe(first, sizeof(first));
 		// Затирание кратной точки выработки общего ключа
-		wipe(&common, sizeof(common));
+		sys::wipe(&common, sizeof(common));
 	}
 	// Затирание множителя кратной точки
-	wipe(value.words, sizeof(value.words));
+	sys::wipe(value.words, sizeof(value.words));
 	// Затирание промежуточных значений выработки множителя
-	wipe(item.words, sizeof(item.words));
+	sys::wipe(item.words, sizeof(item.words));
 	// Затирание промежуточных значений выработки множителя
-	wipe(entered.words, sizeof(entered.words));
+	sys::wipe(entered.words, sizeof(entered.words));
 	// Выводим признак успешности выработки общего ключа
 	return ok;
 }

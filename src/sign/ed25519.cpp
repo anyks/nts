@@ -1680,7 +1680,7 @@ bool nts::sign::Ed25519::check(const view_t & message, const view_t & signature)
  * @brief Конструктор
  *
  */
-nts::sign::Ed25519::Ed25519() noexcept : _secret(false), _public(false), _scalar{}, _prefix{}, _key{} {
+nts::sign::Ed25519::Ed25519() noexcept : _secret(false), _public(false) {
 	// Установка порядка подгруппы точек кривой
 	this->_order.start(view_t(ORDER, sizeof(ORDER)));
 }

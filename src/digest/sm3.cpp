@@ -45,7 +45,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -191,13 +190,13 @@ void nts::digest::Sm3::compress(const uint8_t * block) noexcept {
 	 */
 	for(size_t i = 0; i < 16; i++)
 		// Читаем очередное слово блока от старшего байта
-		w[i] = __nts_load__(block + (i * 4));
+		w[i] = ::__nts_load__(block + (i * 4));
 	/**
 	 * Расширяем расписание до 68 слов
 	 */
 	for(size_t i = 16; i < 68; i++)
 		// Складываем очередное слово расписания по правилу расширения
-		w[i] = (__nts_p1__(w[i - 16] ^ w[i - 9] ^ __nts_rotl__(w[i - 3], 15)) ^ __nts_rotl__(w[i - 13], 7) ^ w[i - 6]);
+		w[i] = (::__nts_p1__(w[i - 16] ^ w[i - 9] ^ ::__nts_rotl__(w[i - 3], 15)) ^ ::__nts_rotl__(w[i - 13], 7) ^ w[i - 6]);
 	/**
 	 * Расширяем расписание до 64 слов
 	 */
@@ -215,17 +214,17 @@ void nts::digest::Sm3::compress(const uint8_t * block) noexcept {
 		// Постоянная круга: 0x79CC4519 первой шестнадцатки, 0x7A879D8A остальных
 		const uint32_t t = ((i < 16) ? 0x79CC4519 : 0x7A879D8A);
 		// Промежуточная сумма круга
-		const uint32_t sum1 = __nts_rotl__((__nts_rotl__(a, 12) + e + __nts_rotl__(t, static_cast <unsigned> (i & 31))), 7);
+		const uint32_t sum1 = ::__nts_rotl__((::__nts_rotl__(a, 12) + e + ::__nts_rotl__(t, static_cast <unsigned> (i & 31))), 7);
 		// Промежуточная сумма круга
-		const uint32_t sum2 = (sum1 ^ __nts_rotl__(a, 12));
+		const uint32_t sum2 = (sum1 ^ ::__nts_rotl__(a, 12));
 		// Промежуточная сумма круга
-		const uint32_t term1 = (__nts_ff__(a, b, c, i) + d + sum2 + w1[i]);
+		const uint32_t term1 = (::__nts_ff__(a, b, c, i) + d + sum2 + w1[i]);
 		// Промежуточная сумма круга
-		const uint32_t term2 = (__nts_gg__(e, f, g, i) + h + sum1 + w[i]);
+		const uint32_t term2 = (::__nts_gg__(e, f, g, i) + h + sum1 + w[i]);
 		// Сдвигаем рабочие переменные
 		d = c;
 		// Сдвигаем рабочие переменные с круговым сдвигом
-		c = __nts_rotl__(b, 9);
+		c = ::__nts_rotl__(b, 9);
 		// Сдвигаем рабочие переменные
 		b = a;
 		// Складываем новое значение переменной a
@@ -233,11 +232,11 @@ void nts::digest::Sm3::compress(const uint8_t * block) noexcept {
 		// Сдвигаем рабочие переменные
 		h = g;
 		// Сдвигаем рабочие переменные с круговым сдвигом
-		g = __nts_rotl__(f, 19);
+		g = ::__nts_rotl__(f, 19);
 		// Сдвигаем рабочие переменные
 		f = e;
 		// Складываем новое значение переменной e с перестановкой P0
-		e = __nts_p0__(term2);
+		e = ::__nts_p0__(term2);
 	}
 	// Складываем итог круга с прежним значением хеша
 	this->_hash[0] ^= a;
@@ -384,9 +383,9 @@ bool nts::digest::Sm3::finish(uint8_t * result, const size_t size) noexcept {
 		// Записываем очередной нулевой байт
 		this->_block[i] = 0;
 	// Записываем старшую половину длины сообщения
-	__nts_store__(static_cast <uint32_t> (bits >> 32), this->_block + 56);
+	::__nts_store__(static_cast <uint32_t> (bits >> 32), this->_block + 56);
 	// Записываем младшую половину длины сообщения
-	__nts_store__(static_cast <uint32_t> (bits), this->_block + 60);
+	::__nts_store__(static_cast <uint32_t> (bits), this->_block + 60);
 	// Разбор последнего блока
 	this->compress(this->_block);
 	/**
@@ -394,7 +393,7 @@ bool nts::digest::Sm3::finish(uint8_t * result, const size_t size) noexcept {
 	 */
 	for(size_t i = 0; i < 8; i++)
 		// Записываем очередное слово хеша
-		__nts_store__(this->_hash[i], result + (i * 4));
+		::__nts_store__(this->_hash[i], result + (i * 4));
 	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));
 	// Затирание накопителя незавершённого блока

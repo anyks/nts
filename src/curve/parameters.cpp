@@ -26,14 +26,14 @@
  */
 
 /**
- * Подключаем заголовочные файлы проекта
- */
-#include "curve/parameters.hpp"
-
-/**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "curve/parameters.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -51,40 +51,328 @@ namespace {
 	using namespace nts;
 
 	/**
-	 * @brief Набор значений параметров эллиптической кривой
-	 *
-	 * @details Значения записаны шестнадцатеричными знаками от старшего байта к
-	 *          младшему: запись эта сличается с текстом стандарта глазом, чего о
-	 *          наборе байтов сказать нельзя
-	 *
-	 */
-	typedef struct Sample {
-		// Модуль поля кривой
-		const char * modulus;
-		// Первый коэффициент уравнения кривой
-		const char * first;
-		// Второй коэффициент уравнения кривой
-		const char * second;
-		// Порядок подгруппы точек кривой
-		const char * order;
-		// Первая координата образующей точки
-		const char * x;
-		// Вторая координата образующей точки
-		const char * y;
-		// Отношение порядка группы точек кривой к порядку подгруппы
-		uint64_t cofactor;
-	} sample_t;
-
-	/**
 	 * @brief Соответствие опознавателя набора параметров его значениям
 	 *
 	 */
 	typedef struct Record {
-		// Опознаватель набора параметров в записи через точку
-		const char * oid;
 		// Место набора значений параметров
-		size_t index;
+		size_t index = 0;
+		// Опознаватель набора параметров в записи через точку
+		const char * oid = nullptr;
 	} record_t;
+	/**
+	 * @brief Набор значений параметров эллиптической кривой
+	 *
+	 * @details Значения записаны шестнадцатеричными знаками от старшего байта к
+	 *          младшему: запись эта сличается с текстом стандарта глазом, чего о
+	 *          наборе байтов сказать нельзя.
+	 *
+	 */
+	typedef struct Sample {
+		// Первая координата образующей точки
+		const char * x = nullptr;
+		// Вторая координата образующей точки
+		const char * y = nullptr;
+		// Порядок подгруппы точек кривой
+		const char * order = nullptr;
+		// Первый коэффициент уравнения кривой
+		const char * first = nullptr;
+		// Второй коэффициент уравнения кривой
+		const char * second = nullptr;
+		// Модуль поля кривой
+		const char * modulus = nullptr;
+		// Отношение порядка группы точек кривой к порядку подгруппы
+		uint64_t cofactor = 0;
+	} sample_t;
+
+	/**
+	 * Соответствия опознавателей наборов параметров их значениям
+	 */
+	static constexpr const record_t RECORDS[] = {
+		// Опознаватель набора параметров и его место в таблице
+		{0, "1.2.643.7.1.2.1.2.0"},
+		{1, "1.2.643.2.2.35.0"},
+		{2, "1.2.643.7.1.2.1.1.1"},
+		{3, "1.2.643.2.2.35.1"},
+		{3, "1.2.643.2.2.36.0"},
+		{3, "1.2.643.7.1.2.1.1.2"},
+		{4, "1.2.643.2.2.35.2"},
+		{4, "1.2.643.7.1.2.1.1.3"},
+		{5, "1.2.643.2.2.35.3"},
+		{5, "1.2.643.2.2.36.1"},
+		{5, "1.2.643.7.1.2.1.1.4"},
+		{6, "1.2.643.7.1.2.1.2.1"},
+		{7, "1.2.643.7.1.2.1.2.2"},
+		{8, "1.2.643.7.1.2.1.2.3"},
+		{9, "1.2.840.10045.3.1.7"},
+		{10, "1.3.132.0.34"},
+		{11, "1.3.132.0.35"},
+		{12, "1.3.132.0.10"},
+		{13, "1.2.156.10197.1.301"}
+	};
+	/**
+	 * Наборы значений параметров эллиптических кривых
+	 */
+	static constexpr const sample_t SAMPLES[] = {
+		{
+			// Первая координата образующей точки
+			"24d19cc64572ee30f396bf6ebbfd7a6c5213b3b3d7057cc825f91093a68cd762"
+			"fd60611262cd838dc6b60aa7eee804e28bc849977fac33b4b530f1b120248a9a",
+			// Вторая координата образующей точки
+			"2bb312a43bd2ce6e0d020613c857acddcfbf061e91e5f2c3f32447c259f39b2c"
+			"83ab156d77f1496bf7eb3351e1ee4e43dc1a18b91b24640b6dbb92cb1add371e",
+			// Порядок подгруппы точек кривой
+			"4531acd1fe0023c7550d267b6b2fee80922b14b2ffb90f04d4eb7c09b5d2d15d"
+			"a82f2d7ecb1dbac719905c5eecc423f1d86e25edbe23c595d644aaf187e6e6df",
+			// Первый коэффициент уравнения кривой
+			"07",
+			// Второй коэффициент уравнения кривой
+			"1cff0806a31116da29d8cfa54e57eb748bc5f377e49400fdd788b649eca1ac43"
+			"61834013b2ad7322480a89ca58e0cf74bc9e540c2add6897fad0a3084f302adc",
+			// Набор параметров id-tc26-gost-3410-2012-512-paramSetTest
+			// Модуль поля кривой
+			"4531acd1fe0023c7550d267b6b2fee80922b14b2ffb90f04d4eb7c09b5d2d15d"
+			"f1d852741af4704a0458047e80e4546d35b8336fac224dd81664bbf528be6373",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"02",
+			// Вторая координата образующей точки
+			"08e2a8a0e65147d4bd6316030e16d19c85c97f0a9ca267122b96abbcea7e8fc8",
+			// Порядок подгруппы точек кривой
+			"8000000000000000000000000000000150fe8a1892976154c59cfc193accf5b3",
+			// Первый коэффициент уравнения кривой
+			"07",
+			// Второй коэффициент уравнения кривой
+			"5fbff498aa938ce739b8e022fbafef40563f6e6a3472fc2a514c0ce9dae23b7e",
+			// Набор параметров id-GostR3410-2001-TestParamSet
+			// Модуль поля кривой
+			"8000000000000000000000000000000000000000000000000000000000000431",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"91e38443a5e82c0d880923425712b2bb658b9196932e02c78b2582fe742daa28",
+			// Вторая координата образующей точки
+			"32879423ab1a0375895786c4bb46e9565fde0b5344766740af268adb32322e5c",
+			// Порядок подгруппы точек кривой
+			"400000000000000000000000000000000fd8cddfc87b6635c115af556c360c67",
+			// Первый коэффициент уравнения кривой
+			"c2173f1513981673af4892c23035a27ce25e2013bf95aa33b22c656f277e7335",
+			// Второй коэффициент уравнения кривой
+			"295f9bae7428ed9ccc20e7c359a9d41a22fccd9108e17bf7ba9337a6f8ae9513",
+			// Набор параметров id-tc26-gost-3410-2012-256-paramSetA
+			// Модуль поля кривой
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97",
+			// Кофактор кривой, заданной в скрученной форме Эдвардса
+			4
+		},{
+			// Первая координата образующей точки
+			"01",
+			// Вторая координата образующей точки
+			"8d91e471e0989cda27df505a453f2b7635294f2ddf23e3b122acc99c9e9f1e14",
+			// Порядок подгруппы точек кривой
+			"ffffffffffffffffffffffffffffffff6c611070995ad10045841b09b761b893",
+			// Первый коэффициент уравнения кривой
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd94",
+			// Второй коэффициент уравнения кривой
+			"a6",
+			// Набор параметров id-GostR3410-2001-CryptoPro-A-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetB
+			// Модуль поля кривой
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"01",
+			// Вторая координата образующей точки
+			"3fa8124359f96680b83d1c3eb2c070e5c545c9858d03ecfb744bf8d717717efc",
+			// Порядок подгруппы точек кривой
+			"800000000000000000000000000000015f700cfff1a624e5e497161bcc8a198f",
+			// Первый коэффициент уравнения кривой
+			"8000000000000000000000000000000000000000000000000000000000000c96",
+			// Второй коэффициент уравнения кривой
+			"3e1af419a269a5f866a7d3c25c3df80ae979259373ff2b182f49d4ce7e1bbc8b",
+			// Набор параметров id-GostR3410-2001-CryptoPro-B-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetC
+			// Модуль поля кривой
+			"8000000000000000000000000000000000000000000000000000000000000c99",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"00",
+			// Вторая координата образующей точки
+			"41ece55743711a8c3cbf3783cd08c0ee4d4dc440d4641a8f366e550dfdb3bb67",
+			// Порядок подгруппы точек кривой
+			"9b9f605f5a858107ab1ec85e6b41c8aa582ca3511eddfb74f02f3a6598980bb9",
+			// Первый коэффициент уравнения кривой
+			"9b9f605f5a858107ab1ec85e6b41c8aacf846e86789051d37998f7b9022d7598",
+			// Второй коэффициент уравнения кривой
+			"805a",
+			// Набор параметров id-GostR3410-2001-CryptoPro-C-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetD
+			// Модуль поля кривой
+			"9b9f605f5a858107ab1ec85e6b41c8aacf846e86789051d37998f7b9022d759b",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"03",
+			// Вторая координата образующей точки
+			"7503cfe87a836ae3a61b8816e25450e6ce5e1c93acf1abc1778064fdcbefa921"
+			"df1626be4fd036e93d75e6a50e3a41e98028fe5fc235f5b889a589cb5215f2a4",
+			// Порядок подгруппы точек кривой
+			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"27e69532f48d89116ff22b8d4e0560609b4b38abfad2b85dcacdb1411f10b275",
+			// Первый коэффициент уравнения кривой
+			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc4",
+			// Второй коэффициент уравнения кривой
+			"e8c2505dedfc86ddc1bd0b2b6667f1da34b82574761cb0e879bd081cfd0b6265"
+			"ee3cb090f30d27614cb4574010da90dd862ef9d4ebee4761503190785a71c760",
+			// Набор параметров id-tc26-gost-3410-12-512-paramSetA
+			// Модуль поля кривой
+			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"02",
+			// Вторая координата образующей точки
+			"1a8f7eda389b094c2c071e3647a8940f3c123b697578c213be6dd9e6c8ec7335"
+			"dcb228fd1edf4a39152cbcaaf8c0398828041055f94ceeec7e21340780fe41bd",
+			// Порядок подгруппы точек кривой
+			"8000000000000000000000000000000000000000000000000000000000000001"
+			"49a1ec142565a545acfdb77bd9d40cfa8b996712101bea0ec6346c54374f25bd",
+			// Первый коэффициент уравнения кривой
+			"8000000000000000000000000000000000000000000000000000000000000000"
+			"000000000000000000000000000000000000000000000000000000000000006c",
+			// Второй коэффициент уравнения кривой
+			"687d1b459dc841457e3e06cf6f5e2517b97c7d614af138bcbf85dc806c4b289f"
+			"3e965d2db1416d217f8b276fad1ab69c50f78bee1fa3106efb8ccbc7c5140116",
+			// Набор параметров id-tc26-gost-3410-12-512-paramSetB
+			// Модуль поля кривой
+			"8000000000000000000000000000000000000000000000000000000000000000"
+			"000000000000000000000000000000000000000000000000000000000000006f",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"e2e31edfc23de7bdebe241ce593ef5de2295b7a9cbaef021d385f7074cea043a"
+			"a27272a7ae602bf2a7b9033db9ed3610c6fb85487eae97aac5bc7928c1950148",
+			// Вторая координата образующей точки
+			"f5ce40d95b5eb899abbccff5911cb8577939804d6527378b8c108c3d2090ff9b"
+			"e18e2d33e3021ed2ef32d85822423b6304f726aa854bae07d0396e9a9addc40f",
+			// Порядок подгруппы точек кривой
+			"3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"c98cdba46506ab004c33a9ff5147502cc8eda9e7a769a12694623cef47f023ed",
+			// Первый коэффициент уравнения кривой
+			"dc9203e514a721875485a529d2c722fb187bc8980eb866644de41c68e1430645"
+			"46e861c0e2c9edd92ade71f46fcf50ff2ad97f951fda9f2a2eb6546f39689bd3",
+			// Второй коэффициент уравнения кривой
+			"b4c4ee28cebc6c2c8ac12952cf37f16ac7efb6a9f69f4b57ffda2e4f0de5ade0"
+			"38cbc2fff719d2c18de0284b8bfef3b52b8cc7a5f5bf0a3c8d2319a5312557e1",
+			// Набор параметров id-tc26-gost-3410-2012-512-paramSetC
+			// Модуль поля кривой
+			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7",
+			// Кофактор кривой, заданной в скрученной форме Эдвардса
+			4
+		},{
+			// Первая координата образующей точки
+			"6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+			// Вторая координата образующей точки
+			"4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+			// Порядок подгруппы точек кривой
+			"ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551",
+			// Первый коэффициент уравнения кривой
+			"ffffffff00000001000000000000000000000000fffffffffffffffffffffffc",
+			// Второй коэффициент уравнения кривой
+			"5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b",
+			// Набор параметров secp256r1 (NIST P-256) по разделу 2.4.2 SEC 2
+			// Модуль поля кривой
+			"ffffffff00000001000000000000000000000000ffffffffffffffffffffffff",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a38"
+			"5502f25dbf55296c3a545e3872760ab7",
+			// Вторая координата образующей точки
+			"3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c0"
+			"0a60b1ce1d7e819d7a431d7c90ea0e5f",
+			// Порядок подгруппы точек кривой
+			"ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf"
+			"581a0db248b0a77aecec196accc52973",
+			// Первый коэффициент уравнения кривой
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+			"ffffffff0000000000000000fffffffc",
+			// Второй коэффициент уравнения кривой
+			"b3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875a"
+			"c656398d8a2ed19d2a85c8edd3ec2aef",
+			// Набор параметров secp384r1 (NIST P-384) по разделу 2.5.1 SEC 2
+			// Модуль поля кривой
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+			"ffffffff0000000000000000ffffffff",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"00c6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d3d"
+			"baa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5bd66",
+			// Вторая координата образующей точки
+			"011839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e66"
+			"2c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650",
+			// Порядок подгруппы точек кривой
+			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"fa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e91386409",
+			// Первый коэффициент уравнения кривой
+			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc",
+			// Второй коэффициент уравнения кривой
+			"0051953eb9618e1c9a1f929a21a0b68540eea2da725b99b315f3b8b489918ef109"
+			"e156193951ec7e937b1652c0bd3bb1bf073573df883d2c34f1ef451fd46b503f00",
+			// Набор параметров secp521r1 (NIST P-521) по разделу 2.6.1 SEC 2
+			// Модуль поля кривой
+			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+			// Вторая координата образующей точки
+			"483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8",
+			// Порядок подгруппы точек кривой
+			"fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
+			// Первый коэффициент уравнения кривой
+			"00",
+			// Второй коэффициент уравнения кривой
+			"07",
+			// Набор параметров secp256k1 по разделу 2.4.1 SEC 2
+			// Модуль поля кривой
+			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
+			// Кофактор кривой
+			1
+		},{
+			// Первая координата образующей точки
+			"32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7",
+			// Вторая координата образующей точки
+			"bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+			// Порядок подгруппы точек кривой
+			"fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123",
+			// Первый коэффициент уравнения кривой
+			"fffffffeffffffffffffffffffffffffffffffff00000000fffffffffffffffc",
+			// Второй коэффициент уравнения кривой
+			"28e9fa9e9d9f5e344d5a9e4bcf6509a7f39789f515ab8f92ddbcbd414d940e93",
+			// Набор параметров curveSM2 по разделу 5 GB/T 32918.5-2017
+			// Модуль поля кривой
+			"fffffffeffffffffffffffffffffffffffffffff00000000ffffffffffffffff",
+			// Кофактор кривой
+			1
+		}
+	};
 
 	/**
 	 * @brief Функция разбора записи параметра шестнадцатеричными знаками
@@ -94,7 +382,7 @@ namespace {
 	 * @return     количество разобранных байтов
 	 *
 	 */
-	static size_t __nts_bytes__(const char * text, uint8_t * data) noexcept {
+	static __NTS_INLINE__ size_t __nts_bytes__(const char * text, uint8_t * data) noexcept {
 		// Количество разобранных байтов
 		size_t result = 0;
 		/**
@@ -118,309 +406,6 @@ namespace {
 		// Выводим количество разобранных байтов
 		return result;
 	}
-
-	/**
-	 * Наборы значений параметров эллиптических кривых
-	 */
-	static const sample_t SAMPLES[] = {
-		{
-			// Набор параметров id-tc26-gost-3410-2012-512-paramSetTest
-			// Модуль поля кривой
-			"4531acd1fe0023c7550d267b6b2fee80922b14b2ffb90f04d4eb7c09b5d2d15d"
-			"f1d852741af4704a0458047e80e4546d35b8336fac224dd81664bbf528be6373",
-			// Первый коэффициент уравнения кривой
-			"07",
-			// Второй коэффициент уравнения кривой
-			"1cff0806a31116da29d8cfa54e57eb748bc5f377e49400fdd788b649eca1ac43"
-			"61834013b2ad7322480a89ca58e0cf74bc9e540c2add6897fad0a3084f302adc",
-			// Порядок подгруппы точек кривой
-			"4531acd1fe0023c7550d267b6b2fee80922b14b2ffb90f04d4eb7c09b5d2d15d"
-			"a82f2d7ecb1dbac719905c5eecc423f1d86e25edbe23c595d644aaf187e6e6df",
-			// Первая координата образующей точки
-			"24d19cc64572ee30f396bf6ebbfd7a6c5213b3b3d7057cc825f91093a68cd762"
-			"fd60611262cd838dc6b60aa7eee804e28bc849977fac33b4b530f1b120248a9a",
-			// Вторая координата образующей точки
-			"2bb312a43bd2ce6e0d020613c857acddcfbf061e91e5f2c3f32447c259f39b2c"
-			"83ab156d77f1496bf7eb3351e1ee4e43dc1a18b91b24640b6dbb92cb1add371e",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров id-GostR3410-2001-TestParamSet
-			// Модуль поля кривой
-			"8000000000000000000000000000000000000000000000000000000000000431",
-			// Первый коэффициент уравнения кривой
-			"07",
-			// Второй коэффициент уравнения кривой
-			"5fbff498aa938ce739b8e022fbafef40563f6e6a3472fc2a514c0ce9dae23b7e",
-			// Порядок подгруппы точек кривой
-			"8000000000000000000000000000000150fe8a1892976154c59cfc193accf5b3",
-			// Первая координата образующей точки
-			"02",
-			// Вторая координата образующей точки
-			"08e2a8a0e65147d4bd6316030e16d19c85c97f0a9ca267122b96abbcea7e8fc8",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров id-tc26-gost-3410-2012-256-paramSetA
-			// Модуль поля кривой
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97",
-			// Первый коэффициент уравнения кривой
-			"c2173f1513981673af4892c23035a27ce25e2013bf95aa33b22c656f277e7335",
-			// Второй коэффициент уравнения кривой
-			"295f9bae7428ed9ccc20e7c359a9d41a22fccd9108e17bf7ba9337a6f8ae9513",
-			// Порядок подгруппы точек кривой
-			"400000000000000000000000000000000fd8cddfc87b6635c115af556c360c67",
-			// Первая координата образующей точки
-			"91e38443a5e82c0d880923425712b2bb658b9196932e02c78b2582fe742daa28",
-			// Вторая координата образующей точки
-			"32879423ab1a0375895786c4bb46e9565fde0b5344766740af268adb32322e5c",
-			// Кофактор кривой, заданной в скрученной форме Эдвардса
-			4
-		},
-		{
-			// Набор параметров id-GostR3410-2001-CryptoPro-A-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetB
-			// Модуль поля кривой
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97",
-			// Первый коэффициент уравнения кривой
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd94",
-			// Второй коэффициент уравнения кривой
-			"a6",
-			// Порядок подгруппы точек кривой
-			"ffffffffffffffffffffffffffffffff6c611070995ad10045841b09b761b893",
-			// Первая координата образующей точки
-			"01",
-			// Вторая координата образующей точки
-			"8d91e471e0989cda27df505a453f2b7635294f2ddf23e3b122acc99c9e9f1e14",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров id-GostR3410-2001-CryptoPro-B-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetC
-			// Модуль поля кривой
-			"8000000000000000000000000000000000000000000000000000000000000c99",
-			// Первый коэффициент уравнения кривой
-			"8000000000000000000000000000000000000000000000000000000000000c96",
-			// Второй коэффициент уравнения кривой
-			"3e1af419a269a5f866a7d3c25c3df80ae979259373ff2b182f49d4ce7e1bbc8b",
-			// Порядок подгруппы точек кривой
-			"800000000000000000000000000000015f700cfff1a624e5e497161bcc8a198f",
-			// Первая координата образующей точки
-			"01",
-			// Вторая координата образующей точки
-			"3fa8124359f96680b83d1c3eb2c070e5c545c9858d03ecfb744bf8d717717efc",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров id-GostR3410-2001-CryptoPro-C-ParamSet, он же id-tc26-gost-3410-2012-256-paramSetD
-			// Модуль поля кривой
-			"9b9f605f5a858107ab1ec85e6b41c8aacf846e86789051d37998f7b9022d759b",
-			// Первый коэффициент уравнения кривой
-			"9b9f605f5a858107ab1ec85e6b41c8aacf846e86789051d37998f7b9022d7598",
-			// Второй коэффициент уравнения кривой
-			"805a",
-			// Порядок подгруппы точек кривой
-			"9b9f605f5a858107ab1ec85e6b41c8aa582ca3511eddfb74f02f3a6598980bb9",
-			// Первая координата образующей точки
-			"00",
-			// Вторая координата образующей точки
-			"41ece55743711a8c3cbf3783cd08c0ee4d4dc440d4641a8f366e550dfdb3bb67",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров id-tc26-gost-3410-12-512-paramSetA
-			// Модуль поля кривой
-			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7",
-			// Первый коэффициент уравнения кривой
-			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc4",
-			// Второй коэффициент уравнения кривой
-			"e8c2505dedfc86ddc1bd0b2b6667f1da34b82574761cb0e879bd081cfd0b6265"
-			"ee3cb090f30d27614cb4574010da90dd862ef9d4ebee4761503190785a71c760",
-			// Порядок подгруппы точек кривой
-			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			"27e69532f48d89116ff22b8d4e0560609b4b38abfad2b85dcacdb1411f10b275",
-			// Первая координата образующей точки
-			"03",
-			// Вторая координата образующей точки
-			"7503cfe87a836ae3a61b8816e25450e6ce5e1c93acf1abc1778064fdcbefa921"
-			"df1626be4fd036e93d75e6a50e3a41e98028fe5fc235f5b889a589cb5215f2a4",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров id-tc26-gost-3410-12-512-paramSetB
-			// Модуль поля кривой
-			"8000000000000000000000000000000000000000000000000000000000000000"
-			"000000000000000000000000000000000000000000000000000000000000006f",
-			// Первый коэффициент уравнения кривой
-			"8000000000000000000000000000000000000000000000000000000000000000"
-			"000000000000000000000000000000000000000000000000000000000000006c",
-			// Второй коэффициент уравнения кривой
-			"687d1b459dc841457e3e06cf6f5e2517b97c7d614af138bcbf85dc806c4b289f"
-			"3e965d2db1416d217f8b276fad1ab69c50f78bee1fa3106efb8ccbc7c5140116",
-			// Порядок подгруппы точек кривой
-			"8000000000000000000000000000000000000000000000000000000000000001"
-			"49a1ec142565a545acfdb77bd9d40cfa8b996712101bea0ec6346c54374f25bd",
-			// Первая координата образующей точки
-			"02",
-			// Вторая координата образующей точки
-			"1a8f7eda389b094c2c071e3647a8940f3c123b697578c213be6dd9e6c8ec7335"
-			"dcb228fd1edf4a39152cbcaaf8c0398828041055f94ceeec7e21340780fe41bd",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров id-tc26-gost-3410-2012-512-paramSetC
-			// Модуль поля кривой
-			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdc7",
-			// Первый коэффициент уравнения кривой
-			"dc9203e514a721875485a529d2c722fb187bc8980eb866644de41c68e1430645"
-			"46e861c0e2c9edd92ade71f46fcf50ff2ad97f951fda9f2a2eb6546f39689bd3",
-			// Второй коэффициент уравнения кривой
-			"b4c4ee28cebc6c2c8ac12952cf37f16ac7efb6a9f69f4b57ffda2e4f0de5ade0"
-			"38cbc2fff719d2c18de0284b8bfef3b52b8cc7a5f5bf0a3c8d2319a5312557e1",
-			// Порядок подгруппы точек кривой
-			"3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			"c98cdba46506ab004c33a9ff5147502cc8eda9e7a769a12694623cef47f023ed",
-			// Первая координата образующей точки
-			"e2e31edfc23de7bdebe241ce593ef5de2295b7a9cbaef021d385f7074cea043a"
-			"a27272a7ae602bf2a7b9033db9ed3610c6fb85487eae97aac5bc7928c1950148",
-			// Вторая координата образующей точки
-			"f5ce40d95b5eb899abbccff5911cb8577939804d6527378b8c108c3d2090ff9b"
-			"e18e2d33e3021ed2ef32d85822423b6304f726aa854bae07d0396e9a9addc40f",
-			// Кофактор кривой, заданной в скрученной форме Эдвардса
-			4
-		},
-		{
-			// Набор параметров secp256r1 (NIST P-256) по разделу 2.4.2 SEC 2
-			// Модуль поля кривой
-			"ffffffff00000001000000000000000000000000ffffffffffffffffffffffff",
-			// Первый коэффициент уравнения кривой
-			"ffffffff00000001000000000000000000000000fffffffffffffffffffffffc",
-			// Второй коэффициент уравнения кривой
-			"5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b",
-			// Порядок подгруппы точек кривой
-			"ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551",
-			// Первая координата образующей точки
-			"6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
-			// Вторая координата образующей точки
-			"4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров secp384r1 (NIST P-384) по разделу 2.5.1 SEC 2
-			// Модуль поля кривой
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
-			"ffffffff0000000000000000ffffffff",
-			// Первый коэффициент уравнения кривой
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
-			"ffffffff0000000000000000fffffffc",
-			// Второй коэффициент уравнения кривой
-			"b3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875a"
-			"c656398d8a2ed19d2a85c8edd3ec2aef",
-			// Порядок подгруппы точек кривой
-			"ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf"
-			"581a0db248b0a77aecec196accc52973",
-			// Первая координата образующей точки
-			"aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a38"
-			"5502f25dbf55296c3a545e3872760ab7",
-			// Вторая координата образующей точки
-			"3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c0"
-			"0a60b1ce1d7e819d7a431d7c90ea0e5f",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров secp521r1 (NIST P-521) по разделу 2.6.1 SEC 2
-			// Модуль поля кривой
-			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-			// Первый коэффициент уравнения кривой
-			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc",
-			// Второй коэффициент уравнения кривой
-			"0051953eb9618e1c9a1f929a21a0b68540eea2da725b99b315f3b8b489918ef109"
-			"e156193951ec7e937b1652c0bd3bb1bf073573df883d2c34f1ef451fd46b503f00",
-			// Порядок подгруппы точек кривой
-			"01ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-			"fa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e91386409",
-			// Первая координата образующей точки
-			"00c6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d3d"
-			"baa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5bd66",
-			// Вторая координата образующей точки
-			"011839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e66"
-			"2c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров secp256k1 по разделу 2.4.1 SEC 2
-			// Модуль поля кривой
-			"fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
-			// Первый коэффициент уравнения кривой
-			"00",
-			// Второй коэффициент уравнения кривой
-			"07",
-			// Порядок подгруппы точек кривой
-			"fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
-			// Первая координата образующей точки
-			"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
-			// Вторая координата образующей точки
-			"483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8",
-			// Кофактор кривой
-			1
-		},
-		{
-			// Набор параметров curveSM2 по разделу 5 GB/T 32918.5-2017
-			// Модуль поля кривой
-			"fffffffeffffffffffffffffffffffffffffffff00000000ffffffffffffffff",
-			// Первый коэффициент уравнения кривой
-			"fffffffeffffffffffffffffffffffffffffffff00000000fffffffffffffffc",
-			// Второй коэффициент уравнения кривой
-			"28e9fa9e9d9f5e344d5a9e4bcf6509a7f39789f515ab8f92ddbcbd414d940e93",
-			// Порядок подгруппы точек кривой
-			"fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123",
-			// Первая координата образующей точки
-			"32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7",
-			// Вторая координата образующей точки
-			"bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
-			// Кофактор кривой
-			1
-		}
-	};
-
-	/**
-	 * Соответствия опознавателей наборов параметров их значениям
-	 */
-	static const record_t RECORDS[] = {
-		// Опознаватель набора параметров и его место в таблице
-		{"1.2.643.7.1.2.1.2.0", 0},
-		{"1.2.643.2.2.35.0", 1},
-		{"1.2.643.7.1.2.1.1.1", 2},
-		{"1.2.643.2.2.35.1", 3},
-		{"1.2.643.2.2.36.0", 3},
-		{"1.2.643.7.1.2.1.1.2", 3},
-		{"1.2.643.2.2.35.2", 4},
-		{"1.2.643.7.1.2.1.1.3", 4},
-		{"1.2.643.2.2.35.3", 5},
-		{"1.2.643.2.2.36.1", 5},
-		{"1.2.643.7.1.2.1.1.4", 5},
-		{"1.2.643.7.1.2.1.2.1", 6},
-		{"1.2.643.7.1.2.1.2.2", 7},
-		{"1.2.643.7.1.2.1.2.3", 8},
-		{"1.2.840.10045.3.1.7", 9},
-		{"1.3.132.0.34", 10},
-		{"1.3.132.0.35", 11},
-		{"1.3.132.0.10", 12},
-		{"1.2.156.10197.1.301", 13}
-	};
 	/**
 	 * @brief Функция заведения кривой по набору значений параметров
 	 *
@@ -429,7 +414,7 @@ namespace {
 	 * @return       признак успешности заведения кривой
 	 *
 	 */
-	static bool __nts_setup__(const sample_t & sample, curve::curve_t & result) noexcept {
+	static __NTS_INLINE__ bool __nts_setup__(const sample_t & sample, curve::curve_t & result) noexcept {
 		// Места, в которые помещаются разобранные значения параметров
 		uint8_t modulus[math::NUMBER_SIZE], first[math::NUMBER_SIZE], second[math::NUMBER_SIZE];
 		// Места, в которые помещаются разобранные значения параметров
@@ -445,8 +430,9 @@ namespace {
 			sample.cofactor
 		);
 	}
+
 	/**
-	 * @brief Кривые известных наборов параметров, заведённые один раз на процесс
+	 * @brief Структура кривых известных наборов параметров, заведённые один раз на процесс
 	 *
 	 * @details Заведение кривой (Curve::start) проверяет точку основания умножением на
 	 *          порядок подгруппы - это полное умножение точки: 30 мкс на 256 разрядах и
@@ -457,19 +443,19 @@ namespace {
 	 *          обращению, один раз на процесс и под защитой заведения местной статики,
 	 *          а parameters() отдаёт копию заведённой (около килобайта, без обращений
 	 *          к куче). Заведение кривой параметрами извне (Curve::start) проверяет
-	 *          их по-прежнему: заготовленное здесь касается лишь известных наборов
+	 *          их по-прежнему: заготовленное здесь касается лишь известных наборов.
 	 *
 	 */
 	typedef struct Prepared {
-		// Заведённые кривые по местам наборов значений
-		curve::curve_t curves[sizeof(SAMPLES) / sizeof(sample_t)];
 		// Признаки удачного заведения кривых
 		bool ready[sizeof(SAMPLES) / sizeof(sample_t)];
+		// Заведённые кривые по местам наборов значений
+		curve::curve_t curves[sizeof(SAMPLES) / sizeof(sample_t)];
 		/**
 		 * @brief Конструктор: заводит кривые всех известных наборов
 		 *
 		 */
-		Prepared() noexcept {
+		explicit Prepared() noexcept {
 			/**
 			 * Заводим кривые всех известных наборов
 			 */
@@ -478,13 +464,14 @@ namespace {
 				this->ready[i] = __nts_setup__(SAMPLES[i], this->curves[i]);
 		}
 	} prepared_t;
+
 	/**
 	 * @brief Функция получения заведённых кривых известных наборов
 	 *
 	 * @return заведённые кривые: строятся при первом обращении
 	 *
 	 */
-	static const prepared_t & __nts_prepared__() noexcept {
+	static __NTS_INLINE__ const prepared_t & __nts_prepared__() noexcept {
 		// Заведённые кривые известных наборов: местная статика заводится потокобезопасно
 		static const prepared_t instance;
 		// Выводим заведённые кривые
@@ -504,7 +491,6 @@ bool nts::curve::parameters(const string & oid, curve_t & result) noexcept {
 	// Выводим итог установки кривой по опознавателю без построения строки
 	return parameters(oid.c_str(), result);
 }
-
 /**
  * @brief Функция установки кривой по опознавателю-литералу набора параметров
  *
@@ -529,7 +515,7 @@ bool nts::curve::parameters(const char * oid, curve_t & result) noexcept {
 		// Место набора значений параметров кривой
 		const size_t index = RECORDS[i].index;
 		// Получаем кривые известных наборов, заведённые один раз на процесс
-		const prepared_t & cache = __nts_prepared__();
+		const prepared_t & cache = ::__nts_prepared__();
 		// Если кривая набора заведена
 		if(cache.ready[index]){
 			// Отдаём копию заведённой кривой
@@ -538,7 +524,7 @@ bool nts::curve::parameters(const char * oid, curve_t & result) noexcept {
 			return true;
 		}
 		// Иначе заводим кривую по значениям набора заново
-		return __nts_setup__(SAMPLES[index], result);
+		return ::__nts_setup__(SAMPLES[index], result);
 	}
 	// Выводим отказ установки кривой: набор параметров неизвестен
 	return false;

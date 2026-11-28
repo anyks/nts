@@ -17,7 +17,7 @@
  * @details Составной KEM по RFC 10024, как в гибридной группе TLS: открытый
  *          ключ ek ‖ pk, закрытый dk ‖ sk, шифртекст ct ‖ pk_e, общий секрет ss_mlkem ‖
  *          ss_x25519. Точка малого порядка у X25519 - отказ. Неявное отклонение ML-KEM остаётся
- *          его собственным: подделанный шифртекст даёт J(z ‖ c), а не отказ
+ *          его собственным: подделанный шифртекст даёт J(z ‖ c), а не отказ.
  *
  * @copyright Copyright © 2026
  *
@@ -95,25 +95,31 @@ size_t nts::noise::kemlength(const kem_t kem, const part_t part) noexcept {
 	 * Определяем часть
 	 */
 	switch(static_cast <uint8_t> (part)){
-		// Часть зерна
+		// Если часть — зерно
 		case static_cast <uint8_t> (part_t::SEED):
+			// Выводим длину зерна
 			return (SEED + extra);
-		// Случайность упаковки
+		// Если часть — случайность упаковки
 		case static_cast <uint8_t> (part_t::COINS):
+			// Выводим длину случайности упаковки
 			return (M + extra);
-		// Открытый ключ
+		// Если часть — открытый ключ
 		case static_cast <uint8_t> (part_t::PUBLIC):
+			// Выводим длину открытого ключа
 			return (EK + extra);
-		// Закрытый ключ
+		// Если часть — закрытый ключ
 		case static_cast <uint8_t> (part_t::SECRET):
+			// Выводим длину закрытого ключа
 			return (DK + extra);
-		// Общий секрет
+		// Если часть — общий секрет
 		case static_cast <uint8_t> (part_t::SHARED):
+			// Выводим длину общего секрета
 			return (SS + extra);
-		// Часть шифртекста
+		// Если часть — шифртекст
 		case static_cast <uint8_t> (part_t::CIPHERTEXT):
+			// Выводим длину шифртекста
 			return (CT + extra);
-		// Прочие части набора
+		// Если часть не опознана, выводим нулевую длину
 		default: return 0;
 	}
 }

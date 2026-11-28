@@ -1535,7 +1535,7 @@ nts::x509::error_t nts::x509::identifier(const key_t & key, string & result) noe
  */
 nts::x509::error_t nts::x509::parameters(const key_t & key, curve::curve_t & result) noexcept {
 	// Если алгоритм ключа модулем не поддержан
-	if(!__nts_suitable__(key.algorithm))
+	if(!::__nts_suitable__(key.algorithm))
 		// Выводим отказ ключа чужого алгоритма
 		return error_t::KEY;
 	// Опознаватель набора параметров кривой ключа

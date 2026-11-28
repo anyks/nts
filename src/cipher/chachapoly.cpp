@@ -26,15 +26,19 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "cipher/chachapoly.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -56,8 +60,11 @@ namespace {
 	 */
 	using namespace nts::cipher;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
+
 	/**
 	 * @brief Функция записи слова в 64 разряда от младшего байта
 	 *
@@ -65,7 +72,7 @@ namespace {
 	 * @param data  место, в которое записываются байты
 	 *
 	 */
-	static void __nts_store__(const uint64_t value, uint8_t * data) noexcept {
+	static __NTS_INLINE__ void __nts_store__(const uint64_t value, uint8_t * data) noexcept {
 		/**
 		 * Перебираем байты слова
 		 */
@@ -82,7 +89,7 @@ namespace {
 	 * @return       признак совпадения областей
 	 *
 	 */
-	static bool __nts_same__(const uint8_t * first, const uint8_t * second, const size_t size) noexcept {
+	static __NTS_INLINE__ bool __nts_same__(const uint8_t * first, const uint8_t * second, const size_t size) noexcept {
 		// Накопленное различие
 		uint8_t difference = 0;
 		/**
@@ -130,9 +137,9 @@ bool nts::cipher::Chachapoly::authenticate(uint8_t * result) noexcept {
 	// Блок длин: связанные данные и шифртекст в байтах от младшего байта
 	uint8_t lengths[16];
 	// Записываем длину связанных данных
-	__nts_store__(this->_associated, lengths);
+	::__nts_store__(this->_associated, lengths);
 	// Записываем длину шифртекста
-	__nts_store__(this->_sealed, lengths + 8);
+	::__nts_store__(this->_sealed, lengths + 8);
 	// Если блок длин подать не удалось
 	if(!this->_mac.update(view_t(lengths, sizeof(lengths))))
 		// Выводим отказ вычисления
@@ -264,7 +271,7 @@ bool nts::cipher::Chachapoly::start(const view_t & key, const view_t & nonce) no
 	// Если заполнение в 24 байта: XChaCha20-Poly1305 - подключ HChaCha20, заполнение из нулей и хвоста
 	if(nonce.size == CHACHA_XNONCE){
 		// Если подключ вывести не удалось
-		if(!Chacha::hchacha(key, view_t(nonce.data, HCHACHA_NONCE), this->_key))
+		if(!chacha_t::hchacha(key, view_t(nonce.data, HCHACHA_NONCE), this->_key))
 			// Выводим отказ запуска
 			return false;
 		// Обнуляем начало заполнения

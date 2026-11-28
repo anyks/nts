@@ -19,7 +19,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -72,14 +72,14 @@ bool nts::digest::pbkdf2(const hash_t algorithm, const view_t & password, const 
 	if(!mac.start(algorithm, password))
 		// Выводим отказ вывода
 		return false;
+	// Признак успешности вывода
+	bool ok = true;
 	// Очередной оборот
 	uint8_t round[64];
 	// Накопленный блок ключа
 	uint8_t block[64];
 	// Количество уже выведенных байтов ключа
 	size_t produced = 0;
-	// Признак успешности вывода
-	bool ok = true;
 	/**
 	 * Выводим блоки ключа, пока его не хватает
 	 */

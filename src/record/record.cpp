@@ -109,11 +109,15 @@ namespace {
 		 * Определяем версию протокола
 		 */
 		switch(static_cast <uint16_t> (version)){
-			// Если это одно из известных изданий протокола
+			// Если издание — SSL 3.0
 			case static_cast <uint16_t> (version_t::SSL30):
+			// Если издание — TLS 1.0
 			case static_cast <uint16_t> (version_t::TLS10):
+			// Если издание — TLS 1.1
 			case static_cast <uint16_t> (version_t::TLS11):
+			// Если издание — TLS 1.2
 			case static_cast <uint16_t> (version_t::TLS12):
+			// Если издание — TLS 1.3
 			case static_cast <uint16_t> (version_t::TLS13):
 				// Выводим признак известности версии протокола
 				return true;
@@ -135,12 +139,17 @@ bool nts::record::known(const type_t type) noexcept {
 	 * Определяем вид содержимого записи
 	 */
 	switch(static_cast <uint8_t> (type)){
-		// Если это один из известных видов содержимого записи
+		// Если запись — подтверждение принятых записей DTLS 1.3 (ACK)
 		case static_cast <uint8_t> (type_t::ACK):
+		// Если запись — извещение о событии или об отказе (Alert)
 		case static_cast <uint8_t> (type_t::ALERT):
+		// Если запись — извещение о смене набора шифрования (ChangeCipherSpec)
 		case static_cast <uint8_t> (type_t::CHANGE):
+		// Если запись — сообщение рукопожатия (Handshake)
 		case static_cast <uint8_t> (type_t::HANDSHAKE):
+		// Если запись — сердцебиение по RFC 6520 (Heartbeat)
 		case static_cast <uint8_t> (type_t::HEARTBEAT):
+		// Если запись — данные прикладного протокола (ApplicationData)
 		case static_cast <uint8_t> (type_t::APPLICATION):
 			// Выводим признак известности вида содержимого записи
 			return true;
@@ -526,12 +535,14 @@ nts::record::error_t nts::record::Writer::push(const type_t type, const version_
 			// Определяем длину содержимого очередной записи
 			header.size = (((total - offset) < this->_limit) ? (total - offset) : this->_limit);
 			/**
-			 * Заслон составления заголовка ниже недостижим: предел нарезки не превышает
-			 * RECORD_PLAINTEXT по устройству limit(), а вид и издание сверены выше.
-			 * Стоит он ради связности: молчаливая нарезка по неверному заголовку была
-			 * бы хуже отказа
+			 * @brief Если заголовок очередной записи составить не удалось
+			 *
+			 * @details Заслон составления заголовка ниже недостижим: предел нарезки не превышает
+			 *          RECORD_PLAINTEXT по устройству limit(), а вид и издание сверены выше.
+			 *          Стоит он ради связности: молчаливая нарезка по неверному заголовку была
+			 *          бы хуже отказа.
+			 *
 			 */
-			// Если заголовок очередной записи составить не удалось
 			if(nts::record::build(header, buffer) != error_t::NONE)
 				// Выводим отказ нарезки данных на записи
 				return error_t::LENGTH;
@@ -573,4 +584,5 @@ nts::record::Writer::~Writer() noexcept {
  * @brief Конструктор
  *
  */
-nts::record::Header::Header() noexcept : type(type_t::NONE), version(version_t::NONE), size(0) {}
+nts::record::Header::Header() noexcept :
+ type(type_t::NONE), version(version_t::NONE), size(0) {}

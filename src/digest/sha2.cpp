@@ -127,12 +127,12 @@
  */
 #include "sys/wipe.hpp"
 #include "sys/machine.hpp"
-#include "internal/digest/sha2.hpp"
 
 /**
- * Подключаем заголовочный файл модуля
+ * Подключаем заголовочные файлы модуля
  */
 #include "digest/sha2.hpp"
+#include "internal/digest/sha2.hpp"
 
 /**
  * Если сборка ведётся под ARM64
@@ -1939,7 +1939,7 @@ namespace {
  */
 void nts::digest::Sha2::compress(const uint8_t * block) noexcept {
 	// Разбор одного блока
-	__nts_blocks__(this->block(), block, 1, this->_hash);
+	::__nts_blocks__(this->block(), block, 1, this->_hash);
 }
 /**
  * @brief Метод получения разновидности вырабатываемого хеша
@@ -2096,7 +2096,7 @@ void nts::digest::Sha2::update(const view_t & data) noexcept {
 		 * Разбираем целые блоки куска одной пачкой прямо из него: ядра читают
 		 * слова невыровненными загрузками, оттого выравнивание куска значения не имеет
 		 */
-		__nts_blocks__(width, cursor, whole, this->_hash);
+		::__nts_blocks__(width, cursor, whole, this->_hash);
 		// Сдвигаем позицию чтения куска
 		cursor += (whole * width);
 		// Уменьшаем количество не разобранных байтов
@@ -2158,9 +2158,9 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 	// Если поле длины занимает шестнадцать байтов
 	if(field == 16)
 		// Записываем старшую часть длины сообщения
-		__nts_store64__(high, this->_block + (width - 16));
+		::__nts_store64__(high, this->_block + (width - 16));
 	// Записываем младшую часть длины сообщения
-	__nts_store64__(low, this->_block + (width - 8));
+	::__nts_store64__(low, this->_block + (width - 8));
 	// Разбор последнего блока
 	this->compress(this->_block);
 	// Если хеш вырабатывается над словами в 64 разряда
@@ -2170,7 +2170,7 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 		 */
 		for(size_t i = 0; (i * 8) < length; i++)
 			// Записываем очередное слово хеша
-			__nts_store64__(this->_hash[i], result + (i * 8));
+			::__nts_store64__(this->_hash[i], result + (i * 8));
 	// Иначе хеш вырабатывается над словами в 32 разряда
 	} else {
 		/**
@@ -2178,7 +2178,7 @@ bool nts::digest::Sha2::finish(uint8_t * result, const size_t size) noexcept {
 		 */
 		for(size_t i = 0; (i * 4) < length; i++)
 			// Записываем очередное слово хеша
-			__nts_store32__(static_cast <uint32_t> (this->_hash[i]), result + (i * 4));
+			::__nts_store32__(static_cast <uint32_t> (this->_hash[i]), result + (i * 4));
 	}
 	// Затирание значения хеша
 	wipe(this->_hash, sizeof(this->_hash));

@@ -28,7 +28,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -232,7 +232,12 @@ namespace {
 	 */
 	static __NTS_INLINE__ uint32_t __nts_load__(const uint8_t * data) noexcept {
 		// Выводим слово, собранное от младшего байта
-		return (static_cast <uint32_t> (data[0]) | (static_cast <uint32_t> (data[1]) << 8) | (static_cast <uint32_t> (data[2]) << 16) | (static_cast <uint32_t> (data[3]) << 24));
+		return (
+			static_cast <uint32_t> (data[0]) |
+			(static_cast <uint32_t> (data[1]) << 8) |
+			(static_cast <uint32_t> (data[2]) << 16) |
+			(static_cast <uint32_t> (data[3]) << 24)
+		);
 	}
 	/**
 	 * @brief Функция записи слова в 32 разряда от младшего байта
@@ -825,8 +830,8 @@ namespace {
 			 * Складываем накопитель с первой дорожкой
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Складываем конечность накопителя с первой дорожкой
-			a[i] = vaddq_u32(a[i], vsetq_lane_u32(limbs[i], vdupq_n_u32(0), 0));
+				// Складываем конечность накопителя с первой дорожкой
+				a[i] = vaddq_u32(a[i], vsetq_lane_u32(limbs[i], vdupq_n_u32(0), 0));
 			// Сдвигаем позицию чтения
 			data += 128;
 			/**
@@ -848,8 +853,8 @@ namespace {
 				 * Сужаем конечности младшей четвёрки
 				 */
 				for(size_t i = 0; i < 5; i++)
-				// Собираем четыре дорожки из младших слов пар
-				a[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
+					// Собираем четыре дорожки из младших слов пар
+					a[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
 				// Умножаем старшую четвёрку на r^8
 				__nts_product_quad_neon__(b, ra, rb, rc, low, high);
 				// Закрепляем произведения до переносов
@@ -861,24 +866,24 @@ namespace {
 				 * Сужаем конечности старшей четвёрки
 				 */
 				for(size_t i = 0; i < 5; i++)
-				// Собираем четыре дорожки из младших слов пар
-				b[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
+					// Собираем четыре дорожки из младших слов пар
+					b[i] = vuzp1q_u32(vreinterpretq_u32_u64(low[i]), vreinterpretq_u32_u64(high[i]));
 				// Разбираем младшую четвёрку следующей восьмёрки
 				__nts_split_quad_neon__(data, m);
 				/**
 				 * Складываем младшую четвёрку со следующей
 				 */
 				for(size_t i = 0; i < 5; i++)
-				// Складываем конечности
-				a[i] = vaddq_u32(a[i], m[i]);
+					// Складываем конечности
+					a[i] = vaddq_u32(a[i], m[i]);
 				// Разбираем старшую четвёрку следующей восьмёрки
 				__nts_split_quad_neon__(data + 64, m);
 				/**
 				 * Складываем старшую четвёрку со следующей
 				 */
 				for(size_t i = 0; i < 5; i++)
-				// Складываем конечности
-				b[i] = vaddq_u32(b[i], m[i]);
+					// Складываем конечности
+					b[i] = vaddq_u32(b[i], m[i]);
 				// Сдвигаем позицию чтения
 				data += 128;
 			}
@@ -914,8 +919,8 @@ namespace {
 				 * Складываем дорожки в суммы
 				 */
 				for(size_t i = 0; i < 5; i++)
-				// Складываем четыре дорожки
-				total[i] += (vaddvq_u64(low[i]) + vaddvq_u64(high[i]));
+					// Складываем четыре дорожки
+					total[i] += (vaddvq_u64(low[i]) + vaddvq_u64(high[i]));
 			}
 			// Переводим сумму дорожек в конечности накопителя
 			__nts_narrow__(total, h0, h1, h2);
@@ -1058,8 +1063,8 @@ namespace {
 			 * Складываем накопитель с первой дорожкой
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Конечности первой четвёрки с накопителем в первой дорожке
-			lanes[0][i] = _mm256_add_epi64(lanes[0][i], _mm256_set_epi64x(0, 0, 0, limbs[i]));
+				// Конечности первой четвёрки с накопителем в первой дорожке
+				lanes[0][i] = _mm256_add_epi64(lanes[0][i], _mm256_set_epi64x(0, 0, 0, limbs[i]));
 			// Переходим ко второй восьмёрке
 			data += 128;
 			/**
@@ -1084,8 +1089,8 @@ namespace {
 					 * Складываем блоки с дорожками
 					 */
 					for(size_t i = 0; i < 5; i++)
-					// Складываем очередную конечность
-					lanes[k][i] = _mm256_add_epi64(product[i], m[i]);
+						// Складываем очередную конечность
+						lanes[k][i] = _mm256_add_epi64(product[i], m[i]);
 				}
 				// Переходим к следующей восьмёрке
 				data += 128;
@@ -1201,8 +1206,8 @@ namespace {
 			 * Суммируем дорожки
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Сумма четырёх дорожек конечности
-			total[i] = (lanes[i * 4] + lanes[(i * 4) + 1] + lanes[(i * 4) + 2] + lanes[(i * 4) + 3]);
+				// Сумма четырёх дорожек конечности
+				total[i] = (lanes[i * 4] + lanes[(i * 4) + 1] + lanes[(i * 4) + 2] + lanes[(i * 4) + 3]);
 			// Переводим сумму дорожек в конечности накопителя
 			__nts_narrow__(total, h0, h1, h2);
 		}
@@ -1257,14 +1262,14 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 						 * Вычисляем степени r^2…r^8 умножением на r: ядру на ассемблере нужны лишь r^2…r^4
 						 */
 						for(size_t i = 1; i < POWERS; i++)
-						// Считаем очередную степень
-						__nts_raise__(this->_powers[i - 1], this->_powers[0], this->_powers[i]);
+							// Считаем очередную степень
+							::__nts_raise__(this->_powers[i - 1], this->_powers[0], this->_powers[i]);
 						/**
 						 * Если есть ядро AVX2 на ассемблере
 						 */
 						#if defined(__NTS_POLY1305_X86_64__)
 							// Строим стол ядра по степеням
-							__nts_table_avx2__(this->_powers, this->_table);
+							::__nts_table_avx2__(this->_powers, this->_table);
 						#endif
 						// Запоминаем готовность степеней
 						this->_prepared = true;
@@ -1276,7 +1281,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 						// Число четвёрок блоков
 						const size_t groups = (left / 64);
 						// Складываем четвёрки блоков ядром
-						__nts_absorb_kernel_avx2__(this->_table, h0, h1, h2, cursor, groups);
+						::__nts_absorb_kernel_avx2__(this->_table, h0, h1, h2, cursor, groups);
 						// Сдвигаем позицию чтения
 						cursor += (groups * 64);
 						// Уменьшаем количество не сложенных байтов
@@ -1292,13 +1297,13 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 						 */
 						#if defined(__NTS_POLY1305_NEON__)
 							// Складываем восьмёрки блоков командами NEON
-							__nts_absorb_neon__(this->_powers, h0, h1, h2, cursor, groups);
+							::__nts_absorb_neon__(this->_powers, h0, h1, h2, cursor, groups);
 						/**
 						 * Иначе ветвь команд AVX2
 						 */
 						#else
 							// Складываем восьмёрки блоков командами AVX2
-							__nts_absorb_avx2__(this->_powers, h0, h1, h2, cursor, groups);
+							::__nts_absorb_avx2__(this->_powers, h0, h1, h2, cursor, groups);
 						#endif
 						// Сдвигаем позицию чтения
 						cursor += (groups * 128);
@@ -1323,7 +1328,7 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 				// Количество целых блоков
 				const size_t blocks = (left / POLY1305_TAG);
 				// Складываем блоки ядром
-				__nts_blocks_x86__(limbs, r0, r1, s1, cursor, blocks, hibit);
+				::__nts_blocks_x86__(limbs, r0, r1, s1, cursor, blocks, hibit);
 				// Забираем конечности накопителя
 				h0 = limbs[0];
 				// Вторая конечность накопителя
@@ -1341,11 +1346,11 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 		 */
 		while(left >= POLY1305_TAG){
 			// Сумма младшей конечности с младшим словом блока
-			wide_t sum = (static_cast <wide_t> (h0) + __nts_load64__(cursor));
+			wide_t sum = (static_cast <wide_t> (h0) + ::__nts_load64__(cursor));
 			// Младшая конечность накопителя
 			h0 = static_cast <uint64_t> (sum);
 			// Сумма средней конечности со старшим словом блока и переносом
-			sum = (static_cast <wide_t> (h1) + __nts_load64__(cursor + 8) + static_cast <uint64_t> (sum >> 64));
+			sum = (static_cast <wide_t> (h1) + ::__nts_load64__(cursor + 8) + static_cast <uint64_t> (sum >> 64));
 			// Средняя конечность накопителя
 			h1 = static_cast <uint64_t> (sum);
 			// Старшая конечность накопителя со старшим разрядом блока и переносом
@@ -1417,21 +1422,21 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 			// Конечности произведения
 			uint64_t product[5] = {0, 0, 0, 0, 0};
 			// Разбираем первый блок пары
-			__nts_split__(cursor, hibit, first);
+			::__nts_split__(cursor, hibit, first);
 			// Разбираем второй блок пары
-			__nts_split__(cursor + POLY1305_TAG, hibit, second);
+			::__nts_split__(cursor + POLY1305_TAG, hibit, second);
 			/**
 			 * Складываем первый блок с накопителем
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Складываем очередную конечность
-			first[i] += h[i];
+				// Складываем очередную конечность
+				first[i] += h[i];
 			// Умножаем первый блок с накопителем на квадрат множителя
-			__nts_multiply__(first, r2, s2, product);
+			::__nts_multiply__(first, r2, s2, product);
 			// Умножаем второй блок на множитель
-			__nts_multiply__(second, r, s, product);
+			::__nts_multiply__(second, r, s, product);
 			// Проводим переносы в накопитель
-			__nts_reduce__(product, h);
+			::__nts_reduce__(product, h);
 			// Сдвигаем позицию чтения
 			cursor += (2 * POLY1305_TAG);
 			// Уменьшаем количество не сложенных байтов
@@ -1446,17 +1451,17 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 			// Конечности произведения
 			uint64_t product[5] = {0, 0, 0, 0, 0};
 			// Разбираем блок на пять конечностей по 26 разрядов
-			__nts_split__(cursor, hibit, limbs);
+			::__nts_split__(cursor, hibit, limbs);
 			/**
 			 * Складываем блок с накопителем
 			 */
 			for(size_t i = 0; i < 5; i++)
-			// Складываем очередную конечность
-			limbs[i] += h[i];
+				// Складываем очередную конечность
+				limbs[i] += h[i];
 			// Умножаем блок с накопителем на множитель
-			__nts_multiply__(limbs, r, s, product);
+			::__nts_multiply__(limbs, r, s, product);
 			// Проводим переносы в накопитель
-			__nts_reduce__(product, h);
+			::__nts_reduce__(product, h);
 			// Сдвигаем позицию чтения
 			cursor += POLY1305_TAG;
 			// Уменьшаем количество не сложенных байтов
@@ -1466,8 +1471,8 @@ void nts::cipher::Poly1305::absorb(const uint8_t * data, const size_t size, cons
 		 * Записываем конечности накопителя
 		 */
 		for(size_t i = 0; i < 5; i++)
-		// Записываем очередную конечность
-		this->_h[i] = h[i];
+			// Записываем очередную конечность
+			this->_h[i] = h[i];
 	#endif
 }
 /**
@@ -1488,12 +1493,12 @@ bool nts::cipher::Poly1305::ready() const noexcept {
  *
  */
 bool nts::cipher::Poly1305::start(const view_t & key) noexcept {
+	// Неполного блока нет
+	this->_filled = 0;
 	// Прежнее состояние не затирается: ключ одноразовый, затирают clear и разрушитель; сбрасываются признаки и накопители
 	this->_ready = false;
 	// Степени множителя и стол ядра строятся заново под новый ключ
 	this->_prepared = false;
-	// Неполного блока нет
-	this->_filled = 0;
 	/**
 	 * Обнуляем накопитель переносимого пути
 	 */
@@ -1515,9 +1520,9 @@ bool nts::cipher::Poly1305::start(const view_t & key) noexcept {
 	 */
 	#if defined(__NTS_POLY1305_WIDE__)
 		// Младшая конечность множителя с обрезкой по стандарту
-		this->_wide[3] = (__nts_load64__(key.data) & 0x0FFFFFFC0FFFFFFFULL);
+		this->_wide[3] = (::__nts_load64__(key.data) & 0x0FFFFFFC0FFFFFFFULL);
 		// Старшая конечность множителя с обрезкой по стандарту: младшие два разряда чисты
-		this->_wide[4] = (__nts_load64__(key.data + 8) & 0x0FFFFFFC0FFFFFFCULL);
+		this->_wide[4] = (::__nts_load64__(key.data + 8) & 0x0FFFFFFC0FFFFFFCULL);
 		// Старшая конечность с четвертью: r1 * 5 / 4 под возврат слагаемых из-за 2^130
 		this->_wide[5] = (this->_wide[4] + (this->_wide[4] >> 2));
 		/**
@@ -1525,23 +1530,23 @@ bool nts::cipher::Poly1305::start(const view_t & key) noexcept {
 		 */
 		#if defined(__NTS_POLY1305_VECTOR__)
 			// Множитель по 26 разрядов под векторные ветви: степени считаются при первом входе в ветвь
-			__nts_clamp__(key.data, this->_powers[0]);
+			::__nts_clamp__(key.data, this->_powers[0]);
 		#endif
 	/**
 	 * Если переносимый путь
 	 */
 	#else
 		// Множитель по 26 разрядов с обрезкой по стандарту
-		__nts_clamp__(key.data, this->_powers[0]);
+		::__nts_clamp__(key.data, this->_powers[0]);
 		// Квадрат множителя под сложение блоков парами
-		__nts_raise__(this->_powers[0], this->_powers[0], this->_powers[1]);
+		::__nts_raise__(this->_powers[0], this->_powers[0], this->_powers[1]);
 	#endif
 	/**
 	 * Читаем слова слагаемого s от младшего байта
 	 */
 	for(size_t i = 0; i < 4; i++)
 		// Записываем очередное слово слагаемого
-		this->_s[i] = __nts_load__(key.data + POLY1305_TAG + (i * 4));
+		this->_s[i] = ::__nts_load__(key.data + POLY1305_TAG + (i * 4));
 	// Запоминаем готовность имитовставки
 	this->_ready = true;
 	// Выводим успешность запуска
@@ -1693,13 +1698,13 @@ bool nts::cipher::Poly1305::finish(uint8_t * tag) noexcept {
 		// Средняя конечность метки со слагаемым и переносом
 		h1 = (h1 + (static_cast <uint64_t> (this->_s[2]) | (static_cast <uint64_t> (this->_s[3]) << 32)) + static_cast <uint64_t> (sum >> 64));
 		// Записываем первое слово метки
-		__nts_store__(static_cast <uint32_t> (h0), tag);
+		::__nts_store__(static_cast <uint32_t> (h0), tag);
 		// Записываем второе слово метки
-		__nts_store__(static_cast <uint32_t> (h0 >> 32), tag + 4);
+		::__nts_store__(static_cast <uint32_t> (h0 >> 32), tag + 4);
 		// Записываем третье слово метки
-		__nts_store__(static_cast <uint32_t> (h1), tag + 8);
+		::__nts_store__(static_cast <uint32_t> (h1), tag + 8);
 		// Записываем четвёртое слово метки
-		__nts_store__(static_cast <uint32_t> (h1 >> 32), tag + 12);
+		::__nts_store__(static_cast <uint32_t> (h1 >> 32), tag + 12);
 	/**
 	 * Если переносимый путь
 	 */
@@ -1811,13 +1816,13 @@ bool nts::cipher::Poly1305::finish(uint8_t * tag) noexcept {
 		// Четвёртое слово метки
 		h3 = static_cast <uint32_t> (sum);
 		// Записываем первое слово метки
-		__nts_store__(h0, tag);
+		::__nts_store__(h0, tag);
 		// Записываем второе слово метки
-		__nts_store__(h1, tag + 4);
+		::__nts_store__(h1, tag + 4);
 		// Записываем третье слово метки
-		__nts_store__(h2, tag + 8);
+		::__nts_store__(h2, tag + 8);
 		// Записываем четвёртое слово метки
-		__nts_store__(h3, tag + 12);
+		::__nts_store__(h3, tag + 12);
 	#endif
 	// Завершаем объект: повтор требует нового start; секретные поля не затираются - ключ одноразовый, затирают clear и разрушитель
 	this->_ready = false;

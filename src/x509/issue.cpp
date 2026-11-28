@@ -567,69 +567,98 @@ namespace {
 		 * Определяем вид ключа подписи
 		 */
 		switch(static_cast <uint8_t> (signer.kind())){
-			// Ключ RSA
+			// Если ключ — RSA
 			case static_cast <uint8_t> (keys::kind_t::RSA):
 				/**
 				 * Выводим опознаватель по хешу
 				 */
 				switch(static_cast <uint8_t> (hash)){
+					// Если хеш — SHA-1
 					case static_cast <uint8_t> (digest::hash_t::SHA1):
+						// Выводим опознаватель подписи RSA с хешем SHA-1
 						return OID_SHA1_RSA;
+					// Если хеш — SHA-224
 					case static_cast <uint8_t> (digest::hash_t::SHA224):
+						// Выводим опознаватель подписи RSA с хешем SHA-224
 						return OID_SHA224_RSA;
+					// Если хеш — SHA-256
 					case static_cast <uint8_t> (digest::hash_t::SHA256):
+						// Выводим опознаватель подписи RSA с хешем SHA-256
 						return OID_SHA256_RSA;
+					// Если хеш — SHA-384
 					case static_cast <uint8_t> (digest::hash_t::SHA384):
+						// Выводим опознаватель подписи RSA с хешем SHA-384
 						return OID_SHA384_RSA;
+					// Если хеш — SHA-512
 					case static_cast <uint8_t> (digest::hash_t::SHA512):
+						// Выводим опознаватель подписи RSA с хешем SHA-512
 						return OID_SHA512_RSA;
-					default: return nullptr;
+					// Если хеш не опознан, выводим отсутствие опознавателя
+					default:
+						return nullptr;
 				}
-			// Ключ ECDSA
+			// Если ключ — ECDSA
 			case static_cast <uint8_t> (keys::kind_t::EC):
 				/**
 				 * Выводим опознаватель по хешу
 				 */
 				switch(static_cast <uint8_t> (hash)){
+					// Если хеш — SHA-224
 					case static_cast <uint8_t> (digest::hash_t::SHA224):
+						// Выводим опознаватель подписи ECDSA с хешем SHA-224
 						return OID_SHA224_ECDSA;
+					// Если хеш — SHA-256
 					case static_cast <uint8_t> (digest::hash_t::SHA256):
+						// Выводим опознаватель подписи ECDSA с хешем SHA-256
 						return OID_SHA256_ECDSA;
+					// Если хеш — SHA-384
 					case static_cast <uint8_t> (digest::hash_t::SHA384):
+						// Выводим опознаватель подписи ECDSA с хешем SHA-384
 						return OID_SHA384_ECDSA;
+					// Если хеш — SHA-512
 					case static_cast <uint8_t> (digest::hash_t::SHA512):
+						// Выводим опознаватель подписи ECDSA с хешем SHA-512
 						return OID_SHA512_ECDSA;
-					default: return nullptr;
+					// Если хеш не опознан, выводим отсутствие опознавателя
+					default:
+						return nullptr;
 				}
-			// Ключ Ed25519
+			// Если ключ — Ed25519
 			case static_cast <uint8_t> (keys::kind_t::ED25519):
-				// Выводим опознаватель Ed25519
+				// Выводим опознаватель подписи Ed25519
 				return OID_ED25519_SIGN;
-			// Ключ ГОСТ
+			// Если ключ — ГОСТ
 			case static_cast <uint8_t> (keys::kind_t::GOST):
-				// Выводим опознаватель по размеру кривой
+				// Выводим опознаватель подписи ГОСТ по размеру кривой
 				return ((signer.curve().size() == 32) ? OID_GOST256_SIGN : OID_GOST512_SIGN);
-			// Ключ ML-DSA
+			// Если ключ — ML-DSA
 			case static_cast <uint8_t> (keys::kind_t::MLDSA):
 				/**
 				 * Выводим опознаватель по набору ключа
 				 */
 				switch(static_cast <uint8_t> (signer.mldsa().set())){
+					// Если набор — ML-DSA-44
 					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA44):
+						// Выводим опознаватель подписи ML-DSA-44
 						return OID_MLDSA44_SIGN;
+					// Если набор — ML-DSA-65
 					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA65):
+						// Выводим опознаватель подписи ML-DSA-65
 						return OID_MLDSA65_SIGN;
+					// Если набор — ML-DSA-87
 					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA87):
+						// Выводим опознаватель подписи ML-DSA-87
 						return OID_MLDSA87_SIGN;
-					default: return nullptr;
+					// Если набор не опознан, выводим отсутствие опознавателя
+					default:
+						return nullptr;
 				}
-			// Ключ SM2
+			// Если ключ — SM2
 			case static_cast <uint8_t> (keys::kind_t::SM2):
-				// Выводим опознаватель SM2
+				// Выводим опознаватель подписи SM2
 				return OID_SM2_SIGN;
-			// Ключ, подписи не выполняющий
+			// Если ключ не из числа подписывающих, выводим отсутствие опознавателя
 			default:
-				// Выводим отсутствие опознавателя
 				return nullptr;
 		}
 	}

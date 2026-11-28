@@ -24,11 +24,10 @@
  *
  */
 
-#ifndef __NTS_INTERNAL_SIGN_EDWARDS448__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __NTS_INTERNAL_SIGN_EDWARDS448__
+#pragma once
 
 /**
  * Стандартные заголовочные файлы
@@ -63,6 +62,7 @@ namespace nts {
 			 * Элемент поля и его арифметика берутся из открытого модуля поля
 			 */
 			using namespace nts::math::field448;
+
 			/**
 			 * @brief Точка кривой в расширенных координатах
 			 *
@@ -74,13 +74,14 @@ namespace nts {
 				// Координаты точки
 				element_t x, y, z, t;
 			} point_t;
+
 			/**
 			 * @brief Коэффициент кривой, записанный младшим байтом вперёд
 			 *
-			 * @details Равен -39081 по модулю поля
+			 * @details Равен -39081 по модулю поля.
 			 *
 			 */
-			static const uint8_t COEFFICIENT[SIZE] = {
+			static constexpr const uint8_t COEFFICIENT[SIZE] = {
 				// Младшие разряды записаны первыми
 				0x56, 0x67, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -94,7 +95,7 @@ namespace nts {
 			 * @brief Первая координата точки основания, записанная младшим байтом вперёд
 			 *
 			 */
-			static const uint8_t BASE_X[SIZE] = {
+			static constexpr const uint8_t BASE_X[SIZE] = {
 				// Младшие разряды записаны первыми
 				0x5E, 0xC0, 0x0C, 0xC7, 0x2B, 0xA8, 0x26, 0x26,
 				0x8E, 0x93, 0x00, 0x8B, 0xE1, 0x80, 0x3B, 0x43,
@@ -108,7 +109,7 @@ namespace nts {
 			 * @brief Вторая координата точки основания, записанная младшим байтом вперёд
 			 *
 			 */
-			static const uint8_t BASE_Y[SIZE] = {
+			static constexpr const uint8_t BASE_Y[SIZE] = {
 				// Младшие разряды записаны первыми
 				0x14, 0xFA, 0x30, 0xF2, 0x5B, 0x79, 0x08, 0x98,
 				0xAD, 0xC8, 0xD7, 0x4E, 0x2C, 0x13, 0xBD, 0xFD,
@@ -123,7 +124,7 @@ namespace nts {
 			 *
 			 * @details Сложение зовёт коэффициент на всяком шаге умножения, оттого он
 			 *          заводится один раз, а не разбирается из записи при всяком
-			 *          сложении
+			 *          сложении.
 			 *
 			 * @return коэффициент кривой элементом поля
 			 *
@@ -177,7 +178,7 @@ namespace nts {
 			 * @brief Функция сложения точек кривой
 			 *
 			 * @details Раздел 5.2.4 RFC 8032 при коэффициенте a = 1: сложение полное, оттого
-			 *          верно и при равных слагаемых, и при нейтральном слагаемом
+			 *          верно и при равных слагаемых, и при нейтральном слагаемом.
 			 *
 			 * @param first  первое слагаемое
 			 * @param second второе слагаемое
@@ -243,7 +244,7 @@ namespace nts {
 			/**
 			 * @brief Функция удвоения точки кривой
 			 *
-			 * @details Раздел 5.2.4 RFC 8032 при коэффициенте a = 1
+			 * @details Раздел 5.2.4 RFC 8032 при коэффициенте a = 1.
 			 *
 			 * @param value  удваиваемая точка
 			 * @param result место, в которое помещается удвоенная точка
@@ -300,5 +301,3 @@ namespace nts {
 		};
 	};
 };
-
-#endif

@@ -118,16 +118,23 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "agreement/x25519.hpp"
+#include "sys/wipe.hpp"
+#include "entropy/entropy.hpp"
 #include "math/field25519.hpp"
 #include "internal/math/field25519.hpp"
-#include "entropy/entropy.hpp"
-#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "agreement/x25519.hpp"
 
 /**
  * Под x86-64 путь на словах выбирается по признакам машины
  */
 #if defined(__NTS_FIELD25519_WORDS__)
+	/**
+	 * Системный заголовочный файл
+	 */
 	#include "sys/machine.hpp"
 #endif
 
@@ -145,11 +152,15 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён арифметики поля
 	 */
 	using namespace nts::math::field25519;
+
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
+	using nts::sys::wipe;
 
 	/**
 	 * @brief Множитель удвоения лестницы Монтгомери, увеличенный на единицу
@@ -157,10 +168,11 @@ namespace {
 	 * @details Раздел 5 RFC 7748 даёт a24 = (486662 - 2) / 4 = 121665 и z2 = E · (AA + a24 · E).
 	 *          Шаг лестницы считает z2 = E · (BB + (a24 + 1) · E): это то же самое, ибо
 	 *          AA = BB + E, а квадрат суммы AA к тому времени уже занят разностью E и
-	 *          хранить его отдельно не нужно (решение 6 шапки)
+	 *          хранить его отдельно не нужно (решение 6 шапки).
 	 *
 	 */
 	static constexpr uint64_t A24 = 121666;
+
 	/**
 	 * Ядра умножения, квадрата и малого множителя шага лестницы на конечностях: под x86-64 -
 	 * ядра по столбцам на MULQ внутреннего заголовочного файла (решение 8 шапки), иначе - на C++
@@ -180,20 +192,18 @@ namespace {
 		namespace step = nts::math::field25519::kernel;
 	#endif
 
-	// Затирание областей памяти берётся из открытого API библиотеки
-	using nts::sys::wipe;
 	/**
 	 * @brief Функция умножения точки на скаляр лестницей Монтгомери
 	 *
 	 * @details Раздел 5 RFC 7748: скаляр обязан быть уже зажатым, точка передаётся
-	 *          первой координатой, итог выходит первой координатой кратной точки
+	 *          первой координатой, итог выходит первой координатой кратной точки.
 	 *
 	 * @param scalar зажатый скаляр, записанный младшим байтом вперёд
 	 * @param point  первая координата множимой точки
 	 * @param result место, в которое помещается первая координата кратной точки
 	 *
 	 */
-	static void __nts_ladder__(const uint8_t * scalar, const element_t & point, element_t & result) noexcept {
+	static __NTS_INLINE__ void __nts_ladder__(const uint8_t * scalar, const element_t & point, element_t & result) noexcept {
 		/**
 		 * Если шаг лестницы идёт одной вставкой (решение 9 шапки)
 		 */
@@ -327,6 +337,7 @@ namespace {
 			wipe(&x2, sizeof(x2));
 		#endif
 	}
+
 	/**
 	 * Под x86-64 при MULX и ADCX/ADOX у машины лестница идёт на четырёх словах (решение 7 шапки)
 	 */
@@ -336,14 +347,14 @@ namespace {
 		 *
 		 * @details Тот же шаг, что у лестницы на конечностях, ядрами на словах с MULX и
 		 *          ADCX/ADOX (пространство имён words внутреннего заголовочного файла): сложение
-		 *          и вычитание там приводят по 2^256 - 38 сами, запаса конечностей нет
+		 *          и вычитание там приводят по 2^256 - 38 сами, запаса конечностей нет.
 		 *
 		 * @param scalar зажатый скаляр, записанный младшим байтом вперёд
 		 * @param point  запись первой координаты множимой точки
 		 * @param result место, в которое помещается запись первой координаты кратной точки
 		 *
 		 */
-		static void __nts_ladder_words__(const uint8_t * scalar, const uint8_t * point, uint8_t * result) noexcept {
+		static __NTS_INLINE__ void __nts_ladder_words__(const uint8_t * scalar, const uint8_t * point, uint8_t * result) noexcept {
 			// Первая координата множимой точки и координаты двух точек лестницы
 			words::element_t x1, x2, z2, x3, z3;
 			// Промежуточные значения шага лестницы: живут вне цикла и затираются один раз после него
@@ -449,6 +460,7 @@ namespace {
 			wipe(&x1, sizeof(x1));
 		}
 	#endif
+
 	/**
 	 * @brief Функция выработки первой координаты кратной точки по записям
 	 *
@@ -458,7 +470,7 @@ namespace {
 	 * @return       признак того, что кратная точка не обратилась в ноль
 	 *
 	 */
-	static bool __nts_multiply__(const uint8_t * secret, const uint8_t * point, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_multiply__(const uint8_t * secret, const uint8_t * point, uint8_t * result) noexcept {
 		// Зажатый секретный ключ
 		uint8_t scalar[agreement::X25519_SIZE];
 		/**
@@ -481,21 +493,21 @@ namespace {
 		#if defined(__NTS_FIELD25519_WORDS__)
 			// Если у машины есть MULX и ADCX/ADOX
 			if(machine::has(machine::feature_t::ADX))
-			// Умножение точки на зажатый скаляр лестницей на словах
-			__nts_ladder_words__(scalar, point, result);
+				// Умножение точки на зажатый скаляр лестницей на словах
+				__nts_ladder_words__(scalar, point, result);
 			// Иначе лестница идёт на конечностях
 			else {
-			#endif
-			// Разбор первой координаты точки с отбрасыванием старшего разряда
-			load(point, item);
-			// Умножение точки на зажатый скаляр
-			__nts_ladder__(scalar, item, value);
-			// Запись первой координаты кратной точки
-			store(value, result);
-			/**
-			 * Если лестница шла на словах, закрываем ветвь
-			 */
-			#if defined(__NTS_FIELD25519_WORDS__)
+		#endif
+				// Разбор первой координаты точки с отбрасыванием старшего разряда
+				load(point, item);
+				// Умножение точки на зажатый скаляр
+				__nts_ladder__(scalar, item, value);
+				// Запись первой координаты кратной точки
+				store(value, result);
+		/**
+		 * Если лестница шла на словах, закрываем ветвь
+		 */
+		#if defined(__NTS_FIELD25519_WORDS__)
 			}
 		#endif
 		// Накопленное значение всех байтов итога
@@ -541,7 +553,7 @@ bool nts::agreement::x25519(const view_t & secret, const view_t & point, uint8_t
 		// Выводим отказ выработки общего значения
 		return false;
 	// Умножение открытого ключа на секретный
-	const bool ok = __nts_multiply__(secret.data, point.data, result);
+	const bool ok = ::__nts_multiply__(secret.data, point.data, result);
 	// Если общее значение обратилось в ноль
 	if(!ok)
 		// Затирание места общего значения
@@ -569,7 +581,7 @@ bool nts::agreement::x25519(const view_t & secret, uint8_t * result) noexcept {
 	// Точка основания кривой: первая координата девять
 	uint8_t base[X25519_SIZE] = {9};
 	// Умножение точки основания на секретный ключ
-	const bool ok = __nts_multiply__(secret.data, base, result);
+	const bool ok = ::__nts_multiply__(secret.data, base, result);
 	// Если открытый ключ обратился в ноль
 	if(!ok)
 		// Затирание места открытого ключа

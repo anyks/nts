@@ -347,14 +347,14 @@ void nts::sign::Ecdsa::clear() noexcept {
 	wipe(&this->_point, sizeof(this->_point));
 	// Затирание ключа подписи
 	wipe(this->_key.words, sizeof(this->_key.words));
-	// Сбрасываем эллиптическую кривую выработки подписи
-	this->_curve = nullptr;
 	// Сбрасываем разрядность порядка подгруппы точек кривой
 	this->_bits = 0;
 	// Снимаем признак того, что ключ проверки подписи установлен
 	this->_public = false;
 	// Снимаем признак того, что ключ подписи установлен
 	this->_secret = false;
+	// Сбрасываем эллиптическую кривую выработки подписи
+	this->_curve = nullptr;
 }
 /**
  * @brief Метод установки ключа подписи

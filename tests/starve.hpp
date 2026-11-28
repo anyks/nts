@@ -18,11 +18,10 @@
  *
  */
 
-#ifndef __NTS_TESTS_STARVE__
 /**
- * Заводим макрос стража: повторное подключение заголовка подмены распределителя отсекается
+ * Экранируем повторную инициализацию модуля
  */
-#define __NTS_TESTS_STARVE__
+#pragma once
 
 /**
  * Стандартные заголовочные файлы
@@ -213,4 +212,3 @@ void operator delete[](void * data, const std::size_t size) noexcept {
 }
 #endif
 
-#endif

@@ -23,11 +23,10 @@
  *
  */
 
-#ifndef __NTS_TESTS_SOCKETS__
 /**
- * Страж включения: файл подключается однократно
+ * Экранируем повторную инициализацию модуля
  */
-#define __NTS_TESTS_SOCKETS__
+#pragma once
 
 /**
  * Стандартные заголовочные файлы
@@ -238,4 +237,3 @@ static inline int fifo(const char * path) noexcept {
 	#endif
 }
 
-#endif

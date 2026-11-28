@@ -46,14 +46,19 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include "sys/wipe.hpp"
 #include "keys/keys.hpp"
-#include "x509/x509.hpp"
-#include "x509/signature.hpp"
 #include "field/field.hpp"
 #include "curve/curve.hpp"
 #include "digest/hash.hpp"
+#include "x509/x509.hpp"
+#include "x509/signature.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
 #include "context/context.hpp"
-#include "sys/wipe.hpp"
+
 
 /**
  * Используем стандартное пространство имён
@@ -78,6 +83,7 @@ namespace {
 	 * Предел длины ключа билета: ключ выводится хешем набора, а шире хеша он не бывает
 	 */
 	static constexpr size_t SECRET_WIDEST = 64;
+
 	/**
 	 * @brief Функция перевода отказа модуля полей в отказ связи
 	 *
@@ -85,7 +91,7 @@ namespace {
 	 * @return      отказ связи, отвечающий отказу модуля
 	 *
 	 */
-	static context::error_t __nts_translate__(const field::error_t error) noexcept {
+	static constexpr context::error_t __nts_translate__(const field::error_t error) noexcept {
 		// Если отказа у модуля нет
 		if(error == field::error_t::NONE)
 			// Выводим отсутствие отказа связи
@@ -101,7 +107,7 @@ namespace {
 	 * @return        отказ записи поля
 	 *
 	 */
-	static context::error_t __nts_field__(field::builder_t & builder, const view_t & data) noexcept {
+	static __NTS_INLINE__ context::error_t __nts_field__(field::builder_t & builder, const view_t & data) noexcept {
 		// Отказ занятия места под длину поля
 		context::error_t failure = __nts_translate__(builder.open(2));
 		// Если место под длину поля занять не удалось
@@ -123,51 +129,13 @@ namespace {
 };
 
 /**
- * @brief Конструктор
- * @param other перемещаемый билет
- *
- */
-nts::context::Ticket::Ticket() noexcept :
-	suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0), age(0), etm(false), ancient(false), authenticated(0), settled(false) {}
-/**
- * @brief Деструктор
- *
- */
-nts::context::Psk::~Psk() noexcept {
-	// Затирание ключа: в освобождённой памяти ему не место
-	sys::wipe(this->key.data(), this->key.size());
-	// Опустошаем ключ
-	this->key.clear();
-}
-/**
- * @brief Конструктор копирования
- *
- * @param other копируемый билет
- *
- */
-nts::context::Ticket::Ticket(const Ticket & other) : suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance), age(other.age), etm(other.etm), ancient(other.ancient), authenticated(other.authenticated), protocol(other.protocol), settled(other.settled), settings(other.settings), obtained(other.obtained), identity(other.identity), secret(other.secret), parameters(other.parameters) {}
-/**
- * @brief Конструктор перемещения: ключ переезжает, у источника затирается
- *
- * @param other перемещаемый билет
- *
- */
-nts::context::Ticket::Ticket(Ticket && other) noexcept : suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance), age(other.age), etm(other.etm), ancient(other.ancient), authenticated(other.authenticated), protocol(::move(other.protocol)), settled(other.settled), settings(::move(other.settings)), obtained(::move(other.obtained)), identity(::move(other.identity)), secret(::move(other.secret)), parameters(::move(other.parameters)) {
-	// Если у источника ключ остался (перемещение вправе оставить копию)
-	if(!other.secret.empty())
-		// Затираем ключ источника
-		sys::wipe(other.secret.data(), other.secret.size());
-	// Сбрасываем источник
-	other.secret.clear();
-}
-/**
  * @brief Оператор присваивания билета копированием
  *
  * @param other копируемый билет
  * @return      сам билет
  *
  */
-nts::context::Ticket & nts::context::Ticket::operator = (const Ticket & other) {
+nts::context::Ticket & nts::context::Ticket::operator = (const ticket_t & other) {
 	// Если билет присваивается сам себе
 	if(this == &other)
 		// Выводим сам билет
@@ -267,6 +235,46 @@ nts::context::Ticket & nts::context::Ticket::operator = (Ticket && other) noexce
 	return (* this);
 }
 /**
+ * @brief Конструктор
+ * @param other перемещаемый билет
+ *
+ */
+nts::context::Ticket::Ticket() noexcept :
+ suite(protect::suite_t::NONE), moment(0), lifetime(0), advance(0),
+ age(0), etm(false), ancient(false), authenticated(0), settled(false) {}
+/**
+ * @brief Конструктор копирования
+ *
+ * @param other копируемый билет
+ *
+ */
+nts::context::Ticket::Ticket(const Ticket & other) noexcept :
+ suite(other.suite), moment(other.moment), lifetime(other.lifetime),
+ advance(other.advance), age(other.age), etm(other.etm), ancient(other.ancient),
+ authenticated(other.authenticated), protocol(other.protocol), settled(other.settled),
+ settings(other.settings), obtained(other.obtained), identity(other.identity),
+ secret(other.secret), parameters(other.parameters) {}
+
+/**
+ * @brief Конструктор перемещения: ключ переезжает, у источника затирается
+ *
+ * @param other перемещаемый билет
+ *
+ */
+nts::context::Ticket::Ticket(Ticket && other) noexcept :
+ suite(other.suite), moment(other.moment), lifetime(other.lifetime), advance(other.advance),
+ age(other.age), etm(other.etm), ancient(other.ancient), authenticated(other.authenticated),
+ protocol(::move(other.protocol)), settled(other.settled), settings(::move(other.settings)),
+ obtained(::move(other.obtained)), identity(::move(other.identity)), secret(::move(other.secret)),
+ parameters(::move(other.parameters)) {
+	// Если у источника ключ остался (перемещение вправе оставить копию)
+	if(!other.secret.empty())
+		// Затираем ключ источника
+		sys::wipe(other.secret.data(), other.secret.size());
+	// Сбрасываем источник
+	other.secret.clear();
+}
+/**
  * @brief Деструктор: ключ билета затирается, копии у потребителя не оставляют его в освобождённой памяти
  *
  */
@@ -276,6 +284,7 @@ nts::context::Ticket::~Ticket() noexcept {
 		// Затирание секрета контекста
 		sys::wipe(this->secret.data(), this->secret.size());
 }
+
 /**
  * @brief Функция записи билета возобновления связи в октеты
  *
@@ -289,19 +298,21 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	 * Поля переменной длины идут с двухбайтовой длиной, а ключ билета шире хеша не
 	 * бывает: билет, в запись не входящий, отвергается прежде составления
 	 */
-	if((ticket.protocol.size() > 0xFFFF) || (ticket.identity.size() > 0xFFFF) || (ticket.parameters.size() > 0xFFFF) || (ticket.settings.size() > 0xFFFF) || (ticket.obtained.size() > 0xFFFF) || (ticket.secret.size() > SECRET_WIDEST))
+	if((ticket.protocol.size() > 0xFFFF) || (ticket.identity.size() > 0xFFFF) ||
+	   (ticket.parameters.size() > 0xFFFF) || (ticket.settings.size() > 0xFFFF) ||
+	   (ticket.obtained.size() > 0xFFFF) || (ticket.secret.size() > SECRET_WIDEST))
 		// Выводим отказ записи билета
 		return error_t::TICKET;
 	// Объект составителя записи билета
 	field::builder_t builder;
 	// Отказ записи издания записи билета
-	error_t failure = __nts_translate__(builder.number(EDITION, 1));
+	error_t failure = ::__nts_translate__(builder.number(EDITION, 1));
 	// Если издание записи билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи набора шифрования билета
-	failure = __nts_translate__(builder.number(static_cast <uint32_t> (ticket.suite), 2));
+	failure = ::__nts_translate__(builder.number(static_cast <uint32_t> (ticket.suite), 2));
 	// Если набор шифрования билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
@@ -309,43 +320,43 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	// Миг выдачи билета в записи без знака
 	const uint64_t moment = static_cast <uint64_t> (ticket.moment);
 	// Отказ записи старшей половины мига выдачи билета
-	failure = __nts_translate__(builder.number(static_cast <uint32_t> (moment >> 32), 4));
+	failure = ::__nts_translate__(builder.number(static_cast <uint32_t> (moment >> 32), 4));
 	// Если старшую половину мига выдачи записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи младшей половины мига выдачи билета
-	failure = __nts_translate__(builder.number(static_cast <uint32_t> (moment & 0xFFFFFFFF), 4));
+	failure = ::__nts_translate__(builder.number(static_cast <uint32_t> (moment & 0xFFFFFFFF), 4));
 	// Если младшую половину мига выдачи записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи срока жизни билета
-	failure = __nts_translate__(builder.number(ticket.lifetime, 4));
+	failure = ::__nts_translate__(builder.number(ticket.lifetime, 4));
 	// Если срок жизни билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи предела упреждающих данных билета
-	failure = __nts_translate__(builder.number(ticket.advance, 4));
+	failure = ::__nts_translate__(builder.number(ticket.advance, 4));
 	// Если предел упреждающих данных записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи добавки к возрасту билета
-	failure = __nts_translate__(builder.number(ticket.age, 4));
+	failure = ::__nts_translate__(builder.number(ticket.age, 4));
 	// Если добавку к возрасту билета записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи признака порядка «шифрование, затем имитовставка»
-	failure = __nts_translate__(builder.number((ticket.etm ? 1 : 0), 1));
+	failure = ::__nts_translate__(builder.number((ticket.etm ? 1 : 0), 1));
 	// Если признак порядка записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи признака издания выдавшей связи
-	failure = __nts_translate__(builder.number((ticket.ancient ? 1 : 0), 1));
+	failure = ::__nts_translate__(builder.number((ticket.ancient ? 1 : 0), 1));
 	// Если признак издания записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
@@ -353,11 +364,11 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 	// Миг первичного удостоверения в записи
 	const uint64_t authenticated = static_cast <uint64_t> (ticket.authenticated);
 	// Отказ записи старшей половины мига удостоверения
-	failure = __nts_translate__(builder.number(static_cast <uint32_t> (authenticated >> 32), 4));
+	failure = ::__nts_translate__(builder.number(static_cast <uint32_t> (authenticated >> 32), 4));
 	// Если старшая половина записана
 	if(failure == error_t::NONE)
 		// Отказ записи младшей половины мига удостоверения
-		failure = __nts_translate__(builder.number(static_cast <uint32_t> (authenticated & 0xFFFFFFFF), 4));
+		failure = ::__nts_translate__(builder.number(static_cast <uint32_t> (authenticated & 0xFFFFFFFF), 4));
 	// Если миг удостоверения записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
@@ -387,7 +398,7 @@ nts::context::error_t nts::context::encode(const ticket_t & ticket, vector <uint
 		// Выводим отказ записи билета
 		return failure;
 	// Отказ записи признака согласования прикладных настроек ALPS
-	failure = __nts_translate__(builder.number((ticket.settled ? 1 : 0), 1));
+	failure = ::__nts_translate__(builder.number((ticket.settled ? 1 : 0), 1));
 	// Если признак согласования записать не удалось
 	if(failure != error_t::NONE)
 		// Выводим отказ записи билета
@@ -579,12 +590,12 @@ nts::context::error_t nts::context::decode(const view_t & data, ticket_t & resul
 /**
  * @brief Функция выработки отпечатка байтов ключа и своего сертификата подлинности
  *
+ * @note Отпечаток - SHA-256 над записью ключа и своим сертификатом подряд: по нему
+ *       связь узнаёт, что подготовленный ключ отвечает текущей подлинности
+ *
  * @param credential подлинность, чей отпечаток вырабатывается
  * @param result     место, в которое помещается отпечаток: тридцать два байта
  * @return           признак успешности выработки отпечатка
- *
- * @note Отпечаток - SHA-256 над записью ключа и своим сертификатом подряд: по нему
- *       связь узнаёт, что подготовленный ключ отвечает текущей подлинности
  *
  */
 static bool stamping(const nts::context::credential_t & credential, uint8_t * result) noexcept {
@@ -605,8 +616,6 @@ static bool stamping(const nts::context::credential_t & credential, uint8_t * re
  * @brief Метод подготовки секретного ключа к работе
  *
  * @return отказ подготовки: SIGNATURE у негодной записи ключа и у ключа без секретной
- *         части, CERTIFICATE у нечитаемого своего сертификата, MEMORY у нехватки памяти
- *
  *         части, CERTIFICATE у нечитаемого своего сертификата, MEMORY у нехватки памяти
  *
  */
@@ -705,8 +714,6 @@ nts::context::error_t nts::context::Credential::prepare() noexcept {
  * @return признак того, что ключ подготовлен и подготовка отвечает текущим байтам
  *         ключа и своего сертификата
  *
- *         ключа и своего сертификата
- *
  */
 bool nts::context::Credential::ready() const noexcept {
 	// Если ключ не подготовлен, отпечатка нет либо секретный ключ не задан
@@ -727,8 +734,9 @@ bool nts::context::Credential::ready() const noexcept {
  * @brief Конструктор
  *
  */
-nts::context::Codec::Codec() noexcept : algorithm(0), context(nullptr), compress(nullptr), decompress(nullptr) {}
-
+nts::context::Codec::Codec() noexcept :
+ algorithm(0), context(nullptr),
+ compress(nullptr), decompress(nullptr) {}
 /**
  * @brief Конструктор
  *
@@ -738,20 +746,33 @@ nts::context::Codec::Codec() noexcept : algorithm(0), context(nullptr), compress
  * @param context    указатель контекста потребителя
  *
  */
-nts::context::Codec::Codec(const uint16_t algorithm, compress_t compress, decompress_t decompress, void * context) noexcept : algorithm(algorithm), context(context), compress(compress), decompress(decompress) {}
+nts::context::Codec::Codec(const uint16_t algorithm, compress_t compress, decompress_t decompress, void * context) noexcept :
+ algorithm(algorithm), context(context),
+ compress(compress), decompress(decompress) {}
 
 /**
  * @brief Конструктор
  *
  */
-nts::context::Psk::Psk() noexcept : respond(nullptr), advise(nullptr), context(nullptr), disclose(false) {}
+nts::context::Psk::Psk() noexcept :
+ respond(nullptr), advise(nullptr),
+ context(nullptr), disclose(false) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::context::Psk::~Psk() noexcept {
+	// Затирание ключа: в освобождённой памяти ему не место
+	sys::wipe(this->key.data(), this->key.size());
+	// Опустошаем ключ
+	this->key.clear();
+}
 
 /**
  * @brief Конструктор
  *
  */
 nts::context::Select::Select() noexcept : respond(nullptr), context(nullptr) {}
-
 /**
  * @brief Конструктор
  *
@@ -766,7 +787,6 @@ nts::context::Select::Select(respond_t respond, void * context) noexcept : respo
  *
  */
 nts::context::Keylog::Keylog() noexcept : log(nullptr), context(nullptr) {}
-
 /**
  * @brief Конструктор
  *

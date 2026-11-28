@@ -50,7 +50,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -1085,11 +1084,11 @@ nts::ocsp::error_t nts::ocsp::Response::parse(const view_t & data) noexcept {
 	 */
 	switch(item.content.data[0]){
 		// Если исход обращения известен
-		case static_cast <uint8_t> (outcome_t::SUCCESSFUL):
-		case static_cast <uint8_t> (outcome_t::MALFORMED):
-		case static_cast <uint8_t> (outcome_t::INTERNAL):
 		case static_cast <uint8_t> (outcome_t::LATER):
 		case static_cast <uint8_t> (outcome_t::UNSIGNED):
+		case static_cast <uint8_t> (outcome_t::INTERNAL):
+		case static_cast <uint8_t> (outcome_t::MALFORMED):
+		case static_cast <uint8_t> (outcome_t::SUCCESSFUL):
 		case static_cast <uint8_t> (outcome_t::UNAUTHORIZED):
 			// Запоминаем исход обращения
 			this->_outcome = static_cast <outcome_t> (item.content.data[0]);
@@ -1430,10 +1429,10 @@ nts::ocsp::error_t nts::ocsp::verify(const response_t & response, const view_t &
 		if(hash == nullptr)
 			// Переходим к следующему ответу
 			continue;
-		// Места, в которые помещаются хеши имени и ключа издателя
-		uint8_t name[64], key[64];
 		// Длина хешей
 		size_t size = 0;
+		// Места, в которые помещаются хеши имени и ключа издателя
+		uint8_t name[64], key[64];
 		// Если хеши издателя вычислить не удалось
 		if(!::__nts_hashes__(authority, hash->algorithm, name, key, size))
 			// Выводим отказ алгоритма хеша
@@ -2012,4 +2011,4 @@ nts::ocsp::Single::Single() noexcept : status(status_t::NONE), revocation(0), up
  * @brief Деструктор
  *
  */
-nts::ocsp::Response::~Response() noexcept {}
+nts::ocsp::Response::~Response() noexcept = default;

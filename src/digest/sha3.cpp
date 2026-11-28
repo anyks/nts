@@ -66,7 +66,7 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
@@ -203,7 +203,7 @@ void nts::digest::Keccak::permute() noexcept {
 			// Шаг θ: чётность каждого столбца
 			const uint64_t c0 = (a00 ^ a05 ^ a10 ^ a15 ^ a20), c1 = (a01 ^ a06 ^ a11 ^ a16 ^ a21), c2 = (a02 ^ a07 ^ a12 ^ a17 ^ a22), c3 = (a03 ^ a08 ^ a13 ^ a18 ^ a23), c4 = (a04 ^ a09 ^ a14 ^ a19 ^ a24);
 			// Шаг θ: слагаемое столбца из чётностей соседей
-			const uint64_t d0 = (c4 ^ __nts_spin__(c1, 1)), d1 = (c0 ^ __nts_spin__(c2, 1)), d2 = (c1 ^ __nts_spin__(c3, 1)), d3 = (c2 ^ __nts_spin__(c4, 1)), d4 = (c3 ^ __nts_spin__(c0, 1));
+			const uint64_t d0 = (c4 ^ ::__nts_spin__(c1, 1)), d1 = (c0 ^ ::__nts_spin__(c2, 1)), d2 = (c1 ^ ::__nts_spin__(c3, 1)), d3 = (c2 ^ ::__nts_spin__(c4, 1)), d4 = (c3 ^ ::__nts_spin__(c0, 1));
 			// Шаг θ: сложение слагаемого с каждой полосой столбца
 			a00 ^= d0; a05 ^= d0; a10 ^= d0; a15 ^= d0; a20 ^= d0;
 			// Шаг θ: сложение слагаемого с полосами второго столбца
@@ -218,15 +218,15 @@ void nts::digest::Keccak::permute() noexcept {
 			 * Шаги ρ и π: полоса (x, y) сдвигается на своё количество разрядов и переносится на
 			 * место (y, 2x + 3y mod 5) - подстановка выписана по разделам 3.2.2 и 3.2.3
 			 */
-			b00 = a00; b10 = __nts_spin__(a01, 1); b20 = __nts_spin__(a02, 62); b05 = __nts_spin__(a03, 28); b15 = __nts_spin__(a04, 27);
+			b00 = a00; b10 = ::__nts_spin__(a01, 1); b20 = ::__nts_spin__(a02, 62); b05 = ::__nts_spin__(a03, 28); b15 = ::__nts_spin__(a04, 27);
 			// Шаги ρ и π: сдвиг и перенос полос второй строки
-			b16 = __nts_spin__(a05, 36); b01 = __nts_spin__(a06, 44); b11 = __nts_spin__(a07, 6); b21 = __nts_spin__(a08, 55); b06 = __nts_spin__(a09, 20);
+			b16 = ::__nts_spin__(a05, 36); b01 = ::__nts_spin__(a06, 44); b11 = ::__nts_spin__(a07, 6); b21 = ::__nts_spin__(a08, 55); b06 = ::__nts_spin__(a09, 20);
 			// Шаги ρ и π: сдвиг и перенос полос третьей строки
-			b07 = __nts_spin__(a10, 3); b17 = __nts_spin__(a11, 10); b02 = __nts_spin__(a12, 43); b12 = __nts_spin__(a13, 25); b22 = __nts_spin__(a14, 39);
+			b07 = ::__nts_spin__(a10, 3); b17 = ::__nts_spin__(a11, 10); b02 = ::__nts_spin__(a12, 43); b12 = ::__nts_spin__(a13, 25); b22 = ::__nts_spin__(a14, 39);
 			// Шаги ρ и π: сдвиг и перенос полос четвёртой строки
-			b23 = __nts_spin__(a15, 41); b08 = __nts_spin__(a16, 45); b18 = __nts_spin__(a17, 15); b03 = __nts_spin__(a18, 21); b13 = __nts_spin__(a19, 8);
+			b23 = ::__nts_spin__(a15, 41); b08 = ::__nts_spin__(a16, 45); b18 = ::__nts_spin__(a17, 15); b03 = ::__nts_spin__(a18, 21); b13 = ::__nts_spin__(a19, 8);
 			// Шаги ρ и π: сдвиг и перенос полос пятой строки
-			b14 = __nts_spin__(a20, 18); b24 = __nts_spin__(a21, 2); b09 = __nts_spin__(a22, 61); b19 = __nts_spin__(a23, 56); b04 = __nts_spin__(a24, 14);
+			b14 = ::__nts_spin__(a20, 18); b24 = ::__nts_spin__(a21, 2); b09 = ::__nts_spin__(a22, 61); b19 = ::__nts_spin__(a23, 56); b04 = ::__nts_spin__(a24, 14);
 			// Шаг χ: нелинейное смешение полос каждой строки с двумя соседями по строке
 			a00 = (b00 ^ ((~b01) & b02)); a01 = (b01 ^ ((~b02) & b03)); a02 = (b02 ^ ((~b03) & b04)); a03 = (b03 ^ ((~b04) & b00)); a04 = (b04 ^ ((~b00) & b01));
 			// Шаг χ: смешение полос второй строки с двумя соседями по строке
@@ -347,12 +347,12 @@ size_t nts::digest::Keccak::block() const noexcept {
  *
  */
 void nts::digest::Keccak::reset(const sha3_t type) noexcept {
+	// Сбрасываем счётчик байтов незавершённого блока
+	this->_size = 0;
 	// Запоминаем разновидность преобразования
 	this->_type = type;
 	// Запоминаем скорость разновидности
 	this->_rate = rate(type);
-	// Сбрасываем счётчик байтов незавершённого блока
-	this->_size = 0;
 	// Сбрасываем признак выжимания
 	this->_squeezing = false;
 	// Обнуляем состояние губки
@@ -388,7 +388,7 @@ bool nts::digest::Keccak::update(const view_t & data) noexcept {
 		 */
 		for(size_t i = 0; i < (this->_rate / 8); i++)
 			// Складываем полосу сообщения с полосой состояния
-			this->_state[i] ^= __nts_word__(bytes + (i * 8));
+			this->_state[i] ^= ::__nts_word__(bytes + (i * 8));
 		// Перестановка состояния
 		this->permute();
 		// Сдвигаем байты сообщения на блок
@@ -403,7 +403,7 @@ bool nts::digest::Keccak::update(const view_t & data) noexcept {
 		// Если смещение в блоке выровнено по полосе и осталось не меньше полосы
 		if(((this->_size % 8) == 0) && (left >= 8)){
 			// Складываем целую полосу сообщения с полосой состояния
-			this->_state[this->_size / 8] ^= __nts_word__(bytes);
+			this->_state[this->_size / 8] ^= ::__nts_word__(bytes);
 			// Сдвигаем байты сообщения на полосу
 			bytes += 8;
 			// Уменьшаем число оставшихся байтов на полосу
@@ -466,7 +466,7 @@ bool nts::digest::Keccak::squeeze(uint8_t * result, const size_t size) noexcept 
 		 */
 		for(size_t i = 0; i < (this->_rate / 8); i++)
 			// Выдаём полосу итога
-			__nts_bytes__(this->_state[i], result + (i * 8));
+			::__nts_bytes__(this->_state[i], result + (i * 8));
 		// Сдвигаем место итога на блок
 		result += this->_rate;
 		// Уменьшаем число оставшихся байтов итога на блок
@@ -486,7 +486,7 @@ bool nts::digest::Keccak::squeeze(uint8_t * result, const size_t size) noexcept 
 		// Если смещение в блоке выровнено по полосе и осталось не меньше полосы
 		if(((this->_size % 8) == 0) && (left >= 8)){
 			// Выдаём целую полосу итога
-			__nts_bytes__(this->_state[this->_size / 8], result);
+			::__nts_bytes__(this->_state[this->_size / 8], result);
 			// Сдвигаем место итога на полосу
 			result += 8;
 			// Уменьшаем число оставшихся байтов итога на полосу
@@ -536,7 +536,7 @@ bool nts::digest::Keccak::finish(uint8_t * result, const size_t size) noexcept {
 	 */
 	for(size_t i = 0; (i + 8) <= size; i += 8)
 		// Выдаём целую полосу итога
-		__nts_bytes__(this->_state[i / 8], result + i);
+		::__nts_bytes__(this->_state[i / 8], result + i);
 	/**
 	 * Перебираем байты хвоста итога: у SHA3-224 итог в 28 байтов на полосы не делится
 	 */

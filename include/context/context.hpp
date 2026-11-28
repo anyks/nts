@@ -79,7 +79,7 @@ namespace nts {
 	 *
 	 * @details Фасады клиента и сервера ведут одну и ту же связь с разных её концов, и
 	 *          состояние, отказы и подлинность у них общие: расходятся лишь порядок
-	 *          сообщений да настройки, которые всякой роли доступны
+	 *          сообщений да настройки, которые всякой роли доступны.
 	 *
 	 * @note Связь не занимается вводом и выводом вовсе: принятые байты подаются ей
 	 *       вызовом, а отправляемые она складывает в накопитель. Откуда байты пришли
@@ -90,7 +90,7 @@ namespace nts {
 	 *
 	 * @details The facades of the client and of the server lead one and the same connection from
 	 *          the different ends of it, and the state, the failures and the authenticity are common
-	 *          to them: only the order of the messages and the settings available to every role differ
+	 *          to them: only the order of the messages and the settings available to every role differ.
 	 *
 	 * @note The connection does not deal with the input and the output at all: the received bytes are
 	 *       given to it by a call, and it puts the sent ones into an accumulator. Where the bytes came
@@ -218,7 +218,7 @@ namespace nts {
 		 *          за тем, кто связь ведёт. Дейтаграммами оно идёт по DTLS 1.3 (RFC 9147)
 		 *          либо DTLS 1.2 (RFC 6347) по пределам издания: связь принимает и выдаёт
 		 *          целые дейтаграммы с записями, а перенос их по UDP либо SCTP и часы
-		 *          повторной передачи остаются за тем, кто связь ведёт
+		 *          повторной передачи остаются за тем, кто связь ведёт.
 		 *
 		 * \~english
 		 * @brief Ways of the transport of the handshake
@@ -230,7 +230,7 @@ namespace nts {
 		 *          the transport remain with the one who leads the connection. By datagrams it goes by
 		 *          DTLS 1.3 (RFC 9147) or DTLS 1.2 (RFC 6347) by the limits of the edition: the connection
 		 *          accepts and gives out whole datagrams with the records, while their transport over UDP
-		 *          or SCTP and the clock of the retransmission remain with the one who leads the connection
+		 *          or SCTP and the clock of the retransmission remain with the one who leads the connection.
 		 *
 		 * \~
 		 */
@@ -249,14 +249,14 @@ namespace nts {
 		 *
 		 * @details Раздел 2.1 RFC 9001: всякое сообщение рукопожатия и всякий ключ помечены
 		 *          уровнем, на котором они идут. Уровни не строго по порядку: упреждающие
-		 *          данные идут рядом с рукопожатием
+		 *          данные идут рядом с рукопожатием.
 		 *
 		 * \~english
 		 * @brief Protection levels of QUIC
 		 *
 		 * @details The section 2.1 of RFC 9001: every message of the handshake and every key are marked
 		 *          with the level at which they go. The levels are not strictly in order: the early data
-		 *          goes side by side with the handshake
+		 *          goes side by side with the handshake.
 		 *
 		 * \~
 		 */
@@ -300,7 +300,7 @@ namespace nts {
 		 *          записей затирается между записями, после выдачи потребителю и при
 		 *          закрытии: цена на каждую запись (у OpenSSL то же - SSL_OP_CLEANSE_PLAINTEXT,
 		 *          умолчанием выключенная; BoringSSL открытый текст не затирает вовсе).
-		 *          Умолчание связи - только SECRETS
+		 *          Умолчание связи - только SECRETS.
 		 *
 		 * @note Классов не касается то, что затирается по договору своего объекта всегда:
 		 *       укрытое хранилище ключевого материала при возврате участка, объекты-значения
@@ -319,7 +319,7 @@ namespace nts {
 		 *          of the received records is wiped between the records, after the hand-over to the consumer
 		 *          and on closing: the cost is per record (OpenSSL has the same - SSL_OP_CLEANSE_PLAINTEXT,
 		 *          disabled by default; BoringSSL does not wipe the plaintext at all). The default of a
-		 *          connection is SECRETS only
+		 *          connection is SECRETS only.
 		 *
 		 * @note The classes do not concern what is always wiped by the contract of its own object: the
 		 *       sheltered vault of the key material on the return of a piece, the value objects (the ticket,
@@ -342,7 +342,7 @@ namespace nts {
 		 * @brief Подлинность стороны связи
 		 *
 		 * @details Раздел 4.4.2 RFC 8446: цепочка сертификатов идёт от своего сертификата к
-		 *          сертификату издателя, и секретный ключ отвечает именно первому из них
+		 *          сертификату издателя, и секретный ключ отвечает именно первому из них.
 		 *
 		 * @note Секретный ключ записывается тем же порядком, каким открытый ключ лежит в
 		 *       сертификате, — от старшего байта к младшему
@@ -356,7 +356,7 @@ namespace nts {
 		 *
 		 * @details The section 4.4.2 of RFC 8446: the chain of the certificates goes from one's own
 		 *          certificate to the certificate of the issuer, and the secret key corresponds exactly
-		 *          to the first of them
+		 *          to the first of them.
 		 *
 		 * @note The secret key is written by the same order the public key lies in the certificate by —
 		 *       from the senior byte to the junior one
@@ -388,7 +388,7 @@ namespace nts {
 			 *          связями, которым подлинность установлена после подготовки. Без подготовки
 			 *          каждая связь готовит ключ сама при первой надобности - верно, но дорого:
 			 *          подготовка ключа RSA-2048 стоит вдвое дороже самой подписи, а ключа
-			 *          ECDSA - вдвое дороже всего рукопожатия
+			 *          ECDSA - вдвое дороже всего рукопожатия.
 			 *
 			 * @note Ключ ГОСТ, записанный голым скаляром, готовится по кривой своего сертификата:
 			 *       цепочка обязана быть установлена до подготовки
@@ -412,7 +412,7 @@ namespace nts {
 			 *          shared by all the connections the authenticity is set to after the preparation.
 			 *          Without the preparation every connection prepares the key itself at the first need -
 			 *          correctly but expensively: the preparation of an RSA-2048 key costs twice the
-			 *          signature itself, and of an ECDSA key - twice the whole handshake
+			 *          signature itself, and of an ECDSA key - twice the whole handshake.
 			 *
 			 * @note A GOST key written by a bare scalar is prepared by the curve of one's own certificate:
 			 *       the chain must be set before the preparation
@@ -452,7 +452,7 @@ namespace nts {
 		 * @details RFC 8879: цепочка сертификатов идёт сообщением CompressedCertificate, когда
 		 *          у сторон нашёлся общий алгоритм. Библиотека ни zlib, ни Brotli, ни Zstandard
 		 *          не несёт и не тащит: сжатие и распаковку предоставляет потребитель двумя
-		 *          вызовами без состояния, а связь лишь зовёт их по опознавателю алгоритма
+		 *          вызовами без состояния, а связь лишь зовёт их по опознавателю алгоритма.
 		 *
 		 * @note Сжатие вправе отказать: тогда цепочка уходит несжатой, как велит раздел 4
 		 *       RFC 8879. Распаковка обязана выдать ровно ожидаемую длину, иначе цепочка
@@ -467,7 +467,7 @@ namespace nts {
 		 *          the sides have found a common algorithm. The library carries neither zlib, nor Brotli,
 		 *          nor Zstandard and does not drag them along: the compression and the decompression are
 		 *          provided by the consumer by two stateless calls, and the connection only invokes them by
-		 *          the identifier of the algorithm
+		 *          the identifier of the algorithm.
 		 *
 		 * @note The compression may refuse: then the chain goes uncompressed, as the section 4 of RFC 8879
 		 *       orders. The decompression is obliged to give out exactly the expected length, otherwise
@@ -568,7 +568,7 @@ namespace nts {
 		 *          Сервер держит много ключей одним контекстом, и потому не хранит ключ, а
 		 *          отвечает на опознаватель клиента вызовом «дано identity - ключ либо отказ»;
 		 *          клиент хранит свой опознаватель с ключом и вправе выбрать их заново по
-		 *          подсказке сервера psk_identity_hint вызовом advise
+		 *          подсказке сервера psk_identity_hint вызовом advise.
 		 *
 		 * @note Раздел 5.3 RFC 4279: опознаватель не длиннее 128 байтов, ключ - не длиннее
 		 *       64; иное заведение связи отвергает отказом SETTINGS. Наборы PSK
@@ -587,7 +587,7 @@ namespace nts {
 		 *          server holds many keys by one context, hence it does not store the key but answers the
 		 *          identity of the client by the call «given the identity - the key or a refusal»; the client
 		 *          stores its identity with the key and may choose them anew by the psk_identity_hint of the
-		 *          server by the advise call
+		 *          server by the advise call.
 		 *
 		 * @note The section 5.3 of RFC 4279: the identity is not longer than 128 bytes, the key - not longer
 		 *       than 64; otherwise the establishment of the connection refuses by SETTINGS. The PSK suites are
@@ -692,7 +692,7 @@ namespace nts {
 		 *          либо отказ». Вызов звучит один раз за полное рукопожатие - после
 		 *          разбора приветствия клиента и до составления ответа сервера, - а при
 		 *          возобновлении связи заранее разделённым ключом либо билетом не звучит
-		 *          вовсе: возобновляемая связь подлинности сертификатом не подтверждает
+		 *          вовсе: возобновляемая связь подлинности сертификатом не подтверждает.
 		 *
 		 * @note Имя передаётся вызову тем порядком, каким его прислал клиент: приведение
 		 *       регистра и подбор маски по имени - дело потребителя, ведущего перечень имён
@@ -720,7 +720,7 @@ namespace nts {
 		 *          and before the composition of the answer of the server, - and at a
 		 *          resumption of the connection by a pre-shared key or by a ticket it does not
 		 *          sound at all: a resumed connection does not confirm the authenticity by a
-		 *          certificate
+		 *          certificate.
 		 *
 		 * @note The name is passed to the call by the same order the client has sent it by:
 		 *          the reduction of the case and the selection of a mask by the name are the
@@ -943,7 +943,7 @@ namespace nts {
 			 *
 			 * \~
 			 */
-			Ticket(const Ticket & other);
+			Ticket(const Ticket & other) noexcept;
 			/**
 			 * \~russian
 			 * @brief Конструктор перемещения: ключ переезжает, у источника затирается
@@ -995,26 +995,26 @@ namespace nts {
 		 * \~russian
 		 * @brief Функция записи билета возобновления связи в октеты
 		 *
+		 * @details Запись самодостаточна и от процесса не зависит: байт издания записи, за ним
+		 *          поля билета постоянной ширины в порядке от старшего байта к младшему и поля
+		 *          переменной длины с двухбайтовой длиной впереди. Ею билет уходит в другой
+		 *          процесс и возвращается обратно чтением.
+		 *
 		 * @param ticket записываемый билет возобновления связи
 		 * @param result накопитель, в который складывается запись билета
 		 * @return       отказ записи билета: MEMORY у нехватки памяти, TICKET у билета, в запись не входящего
 		 *
-		 * @details Запись самодостаточна и от процесса не зависит: байт издания записи, за ним
-		 *          поля билета постоянной ширины в порядке от старшего байта к младшему и поля
-		 *          переменной длины с двухбайтовой длиной впереди. Ею билет уходит в другой
-		 *          процесс и возвращается обратно чтением
-		 *
 		 * \~english
 		 * @brief Function of the writing of a ticket of the resumption of a connection into octets
-		 *
-		 * @param ticket the ticket of the resumption of the connection being written
-		 * @param result the accumulator the record of the ticket is put into
-		 * @return       the failure of the writing of the ticket: MEMORY at the lack of memory, TICKET at a ticket not fitting the record
 		 *
 		 * @details The record is self-sufficient and does not depend on the process: a byte of the edition of
 		 *          the record, then the fields of the ticket of a constant width in the order from the senior
 		 *          byte to the junior one and the fields of a variable length with a two-byte length in front.
-		 *          By it the ticket goes to another process and comes back by the reading
+		 *          By it the ticket goes to another process and comes back by the reading.
+		 *
+		 * @param ticket the ticket of the resumption of the connection being written
+		 * @param result the accumulator the record of the ticket is put into
+		 * @return       the failure of the writing of the ticket: MEMORY at the lack of memory, TICKET at a ticket not fitting the record
 		 *
 		 * \~
 		 */
@@ -1023,22 +1023,22 @@ namespace nts {
 		 * \~russian
 		 * @brief Функция чтения билета возобновления связи из октетов
 		 *
+		 * @note Запись чужого издания, обрезанная, с порченой длиной поля либо с лишними
+		 *       байтами за хвостом отвергается целиком: половина билета не билет
+		 *
 		 * @param data   читаемая запись билета возобновления связи
 		 * @param result билет, в который помещается прочитанное
 		 * @return       отказ чтения билета: TICKET у записи не по правилам, MEMORY у нехватки памяти
 		 *
-		 * @note Запись чужого издания, обрезанная, с порченой длиной поля либо с лишними
-		 *       байтами за хвостом отвергается целиком: половина билета не билет
-		 *
 		 * \~english
 		 * @brief Function of the reading of a ticket of the resumption of a connection from octets
+		 *
+		 * @note A record of a foreign edition, a truncated one, one with a corrupted length of a field or with
+		 *       extra bytes behind the tail is rejected wholly: a half of a ticket is not a ticket
 		 *
 		 * @param data   the record of the ticket of the resumption of the connection being read
 		 * @param result the ticket the read one is put into
 		 * @return       the failure of the reading of the ticket: TICKET at a record not by the rules, MEMORY at the lack of memory
-		 *
-		 * @note A record of a foreign edition, a truncated one, one with a corrupted length of a field or with
-		 *       extra bytes behind the tail is rejected wholly: a half of a ticket is not a ticket
 		 *
 		 * \~
 		 */
@@ -1050,7 +1050,7 @@ namespace nts {
 		 * @details NSS Key Log Format: метка, client_random и секрет в шестнадцатеричной
 		 *          записи через пробел. Метки: CLIENT_RANDOM (TLS 1.2 master_secret),
 		 *          CLIENT_HANDSHAKE_TRAFFIC_SECRET, SERVER_HANDSHAKE_TRAFFIC_SECRET,
-		 *          CLIENT_TRAFFIC_SECRET_0, SERVER_TRAFFIC_SECRET_0, EXPORTER_SECRET (TLS 1.3)
+		 *          CLIENT_TRAFFIC_SECRET_0, SERVER_TRAFFIC_SECRET_0, EXPORTER_SECRET (TLS 1.3).
 		 *
 		 * @param label   метка записи
 		 * @param random  client_random связи (32 байта)
@@ -1063,7 +1063,7 @@ namespace nts {
 		 * @details NSS Key Log Format: label, client_random and secret in hexadecimal
 		 *          separated by spaces. Labels: CLIENT_RANDOM (TLS 1.2 master_secret),
 		 *          CLIENT_HANDSHAKE_TRAFFIC_SECRET, SERVER_HANDSHAKE_TRAFFIC_SECRET,
-		 *          CLIENT_TRAFFIC_SECRET_0, SERVER_TRAFFIC_SECRET_0, EXPORTER_SECRET (TLS 1.3)
+		 *          CLIENT_TRAFFIC_SECRET_0, SERVER_TRAFFIC_SECRET_0, EXPORTER_SECRET (TLS 1.3).
 		 *
 		 * @param label   the label of the record
 		 * @param random  the client_random of the connection (32 bytes)
@@ -1078,13 +1078,13 @@ namespace nts {
 		 * @brief Журнал секретов связи
 		 *
 		 * @details Отклик вызывается при выработке секретов рукопожатия и трафика.
-		 *          Потребитель пишет записи в файл SSLKEYLOGFILE для Wireshark
+		 *          Потребитель пишет записи в файл SSLKEYLOGFILE для Wireshark.
 		 *
 		 * \~english
 		 * @brief Connection secrets log
 		 *
 		 * @details The callback is called at the production of handshake and traffic secrets.
-		 *          The consumer writes records to an SSLKEYLOGFILE for Wireshark
+		 *          The consumer writes records to an SSLKEYLOGFILE for Wireshark.
 		 *
 		 * \~
 		 */

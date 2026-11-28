@@ -47,7 +47,7 @@ namespace {
 	 * @brief Функция возврата имени обмена ключами в протоколе
 	 *
 	 * @param dhKind функция обмена ключами
-	 * @return   имя либо пустая строка
+	 * @return       имя либо пустая строка
 	 *
 	 */
 	static constexpr const char * __nts_dhname__(const dh_t dhKind) noexcept {
@@ -66,13 +66,15 @@ namespace {
 		 * Определяем механизм
 		 */
 		switch(static_cast <uint8_t> (kem)){
-			// Чистый ML-KEM-768
+			// Если механизм — чистый ML-KEM-768
 			case static_cast <uint8_t> (kem_t::MLKEM768):
+				// Выводим имя MLKEM768
 				return "MLKEM768";
-			// Составной механизм
+			// Если механизм — составной X25519-ML-KEM-768
 			case static_cast <uint8_t> (kem_t::X25519MLKEM768):
+				// Выводим имя X25519MLKEM768
 				return "X25519MLKEM768";
-			// Прочие механизмы
+			// Если механизм не опознан, выводим пустое имя
 			default: return "";
 		}
 	}
@@ -88,13 +90,15 @@ namespace {
 		 * Определяем функцию
 		 */
 		switch(static_cast <uint8_t> (aead)){
-			// AES-256-GCM
+			// Если функция — AES-256-GCM
 			case static_cast <uint8_t> (aead_t::AESGCM):
+				// Выводим имя AESGCM
 				return "AESGCM";
-			// ChaCha20-Poly1305
+			// Если функция — ChaCha20-Poly1305
 			case static_cast <uint8_t> (aead_t::CHACHAPOLY):
+				// Выводим имя ChaChaPoly
 				return "ChaChaPoly";
-			// Прочие механизмы
+			// Если функция не опознана, выводим пустое имя
 			default: return "";
 		}
 	}
@@ -110,19 +114,23 @@ namespace {
 		 * Определяем функцию
 		 */
 		switch(static_cast <uint8_t> (hash)){
-			// SHA-256
+			// Если хеш — SHA-256
 			case static_cast <uint8_t> (nts::digest::hash_t::SHA256):
+				// Выводим имя SHA256
 				return "SHA256";
-			// SHA-512
+			// Если хеш — SHA-512
 			case static_cast <uint8_t> (nts::digest::hash_t::SHA512):
+				// Выводим имя SHA512
 				return "SHA512";
-			// BLAKE2s
+			// Если хеш — BLAKE2s
 			case static_cast <uint8_t> (nts::digest::hash_t::BLAKE2S256):
+				// Выводим имя BLAKE2s
 				return "BLAKE2s";
-			// BLAKE2b
+			// Если хеш — BLAKE2b
 			case static_cast <uint8_t> (nts::digest::hash_t::BLAKE2B512):
+				// Выводим имя BLAKE2b
 				return "BLAKE2b";
-			// Прочие механизмы
+			// Если хеш не опознан, выводим пустое имя
 			default: return "";
 		}
 	}
@@ -420,7 +428,6 @@ bool nts::noise::generate(const dh_t dhKind, uint8_t * secret, uint8_t * result)
  *
  */
 nts::noise::Suite::Suite() noexcept : dh(dh_t::NONE), aead(aead_t::NONE), hash(digest::hash_t::NONE), kem(kem_t::NONE) {}
-
 /**
  * @brief Конструктор
  *
@@ -430,7 +437,6 @@ nts::noise::Suite::Suite() noexcept : dh(dh_t::NONE), aead(aead_t::NONE), hash(d
  *
  */
 nts::noise::Suite::Suite(const dh_t dhKind, const aead_t aead, const digest::hash_t hash) noexcept : dh(dhKind), aead(aead), hash(hash), kem(kem_t::NONE) {}
-
 /**
  * @brief Конструктор набора PQNoise
  *

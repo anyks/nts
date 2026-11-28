@@ -19,7 +19,7 @@
  */
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл модуля
  */
 #include "digest/hash.hpp"
 
@@ -41,26 +41,47 @@ size_t nts::digest::length(const hash_t algorithm) noexcept {
 	 */
 	switch(static_cast <uint8_t> (algorithm)){
 		// Если выбран MD5
-		case static_cast <uint8_t> (hash_t::MD5): return 16;
+		case static_cast <uint8_t> (hash_t::MD5):
+			// Выводим длину хеша 16 байт
+			return 16;
 		// Если выбран SHA-1
-		case static_cast <uint8_t> (hash_t::SHA1): return 20;
+		case static_cast <uint8_t> (hash_t::SHA1):
+			// Выводим длину хеша 20 байт
+			return 20;
 		// Если выбран RIPEMD-160
-		case static_cast <uint8_t> (hash_t::RIPEMD160): return 20;
+		case static_cast <uint8_t> (hash_t::RIPEMD160):
+			// Выводим длину хеша 20 байт
+			return 20;
 		// Если выбран SHA-224
-		case static_cast <uint8_t> (hash_t::SHA224): return 28;
+		case static_cast <uint8_t> (hash_t::SHA224):
+			// Выводим длину хеша 28 байт
+			return 28;
 		// Если выбран SHA-256 либо «Стрибог» длиной 256 разрядов
 		case static_cast <uint8_t> (hash_t::SHA256):
-		case static_cast <uint8_t> (hash_t::STREEBOG256): return 32;
+		case static_cast <uint8_t> (hash_t::STREEBOG256):
+			// Выводим длину хеша 32 байт
+			return 32;
 		// Если выбран SM3
-		case static_cast <uint8_t> (hash_t::SM3): return 32;
+		case static_cast <uint8_t> (hash_t::SM3):
+			// Выводим длину хеша 32 байт
+			return 32;
 		// Если выбран SHA-384
-		case static_cast <uint8_t> (hash_t::SHA384): return 48;
+		case static_cast <uint8_t> (hash_t::SHA384):
+			// Выводим длину хеша 48 байт
+			return 48;
 		// Если выбран SHA-512 либо «Стрибог» длиной 512 разрядов
 		case static_cast <uint8_t> (hash_t::SHA512):
-		case static_cast <uint8_t> (hash_t::STREEBOG512): return 64;
-		// BLAKE2s-256 и BLAKE2b-512
-		case static_cast <uint8_t> (hash_t::BLAKE2S256): return 32;
-		case static_cast <uint8_t> (hash_t::BLAKE2B512): return 64;
+		case static_cast <uint8_t> (hash_t::STREEBOG512):
+			// Выводим длину хеша 64 байт
+			return 64;
+		// Если выбран BLAKE2s-256
+		case static_cast <uint8_t> (hash_t::BLAKE2S256):
+			// Выводим длину хеша 32 байт
+			return 32;
+		// Если выбран BLAKE2b-512
+		case static_cast <uint8_t> (hash_t::BLAKE2B512):
+			// Выводим длину хеша 64 байт
+			return 64;
 		// Если алгоритм не установлен
 		default: return 0;
 	}
@@ -79,19 +100,27 @@ size_t nts::digest::block(const hash_t algorithm) noexcept {
 	switch(static_cast <uint8_t> (algorithm)){
 		// Если выбран алгоритм с блоком в 64 байта
 		case static_cast <uint8_t> (hash_t::MD5):
+		case static_cast <uint8_t> (hash_t::SM3):
 		case static_cast <uint8_t> (hash_t::SHA1):
 		case static_cast <uint8_t> (hash_t::SHA224):
 		case static_cast <uint8_t> (hash_t::SHA256):
 		case static_cast <uint8_t> (hash_t::STREEBOG256):
 		case static_cast <uint8_t> (hash_t::STREEBOG512):
 		case static_cast <uint8_t> (hash_t::RIPEMD160):
-		case static_cast <uint8_t> (hash_t::SM3): return 64;
+			// Выводим размер блока 64 байта
+			return 64;
 		// Блоки BLAKE2s и BLAKE2b
-		case static_cast <uint8_t> (hash_t::BLAKE2S256): return 64;
-		case static_cast <uint8_t> (hash_t::BLAKE2B512): return 128;
+		case static_cast <uint8_t> (hash_t::BLAKE2S256):
+			// Выводим размер блока 64 байта
+			return 64;
+		case static_cast <uint8_t> (hash_t::BLAKE2B512):
+			// Выводим размер блока 128 байт
+			return 128;
 		// Если выбран алгоритм с блоком в 128 байтов
 		case static_cast <uint8_t> (hash_t::SHA384):
-		case static_cast <uint8_t> (hash_t::SHA512): return 128;
+		case static_cast <uint8_t> (hash_t::SHA512):
+			// Выводим размер блока 128 байт
+			return 128;
 		// Если алгоритм не установлен
 		default: return 0;
 	}
@@ -113,37 +142,74 @@ nts::digest::hash_t nts::digest::Hasher::type() const noexcept {
  *
  */
 void nts::digest::Hasher::reset(const hash_t algorithm) noexcept {
-	// Запоминаем выбранный алгоритм хеширования
-	this->_type = algorithm;
 	// Сбрасываем признак порченой подачи
 	this->_spoiled = false;
+	// Запоминаем выбранный алгоритм хеширования
+	this->_type = algorithm;
 	/**
 	 * Сбрасываем объект выбранного алгоритма
 	 */
 	switch(static_cast <uint8_t> (algorithm)){
 		// Если выбран MD5
-		case static_cast <uint8_t> (hash_t::MD5): this->_md5.reset(); break;
+		case static_cast <uint8_t> (hash_t::MD5):
+			// Выполняем сброс состояния хеширования MD5
+			this->_md5.reset();
+		break;
 		// Если выбран SHA-1
-		case static_cast <uint8_t> (hash_t::SHA1): this->_sha1.reset(); break;
+		case static_cast <uint8_t> (hash_t::SHA1):
+			// Выполняем сброс состояния хеширования SHA1
+			this->_sha1.reset();
+		break;
 		// Если выбран SHA-224
-		case static_cast <uint8_t> (hash_t::SHA224): this->_sha2.reset(sha_t::SHA224); break;
+		case static_cast <uint8_t> (hash_t::SHA224):
+			// Выполняем сброс состояния хеширования SHA224
+			this->_sha2.reset(sha_t::SHA224);
+		break;
 		// Если выбран SHA-256
-		case static_cast <uint8_t> (hash_t::SHA256): this->_sha2.reset(sha_t::SHA256); break;
+		case static_cast <uint8_t> (hash_t::SHA256):
+			// Выполняем сброс состояния хеширования SHA25y
+			this->_sha2.reset(sha_t::SHA256);
+		break;
 		// Если выбран SHA-384
-		case static_cast <uint8_t> (hash_t::SHA384): this->_sha2.reset(sha_t::SHA384); break;
+		case static_cast <uint8_t> (hash_t::SHA384):
+			// Выполняем сброс состояния хеширования SHA384
+			this->_sha2.reset(sha_t::SHA384);
+		break;
 		// Если выбран SHA-512
-		case static_cast <uint8_t> (hash_t::SHA512): this->_sha2.reset(sha_t::SHA512); break;
+		case static_cast <uint8_t> (hash_t::SHA512):
+			// Выполняем сброс состояния хеширования SHA512
+			this->_sha2.reset(sha_t::SHA512);
+		break;
 		// Если выбран «Стрибог» длиной 256 разрядов
-		case static_cast <uint8_t> (hash_t::STREEBOG256): this->_streebog.reset(type_t::SHORT); break;
+		case static_cast <uint8_t> (hash_t::STREEBOG256):
+			// Выполняем сброс состояния хеширования «Стрибог» длиной 256 разрядов
+			this->_streebog.reset(type_t::SHORT);
+		break;
 		// Если выбран «Стрибог» длиной 512 разрядов
-		case static_cast <uint8_t> (hash_t::STREEBOG512): this->_streebog.reset(type_t::LONG); break;
-		// BLAKE2 заводится без ключа на полную длину
-		case static_cast <uint8_t> (hash_t::BLAKE2S256): this->_blake2.start(blake_t::BLAKE2S, BLAKE2S_LENGTH, view_t()); break;
-		case static_cast <uint8_t> (hash_t::BLAKE2B512): this->_blake2.start(blake_t::BLAKE2B, BLAKE2B_LENGTH, view_t()); break;
+		case static_cast <uint8_t> (hash_t::STREEBOG512):
+			// Выполняем сброс состояния хеширования «Стрибог» длиной 512 разрядов
+			this->_streebog.reset(type_t::LONG);
+		break;
+		// BLAKE2 заводится без ключа на полную длину 256
+		case static_cast <uint8_t> (hash_t::BLAKE2S256):
+			// Выполняем сброс состояния хеширования BLAKE2 на полную длину 256
+			this->_blake2.start(blake_t::BLAKE2S, BLAKE2S_LENGTH, view_t());
+		break;
+		// BLAKE2 заводится без ключа на полную длину 512
+		case static_cast <uint8_t> (hash_t::BLAKE2B512):
+			// Выполняем сброс состояния хеширования BLAKE2 на полную длину 512
+			this->_blake2.start(blake_t::BLAKE2B, BLAKE2B_LENGTH, view_t());
+		break;
 		// Если выбран SM3
-		case static_cast <uint8_t> (hash_t::SM3): this->_sm3.reset(); break;
+		case static_cast <uint8_t> (hash_t::SM3):
+			// Выполняем сброс состояния хеширования SM3
+			this->_sm3.reset();
+		break;
 		// Если выбран RIPEMD-160
-		case static_cast <uint8_t> (hash_t::RIPEMD160): this->_ripemd.reset(); break;
+		case static_cast <uint8_t> (hash_t::RIPEMD160):
+			// Выполняем сброс состояния хеширования RIPEMD-160
+			this->_ripemd.reset();
+		break;
 		// Если алгоритм не установлен
 		default: this->_type = hash_t::NONE;
 	}
@@ -167,24 +233,45 @@ void nts::digest::Hasher::update(const view_t & data) noexcept {
 	 */
 	switch(static_cast <uint8_t> (this->_type)){
 		// Если выбран MD5
-		case static_cast <uint8_t> (hash_t::MD5): this->_md5.update(data); break;
+		case static_cast <uint8_t> (hash_t::MD5):
+			// Выполняем обновление данных ключа MD5
+			this->_md5.update(data);
+		break;
 		// Если выбран SHA-1
-		case static_cast <uint8_t> (hash_t::SHA1): this->_sha1.update(data); break;
+		case static_cast <uint8_t> (hash_t::SHA1):
+			// Выполняем обновление данных ключа SHA1
+			this->_sha1.update(data);
+		break;
 		// Если выбран любой из SHA-2
 		case static_cast <uint8_t> (hash_t::SHA224):
 		case static_cast <uint8_t> (hash_t::SHA256):
 		case static_cast <uint8_t> (hash_t::SHA384):
-		case static_cast <uint8_t> (hash_t::SHA512): this->_sha2.update(data); break;
+		case static_cast <uint8_t> (hash_t::SHA512):
+			// Выполняем обновление данных ключа SHA2
+			this->_sha2.update(data);
+		break;
 		// Если выбран «Стрибог»
 		case static_cast <uint8_t> (hash_t::STREEBOG256):
-		case static_cast <uint8_t> (hash_t::STREEBOG512): this->_streebog.update(data); break;
+		case static_cast <uint8_t> (hash_t::STREEBOG512):
+			// Выполняем обновление данных ключа «Стрибог»
+			this->_streebog.update(data);
+		break;
 		// BLAKE2
 		case static_cast <uint8_t> (hash_t::BLAKE2S256):
-		case static_cast <uint8_t> (hash_t::BLAKE2B512): this->_blake2.update(data); break;
+		case static_cast <uint8_t> (hash_t::BLAKE2B512):
+			// Выполняем обновление данных ключа BLAKE2
+			this->_blake2.update(data);
+		break;
 		// Если выбран SM3
-		case static_cast <uint8_t> (hash_t::SM3): this->_sm3.update(data); break;
+		case static_cast <uint8_t> (hash_t::SM3):
+			// Выполняем обновление данных ключа SM3
+			this->_sm3.update(data);
+		break;
 		// Если выбран RIPEMD-160
-		case static_cast <uint8_t> (hash_t::RIPEMD160): this->_ripemd.update(data); break;
+		case static_cast <uint8_t> (hash_t::RIPEMD160):
+			// Выполняем обновление данных ключа RIPEMD-160
+			this->_ripemd.update(data);
+		break;
 		// Если алгоритм не установлен
 		default: break;
 	}
@@ -207,14 +294,20 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
 	 */
 	switch(static_cast <uint8_t> (this->_type)){
 		// Если выбран MD5
-		case static_cast <uint8_t> (hash_t::MD5): return this->_md5.finish(result, size);
+		case static_cast <uint8_t> (hash_t::MD5):
+			// Выводим признак успешности снятия хеша MD5
+			return this->_md5.finish(result, size);
 		// Если выбран SHA-1
-		case static_cast <uint8_t> (hash_t::SHA1): return this->_sha1.finish(result, size);
+		case static_cast <uint8_t> (hash_t::SHA1):
+			// Выводим признак успешности снятия хеша SHA1
+			return this->_sha1.finish(result, size);
 		// Если выбран любой из SHA-2
 		case static_cast <uint8_t> (hash_t::SHA224):
 		case static_cast <uint8_t> (hash_t::SHA256):
 		case static_cast <uint8_t> (hash_t::SHA384):
-		case static_cast <uint8_t> (hash_t::SHA512): return this->_sha2.finish(result, size);
+		case static_cast <uint8_t> (hash_t::SHA512):
+			// Выводим признак успешности снятия хеша SHA2
+			return this->_sha2.finish(result, size);
 		/**
 		 * «Стрибог» требует места ровно под свой хеш, а общий договор дозволяет место
 		 * шире: хеш снимается в свою длину, и лишнее место не трогается
@@ -243,9 +336,13 @@ bool nts::digest::Hasher::finish(uint8_t * result, const size_t size) noexcept {
 			return this->_blake2.finish(result, needed);
 		}
 		// Если выбран SM3
-		case static_cast <uint8_t> (hash_t::SM3): return this->_sm3.finish(result, size);
+		case static_cast <uint8_t> (hash_t::SM3):
+			// Выводим признак успешности снятия хеша SM3
+			return this->_sm3.finish(result, size);
 		// Если выбран RIPEMD-160
-		case static_cast <uint8_t> (hash_t::RIPEMD160): return this->_ripemd.finish(result, size);
+		case static_cast <uint8_t> (hash_t::RIPEMD160):
+			// Выводим признак успешности снятия хеша RIPEMD-160
+			return this->_ripemd.finish(result, size);
 		// Если алгоритм не установлен
 		default: return false;
 	}

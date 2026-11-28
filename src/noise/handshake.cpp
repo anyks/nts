@@ -21,7 +21,7 @@
  *          У PQNoise (Angel и др., CCS 2022, Algorithm 1) знаки ekem и skem - разные операции у
  *          сторон: отправитель упаковывает к временному либо постоянному ключу получателя,
  *          получатель распаковывает своим закрытым; шифртекст ekem идёт в открытом виде и
- *          примешивается в хеш, шифртекст skem - через EncryptAndHash; затем MixKey секрета
+ *          примешивается в хеш, шифртекст skem - через EncryptAndHash; затем MixKey секрета.
  *
  * @copyright Copyright © 2026
  *
@@ -199,32 +199,86 @@ bool nts::noise::Handshake::mix(const token_t token) noexcept {
 		return false;
 	// Признак роли инициатора
 	const bool initiator = (this->_role == role_t::INITIATOR);
-	// Свой закрытый ключ и чужой открытый
-	const uint8_t * secret = nullptr;
+	// Признаки наличия своих и чужих ключей
+	bool own = false, peer = false;
 	// Чужой открытый ключ
 	const uint8_t * point = nullptr;
-	// Признаки наличия
-	bool own = false, peer = false;
+	// Свой закрытый ключ
+	const uint8_t * secret = nullptr;
 	/**
 	 * Определяем знак
 	 */
 	switch(token){
 		// DH временных ключей
-		case token_t::EE: { secret = this->_e; own = this->_hasE; point = this->_re; peer = this->_hasRE; } break;
+		case token_t::EE: {
+			// Свой закрытый ключ - временный
+			secret = this->_e;
+			// Признак наличия своего временного ключа
+			own = this->_hasE;
+			// Чужой открытый ключ - временный
+			point = this->_re;
+			// Признак наличия чужого временного ключа
+			peer = this->_hasRE;
+		} break;
 		// DH временного ключа инициатора и постоянного отвечающего
 		case token_t::ES: {
 			// Выбираем ключи по роли
-			if(initiator){ secret = this->_e; own = this->_hasE; point = this->_rs; peer = this->_hasRS; }
-			else { secret = this->_s; own = this->_hasS; point = this->_re; peer = this->_hasRE; }
+			if(initiator){
+				// Свой закрытый ключ - временный
+				secret = this->_e;
+				// Признак наличия своего временного ключа
+				own = this->_hasE;
+				// Чужой открытый ключ - постоянный
+				point = this->_rs;
+				// Признак наличия чужого постоянного ключа
+				peer = this->_hasRS;
+			// Если роль - отвечающий
+			} else {
+				// Свой закрытый ключ - постоянный
+				secret = this->_s;
+				// Признак наличия своего постоянного ключа
+				own = this->_hasS;
+				// Чужой открытый ключ - временный
+				point = this->_re;
+				// Признак наличия чужого временного ключа
+				peer = this->_hasRE;
+			}
 		} break;
 		// DH постоянного ключа инициатора и временного отвечающего
 		case token_t::SE: {
 			// Выбираем ключи по роли
-			if(initiator){ secret = this->_s; own = this->_hasS; point = this->_re; peer = this->_hasRE; }
-			else { secret = this->_e; own = this->_hasE; point = this->_rs; peer = this->_hasRS; }
+			if(initiator){
+				// Свой закрытый ключ - постоянный
+				secret = this->_s;
+				// Признак наличия своего постоянного ключа
+				own = this->_hasS;
+				// Чужой открытый ключ - временный
+				point = this->_re;
+				// Признак наличия чужого временного ключа
+				peer = this->_hasRE;
+			// Если роль - отвечающий
+			} else {
+				// Свой закрытый ключ - временный
+				secret = this->_e;
+				// Признак наличия своего временного ключа
+				own = this->_hasE;
+				// Чужой открытый ключ - постоянный
+				point = this->_rs;
+				// Признак наличия чужого постоянного ключа
+				peer = this->_hasRS;
+			}
 		} break;
 		// DH постоянных ключей
-		case token_t::SS: { secret = this->_s; own = this->_hasS; point = this->_rs; peer = this->_hasRS; } break;
+		case token_t::SS: {
+			// Свой закрытый ключ - постоянный
+			secret = this->_s;
+			// Признак наличия своего постоянного ключа
+			own = this->_hasS;
+			// Чужой открытый ключ - постоянный
+			point = this->_rs;
+			// Признак наличия чужого постоянного ключа
+			peer = this->_hasRS;
+		} break;
 		// Прочие сообщения протокола
 		default: return false;
 	}
@@ -381,13 +435,14 @@ bool nts::noise::Handshake::start(const pattern_t pattern, const psk_t psks, con
 		this->_secret = KEY;
 		// Длина зерна
 		this->_seed = KEY;
+	// У PQNoise длины ключей задаёт механизм KEM
 	} else {
+		// Длина зерна
+		this->_seed = kemlength(suite.kem, part_t::SEED);
 		// Длина открытого ключа
 		this->_public = kemlength(suite.kem, part_t::PUBLIC);
 		// Длина закрытого ключа
 		this->_secret = kemlength(suite.kem, part_t::SECRET);
-		// Длина зерна
-		this->_seed = kemlength(suite.kem, part_t::SEED);
 	}
 	// Сообщаем длину зерна
 	return true;
@@ -640,9 +695,9 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 		/**
 		 * Определяем знак
 		 */
-		switch(list[i]){
+		switch(static_cast <uint8_t> (list[i])){
 			// Временный ключ
-			case token_t::E: {
+			case static_cast <uint8_t> (token_t::E): {
 				// Если ключ не задан явно, вырабатываем его
 				if(!this->_hasE){
 					// Вырабатываем пару: KEM у PQNoise, DH у классики
@@ -665,7 +720,7 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 				}
 			} break;
 			// Постоянный ключ
-			case token_t::S: {
+			case static_cast <uint8_t> (token_t::S): {
 				// Вместимость остатка
 				size_t room = (capacity - offset);
 				// Шифруем открытый ключ в место
@@ -674,7 +729,7 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 				offset += room;
 			} break;
 			// Шифртекст к временному ключу получателя: в открытом виде, MixHash, MixKey
-			case token_t::EKEM: {
+			case static_cast <uint8_t> (token_t::EKEM): {
 				// Общий секрет
 				uint8_t shared[KEM_SHARED_MAX];
 				// Если места мало либо упаковка не удалась
@@ -692,7 +747,7 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 				wipe(shared, sizeof(shared));
 			} break;
 			// Шифртекст к постоянному ключу получателя: EncryptAndHash, MixKey
-			case token_t::SKEM: {
+			case static_cast <uint8_t> (token_t::SKEM): {
 				// Шифртекст и общий секрет
 				uint8_t plain[KEM_CIPHERTEXT_MAX], shared[KEM_SHARED_MAX];
 				// Вместимость остатка
@@ -706,7 +761,10 @@ bool nts::noise::Handshake::write(const view_t & payload, uint8_t * result, size
 				wipe(shared, sizeof(shared));
 			} break;
 			// Заранее разделённый ключ - только видоизменением, в таблице его нет
-			case token_t::PSK: status = false; break;
+			case static_cast <uint8_t> (token_t::PSK):
+				// Сбрасываем значение статуса
+				status = false;
+			break;
 			// Обмен с разделением секрета
 			default: status = this->mix(list[i]); break;
 		}
@@ -785,9 +843,9 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 		/**
 		 * Определяем знак
 		 */
-		switch(list[i]){
+		switch(static_cast <uint8_t> (list[i])){
 			// Временный ключ
-			case token_t::E: {
+			case static_cast <uint8_t> (token_t::E): {
 				// Если сообщение короче ключа
 				if((message.size - offset) < this->_public)
 					// Отмечаем сообщение короче ключа
@@ -805,7 +863,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 				}
 			} break;
 			// Постоянный ключ
-			case token_t::S: {
+			case static_cast <uint8_t> (token_t::S): {
 				// Длина ключа в сообщении: с меткой при ключе шифра
 				const size_t length = (this->_public + (this->_symmetric.has() ? TAG : 0));
 				// Если сообщение короче
@@ -825,9 +883,9 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 					// Если ключ задан заранее, он обязан совпасть
 					if(status && this->_hasRS)
 						// Сличаем ключи
-						status = __nts_alike__(key, this->_rs, this->_public);
+						status = ::__nts_alike__(key, this->_rs, this->_public);
 					// Иначе запоминаем принятый
-					else if(status){
+					else if(status) {
 						// Запоминаем ключ
 						::memcpy(this->_rs, key, this->_public);
 						// Устанавливаем признак
@@ -838,7 +896,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 				}
 			} break;
 			// Шифртекст к своему временному ключу: MixHash, распаковка, MixKey
-			case token_t::EKEM: {
+			case static_cast <uint8_t> (token_t::EKEM): {
 				// Общий секрет
 				uint8_t shared[KEM_SHARED_MAX];
 				// Если сообщение короче шифртекста
@@ -856,7 +914,7 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 				wipe(shared, sizeof(shared));
 			} break;
 			// Шифртекст к своему постоянному ключу: DecryptAndHash, распаковка, MixKey
-			case token_t::SKEM: {
+			case static_cast <uint8_t> (token_t::SKEM): {
 				// Длина шифртекста в сообщении: с меткой при ключе шифра
 				const size_t length = (ciphertext + (this->_symmetric.has() ? TAG : 0));
 				// Шифртекст и общий секрет
@@ -879,7 +937,10 @@ bool nts::noise::Handshake::read(const view_t & message, uint8_t * result, size_
 				wipe(shared, sizeof(shared));
 			} break;
 			// Заранее разделённый ключ - только видоизменением
-			case token_t::PSK: status = false; break;
+			case static_cast <uint8_t> (token_t::PSK):
+				// Сбрасываем значение статуса
+				status = false;
+			break;
 			// Обмен с разделением секрета
 			default: status = this->mix(list[i]); break;
 		}
@@ -1016,24 +1077,26 @@ void nts::noise::Handshake::clear() noexcept {
 	wipe(this->_coin, sizeof(this->_coin));
 	// Затираем симметричное состояние
 	this->_symmetric.clear();
-	// Сбрасываем устройство
-	this->_pattern = pattern_t::NONE;
+	// Сбрасываем длину зерна
+	this->_seed = 0;
 	// Сбрасываем положения ключей
 	this->_psks = 0;
-	// Сбрасываем роль
-	this->_role = role_t::NONE;
-	// Сбрасываем набор
-	this->_suite = suite_t();
 	// Сбрасываем положение сообщения
 	this->_index = 0;
 	// Сбрасываем число сообщений
 	this->_count = 0;
-	// Сбрасываем признак начала
-	this->_started = false;
-	// Сбрасываем признак раскола
-	this->_split = false;
-	// Сбрасываем признак поломки
-	this->_broken = false;
+	// Сбрасываем длину открытого ключа
+	this->_public = 0;
+	// Сбрасываем длину закрытого ключа
+	this->_secret = 0;
+	// Сбрасываем количество использованных ключей
+	this->_pskUsed = 0;
+	// Сбрасываем количество использованных случайностей
+	this->_coinUsed = 0;
+	// Сбрасываем количество ключей
+	this->_pskCount = 0;
+	// Сбрасываем число случайностей
+	this->_coinCount = 0;
 	// Сбрасываем признак своего постоянного ключа
 	this->_hasS = false;
 	// Сбрасываем признак своего временного ключа
@@ -1042,20 +1105,18 @@ void nts::noise::Handshake::clear() noexcept {
 	this->_hasRS = false;
 	// Сбрасываем признак чужого временного ключа
 	this->_hasRE = false;
-	// Сбрасываем количество ключей
-	this->_pskCount = 0;
-	// Сбрасываем количество использованных ключей
-	this->_pskUsed = 0;
-	// Сбрасываем число случайностей
-	this->_coinCount = 0;
-	// Сбрасываем количество использованных случайностей
-	this->_coinUsed = 0;
-	// Сбрасываем длину открытого ключа
-	this->_public = 0;
-	// Сбрасываем длину закрытого ключа
-	this->_secret = 0;
-	// Сбрасываем длину зерна
-	this->_seed = 0;
+	// Сбрасываем признак раскола
+	this->_split = false;
+	// Сбрасываем признак поломки
+	this->_broken = false;
+	// Сбрасываем признак начала
+	this->_started = false;
+	// Сбрасываем набор
+	this->_suite = suite_t();
+	// Сбрасываем роль
+	this->_role = role_t::NONE;
+	// Сбрасываем устройство
+	this->_pattern = pattern_t::NONE;
 }
 /**
  * @brief Конструктор
@@ -1067,13 +1128,13 @@ nts::noise::Handshake::Handshake() noexcept :
  _pskCount(0), _pskUsed(0), _coinCount(0), _coinUsed(0), _public(0), _secret(0), _seed(0) {
 	// Обнуляем ключи
 	::memset(this->_s, 0, sizeof(this->_s));
-	::memset(this->_sPublic, 0, sizeof(this->_sPublic));
 	::memset(this->_e, 0, sizeof(this->_e));
-	::memset(this->_ePublic, 0, sizeof(this->_ePublic));
 	::memset(this->_rs, 0, sizeof(this->_rs));
 	::memset(this->_re, 0, sizeof(this->_re));
 	::memset(this->_psk, 0, sizeof(this->_psk));
 	::memset(this->_coin, 0, sizeof(this->_coin));
+	::memset(this->_ePublic, 0, sizeof(this->_ePublic));
+	::memset(this->_sPublic, 0, sizeof(this->_sPublic));
 }
 /**
  * @brief Деструктор

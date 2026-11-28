@@ -98,7 +98,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -756,12 +755,12 @@ nts::digest::type_t nts::digest::Streebog::type() const noexcept {
  *
  */
 void nts::digest::Streebog::reset(const type_t type) noexcept {
+	// Обнуляем количество байтов, накопленных в незавершённом блоке
+	this->_size = 0;
 	// Запоминаем длину вырабатываемого хеша
 	this->_type = type;
 	// Снимаем признак того, что хеш уже снят
 	this->_finished = false;
-	// Обнуляем количество байтов, накопленных в незавершённом блоке
-	this->_size = 0;
 	/**
 	 * Начальным значением хеша длиной 256 разрядов служит вектор из единичных
 	 * байтов, а хеша длиной 512 разрядов - нулевой вектор
@@ -771,12 +770,12 @@ void nts::digest::Streebog::reset(const type_t type) noexcept {
 	 * Перебираем слова состояния хеширования
 	 */
 	for(size_t i = 0; i < 8; i++){
-		// Устанавливаем начальное значение хеша
-		this->_hash[i] = initial;
-		// Обнуляем количество разобранных разрядов сообщения
-		this->_count[i] = 0;
 		// Обнуляем контрольную сумму разобранных блоков сообщения
 		this->_sum[i] = 0;
+		// Обнуляем количество разобранных разрядов сообщения
+		this->_count[i] = 0;
+		// Устанавливаем начальное значение хеша
+		this->_hash[i] = initial;
 	}
 	// Затирание накопителя незавершённого блока сообщения
 	wipe(this->_block, sizeof(this->_block));
@@ -799,12 +798,12 @@ void nts::digest::Streebog::update(const view_t & data) noexcept {
 	if(this->_finished || (this->_type == type_t::NONE) || (data.data == nullptr) || (data.size == 0))
 		// Выходим из метода
 		return;
-	// Количество разрядов одного блока сообщения
-	static const uint64_t width[8] = {512, 0, 0, 0, 0, 0, 0, 0};
-	// Разобранный блок сообщения
-	uint64_t message[8];
 	// Количество разобранных байтов куска сообщения
 	size_t offset = 0;
+	// Разобранный блок сообщения
+	uint64_t message[8];
+	// Количество разрядов одного блока сообщения
+	static const uint64_t width[8] = {512, 0, 0, 0, 0, 0, 0, 0};
 	/**
 	 * Разбираем кусок сообщения по блокам
 	 */
@@ -815,13 +814,13 @@ void nts::digest::Streebog::update(const view_t & data) noexcept {
 		 */
 		if((this->_size == 0) && ((data.size - offset) >= sizeof(this->_block))){
 			// Разбор блока сообщения прямо из подаваемого куска
-			__nts_load__(data.data + offset, message);
+			::__nts_load__(data.data + offset, message);
 			// Сжатие блока сообщения
-			__nts_compress__(this->_hash, this->_count, message);
+			::__nts_compress__(this->_hash, this->_count, message);
 			// Увеличиваем количество разобранных разрядов сообщения
-			__nts_increase__(this->_count, width);
+			::__nts_increase__(this->_count, width);
 			// Дополняем контрольную сумму разобранных блоков сообщения
-			__nts_increase__(this->_sum, message);
+			::__nts_increase__(this->_sum, message);
 			// Сдвигаем место разбора куска сообщения
 			offset += sizeof(this->_block);
 			// Переходим к разбору следующего блока сообщения
@@ -842,13 +841,13 @@ void nts::digest::Streebog::update(const view_t & data) noexcept {
 			// Прекращаем разбор куска сообщения
 			break;
 		// Разбор заполненного блока сообщения на слова
-		__nts_load__(this->_block, message);
+		::__nts_load__(this->_block, message);
 		// Сжатие блока сообщения
-		__nts_compress__(this->_hash, this->_count, message);
+		::__nts_compress__(this->_hash, this->_count, message);
 		// Увеличиваем количество разобранных разрядов сообщения
-		__nts_increase__(this->_count, width);
+		::__nts_increase__(this->_count, width);
 		// Дополняем контрольную сумму разобранных блоков сообщения
-		__nts_increase__(this->_sum, message);
+		::__nts_increase__(this->_sum, message);
 		// Обнуляем количество байтов, накопленных в блоке
 		this->_size = 0;
 	}
@@ -871,10 +870,10 @@ bool nts::digest::Streebog::finish(uint8_t * result, const size_t size, const or
 	if(this->_finished || (length == 0) || (result == nullptr) || (size < length))
 		// Выводим отказ снятия хеша
 		return false;
-	// Нулевой вектор, служащий числом разрядов у завершающих сжатий
-	uint64_t zero[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 	// Разобранный блок сообщения
 	uint64_t message[8];
+	// Нулевой вектор, служащий числом разрядов у завершающих сжатий
+	uint64_t zero[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 	// Количество разрядов незавершённого блока сообщения
 	uint64_t width[8] = {static_cast <uint64_t> (this->_size) * 8, 0, 0, 0, 0, 0, 0, 0};
 	/**
@@ -886,17 +885,17 @@ bool nts::digest::Streebog::finish(uint8_t * result, const size_t size, const or
 	// Устанавливаем единичный разряд дополнения
 	this->_block[this->_size] = 0x01;
 	// Разбор дополненного блока сообщения на слова
-	__nts_load__(this->_block, message);
+	::__nts_load__(this->_block, message);
 	// Сжатие дополненного блока сообщения
-	__nts_compress__(this->_hash, this->_count, message);
+	::__nts_compress__(this->_hash, this->_count, message);
 	// Увеличиваем количество разобранных разрядов сообщения
-	__nts_increase__(this->_count, width);
+	::__nts_increase__(this->_count, width);
 	// Дополняем контрольную сумму разобранных блоков сообщения
-	__nts_increase__(this->_sum, message);
+	::__nts_increase__(this->_sum, message);
 	// Сжатие количества разобранных разрядов сообщения
-	__nts_compress__(this->_hash, zero, this->_count);
+	::__nts_compress__(this->_hash, zero, this->_count);
 	// Сжатие контрольной суммы разобранных блоков сообщения
-	__nts_compress__(this->_hash, zero, this->_sum);
+	::__nts_compress__(this->_hash, zero, this->_sum);
 	/**
 	 * Вектор записывается от старшего байта к младшему, а хеш длиной 256 разрядов
 	 * берётся старшей половиной вектора - оттого обоим длинам отвечает один обход.

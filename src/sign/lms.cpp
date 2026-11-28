@@ -178,40 +178,61 @@ namespace {
 		 * По коду типа
 		 */
 		switch(type){
-			// LMOTS_SHA256_N32_W1
+			// Если код типа — LMOTS_SHA256_N32_W1
 			case 1: {
+				// Задаём разрядность значения Винтерница
 				params.w = 1;
+				// Задаём сдвиг контрольной суммы
 				params.shift = 7;
+				// Задаём длину хеша в байтах
 				params.hashSize = 32;
+				// Задаём число звеньев цепочек
 				params.chainCount = 265;
+				// Выводим признак известного кода типа
 				return true;
 			}
-			// LMOTS_SHA256_N32_W2
+			// Если код типа — LMOTS_SHA256_N32_W2
 			case 2: {
+				// Задаём разрядность значения Винтерница
 				params.w = 2;
+				// Задаём сдвиг контрольной суммы
 				params.shift = 6;
+				// Задаём длину хеша в байтах
 				params.hashSize = 32;
+				// Задаём число звеньев цепочек
 				params.chainCount = 133;
+				// Выводим признак известного кода типа
 				return true;
 			}
-			// LMOTS_SHA256_N32_W4
+			// Если код типа — LMOTS_SHA256_N32_W4
 			case 3: {
+				// Задаём разрядность значения Винтерница
 				params.w = 4;
+				// Задаём сдвиг контрольной суммы
 				params.shift = 4;
+				// Задаём длину хеша в байтах
 				params.hashSize = 32;
+				// Задаём число звеньев цепочек
 				params.chainCount = 67;
+				// Выводим признак известного кода типа
 				return true;
 			}
-			// LMOTS_SHA256_N32_W8
+			// Если код типа — LMOTS_SHA256_N32_W8
 			case 4: {
+				// Задаём разрядность значения Винтерница
 				params.w = 8;
+				// Задаём сдвиг контрольной суммы
 				params.shift = 0;
+				// Задаём длину хеша в байтах
 				params.hashSize = 32;
+				// Задаём число звеньев цепочек
 				params.chainCount = 34;
+				// Выводим признак известного кода типа
 				return true;
 			}
-			// Код типа неизвестен
-			default: return false;
+			// Если код типа неизвестен, выводим признак неизвестного кода
+			default:
+				return false;
 		}
 	}
 	/**
@@ -585,11 +606,11 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 	 *          байта - количество уровней (1..8), а за ним идёт запись LMS верхнего уровня.
 	 *
 	 */
-	if((key.size == 24 + M32) && (__nts_lms_height__(__nts_u32__(key.data)) != 0))
+	if((key.size == 24 + M32) && (::__nts_lms_height__(::__nts_u32__(key.data)) != 0))
 		// Выводим итог проверки подписи LMS
-		return __nts_lms_verify__(key, message, signature);
+		return ::__nts_lms_verify__(key, message, signature);
 	// Количество уровней HSS
-	const uint32_t levels = __nts_u32__(key.data);
+	const uint32_t levels = ::__nts_u32__(key.data);
 	// Если количество уровней вне дозволенного
 	if((levels < 1) || (levels > LEVELS_MAX))
 		// Выводим отрицательный результат - количество уровней вне дозволенного
@@ -607,15 +628,15 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 		// Выводим отрицательный результат - подпись короче количества подписанных ключей
 		return false;
 	// Количество подписанных открытых ключей в подписи
-	const uint32_t signedKeys = __nts_u32__(signature.data);
+	const uint32_t signedKeys = ::__nts_u32__(signature.data);
 	// Если количество подписанных ключей не отвечает количеству уровней
 	if(signedKeys != levels - 1)
 		// Выводим отрицательный результат - количество подписанных ключей не отвечает уровням
 		return false;
-	// Открытый ключ текущего уровня: запись LMS за числом уровней
-	view_t current(key.data + 4, key.size - 4);
 	// Место в подписи
 	size_t offset = 4;
+	// Открытый ключ текущего уровня: запись LMS за числом уровней
+	view_t current(key.data + 4, key.size - 4);
 	/**
 	 * Проходим по подписанным открытым ключам
 	 */
@@ -625,11 +646,11 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 			// Выводим отрицательный результат - подпись короче номера листа и типа
 			return false;
 		// Код типа LM-OTS подписи уровня
-		const uint32_t otstype = __nts_u32__(signature.data + offset + 4);
+		const uint32_t otstype = ::__nts_u32__(signature.data + offset + 4);
 		// Сведения о наборе LM-OTS
 		ots_params_t params;
 		// Если код типа LM-OTS неизвестен
-		if(!__nts_ots_params__(otstype, params))
+		if(!::__nts_ots_params__(otstype, params))
 			// Выводим отрицательный результат - тип LM-OTS неизвестен
 			return false;
 		// Длина подписи LM-OTS
@@ -639,9 +660,9 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 			// Выводим отрицательный результат - подпись короче подписи уровня
 			return false;
 		// Код типа LMS подписи уровня
-		const uint32_t lmstype = __nts_u32__(signature.data + offset + 8 + otsLength - 4);
+		const uint32_t lmstype = ::__nts_u32__(signature.data + offset + 8 + otsLength - 4);
 		// Высота дерева уровня
-		const size_t h = __nts_lms_height__(lmstype);
+		const size_t h = ::__nts_lms_height__(lmstype);
 		// Если код типа неизвестен
 		if(h == 0)
 			// Выводим отрицательный результат - тип LMS неизвестен
@@ -657,7 +678,7 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 		// Подпись LMS уровня
 		const view_t lmsSignature(signature.data + offset, lmsLength);
 		// Если подпись открытого ключа следующего уровня не сошлась
-		if(!__nts_lms_verify__(current, next, lmsSignature))
+		if(!::__nts_lms_verify__(current, next, lmsSignature))
 			// Выводим отрицательный результат - подпись ключа уровня не сошлась
 			return false;
 		// Переходим к следующему уровню
@@ -668,5 +689,5 @@ bool nts::sign::lms::verify(const view_t & key, const view_t & message, const vi
 	// Подпись LMS сообщения нижним уровнем
 	const view_t bottom(signature.data + offset, signature.size - offset);
 	// Выводим итог проверки подписи сообщения нижним уровнем
-	return __nts_lms_verify__(current, message, bottom);
+	return ::__nts_lms_verify__(current, message, bottom);
 }

@@ -52,9 +52,19 @@ namespace {
 	 */
 	using namespace nts;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
+	/**
+	 * @brief Начальные значения P-массива шифра Blowfish
+	 *
+	 * @details Восемнадцать 32-битных раундовых подключей, взятых из первых
+	 *          восемнадцати шестнадцатеричных слов дробной части числа π; при
+	 *          установке ключа перезаписываются и перемешиваются с ключом.
+	 *
+	 */
 	static const uint32_t BLOWFISH_P[18] = {
 		// Начальные восемнадцать слов числа π
 		0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344, 0xa4093822, 0x299f31d0,
@@ -62,6 +72,14 @@ namespace {
 		0xc0ac29b7, 0xc97c50dd, 0x3f84d5b5, 0xb5470917, 0x9216d5d9, 0x8979fb1b
 	};
 
+	/**
+	 * @brief Начальные значения S-боксов шифра Blowfish
+	 *
+	 * @details Четыре таблицы подстановки по 256 32-битных слов, также взятых из
+	 *          шестнадцатеричных слов дробной части числа π; при установке ключа
+	 *          каждая таблица перезаписывается и перемешивается с ключом.
+	 *
+	 */
 	static const uint32_t BLOWFISH_S[4][256] = {
 		{
 			// S-boxes: четыре таблицы по 256 слов числа π
@@ -108,8 +126,7 @@ namespace {
 			0xd60f573f, 0xbc9bc6e4, 0x2b60a476, 0x81e67400, 0x08ba6fb5, 0x571be91f,
 			0xf296ec6b, 0x2a0dd915, 0xb6636521, 0xe7b9f9b6, 0xff34052e, 0xc5855664,
 			0x53b02d5d, 0xa99f8fa1, 0x08ba4799, 0x6e85076a
-		},
-		{
+		},{
 			// Вторая таблица S-boxes
 			0x4b7a70e9, 0xb5b32944, 0xdb75092e, 0xc4192623, 0xad6ea6b0, 0x49a7df7d,
 			0x9cee60b8, 0x8fedb266, 0xecaa8c71, 0x699a17ff, 0x5664526c, 0xc2b19ee1,
@@ -248,10 +265,19 @@ namespace {
 	};
 
 	/**
-	 * @brief Функция Фейстеля
+	 * @brief Функция Фейстеля шифра Blowfish
+	 *
+	 * @details Аргумент делится на четыре байта, каждый служит индексом в своей
+	 *          S-таблице: первые две подстановки складываются по модулю 2^32,
+	 *          результат складывается поразрядно с третьей, затем к нему по
+	 *          модулю 2^32 прибавляется четвёртая.
+	 *
+	 * @param S четыре таблицы подстановки по 256 слов
+	 * @param x 32-битное слово обрабатываемой половины блока
+	 * @return  преобразованное 32-битное слово
 	 *
 	 */
-	static constexpr uint32_t F(const uint32_t (* S)[256], const uint32_t x) noexcept {
+	static constexpr uint32_t __nts_blowfish__(const uint32_t (* S)[256], const uint32_t x) noexcept {
 		// Складываем подстановки по разрядам аргумента
 		return ((S[0][(x >> 24) & 0xFF] + S[1][(x >> 16) & 0xFF]) ^ S[2][(x >> 8) & 0xFF]) + S[3][x & 0xFF];
 	}
@@ -281,7 +307,6 @@ void nts::cipher::init(blowfish_t * ctx) noexcept {
 			// Копируем очередное слово таблицы
 			ctx->S[i][j] = BLOWFISH_S[i][j];
 }
-
 /**
  * @brief Функция извлечения слова из потока байтов с зацикливанием
  *
@@ -295,7 +320,7 @@ uint32_t nts::cipher::stream2word(const uint8_t * data, const size_t datalen, si
 	// Накопитель собираемого слова
 	uint32_t temp = 0;
 	// Текущее смещение в потоке
-	size_t offset = *current;
+	size_t offset = (* current);
 	/**
 	 * Набираем слово из четырёх байтов
 	 */
@@ -308,11 +333,10 @@ uint32_t nts::cipher::stream2word(const uint8_t * data, const size_t datalen, si
 		temp = (temp << 8) | data[offset];
 	}
 	// Запоминаем итоговое смещение
-	*current = offset;
+	(* current) = offset;
 	// Выводим собранное слово
 	return temp;
 }
-
 /**
  * @brief Функция шифрования блока
  *
@@ -323,49 +347,48 @@ uint32_t nts::cipher::stream2word(const uint8_t * data, const size_t datalen, si
  */
 void nts::cipher::encipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept {
 	// Левая половина блока
-	uint32_t Xl = *xl;
+	uint32_t Xl = (* xl);
 	// Правая половина блока
-	uint32_t Xr = *xr;
+	uint32_t Xr = (* xr);
 	// Накладываем нулевой элемент массива
 	Xl ^= ctx->P[0];
 	// Первый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[1];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[1];
 	// Второй раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[2];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[2];
 	// Третий раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[3];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[3];
 	// Четвёртый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[4];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[4];
 	// Пятый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[5];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[5];
 	// Шестой раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[6];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[6];
 	// Седьмой раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[7];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[7];
 	// Восьмой раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[8];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[8];
 	// Девятый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[9];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[9];
 	// Десятый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[10];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[10];
 	// Одиннадцатый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[11];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[11];
 	// Двенадцатый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[12];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[12];
 	// Тринадцатый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[13];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[13];
 	// Четырнадцатый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[14];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[14];
 	// Пятнадцатый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[15];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[15];
 	// Шестнадцатый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[16];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[16];
 	// Завершаем наложением последнего элемента
-	*xl = Xr ^ ctx->P[17];
+	(* xl) = (Xr ^ ctx->P[17]);
 	// Помещаем левую половину на место правой
-	*xr = Xl;
+	(* xr) = Xl;
 }
-
 /**
  * @brief Функция расшифрования блока
  *
@@ -376,49 +399,48 @@ void nts::cipher::encipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr)
  */
 void nts::cipher::decipher(const blowfish_t * ctx, uint32_t * xl, uint32_t * xr) noexcept {
 	// Левая половина блока
-	uint32_t Xl = *xl;
+	uint32_t Xl = (* xl);
 	// Правая половина блока
-	uint32_t Xr = *xr;
+	uint32_t Xr = (* xr);
 	// Накладываем последний элемент массива
 	Xl ^= ctx->P[17];
 	// Первый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[16];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[16];
 	// Второй раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[15];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[15];
 	// Третий раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[14];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[14];
 	// Четвёртый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[13];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[13];
 	// Пятый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[12];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[12];
 	// Шестой раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[11];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[11];
 	// Седьмой раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[10];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[10];
 	// Восьмой раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[9];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[9];
 	// Девятый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[8];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[8];
 	// Десятый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[7];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[7];
 	// Одиннадцатый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[6];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[6];
 	// Двенадцатый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[5];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[5];
 	// Тринадцатый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[4];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[4];
 	// Четырнадцатый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[3];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[3];
 	// Пятнадцатый раунд: подмешиваем функцию в правую половину
-	Xr ^= F(ctx->S, Xl) ^ ctx->P[2];
+	Xr ^= ::__nts_blowfish__(ctx->S, Xl) ^ ctx->P[2];
 	// Шестнадцатый раунд: подмешиваем функцию в левую половину
-	Xl ^= F(ctx->S, Xr) ^ ctx->P[1];
+	Xl ^= ::__nts_blowfish__(ctx->S, Xr) ^ ctx->P[1];
 	// Завершаем наложением первого элемента
-	*xl = Xr ^ ctx->P[0];
+	(* xl) = (Xr ^ ctx->P[0]);
 	// Помещаем левую половину на место правой
-	*xr = Xl;
+	(* xr) = Xl;
 }
-
 /**
  * @brief Функция шифрования нескольких блоков
  *
@@ -438,7 +460,6 @@ void nts::cipher::encrypt(const blowfish_t * ctx, uint32_t * data, const size_t 
 		data += 2;
 	}
 }
-
 /**
  * @brief Функция расшифрования нескольких блоков
  *
@@ -458,7 +479,6 @@ void nts::cipher::decrypt(const blowfish_t * ctx, uint32_t * data, const size_t 
 		data += 2;
 	}
 }
-
 /**
  * @brief Функция расширения ключа без соли (eksblowfish phase 0)
  *
@@ -508,7 +528,6 @@ void nts::cipher::expand0(blowfish_t * ctx, const uint8_t * key, const size_t ke
 		}
 	}
 }
-
 /**
  * @brief Функция расширения ключа с солью (eksblowfish phase 1)
  *

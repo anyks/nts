@@ -425,7 +425,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __nts_compress_pair__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const uint8_t * first, const uint8_t * second, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_compress_pair__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const uint8_t * first, const uint8_t * second, uint8_t * out) noexcept {
 		// У семейства SHAKE все функции строятся губкой SHAKE256
 		if(setup.family == FAMILY_SHAKE){
 			// Губка выработки значения
@@ -500,7 +500,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __nts_compress_wide__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const view_t & value, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_compress_wide__(const params_t & setup, const uint8_t * pkSeed, const adrs_t adrs, const view_t & value, uint8_t * out) noexcept {
 		// У семейства SHAKE все функции строятся губкой SHAKE256
 		if(setup.family == FAMILY_SHAKE){
 			// Губка выработки значения
@@ -569,7 +569,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __nts_prf__(const params_t & setup, const uint8_t * pkSeed, const uint8_t * skSeed, const adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_prf__(const params_t & setup, const uint8_t * pkSeed, const uint8_t * skSeed, const adrs_t adrs, uint8_t * out) noexcept {
 		// У семейства SHAKE все функции строятся губкой SHAKE256
 		if(setup.family == FAMILY_SHAKE){
 			// Губка выработки значения
@@ -694,7 +694,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __nts_wots_pk_gen__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_wots_pk_gen__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Количество цепочек ключа: 2n значений сообщения и 3 контрольных
 		const size_t len = ((2 * setup.security) + CHECKSUM);
 		// Значения концов всех цепочек
@@ -792,7 +792,7 @@ namespace {
 	 * @return       место за записанной подписью
 	 *
 	 */
-	static uint8_t * __nts_wots_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ uint8_t * __nts_wots_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Полубайты сообщения и контрольной суммы
 		uint8_t nibbles[67];
 		// Раскладываем сообщение на полубайты
@@ -849,7 +849,7 @@ namespace {
 	 * @return       место за прочитанной подписью
 	 *
 	 */
-	static const uint8_t * __nts_wots_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint8_t * msg, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ const uint8_t * __nts_wots_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint8_t * msg, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Адрес цепочки
 		adrs_t chain;
 		// Полубайты сообщения и контрольной суммы
@@ -906,7 +906,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __nts_xmss_node__(const params_t & setup, const uint8_t * skSeed, const uint32_t node, const uint32_t height, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_xmss_node__(const params_t & setup, const uint8_t * skSeed, const uint32_t node, const uint32_t height, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Лист дерева: открытый ключ WOTS+ пары под номером узла
 		if(height == 0){
 			// Вид адреса листа дерева
@@ -956,7 +956,7 @@ namespace {
 	 * @return       место за записанной подписью
 	 *
 	 */
-	static uint8_t * __nts_xmss_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint32_t leaf, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ uint8_t * __nts_xmss_sign__(const params_t & setup, const uint8_t * msg, const uint8_t * skSeed, const uint32_t leaf, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Адрес подписи WOTS+
 		adrs_t wots;
 		// Копируем исходный адрес
@@ -998,7 +998,7 @@ namespace {
 	 * @return       место за прочитанной подписью
 	 *
 	 */
-	static const uint8_t * __nts_xmss_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint32_t leaf, const uint8_t * msg, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ const uint8_t * __nts_xmss_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint32_t leaf, const uint8_t * msg, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Адрес подписи WOTS+
 		adrs_t wots;
 		// Адрес дерева
@@ -1089,7 +1089,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static void __nts_fors_node__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, const uint32_t node, const uint32_t height, uint8_t * out) noexcept {
+	static __NTS_INLINE__ void __nts_fors_node__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, const uint32_t node, const uint32_t height, uint8_t * out) noexcept {
 		// Лист дерева: значение выжимается из секретного значения
 		if(height == 0){
 			// Секретное значение листа
@@ -1233,7 +1233,7 @@ namespace {
 	 * @return       место за прочитанной подписью
 	 *
 	 */
-	static const uint8_t * __nts_fors_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint8_t * digest, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_INLINE__ const uint8_t * __nts_fors_pk_from_sig__(const params_t & setup, const uint8_t * sig, const uint8_t * digest, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Смещение леса по деревьям
 		uint32_t forest = 0;
 		// Значения листьев по k деревьям
@@ -1480,7 +1480,7 @@ namespace {
 	 * @param result  место записи подписи: R ‖ FORS ‖ HT
 	 *
 	 */
-	static void __nts_signing__(const params_t & setup, const uint8_t * secret, const uint8_t * rnd, const view_t & message, const view_t & context, uint8_t * result) noexcept {
+	static __NTS_INLINE__ void __nts_signing__(const params_t & setup, const uint8_t * secret, const uint8_t * rnd, const view_t & message, const view_t & context, uint8_t * result) noexcept {
 		// Накопитель отличия случайности от нулей
 		uint32_t noisy = 0;
 		// Секретное зерно ключа
@@ -1664,7 +1664,7 @@ namespace {
 	 * @return          признак того, что подпись сошлась
 	 *
 	 */
-	static bool __nts_checking__(const params_t & setup, const uint8_t * key, const view_t & message, const view_t & context, const uint8_t * signature) noexcept {
+	static __NTS_INLINE__ bool __nts_checking__(const params_t & setup, const uint8_t * key, const view_t & message, const view_t & context, const uint8_t * signature) noexcept {
 		// Открытое зерно ключа
 		const uint8_t * pkSeed = key;
 		// Корень ключа проверки

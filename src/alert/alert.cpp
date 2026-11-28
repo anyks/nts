@@ -57,7 +57,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -70,14 +69,15 @@ namespace {
 	 * @return      признак того, что уровень определён протоколом
 	 *
 	 */
-	static bool __nts_suitable__(const level_t level) noexcept {
+	static constexpr bool __nts_suitable__(const level_t level) noexcept {
 		/**
 		 * Определяем уровень извещения
 		 */
 		switch(static_cast <uint8_t> (level)){
-			// Если это один из известных уровней извещения
-			case static_cast <uint8_t> (level_t::WARNING):
+			// Если уровень извещения установлен как фатальная ошибка
 			case static_cast <uint8_t> (level_t::FATAL):
+			// Если уровень извещения установлен как предупреждение
+			case static_cast <uint8_t> (level_t::WARNING):
 				// Выводим признак известности уровня извещения
 				return true;
 		}
@@ -130,7 +130,7 @@ alert::error_t nts::alert::build(const alert_t & alert, uint8_t * result) noexce
 		// Выводим отказ о непереданном месте записи
 		return error_t::EMPTY;
 	// Если уровень извещения протоколом не определён
-	if(!__nts_suitable__(alert.level))
+	if(!::__nts_suitable__(alert.level))
 		// Выводим отказ об уровне извещения
 		return error_t::LEVEL;
 	// Записываем уровень извещения
@@ -152,39 +152,70 @@ bool nts::alert::known(const description_t description) noexcept {
 	 * Определяем описание извещения
 	 */
 	switch(static_cast <uint8_t> (description)){
-		// Если это одно из известных описаний извещения
-		case static_cast <uint8_t> (description_t::CLOSE):
-		case static_cast <uint8_t> (description_t::UNEXPECTED):
+		// Если извещение — проверка целостности записи не прошла (bad_record_mac)
 		case static_cast <uint8_t> (description_t::MAC):
-		case static_cast <uint8_t> (description_t::DECRYPTION):
-		case static_cast <uint8_t> (description_t::OVERSIZE):
-		case static_cast <uint8_t> (description_t::COMPRESSION):
-		case static_cast <uint8_t> (description_t::HANDSHAKE):
-		case static_cast <uint8_t> (description_t::NOSIGNER):
-		case static_cast <uint8_t> (description_t::BADCERT):
-		case static_cast <uint8_t> (description_t::UNSUPPORTED):
-		case static_cast <uint8_t> (description_t::REVOKED):
-		case static_cast <uint8_t> (description_t::EXPIRED):
-		case static_cast <uint8_t> (description_t::UNKNOWNCERT):
-		case static_cast <uint8_t> (description_t::PARAMETER):
-		case static_cast <uint8_t> (description_t::AUTHORITY):
-		case static_cast <uint8_t> (description_t::ACCESS):
-		case static_cast <uint8_t> (description_t::DECODE):
-		case static_cast <uint8_t> (description_t::DECRYPT):
-		case static_cast <uint8_t> (description_t::VERSION):
-		case static_cast <uint8_t> (description_t::SECURITY):
-		case static_cast <uint8_t> (description_t::INTERNAL):
-		case static_cast <uint8_t> (description_t::FALLBACK):
-		case static_cast <uint8_t> (description_t::CANCELED):
-		case static_cast <uint8_t> (description_t::MISSING):
-		case static_cast <uint8_t> (description_t::EXTENSION):
-		case static_cast <uint8_t> (description_t::NAME):
-		case static_cast <uint8_t> (description_t::STATUS):
+		// Если извещение — опознаватель заранее разделённого ключа неизвестен (unknown_psk_identity)
 		case static_cast <uint8_t> (description_t::PSK):
-		case static_cast <uint8_t> (description_t::RENEGOTIATION):
+		// Если извещение — запрошенное имя стороне неизвестно (unrecognized_name)
+		case static_cast <uint8_t> (description_t::NAME):
+		// Если извещение — сторона завершила передачу данных (close_notify)
+		case static_cast <uint8_t> (description_t::CLOSE):
+		// Если извещение — ответ о состоянии сертификата негоден либо сертификат отозван (bad_certificate_status_response)
+		case static_cast <uint8_t> (description_t::STATUS):
+		// Если извещение — доступ по предъявленной подлинности запрещён (access_denied)
+		case static_cast <uint8_t> (description_t::ACCESS):
+		// Если извещение — сообщение разобрать не удалось (decode_error)
+		case static_cast <uint8_t> (description_t::DECODE):
+		// Если извещение — проверка подписи или обмена ключами не прошла (decrypt_error)
+		case static_cast <uint8_t> (description_t::DECRYPT):
+		// Если извещение — издание протокола не поддерживается (protocol_version)
+		case static_cast <uint8_t> (description_t::VERSION):
+		// Если извещение — сертификат испорчен (bad_certificate)
+		case static_cast <uint8_t> (description_t::BADCERT):
+		// Если извещение — сертификат отозван издателем (certificate_revoked)
+		case static_cast <uint8_t> (description_t::REVOKED):
+		// Если извещение — срок действия сертификата истёк (certificate_expired)
+		case static_cast <uint8_t> (description_t::EXPIRED):
+		// Если извещение — обязательное расширение в сообщении отсутствует (missing_extension)
+		case static_cast <uint8_t> (description_t::MISSING):
+		// Если извещение — подлинность стороны обязательна, но не подтверждена (certificate_required)
 		case static_cast <uint8_t> (description_t::REQUIRED):
+		// Если извещение — ни один из предложенных протоколов не поддержан (no_application_protocol)
 		case static_cast <uint8_t> (description_t::PROTOCOL):
+		// Если извещение — годного сертификата у стороны не нашлось (no_certificate)
+		case static_cast <uint8_t> (description_t::NOSIGNER):
+		// Если извещение — длина записи превышает дозволенную (record_overflow)
+		case static_cast <uint8_t> (description_t::OVERSIZE):
+		// Если извещение — согласованные условия недостаточно стойки (insufficient_security)
+		case static_cast <uint8_t> (description_t::SECURITY):
+		// Если извещение — внутренний отказ, к встречной стороне не относящийся (internal_error)
+		case static_cast <uint8_t> (description_t::INTERNAL):
+		// Если извещение — сторона отступила к изданию ниже доступного (inappropriate_fallback)
+		case static_cast <uint8_t> (description_t::FALLBACK):
+		// Если извещение — рукопожатие прервано по причине вне протокола (user_canceled)
+		case static_cast <uint8_t> (description_t::CANCELED):
+		// Если извещение — значение поля вышло за дозволенные пределы (illegal_parameter)
+		case static_cast <uint8_t> (description_t::PARAMETER):
+		// Если извещение — издатель сертификата доверия не имеет (unknown_ca)
+		case static_cast <uint8_t> (description_t::AUTHORITY):
+		// Если извещение — согласовать условия связи не удалось (handshake_failure)
+		case static_cast <uint8_t> (description_t::HANDSHAKE):
+		// Если извещение — прислано расширение, о котором не просили (unsupported_extension)
+		case static_cast <uint8_t> (description_t::EXTENSION):
+		// Если извещение — получено сообщение не в свой черёд (unexpected_message)
+		case static_cast <uint8_t> (description_t::UNEXPECTED):
+		// Если извещение — расшифрование записи не удалось (decryption_failed)
+		case static_cast <uint8_t> (description_t::DECRYPTION):
+		// Если извещение — развёртывание сжатого содержимого не удалось (decompression_failure)
+		case static_cast <uint8_t> (description_t::COMPRESSION):
+		// Если извещение — вид сертификата не поддерживается (unsupported_certificate)
+		case static_cast <uint8_t> (description_t::UNSUPPORTED):
+		// Если извещение — сертификат отвергнут по неназванной причине (certificate_unknown)
+		case static_cast <uint8_t> (description_t::UNKNOWNCERT):
+		// Если извещение — зашифрованное приветствие ECH отвергнуто сервером, а клиент требует ECH (ech_required)
 		case static_cast <uint8_t> (description_t::ECH_REQUIRED):
+		// Если извещение — пересогласование связи не дозволено (no_renegotiation)
+		case static_cast <uint8_t> (description_t::RENEGOTIATION):
 			// Выводим признак известности описания извещения
 			return true;
 	}
@@ -203,8 +234,9 @@ bool nts::alert::fatal(const alert_t & alert) noexcept {
 	 * Определяем описание извещения
 	 */
 	switch(static_cast <uint8_t> (alert.description)){
-		// Если сторона завершила передачу данных либо отменила рукопожатие
+		// Если сторона завершила передачу данных (close_notify)
 		case static_cast <uint8_t> (description_t::CLOSE):
+		// Если сторона отменила рукопожатие (user_canceled)
 		case static_cast <uint8_t> (description_t::CANCELED):
 			// Выводим признак того, что извещение смертельным не является
 			return false;
@@ -225,25 +257,44 @@ bool nts::alert::grave(const description_t description) noexcept {
 	 * раздела 8 RFC 6066, раздела 2 RFC 4279, раздела 3.2 RFC 7301 и раздела 3 RFC 7507
 	 */
 	switch(static_cast <uint8_t> (description)){
-		case static_cast <uint8_t> (description_t::UNEXPECTED):
-		case static_cast <uint8_t> (description_t::MAC):
-		case static_cast <uint8_t> (description_t::DECRYPTION):
-		case static_cast <uint8_t> (description_t::OVERSIZE):
-		case static_cast <uint8_t> (description_t::COMPRESSION):
-		case static_cast <uint8_t> (description_t::HANDSHAKE):
-		case static_cast <uint8_t> (description_t::PARAMETER):
-		case static_cast <uint8_t> (description_t::AUTHORITY):
-		case static_cast <uint8_t> (description_t::ACCESS):
-		case static_cast <uint8_t> (description_t::DECODE):
-		case static_cast <uint8_t> (description_t::DECRYPT):
-		case static_cast <uint8_t> (description_t::STATUS):
+		// Если извещение — опознаватель заранее разделённого ключа неизвестен (unknown_psk_identity)
 		case static_cast <uint8_t> (description_t::PSK):
-		case static_cast <uint8_t> (description_t::PROTOCOL):
+		// Если извещение — проверка целостности записи не прошла (bad_record_mac)
+		case static_cast <uint8_t> (description_t::MAC):
+		// Если извещение — ответ о состоянии сертификата негоден либо сертификат отозван (bad_certificate_status_response)
+		case static_cast <uint8_t> (description_t::STATUS):
+		// Если извещение — доступ по предъявленной подлинности запрещён (access_denied)
+		case static_cast <uint8_t> (description_t::ACCESS):
+		// Если извещение — сообщение разобрать не удалось (decode_error)
+		case static_cast <uint8_t> (description_t::DECODE):
+		// Если извещение — издание протокола не поддерживается (protocol_version)
 		case static_cast <uint8_t> (description_t::VERSION):
+		// Если извещение — проверка подписи или обмена ключами не прошла (decrypt_error)
+		case static_cast <uint8_t> (description_t::DECRYPT):
+		// Если извещение — длина записи превышает дозволенную (record_overflow)
+		case static_cast <uint8_t> (description_t::OVERSIZE):
+		// Если извещение — ни один из предложенных протоколов не поддержан (no_application_protocol)
+		case static_cast <uint8_t> (description_t::PROTOCOL):
+		// Если извещение — согласованные условия недостаточно стойки (insufficient_security)
 		case static_cast <uint8_t> (description_t::SECURITY):
+		// Если извещение — внутренний отказ, к встречной стороне не относящийся (internal_error)
 		case static_cast <uint8_t> (description_t::INTERNAL):
+		// Если извещение — сторона отступила к изданию ниже доступного (inappropriate_fallback)
 		case static_cast <uint8_t> (description_t::FALLBACK):
+		// Если извещение — прислано расширение, о котором не просили (unsupported_extension)
 		case static_cast <uint8_t> (description_t::EXTENSION):
+		// Если извещение — согласовать условия связи не удалось (handshake_failure)
+		case static_cast <uint8_t> (description_t::HANDSHAKE):
+		// Если извещение — значение поля вышло за дозволенные пределы (illegal_parameter)
+		case static_cast <uint8_t> (description_t::PARAMETER):
+		// Если извещение — издатель сертификата доверия не имеет (unknown_ca)
+		case static_cast <uint8_t> (description_t::AUTHORITY):
+		// Если извещение — получено сообщение не в свой черёд (unexpected_message)
+		case static_cast <uint8_t> (description_t::UNEXPECTED):
+		// Если извещение — расшифрование записи не удалось (decryption_failed)
+		case static_cast <uint8_t> (description_t::DECRYPTION):
+		// Если извещение — развёртывание сжатого содержимого не удалось (decompression_failure)
+		case static_cast <uint8_t> (description_t::COMPRESSION):
 			// Выводим признак описания, смертельного всегда
 			return true;
 	}
@@ -262,80 +313,143 @@ const char * nts::alert::name(const description_t description) noexcept {
 	 * Определяем описание извещения
 	 */
 	switch(static_cast <uint8_t> (description)){
-		// Если сторона завершила передачу данных
-		case static_cast <uint8_t> (description_t::CLOSE): return "close_notify";
-		// Если получено сообщение не в свой черёд
-		case static_cast <uint8_t> (description_t::UNEXPECTED): return "unexpected_message";
 		// Если проверка целостности записи не прошла
-		case static_cast <uint8_t> (description_t::MAC): return "bad_record_mac";
-		// Если расшифрование записи не удалось
-		case static_cast <uint8_t> (description_t::DECRYPTION): return "decryption_failed_RESERVED";
-		// Если длина записи превышает дозволенную
-		case static_cast <uint8_t> (description_t::OVERSIZE): return "record_overflow";
-		// Если развёртывание сжатого содержимого не удалось
-		case static_cast <uint8_t> (description_t::COMPRESSION): return "decompression_failure_RESERVED";
-		// Если согласовать условия связи не удалось
-		case static_cast <uint8_t> (description_t::HANDSHAKE): return "handshake_failure";
-		// Если годного сертификата у стороны не нашлось
-		case static_cast <uint8_t> (description_t::NOSIGNER): return "no_certificate_RESERVED";
-		// Если сертификат испорчен
-		case static_cast <uint8_t> (description_t::BADCERT): return "bad_certificate";
-		// Если вид сертификата не поддерживается
-		case static_cast <uint8_t> (description_t::UNSUPPORTED): return "unsupported_certificate";
-		// Если сертификат отозван издателем
-		case static_cast <uint8_t> (description_t::REVOKED): return "certificate_revoked";
-		// Если срок действия сертификата истёк
-		case static_cast <uint8_t> (description_t::EXPIRED): return "certificate_expired";
-		// Если сертификат отвергнут по неназванной причине
-		case static_cast <uint8_t> (description_t::UNKNOWNCERT): return "certificate_unknown";
-		// Если значение поля вышло за дозволенные пределы
-		case static_cast <uint8_t> (description_t::PARAMETER): return "illegal_parameter";
-		// Если издатель сертификата доверия не имеет
-		case static_cast <uint8_t> (description_t::AUTHORITY): return "unknown_ca";
-		// Если доступ по предъявленной подлинности запрещён
-		case static_cast <uint8_t> (description_t::ACCESS): return "access_denied";
-		// Если сообщение разобрать не удалось
-		case static_cast <uint8_t> (description_t::DECODE): return "decode_error";
-		// Если проверка подписи или обмена ключами не прошла
-		case static_cast <uint8_t> (description_t::DECRYPT): return "decrypt_error";
-		// Если издание протокола не поддерживается
-		case static_cast <uint8_t> (description_t::VERSION): return "protocol_version";
-		// Если согласованные условия недостаточно стойки
-		case static_cast <uint8_t> (description_t::SECURITY): return "insufficient_security";
-		// Если это внутренний отказ, к встречной стороне не относящийся
-		case static_cast <uint8_t> (description_t::INTERNAL): return "internal_error";
-		// Если сторона отступила к изданию ниже доступного
-		case static_cast <uint8_t> (description_t::FALLBACK): return "inappropriate_fallback";
-		// Если рукопожатие прервано по причине вне протокола
-		case static_cast <uint8_t> (description_t::CANCELED): return "user_canceled";
-		// Если обязательное расширение в сообщении отсутствует
-		case static_cast <uint8_t> (description_t::MISSING): return "missing_extension";
-		// Если прислано расширение, о котором не просили
-		case static_cast <uint8_t> (description_t::EXTENSION): return "unsupported_extension";
-		// Если запрошенное имя стороне неизвестно
-		case static_cast <uint8_t> (description_t::NAME): return "unrecognized_name";
-		// Если ответ о состоянии сертификата негоден либо сертификат отозван
-		case static_cast <uint8_t> (description_t::STATUS): return "bad_certificate_status_response";
+		case static_cast <uint8_t> (description_t::MAC):
+			// Выводим название bad_record_mac
+			return "bad_record_mac";
 		// Если опознаватель заранее разделённого ключа неизвестен
-		case static_cast <uint8_t> (description_t::PSK): return "unknown_psk_identity";
-		case static_cast <uint8_t> (description_t::ECH_REQUIRED): return "ech_required";
-		// Если подлинность стороны обязательна, но не подтверждена
-		case static_cast <uint8_t> (description_t::REQUIRED): return "certificate_required";
+		case static_cast <uint8_t> (description_t::PSK):
+			// Выводим название unknown_psk_identity
+			return "unknown_psk_identity";
+		// Если запрошенное имя стороне неизвестно
+		case static_cast <uint8_t> (description_t::NAME):
+			// Выводим название unrecognized_name
+			return "unrecognized_name";
+		// Если сторона завершила передачу данных
+		case static_cast <uint8_t> (description_t::CLOSE):
+			// Выводим название close_notify
+			return "close_notify";
+		// Если ответ о состоянии сертификата негоден либо сертификат отозван
+		case static_cast <uint8_t> (description_t::STATUS):
+			// Выводим название bad_certificate_status_response
+			return "bad_certificate_status_response";
+		// Если сообщение разобрать не удалось
+		case static_cast <uint8_t> (description_t::DECODE):
+			// Выводим название decode_error
+			return "decode_error";
+		// Если доступ по предъявленной подлинности запрещён
+		case static_cast <uint8_t> (description_t::ACCESS):
+			// Выводим название access_denied
+			return "access_denied";
+		// Если сертификат отозван издателем
+		case static_cast <uint8_t> (description_t::REVOKED):
+			// Выводим название certificate_revoked
+			return "certificate_revoked";
+		// Если срок действия сертификата истёк
+		case static_cast <uint8_t> (description_t::EXPIRED):
+			// Выводим название certificate_expired
+			return "certificate_expired";
+		// Если проверка подписи или обмена ключами не прошла
+		case static_cast <uint8_t> (description_t::DECRYPT):
+			// Выводим название decrypt_error
+			return "decrypt_error";
+		// Если издание протокола не поддерживается
+		case static_cast <uint8_t> (description_t::VERSION):
+			// Выводим название protocol_version
+			return "protocol_version";
+		// Если сертификат испорчен
+		case static_cast <uint8_t> (description_t::BADCERT):
+			// Выводим название bad_certificate
+			return "bad_certificate";
+		// Если обязательное расширение в сообщении отсутствует
+		case static_cast <uint8_t> (description_t::MISSING):
+			// Выводим название missing_extension
+			return "missing_extension";
+		// Если согласованные условия недостаточно стойки
+		case static_cast <uint8_t> (description_t::SECURITY):
+			// Выводим название insufficient_security
+			return "insufficient_security";
+		// Если это внутренний отказ, к встречной стороне не относящийся
+		case static_cast <uint8_t> (description_t::INTERNAL):
+			// Выводим название internal_error
+			return "internal_error";
+		// Если годного сертификата у стороны не нашлось
+		case static_cast <uint8_t> (description_t::NOSIGNER):
+			// Выводим название no_certificate_RESERVED
+			return "no_certificate_RESERVED";
 		// Если ни один из предложенных протоколов не поддержан
-		case static_cast <uint8_t> (description_t::PROTOCOL): return "no_application_protocol";
+		case static_cast <uint8_t> (description_t::PROTOCOL):
+			// Выводим название no_application_protocol
+			return "no_application_protocol";
+		// Если подлинность стороны обязательна, но не подтверждена
+		case static_cast <uint8_t> (description_t::REQUIRED):
+			// Выводим название certificate_required
+			return "certificate_required";
+		// Если длина записи превышает дозволенную
+		case static_cast <uint8_t> (description_t::OVERSIZE):
+			// Выводим название record_overflow
+			return "record_overflow";
+		// Если сторона отступила к изданию ниже доступного
+		case static_cast <uint8_t> (description_t::FALLBACK):
+			// Выводим название inappropriate_fallback
+			return "inappropriate_fallback";
+		// Если рукопожатие прервано по причине вне протокола
+		case static_cast <uint8_t> (description_t::CANCELED):
+			// Выводим название user_canceled
+			return "user_canceled";
+		// Если значение поля вышло за дозволенные пределы
+		case static_cast <uint8_t> (description_t::PARAMETER):
+			// Выводим название illegal_parameter
+			return "illegal_parameter";
+		// Если согласовать условия связи не удалось
+		case static_cast <uint8_t> (description_t::HANDSHAKE):
+			// Выводим название handshake_failure
+			return "handshake_failure";
+		// Если издатель сертификата доверия не имеет
+		case static_cast <uint8_t> (description_t::AUTHORITY):
+			// Выводим название unknown_ca
+			return "unknown_ca";
+		// Если прислано расширение, о котором не просили
+		case static_cast <uint8_t> (description_t::EXTENSION):
+			// Выводим название unsupported_extension
+			return "unsupported_extension";
+		// Если получено сообщение не в свой черёд
+		case static_cast <uint8_t> (description_t::UNEXPECTED):
+			// Выводим название unexpected_message
+			return "unexpected_message";
+		// Если расшифрование записи не удалось
+		case static_cast <uint8_t> (description_t::DECRYPTION):
+			// Выводим название decryption_failed_RESERVED
+			return "decryption_failed_RESERVED";
+		// Если сертификат отвергнут по неназванной причине
+		case static_cast <uint8_t> (description_t::UNKNOWNCERT):
+			// Выводим название certificate_unknown
+			return "certificate_unknown";
+		// Если развёртывание сжатого содержимого не удалось
+		case static_cast <uint8_t> (description_t::COMPRESSION):
+			// Выводим название decompression_failure_RESERVED
+			return "decompression_failure_RESERVED";
+		// Если вид сертификата не поддерживается
+		case static_cast <uint8_t> (description_t::UNSUPPORTED):
+			// Выводим название unsupported_certificate
+			return "unsupported_certificate";
+		// Если зашифрованное приветствие ECH отвергнуто сервером, а клиент требует ECH
+		case static_cast <uint8_t> (description_t::ECH_REQUIRED):
+			// Выводим название ech_required
+			return "ech_required";
 		// Если пересогласование связи не дозволено
-		case static_cast <uint8_t> (description_t::RENEGOTIATION): return "no_renegotiation";
+		case static_cast <uint8_t> (description_t::RENEGOTIATION):
+			// Выводим название no_renegotiation
+			return "no_renegotiation";
 	}
 	// Выводим название неизвестного описания извещения
 	return "unknown_alert";
 }
-
 /**
  * @brief Конструктор
  *
  */
 nts::alert::Alert::Alert() noexcept : level(level_t::NONE), description(description_t::INTERNAL) {}
-
 /**
  * @brief Конструктор
  *

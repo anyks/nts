@@ -91,7 +91,6 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-
 	/**
 	 * Пространство имён модуля
 	 */
@@ -316,7 +315,7 @@ void nts::math::field448::store(const element_t & value, uint8_t * data) noexcep
 	// Приводимая копия элемента
 	element_t item = value;
 	// Полное приведение элемента
-	__nts_reduce__(item);
+	::__nts_reduce__(item);
 	// Слова записываемого элемента
 	uint64_t words[7];
 	// Собираем первое слово из нулевой и первой конечностей

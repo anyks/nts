@@ -399,7 +399,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			// Выводим отказ обрыва
 			return error_t::HUNGRY;
 		// Длина перечня
-		const size_t length = __nts_twain__(data.data);
+		const size_t length = ::__nts_twain__(data.data);
 		// Если перечень пуст либо в байты не входит
 		if((length < 4) || ((2 + length) != data.size))
 			// Выводим отказ записи
@@ -415,7 +415,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			// Количество прочитанных байтов
 			size_t consumed = 0;
 			// Отказ разбора конфигурации
-			const error_t failure = __nts_solitary__(view_t(data.data + offset, data.size - offset), config, consumed);
+			const error_t failure = ::__nts_solitary__(view_t(data.data + offset, data.size - offset), config, consumed);
 			// Если конфигурация оборвана либо сложена не по правилам
 			if((failure != error_t::NONE) && (failure != error_t::VERSION)){
 				// Сбрасываем перечень
@@ -443,7 +443,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 			 * ключ обязан быть длиной ключа KEM, иначе отправителя HPKE не завести и
 			 * следующая годная конфигурация перечня осталась бы непопробованной
 			 */
-			for(size_t at = 0; usable && ((at + 4) <= config.extensions.size()); at += (4 + __nts_twain__(config.extensions.data() + at + 2)))
+			for(size_t at = 0; usable && ((at + 4) <= config.extensions.size()); at += (4 + ::__nts_twain__(config.extensions.data() + at + 2)))
 				// Обязательное расширение делает конфигурацию негодной
 				usable = ((config.extensions[at] & 0x80) == 0);
 			// Если ключ не длиной ключа KEM способа конфигурации
@@ -451,7 +451,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, vector <config_t> & resul
 				// Конфигурация негодна
 				usable = false;
 			// Раздел 4 RFC 9849: конфигурация с публичным именем не вида DNS пропускается
-			if(usable && !__nts_named__(config.name))
+			if(usable && !::__nts_named__(config.name))
 				// Конфигурация негодна
 				usable = false;
 			// Если конфигурация исполнима
@@ -491,7 +491,7 @@ nts::ech::error_t nts::ech::parse(const view_t & data, config_t & result) noexce
 			// Выводим отказ обрыва
 			return error_t::HUNGRY;
 		// Отказ разбора конфигурации
-		const error_t failure = __nts_solitary__(data, result, consumed);
+		const error_t failure = ::__nts_solitary__(data, result, consumed);
 		// Если конфигурация не разобрана
 		if(failure != error_t::NONE){
 			// Сбрасываем конфигурацию
@@ -1274,7 +1274,6 @@ bool nts::ech::supported(const hpke::kem_t kem, const suite_t & suite) noexcept 
  *
  */
 nts::ech::Suite::Suite() noexcept : kdf(hpke::kdf_t::NONE), aead(hpke::aead_t::NONE) {}
-
 /**
  * @brief Конструктор
  *

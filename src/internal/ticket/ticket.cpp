@@ -45,8 +45,12 @@
 #include "cipher/aes.hpp"
 #include "cipher/mode.hpp"
 #include "digest/hmac.hpp"
-#include <message/message.hpp>
+#include "message/message.hpp"
 #include "entropy/entropy.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
 #include "internal/ticket/ticket.hpp"
 
 /**
@@ -63,14 +67,16 @@ namespace {
 	 * Пространство имён библиотеки
 	 */
 	using namespace nts;
-	// Затирание областей памяти берётся из открытого API библиотеки
+
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
 	/**
 	 * Длина блока AES-128 и вектора замены билета: раздел 4 RFC 5077
 	 */
 	static constexpr size_t BLOCK = 16;
-
 	/**
 	 * Издание записи состояния билета: второе несёт порядок RFC 7366, подлинность
 	 * клиента, имя узла и сертификат клиента; третье добавило издание выдавшей связи
@@ -80,28 +86,28 @@ namespace {
 	static constexpr uint8_t STATE = 0x04;
 
 	/**
-	 * Метки вывода частей ключа билетов из секрета потребителя
-	 */
-	static const char * LABELS[3] = {"session ticket key name", "session ticket key aes", "session ticket key mac"};
-
-	/**
 	 * Наименьшая длина билета: имя ключа, вектор, длина, хоть один блок и имитовставка
 	 */
 	static constexpr size_t LEAST = (internal::ticket::TICKET_NAME + BLOCK + 2 + BLOCK + internal::ticket::TICKET_MAC);
 
 	/**
+	 * Метки вывода частей ключа билетов из секрета потребителя
+	 */
+	static const char * LABELS[3] = {"session ticket key name", "session ticket key aes", "session ticket key mac"};
+
+	/**
 	 * @brief Функция вывода ключа билетов из секрета потребителя
+	 *
+	 * @details Три значения HMAC-SHA256 от секрета своими метками: имя ключа - первые
+	 *          шестнадцать байтов первого, ключ AES - первые шестнадцать второго, ключ
+	 *          имитовставки - третье целиком.
 	 *
 	 * @param secret секрет любой длины
 	 * @param result место, в которое помещаются имя ключа, ключ шифрования и ключ имитовставки подряд
 	 * @return       признак успешности вывода
 	 *
-	 * @details Три значения HMAC-SHA256 от секрета своими метками: имя ключа - первые
-	 *          шестнадцать байтов первого, ключ AES - первые шестнадцать второго, ключ
-	 *          имитовставки - третье целиком
-	 *
 	 */
-	static bool __nts_keyring__(const view_t & secret, uint8_t * result) noexcept {
+	static __NTS_INLINE__ bool __nts_keyring__(const view_t & secret, uint8_t * result) noexcept {
 		// Длины частей ключа билетов
 		static const size_t widths[3] = {internal::ticket::TICKET_NAME, internal::ticket::TICKET_KEY, internal::ticket::TICKET_MAC};
 		// Смещение очередной части в месте итога
@@ -128,7 +134,7 @@ namespace {
 	 * @return        отказ составителя полей
 	 *
 	 */
-	static field::error_t __nts_compose__(const internal::ticket::state_t & state, field::builder_t & builder) noexcept {
+	static __NTS_INLINE__ field::error_t __nts_compose__(const internal::ticket::state_t & state, field::builder_t & builder) noexcept {
 		// Миг выдачи билета в записи без знака
 		const uint64_t moment = static_cast <uint64_t> (state.moment);
 		// Записываем издание записи состояния
@@ -226,7 +232,7 @@ namespace {
 	 * @return       признак того, что запись сложена по правилам нынешнего издания
 	 *
 	 */
-	static bool __nts_decompose__(const view_t & data, internal::ticket::state_t & result) noexcept {
+	static __NTS_INLINE__ bool __nts_decompose__(const view_t & data, internal::ticket::state_t & result) noexcept {
 		// Объект разборщика состояния билета
 		field::scanner_t scanner;
 		// Устанавливаем разбираемое состояние
@@ -314,22 +320,25 @@ void nts::internal::ticket::State::clear() noexcept {
 	this->verified = false;
 	// Сбрасываем миг выдачи
 	this->moment = 0;
-	// Сбрасываем миг первичного удостоверения
-	this->authenticated = 0;
 	// Сбрасываем срок жизни
 	this->lifetime = 0;
-	// Сбрасываем прикладной протокол
-	this->protocol.clear();
+	// Сбрасываем миг первичного удостоверения
+	this->authenticated = 0;
 	// Сбрасываем имя узла
 	this->name.clear();
 	// Сбрасываем сертификат клиента
 	this->leaf.clear();
+	// Сбрасываем прикладной протокол
+	this->protocol.clear();
 }
 /**
  * @brief Конструктор
  *
  */
-nts::internal::ticket::State::State() noexcept : suite(protect::suite_t::NONE), etm(false), ancient(false), verified(false), moment(0), authenticated(0), lifetime(0) {
+nts::internal::ticket::State::State() noexcept : 
+ etm(false), ancient(false), verified(false),
+ lifetime(0), moment(0), authenticated(0),
+ suite(protect::suite_t::NONE), name{""}, protocol{""} {
 	// Обнуление главного секрета
 	::memset(this->master, 0, sizeof(this->master));
 }

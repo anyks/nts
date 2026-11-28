@@ -534,7 +534,7 @@ bool nts::cipher::Des::key(const view_t & key) noexcept {
 	 */
 	for(size_t i = 0; i < this->_keys; i++)
 		// Выводим раундовые ключи очередного ключа DES
-		__nts_schedule__(key.data + i * DES_KEY, this->_rounds[i]);
+		::__nts_schedule__(key.data + i * DES_KEY, this->_rounds[i]);
 	// Помечаем ключ установленным
 	this->_ready = true;
 	// Выводим признак успешности установки ключа
@@ -566,11 +566,11 @@ bool nts::cipher::Des::encrypt(const uint8_t * source, uint8_t * result) const n
 		// Выводим отказ зашифрования
 		return false;
 	// Преобразуемый блок числом
-	uint64_t block = __nts_fetch__(source);
+	uint64_t block = ::__nts_fetch__(source);
 	// Если ключей три (3DES)
 	if(this->_keys > 1){
 		// Блок после начальной перестановки
-		const uint64_t permuted = __nts_entering__(block);
+		const uint64_t permuted = ::__nts_entering__(block);
 		// Левая и правая половины блока
 		uint32_t left = static_cast <uint32_t> (permuted >> 32);
 		// Правая половина блока
@@ -582,23 +582,23 @@ bool nts::cipher::Des::encrypt(const uint8_t * source, uint8_t * result) const n
 		 * а между проходами половины меняются местами, как того требует
 		 * завершение всякого прохода
 		 */
-		__nts_circles__(left, right, this->_rounds[0], false);
+		::__nts_circles__(left, right, this->_rounds[0], false);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t swap = left; left = right; right = swap;
 		// Средний проход расшифрованием вторым ключом
-		__nts_circles__(left, right, this->_rounds[1], true);
+		::__nts_circles__(left, right, this->_rounds[1], true);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t change = left; left = right; right = change;
 		// Третий проход зашифрованием третьим ключом
-		__nts_circles__(left, right, this->_rounds[2], false);
+		::__nts_circles__(left, right, this->_rounds[2], false);
 		// Запоминаем блок после конечной перестановки
-		block = __nts_leaving__((static_cast <uint64_t> (right) << 32) | left);
+		block = ::__nts_leaving__((static_cast <uint64_t> (right) << 32) | left);
 	// Иначе одиночный DES
 	} else
 		// Зашифровываем единственным ключом
-		block = __nts_transform__(block, this->_rounds[0], false);
+		block = ::__nts_transform__(block, this->_rounds[0], false);
 	// Записываем зашифрованный блок
-	__nts_store__(block, result);
+	::__nts_store__(block, result);
 	// Выводим признак успешности зашифрования
 	return true;
 }
@@ -616,11 +616,11 @@ bool nts::cipher::Des::decrypt(const uint8_t * source, uint8_t * result) const n
 		// Выводим отказ расшифрования
 		return false;
 	// Преобразуемый блок числом
-	uint64_t block = __nts_fetch__(source);
+	uint64_t block = ::__nts_fetch__(source);
 	// Если ключей три (3DES)
 	if(this->_keys > 1){
 		// Блок после начальной перестановки
-		const uint64_t permuted = __nts_entering__(block);
+		const uint64_t permuted = ::__nts_entering__(block);
 		// Левая и правая половины блока
 		uint32_t left = static_cast <uint32_t> (permuted >> 32);
 		// Правая половина блока
@@ -630,23 +630,23 @@ bool nts::cipher::Des::decrypt(const uint8_t * source, uint8_t * result) const n
 		 * и при зашифровании: перестановки применяются к череду лишь по разу,
 		 * а между проходами половины меняются местами
 		 */
-		__nts_circles__(left, right, this->_rounds[2], true);
+		::__nts_circles__(left, right, this->_rounds[2], true);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t swap = left; left = right; right = swap;
 		// Средний проход зашифрованием вторым ключом
-		__nts_circles__(left, right, this->_rounds[1], false);
+		::__nts_circles__(left, right, this->_rounds[1], false);
 		// Меняем половины блока местами на границе проходов
 		const uint32_t change = left; left = right; right = change;
 		// Первый проход расшифрованием первым ключом
-		__nts_circles__(left, right, this->_rounds[0], true);
+		::__nts_circles__(left, right, this->_rounds[0], true);
 		// Запоминаем блок после конечной перестановки
-		block = __nts_leaving__((static_cast <uint64_t> (right) << 32) | left);
+		block = ::__nts_leaving__((static_cast <uint64_t> (right) << 32) | left);
 	// Иначе одиночный DES
 	} else
 		// Расшифровываем единственным ключом
-		block = __nts_transform__(block, this->_rounds[0], true);
+		block = ::__nts_transform__(block, this->_rounds[0], true);
 	// Записываем расшифрованный блок
-	__nts_store__(block, result);
+	::__nts_store__(block, result);
 	// Выводим признак успешности расшифрования
 	return true;
 }

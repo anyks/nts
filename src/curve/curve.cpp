@@ -880,7 +880,7 @@ namespace {
 	 * @param result      место, в которое помещается удвоенная точка
 	 *
 	 */
-	static void __nts_doubling__(const F & f, const bool shortened, const typename F::value_t & coefficient, const triple_t <typename F::value_t> & value, triple_t <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void __nts_doubling__(const F & f, const bool shortened, const typename F::value_t & coefficient, const triple_t <typename F::value_t> & value, triple_t <typename F::value_t> & result) noexcept {
 		/**
 		 * Создаём тип данных значения поля
 		 */
@@ -982,7 +982,7 @@ namespace {
 	 * @param result место, в которое помещается сумма точек
 	 *
 	 */
-	static void __nts_attaching__(const F & f, const triple_t <typename F::value_t> & first, const triple_t <typename F::value_t> & second, triple_t <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void __nts_attaching__(const F & f, const triple_t <typename F::value_t> & first, const triple_t <typename F::value_t> & second, triple_t <typename F::value_t> & result) noexcept {
 		/**
 		 * Создаём тип данных значения поля
 		 */
@@ -1080,7 +1080,7 @@ namespace {
 	 * @param result место, в которое помещается сумма точек
 	 *
 	 */
-	static void __nts_joining__(const F & f, const triple_t <typename F::value_t> & first, const triple_t <typename F::value_t> & second, triple_t <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void __nts_joining__(const F & f, const triple_t <typename F::value_t> & first, const triple_t <typename F::value_t> & second, triple_t <typename F::value_t> & result) noexcept {
 		/**
 		 * Создаём тип данных значения поля
 		 */
@@ -1176,7 +1176,7 @@ namespace {
 	 * @param result      место, в которое помещается сумма точек
 	 *
 	 */
-	static void __nts_adding__(const F & f, const bool shortened, const typename F::value_t & coefficient, const triple_t <typename F::value_t> & first, const triple_t <typename F::value_t> & second, triple_t <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void __nts_adding__(const F & f, const bool shortened, const typename F::value_t & coefficient, const triple_t <typename F::value_t> & first, const triple_t <typename F::value_t> & second, triple_t <typename F::value_t> & result) noexcept {
 		/**
 		 * Создаём тип данных значения поля
 		 */
@@ -1382,7 +1382,7 @@ namespace {
 	 * @param result      место, в которое помещается произведение
 	 *
 	 */
-	static void __nts_multiplying__(const F & f, const bool shortened, const typename F::value_t & coefficient, const triple_t <typename F::value_t> & value, const math::number_t & factor, const size_t bits, triple_t <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void __nts_multiplying__(const F & f, const bool shortened, const typename F::value_t & coefficient, const triple_t <typename F::value_t> & value, const math::number_t & factor, const size_t bits, triple_t <typename F::value_t> & result) noexcept {
 		/**
 		 * Создаём тип данных значения поля
 		 */
@@ -1534,7 +1534,7 @@ namespace {
 	 * @param result    место, в которое помещается произведение
 	 *
 	 */
-	static void __nts_producing__(const F & f, const precomputed_t * multiples, const typename F::value_t & unit, const math::number_t & factor, triple_t <typename F::value_t> & result) noexcept {
+	static __NTS_INLINE__ void __nts_producing__(const F & f, const precomputed_t * multiples, const typename F::value_t & unit, const math::number_t & factor, triple_t <typename F::value_t> & result) noexcept {
 		/**
 		 * Создаём тип данных значения поля
 		 */
@@ -2107,11 +2107,11 @@ bool nts::curve::Curve::coordinates(const point_t & value, uint8_t * x, uint8_t 
 		ok = ((y == nullptr) || this->_field.store(item2, y, size));
 	}
 	// Затирание выведенной координаты точки
-	__nts_wipe__(item2);
+	::__nts_wipe__(item2);
 	// Затирание степеней обратного значения
-	__nts_wipe__(square);
+	::__nts_wipe__(square);
 	// Затирание обратного значения третьей координаты
-	__nts_wipe__(item);
+	::__nts_wipe__(item);
 	// Выводим признак успешности записи координат точки
 	return ok;
 }
@@ -2139,21 +2139,21 @@ void nts::curve::Curve::twice(const point_t & value, point_t & result) const noe
 	// Если поле в 256 бит (4 слова) — P-256 и кривые ГОСТ на 256 разрядов; формула во всех ветках одна, различается лишь арифметика поля ради скорости
 	if(words == 4){
 		// Если у машины есть команды MULX и ADCX/ADOX: умножение поля P-256 быстрее на двух независимых потоках переносов, признак снят один раз и от данных не зависит
-		if(__nts_mulx_ready__(this->_field.layout()))
+		if(::__nts_mulx_ready__(this->_field.layout()))
 			// Удваиваем точку на быстрых ядрах MULX и ADCX/ADOX
-			__nts_twicing__(fast_t <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, result);
+			::__nts_twicing__(fast_t <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 		// Иначе команд MULX и ADCX/ADOX у машины нет
 		else
 			// Удваиваем точку обычной встраиваемой арифметикой четырёх слов
-			__nts_twicing__(fast_t <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
+			::__nts_twicing__(fast_t <4> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	// Если поле в 512 бит (8 слов) — кривые ГОСТ на 512 разрядов
 	} else if(words == 8)
 		// Удваиваем точку встраиваемой арифметикой восьми слов
-		__nts_twicing__(fast_t <8> {this->_field.layout()}, this->_shortened, this->_first, value, result);
+		::__nts_twicing__(fast_t <8> {this->_field.layout()}, this->_shortened, this->_first, value, result);
 	// Иначе прочих ширин поля: встраиваемых ядер под них нет
 	else
 		// Удваиваем точку общей арифметикой по модулю
-		__nts_twicing__(slow_t {this->_field}, this->_shortened, this->_first, value, result);
+		::__nts_twicing__(slow_t {this->_field}, this->_shortened, this->_first, value, result);
 }
 /**
  * @brief Метод сложения точек кривой без ветвления
@@ -2169,21 +2169,21 @@ void nts::curve::Curve::attach(const point_t & first, const point_t & second, po
 	// Если поле в 256 бит (4 слова) — P-256 и кривые ГОСТ на 256 разрядов; формула во всех ветках одна, различается лишь арифметика поля ради скорости
 	if(words == 4){
 		// Если у машины есть команды MULX и ADCX/ADOX: умножение поля P-256 быстрее на двух независимых потоках переносов, признак снят один раз и от данных не зависит
-		if(__nts_mulx_ready__(this->_field.layout()))
+		if(::__nts_mulx_ready__(this->_field.layout()))
 			// Складываем точки на быстрых ядрах MULX и ADCX/ADOX
-			__nts_attachment__(fast_t <4, true> {this->_field.layout()}, first, second, result);
+			::__nts_attachment__(fast_t <4, true> {this->_field.layout()}, first, second, result);
 		// Иначе команд MULX и ADCX/ADOX у машины нет
 		else
 			// Складываем точки обычной встраиваемой арифметикой четырёх слов
-			__nts_attachment__(fast_t <4> {this->_field.layout()}, first, second, result);
+			::__nts_attachment__(fast_t <4> {this->_field.layout()}, first, second, result);
 	// Если поле в 512 бит (8 слов) — кривые ГОСТ на 512 разрядов
 	} else if(words == 8)
 		// Складываем точки встраиваемой арифметикой восьми слов
-		__nts_attachment__(fast_t <8> {this->_field.layout()}, first, second, result);
+		::__nts_attachment__(fast_t <8> {this->_field.layout()}, first, second, result);
 	// Иначе прочих ширин поля: встраиваемых ядер под них нет
 	else
 		// Складываем точки общей арифметикой по модулю
-		__nts_attachment__(slow_t {this->_field}, first, second, result);
+		::__nts_attachment__(slow_t {this->_field}, first, second, result);
 }
 /**
  * @brief Метод сложения точек кривой с аффинным вторым слагаемым
@@ -2199,21 +2199,21 @@ void nts::curve::Curve::join(const point_t & first, const point_t & second, poin
 	// Если поле в 256 бит (4 слова) — P-256 и кривые ГОСТ на 256 разрядов; формула во всех ветках одна, различается лишь арифметика поля ради скорости
 	if(words == 4){
 		// Если у машины есть команды MULX и ADCX/ADOX: умножение поля P-256 быстрее на двух независимых потоках переносов, признак снят один раз и от данных не зависит
-		if(__nts_mulx_ready__(this->_field.layout()))
+		if(::__nts_mulx_ready__(this->_field.layout()))
 			// Складываем точки на быстрых ядрах MULX и ADCX/ADOX
-			__nts_junction__(fast_t <4, true> {this->_field.layout()}, first, second, result);
+			::__nts_junction__(fast_t <4, true> {this->_field.layout()}, first, second, result);
 		// Иначе команд MULX и ADCX/ADOX у машины нет
 		else
 			// Складываем точки обычной встраиваемой арифметикой четырёх слов
-			__nts_junction__(fast_t <4> {this->_field.layout()}, first, second, result);
+			::__nts_junction__(fast_t <4> {this->_field.layout()}, first, second, result);
 	// Если поле в 512 бит (8 слов) — кривые ГОСТ на 512 разрядов
 	} else if(words == 8)
 		// Складываем точки встраиваемой арифметикой восьми слов
-		__nts_junction__(fast_t <8> {this->_field.layout()}, first, second, result);
+		::__nts_junction__(fast_t <8> {this->_field.layout()}, first, second, result);
 	// Иначе прочих ширин поля: встраиваемых ядер под них нет
 	else
 		// Складываем точки общей арифметикой по модулю
-		__nts_junction__(slow_t {this->_field}, first, second, result);
+		::__nts_junction__(slow_t {this->_field}, first, second, result);
 }
 /**
  * @brief Метод сложения точек кривой
@@ -2229,21 +2229,21 @@ void nts::curve::Curve::add(const point_t & first, const point_t & second, point
 	// Если поле в 256 бит (4 слова) — P-256 и кривые ГОСТ на 256 разрядов; формула во всех ветках одна, различается лишь арифметика поля ради скорости
 	if(words == 4){
 		// Если у машины есть команды MULX и ADCX/ADOX: умножение поля P-256 быстрее на двух независимых потоках переносов, признак снят один раз и от данных не зависит
-		if(__nts_mulx_ready__(this->_field.layout()))
+		if(::__nts_mulx_ready__(this->_field.layout()))
 			// Складываем точки на быстрых ядрах MULX и ADCX/ADOX
-			__nts_summation__(fast_t <4, true> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
+			::__nts_summation__(fast_t <4, true> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 		// Иначе команд MULX и ADCX/ADOX у машины нет
 		else
 			// Складываем точки обычной встраиваемой арифметикой четырёх слов
-			__nts_summation__(fast_t <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
+			::__nts_summation__(fast_t <4> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	// Если поле в 512 бит (8 слов) — кривые ГОСТ на 512 разрядов
 	} else if(words == 8)
 		// Складываем точки встраиваемой арифметикой восьми слов
-		__nts_summation__(fast_t <8> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
+		::__nts_summation__(fast_t <8> {this->_field.layout()}, this->_shortened, this->_first, first, second, result);
 	// Иначе прочих ширин поля: встраиваемых ядер под них нет
 	else
 		// Складываем точки общей арифметикой по модулю
-		__nts_summation__(slow_t {this->_field}, this->_shortened, this->_first, first, second, result);
+		::__nts_summation__(slow_t {this->_field}, this->_shortened, this->_first, first, second, result);
 }
 /**
  * @brief Метод умножения точки кривой на число
@@ -2261,26 +2261,26 @@ void nts::curve::Curve::multiply(const point_t & value, const math::number_t & f
 	// Если поле в 256 бит (4 слова) — P-256 и кривые ГОСТ на 256 разрядов; формула во всех ветках одна, различается лишь арифметика поля ради скорости
 	if(words == 4){
 		// Если у машины есть команды MULX и ADCX/ADOX: умножение поля P-256 быстрее на двух независимых потоках переносов, признак снят один раз и от данных не зависит
-		if(__nts_mulx_ready__(this->_field.layout()))
+		if(::__nts_mulx_ready__(this->_field.layout()))
 			// Умножаем на быстрых ядрах MULX и ADCX/ADOX
-			__nts_multiplication__(fast_t <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
+			::__nts_multiplication__(fast_t <4, true> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 		// Иначе команд MULX и ADCX/ADOX у машины нет
 		else
 			// Умножаем обычной встраиваемой арифметикой четырёх слов
-			__nts_multiplication__(fast_t <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
+			::__nts_multiplication__(fast_t <4> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 	// Если поле в 512 бит (8 слов) — кривые ГОСТ на 512 разрядов
 	} else if(words == 8)
 		// Умножаем встраиваемой арифметикой восьми слов
-		__nts_multiplication__(fast_t <8> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
+		::__nts_multiplication__(fast_t <8> {this->_field.layout()}, this->_shortened, this->_first, value, factor, bits, result);
 	// Иначе прочих ширин поля: встраиваемых ядер под них нет
 	else
 		// Умножаем общей арифметикой по модулю
-		__nts_multiplication__(slow_t {this->_field}, this->_shortened, this->_first, value, factor, bits, result);
+		::__nts_multiplication__(slow_t {this->_field}, this->_shortened, this->_first, value, factor, bits, result);
 	/**
 	 * Накопленное произведение и выбранные кратные выведены из множителя, а
 	 * множитель секретен: кадры стека шагов умножения перезаписываются
 	 */
-	__nts_overwrite__();
+	::__nts_overwrite__();
 }
 /**
  * @brief Метод умножения точки основания кривой на число
@@ -2302,37 +2302,37 @@ void nts::curve::Curve::product(const math::number_t & factor, point_t & result)
 	// Если поле в 256 бит (4 слова) — P-256 и кривые ГОСТ на 256 разрядов; формула во всех ветках одна, различается лишь арифметика поля ради скорости
 	if(multiples->words == 4){
 		// Если у машины есть команды MULX и ADCX/ADOX: умножение поля P-256 быстрее на двух независимых потоках переносов, признак снят один раз и от данных не зависит
-		if(__nts_mulx_ready__(this->_field.layout()))
+		if(::__nts_mulx_ready__(this->_field.layout()))
 			// Умножаем на быстрых ядрах MULX и ADCX/ADOX
-			__nts_production__(fast_t <4, true> {this->_field.layout()}, multiples, this->_unit, factor, result);
+			::__nts_production__(fast_t <4, true> {this->_field.layout()}, multiples, this->_unit, factor, result);
 		// Иначе команд MULX и ADCX/ADOX у машины нет
 		else
 			// Умножаем обычной встраиваемой арифметикой четырёх слов
-			__nts_production__(fast_t <4> {this->_field.layout()}, multiples, this->_unit, factor, result);
+			::__nts_production__(fast_t <4> {this->_field.layout()}, multiples, this->_unit, factor, result);
 	// Если поле в 512 бит (8 слов) — кривые ГОСТ на 512 разрядов
 	} else if(multiples->words == 8)
 		// Умножаем встраиваемой арифметикой восьми слов
-		__nts_production__(fast_t <8> {this->_field.layout()}, multiples, this->_unit, factor, result);
+		::__nts_production__(fast_t <8> {this->_field.layout()}, multiples, this->_unit, factor, result);
 	// Иначе прочих ширин поля: встраиваемых ядер под них нет
 	else
 		// Умножаем общей арифметикой по модулю
-		__nts_production__(slow_t {this->_field}, multiples, this->_unit, factor, result);
+		::__nts_production__(slow_t {this->_field}, multiples, this->_unit, factor, result);
 	// Перезапись кадров стека шагов умножения
-	__nts_overwrite__();
+	::__nts_overwrite__();
 }
 /**
  * @brief Метод счёта суммы двух произведений точек кривой на числа
+ *
+ * @note Произведения считаются порознь: точка основания заготовленными кратными без
+ *       единого удвоения, иная точка окнами Бута, и сумма их берётся одним сложением.
+ *       Совместные окна по два разряда стоили 256 удвоений и около 135 сложений с
+ *       ветвлениями против 255 удвоений и 52 + 43 сложений здесь
  *
  * @param first  первая умножаемая точка
  * @param single число, на которое умножается первая точка
  * @param second вторая умножаемая точка
  * @param pair   число, на которое умножается вторая точка
  * @param result место, в которое помещается сумма произведений
- *
- * @note Произведения считаются порознь: точка основания заготовленными кратными без
- *       единого удвоения, иная точка окнами Бута, и сумма их берётся одним сложением.
- *       Совместные окна по два разряда стоили 256 удвоений и около 135 сложений с
- *       ветвлениями против 255 удвоений и 52 + 43 сложений здесь
  *
  */
 void nts::curve::Curve::combine(const point_t & first, const math::number_t & single, const point_t & second, const math::number_t & pair, point_t & result) const noexcept {

@@ -769,8 +769,9 @@ bool nts::sign::Rsa::key(const view_t & modulus, const view_t & exponent) noexce
 	 * Модуль обязан быть нечётным и допустимой длины, показатель - нечётным,
 	 * не меньше трёх и меньше модуля
 	 */
-	if((this->_bits < LEAST_BITS) || (this->_bits > math::INTEGER_BITS) || !this->_modulus.odd() ||
-	   !this->_exponent.odd() || (this->_exponent.compare(three) < 0) || (this->_exponent.compare(this->_modulus) >= 0) || (this->_exponent.bits() > EXPONENT_BITS)){
+	if((this->_bits < LEAST_BITS) || (this->_bits > math::INTEGER_BITS) ||
+	   !this->_modulus.odd() || !this->_exponent.odd() || (this->_exponent.compare(three) < 0) ||
+	   (this->_exponent.compare(this->_modulus) >= 0) || (this->_exponent.bits() > EXPONENT_BITS)){
 		// Сбрасываем состояние модуля
 		this->clear();
 		// Выводим отрицательный результат - ключ не по границам
@@ -1132,14 +1133,14 @@ bool nts::sign::Rsa::encipher(const view_t & input, uint8_t * output) const noex
 /**
  * @brief Метод сборки числа по китайской теореме об остатках за постоянное время
  *
+ * @note Сборка по Гарнеру: h = qInv·(first − second) mod p, итог = second + h·q.
+ *       Все шаги идут за постоянное время: приведение вычета по второму сомножителю
+ *       к первому - проходами Монтгомери, а не делением столбиком
+ *
  * @param first  вычет по первому сомножителю
  * @param second вычет по второму сомножителю
  * @param result место, в которое помещается собранное число
  * @return       признак успешности сборки
- *
- * @note Сборка по Гарнеру: h = qInv·(first − second) mod p, итог = second + h·q.
- *       Все шаги идут за постоянное время: приведение вычета по второму сомножителю
- *       к первому - проходами Монтгомери, а не делением столбиком
  *
  */
 bool nts::sign::Rsa::garner(const math::integer_t & first, const math::integer_t & second, math::integer_t & result) const noexcept {
@@ -1357,7 +1358,7 @@ bool nts::sign::Rsa::make(const scheme_t scheme, const digest::hash_t algorithm,
 	 */
 	const bool bare = ((algorithm == digest::hash_t::NONE) && (scheme == scheme_t::PKCS1));
 	// Получаем запись DigestInfo: она же признак допустимости алгоритма; у голой подписи её нет
-	const uint8_t * info = (bare ? nullptr : __nts_prefix__(algorithm, size));
+	const uint8_t * info = (bare ? nullptr : ::__nts_prefix__(algorithm, size));
 	// Длина хеша: у голой подписи - длина переданного хеша
 	const size_t hash = (bare ? digest.size : digest::length(algorithm));
 	// Если алгоритм недопустим либо хеш не той длины
@@ -1598,7 +1599,7 @@ bool nts::sign::Rsa::check(const scheme_t scheme, const digest::hash_t algorithm
 			// Маска блока данных
 			uint8_t mask[math::INTEGER_SIZE];
 			// Вырабатываем маску блока данных по хешу из сообщения
-			if(!__nts_mgf1__(algorithm, message + block, hash, mask, block))
+			if(!::__nts_mgf1__(algorithm, message + block, hash, mask, block))
 				// Выводим отрицательный результат - маска не выработана
 				return false;
 			// Блок данных
@@ -1960,7 +1961,9 @@ bool nts::sign::Rsa::decrypt(const scheme_t scheme, const digest::hash_t algorit
  * @brief Конструктор
  *
  */
-nts::sign::Rsa::Rsa() noexcept : _public(false), _secret(false), _bits(0), _uses(0), _busy(false) {}
+nts::sign::Rsa::Rsa() noexcept :
+ _public(false), _secret(false),
+ _bits(0), _uses(0), _busy(false) {}
 /**
  * @brief Деструктор
  *

@@ -29,11 +29,10 @@
  *
  */
 
-#ifndef __NTS_INTERNAL_CIPHER_POLY1305__
 /**
  * Экранируем повторную инициализацию модуля
  */
-#define __NTS_INTERNAL_CIPHER_POLY1305__
+#pragma once
 
 /**
  * Стандартные заголовочные файлы
@@ -292,6 +291,4 @@
 			}
 		}
 	}
-#endif
-
 #endif

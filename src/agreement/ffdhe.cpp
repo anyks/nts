@@ -24,17 +24,21 @@
  */
 
 /**
- * Стандартные модули
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "agreement/ffdhe.hpp"
+#include "sys/wipe.hpp"
 #include "math/integer.hpp"
 #include "entropy/entropy.hpp"
-#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "agreement/ffdhe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -51,27 +55,43 @@ namespace {
 	 */
 	using namespace nts;
 
-	// Затирание областей памяти берётся из открытого API библиотеки
+	/**
+	 * Затирание областей памяти берётся из открытого API библиотеки
+	 */
 	using nts::sys::wipe;
 
 	/**
-	 * @brief Описание группы RFC 7919
+	 * @brief Структура описания группы RFC 7919
 	 *
 	 */
 	typedef struct Group {
 		// Длина модуля в байтах
-		size_t size;
+		size_t size = 0;
 		// Длина секретного показателя в байтах
-		size_t exponent;
+		size_t exponent = 0;
 		// Модуль от старшего байта к младшему
-		const uint8_t * modulus;
+		const uint8_t * modulus = nullptr;
 	} group_t;
+	/**
+	 * @brief Описание группы RFC 3526
+	 *
+	 */
+	typedef struct Group3526 {
+		// Опознаватель группы
+		uint8_t id = 0;
+		// Длина модуля в байтах
+		size_t size = 0;
+		// Длина секретного показателя в байтах
+		size_t exponent = 0;
+		// Модуль от старшего байта к младшему
+		const uint8_t * modulus = nullptr;
+	} group3526_t;
 
 	/**
 	 * @brief Модуль группы ffdhe2048 приложения A RFC 7919
 	 *
 	 */
-	static const uint8_t FFDHE2048[256] = {
+	static constexpr const uint8_t FFDHE2048[256] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
@@ -94,7 +114,7 @@ namespace {
 	 * @brief Модуль группы ffdhe3072 приложения A RFC 7919
 	 *
 	 */
-	static const uint8_t FFDHE3072[384] = {
+	static constexpr const uint8_t FFDHE3072[384] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
@@ -125,7 +145,7 @@ namespace {
 	 * @brief Модуль группы ffdhe4096 приложения A RFC 7919
 	 *
 	 */
-	static const uint8_t FFDHE4096[512] = {
+	static constexpr const uint8_t FFDHE4096[512] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
@@ -164,7 +184,7 @@ namespace {
 	 * @brief Модуль группы ffdhe6144 приложения A RFC 7919
 	 *
 	 */
-	static const uint8_t FFDHE6144[768] = {
+	static constexpr const uint8_t FFDHE6144[768] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
@@ -219,7 +239,7 @@ namespace {
 	 * @brief Модуль группы ffdhe8192 приложения A RFC 7919
 	 *
 	 */
-	static const uint8_t FFDHE8192[1024] = {
+	static constexpr const uint8_t FFDHE8192[1024] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xad, 0xf8, 0x54, 0x58, 0xa2, 0xbb, 0x4a, 0x9a,
 		0xaf, 0xdc, 0x56, 0x20, 0x27, 0x3d, 0x3c, 0xf1, 0xd8, 0xb9, 0xc5, 0x83, 0xce, 0x2d, 0x36, 0x95,
@@ -290,7 +310,7 @@ namespace {
 	 * @brief Модуль группы modp14 RFC 3526
 	 *
 	 */
-	static const uint8_t MODP14[256] = {
+	static constexpr const uint8_t MODP14[256] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc9, 0x0f, 0xda, 0xa2, 0x21, 0x68, 0xc2, 0x34,
 		0xc4, 0xc6, 0x62, 0x8b, 0x80, 0xdc, 0x1c, 0xd1, 0x29, 0x02, 0x4e, 0x08, 0x8a, 0x67, 0xcc, 0x74,
@@ -313,7 +333,7 @@ namespace {
 	 * @brief Модуль группы modp15 RFC 3526
 	 *
 	 */
-	static const uint8_t MODP15[384] = {
+	static constexpr const uint8_t MODP15[384] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc9, 0x0f, 0xda, 0xa2, 0x21, 0x68, 0xc2, 0x34,
 		0xc4, 0xc6, 0x62, 0x8b, 0x80, 0xdc, 0x1c, 0xd1, 0x29, 0x02, 0x4e, 0x08, 0x8a, 0x67, 0xcc, 0x74,
@@ -344,7 +364,7 @@ namespace {
 	 * @brief Модуль группы modp16 RFC 3526
 	 *
 	 */
-	static const uint8_t MODP16[512] = {
+	static constexpr const uint8_t MODP16[512] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc9, 0x0f, 0xda, 0xa2, 0x21, 0x68, 0xc2, 0x34,
 		0xc4, 0xc6, 0x62, 0x8b, 0x80, 0xdc, 0x1c, 0xd1, 0x29, 0x02, 0x4e, 0x08, 0x8a, 0x67, 0xcc, 0x74,
@@ -379,12 +399,11 @@ namespace {
 		0x93, 0xb4, 0xea, 0x98, 0x8d, 0x8f, 0xdd, 0xc1, 0x86, 0xff, 0xb7, 0xdc, 0x90, 0xa6, 0xc0, 0x8f,
 		0x4d, 0xf4, 0x35, 0xc9, 0x34, 0x06, 0x31, 0x99, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 	};
-
 	/**
 	 * @brief Модуль группы modp18 RFC 3526
 	 *
 	 */
-	static const uint8_t MODP18[1024] = {
+	static constexpr const uint8_t MODP18[1024] = {
 		/* Старшие байты модуля: единичное начало и первый ряд */
 		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 0x0F, 0xDA, 0xA2, 0x21, 0x68, 0xC2, 0x34,
 		0xC4, 0xC6, 0x62, 0x8B, 0x80, 0xDC, 0x1C, 0xD1, 0x29, 0x02, 0x4E, 0x08, 0x8A, 0x67, 0xCC, 0x74,
@@ -455,13 +474,23 @@ namespace {
 	/**
 	 * Группы RFC 7919 по длине модуля
 	 */
-	static const group_t GROUPS[5] = {
+	static constexpr const group_t GROUPS[5] = {
 		/* Первая строка: ffdhe2048 — 256 байтов, показатель 32 */
 		{256,  32, FFDHE2048},
 		{384,  36, FFDHE3072},
 		{512,  42, FFDHE4096},
 		{768,  48, FFDHE6144},
 		{1024, 56, FFDHE8192}
+	};
+	/**
+	 * Группы RFC 3526 по опознавателю
+	 */
+	static constexpr const group3526_t GROUPS3526[4] = {
+		/* Первая строка: modp14 — 256 байтов, показатель 32 */
+		{14, 256, 32, MODP14},
+		{15, 384, 36, MODP15},
+		{16, 512, 42, MODP16},
+		{18, 1024, 56, MODP18}
 	};
 
 	/**
@@ -472,7 +501,7 @@ namespace {
 	 * @return       количество разрядов перебора: объявленная длина показателя группы либо длина поданного, если он шире
 	 *
 	 */
-	static size_t __nts_sweep__(const group_t * group, const view_t & secret) noexcept {
+	static __NTS_INLINE__ size_t __nts_sweep__(const group_t * group, const view_t & secret) noexcept {
 		// Ширина поданного показателя в разрядах
 		const size_t given = (secret.size * 8);
 		// Выводим большую из ширин: своя сторона всегда укладывается в объявленную
@@ -485,7 +514,7 @@ namespace {
 	 * @return     описание группы либо nullptr
 	 *
 	 */
-	static const group_t * __nts_lookup__(const size_t size) noexcept {
+	static constexpr const group_t * __nts_lookup__(const size_t size) noexcept {
 		/**
 		 * Перебираем группы
 		 */
@@ -498,33 +527,6 @@ namespace {
 		// Выводим отсутствие группы
 		return nullptr;
 	}
-
-	/**
-	 * @brief Описание группы RFC 3526
-	 *
-	 */
-	typedef struct Group3526 {
-		// Опознаватель группы
-		uint8_t id;
-		// Длина модуля в байтах
-		size_t size;
-		// Длина секретного показателя в байтах
-		size_t exponent;
-		// Модуль от старшего байта к младшему
-		const uint8_t * modulus;
-	} group3526_t;
-
-	/**
-	 * Группы RFC 3526 по опознавателю
-	 */
-	static const group3526_t GROUPS3526[4] = {
-		/* Первая строка: modp14 — 256 байтов, показатель 32 */
-		{14, 256, 32, MODP14},
-		{15, 384, 36, MODP15},
-		{16, 512, 42, MODP16},
-		{18, 1024, 56, MODP18}
-	};
-
 	/**
 	 * @brief Функция розыска группы RFC 3526 по опознавателю
 	 *
@@ -532,7 +534,7 @@ namespace {
 	 * @return     описание группы либо nullptr
 	 *
 	 */
-	static const group3526_t * __nts_lookup3526__(const uint8_t id) noexcept {
+	static constexpr const group3526_t * __nts_lookup3526__(const uint8_t id) noexcept {
 		/**
 		 * Перебираем группы
 		 */
@@ -545,17 +547,16 @@ namespace {
 		// Выводим отсутствие группы
 		return nullptr;
 	}
-
 	/**
 	 * @brief Функция проверки, что число лежит строго между единицей и границей
 	 *
-	 * @param value число
-	 * @param one   единица
-	 * @param edge  граница p − 1
+	 * @param value число для проверки
+	 * @param one   единица для проверки числа
+	 * @param edge  граница проверки единицы числа p − 1
 	 * @return      признак попадания в интервал (1, edge)
 	 *
 	 */
-	static bool __nts_inside__(const math::integer_t & value, const math::integer_t & one, const math::integer_t & edge) noexcept {
+	static __NTS_INLINE__ bool __nts_inside__(const math::integer_t & value, const math::integer_t & one, const math::integer_t & edge) noexcept {
 		// Строго больше единицы и строго меньше границы
 		return ((value.compare(one) > 0) && (value.compare(edge) < 0));
 	}
@@ -570,7 +571,7 @@ namespace {
  */
 view_t nts::agreement::prime(const size_t size) noexcept {
 	// Группа по длине модуля
-	const group_t * group = __nts_lookup__(size);
+	const group_t * group = ::__nts_lookup__(size);
 	// Выводим модуль либо пустой просмотр
 	return ((group != nullptr) ? view_t(group->modulus, group->size) : view_t(nullptr, 0));
 }
@@ -583,7 +584,7 @@ view_t nts::agreement::prime(const size_t size) noexcept {
  */
 size_t nts::agreement::exponent(const size_t size) noexcept {
 	// Группа по длине модуля
-	const group_t * group = __nts_lookup__(size);
+	const group_t * group = ::__nts_lookup__(size);
 	// Выводим длину показателя либо ноль
 	return ((group != nullptr) ? group->exponent : 0);
 }
@@ -598,7 +599,7 @@ size_t nts::agreement::exponent(const size_t size) noexcept {
  */
 bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * result) noexcept {
 	// Группа по длине модуля
-	const group_t * group = __nts_lookup__(size);
+	const group_t * group = ::__nts_lookup__(size);
 	// Если группа неведома либо доводы не переданы
 	if((group == nullptr) || (result == nullptr) || (secret.data == nullptr) || (secret.size == 0) || (secret.size > group->size))
 		// Выводим отрицательный результат - доводы не переданы
@@ -621,7 +622,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * r
 	 * разрядов шаги по ширине модуля в 8192 разряда стоили бы секунду на рукопожатие;
 	 * своя сторона ставит старший разряд показателя, и ширина его постоянна
 	 */
-	const bool ok = (value.power(base, power, modulus, __nts_sweep__(group, secret)) && value.store(result, size));
+	const bool ok = (value.power(base, power, modulus, ::__nts_sweep__(group, secret)) && value.store(result, size));
 	// Затираем показатель
 	wipe(&power, sizeof(power));
 	// Затираем итог
@@ -641,7 +642,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, uint8_t * r
  */
 bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_t & key, uint8_t * result) noexcept {
 	// Группа по длине модуля
-	const group_t * group = __nts_lookup__(size);
+	const group_t * group = ::__nts_lookup__(size);
 	// Если группа неведома либо доводы не переданы
 	if((group == nullptr) || (result == nullptr) || (secret.data == nullptr) || (secret.size == 0) || (secret.size > group->size) || (key.data == nullptr) || (key.size != group->size))
 		// Выводим отрицательный результат - доводы не переданы
@@ -667,13 +668,15 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_
 		// Выводим отрицательный результат - ключ вне границ
 		return false;
 	/**
-	 * Проверки принадлежности подгруппе порядка q возведением Y^q здесь нет намеренно:
-	 * модули RFC 7919 - безопасные простые, и подгруппы малого порядка у них лишь {1, p - 1},
-	 * отсечённые границами; возведение в q длиной модуля стоило бы у ffdhe8192 около секунды
-	 * на всякое рукопожатие (раздел 4.2.8.1 RFC 8446 требует лишь границ)
+	 * @brief Возводим ключ встречной стороны в свой показатель: шаги по ширине показателя, выбор окна масками
+	 *
+	 * @details Проверки принадлежности подгруппе порядка q возведением Y^q здесь нет намеренно:
+	 *          модули RFC 7919 - безопасные простые, и подгруппы малого порядка у них лишь {1, p - 1},
+	 *          отсечённые границами; возведение в q длиной модуля стоило бы у ffdhe8192 около секунды
+	 *          на всякое рукопожатие (раздел 4.2.8.1 RFC 8446 требует лишь границ).
+	 *
 	 */
-	// Возводим ключ встречной стороны в свой показатель: шаги по ширине показателя, выбор окна масками
-	bool ok = value.power(peer, power, modulus, __nts_sweep__(group, secret));
+	bool ok = value.power(peer, power, modulus, ::__nts_sweep__(group, secret));
 	// Общее значение в единицу либо в p - 1 негодно: оно означает вырожденный ключ
 	if(ok)
 		// Проверяем вырожденность
@@ -700,7 +703,7 @@ bool nts::agreement::ffdhe(const size_t size, const view_t & secret, const view_
  */
 bool nts::agreement::pairffdhe(const size_t size, uint8_t * secret, uint8_t * key) noexcept {
 	// Группа по длине модуля
-	const group_t * group = __nts_lookup__(size);
+	const group_t * group = ::__nts_lookup__(size);
 	// Если группа неведома либо места не переданы
 	if((group == nullptr) || (secret == nullptr) || (key == nullptr))
 		// Выводим отрицательный результат - место не передано
@@ -735,7 +738,7 @@ bool nts::agreement::pairffdhe(const size_t size, uint8_t * secret, uint8_t * ke
  */
 view_t nts::agreement::prime3526(const uint8_t id) noexcept {
 	// Группа по опознавателю
-	const group3526_t * group = __nts_lookup3526__(id);
+	const group3526_t * group = ::__nts_lookup3526__(id);
 	// Выводим модуль либо пустой просмотр
 	return ((group != nullptr) ? view_t(group->modulus, group->size) : view_t(nullptr, 0));
 }
@@ -748,7 +751,7 @@ view_t nts::agreement::prime3526(const uint8_t id) noexcept {
  */
 size_t nts::agreement::exponent3526(const uint8_t id) noexcept {
 	// Группа по опознавателю
-	const group3526_t * group = __nts_lookup3526__(id);
+	const group3526_t * group = ::__nts_lookup3526__(id);
 	// Выводим длину показателя либо ноль
 	return ((group != nullptr) ? group->exponent : 0);
 }
@@ -784,7 +787,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Образующая и показатель должны лежать в (1, p − 1)
-	if(!__nts_inside__(base, one, edge) || !__nts_inside__(power, one, edge))
+	if(!::__nts_inside__(base, one, edge) || !::__nts_inside__(power, one, edge))
 		// Выводим отрицательный результат - значения вне границ
 		return false;
 	// Количество разрядов перебора по длине поданного показателя
@@ -794,7 +797,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	// Вырожденный итог (1 либо p − 1) не годится
 	if(ok)
 		// Проверяем итог и записываем его длиной в модуль
-		ok = (__nts_inside__(value, one, edge) && value.store(result, prime.size));
+		ok = (::__nts_inside__(value, one, edge) && value.store(result, prime.size));
 	// Затираем показатель
 	wipe(&power, sizeof(power));
 	// Затираем итог
@@ -839,7 +842,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Образующая, показатель и ключ встречной стороны должны лежать в (1, p − 1)
-	if(!__nts_inside__(base, one, edge) || !__nts_inside__(power, one, edge) || !__nts_inside__(peer, one, edge))
+	if(!::__nts_inside__(base, one, edge) || !::__nts_inside__(power, one, edge) || !::__nts_inside__(peer, one, edge))
 		// Выводим отрицательный результат - значения вне границ
 		return false;
 	// Количество разрядов перебора по длине поданного показателя
@@ -849,7 +852,7 @@ bool nts::agreement::ffdhe(const view_t & prime, const view_t & generator, const
 	// Вырожденный итог (1 либо p − 1) не годится
 	if(ok)
 		// Проверяем итог и записываем его длиной в модуль
-		ok = (__nts_inside__(value, one, edge) && value.store(result, prime.size));
+		ok = (::__nts_inside__(value, one, edge) && value.store(result, prime.size));
 	// Затираем показатель
 	wipe(&power, sizeof(power));
 	// Затираем итог
@@ -890,7 +893,7 @@ bool nts::agreement::pairffdhe(const view_t & prime, const view_t & generator, c
 	// Значение-единица поля
 	one.word(1);
 	// Граница p − 1
-	if(!edge.subtract(modulus, one) || !__nts_inside__(base, one, edge))
+	if(!edge.subtract(modulus, one) || !::__nts_inside__(base, one, edge))
 		// Выводим отрицательный результат - граница не вычислена
 		return false;
 	// Если случайные байты показателя получить не удалось
@@ -910,7 +913,7 @@ bool nts::agreement::pairffdhe(const view_t & prime, const view_t & generator, c
 	 * двойки сверху и выхода не бывает. Вышедший за границу показатель уводится внутрь
 	 * снятием разряда - вдвое меньший показатель заведомо меньше модуля своей длины
 	 */
-	if(!exponent.load(view_t(secret, length)) || !__nts_inside__(exponent, one, edge))
+	if(!exponent.load(view_t(secret, length)) || !::__nts_inside__(exponent, one, edge))
 		// Снимаем старший разряд показателя
 		secret[0] &= 0x7F;
 	// Затираем показатель разбора

@@ -179,7 +179,7 @@ namespace {
  */
 size_t nts::noise::messages(const pattern_t pattern) noexcept {
 	// Строка узора
-	const row_t * item = __nts_row__(pattern);
+	const row_t * item = ::__nts_row__(pattern);
 	// Выводим число сообщений
 	return ((item != nullptr) ? item->count : 0);
 }
@@ -195,7 +195,7 @@ size_t nts::noise::messages(const pattern_t pattern) noexcept {
  */
 bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token_t *& result, size_t & count) noexcept {
 	// Строка узора
-	const row_t * item = __nts_row__(pattern);
+	const row_t * item = ::__nts_row__(pattern);
 	// Если узора либо сообщения нет
 	if((item == nullptr) || (index >= item->count)){
 		// Сбрасываем указатель на знаки сообщения
@@ -208,7 +208,7 @@ bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token
 	// Выводим знаки сообщения
 	result = item->messages[index];
 	// Выводим количество знаков сообщения
-	count = __nts_measure__(result, TOKENS_MAX);
+	count = ::__nts_measure__(result, TOKENS_MAX);
 	// Количество знаков сообщения выведено
 	return true;
 }
@@ -224,20 +224,20 @@ bool nts::noise::tokens(const pattern_t pattern, const size_t index, const token
  */
 bool nts::noise::premessage(const pattern_t pattern, const bool initiator, const token_t *& result, size_t & count) noexcept {
 	// Строка узора
-	const row_t * item = __nts_row__(pattern);
+	const row_t * item = ::__nts_row__(pattern);
 	// Если узора нет
 	if(item == nullptr){
-		// Сбрасываем указатель на знаки предсообщения
-		result = nullptr;
 		// Сбрасываем количество знаков
 		count = 0;
+		// Сбрасываем указатель на знаки предсообщения
+		result = nullptr;
 		// Выводим отрицательный результат - узор негоден
 		return false;
 	}
 	// Выводим знаки предсообщения
 	result = (initiator ? item->initiator : item->responder);
 	// Выводим количество знаков предсообщения
-	count = __nts_measure__(result, 2);
+	count = ::__nts_measure__(result, 2);
 	// Количество знаков предсообщения выведено
 	return true;
 }
@@ -250,7 +250,7 @@ bool nts::noise::premessage(const pattern_t pattern, const bool initiator, const
  */
 const char * nts::noise::title(const pattern_t pattern) noexcept {
 	// Строка узора
-	const row_t * item = __nts_row__(pattern);
+	const row_t * item = ::__nts_row__(pattern);
 	// Выводим имя
 	return ((item != nullptr) ? item->title : "");
 }

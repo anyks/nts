@@ -20,24 +20,24 @@
  */
 
 /**
- * Подключаем заголовочный файл модуля
+ * Стандартные заголовочные файлы
  */
-#include "cmp/cmp.hpp"
+#include <ctime>
+#include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
+#include "sys/wipe.hpp"
 #include "asn1/asn1.hpp"
 #include "digest/hmac.hpp"
 #include "entropy/entropy.hpp"
-#include "sys/wipe.hpp"
 #include "x509/signature.hpp"
 
 /**
- * Стандартные заголовочные файлы
+ * Подключаем заголовочный файл модуля
  */
-#include <cstring>
-#include <ctime>
+#include "cmp/cmp.hpp"
 
 /**
  * @brief Внутренние служебные объекты
@@ -121,7 +121,7 @@ namespace {
 	 * @return      отказ модуля
 	 *
 	 */
-	static nts::cmp::error_t __nts_translate__(const asn1::error_t error) noexcept {
+	static constexpr nts::cmp::error_t __nts_translate__(const asn1::error_t error) noexcept {
 		// Выводим отказ модуля: нехватка памяти отдаётся своим отказом, всё прочее - отказом устройства
 		return ((error == asn1::error_t::MEMORY) ? nts::cmp::error_t::MEMORY : nts::cmp::error_t::STRUCTURE);
 	}
@@ -133,7 +133,7 @@ namespace {
 	 * @return        отказ разбора опознавателя
 	 *
 	 */
-	static nts::cmp::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_oid_of__(const asn1::element_t & element, string & result) noexcept {
 		// Итог разбора опознавателя
 		const asn1::error_t outcome = asn1::oid(element, result);
 		// Выводим переведённый отказ разбора, если он есть
@@ -148,7 +148,7 @@ namespace {
 	 * @return        отказ разбора записи
 	 *
 	 */
-	static nts::cmp::error_t __nts_algorithm_identifier__(const asn1::element_t & element, string & oid, view_t & params) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_algorithm_identifier__(const asn1::element_t & element, string & oid, view_t & params) noexcept {
 		// Если запись алгоритма не составная
 		if(!element.constructed)
 			// Выводим отказ устройства записи
@@ -190,18 +190,28 @@ namespace {
 	 * @return    алгоритм хеша, hash_t::NONE у неизвестного
 	 *
 	 */
-	static digest::hash_t __nts_hash_of__(const string & oid) noexcept {
-		// Выводим алгоритм хеша по опознавателю
-		if(oid == OID_SHA1) return digest::hash_t::SHA1;
-		// Если опознаватель — id-sha224: алгоритм хеша SHA-224
-		if(oid == OID_SHA224) return digest::hash_t::SHA224;
-		// Если опознаватель — id-sha256: алгоритм хеша SHA-256
-		if(oid == OID_SHA256) return digest::hash_t::SHA256;
-		// Если опознаватель — id-sha384: алгоритм хеша SHA-384
-		if(oid == OID_SHA384) return digest::hash_t::SHA384;
-		// Если опознаватель — id-sha512: алгоритм хеша SHA-512
-		if(oid == OID_SHA512) return digest::hash_t::SHA512;
-		// Выводим отсутствие алгоритма
+	static __NTS_INLINE__ digest::hash_t __nts_hash_of__(const string & oid) noexcept {
+		// Если опознаватель — id-sha1
+		if(oid == OID_SHA1)
+			// Выводим алгоритм хеша SHA-1
+			return digest::hash_t::SHA1;
+		// Если опознаватель — id-sha224
+		if(oid == OID_SHA224)
+			// Выводим алгоритм хеша SHA-224
+			return digest::hash_t::SHA224;
+		// Если опознаватель — id-sha256
+		if(oid == OID_SHA256)
+			// Выводим алгоритм хеша SHA-256
+			return digest::hash_t::SHA256;
+		// Если опознаватель — id-sha384
+		if(oid == OID_SHA384)
+			// Выводим алгоритм хеша SHA-384
+			return digest::hash_t::SHA384;
+		// Если опознаватель — id-sha512
+		if(oid == OID_SHA512)
+			// Выводим алгоритм хеша SHA-512
+			return digest::hash_t::SHA512;
+		// Выводим отсутствие алгоритма у прочего опознавателя
 		return digest::hash_t::NONE;
 	}
 	/**
@@ -211,16 +221,32 @@ namespace {
 	 * @return     опознаватель алгоритма хеша либо nullptr
 	 *
 	 */
-	static const char * __nts_oid_of__(const digest::hash_t hash) noexcept {
+	static constexpr const char * __nts_oid_of__(const digest::hash_t hash) noexcept {
 		/**
 		 * Выводим опознаватель по алгоритму хеша
 		 */
-		switch(hash){
-			case digest::hash_t::SHA1: return OID_SHA1;
-			case digest::hash_t::SHA224: return OID_SHA224;
-			case digest::hash_t::SHA256: return OID_SHA256;
-			case digest::hash_t::SHA384: return OID_SHA384;
-			case digest::hash_t::SHA512: return OID_SHA512;
+		switch(static_cast <uint8_t> (hash)){
+			// Если хеш — SHA-1
+			case static_cast <uint8_t> (digest::hash_t::SHA1):
+				// Выводим опознаватель id-sha1
+				return OID_SHA1;
+			// Если хеш — SHA-224
+			case static_cast <uint8_t> (digest::hash_t::SHA224):
+				// Выводим опознаватель id-sha224
+				return OID_SHA224;
+			// Если хеш — SHA-256
+			case static_cast <uint8_t> (digest::hash_t::SHA256):
+				// Выводим опознаватель id-sha256
+				return OID_SHA256;
+			// Если хеш — SHA-384
+			case static_cast <uint8_t> (digest::hash_t::SHA384):
+				// Выводим опознаватель id-sha384
+				return OID_SHA384;
+			// Если хеш — SHA-512
+			case static_cast <uint8_t> (digest::hash_t::SHA512):
+				// Выводим опознаватель id-sha512
+				return OID_SHA512;
+			// Если хеш не опознан, выводим отсутствие опознавателя
 			default: return nullptr;
 		}
 	}
@@ -231,18 +257,28 @@ namespace {
 	 * @return    алгоритм хеша, hash_t::NONE у неизвестного
 	 *
 	 */
-	static digest::hash_t __nts_hmac_of__(const string & oid) noexcept {
-		// Выводим алгоритм хеша по опознавателю имитовставки
-		if(oid == OID_HMAC_SHA1) return digest::hash_t::SHA1;
-		// Если опознаватель — hmacWithSHA224: алгоритм хеша имитовставки SHA-224
-		if(oid == OID_HMAC_SHA224) return digest::hash_t::SHA224;
-		// Если опознаватель — hmacWithSHA256: алгоритм хеша имитовставки SHA-256
-		if(oid == OID_HMAC_SHA256) return digest::hash_t::SHA256;
-		// Если опознаватель — hmacWithSHA384: алгоритм хеша имитовставки SHA-384
-		if(oid == OID_HMAC_SHA384) return digest::hash_t::SHA384;
-		// Если опознаватель — hmacWithSHA512: алгоритм хеша имитовставки SHA-512
-		if(oid == OID_HMAC_SHA512) return digest::hash_t::SHA512;
-		// Выводим отсутствие алгоритма
+	static __NTS_INLINE__ digest::hash_t __nts_hmac_of__(const string & oid) noexcept {
+		// Если опознаватель — hmacWithSHA1
+		if(oid == OID_HMAC_SHA1)
+			// Выводим алгоритм хеша SHA-1
+			return digest::hash_t::SHA1;
+		// Если опознаватель — hmacWithSHA224
+		if(oid == OID_HMAC_SHA224)
+			// Выводим алгоритм хеша SHA-224
+			return digest::hash_t::SHA224;
+		// Если опознаватель — hmacWithSHA256
+		if(oid == OID_HMAC_SHA256)
+			// Выводим алгоритм хеша SHA-256
+			return digest::hash_t::SHA256;
+		// Если опознаватель — hmacWithSHA384
+		if(oid == OID_HMAC_SHA384)
+			// Выводим алгоритм хеша SHA-384
+			return digest::hash_t::SHA384;
+		// Если опознаватель — hmacWithSHA512
+		if(oid == OID_HMAC_SHA512)
+			// Выводим алгоритм хеша SHA-512
+			return digest::hash_t::SHA512;
+		// Выводим отсутствие алгоритма у прочего опознавателя
 		return digest::hash_t::NONE;
 	}
 	/**
@@ -252,16 +288,32 @@ namespace {
 	 * @return     опознаватель алгоритма имитовставки либо nullptr
 	 *
 	 */
-	static const char * __nts_hmac_oid_of__(const digest::hash_t hash) noexcept {
+	static constexpr const char * __nts_hmac_oid_of__(const digest::hash_t hash) noexcept {
 		/**
 		 * Выводим опознаватель имитовставки по алгоритму хеша
 		 */
-		switch(hash){
-			case digest::hash_t::SHA1: return OID_HMAC_SHA1;
-			case digest::hash_t::SHA224: return OID_HMAC_SHA224;
-			case digest::hash_t::SHA256: return OID_HMAC_SHA256;
-			case digest::hash_t::SHA384: return OID_HMAC_SHA384;
-			case digest::hash_t::SHA512: return OID_HMAC_SHA512;
+		switch(static_cast <uint8_t> (hash)){
+			// Если хеш — SHA-1
+			case static_cast <uint8_t> (digest::hash_t::SHA1):
+				// Выводим опознаватель hmacWithSHA1
+				return OID_HMAC_SHA1;
+			// Если хеш — SHA-224
+			case static_cast <uint8_t> (digest::hash_t::SHA224):
+				// Выводим опознаватель hmacWithSHA224
+				return OID_HMAC_SHA224;
+			// Если хеш — SHA-256
+			case static_cast <uint8_t> (digest::hash_t::SHA256):
+				// Выводим опознаватель hmacWithSHA256
+				return OID_HMAC_SHA256;
+			// Если хеш — SHA-384
+			case static_cast <uint8_t> (digest::hash_t::SHA384):
+				// Выводим опознаватель hmacWithSHA384
+				return OID_HMAC_SHA384;
+			// Если хеш — SHA-512
+			case static_cast <uint8_t> (digest::hash_t::SHA512):
+				// Выводим опознаватель hmacWithSHA512
+				return OID_HMAC_SHA512;
+			// Если хеш не опознан, выводим отсутствие опознавателя
 			default: return nullptr;
 		}
 	}
@@ -273,55 +325,93 @@ namespace {
 	 * @return       опознаватель алгоритма подписи либо nullptr
 	 *
 	 */
-	static const char * __nts_signature_algorithm__(const keys::signer_t & signer, const digest::hash_t hash) noexcept {
+	static __NTS_INLINE__ const char * __nts_signature_algorithm__(const keys::signer_t & signer, const digest::hash_t hash) noexcept {
 		/**
 		 * Определяем вид ключа подписи
 		 */
-		switch(signer.kind()){
-			// Ключ RSA
-			case keys::kind_t::RSA:
+		switch(static_cast <uint8_t> (signer.kind())){
+			// Если ключ — RSA
+			case static_cast <uint8_t> (keys::kind_t::RSA): {
 				/**
 				 * Выводим опознаватель подписи RSA по хешу
 				 */
-				switch(hash){
-					case digest::hash_t::SHA1: return OID_SHA1_RSA;
-					case digest::hash_t::SHA224: return OID_SHA224_RSA;
-					case digest::hash_t::SHA256: return OID_SHA256_RSA;
-					case digest::hash_t::SHA384: return OID_SHA384_RSA;
-					case digest::hash_t::SHA512: return OID_SHA512_RSA;
+				switch(static_cast <uint8_t> (hash)){
+					// Если хеш — SHA-1
+					case static_cast <uint8_t> (digest::hash_t::SHA1):
+						// Выводим опознаватель подписи RSA с хешем SHA-1
+						return OID_SHA1_RSA;
+					// Если хеш — SHA-224
+					case static_cast <uint8_t> (digest::hash_t::SHA224):
+						// Выводим опознаватель подписи RSA с хешем SHA-224
+						return OID_SHA224_RSA;
+					// Если хеш — SHA-256
+					case static_cast <uint8_t> (digest::hash_t::SHA256):
+						// Выводим опознаватель подписи RSA с хешем SHA-256
+						return OID_SHA256_RSA;
+					// Если хеш — SHA-384
+					case static_cast <uint8_t> (digest::hash_t::SHA384):
+						// Выводим опознаватель подписи RSA с хешем SHA-384
+						return OID_SHA384_RSA;
+					// Если хеш — SHA-512
+					case static_cast <uint8_t> (digest::hash_t::SHA512):
+						// Выводим опознаватель подписи RSA с хешем SHA-512
+						return OID_SHA512_RSA;
+					// Если хеш не опознан, выводим отсутствие опознавателя
 					default: return nullptr;
 				}
-			// Ключ ECDSA
-			case keys::kind_t::EC:
+			}
+			// Если ключ — ECDSA
+			case static_cast <uint8_t> (keys::kind_t::EC):
 				/**
 				 * Выводим опознаватель подписи ECDSA по хешу
 				 */
-				switch(hash){
-					case digest::hash_t::SHA224: return OID_SHA224_ECDSA;
-					case digest::hash_t::SHA256: return OID_SHA256_ECDSA;
-					case digest::hash_t::SHA384: return OID_SHA384_ECDSA;
-					case digest::hash_t::SHA512: return OID_SHA512_ECDSA;
+				switch(static_cast <uint8_t> (hash)){
+					// Если хеш — SHA-224
+					case static_cast <uint8_t> (digest::hash_t::SHA224):
+						// Выводим опознаватель подписи ECDSA с хешем SHA-224
+						return OID_SHA224_ECDSA;
+					// Если хеш — SHA-256
+					case static_cast <uint8_t> (digest::hash_t::SHA256):
+						// Выводим опознаватель подписи ECDSA с хешем SHA-256
+						return OID_SHA256_ECDSA;
+					// Если хеш — SHA-384
+					case static_cast <uint8_t> (digest::hash_t::SHA384):
+						// Выводим опознаватель подписи ECDSA с хешем SHA-384
+						return OID_SHA384_ECDSA;
+					// Если хеш — SHA-512
+					case static_cast <uint8_t> (digest::hash_t::SHA512):
+						// Выводим опознаватель подписи ECDSA с хешем SHA-512
+						return OID_SHA512_ECDSA;
+					// Если хеш не опознан, выводим отсутствие опознавателя
 					default: return nullptr;
 				}
-			// Ключ Ed25519
-			case keys::kind_t::ED25519:
-				// Выводим опознаватель Ed25519
+			// Если ключ — Ed25519
+			case static_cast <uint8_t> (keys::kind_t::ED25519):
+				// Выводим опознаватель подписи Ed25519
 				return OID_ED25519;
-			// Ключ ML-DSA
-			case keys::kind_t::MLDSA:
+			// Если ключ — ML-DSA
+			case static_cast <uint8_t> (keys::kind_t::MLDSA):
 				/**
 				 * Выводим опознаватель подписи ML-DSA по набору ключа
 				 */
-				switch(signer.mldsa().set()){
-					case sign::mldsa_t::set_t::DSA44: return OID_MLDSA44;
-					case sign::mldsa_t::set_t::DSA65: return OID_MLDSA65;
-					case sign::mldsa_t::set_t::DSA87: return OID_MLDSA87;
+				switch(static_cast <uint8_t> (signer.mldsa().set())){
+					// Если набор — ML-DSA-44
+					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA44):
+						// Выводим опознаватель подписи ML-DSA-44
+						return OID_MLDSA44;
+					// Если набор — ML-DSA-65
+					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA65):
+						// Выводим опознаватель подписи ML-DSA-65
+						return OID_MLDSA65;
+					// Если набор — ML-DSA-87
+					case static_cast <uint8_t> (sign::mldsa_t::set_t::DSA87):
+						// Выводим опознаватель подписи ML-DSA-87
+						return OID_MLDSA87;
+					// Если набор не опознан, выводим отсутствие опознавателя
 					default: return nullptr;
 				}
-			// Ключ, подписи в CMP не выполняющий
-			default:
-				// Выводим отсутствие опознавателя
-				return nullptr;
+			// Если ключ не из числа подписывающих, выводим отсутствие опознавателя
+			default: return nullptr;
 		}
 	}
 	/**
@@ -334,7 +424,7 @@ namespace {
 	 * @return          отказ выработки подписи
 	 *
 	 */
-	static nts::cmp::error_t __nts_make_signature__(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_make_signature__(const keys::signer_t & signer, const digest::hash_t hash, const view_t & content, vector <uint8_t> & signature) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -414,7 +504,6 @@ namespace {
 					// Выводим отказ ключа
 					return nts::cmp::error_t::KEY;
 			}
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -434,21 +523,19 @@ namespace {
 	 * @return       признак успешности записи
 	 *
 	 */
-	static bool __nts_write_algorithm__(asn1::writer_t & writer, const char * oid, const bool empty) noexcept {
+	static __NTS_INLINE__ bool __nts_write_algorithm__(asn1::writer_t & writer, const char * oid, const bool empty) noexcept {
 		// Открываем запись алгоритма
 		if(!writer.open(asn1::tag_t::SEQUENCE))
 			// Выводим отказ записи
 			return false;
 		// Записываем опознаватель алгоритма
-		if(!writer.oid(oid)){
+		if(!writer.oid(oid))
 			// Выводим отказ записи
 			return false;
-		}
 		// Если пустые настройки велено записать
-		if(empty && !writer.nothing()){
+		if(empty && !writer.nothing())
 			// Выводим отказ записи
 			return false;
-		}
 		// Закрываем запись алгоритма и выводим итог записи
 		return writer.close();
 	}
@@ -460,7 +547,7 @@ namespace {
 	 * @return       признак успешности переноса
 	 *
 	 */
-	static bool __nts_embed__(asn1::writer_t & writer, const view_t & record) noexcept {
+	static __NTS_INLINE__ bool __nts_embed__(asn1::writer_t & writer, const view_t & record) noexcept {
 		// Разборщик переносимой записи
 		asn1::reader_t reader(record);
 		// Элемент переносимой записи
@@ -475,6 +562,10 @@ namespace {
 	/**
 	 * @brief Функция выработки ключа имитовставки PBM по разделу 5.1.3.1 RFC 4210
 	 *
+	 * @note Соль прилагается к секрету, односторонняя функция применяется count раз;
+	 *       при нехватке длины итог дополняется хешами OWF("1" || BASEKEY) и далее,
+	 *       как велит раздел 5.1.3.1
+	 *
 	 * @param password пароль общего секрета
 	 * @param salt     метка соли из настроек PBM
 	 * @param hash     алгоритм хеша односторонней функции
@@ -483,12 +574,8 @@ namespace {
 	 * @param result   место, в которое помещается ключ
 	 * @return         отказ выработки ключа
 	 *
-	 * @note Соль прилагается к секрету, односторонняя функция применяется count раз;
-	 *       при нехватке длины итог дополняется хешами OWF("1" || BASEKEY) и далее,
-	 *       как велит раздел 5.1.3.1
-	 *
 	 */
-	static nts::cmp::error_t __nts_pbm_key__(const view_t & password, const view_t & salt, const digest::hash_t hash, const int64_t count, const size_t length, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_pbm_key__(const view_t & password, const view_t & salt, const digest::hash_t hash, const int64_t count, const size_t length, vector <uint8_t> & result) noexcept {
 		// Длина хеша односторонней функции
 		const size_t width = digest::length(hash);
 		// Если алгоритм хеша неизвестен либо повторов нет
@@ -533,11 +620,11 @@ namespace {
 			// Занимаем место под ключ
 			result.assign(length, 0);
 			// Если хеша хватает на ключ целиком
-			if(length <= width){
+			if(length <= width)
 				// Переносим старшие байты итога
 				::memcpy(result.data(), round, length);
 			// Иначе ключ длиннее хеша: дополняем хешами OWF("N" || BASEKEY)
-			} else {
+			else {
 				// Переносим итог в старшие байты ключа
 				::memcpy(result.data(), round, width);
 				// Место, в которое помещается ввод дополнения
@@ -580,7 +667,6 @@ namespace {
 			}
 			// Затираем итог повтора
 			nts::sys::wipe(round, sizeof(round));
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -601,7 +687,7 @@ namespace {
 	 * @return         отказ разбора настроек
 	 *
 	 */
-	static nts::cmp::error_t __nts_pbm_parameters__(const view_t & params, const view_t & password, digest::hash_t & hash, vector <uint8_t> & key) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_pbm_parameters__(const view_t & params, const view_t & password, digest::hash_t & hash, vector <uint8_t> & key) noexcept {
 		// Разборщик записи настроек
 		asn1::reader_t reader(params);
 		// Элемент записи настроек
@@ -624,10 +710,10 @@ namespace {
 		if(!items.next(asn1::tag_t::SEQUENCE, owf))
 			// Выводим переведённый отказ разбора
 			return __nts_translate__(items.err());
-		// Опознаватель односторонней функции
-		string owfOid;
 		// Просмотр настроек односторонней функции
 		view_t owfParams;
+		// Опознаватель односторонней функции
+		string owfOid = "";
 		// Если запись односторонней функции разобрать не удалось
 		if(__nts_algorithm_identifier__(owf, owfOid, owfParams) != nts::cmp::error_t::NONE)
 			// Выводим отказ устройства записи
@@ -656,10 +742,10 @@ namespace {
 		if(!items.next(asn1::tag_t::SEQUENCE, mac))
 			// Выводим переведённый отказ разбора
 			return __nts_translate__(items.err());
-		// Опознаватель имитовставки
-		string macOid;
 		// Просмотр настроек имитовставки
 		view_t macParams;
+		// Опознаватель имитовставки
+		string macOid = "";
 		// Если запись имитовставки разобрать не удалось
 		if(__nts_algorithm_identifier__(mac, macOid, macParams) != nts::cmp::error_t::NONE)
 			// Выводим отказ устройства записи
@@ -674,9 +760,11 @@ namespace {
 		if(hash == digest::hash_t::NONE)
 			// Выводим отказ алгоритма
 			return nts::cmp::error_t::ALGORITHM;
-		// Вырабатываем ключ имитовставки: HMAC принимает ключ любой длины, потому
-		// ключом служит весь BASEKEY длиною в хеш односторонней функции, как делает
-		// эталон OpenSSL, а не усечение до длины итога имитовставки
+		/**
+		 * Вырабатываем ключ имитовставки: HMAC принимает ключ любой длины, потому
+		 * ключом служит весь BASEKEY длиною в хеш односторонней функции, как делает
+		 * эталон OpenSSL, а не усечение до длины итога имитовставки
+		 */
 		return __nts_pbm_key__(password, salt.content, owfHash, count, digest::length(owfHash), key);
 	}
 	/**
@@ -688,7 +776,7 @@ namespace {
 	 * @return       отказ сборки настроек
 	 *
 	 */
-	static nts::cmp::error_t __nts_pbm_write__(const view_t & salt, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_pbm_write__(const view_t & salt, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 		// Опознаватель алгоритма хеша
 		const char * hashOid = __nts_oid_of__(hash);
 		// Опознаватель алгоритма имитовставки
@@ -729,7 +817,6 @@ namespace {
 		try {
 			// Переносим запись настроек в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -749,7 +836,7 @@ namespace {
 	 * @return       отказ сборки защищаемой части
 	 *
 	 */
-	static nts::cmp::error_t __nts_protected_part__(const view_t & header, const view_t & body, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_protected_part__(const view_t & header, const view_t & body, vector <uint8_t> & result) noexcept {
 		// Записчик защищаемой части
 		asn1::writer_t writer;
 		// Открываем запись защищаемой части
@@ -774,7 +861,6 @@ namespace {
 		try {
 			// Переносим запись защищаемой части в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -788,6 +874,10 @@ namespace {
 	/**
 	 * @brief Функция сборки заголовка PKIHeader
 	 *
+	 * @note Метки полей заголовка явные (EXPLICIT) по модулю ASN.1 RFC 4210:
+	 *       messageTime, protectionAlg и senderKID несут составную метку с записью
+	 *       значения внутри
+	 *
 	 * @param sender    запись GeneralName отправителя, пустая - «NULL»-имя
 	 * @param recipient запись GeneralName получателя
 	 * @param kid       опознаватель ключа отправителя, пустой при его отсутствии
@@ -796,12 +886,8 @@ namespace {
 	 * @param result    место, в которое помещается запись заголовка
 	 * @return          отказ сборки заголовка
 	 *
-	 * @note Метки полей заголовка явные (EXPLICIT) по модулю ASN.1 RFC 4210:
-	 *       messageTime, protectionAlg и senderKID несут составную метку с записью
-	 *       значения внутри
-	 *
 	 */
-	static nts::cmp::error_t __nts_build_header__(const view_t & sender, const view_t & recipient, const view_t & kid, const char * algorithm, const view_t & params, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_build_header__(const view_t & sender, const view_t & recipient, const view_t & kid, const char * algorithm, const view_t & params, vector <uint8_t> & result) noexcept {
 		// Записчик заголовка
 		asn1::writer_t writer;
 		// Открываем запись заголовка
@@ -877,10 +963,9 @@ namespace {
 					// Выводим отказ сборки
 					return nts::cmp::error_t::MEMORY;
 			// Иначе записываем пустые настройки
-			} else if(!protection.nothing()){
+			} else if(!protection.nothing())
 				// Выводим отказ сборки
 				return nts::cmp::error_t::MEMORY;
-			}
 			// Закрываем запись алгоритма защиты
 			if(!protection.close())
 				// Выводим отказ сборки
@@ -923,7 +1008,6 @@ namespace {
 		try {
 			// Переносим запись заголовка в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -946,7 +1030,7 @@ namespace {
 	 * @return          отказ сборки сообщения
 	 *
 	 */
-	static nts::cmp::error_t __nts_build_signed__(const view_t & sender, const view_t & recipient, const view_t & body, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_build_signed__(const view_t & sender, const view_t & recipient, const view_t & body, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 		// Если ключ не подготовлен
 		if(!signer.ready())
 			// Выводим отказ ключа
@@ -1026,7 +1110,6 @@ namespace {
 		try {
 			// Переносим запись сообщения в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -1050,7 +1133,7 @@ namespace {
 	 * @return          отказ сборки сообщения
 	 *
 	 */
-	static nts::cmp::error_t __nts_build_protected__(const view_t & sender, const view_t & recipient, const view_t & body, const view_t & kid, const view_t & password, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_build_protected__(const view_t & sender, const view_t & recipient, const view_t & body, const view_t & kid, const view_t & password, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 		// Если пароль не задан
 		if(password.size == 0)
 			// Выводим отказ ключа
@@ -1186,7 +1269,6 @@ namespace {
 		try {
 			// Переносим запись сообщения в итог
 			result.assign(writer.data().data, writer.data().data + writer.data().size);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -1200,6 +1282,9 @@ namespace {
 	/**
 	 * @brief Функция сборки тела запросов сертификатов CertReqMessages
 	 *
+	 * @note Подтверждение владения ставится видом signature: подпись над записью
+	 *       CertReq по примечанию к POPOSigningKey в RFC 4211
+	 *
 	 * @param kind      вид тела (ir/cr/kur/krr/ccr)
 	 * @param templates записи шаблонов CertTemplate
 	 * @param signer    подготовленный секретный ключ подтверждения владения
@@ -1207,21 +1292,18 @@ namespace {
 	 * @param result    место, в которое помещается запись тела (с меткой вида)
 	 * @return          отказ сборки тела
 	 *
-	 * @note Подтверждение владения ставится видом signature: подпись над записью
-	 *       CertReq по примечанию к POPOSigningKey в RFC 4211
-	 *
 	 */
-	static nts::cmp::error_t __nts_body_requests__(const nts::cmp::body_t kind, const vector <view_t> & templates, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
+	static __NTS_INLINE__ nts::cmp::error_t __nts_body_requests__(const nts::cmp::body_t kind, const vector <view_t> & templates, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
 		// Опознаватель алгоритма подписи подтверждения
 		const char * algorithm = __nts_signature_algorithm__(signer, hash);
 		// Если опознаватель алгоритма подписи не найден
 		if(algorithm == nullptr)
 			// Выводим отказ алгоритма
 			return nts::cmp::error_t::ALGORITHM;
-		// Записчик содержимого тела
-		asn1::writer_t content;
 		// Опознаватель запроса
 		int64_t id = 0;
+		// Записчик содержимого тела
+		asn1::writer_t content;
 		/**
 		 * Переносим шаблоны запросов
 		 */
@@ -1303,10 +1385,9 @@ namespace {
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
 		// Переносим содержимое тела записью SEQUENCE OF
-		if(!body.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), content.data())){
+		if(!body.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), content.data()))
 			// Выводим отказ сборки
 			return nts::cmp::error_t::MEMORY;
-		}
 		// Закрываем метку вида тела
 		if(!body.close())
 			// Выводим отказ сборки
@@ -1317,7 +1398,6 @@ namespace {
 		try {
 			// Переносим запись тела в итог
 			result.assign(body.data().data, body.data().data + body.data().size);
-		// Если памяти под итог не хватило
 		/**
 		 * Выполняем перехват ошибок
 		 */
@@ -1329,12 +1409,6 @@ namespace {
 		return nts::cmp::error_t::NONE;
 	}
 };
-
-/**
- * @brief Конструктор сообщения
- *
- */
-nts::cmp::Message::Message() noexcept : _error(error_t::NONE), _kind(body_t::NONE) {}
 
 /**
  * @brief Метод разбора записи PKIMessage
@@ -1364,7 +1438,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 		// Если запись сообщения разобрать не удалось
 		if(!reader.next(asn1::tag_t::SEQUENCE, element) || !element.constructed){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(reader.err());
+			this->_error = ::__nts_translate__(reader.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -1382,7 +1456,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 		// Если запись заголовка разобрать не удалось
 		if(!items.next(asn1::tag_t::SEQUENCE, header) || !header.constructed){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -1397,7 +1471,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 			// Если издание протокола разобрать не удалось
 			if(!fields.next(asn1::tag_t::INTEGER, field)){
 				// Запоминаем причину отказа
-				this->_error = __nts_translate__(fields.err());
+				this->_error = ::__nts_translate__(fields.err());
 				// Выводим причину отказа
 				return this->_error;
 			}
@@ -1420,7 +1494,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 			// Если имя отправителя разобрать не удалось
 			if(!fields.next(sender)){
 				// Запоминаем причину отказа
-				this->_error = __nts_translate__(fields.err());
+				this->_error = ::__nts_translate__(fields.err());
 				// Выводим причину отказа
 				return this->_error;
 			}
@@ -1431,7 +1505,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 			// Если имя получателя разобрать не удалось
 			if(!fields.next(recipient)){
 				// Запоминаем причину отказа
-				this->_error = __nts_translate__(fields.err());
+				this->_error = ::__nts_translate__(fields.err());
 				// Выводим причину отказа
 				return this->_error;
 			}
@@ -1446,7 +1520,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 				// Если поле разобрать не удалось
 				if(!fields.next(item)){
 					// Запоминаем причину отказа
-					this->_error = __nts_translate__(fields.err());
+					this->_error = ::__nts_translate__(fields.err());
 					// Выводим причину отказа
 					return this->_error;
 				}
@@ -1470,7 +1544,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 						// Если запись времени разобрать не удалось
 						if(!inner.next(asn1::tag_t::GENERALIZED_TIME, moment)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(inner.err());
+							this->_error = ::__nts_translate__(inner.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
@@ -1493,12 +1567,12 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 						// Если запись алгоритма защиты разобрать не удалось
 						if(!inner.next(asn1::tag_t::SEQUENCE, algorithm)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(inner.err());
+							this->_error = ::__nts_translate__(inner.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
 						// Итог разбора записи алгоритма защиты
-						const error_t outcome = __nts_algorithm_identifier__(algorithm, this->_header.protection, this->_header.parameters);
+						const error_t outcome = ::__nts_algorithm_identifier__(algorithm, this->_header.protection, this->_header.parameters);
 						// Если запись алгоритма защиты разобрать не удалось
 						if(outcome != error_t::NONE){
 							// Запоминаем причину отказа
@@ -1509,14 +1583,14 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					} break;
 					// senderKID [2] KeyIdentifier
 					case 2: {
-						// Разборщик содержимого явной метки
-						asn1::reader_t inner(item.content);
 						// Элемент записи опознавателя ключа
 						asn1::element_t kid;
+						// Разборщик содержимого явной метки
+						asn1::reader_t inner(item.content);
 						// Если запись опознавателя ключа разобрать не удалось
 						if(!inner.next(asn1::tag_t::OCTET_STRING, kid)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(inner.err());
+							this->_error = ::__nts_translate__(inner.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
@@ -1525,14 +1599,14 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					} break;
 					// recipKID [3] KeyIdentifier
 					case 3: {
-						// Разборщик содержимого явной метки
-						asn1::reader_t inner(item.content);
 						// Элемент записи опознавателя ключа
 						asn1::element_t kid;
+						// Разборщик содержимого явной метки
+						asn1::reader_t inner(item.content);
 						// Если запись опознавателя ключа разобрать не удалось
 						if(!inner.next(asn1::tag_t::OCTET_STRING, kid)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(inner.err());
+							this->_error = ::__nts_translate__(inner.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
@@ -1541,14 +1615,14 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					} break;
 					// transactionID [4] OCTET STRING
 					case 4: {
-						// Разборщик содержимого явной метки
-						asn1::reader_t inner(item.content);
 						// Элемент записи опознавателя сделки
 						asn1::element_t transaction;
+						// Разборщик содержимого явной метки
+						asn1::reader_t inner(item.content);
 						// Если запись опознавателя сделки разобрать не удалось
 						if(!inner.next(asn1::tag_t::OCTET_STRING, transaction)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(inner.err());
+							this->_error = ::__nts_translate__(inner.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
@@ -1557,14 +1631,14 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					} break;
 					// senderNonce [5] OCTET STRING
 					case 5: {
-						// Разборщик содержимого явной метки
-						asn1::reader_t inner(item.content);
 						// Элемент записи метки новизны
 						asn1::element_t nonce;
+						// Разборщик содержимого явной метки
+						asn1::reader_t inner(item.content);
 						// Если запись метки новизны разобрать не удалось
 						if(!inner.next(asn1::tag_t::OCTET_STRING, nonce)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(inner.err());
+							this->_error = ::__nts_translate__(inner.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
@@ -1573,14 +1647,14 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					} break;
 					// recipNonce [6] OCTET STRING
 					case 6: {
-						// Разборщик содержимого явной метки
-						asn1::reader_t inner(item.content);
 						// Элемент записи метки новизны
 						asn1::element_t nonce;
+						// Разборщик содержимого явной метки
+						asn1::reader_t inner(item.content);
 						// Если запись метки новизны разобрать не удалось
 						if(!inner.next(asn1::tag_t::OCTET_STRING, nonce)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(inner.err());
+							this->_error = ::__nts_translate__(inner.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
@@ -1589,14 +1663,14 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					} break;
 					// freeText [7] PKIFreeText
 					case 7: {
-						// Разборщик содержимого явной метки
-						asn1::reader_t inner(item.content);
 						// Элемент записи свободного текста
 						asn1::element_t text;
+						// Разборщик содержимого явной метки
+						asn1::reader_t inner(item.content);
 						// Если запись свободного текста разобрать не удалось
 						if(!inner.next(asn1::tag_t::SEQUENCE, text)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(inner.err());
+							this->_error = ::__nts_translate__(inner.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
@@ -1611,12 +1685,12 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 							// Если строку разобрать не удалось
 							if(!lines.next(asn1::tag_t::UTF8_STRING, line)){
 								// Запоминаем причину отказа
-								this->_error = __nts_translate__(lines.err());
+								this->_error = ::__nts_translate__(lines.err());
 								// Выводим причину отказа
 								return this->_error;
 							}
 							// Строка свободного текста
-							string value;
+							string value = "";
 							// Если строку извлечь не удалось
 							if(asn1::text(line, asn1::tag_t::UTF8_STRING, value) != asn1::error_t::NONE){
 								// Запоминаем причину отказа
@@ -1647,7 +1721,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 		// Если запись тела разобрать не удалось
 		if(!items.next(body)){
 			// Запоминаем причину отказа
-			this->_error = __nts_translate__(items.err());
+			this->_error = ::__nts_translate__(items.err());
 			// Выводим причину отказа
 			return this->_error;
 		}
@@ -1673,7 +1747,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 			// Если поле разобрать не удалось
 			if(!items.next(item)){
 				// Запоминаем причину отказа
-				this->_error = __nts_translate__(items.err());
+				this->_error = ::__nts_translate__(items.err());
 				// Выводим причину отказа
 				return this->_error;
 			}
@@ -1690,14 +1764,14 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 			switch(item.tag){
 				// protection [0] PKIProtection
 				case 0: {
-					// Разборщик содержимого явной метки
-					asn1::reader_t inner(item.content);
 					// Элемент записи строки битов защиты
 					asn1::element_t bits;
+					// Разборщик содержимого явной метки
+					asn1::reader_t inner(item.content);
 					// Если запись строки битов разобрать не удалось
 					if(!inner.next(asn1::tag_t::BIT_STRING, bits)){
 						// Запоминаем причину отказа
-						this->_error = __nts_translate__(inner.err());
+						this->_error = ::__nts_translate__(inner.err());
 						// Выводим причину отказа
 						return this->_error;
 					}
@@ -1731,7 +1805,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 					// Если запись набора сертификатов разобрать не удалось
 					if(!inner.next(asn1::tag_t::SEQUENCE, certificates)){
 						// Запоминаем причину отказа
-						this->_error = __nts_translate__(inner.err());
+						this->_error = ::__nts_translate__(inner.err());
 						// Выводим причину отказа
 						return this->_error;
 					}
@@ -1746,7 +1820,7 @@ nts::cmp::error_t nts::cmp::Message::parse(const view_t & data) noexcept {
 						// Если запись сертификата разобрать не удалось
 						if(!records.next(certificate)){
 							// Запоминаем причину отказа
-							this->_error = __nts_translate__(records.err());
+							this->_error = ::__nts_translate__(records.err());
 							// Выводим причину отказа
 							return this->_error;
 						}
@@ -1882,7 +1956,7 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 		// Если статус разобрать не удалось
 		if(!items.next(asn1::tag_t::INTEGER, status))
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(items.err());
+			return ::__nts_translate__(items.err());
 		// Значение статуса
 		int64_t value = 0;
 		// Если статус разобрать не удалось
@@ -1898,7 +1972,7 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 			// Если запись строк статуса разобрать не удалось
 			if(!items.next(asn1::tag_t::SEQUENCE, strings))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Разборщик строк статуса
 			asn1::reader_t lines(strings.content);
 			/**
@@ -1910,9 +1984,9 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 				// Если строку разобрать не удалось
 				if(!lines.next(asn1::tag_t::UTF8_STRING, line))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(lines.err());
+					return ::__nts_translate__(lines.err());
 				// Строка статуса
-				string text;
+				string text = "";
 				// Если строку извлечь не удалось
 				if(asn1::text(line, asn1::tag_t::UTF8_STRING, text) != asn1::error_t::NONE)
 					// Выводим отказ устройства записи
@@ -1928,7 +2002,7 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 			// Если запись сведений об отказе разобрать не удалось
 			if(!items.next(asn1::tag_t::BIT_STRING, failure))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Просмотр содержимого строки битов
 			view_t content;
 			// Количество неиспользуемых разрядов последнего байта
@@ -1944,7 +2018,6 @@ nts::cmp::error_t nts::cmp::statusInfo(const asn1::element_t & element, status_i
 		if(!items.empty())
 			// Выводим отказ устройства записи
 			return error_t::STRUCTURE;
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -1979,7 +2052,7 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 		// Если запись набора запросов разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик записей запросов
 		asn1::reader_t records(set.content);
 		/**
@@ -1991,7 +2064,7 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 			// Если запись запроса разобрать не удалось
 			if(!records.next(asn1::tag_t::SEQUENCE, message) || !message.constructed)
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Разборщик содержимого записи запроса
 			asn1::reader_t items(message.content);
 			// Элемент записи CertReq
@@ -1999,7 +2072,7 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 			// Если запись CertReq разобрать не удалось
 			if(!items.next(asn1::tag_t::SEQUENCE, certReq) || !certReq.constructed)
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Место, в которое помещается запрос
 			request_t request;
 			// Разборщик содержимого записи CertReq
@@ -2009,7 +2082,7 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 			// Если опознаватель запроса разобрать не удалось
 			if(!fields.next(asn1::tag_t::INTEGER, identifier))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(fields.err());
+				return ::__nts_translate__(fields.err());
 			// Если опознаватель запроса разобрать не удалось
 			if(asn1::integer(identifier, request.id) != asn1::error_t::NONE)
 				// Выводим отказ устройства записи
@@ -2019,7 +2092,7 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 			// Если запись шаблона разобрать не удалось
 			if(!fields.next(asn1::tag_t::SEQUENCE, certTemplate))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(fields.err());
+				return ::__nts_translate__(fields.err());
 			// Запоминаем запись шаблона целиком
 			request.certTemplate = certTemplate.element;
 			// Если подтверждение владения записано
@@ -2029,7 +2102,7 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 				// Если запись подтверждения владения разобрать не удалось
 				if(!items.next(popo))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(items.err());
+					return ::__nts_translate__(items.err());
 				// Запоминаем запись подтверждения владения целиком
 				request.popo = popo.element;
 			}
@@ -2040,7 +2113,7 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 				// Если запись регистрационных сведений разобрать не удалось
 				if(!items.next(asn1::tag_t::SEQUENCE, regInfo))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(items.err());
+					return ::__nts_translate__(items.err());
 				// Запоминаем запись регистрационных сведений целиком
 				request.regInfo = regInfo.element;
 			}
@@ -2051,7 +2124,6 @@ nts::cmp::error_t nts::cmp::requests(const view_t & body, vector <request_t> & r
 			// Запоминаем запрос
 			result.push_back(request);
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2087,7 +2159,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 		// Если запись ответа разобрать не удалось
 		if(!reader.next(asn1::tag_t::SEQUENCE, message) || !message.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(reader.err());
+			return ::__nts_translate__(reader.err());
 		// Разборщик содержимого записи ответа
 		asn1::reader_t items(message.content);
 		// Элемент очередного поля
@@ -2095,7 +2167,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 		// Если поле разобрать не удалось
 		if(!items.next(field))
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(items.err());
+			return ::__nts_translate__(items.err());
 		// Если первое поле - caPubs [1]
 		if((field.cls == asn1::cls_t::CONTEXT) && (field.tag == 1)){
 			// Разборщик записей сертификатов ЦС
@@ -2109,14 +2181,14 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 				// Если запись сертификата разобрать не удалось
 				if(!records.next(certificate))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(records.err());
+					return ::__nts_translate__(records.err());
 				// Запоминаем запись сертификата ЦС
 				caPubs.push_back(certificate.element);
 			}
 			// Если поле ответов разобрать не удалось
 			if(!items.next(field))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 		}
 		// Если поле ответов не набор
 		if((field.cls != asn1::cls_t::UNIVERSAL) || (field.tag != static_cast <uint32_t> (asn1::tag_t::SEQUENCE)) || !field.constructed)
@@ -2133,7 +2205,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 			// Если запись ответа разобрать не удалось
 			if(!records.next(asn1::tag_t::SEQUENCE, response) || !response.constructed)
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Разборщик содержимого записи ответа
 			asn1::reader_t fields(response.content);
 			// Место, в которое помещается ответ
@@ -2143,7 +2215,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 			// Если опознаватель запроса разобрать не удалось
 			if(!fields.next(asn1::tag_t::INTEGER, identifier))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(fields.err());
+				return ::__nts_translate__(fields.err());
 			// Если опознаватель запроса разобрать не удалось
 			if(asn1::integer(identifier, answer.id) != asn1::error_t::NONE)
 				// Выводим отказ устройства записи
@@ -2153,7 +2225,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 			// Если запись статуса разобрать не удалось
 			if(!fields.next(asn1::tag_t::SEQUENCE, status))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(fields.err());
+				return ::__nts_translate__(fields.err());
 			// Если сведения о статусе разобрать не удалось
 			if(statusInfo(status, answer.status) != error_t::NONE)
 				// Выводим отказ устройства записи
@@ -2165,7 +2237,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 				// Если запись сведений разобрать не удалось
 				if(!fields.next(asn1::tag_t::SEQUENCE, pair))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(fields.err());
+					return ::__nts_translate__(fields.err());
 				// Разборщик содержимого записи сведений
 				asn1::reader_t parts(pair.content);
 				// Элемент выбора certOrEncCert
@@ -2173,7 +2245,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 				// Если выбор разобрать не удалось
 				if(!parts.next(choice))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(parts.err());
+					return ::__nts_translate__(parts.err());
 				// Если выбор не контекстного класса
 				if(choice.cls != asn1::cls_t::CONTEXT)
 					// Выводим отказ устройства записи
@@ -2204,13 +2276,11 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 					// Если запись секретного ключа разобрать не удалось
 					if(!parts.next(privateKey))
 						// Выводим переведённый отказ разбора
-						return __nts_translate__(parts.err());
+						return ::__nts_translate__(parts.err());
 					// Если запись секретного ключа - privateKey [0]
-					if((privateKey.cls == asn1::cls_t::CONTEXT) && (privateKey.tag == 0)){
+					if((privateKey.cls == asn1::cls_t::CONTEXT) && (privateKey.tag == 0))
 						// Запоминаем запись секретного ключа: содержимое явной метки
 						answer.privateKey = privateKey.content;
-					// Иначе запись сведений о публикации пропускается
-					}
 				}
 			}
 			// Если запись rspInfo записана
@@ -2220,7 +2290,7 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 				// Если запись rspInfo разобрать не удалось
 				if(!fields.next(asn1::tag_t::OCTET_STRING, info))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(fields.err());
+					return ::__nts_translate__(fields.err());
 				// Запоминаем содержимое rspInfo
 				answer.info = info.content;
 			}
@@ -2231,7 +2301,6 @@ nts::cmp::error_t nts::cmp::response(const view_t & body, vector <view_t> & caPu
 			// Запоминаем ответ
 			result.push_back(answer);
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2266,7 +2335,7 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 		// Если запись набора сведений разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик записей сведений
 		asn1::reader_t records(set.content);
 		/**
@@ -2278,7 +2347,7 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 			// Если запись сведений разобрать не удалось
 			if(!records.next(asn1::tag_t::SEQUENCE, info) || !info.constructed)
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Разборщик содержимого записи сведений
 			asn1::reader_t items(info.content);
 			// Элемент опознавателя вида сведений
@@ -2286,11 +2355,11 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 			// Если опознаватель разобрать не удалось
 			if(!items.next(asn1::tag_t::OBJECT, type))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Место, в которое помещаются сведения
 			info_t pair;
 			// Если опознаватель разобрать не удалось
-			if(__nts_oid_of__(type, pair.oid) != error_t::NONE)
+			if(::__nts_oid_of__(type, pair.oid) != error_t::NONE)
 				// Выводим отказ устройства записи
 				return error_t::STRUCTURE;
 			// Если значение записано
@@ -2300,14 +2369,13 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 				// Если запись значения разобрать не удалось
 				if(!items.next(value))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(items.err());
+					return ::__nts_translate__(items.err());
 				// Запоминаем запись значения целиком
 				pair.value = value.element;
 			}
 			// Запоминаем сведения
 			result.push_back(pair);
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2318,7 +2386,6 @@ nts::cmp::error_t nts::cmp::infos(const view_t & body, vector <info_t> & result)
 	// Выводим успешность разбора
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция разбора вызовов подтверждения владения POPODecKeyChallContent
  *
@@ -2343,7 +2410,7 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 		// Если запись набора вызовов разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик записей вызовов
 		asn1::reader_t records(set.content);
 		/**
@@ -2355,7 +2422,7 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 			// Если запись вызова разобрать не удалось
 			if(!records.next(asn1::tag_t::SEQUENCE, challenge) || !challenge.constructed)
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Разборщик содержимого записи вызова
 			asn1::reader_t items(challenge.content);
 			// Элемент очередного поля
@@ -2363,7 +2430,7 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 			// Если поле разобрать не удалось
 			if(!items.next(field))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Место, в которое помещается вызов
 			challenge_t entry;
 			// Если первое поле - запись односторонней функции
@@ -2371,13 +2438,13 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 				// Просмотр настроек односторонней функции
 				view_t params;
 				// Если запись односторонней функции разобрать не удалось
-				if(__nts_algorithm_identifier__(field, entry.owf, params) != error_t::NONE)
+				if(::__nts_algorithm_identifier__(field, entry.owf, params) != error_t::NONE)
 					// Выводим отказ устройства записи
 					return error_t::STRUCTURE;
 				// Если поле свидетеля разобрать не удалось
 				if(!items.next(field))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(items.err());
+					return ::__nts_translate__(items.err());
 			}
 			// Если поле свидетеля не строка байтов
 			if((field.cls != asn1::cls_t::UNIVERSAL) || (field.tag != static_cast <uint32_t> (asn1::tag_t::OCTET_STRING)))
@@ -2390,13 +2457,12 @@ nts::cmp::error_t nts::cmp::challenges(const view_t & body, vector <challenge_t>
 			// Если вызов разобрать не удалось
 			if(!items.next(asn1::tag_t::OCTET_STRING, value))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Запоминаем содержимое вызова
 			entry.challenge = value.content;
 			// Дописываем пару свидетеля и вызова в итог разбора
 			result.push_back(entry);
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2431,7 +2497,7 @@ nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_
 		// Если запись набора ответов разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик чисел ответов
 		asn1::reader_t records(set.content);
 		/**
@@ -2443,7 +2509,7 @@ nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_
 			// Если число ответа разобрать не удалось
 			if(!records.next(asn1::tag_t::INTEGER, answer))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Число ответа
 			int64_t value = 0;
 			// Если число ответа разобрать не удалось
@@ -2453,7 +2519,6 @@ nts::cmp::error_t nts::cmp::challengeAnswers(const view_t & body, vector <int64_
 			// Запоминаем число ответа
 			result.push_back(value);
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2488,7 +2553,7 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 		// Если запись ответа разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик содержимого записи ответа
 		asn1::reader_t items(content.content);
 		// Элемент записи статуса
@@ -2496,7 +2561,7 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 		// Если запись статуса разобрать не удалось
 		if(!items.next(asn1::tag_t::SEQUENCE, status))
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(items.err());
+			return ::__nts_translate__(items.err());
 		// Если сведения о статусе разобрать не удалось
 		if(statusInfo(status, result.status) != error_t::NONE)
 			// Выводим отказ устройства записи
@@ -2510,7 +2575,7 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 			// Если поле разобрать не удалось
 			if(!items.next(field))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Если поле не контекстного класса
 			if(field.cls != asn1::cls_t::CONTEXT)
 				// Выводим отказ устройства записи
@@ -2537,7 +2602,7 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 						// Если запись сертификата разобрать не удалось
 						if(!records.next(certificate))
 							// Выводим переведённый отказ разбора
-							return __nts_translate__(records.err());
+							return ::__nts_translate__(records.err());
 						// Запоминаем запись сертификата ЦС
 						result.caCertificates.push_back(certificate.element);
 					}
@@ -2555,7 +2620,7 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 						// Если запись пары ключей разобрать не удалось
 						if(!records.next(pair))
 							// Выводим переведённый отказ разбора
-							return __nts_translate__(records.err());
+							return ::__nts_translate__(records.err());
 						// Запоминаем запись пары ключей
 						result.history.push_back(pair.element);
 					}
@@ -2566,7 +2631,6 @@ nts::cmp::error_t nts::cmp::recovery(const view_t & body, recovery_t & result) n
 					return error_t::STRUCTURE;
 			}
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2601,7 +2665,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 		// Если запись ответа разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик содержимого записи ответа
 		asn1::reader_t items(content.content);
 		// Элемент записи набора статусов
@@ -2609,7 +2673,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 		// Если запись набора статусов разобрать не удалось
 		if(!items.next(asn1::tag_t::SEQUENCE, statuses))
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(items.err());
+			return ::__nts_translate__(items.err());
 		// Разборщик записей статусов
 		asn1::reader_t records(statuses.content);
 		/**
@@ -2621,7 +2685,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 			// Если запись статуса разобрать не удалось
 			if(!records.next(asn1::tag_t::SEQUENCE, status))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Место, в которое помещаются сведения о статусе
 			status_info_t info;
 			// Если сведения о статусе разобрать не удалось
@@ -2640,7 +2704,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 			// Если поле разобрать не удалось
 			if(!items.next(field))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Если поле не контекстного класса
 			if(field.cls != asn1::cls_t::CONTEXT)
 				// Выводим отказ устройства записи
@@ -2662,7 +2726,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 						// Если запись опознавателя разобрать не удалось
 						if(!entries.next(certificate))
 							// Выводим переведённый отказ разбора
-							return __nts_translate__(entries.err());
+							return ::__nts_translate__(entries.err());
 						// Запоминаем запись опознавателя
 						result.certificates.push_back(certificate.element);
 					}
@@ -2678,7 +2742,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 						// Если запись списка отзыва разобрать не удалось
 						if(!entries.next(crl))
 							// Выводим переведённый отказ разбора
-							return __nts_translate__(entries.err());
+							return ::__nts_translate__(entries.err());
 						// Запоминаем запись списка отзыва
 						result.crls.push_back(crl.element);
 					}
@@ -2689,7 +2753,6 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & body, revoked_t & result) noe
 					return error_t::STRUCTURE;
 			}
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2722,7 +2785,7 @@ nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & body, view_t & oldWithNew
 	// Если запись объявления разобрать не удалось
 	if(!wrapper.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(wrapper.err());
+		return ::__nts_translate__(wrapper.err());
 	// Разборщик содержимого записи объявления
 	asn1::reader_t items(content.content);
 	// Элемент записи сертификата
@@ -2730,19 +2793,19 @@ nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & body, view_t & oldWithNew
 	// Если запись oldWithNew разобрать не удалось
 	if(!items.next(asn1::tag_t::SEQUENCE, certificate))
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(items.err());
+		return ::__nts_translate__(items.err());
 	// Запоминаем запись oldWithNew
 	oldWithNew = certificate.element;
 	// Если запись newWithOld разобрать не удалось
 	if(!items.next(asn1::tag_t::SEQUENCE, certificate))
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(items.err());
+		return ::__nts_translate__(items.err());
 	// Запоминаем запись newWithOld
 	newWithOld = certificate.element;
 	// Если запись newWithNew разобрать не удалось
 	if(!items.next(asn1::tag_t::SEQUENCE, certificate))
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(items.err());
+		return ::__nts_translate__(items.err());
 	// Запоминаем запись newWithNew
 	newWithNew = certificate.element;
 	// Выводим успешность разбора
@@ -2768,7 +2831,7 @@ nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & r
 	// Если запись объявления разобрать не удалось
 	if(!wrapper.next(asn1::tag_t::SEQUENCE, content) || !content.constructed)
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(wrapper.err());
+		return ::__nts_translate__(wrapper.err());
 	// Разборщик содержимого записи объявления
 	asn1::reader_t items(content.content);
 	// Элемент статуса
@@ -2776,7 +2839,7 @@ nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & r
 	// Если статус разобрать не удалось
 	if(!items.next(asn1::tag_t::INTEGER, status))
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(items.err());
+		return ::__nts_translate__(items.err());
 	// Значение статуса
 	int64_t value = 0;
 	// Если статус разобрать не удалось
@@ -2790,7 +2853,7 @@ nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & r
 	// Если запись опознавателя разобрать не удалось
 	if(!items.next(asn1::tag_t::SEQUENCE, certificate))
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(items.err());
+		return ::__nts_translate__(items.err());
 	// Запоминаем запись опознавателя сертификата
 	result.certificate = certificate.element;
 	// Элемент времени занесения в список отзыва
@@ -2798,7 +2861,7 @@ nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & r
 	// Если время занесения разобрать не удалось
 	if(!items.next(asn1::tag_t::GENERALIZED_TIME, moment))
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(items.err());
+		return ::__nts_translate__(items.err());
 	// Если время занесения разобрать не удалось
 	if(asn1::time(moment, asn1::tag_t::GENERALIZED_TIME, result.willBeRevokedAt) != asn1::error_t::NONE)
 		// Выводим отказ устройства записи
@@ -2808,7 +2871,7 @@ nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & r
 	// Если время компрометации разобрать не удалось
 	if(!items.next(asn1::tag_t::GENERALIZED_TIME, since))
 		// Выводим переведённый отказ разбора
-		return __nts_translate__(items.err());
+		return ::__nts_translate__(items.err());
 	// Если время компрометации разобрать не удалось
 	if(asn1::time(since, asn1::tag_t::GENERALIZED_TIME, result.badSinceDate) != asn1::error_t::NONE)
 		// Выводим отказ устройства записи
@@ -2820,7 +2883,7 @@ nts::cmp::error_t nts::cmp::announcement(const view_t & body, announcement_t & r
 		// Если запись расширений разобрать не удалось
 		if(!items.next(asn1::tag_t::SEQUENCE, extensions))
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(items.err());
+			return ::__nts_translate__(items.err());
 		// Запоминаем запись расширений
 		result.crlDetails = extensions.element;
 	}
@@ -2851,7 +2914,7 @@ nts::cmp::error_t nts::cmp::crlAnnouncement(const view_t & body, vector <view_t>
 		// Если запись набора списков разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик записей списков отзыва
 		asn1::reader_t records(set.content);
 		/**
@@ -2863,11 +2926,10 @@ nts::cmp::error_t nts::cmp::crlAnnouncement(const view_t & body, vector <view_t>
 			// Если запись списка отзыва разобрать не удалось
 			if(!records.next(crl))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Запоминаем запись списка отзыва
 			result.push_back(crl.element);
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2902,7 +2964,7 @@ nts::cmp::error_t nts::cmp::nested(const view_t & body, vector <view_t> & result
 		// Если запись набора сообщений разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик записей сообщений
 		asn1::reader_t records(set.content);
 		/**
@@ -2914,11 +2976,10 @@ nts::cmp::error_t nts::cmp::nested(const view_t & body, vector <view_t> & result
 			// Если запись сообщения разобрать не удалось
 			if(!records.next(message))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Запоминаем запись сообщения
 			result.push_back(message.element);
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -2953,7 +3014,7 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 		// Если запись набора опросов разобрать не удалось
 		if(!wrapper.next(asn1::tag_t::SEQUENCE, set) || !set.constructed)
 			// Выводим переведённый отказ разбора
-			return __nts_translate__(wrapper.err());
+			return ::__nts_translate__(wrapper.err());
 		// Разборщик записей опросов
 		asn1::reader_t records(set.content);
 		/**
@@ -2965,7 +3026,7 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 			// Если запись опроса разобрать не удалось
 			if(!records.next(asn1::tag_t::SEQUENCE, entry) || !entry.constructed)
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(records.err());
+				return ::__nts_translate__(records.err());
 			// Разборщик содержимого записи опроса
 			asn1::reader_t items(entry.content);
 			// Элемент опознавателя запроса
@@ -2973,7 +3034,7 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 			// Если опознаватель запроса разобрать не удалось
 			if(!items.next(asn1::tag_t::INTEGER, identifier))
 				// Выводим переведённый отказ разбора
-				return __nts_translate__(items.err());
+				return ::__nts_translate__(items.err());
 			// Место, в которое помещается запись опроса
 			poll_t poll;
 			// Если опознаватель запроса разобрать не удалось
@@ -2987,7 +3048,7 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 				// Если время ожидания разобрать не удалось
 				if(!items.next(asn1::tag_t::INTEGER, checkAfter))
 					// Выводим переведённый отказ разбора
-					return __nts_translate__(items.err());
+					return ::__nts_translate__(items.err());
 				// Если время ожидания разобрать не удалось
 				if(asn1::integer(checkAfter, poll.checkAfter) != asn1::error_t::NONE)
 					// Выводим отказ устройства записи
@@ -2999,7 +3060,7 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 					// Если запись причины разобрать не удалось
 					if(!items.next(asn1::tag_t::SEQUENCE, reason))
 						// Выводим переведённый отказ разбора
-						return __nts_translate__(items.err());
+						return ::__nts_translate__(items.err());
 					// Разборщик строк причины
 					asn1::reader_t lines(reason.content);
 					/**
@@ -3011,9 +3072,9 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 						// Если строку разобрать не удалось
 						if(!lines.next(asn1::tag_t::UTF8_STRING, line))
 							// Выводим переведённый отказ разбора
-							return __nts_translate__(lines.err());
+							return ::__nts_translate__(lines.err());
 						// Строка причины
-						string text;
+						string text = "";
 						// Если строку извлечь не удалось
 						if(asn1::text(line, asn1::tag_t::UTF8_STRING, text) != asn1::error_t::NONE)
 							// Выводим отказ устройства записи
@@ -3026,7 +3087,6 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 			// Запоминаем запись опроса
 			result.push_back(poll);
 		}
-	// Если памяти под сведения не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -3037,7 +3097,6 @@ nts::cmp::error_t nts::cmp::poll(const view_t & body, vector <poll_t> & result) 
 	// Выводим успешность разбора
 	return error_t::NONE;
 }
-
 /**
  * @brief Функция сборки записи GeneralName вида directoryName
  *
@@ -3058,7 +3117,7 @@ nts::cmp::error_t nts::cmp::directoryName(const view_t & name, vector <uint8_t> 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись имени
-	if(!__nts_embed__(writer, name))
+	if(!::__nts_embed__(writer, name))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем запись directoryName
@@ -3071,7 +3130,6 @@ nts::cmp::error_t nts::cmp::directoryName(const view_t & name, vector <uint8_t> 
 	try {
 		// Переносим запись GeneralName в итог
 		result.assign(writer.data().data, writer.data().data + writer.data().size);
-	// Если памяти под итог не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -3142,7 +3200,6 @@ nts::cmp::error_t nts::cmp::certTemplate(const view_t & subject, const view_t & 
 	try {
 		// Переносим запись шаблона в итог
 		result.assign(writer.data().data, writer.data().data + writer.data().size);
-	// Если памяти под итог не хватило
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -3174,13 +3231,13 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
 	// Место, в которое помещается запись тела
 	vector <uint8_t> body;
 	// Итог сборки тела
-	const error_t outcome = __nts_body_requests__(kind, templates, signer, hash, body);
+	const error_t outcome = ::__nts_body_requests__(kind, templates, signer, hash, body);
 	// Если тело собрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ сборки
 		return outcome;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, view_t(body.data(), body.size()), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, view_t(body.data(), body.size()), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения с телом запросов сертификатов под защитой PBM
@@ -3201,13 +3258,17 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
 	if(((kind != body_t::IR) && (kind != body_t::CR) && (kind != body_t::KUR) && (kind != body_t::KRR) && (kind != body_t::CCR)) || templates.empty())
 		// Выводим отказ пустой записи
 		return error_t::EMPTY;
-	// Под защитой PBM подтверждение владения подписью невозможно: ключа нет.
-	// Подтверждение ставится видом raVerified, как велит раздел 4.3 RFC 4210
-	// для случая, когда владение проверяет регистрационный центр
-	// Записчик содержимого тела
-	asn1::writer_t content;
 	// Опознаватель запроса
 	int64_t id = 0;
+	/**
+	 * @brief Записчик содержимого тела
+	 *
+	 * @details Под защитой PBM подтверждение владения подписью невозможно: ключа нет.
+	 *          Подтверждение ставится видом raVerified, как велит раздел 4.3 RFC 4210,
+	 *          для случая, когда владение проверяет регистрационный центр.
+	 *
+	 */
+	asn1::writer_t content;
 	/**
 	 * Переносим шаблоны запросов
 	 */
@@ -3227,7 +3288,7 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Переносим запись шаблона
-		if(!__nts_embed__(message, certTemplate))
+		if(!::__nts_embed__(message, certTemplate))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем запись CertReq
@@ -3243,7 +3304,7 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Переносим запись CertReqMsg в содержимое тела
-		if(!__nts_embed__(content, message.data()))
+		if(!::__nts_embed__(content, message.data()))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Опознаватель следующего запроса
@@ -3264,9 +3325,8 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой PBM
-	return __nts_build_protected__(sender, recipient, body.data(), kid, password, hash, result);
+	return ::__nts_build_protected__(sender, recipient, body.data(), kid, password, hash, result);
 }
-
 /**
  * @brief Функция сборки сообщения certConf
  *
@@ -3280,10 +3340,10 @@ nts::cmp::error_t nts::cmp::request(const body_t kind, const view_t & sender, co
  *
  */
 nts::cmp::error_t nts::cmp::certConfirm(const view_t & sender, const view_t & recipient, const vector <view_t> & hashes, const keys::signer_t & signer, const digest::hash_t hash, vector <uint8_t> & result) noexcept {
-	// Записчик содержимого тела CertConfirmContent
-	asn1::writer_t content;
 	// Опознаватель запроса
 	int64_t id = 0;
+	// Записчик содержимого тела CertConfirmContent
+	asn1::writer_t content;
 	/**
 	 * Переносим хеши сертификатов
 	 */
@@ -3322,7 +3382,7 @@ nts::cmp::error_t nts::cmp::certConfirm(const view_t & sender, const view_t & re
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения pkiConf
@@ -3351,7 +3411,7 @@ nts::cmp::error_t nts::cmp::confirm(const view_t & sender, const view_t & recipi
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения rr (запрос отзыва)
@@ -3416,7 +3476,7 @@ nts::cmp::error_t nts::cmp::revoke(const view_t & sender, const view_t & recipie
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения genm
@@ -3448,7 +3508,7 @@ nts::cmp::error_t nts::cmp::general(const view_t & sender, const view_t & recipi
 		// Если значение задано
 		if(info.value.size > 0){
 			// Переносим запись значения
-			if(!__nts_embed__(content, info.value))
+			if(!::__nts_embed__(content, info.value))
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 		}
@@ -3472,7 +3532,7 @@ nts::cmp::error_t nts::cmp::general(const view_t & sender, const view_t & recipi
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения ip/cp/kup (ответ о сертификатах)
@@ -3559,7 +3619,7 @@ nts::cmp::error_t nts::cmp::respond(const body_t kind, const view_t & sender, co
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 			// Переносим запись сертификата
-			if(!__nts_embed__(answers, response.certificate))
+			if(!::__nts_embed__(answers, response.certificate))
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 			// Закрываем явную метку [0] и запись CertifiedKeyPair
@@ -3593,7 +3653,7 @@ nts::cmp::error_t nts::cmp::respond(const body_t kind, const view_t & sender, co
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись CertRepMessage
-	if(!__nts_embed__(body, content.data()))
+	if(!::__nts_embed__(body, content.data()))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
@@ -3601,7 +3661,7 @@ nts::cmp::error_t nts::cmp::respond(const body_t kind, const view_t & sender, co
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения error
@@ -3675,7 +3735,7 @@ nts::cmp::error_t nts::cmp::failure(const view_t & sender, const view_t & recipi
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись ErrorMsgContent
-	if(!__nts_embed__(body, content.data()))
+	if(!::__nts_embed__(body, content.data()))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
@@ -3683,9 +3743,8 @@ nts::cmp::error_t nts::cmp::failure(const view_t & sender, const view_t & recipi
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
-
 /**
  * @brief Функция сборки сообщения p10cr (запрос PKCS #10)
  *
@@ -3710,7 +3769,7 @@ nts::cmp::error_t nts::cmp::requestPkcs10(const view_t & sender, const view_t & 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись CertificationRequest
-	if(!__nts_embed__(body, csr))
+	if(!::__nts_embed__(body, csr))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
@@ -3718,7 +3777,7 @@ nts::cmp::error_t nts::cmp::requestPkcs10(const view_t & sender, const view_t & 
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения popdecc (вызовы подтверждения владения)
@@ -3746,7 +3805,7 @@ nts::cmp::error_t nts::cmp::challenge(const view_t & sender, const view_t & reci
 		// Если односторонняя функция задана
 		if(!entry.owf.empty()){
 			// Записываем алгоритм односторонней функции с пустыми настройками
-			if(!__nts_write_algorithm__(content, entry.owf.c_str(), true))
+			if(!::__nts_write_algorithm__(content, entry.owf.c_str(), true))
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 		}
@@ -3778,7 +3837,7 @@ nts::cmp::error_t nts::cmp::challenge(const view_t & sender, const view_t & reci
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения popdecr (ответы подтверждения владения)
@@ -3819,7 +3878,7 @@ nts::cmp::error_t nts::cmp::challengeReply(const view_t & sender, const view_t &
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения krp (ответ восстановления ключа)
@@ -3862,7 +3921,7 @@ nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & reci
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Переносим запись сертификата
-		if(!__nts_embed__(content, recovery.certificate))
+		if(!::__nts_embed__(content, recovery.certificate))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 		// Закрываем явную метку [0]
@@ -3881,7 +3940,7 @@ nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & reci
 		 */
 		for(const view_t & certificate : recovery.caCertificates){
 			// Переносим запись сертификата ЦС
-			if(!__nts_embed__(content, certificate))
+			if(!::__nts_embed__(content, certificate))
 				// Выводим отказ сборки
 				return error_t::MEMORY;
 		}
@@ -3901,7 +3960,7 @@ nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & reci
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись KeyRecRepContent
-	if(!__nts_embed__(body, content.data()))
+	if(!::__nts_embed__(body, content.data()))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
@@ -3909,7 +3968,7 @@ nts::cmp::error_t nts::cmp::recovered(const view_t & sender, const view_t & reci
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения rp (ответ отзыва)
@@ -3962,7 +4021,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & sender, const view_t & recipi
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись RevRepContent
-	if(!__nts_embed__(body, content.data()))
+	if(!::__nts_embed__(body, content.data()))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
@@ -3970,7 +4029,7 @@ nts::cmp::error_t nts::cmp::revoked(const view_t & sender, const view_t & recipi
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения ckuann (объявление обновления ключа ЦС)
@@ -3994,15 +4053,15 @@ nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & sender, const view_t & re
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись oldWithNew
-	if(!__nts_embed__(content, oldWithNew))
+	if(!::__nts_embed__(content, oldWithNew))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись newWithOld
-	if(!__nts_embed__(content, newWithOld))
+	if(!::__nts_embed__(content, newWithOld))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись newWithNew
-	if(!__nts_embed__(content, newWithNew))
+	if(!::__nts_embed__(content, newWithNew))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем запись CAKeyUpdAnnContent
@@ -4016,7 +4075,7 @@ nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & sender, const view_t & re
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись CAKeyUpdAnnContent
-	if(!__nts_embed__(body, content.data()))
+	if(!::__nts_embed__(body, content.data()))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
@@ -4024,7 +4083,7 @@ nts::cmp::error_t nts::cmp::caKeyUpdate(const view_t & sender, const view_t & re
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения cann (объявление сертификата)
@@ -4050,7 +4109,7 @@ nts::cmp::error_t nts::cmp::announce(const view_t & sender, const view_t & recip
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись сертификата
-	if(!__nts_embed__(body, certificate))
+	if(!::__nts_embed__(body, certificate))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
@@ -4058,7 +4117,7 @@ nts::cmp::error_t nts::cmp::announce(const view_t & sender, const view_t & recip
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения rann (объявление отзыва)
@@ -4088,7 +4147,7 @@ nts::cmp::error_t nts::cmp::announceRevocation(const view_t & sender, const view
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись опознавателя сертификата
-	if(!__nts_embed__(content, announcement.certificate))
+	if(!::__nts_embed__(content, announcement.certificate))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Записываем время занесения в список отзыва
@@ -4110,7 +4169,7 @@ nts::cmp::error_t nts::cmp::announceRevocation(const view_t & sender, const view
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Переносим запись RevAnnContent
-	if(!__nts_embed__(body, content.data()))
+	if(!::__nts_embed__(body, content.data()))
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Закрываем метку вида тела
@@ -4118,7 +4177,7 @@ nts::cmp::error_t nts::cmp::announceRevocation(const view_t & sender, const view
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения crlann (объявление списков отзыва)
@@ -4140,7 +4199,7 @@ nts::cmp::error_t nts::cmp::announceCrls(const view_t & sender, const view_t & r
 	 */
 	for(const view_t & crl : crls){
 		// Переносим запись списка отзыва
-		if(!__nts_embed__(content, crl))
+		if(!::__nts_embed__(content, crl))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 	}
@@ -4159,7 +4218,7 @@ nts::cmp::error_t nts::cmp::announceCrls(const view_t & sender, const view_t & r
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения nested (вложенные сообщения)
@@ -4181,7 +4240,7 @@ nts::cmp::error_t nts::cmp::nest(const view_t & sender, const view_t & recipient
 	 */
 	for(const view_t & message : messages){
 		// Переносим запись сообщения
-		if(!__nts_embed__(content, message))
+		if(!::__nts_embed__(content, message))
 			// Выводим отказ сборки
 			return error_t::MEMORY;
 	}
@@ -4200,7 +4259,7 @@ nts::cmp::error_t nts::cmp::nest(const view_t & sender, const view_t & recipient
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения pollReq (запрос опроса)
@@ -4249,7 +4308,7 @@ nts::cmp::error_t nts::cmp::pollRequest(const view_t & sender, const view_t & re
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
 /**
  * @brief Функция сборки сообщения pollRep (ответ опроса)
@@ -4322,9 +4381,8 @@ nts::cmp::error_t nts::cmp::pollReply(const view_t & sender, const view_t & reci
 		// Выводим отказ сборки
 		return error_t::MEMORY;
 	// Собираем сообщение с защитой подписью
-	return __nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
+	return ::__nts_build_signed__(sender, recipient, body.data(), signer, hash, result);
 }
-
 /**
  * @brief Функция проверки защиты сообщения подписью
  *
@@ -4346,8 +4404,12 @@ nts::cmp::error_t nts::cmp::verify(const message_t & message, const x509::key_t 
 	if(message.header().protection == OID_PBM)
 		// Выводим отказ алгоритма
 		return error_t::ALGORITHM;
-	// Записчик записи защищаемой части ProtectedPart: подпись ставится под
-	// записью SEQUENCE { header, body } по разделу 5.1.3, а не под срезом полей
+	/**
+	 * @brief Записчик записи защищаемой части ProtectedPart: подпись ставится под
+	 *
+	 * @details записью SEQUENCE { header, body } по разделу 5.1.3, а не под срезом полей.
+	 *
+	 */
 	asn1::writer_t part;
 	// Собираем запись защищаемой части
 	if(!part.element(asn1::cls_t::UNIVERSAL, true, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), message.part()))
@@ -4358,17 +4420,17 @@ nts::cmp::error_t nts::cmp::verify(const message_t & message, const x509::key_t 
 	/**
 	 * Определяем итог проверки
 	 */
-	switch(outcome){
+	switch(static_cast <uint8_t> (outcome)){
 		// Подпись сошлась
-		case x509::error_t::NONE:
+		case static_cast <uint8_t> (x509::error_t::NONE):
 			// Выводим успешность проверки
 			return error_t::NONE;
 		// Ключ чужого алгоритма
-		case x509::error_t::KEY:
+		case static_cast <uint8_t> (x509::error_t::KEY):
 			// Выводим отказ ключа
 			return error_t::KEY;
 		// Памяти не хватило
-		case x509::error_t::MEMORY:
+		case static_cast <uint8_t> (x509::error_t::MEMORY):
 			// Выводим отказ памяти
 			return error_t::MEMORY;
 		// Подпись не сошлась
@@ -4403,7 +4465,7 @@ nts::cmp::error_t nts::cmp::verify(const message_t & message, const view_t & pas
 	// Место, в которое помещается ключ имитовставки
 	vector <uint8_t> key;
 	// Итог разбора настроек PBM и выработки ключа
-	const error_t outcome = __nts_pbm_parameters__(message.header().parameters, password, hash, key);
+	const error_t outcome = ::__nts_pbm_parameters__(message.header().parameters, password, hash, key);
 	// Если настройки разобрать не удалось
 	if(outcome != error_t::NONE)
 		// Выводим отказ разбора
@@ -4446,7 +4508,6 @@ nts::cmp::error_t nts::cmp::verify(const message_t & message, const view_t & pas
 	// Выводим итог сверки
 	return ((difference == 0) ? error_t::NONE : error_t::PROTECTION);
 }
-
 /**
  * @brief Метод извлечения записи защищаемой части ProtectedPart
  *
@@ -4457,6 +4518,16 @@ const nts::view_t & nts::cmp::Message::part() const noexcept {
 	// Выводим просмотр записи защищаемой части
 	return this->_protected;
 }
+/**
+ * @brief Конструктор сообщения
+ *
+ */
+nts::cmp::Message::Message() noexcept : _error(error_t::NONE), _kind(body_t::NONE) {}
+/**
+ * @brief Деструктор
+ *
+ */
+nts::cmp::Message::~Message() noexcept = default;
 
 /**
  * @brief Конструктор
@@ -4469,12 +4540,6 @@ nts::cmp::Status::Status() noexcept : status(status_t::ACCEPTED) {}
  *
  */
 nts::cmp::Header::Header() noexcept : pvno(2), messageTime(0), hasTime(false) {}
-
-/**
- * @brief Деструктор
- *
- */
-nts::cmp::Message::~Message() noexcept {}
 
 /**
  * @brief Конструктор

@@ -745,6 +745,7 @@ namespace {
 			wipe(&t, sizeof(t));
 		}
 	#endif
+
 	/**
 	 * Ассемблерное обращение по нечётному модулю из четырёх слов
 	 */
@@ -1004,8 +1005,6 @@ void nts::math::Modulus::clear() noexcept {
 	wipe(this->_square.words, sizeof(this->_square.words));
 	// Затирание значения модуля
 	wipe(this->_modulus.words, sizeof(this->_modulus.words));
-	// Сбрасываем обратное к младшему слову модуля значение
-	this->_factor = 0;
 	// Затирание основания разрядной сетки по модулю
 	wipe(this->_shift.words, sizeof(this->_shift.words));
 	// Сбрасываем хвост модуля
@@ -1014,6 +1013,8 @@ void nts::math::Modulus::clear() noexcept {
 	this->_size = 0;
 	// Сбрасываем количество слов модуля
 	this->_words = 0;
+	// Сбрасываем обратное к младшему слову модуля значение
+	this->_factor = 0;
 	// Снимаем признак того, что модуль установлен
 	this->_ready = false;
 	// Сбрасываем вид модуля
@@ -1046,9 +1047,9 @@ bool nts::math::Modulus::load(const view_t & data, number_t & result) const noex
 	// Итог вычитания модуля из разобранного числа
 	uint64_t buffer[NUMBER_WORDS];
 	// Вычитание модуля из разобранного числа
-	const uint64_t borrow = __nts_decrease__(result.words, this->_modulus.words, buffer, this->_words);
+	const uint64_t borrow = ::__nts_decrease__(result.words, this->_modulus.words, buffer, this->_words);
 	// Затирание итога вычитания модуля
-	__nts_clean__(buffer, this->_words);
+	::__nts_clean__(buffer, this->_words);
 	// Если разобранное число оказалось не меньше модуля
 	if(borrow == 0){
 		// Обнуление разобранного числа
@@ -1118,7 +1119,7 @@ bool nts::math::Modulus::reduce(const view_t & data, number_t & result) const no
 		 */
 		if((this->_form == form_t::MINUS) || (this->_form == form_t::PLUS))
 			// Условное вычитание модуля
-			__nts_lessen__(item.words, this->_modulus.words, 0, this->_words);
+			::__nts_lessen__(item.words, this->_modulus.words, 0, this->_words);
 		// Иначе приводим кусок умножениями
 		else {
 			// Умножение куска на квадрат основания области Монтгомери
@@ -1312,9 +1313,9 @@ void nts::math::Modulus::add(const number_t & first, const number_t & second, nu
 		return;
 	}
 	// Сложение слагаемых
-	const uint64_t carry = __nts_increase__(first.words, second.words, result.words, this->_words);
+	const uint64_t carry = ::__nts_increase__(first.words, second.words, result.words, this->_words);
 	// Приведение суммы по модулю
-	__nts_lessen__(result.words, this->_modulus.words, carry, this->_words);
+	::__nts_lessen__(result.words, this->_modulus.words, carry, this->_words);
 }
 /**
  * @brief Метод вычитания чисел по модулю
@@ -1339,11 +1340,11 @@ void nts::math::Modulus::subtract(const number_t & first, const number_t & secon
 		return;
 	}
 	// Вычитание вычитаемого из уменьшаемого
-	const uint64_t borrow = __nts_decrease__(first.words, second.words, result.words, this->_words);
+	const uint64_t borrow = ::__nts_decrease__(first.words, second.words, result.words, this->_words);
 	// Сумма разности с модулем, применяемая при заёме из старшего слова
 	uint64_t buffer[NUMBER_WORDS];
 	// Сложение разности с модулем
-	__nts_increase__(result.words, this->_modulus.words, buffer, this->_words);
+	::__nts_increase__(result.words, this->_modulus.words, buffer, this->_words);
 	/**
 	 * Перебираем слова разности
 	 */
@@ -1351,7 +1352,7 @@ void nts::math::Modulus::subtract(const number_t & first, const number_t & secon
 		// Выбираем очередное слово итога наложением маски заёма
 		result.words[i] = select(0 - borrow, buffer[i], result.words[i]);
 	// Затирание суммы разности с модулем
-	__nts_clean__(buffer, this->_words);
+	::__nts_clean__(buffer, this->_words);
 }
 /**
  * @brief Метод умножения чисел по модулю
@@ -1456,9 +1457,9 @@ void nts::math::Modulus::multiply(const number_t & first, const number_t & secon
 		// Записываем очередное слово произведения
 		result.words[i] = buffer[i];
 	// Приведение произведения по модулю
-	__nts_lessen__(result.words, this->_modulus.words, buffer[this->_words], this->_words);
+	::__nts_lessen__(result.words, this->_modulus.words, buffer[this->_words], this->_words);
 	// Затирание накопленного произведения
-	__nts_clean__(buffer, total);
+	::__nts_clean__(buffer, total);
 }
 /**
  * @brief Метод возведения числа в квадрат по модулю
@@ -1547,23 +1548,23 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		 */
 		switch(this->_words){
 			// Модуль в одно слово
-			case 1: __nts_safegcd__ <1> (this->_modulus.words, this->_factor, value, result); break;
+			case 1: ::__nts_safegcd__ <1> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в два слова
-			case 2: __nts_safegcd__ <2> (this->_modulus.words, this->_factor, value, result); break;
+			case 2: ::__nts_safegcd__ <2> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в три слова
-			case 3: __nts_safegcd__ <3> (this->_modulus.words, this->_factor, value, result); break;
+			case 3: ::__nts_safegcd__ <3> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в четыре слова: кривые на 256 разрядов
-			case 4: __nts_safegcd__ <4> (this->_modulus.words, this->_factor, value, result); break;
+			case 4: ::__nts_safegcd__ <4> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в пять слов
-			case 5: __nts_safegcd__ <5> (this->_modulus.words, this->_factor, value, result); break;
+			case 5: ::__nts_safegcd__ <5> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в шесть слов: кривая P-384
-			case 6: __nts_safegcd__ <6> (this->_modulus.words, this->_factor, value, result); break;
+			case 6: ::__nts_safegcd__ <6> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в семь слов
-			case 7: __nts_safegcd__ <7> (this->_modulus.words, this->_factor, value, result); break;
+			case 7: ::__nts_safegcd__ <7> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в восемь слов: кривые на 512 разрядов
-			case 8: __nts_safegcd__ <8> (this->_modulus.words, this->_factor, value, result); break;
+			case 8: ::__nts_safegcd__ <8> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в девять слов: кривая P-521
-			case 9: __nts_safegcd__ <9> (this->_modulus.words, this->_factor, value, result); break;
+			case 9: ::__nts_safegcd__ <9> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль не установлен: слов у него нет, и обращать нечего
 			default: return;
 		}
@@ -1591,7 +1592,7 @@ void nts::math::Modulus::invert(const number_t & value, number_t & result) const
 		// Записываем значение двойки
 		two.words[0] = 2;
 		// Вычитание двойки из модуля
-		__nts_decrease__(this->_modulus.words, two.words, exponent.words, this->_words);
+		::__nts_decrease__(this->_modulus.words, two.words, exponent.words, this->_words);
 		// Заготовленные степени обращаемого числа от нулевой до пятнадцатой
 		number_t table[16];
 		// Единица вне области Монтгомери
@@ -1672,7 +1673,7 @@ void nts::math::Modulus::inverse(const number_t & value, number_t & result) cons
 		// Если модуль в четыре слова
 		if(this->_words == 4){
 			// Обращение бинарным алгоритмом Евклида
-			__nts_beeu4__(this->_modulus.words, value.words, result.words);
+			::__nts_beeu4__(this->_modulus.words, value.words, result.words);
 			// Выходим из обращения
 			return;
 		}
@@ -1686,23 +1687,23 @@ void nts::math::Modulus::inverse(const number_t & value, number_t & result) cons
 		 */
 		switch(this->_words){
 			// Модуль в одно слово
-			case 1: __nts_safegcd__ <1> (this->_modulus.words, this->_factor, value, result); break;
+			case 1: ::__nts_safegcd__ <1> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в два слова
-			case 2: __nts_safegcd__ <2> (this->_modulus.words, this->_factor, value, result); break;
+			case 2: ::__nts_safegcd__ <2> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в три слова
-			case 3: __nts_safegcd__ <3> (this->_modulus.words, this->_factor, value, result); break;
+			case 3: ::__nts_safegcd__ <3> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в четыре слова: кривые на 256 разрядов
-			case 4: __nts_safegcd__ <4> (this->_modulus.words, this->_factor, value, result); break;
+			case 4: ::__nts_safegcd__ <4> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в пять слов
-			case 5: __nts_safegcd__ <5> (this->_modulus.words, this->_factor, value, result); break;
+			case 5: ::__nts_safegcd__ <5> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в шесть слов: кривая P-384
-			case 6: __nts_safegcd__ <6> (this->_modulus.words, this->_factor, value, result); break;
+			case 6: ::__nts_safegcd__ <6> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в семь слов
-			case 7: __nts_safegcd__ <7> (this->_modulus.words, this->_factor, value, result); break;
+			case 7: ::__nts_safegcd__ <7> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в восемь слов: кривые на 512 разрядов
-			case 8: __nts_safegcd__ <8> (this->_modulus.words, this->_factor, value, result); break;
+			case 8: ::__nts_safegcd__ <8> (this->_modulus.words, this->_factor, value, result); break;
 			// Модуль в девять слов: кривая P-521
-			case 9: __nts_safegcd__ <9> (this->_modulus.words, this->_factor, value, result); break;
+			case 9: ::__nts_safegcd__ <9> (this->_modulus.words, this->_factor, value, result); break;
 		}
 	/**
 	 * У MSVC нет знакового целого двойной разрядности: обращение через область Монтгомери

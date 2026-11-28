@@ -846,10 +846,10 @@ namespace nts {
 						return error_t::EMPTY;
 					// Кодируем модуль
 					string modulus = "";
-					// Кодирование модуля
-					__nts_encode_base64url__(view_t(key.n.data(), key.n.size()), modulus);
 					// Кодируем показатель
 					string exponent = "";
+					// Кодирование модуля
+					__nts_encode_base64url__(view_t(key.n.data(), key.n.size()), modulus);
 					// Кодирование показателя
 					__nts_encode_base64url__(view_t(key.e.data(), key.e.size()), exponent);
 					// Собираем запись: члены в порядке словаря, как у канонической записи отпечатка
@@ -875,10 +875,10 @@ namespace nts {
 						return error_t::EMPTY;
 					// Кодируем первую координату
 					string memberX = "";
-					// Кодирование первой координаты
-					__nts_encode_base64url__(view_t(key.x.data(), key.x.size()), memberX);
 					// Кодируем вторую координату
 					string memberY = "";
+					// Кодирование первой координаты
+					__nts_encode_base64url__(view_t(key.x.data(), key.x.size()), memberX);
 					// Кодирование второй координаты
 					__nts_encode_base64url__(view_t(key.y.data(), key.y.size()), memberY);
 					// Собираем запись: члены в порядке словаря
@@ -1296,4 +1296,4 @@ namespace nts {
 	jws::Signature::Signature() noexcept :
 	 _error(error_t::NONE),
 	 _algorithm(algorithm_t::NONE) {}
-}
+};

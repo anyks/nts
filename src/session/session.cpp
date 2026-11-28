@@ -460,6 +460,7 @@ nts::session::Transcript::Transcript() noexcept : _selected(digest::hash_t::NONE
 	// Начало переписки всеми хешами
 	this->start();
 }
+
 /**
  * @brief Метод получения хеша, которым ведётся расписание ключей
  *
@@ -586,7 +587,7 @@ nts::session::error_t nts::session::Secrets::handshake(const view_t & shared, co
 	// Место, в которое помещается промежуточное значение
 	uint8_t derived[schedule::SCHEDULE_WIDEST];
 	// Если промежуточное значение вывести не удалось
-	if(!__nts_stepping__(this->_algorithm, this->_keys->secret, derived)){
+	if(!::__nts_stepping__(this->_algorithm, this->_keys->secret, derived)){
 		// Затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени рукопожатия
@@ -637,7 +638,7 @@ nts::session::error_t nts::session::Secrets::application(const view_t & transcri
 	// Место, в которое помещается промежуточное значение
 	uint8_t derived[schedule::SCHEDULE_WIDEST];
 	// Если промежуточное значение вывести не удалось
-	if(!__nts_stepping__(this->_algorithm, this->_keys->secret, derived)){
+	if(!::__nts_stepping__(this->_algorithm, this->_keys->secret, derived)){
 		// Затирание промежуточного значения
 		wipe(derived, sizeof(derived));
 		// Выводим отказ вывода ступени прикладных данных
@@ -1130,7 +1131,9 @@ nts::session::error_t nts::session::Secrets::renew(const side_t side) noexcept {
  * @brief Конструктор
  *
  */
-nts::session::Secrets::Secrets() noexcept : _stage(stage_t::NONE), _algorithm(DEFAULT), _length(digest::length(DEFAULT)), _keys(nullptr) {
+nts::session::Secrets::Secrets() noexcept :
+ _stage(stage_t::NONE), _algorithm(DEFAULT),
+ _length(digest::length(DEFAULT)), _keys(nullptr) {
 	/**
 	 * Заводим участок укрытой памяти под значения расписания; без участка расписание
 	 * вести нечем, и всякая ступень отвечает отказом состояния

@@ -3155,8 +3155,8 @@ namespace {
 				 * Перебираем четвёрки столбца
 				 */
 				for(size_t i = 1; i < (TABLE / 4); i++)
-				// Накапливаем четвёрку под маской
-				sum = _mm256_or_si256(sum, _mm256_and_si256(_mm256_loadu_si256(column + i), masks[i]));
+					// Накапливаем четвёрку под маской
+					sum = _mm256_or_si256(sum, _mm256_and_si256(_mm256_loadu_si256(column + i), masks[i]));
 				// Сложение половин
 				const __m128i half = _mm_or_si128(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
 				// Записываем слово
@@ -3218,8 +3218,8 @@ namespace {
 				 * Перебираем пары столбца
 				 */
 				for(size_t i = 1; i < (TABLE / 2); i++)
-				// Накапливаем пару под маской
-				sum = _mm_or_si128(sum, _mm_and_si128(_mm_loadu_si128(column + i), masks[i]));
+					// Накапливаем пару под маской
+					sum = _mm_or_si128(sum, _mm_and_si128(_mm_loadu_si128(column + i), masks[i]));
 				// Записываем слово
 				chosen[k] = static_cast <uint64_t> (_mm_cvtsi128_si64(_mm_or_si128(sum, _mm_unpackhi_epi64(sum, sum))));
 			}
@@ -3308,8 +3308,8 @@ namespace {
 					 * Перебираем записи таблицы
 					 */
 					for(size_t j = 0; j < TABLE; j++)
-					// Накапливаем пару слов под маской
-					acc = vorrq_u64(acc, vandq_u64(vld1q_u64(table[j] + word), vdupq_n_u64(::__nts_nil__(static_cast <uint64_t> (j) ^ index))));
+						// Накапливаем пару слов под маской
+						acc = vorrq_u64(acc, vandq_u64(vld1q_u64(table[j] + word), vdupq_n_u64(::__nts_nil__(static_cast <uint64_t> (j) ^ index))));
 					// Записываем накопленную пару
 					vst1q_u64(chosen + word, acc);
 				}
@@ -3377,8 +3377,8 @@ namespace {
 					 * Перебираем записи таблицы
 					 */
 					for(size_t j = 0; j < TABLE; j++)
-					// Накапливаем пару слов под маской
-					acc = _mm_or_si128(acc, _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (table[j] + word)), _mm_set1_epi64x(static_cast <long long> (::__nts_nil__(static_cast <uint64_t> (j) ^ index)))));
+						// Накапливаем пару слов под маской
+						acc = _mm_or_si128(acc, _mm_and_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (table[j] + word)), _mm_set1_epi64x(static_cast <long long> (::__nts_nil__(static_cast <uint64_t> (j) ^ index)))));
 					// Записываем накопленную пару
 					_mm_storeu_si128(reinterpret_cast <__m128i *> (chosen + word), acc);
 				}

@@ -32,15 +32,19 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
- * Подключаем заголовочные файлы проекта
+ * Подключаем заголовочный файл проекта
+ */
+#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
  */
 #include "digest/cshake.hpp"
-#include "sys/wipe.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -65,19 +69,19 @@ namespace {
 	/**
 	 * Имя функции имитовставки: раздел 4 SP 800-185
 	 */
-	static const char * KMAC = "KMAC";
+	static constexpr const char * KMAC = "KMAC";
 
 	/**
 	 * @brief Функция записи числа кодированием left_encode
 	 *
+	 * @details Раздел 2.2 SP 800-185: запись есть n ‖ x, где n - длина записи числа
+	 *          одним байтом, а x - само число от старшего байта к младшему.
+	 *
 	 * @param value  записываемое число: длина строки в разрядах либо скорость в байтах
 	 * @param result накопитель, в конец которого дописывается запись
 	 *
-	 * @details Раздел 2.2 SP 800-185: запись есть n ‖ x, где n - длина записи числа
-	 *          одним байтом, а x - само число от старшего байта к младшему
-	 *
 	 */
-	void __nts_left_encode__(const uint64_t value, vector <uint8_t> & result) {
+	static __NTS_INLINE__ void __nts_left_encode__(const uint64_t value, vector <uint8_t> & result) noexcept {
 		// Количество значащих байтов записываемого числа
 		size_t width = 1;
 		/**
@@ -98,14 +102,14 @@ namespace {
 	/**
 	 * @brief Функция записи числа кодированием right_encode
 	 *
+	 * @details Раздел 2.2 SP 800-185: запись есть x ‖ n, где x - число от старшего
+	 *          байта к младшему, а n - длина записи числа одним байтом.
+	 *
 	 * @param value  записываемое число: длина итога в разрядах
 	 * @param result накопитель, в конец которого дописывается запись
 	 *
-	 * @details Раздел 2.2 SP 800-185: запись есть x ‖ n, где x - число от старшего
-	 *          байта к младшему, а n - длина записи числа одним байтом
-	 *
 	 */
-	void __nts_right_encode__(const uint64_t value, vector <uint8_t> & result) {
+	static __NTS_INLINE__ void __nts_right_encode__(const uint64_t value, vector <uint8_t> & result) noexcept {
 		// Количество значащих байтов записываемого числа
 		size_t width = 1;
 		/**
@@ -126,13 +130,13 @@ namespace {
 	/**
 	 * @brief Функция записи строки кодированием encode_string
 	 *
+	 * @details Раздел 2.2 SP 800-185: запись есть left_encode(длина в разрядах) ‖ строка.
+	 *
 	 * @param data   записываемая строка
 	 * @param result накопитель, в конец которого дописывается запись
 	 *
-	 * @details Раздел 2.2 SP 800-185: запись есть left_encode(длина в разрядах) ‖ строка
-	 *
 	 */
-	void __nts_encode_string__(const view_t & data, vector <uint8_t> & result) {
+	static __NTS_INLINE__ void __nts_encode_string__(const view_t & data, vector <uint8_t> & result) noexcept {
 		// Записываем длину строки в разрядах
 		__nts_left_encode__(static_cast <uint64_t> (data.size) * 8, result);
 		// Записываем саму строку
@@ -141,15 +145,15 @@ namespace {
 	/**
 	 * @brief Функция записи строки дополнением до кратности скорости
 	 *
+	 * @details Раздел 2.2 SP 800-185: запись есть left_encode(rate) ‖ строка ‖ нули
+	 *          до длины, кратной скорости.
+	 *
 	 * @param data   записываемая строка
 	 * @param rate   скорость разновидности в байтах
 	 * @param result накопитель, в конец которого дописывается запись
 	 *
-	 * @details Раздел 2.2 SP 800-185: запись есть left_encode(rate) ‖ строка ‖ нули
-	 *          до длины, кратной скорости
-	 *
 	 */
-	void __nts_bytepad__(const view_t & data, const size_t rate, vector <uint8_t> & result) {
+	static __NTS_INLINE__ void __nts_bytepad__(const view_t & data, const size_t rate, vector <uint8_t> & result) noexcept {
 		// Длина записи до дополнения: длина префикса скорости и длина строки
 		const size_t before = (result.size() + 2 + data.size);
 		// Записываем скорость разновидности: у скоростей Keccak запись всегда двухбайтовая
@@ -166,7 +170,7 @@ namespace {
 	 * @return     разновидность cSHAKE той же скорости либо NONE у чужой разновидности
 	 *
 	 */
-	digest::sha3_t __nts_customized__(const digest::sha3_t type) noexcept {
+	static constexpr digest::sha3_t __nts_customized__(const digest::sha3_t type) noexcept {
 		// Если разновидность - SHAKE128
 		if(type == digest::sha3_t::SHAKE128)
 			// Выводим разновидность cSHAKE128

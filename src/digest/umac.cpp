@@ -85,13 +85,13 @@ namespace {
 	 */
 	using nts::sys::wipe;
 	/**
-	 * Подписываемся на шифр AES
-	 */
-	using nts::cipher::Aes;
-	/**
 	 * Подписываемся на целое число двойной разрядности
 	 */
 	using nts::math::wide_t;
+	/**
+	 * Подписываемся на шифр AES
+	 */
+	using nts::cipher::aes_t;
 	/**
 	 * Подписываемся на длину итога в восемь байтов
 	 */
@@ -165,7 +165,7 @@ namespace {
 	 * @param size   длина выводимого материала в байтах
 	 *
 	 */
-	static void __nts_kdf__(Aes & aes, const uint64_t index, uint8_t * result, const size_t size) noexcept {
+	static void __nts_kdf__(aes_t & aes, const uint64_t index, uint8_t * result, const size_t size) noexcept {
 		// Блок счётчика и его шифрованный образ
 		uint8_t input[BLOCK], output[BLOCK];
 		// Количество блоков выводимого материала
@@ -504,13 +504,13 @@ namespace {
 	 * @param size   длина подложки в байтах (8 или 16)
 	 *
 	 */
-	static __NTS_INLINE__ void __nts_pdf__(Aes & aes, const view_t & nonce, uint8_t * result, const size_t size) noexcept {
+	static __NTS_INLINE__ void __nts_pdf__(aes_t & aes, const view_t & nonce, uint8_t * result, const size_t size) noexcept {
 		// Ключ подложки, выводимый из ключа связи
 		uint8_t subkey[UMAC_KEY];
 		// Выводим ключ подложки опознавателем ноль
 		__nts_kdf__(aes, 0, subkey, sizeof(subkey));
 		// Шифр подложки
-		Aes pad;
+		aes_t pad;
 		// Устанавливаем ключ подложки
 		pad.key(view_t(subkey, sizeof(subkey)));
 		// Добитый нулями блок одноразового числа
@@ -549,13 +549,14 @@ namespace {
  */
 bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & data, uint8_t * result, const size_t size) noexcept {
 	// Если ключ, одноразовое число либо длина итога не годятся
-	if((key.data == nullptr) || (key.size != UMAC_KEY) || (nonce.data == nullptr) || (nonce.size == 0) || (nonce.size > BLOCK) || ((size != UMAC_64) && (size != UMAC_128)) || (result == nullptr))
+	if((key.data == nullptr) || (key.size != UMAC_KEY) || (nonce.data == nullptr) || (nonce.size == 0) ||
+	   (nonce.size > BLOCK) || ((size != UMAC_64) && (size != UMAC_128)) || (result == nullptr))
 		// Выводим отказ вычисления
 		return false;
 	// Количество итераций по длине итога
 	const size_t iters = (size / 4);
 	// Шифр с ключом связи
-	Aes aes;
+	aes_t aes;
 	// Если ключ связи не установлен
 	if(!aes.key(key))
 		// Выводим отказ вычисления
@@ -563,13 +564,13 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 	// Ключи слоёв универсального хеширования
 	uint8_t l1key[1024 + (UMAC_128 / 4 - 1) * 16], l2key[(UMAC_128 / 4) * 24], l3key1[(UMAC_128 / 4) * 64], l3key2[(UMAC_128 / 4) * 4];
 	// Выводим ключ слоя L1 опознавателем один
-	__nts_kdf__(aes, 1, l1key, 1024 + (iters - 1) * 16);
+	::__nts_kdf__(aes, 1, l1key, 1024 + (iters - 1) * 16);
 	// Выводим ключ слоя L2 опознавателем два
-	__nts_kdf__(aes, 2, l2key, iters * 24);
+	::__nts_kdf__(aes, 2, l2key, iters * 24);
 	// Выводим первый ключ слоя L3 опознавателем три
-	__nts_kdf__(aes, 3, l3key1, iters * 64);
+	::__nts_kdf__(aes, 3, l3key1, iters * 64);
 	// Выводим второй ключ слоя L3 опознавателем четыре
-	__nts_kdf__(aes, 4, l3key2, iters * 4);
+	::__nts_kdf__(aes, 4, l3key2, iters * 4);
 	// Итог универсального хеширования (по четыре байта на итерацию)
 	uint8_t hashed[UMAC_128];
 	// Вывод слоя L1: по восемь байтов на каждый блок сообщения в 1024 байта
@@ -602,7 +603,7 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 			// Значение слоя L1 ключом этой итерации
 			uint8_t av[8];
 			// Вычисляем значение слоя L1
-			__nts_l1hash__(l1key + i * 16, data, av);
+			::__nts_l1hash__(l1key + i * 16, data, av);
 			// Записываем значение слоя L1 в младшие восемь байтов слоя L2
 			::memcpy(b + 8, av, 8);
 			// Затираем значение слоя L1
@@ -610,14 +611,14 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 		// Иначе значение слоя L1 сводится полиномом от потока его значений
 		} else {
 			// Вычисляем вывод слоя L1 потоком значений по блокам
-			const size_t length = __nts_l1hash__(l1key + i * 16, data, l1Buffer);
+			const size_t length = ::__nts_l1hash__(l1key + i * 16, data, l1Buffer);
 			// Сводим поток полиномом по модулю 2^64 - 59
-			const uint64_t reduced = __nts_poly64__(__nts_fetch__(l2key + i * 24, 8), view_t(l1Buffer, length));
+			const uint64_t reduced = ::__nts_poly64__(::__nts_fetch__(l2key + i * 24, 8), view_t(l1Buffer, length));
 			// Записываем сведённое значение старшим байтом вперёд в младшие восемь байтов слоя L2
-			__nts_store__(reduced, b + 8, 8);
+			::__nts_store__(reduced, b + 8, 8);
 		}
 		// Итог слоя L3 ключами этой итерации старшим байтом вперёд
-		__nts_store__(__nts_l3hash__(l3key1 + i * 64, l3key2 + i * 4, b), hashed + i * 4, 4);
+		::__nts_store__(::__nts_l3hash__(l3key1 + i * 64, l3key2 + i * 4, b), hashed + i * 4, 4);
 		// Затираем значение слоя L2
 		wipe(b, sizeof(b));
 	}
@@ -631,7 +632,7 @@ bool nts::digest::umac(const view_t & key, const view_t & nonce, const view_t & 
 	// Подложка от одноразового числа длиной в итог
 	uint8_t pad[UMAC_128];
 	// Выводим подложку
-	__nts_pdf__(aes, nonce, pad, size);
+	::__nts_pdf__(aes, nonce, pad, size);
 	/**
 	 * Складываем итог хеширования с подложкой по модулю два
 	 */

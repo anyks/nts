@@ -20,16 +20,20 @@
  */
 
 /**
- * Стандартные заголовочные файлы
+ * Стандартный заголовочный файл
  */
 #include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "agreement/sntrup761x25519.hpp"
-#include "digest/hash.hpp"
 #include "sys/wipe.hpp"
+#include "digest/hash.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "agreement/sntrup761x25519.hpp"
 
 /**
  * @brief Внутренние служебные объекты
@@ -49,14 +53,14 @@ namespace {
 	/**
 	 * @brief Функция склейки общего секрета гибрида
 	 *
+	 * @details K = SHA-512(K_PQ ‖ K_CL).
+	 *
 	 * @param pq     общий секрет sntrup761 (32 байта)
 	 * @param cl     общий секрет X25519 (32 байта)
 	 * @param shared место, в которое записывается общий секрет (64 байта)
 	 *
-	 * @details K = SHA-512(K_PQ ‖ K_CL)
-	 *
 	 */
-	static void __nts_combine__(const uint8_t * pq, const uint8_t * cl, uint8_t * shared) noexcept {
+	static __NTS_INLINE__ void __nts_combine__(const uint8_t * pq, const uint8_t * cl, uint8_t * shared) noexcept {
 		// Объект хеширования
 		digest::hasher_t hasher(digest::hash_t::SHA512);
 		// Подаём общий секрет sntrup761
@@ -66,7 +70,7 @@ namespace {
 		// Снимаем общий секрет гибрида
 		hasher.finish(shared, agreement::SNTRUP761X25519_SHARED);
 	}
-}
+};
 
 /**
  * @brief Функция выработки открытого значения клиента гибрида
@@ -98,7 +102,6 @@ bool nts::agreement::pairSntrup761x25519(uint8_t * key, uint8_t * secret) noexce
 	// Выводим признак успешности выработки
 	return true;
 }
-
 /**
  * @brief Функция ответа сервера гибридного обмена
  *
@@ -134,14 +137,13 @@ bool nts::agreement::encapsSntrup761x25519(const view_t & key, uint8_t * cipher,
 		return false;
 	}
 	// Склеиваем общий секрет гибрида
-	__nts_combine__(pq, cl, shared);
+	::__nts_combine__(pq, cl, shared);
 	// Затирание рабочих областей
 	wipe(pq, sizeof(pq));
 	wipe(cl, sizeof(cl));
 	// Выводим признак успешности ответа
 	return true;
 }
-
 /**
  * @brief Функция завершения гибридного обмена клиентом
  *
@@ -176,7 +178,7 @@ bool nts::agreement::decapsSntrup761x25519(const view_t & cipher, const view_t &
 		return false;
 	}
 	// Склеиваем общий секрет гибрида
-	__nts_combine__(pq, cl, shared);
+	::__nts_combine__(pq, cl, shared);
 	// Затирание рабочих областей
 	wipe(pq, sizeof(pq));
 	wipe(cl, sizeof(cl));

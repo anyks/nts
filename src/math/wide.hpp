@@ -28,11 +28,10 @@
  *
  */
 
-#ifndef __NTS_MATH_WIDE__
 /**
- * Макрос экранирования повторной инициализации модуля
+ * Экранируем повторную инициализацию модуля
  */
-#define __NTS_MATH_WIDE__
+#pragma once
 
 /**
  * Стандартные заголовочные файлы
@@ -315,7 +314,7 @@
 				 * @brief Конструктор нулевого числа
 				 *
 				 */
-				Wide() noexcept :
+				explicit Wide() noexcept :
 				 low(0), high(0) {}
 				/**
 				 * @brief Конструктор числа из слова
@@ -323,7 +322,7 @@
 				 * @param value начальное значение младшего слова, старшее слово нулевое
 				 *
 				 */
-				Wide(const uint64_t value) noexcept :
+				explicit Wide(const uint64_t value) noexcept :
 				 low(value), high(0) {}
 				/**
 				 * @brief Конструктор числа из пары слов
@@ -332,7 +331,7 @@
 				 * @param high старшее слово числа
 				 *
 				 */
-				Wide(const uint64_t low, const uint64_t high) noexcept :
+				explicit Wide(const uint64_t low, const uint64_t high) noexcept :
 				 low(low), high(high) {}
 			} wide_t;
 		};
@@ -444,5 +443,3 @@ namespace nts {
 		}
 	};
 };
-
-#endif

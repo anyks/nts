@@ -44,10 +44,14 @@
 /**
  * Подключаем заголовочные файлы проекта
  */
-#include "datagram/datagram.hpp"
+#include "sys/wipe.hpp"
 #include "cipher/aes.hpp"
 #include "cipher/chacha.hpp"
-#include "sys/wipe.hpp"
+
+/**
+ * Подключаем заголовочный файл модуля
+ */
+#include "datagram/datagram.hpp"
 
 /**
  * Используем стандартное пространство имён
@@ -69,23 +73,35 @@ namespace {
 	 */
 	using nts::sys::wipe;
 
-	// Маска трёх старших разрядов объединённого заголовка
-	static constexpr uint8_t UNIFIED_SHAPE = 0xE0;
-	// Постоянная часть объединённого заголовка: 001
-	static constexpr uint8_t UNIFIED_MARK = 0x20;
-	// Разряд опознавателя связи
-	static constexpr uint8_t UNIFIED_IDENTIFIER = 0x10;
-	// Разряд ширины номера записи: шестнадцать разрядов
-	static constexpr uint8_t UNIFIED_WIDE = 0x08;
-	// Разряд наличия поля длины
-	static constexpr uint8_t UNIFIED_SIZED = 0x04;
-	// Два младших разряда поры ключей
-	static constexpr uint8_t UNIFIED_EPOCH = 0x03;
-
 	/**
 	 * Длина записи номера записи в сообщении подтверждения: два поля по восемь байтов
 	 */
 	static constexpr size_t NUMBER_WIDTH = 16;
+
+	/**
+	 * Разряд ширины номера записи: шестнадцать разрядов
+	 */
+	static constexpr uint8_t UNIFIED_WIDE = 0x08;
+	/**
+	 * Постоянная часть объединённого заголовка: 001
+	 */
+	static constexpr uint8_t UNIFIED_MARK = 0x20;
+	/**
+	 * Разряд наличия поля длины
+	 */
+	static constexpr uint8_t UNIFIED_SIZED = 0x04;
+	/**
+	 * Два младших разряда поры ключей
+	 */
+	static constexpr uint8_t UNIFIED_EPOCH = 0x03;
+	/**
+	 * Маска трёх старших разрядов объединённого заголовка
+	 */
+	static constexpr uint8_t UNIFIED_SHAPE = 0xE0;
+	/**
+	 * Разряд опознавателя связи
+	 */
+	static constexpr uint8_t UNIFIED_IDENTIFIER = 0x10;
 
 	/**
 	 * @brief Функция чтения числа из сетевого порядка байтов
@@ -95,7 +111,7 @@ namespace {
 	 * @return      прочитанное число
 	 *
 	 */
-	static uint64_t __nts_fetch__(const uint8_t * data, const size_t width) noexcept {
+	static __NTS_INLINE__ uint64_t __nts_fetch__(const uint8_t * data, const size_t width) noexcept {
 		// Прочитанное число
 		uint64_t result = 0;
 		/**
@@ -115,7 +131,7 @@ namespace {
 	 * @param width  количество записываемых байтов
 	 *
 	 */
-	static void __nts_stow__(const uint64_t value, uint8_t * result, const size_t width) noexcept {
+	static __NTS_INLINE__ void __nts_stow__(const uint64_t value, uint8_t * result, const size_t width) noexcept {
 		/**
 		 * Перебираем байты записываемого числа
 		 */
@@ -126,16 +142,21 @@ namespace {
 	/**
 	 * @brief Функция проверки известности вида содержимого записи поверх дейтаграммы
 	 *
-	 * @param type проверяемый вид содержимого
-	 * @return     признак того, что вид определён RFC 9147
-	 *
 	 * @note Раздел 4 RFC 9147: смены набора шифрования у DTLS 1.3 нет вовсе, а
 	 *       подтверждение добавлено разделом 7
 	 *
+	 * @param type проверяемый вид содержимого
+	 * @return     признак того, что вид определён RFC 9147
+	 *
 	 */
-	static bool __nts_carried__(const record::type_t type) noexcept {
+	static constexpr bool __nts_carried__(const record::type_t type) noexcept {
 		// Выводим признак известности вида содержимого записи
-		return ((type == record::type_t::ALERT) || (type == record::type_t::HANDSHAKE) || (type == record::type_t::APPLICATION) || (type == record::type_t::ACK));
+		return (
+			(type == record::type_t::ACK) ||
+			(type == record::type_t::ALERT) ||
+			(type == record::type_t::HANDSHAKE) ||
+			(type == record::type_t::APPLICATION)
+		);
 	}
 };
 
@@ -180,11 +201,11 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
 			// Выводим отказ нехватки байтов
 			return error_t::HUNGRY;
 		// Читаем младшие разряды порядкового номера записи
-		result.sequence = __nts_fetch__(data.data + 1, static_cast <size_t> (result.bits / 8));
+		result.sequence = ::__nts_fetch__(data.data + 1, static_cast <size_t> (result.bits / 8));
 		// Если заголовок несёт длину записи
 		if(result.sized)
 			// Читаем длину содержимого записи
-			result.size = static_cast <size_t> (__nts_fetch__(data.data + 1 + (result.bits / 8), 2));
+			result.size = static_cast <size_t> (::__nts_fetch__(data.data + 1 + (result.bits / 8), 2));
 		// Если длина не указана: содержимым служит остаток дейтаграммы
 		else result.size = (data.size - result.length);
 		// Если содержимое длиннее дозволенного защищённой записи
@@ -215,23 +236,25 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
 	// Читаем вид содержимого открытой записи
 	result.type = static_cast <record::type_t> (data.data[0]);
 	// Если вид содержимого протоколом не определён
-	if(!__nts_carried__(result.type))
+	if(!::__nts_carried__(result.type))
 		// Выводим отказ вида содержимого
 		return error_t::TYPE;
 	/**
-	 * Раздел 4 RFC 9147: издание в заголовке открытой записи (legacy_record_version)
-	 * получатель обязан не толковать вовсе - байты с первого по второй не читаются
+	 * @brief Читаем пору ключей открытой записи
+	 *
+	 * @details Раздел 4 RFC 9147: издание в заголовке открытой записи (legacy_record_version)
+	 *          получатель обязан не толковать вовсе - байты с первого по второй не читаются.
+	 *
 	 */
-	// Читаем пору ключей открытой записи
-	result.epoch = static_cast <uint16_t> (__nts_fetch__(data.data + 3, 2));
+	result.epoch = static_cast <uint16_t> (::__nts_fetch__(data.data + 3, 2));
 	// Раздел 4.2.1 RFC 9147: открытая запись идёт лишь нулевой порой ключей
 	if(result.epoch != 0)
 		// Выводим отказ поры ключей
 		return error_t::EPOCH;
 	// Читаем порядковый номер открытой записи
-	result.sequence = __nts_fetch__(data.data + 5, 6);
+	result.sequence = ::__nts_fetch__(data.data + 5, 6);
 	// Читаем длину содержимого открытой записи
-	result.size = static_cast <size_t> (__nts_fetch__(data.data + 11, 2));
+	result.size = static_cast <size_t> (::__nts_fetch__(data.data + 11, 2));
 	// Если содержимое длиннее дозволенного открытой записи
 	if(result.size > record::RECORD_PLAINTEXT)
 		// Выводим отказ длины записи
@@ -270,16 +293,16 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
 		// Записываем байт разрядов: постоянная часть, широкий номер, длина и пора ключей
 		result[0] = static_cast <uint8_t> (UNIFIED_MARK | UNIFIED_WIDE | UNIFIED_SIZED | (header.epoch & UNIFIED_EPOCH));
 		// Записываем младшие шестнадцать разрядов порядкового номера
-		__nts_stow__(header.sequence, result + 1, 2);
+		::__nts_stow__(header.sequence, result + 1, 2);
 		// Записываем длину содержимого записи
-		__nts_stow__(header.size, result + 3, 2);
+		::__nts_stow__(header.size, result + 3, 2);
 		// Выводим длину объединённого заголовка
 		length = DATAGRAM_UNIFIED_HEADER;
 		// Выводим успешность записи объединённого заголовка
 		return error_t::NONE;
 	}
 	// Если вид содержимого протоколом не определён
-	if(!__nts_carried__(header.type))
+	if(!::__nts_carried__(header.type))
 		// Выводим отказ вида содержимого
 		return error_t::TYPE;
 	// Открытая запись идёт лишь нулевой порой ключей
@@ -297,13 +320,13 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
 	// Записываем вид содержимого открытой записи
 	result[0] = static_cast <uint8_t> (header.type);
 	// Записываем издание протокола, доставшееся от DTLS 1.2
-	__nts_stow__(DATAGRAM_LEGACY, result + 1, 2);
+	::__nts_stow__(DATAGRAM_LEGACY, result + 1, 2);
 	// Записываем нулевую пору ключей
-	__nts_stow__(0, result + 3, 2);
+	::__nts_stow__(0, result + 3, 2);
 	// Записываем порядковый номер записи
-	__nts_stow__(header.sequence, result + 5, 6);
+	::__nts_stow__(header.sequence, result + 5, 6);
 	// Записываем длину содержимого записи
-	__nts_stow__(header.size, result + 11, 2);
+	::__nts_stow__(header.size, result + 11, 2);
 	// Выводим длину заголовка открытой записи
 	length = DATAGRAM_PLAIN_HEADER;
 	// Выводим успешность записи заголовка открытой записи
@@ -348,9 +371,9 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
 		// Выводим отказ вида содержимого
 		return error_t::TYPE;
 	// Читаем издание протокола из заголовка как есть
-	result.version = static_cast <uint16_t> (__nts_fetch__(data.data + 1, 2));
+	result.version = static_cast <uint16_t> (::__nts_fetch__(data.data + 1, 2));
 	// Читаем пору ключей записи
-	result.epoch = static_cast <uint16_t> (__nts_fetch__(data.data + 3, 2));
+	result.epoch = static_cast <uint16_t> (::__nts_fetch__(data.data + 3, 2));
 	/**
 	 * Раздел 4.1 RFC 6347: изданием признаётся 0xFEFD, а 0xFEFF - лишь у открытой записи
 	 * рукопожатия, которой чужие узлы шлют первое приветствие и просьбу о подтверждении
@@ -360,9 +383,9 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, header_t & resu
 		// Выводим отказ издания протокола
 		return error_t::VERSION;
 	// Читаем порядковый номер записи: сорок восемь разрядов
-	result.sequence = __nts_fetch__(data.data + 5, 6);
+	result.sequence = ::__nts_fetch__(data.data + 5, 6);
 	// Читаем длину содержимого записи
-	result.size = static_cast <size_t> (__nts_fetch__(data.data + 11, 2));
+	result.size = static_cast <size_t> (::__nts_fetch__(data.data + 11, 2));
 	// Заголовок издания 1.2 всегда открытый и всегда с длиной
 	result.length = DATAGRAM_PLAIN_HEADER;
 	// Опознавателя связи у издания 1.2 нет
@@ -432,15 +455,17 @@ nts::datagram::error_t nts::datagram::build(const header_t & header, uint8_t * r
 		return error_t::LENGTH;
 	// Записываем вид содержимого записи
 	result[0] = static_cast <uint8_t> (header.type);
-	// Раздел 4.1 RFC 6347: издание заголовка - DTLS 1.2 у всякой своей записи
-	// Записываем издание записи: 0xFEFF у DTLS 1.0 (RFC 4347), иначе 0xFEFD
-	__nts_stow__(static_cast <uint16_t> (ancient ? record::version_t::DTLS10 : record::version_t::DTLS12), result + 1, 2);
+	/**
+	 * Раздел 4.1 RFC 6347: издание заголовка - DTLS 1.2 у всякой своей записи
+	 * Записываем издание записи: 0xFEFF у DTLS 1.0 (RFC 4347), иначе 0xFEFD
+	 */
+	::__nts_stow__(static_cast <uint16_t> (ancient ? record::version_t::DTLS10 : record::version_t::DTLS12), result + 1, 2);
 	// Записываем пору ключей записи как есть
-	__nts_stow__(header.epoch, result + 3, 2);
+	::__nts_stow__(header.epoch, result + 3, 2);
 	// Записываем порядковый номер записи: сорок восемь разрядов
-	__nts_stow__(header.sequence, result + 5, 6);
+	::__nts_stow__(header.sequence, result + 5, 6);
 	// Записываем длину содержимого записи
-	__nts_stow__(header.size, result + 11, 2);
+	::__nts_stow__(header.size, result + 11, 2);
 	// Выводим длину заголовка издания DTLS 1.2
 	length = DATAGRAM_PLAIN_HEADER;
 	// Выводим успешность записи заголовка издания DTLS 1.2
@@ -466,13 +491,13 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, fragment_t & re
 		// Выводим отказ вида сообщения
 		return error_t::TYPE;
 	// Читаем длину тела целого сообщения
-	result.size = static_cast <size_t> (__nts_fetch__(data.data + 1, 3));
+	result.size = static_cast <size_t> (::__nts_fetch__(data.data + 1, 3));
 	// Читаем порядковый номер сообщения рукопожатия
-	result.sequence = static_cast <uint16_t> (__nts_fetch__(data.data + 4, 2));
+	result.sequence = static_cast <uint16_t> (::__nts_fetch__(data.data + 4, 2));
 	// Читаем смещение куска в теле сообщения
-	result.offset = static_cast <size_t> (__nts_fetch__(data.data + 6, 3));
+	result.offset = static_cast <size_t> (::__nts_fetch__(data.data + 6, 3));
 	// Читаем длину куска
-	result.length = static_cast <size_t> (__nts_fetch__(data.data + 9, 3));
+	result.length = static_cast <size_t> (::__nts_fetch__(data.data + 9, 3));
 	// Раздел 5.2 RFC 9147: кусок обязан лежать в пределах сообщения
 	if((result.offset > result.size) || (result.length > (result.size - result.offset)))
 		// Выводим отказ длины куска
@@ -512,13 +537,13 @@ nts::datagram::error_t nts::datagram::build(const fragment_t & fragment, uint8_t
 	// Записываем вид сообщения рукопожатия
 	result[0] = static_cast <uint8_t> (fragment.type);
 	// Записываем длину тела целого сообщения
-	__nts_stow__(fragment.size, result + 1, 3);
+	::__nts_stow__(fragment.size, result + 1, 3);
 	// Записываем порядковый номер сообщения
-	__nts_stow__(fragment.sequence, result + 4, 2);
+	::__nts_stow__(fragment.sequence, result + 4, 2);
 	// Записываем смещение куска
-	__nts_stow__(fragment.offset, result + 6, 3);
+	::__nts_stow__(fragment.offset, result + 6, 3);
 	// Записываем длину куска
-	__nts_stow__(fragment.length, result + 9, 3);
+	::__nts_stow__(fragment.length, result + 9, 3);
 	// Выводим успешность записи обвязки куска
 	return error_t::NONE;
 }
@@ -536,7 +561,7 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, vector <number_
 		// Выводим отказ нехватки байтов
 		return error_t::HUNGRY;
 	// Читаем длину перечня номеров записей
-	const size_t length = static_cast <size_t> (__nts_fetch__(data.data, 2));
+	const size_t length = static_cast <size_t> (::__nts_fetch__(data.data, 2));
 	// Раздел 7 RFC 9147: перечень состоит из целых номеров записей и кончается с телом
 	if(((length % NUMBER_WIDTH) != 0) || ((data.size - 2) != length))
 		// Выводим отказ длины перечня
@@ -550,7 +575,7 @@ nts::datagram::error_t nts::datagram::parse(const view_t & data, vector <number_
 		 */
 		for(size_t offset = 2; offset < data.size; offset += NUMBER_WIDTH)
 			// Добавляем очередной номер записи в перечень
-			result.push_back(number_t(__nts_fetch__(data.data + offset, 8), __nts_fetch__(data.data + offset + 8, 8)));
+			result.push_back(number_t(::__nts_fetch__(data.data + offset, 8), ::__nts_fetch__(data.data + offset + 8, 8)));
 	/**
 	 * Выполняем перехват ошибок
 	 */
@@ -585,15 +610,15 @@ nts::datagram::error_t nts::datagram::build(const vector <number_t> & numbers, v
 		// Занимаем место под длину и перечень номеров записей
 		result.resize(offset + 2 + length, 0);
 		// Записываем длину перечня номеров записей
-		__nts_stow__(length, result.data() + offset, 2);
+		::__nts_stow__(length, result.data() + offset, 2);
 		/**
 		 * Перебираем подтверждаемые номера записей
 		 */
 		for(size_t i = 0; i < numbers.size(); i++){
 			// Записываем пору ключей очередной записи
-			__nts_stow__(numbers[i].epoch, result.data() + offset + 2 + (i * NUMBER_WIDTH), 8);
+			::__nts_stow__(numbers[i].epoch, result.data() + offset + 2 + (i * NUMBER_WIDTH), 8);
 			// Записываем порядковый номер очередной записи
-			__nts_stow__(numbers[i].sequence, result.data() + offset + 2 + (i * NUMBER_WIDTH) + 8, 8);
+			::__nts_stow__(numbers[i].sequence, result.data() + offset + 2 + (i * NUMBER_WIDTH) + 8, 8);
 		}
 	/**
 	 * Выполняем перехват ошибок
@@ -661,7 +686,10 @@ bool nts::datagram::mask(const protect::suite_t suite, const view_t & key, const
 			 * Раздел 4.2.3 RFC 9147: счётчик блока берётся первыми четырьмя байтами образца
 			 * в порядке от младшего байта к старшему, одноразовое значение - остальными
 			 */
-			const uint32_t counter = (static_cast <uint32_t> (sample[0]) | (static_cast <uint32_t> (sample[1]) << 8) | (static_cast <uint32_t> (sample[2]) << 16) | (static_cast <uint32_t> (sample[3]) << 24));
+			const uint32_t counter = (
+				static_cast <uint32_t> (sample[0]) | (static_cast <uint32_t> (sample[1]) << 8) |
+				(static_cast <uint32_t> (sample[2]) << 16) | (static_cast <uint32_t> (sample[3]) << 24)
+			);
 			// Если шифр запустить не удалось
 			if(!chacha.start(key, view_t(sample + 4, cipher::CHACHA_NONCE), counter))
 				// Выводим отказ выработки маски
@@ -807,13 +835,17 @@ nts::datagram::Window::Window() noexcept : _filled(false), _top(0), _bits(0) {}
  * @brief Конструктор
  *
  */
-nts::datagram::Header::Header() noexcept : unified(false), identifier(false), sized(true), bits(16), type(record::type_t::NONE), epoch(0), sequence(0), size(0), length(0), version(0) {}
+nts::datagram::Header::Header() noexcept :
+ unified(false), identifier(false), sized(true), bits(16),
+ type(record::type_t::NONE), epoch(0), sequence(0), size(0), length(0), version(0) {}
 
 /**
  * @brief Конструктор
  *
  */
-nts::datagram::Fragment::Fragment() noexcept : type(handshake::type_t::NONE), sequence(0), size(0), offset(0), length(0) {}
+nts::datagram::Fragment::Fragment() noexcept :
+ type(handshake::type_t::NONE), sequence(0),
+ size(0), offset(0), length(0) {}
 
 /**
  * @brief Конструктор

@@ -19,9 +19,9 @@
  */
 
 /**
- * Подключаем заголовочный файл модуля
+ * Стандартный заголовочный файл
  */
-#include "acme/acme.hpp"
+#include <cstring>
 
 /**
  * Подключаем заголовочные файлы проекта
@@ -29,9 +29,9 @@
 #include "digest/hash.hpp"
 
 /**
- * Стандартные заголовочные файлы
+ * Подключаем заголовочный файл модуля
  */
-#include <cstring>
+#include "acme/acme.hpp"
 
 /**
  * @brief Основное пространство имён
@@ -529,7 +529,7 @@ namespace nts {
 		 * @return       указатель на значение члена либо пустой указатель
 		 *
 		 */
-		static const json_t::value_t * __nts_member__(const json_t::value_t & object, const char * name) noexcept {
+		static __NTS_INLINE__ const json_t::value_t * __nts_member__(const json_t::value_t & object, const char * name) noexcept {
 			// Если значение не объект
 			if(object.kind != json_t::kind_t::OBJECT)
 				// Выводим отсутствие члена
@@ -553,7 +553,7 @@ namespace nts {
 		 * @return      строка значения, пустая у значения иного вида
 		 *
 		 */
-		static string __nts_text__(const json_t::value_t & value) {
+		static __NTS_INLINE__ string __nts_text__(const json_t::value_t & value) {
 			// Если значение не строка
 			if(value.kind != json_t::kind_t::STRING)
 				// Выводим пустую строку
@@ -574,7 +574,7 @@ namespace nts {
 		 * @return       признак того, что член найден и строков
 		 *
 		 */
-		static bool __nts_member__(const json_t::value_t & object, const char * name, string & result) {
+		static __NTS_INLINE__ bool __nts_member__(const json_t::value_t & object, const char * name, string & result) {
 			// Значение члена
 			const json_t::value_t * value = __nts_member__(object, name);
 			// Если член не найден либо не строков
@@ -594,7 +594,7 @@ namespace nts {
 		 * @return       признак того, что значение числово
 		 *
 		 */
-		static bool __nts_number__(const json_t::value_t & value, uint32_t & result) noexcept {
+		static __NTS_INLINE__ bool __nts_number__(const json_t::value_t & value, uint32_t & result) noexcept {
 			// Если значение не число
 			if(value.kind != json_t::kind_t::NUMBER)
 				// Выводим отсутствие числа
@@ -627,7 +627,7 @@ namespace nts {
 		 * @return       признак того, что значение булево
 		 *
 		 */
-		static bool __nts_boolean__(const json_t::value_t & value, bool & result) noexcept {
+		static __NTS_INLINE__ bool __nts_boolean__(const json_t::value_t & value, bool & result) noexcept {
 			// Если значение не булево
 			if(value.kind != json_t::kind_t::VALUE)
 				// Выводим отсутствие значения
@@ -657,7 +657,7 @@ namespace nts {
 		 * @return       признак того, что значение массив строк
 		 *
 		 */
-		static bool __nts_strings__(const json_t::value_t & value, vector <string> & result) {
+		static __NTS_INLINE__ bool __nts_strings__(const json_t::value_t & value, vector <string> & result) {
 			// Если значение не массив
 			if(value.kind != json_t::kind_t::ARRAY)
 				// Выводим отсутствие массива
@@ -685,7 +685,7 @@ namespace nts {
 		 * @return     вид идентификатора, identifier_t::NONE у неизвестного имени
 		 *
 		 */
-		static acme::identifier_t __nts_identifier_kind__(const string & type) noexcept {
+		static __NTS_INLINE__ acme::identifier_t __nts_identifier_kind__(const string & type) noexcept {
 			// Идентификатор доменного имени
 			if(type.compare("dns") == 0)
 				// Выводим вид идентификатора
@@ -704,15 +704,19 @@ namespace nts {
 		 * @return           имя вида идентификатора, пустое у неустановленного
 		 *
 		 */
-		static const char * __nts_identifier_name__(const acme::identifier_t identifier) noexcept {
+		static constexpr const char * __nts_identifier_name__(const acme::identifier_t identifier) noexcept {
 			/**
 			 * Определяем вид идентификатора
 			 */
-			switch(identifier){
-				// Идентификатор доменного имени
-				case acme::identifier_t::DNS: return "dns";
+			switch(static_cast <uint8_t> (identifier)){
 				// Идентификатор адреса IP
-				case acme::identifier_t::IP: return "ip";
+				case static_cast <uint8_t> (acme::identifier_t::IP):
+					// Выводим IP-адрес
+					return "ip";
+				// Идентификатор доменного имени
+				case static_cast <uint8_t> (acme::identifier_t::DNS):
+					// Выводим доменное имя
+					return "dns";
 				// Идентификатор не установлен
 				default: return "";
 			}
@@ -724,7 +728,7 @@ namespace nts {
 		 * @param result строка, к которой дописывается запись
 		 *
 		 */
-		static void __nts_write__(const string & text, string & result) {
+		static __NTS_INLINE__ void __nts_write__(const string & text, string & result) {
 			// Дописываем открывающую кавычку
 			result += '"';
 			/**
@@ -754,7 +758,7 @@ namespace nts {
 			// Дописываем закрывающую кавычку
 			result += '"';
 		}
-	}
+	};
 
 	/**
 	 * @brief Функция сборки запроса ACME
@@ -884,7 +888,6 @@ namespace nts {
 			return error_t::MEMORY;
 		}
 	}
-
 	/**
 	 * @brief Функция сборки полезной нагрузки заведения учётной записи
 	 *
@@ -1034,7 +1037,6 @@ namespace nts {
 		// Ответ на испытание - пустой объект
 		result.assign("{}");
 	}
-
 	/**
 	 * @brief Функция выработки полномочного ключа испытания
 	 *
@@ -1554,16 +1556,16 @@ namespace nts {
 	 *
 	 */
 	void acme::Problem::clear() noexcept {
+		// Сбрасываем состояние ответа
+		this->status = 0;
 		// Сбрасываем опознаватель вида отказа
 		this->type.clear();
 		// Сбрасываем краткое описание отказа
 		this->detail.clear();
-		// Сбрасываем состояние ответа
-		this->status = 0;
 	}
 	/**
 	 * @brief Конструктор
 	 *
 	 */
 	acme::Problem::Problem() noexcept : status(0) {}
-}
+};
