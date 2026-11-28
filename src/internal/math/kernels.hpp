@@ -2589,11 +2589,15 @@ namespace nts {
 				 *       и Rosetta) и у NDK-clang Android (срез эмулятора x86_64): распределители
 				 *       их регистров не собирают эти цепочки - «more registers than available»
 				 *       у squareminus4x; кривые идут переносимыми ядрами на C++. FreeBSD-clang
-				 *       и GCC эти цепочки собирают - ветка за ними сохранена
+				 *       и GCC эти цепочки собирают - ветка за ними сохранена. Старые non-Apple
+				 *       clang тоже закрыты порогом мажора (ниже 16): clang 14 Debian 12 даёт
+				 *       «more registers than available». Замерено 14 - отказ, 19 - сборка;
+				 *       точная граница 15..18 не измерена, порог 16 взят по текущим FreeBSD-clang
 				 *
 				 */
 				#if !defined(__NTS_ASAN_UNOPTIMIZED__) && !defined(NTS_NO_MACHINE) && (defined(__clang__) || \
-				    !defined(__GNUC__) || (__GNUC__ >= 9)) && !(defined(__x86_64__) && (defined(__APPLE__) || defined(__ANDROID__)))
+				    !defined(__GNUC__) || (__GNUC__ >= 9)) && !(defined(__x86_64__) && (defined(__APPLE__) || \
+				    defined(__ANDROID__))) && !(defined(__clang__) && (__clang_major__ < 16))
 					/**
 					 * Признак наличия ядер P-256 и модуля вида 2^256 - c на MULX и ADCX/ADOX
 					 */
