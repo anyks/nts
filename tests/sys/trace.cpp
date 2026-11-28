@@ -295,9 +295,9 @@ namespace {
 			if(pthread_stackseg_np(pthread_self(), &segment) == 0)
 				// Вычисляем нижнюю границу стека
 				low = (static_cast <const uint8_t *> (segment.ss_sp) - segment.ss_size);
-		/** Во FreeBSD и DragonFly признаки потока даёт pthread_attr_get_np */
-		#elif defined(__FreeBSD__) || defined(__DragonFly__)
-			// У FreeBSD и DragonFly признаки потока берутся pthread_attr_get_np
+		/** Во FreeBSD, DragonFly и Solaris/illumos признаки потока даёт pthread_attr_get_np */
+		#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun)
+			// У FreeBSD, DragonFly и Solaris/illumos признаки потока берутся pthread_attr_get_np
 			pthread_attr_t attr;
 			// Готовим приёмники границ стека
 			void * base = nullptr; size_t length = 0;
@@ -311,7 +311,7 @@ namespace {
 			pthread_attr_destroy(&attr);
 		/** Иначе: границы стека даёт pthread_getattr_np */
 		#else
-			// Linux, NetBSD, Solaris: pthread_getattr_np
+			// Linux, NetBSD: pthread_getattr_np
 			pthread_attr_t attr;
 			// Готовим приёмники границ стека
 			void * base = nullptr; size_t length = 0;
