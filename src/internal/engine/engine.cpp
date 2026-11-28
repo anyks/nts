@@ -12643,7 +12643,7 @@ context::error_t nts::internal::Engine::legacy(const handshake::type_t type, con
 		 */
 		if(!this->_server && !this->_promise.identity.empty()){
 			// Добавляем принятый билет в перечень билетов связи
-			this->_tickets.push_back(this->_promise);
+			this->_tickets.push_back(::move(this->_promise));
 			// Затирание главного секрета ожидавшего билета
 			this->purge(this->_promise.secret.data(), this->_promise.secret.size());
 			// Сброс ожидавшего билета
@@ -15439,7 +15439,7 @@ context::error_t nts::internal::Engine::granting() noexcept {
 		// Переносим главный секрет ключом билета
 		item.secret.assign(this->_keys->master, this->_keys->master + sizeof(this->_keys->master));
 		// Добавляем выданный билет в перечень билетов связи
-		this->_tickets.push_back(item);
+		this->_tickets.push_back(::move(item));
 		// Затирание главного секрета в записи билета
 		this->purge(item.secret.data(), item.secret.size());
 		// Выводим успешность отправки билета сеанса
