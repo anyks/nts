@@ -613,7 +613,7 @@ namespace {
 		 * @param message сжимаемый блок сообщения
 		 *
 		 */
-		static void __nts_compress__(uint64_t * hash, const uint64_t * counter, const uint64_t * message) noexcept {
+		static __NTS_NO_INLINE__ void __nts_compress__(uint64_t * hash, const uint64_t * counter, const uint64_t * message) noexcept {
 			// Ключ очередной итерации
 			__m128i k0, k1, k2, k3;
 			// Состояние шифруемого блока

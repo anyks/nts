@@ -1324,7 +1324,7 @@ namespace {
 	 * @return         отказ разбора
 	 *
 	 */
-	static fingerprint::error_t __nts_examine__(const view_t & data, const bool datagram, fingerprint::profile_t & result) noexcept {
+	static __NTS_NO_INLINE__ fingerprint::error_t __nts_examine__(const view_t & data, const bool datagram, fingerprint::profile_t & result) noexcept {
 		// Сбрасываем профиль
 		result = fingerprint::profile_t();
 		// Запоминаем устройство заголовков
@@ -1888,7 +1888,7 @@ namespace {
 	 * @return       отказ чтения
 	 *
 	 */
-	static fingerprint::error_t __nts_unpacking__(const view_t & data, size_t & offset, fingerprint::profile_t & result) noexcept {
+	static __NTS_NO_INLINE__ fingerprint::error_t __nts_unpacking__(const view_t & data, size_t & offset, fingerprint::profile_t & result) noexcept {
 		/**
 		 * Выполняем перехват ошибок
 		 */

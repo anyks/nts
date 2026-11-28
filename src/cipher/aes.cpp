@@ -515,7 +515,7 @@ namespace {
 		 * @param result место, в которое записывается зашифрованный блок
 		 *
 		 */
-		static __NTS_AES_TARGET__ void __nts_seal_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_seal_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
 			// Состояние шифра
 			uint8x16_t state = vld1q_u8(source);
 			/**
@@ -538,7 +538,7 @@ namespace {
 		 * @param result место, в которое записывается расшифрованный блок
 		 *
 		 */
-		static __NTS_AES_TARGET__ void __nts_open_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_open_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
 			// Состояние шифра
 			uint8x16_t state = vld1q_u8(source);
 			/**
@@ -565,7 +565,7 @@ namespace {
 		 * @param result место, в которое записывается зашифрованный блок
 		 *
 		 */
-		static __NTS_AES_TARGET__ void __nts_seal_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_seal_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
 			// Состояние шифра, сложенное с первым ключом
 			__m128i state = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (source)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
 			/**
@@ -588,7 +588,7 @@ namespace {
 		 * @param result место, в которое записывается расшифрованный блок
 		 *
 		 */
-		static __NTS_AES_TARGET__ void __nts_open_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_open_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * source, uint8_t * result) noexcept {
 			// Состояние шифра, сложенное с первым ключом
 			__m128i state = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast <const __m128i *> (source)), _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys)));
 			/**
@@ -997,7 +997,7 @@ namespace {
 		 * @param result место, в которое записывается шифртекст
 		 *
 		 */
-		static __NTS_AES_TARGET__ void __nts_chain_arm__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_chain_arm__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
 			// Регистр сцепления держится вектором на весь проход
 			uint8x16_t state = vld1q_u8(record);
 			// Количество блоков сообщения
@@ -1058,7 +1058,7 @@ namespace {
 		 *
 		 */
 		template <size_t ROUNDS, size_t... I>
-		static __NTS_AES_TARGET__ void __nts_chain_arm_r__(const uint8_t * keys, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result, const std::index_sequence <I...> &) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_chain_arm_r__(const uint8_t * keys, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result, const std::index_sequence <I...> &) noexcept {
 			/**
 			 * Раундовые ключи в именованных значениях на весь проход: внутренних кругов
 			 * на единицу меньше количества кругов, ключ предпоследнего круга идёт последним
@@ -1104,7 +1104,7 @@ namespace {
 		 * @param result место, в которое записывается шифртекст
 		 *
 		 */
-		static __NTS_AES_TARGET__ void __nts_chain_x86__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_chain_x86__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * source, const size_t size, uint8_t * result) noexcept {
 			// Регистр сцепления держится вектором на весь проход
 			__m128i state = _mm_loadu_si128(reinterpret_cast <const __m128i *> (record));
 			// Количество блоков сообщения
@@ -1147,7 +1147,7 @@ namespace {
 	 *
 	 */
 	template <size_t ROUNDS>
-	static void __nts_stream_tables__(const uint32_t * keys, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_stream_tables__(const uint32_t * keys, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
 		// Старшие двенадцать байтов счётчика словами: не меняются
 		const word_t head0 = __nts_load__(counter), head1 = __nts_load__(counter + 4), head2 = __nts_load__(counter + 8);
 		// Младшие четыре байта счётчика числом по кругу: ядро начинает с приращения
@@ -1232,7 +1232,7 @@ namespace {
 		 * @param result  место, в которое записывается гамма либо исходные данные под ней
 		 *
 		 */
-		static __NTS_AES_TARGET__ void __nts_stream_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_stream_arm__(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
 			// Текущее значение счётчика
 			uint8_t current[16];
 			// Копируем начальное значение счётчика
@@ -1416,7 +1416,7 @@ namespace {
 		 * @param result  место, в которое записывается гамма либо исходные данные под ней
 		 *
 		 */
-		static __NTS_AES_TARGET__ void __nts_stream_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_AES_TARGET__ void __nts_stream_x86__(const uint8_t * keys, const size_t rounds, const uint8_t * counter, const size_t blocks, const uint8_t * source, uint8_t * result) noexcept {
 			// Текущее значение счётчика
 			uint8_t current[16];
 			// Копируем начальное значение счётчика

@@ -906,7 +906,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static __NTS_INLINE__ void __nts_xmss_node__(const params_t & setup, const uint8_t * skSeed, const uint32_t node, const uint32_t height, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
+	static __NTS_NO_INLINE__ void __nts_xmss_node__(const params_t & setup, const uint8_t * skSeed, const uint32_t node, const uint32_t height, const uint8_t * pkSeed, adrs_t adrs, uint8_t * out) noexcept {
 		// Лист дерева: открытый ключ WOTS+ пары под номером узла
 		if(height == 0){
 			// Вид адреса листа дерева
@@ -1089,7 +1089,7 @@ namespace {
 	 * @param out    место результата, n байтов
 	 *
 	 */
-	static __NTS_INLINE__ void __nts_fors_node__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, const uint32_t node, const uint32_t height, uint8_t * out) noexcept {
+	static __NTS_NO_INLINE__ void __nts_fors_node__(const params_t & setup, const uint8_t * skSeed, const uint8_t * pkSeed, adrs_t adrs, const uint32_t node, const uint32_t height, uint8_t * out) noexcept {
 		// Лист дерева: значение выжимается из секретного значения
 		if(height == 0){
 			// Секретное значение листа

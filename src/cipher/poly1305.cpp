@@ -451,7 +451,7 @@ namespace {
 		 * @param hibit  старший разряд блока: единица у целого, ноль у дополненного
 		 *
 		 */
-		static void __nts_blocks_x86__(uint64_t * h, const uint64_t r0, const uint64_t r1, const uint64_t s1, const uint8_t * data, size_t blocks, const uint64_t hibit) noexcept {
+		static __NTS_NO_INLINE__ void __nts_blocks_x86__(uint64_t * h, const uint64_t r0, const uint64_t r1, const uint64_t s1, const uint8_t * data, size_t blocks, const uint64_t hibit) noexcept {
 			// Конечности накопителя
 			uint64_t h0 = h[0], h1 = h[1], h2 = h[2];
 			// Конечности произведения
@@ -812,7 +812,7 @@ namespace {
 		 * @param groups количество восьмёрок блоков: не меньше одной
 		 *
 		 */
-		static void __nts_absorb_neon__(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
+		static __NTS_NO_INLINE__ void __nts_absorb_neon__(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
 			// Конечности r^8 по дорожкам векторов: r0…r3, затем r4 и 5·r1…5·r3, затем 5·r4
 			const uint32_t octet[12] = {powers[7][0], powers[7][1], powers[7][2], powers[7][3], powers[7][4], (powers[7][1] * 5), (powers[7][2] * 5), (powers[7][3] * 5), (powers[7][4] * 5), 0, 0, 0};
 			// Векторы конечностей r^8
@@ -1037,7 +1037,7 @@ namespace {
 		 * @param groups количество восьмёрок блоков: не меньше одной
 		 *
 		 */
-		static __NTS_POLY1305_AVX2_TARGET__ void __nts_absorb_avx2__(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
+		static __NTS_NO_INLINE__ __NTS_POLY1305_AVX2_TARGET__ void __nts_absorb_avx2__(const uint32_t (* powers)[5], uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t groups) noexcept {
 			// Конечности r^8 на все дорожки и они же, умноженные на пять
 			__m256i r8[5], s8[5];
 			/**
@@ -1149,7 +1149,7 @@ namespace {
 		 * @param table  место под стол в POLY_TABLE байтов, выровненное на 32
 		 *
 		 */
-		static __NTS_POLY1305_AVX2_TARGET__ void __nts_table_avx2__(const uint32_t (* powers)[5], uint64_t * table) noexcept {
+		static __NTS_NO_INLINE__ __NTS_POLY1305_AVX2_TARGET__ void __nts_table_avx2__(const uint32_t (* powers)[5], uint64_t * table) noexcept {
 			// Место под стол векторами
 			__m256i * rows = reinterpret_cast <__m256i *> (table);
 			/**
@@ -1191,7 +1191,7 @@ namespace {
 		 * @param quads число четвёрок блоков: не меньше одной
 		 *
 		 */
-		static void __nts_absorb_kernel_avx2__(uint64_t * table, uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t quads) noexcept {
+		static __NTS_NO_INLINE__ void __nts_absorb_kernel_avx2__(uint64_t * table, uint64_t & h0, uint64_t & h1, uint64_t & h2, const uint8_t * data, const size_t quads) noexcept {
 			// Дорожки итога за столом: пять конечностей четырёх дорожек, затираются вместе со столом
 			uint64_t * lanes = (table + (kernel::POLY_TABLE / sizeof(uint64_t)));
 			// Накопитель по 26 разрядов за дорожками

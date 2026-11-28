@@ -563,7 +563,7 @@ namespace {
 	 * @return       признак успешности растяжения
 	 *
 	 */
-	static bool __nts_unfold__(const digest::hash_t hash, const view_t & key, const view_t & suite, const char * label, const view_t & info, uint8_t * result, const size_t size) noexcept {
+	static __NTS_NO_INLINE__ bool __nts_unfold__(const digest::hash_t hash, const view_t & key, const view_t & suite, const char * label, const view_t & info, uint8_t * result, const size_t size) noexcept {
 		// Длина хеша
 		const size_t length = digest::length(hash);
 		// Если длина материала недопустима
@@ -657,7 +657,7 @@ namespace {
 	 * @return         признак успешности выработки
 	 *
 	 */
-	static bool __nts_labeled__(const kdf_t kdf, const view_t & suite, const char * label, const view_t & context, const view_t & material, uint8_t * result, const size_t size) noexcept {
+	static __NTS_NO_INLINE__ bool __nts_labeled__(const kdf_t kdf, const view_t & suite, const char * label, const view_t & context, const view_t & material, uint8_t * result, const size_t size) noexcept {
 		// Если функция не одноступенчатая либо места под итог нет
 		if(!::__nts_onestage__(kdf) || ((result == nullptr) && (size > 0)))
 			// Выводим отказ выработки

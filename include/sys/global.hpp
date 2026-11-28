@@ -50,11 +50,23 @@
  */
 #if defined(_MSC_VER) || defined(WIN64) || defined(_WIN64) || defined(__WIN64__) || defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 	/**
+	 * \~russian
 	 * Экспорт символов из динамической библиотеки
+	 *
+	 * \~english
+	 * Exporting symbols from a dynamic library
+	 *
+	 * \~
 	 */
 	#define __NTS_DECL_EXPORT__ __declspec(dllexport)
 	/**
+	 * \~russian
 	 * Импорт символов из динамической библиотеки
+	 *
+	 * \~english
+	 * Importing symbols from a dynamic library
+	 *
+	 * \~
 	 */
 	#define __NTS_DECL_IMPORT__ __declspec(dllimport)
 /**
@@ -62,11 +74,23 @@
  */
 #else
 	/**
+	 * \~russian
 	 * Экспорт символов из динамической библиотеки
+	 *
+	 * \~english
+	 * Exporting symbols from a dynamic library
+	 *
+	 * \~
 	 */
 	#define __NTS_DECL_EXPORT__ __attribute__((visibility("default")))
 	/**
+	 * \~russian
 	 * Импорт символов из динамической библиотеки
+	 *
+	 * \~english
+	 * Importing symbols from a dynamic library
+	 *
+	 * \~
 	 */
 	#define __NTS_DECL_IMPORT__ __attribute__((visibility("default")))
 #endif
@@ -76,7 +100,13 @@
  */
 #if defined(NTS_STATICLIB)
 	/**
+	 * \~russian
 	 * Обозначение символов, доступных снаружи библиотеки
+	 *
+	 * \~english
+	 * Designation of symbols accessible from outside the library
+	 *
+	 * \~
 	 */
 	#define __NTS_SHARED_EXPORT__
 /**
@@ -84,7 +114,13 @@
  */
 #elif defined(NTS_SHARED_LIBRARY_EXPORT)
 	/**
+	 * \~russian
 	 * Обозначение символов, доступных снаружи библиотеки
+	 *
+	 * \~english
+	 * Designation of symbols accessible from outside the library
+	 *
+	 * \~
 	 */
 	#define __NTS_SHARED_EXPORT__ __NTS_DECL_EXPORT__
 /**
@@ -92,7 +128,13 @@
  */
 #else
 	/**
+	 * \~russian
 	 * Обозначение символов, доступных снаружи библиотеки
+	 *
+	 * \~english
+	 * Designation of symbols accessible from outside the library
+	 *
+	 * \~
 	 */
 	#define __NTS_SHARED_EXPORT__ __NTS_DECL_IMPORT__
 #endif
@@ -126,25 +168,55 @@
  */
 #if defined(_MSC_VER)
 	/**
-	 * Обозначение принудительно встраиваемого вызова
+	 * \~russian
+	 * Принудительная подстановка средствами Visual Studio
+	 *
+	 * \~english
+	 * Forced substitution using Visual Studio tools
+	 *
+	 * \~
 	 */
 	#define __NTS_INLINE__ __forceinline
 	/**
+	 * \~russian
 	 * Обозначение вызова, встраивание которого запрещено
+	 *
+	 * \~english
+	 * Designation of a call that is prohibited from being embedded
+	 *
+	 * \~
 	 */
-	#define __NTS_NOINLINE__ __declspec(noinline)
+	#define __NTS_NO_INLINE__ __declspec(noinline)
 /**
- * Ветвь для прочих платформ: принудительное встраивание и запрет встраивания через атрибуты
+ * \~russian
+ * Если компилятор принадлежит к семейству GCC или Clang
+ *
+ * \~english
+ * If the compiler belongs to the GCC or Clang family
+ *
+ * \~
  */
 #else
 	/**
-	 * Обозначение принудительно встраиваемого вызова
+	 * \~russian
+	 * Принудительная подстановка средствами GCC и Clang
+	 *
+	 * \~english
+	 * Forced inlining via GCC and Clang
+	 *
+	 * \~
 	 */
 	#define __NTS_INLINE__ inline __attribute__((always_inline))
 	/**
+	 * \~russian
 	 * Обозначение вызова, встраивание которого запрещено
+	 *
+	 * \~english
+	 * Designation of a call that is prohibited from being embedded
+	 *
+	 * \~
 	 */
-	#define __NTS_NOINLINE__ __attribute__((noinline))
+	#define __NTS_NO_INLINE__ __attribute__((noinline))
 #endif
 
 /**
@@ -176,7 +248,13 @@
 	 */
 	#if defined(__SANITIZE_ADDRESS__)
 		/**
+		 * \~russian
 		 * Признак сборки под ASan без оптимизации
+		 *
+		 * \~english
+		 * Build configuration for ASan without optimization
+		 *
+		 * \~
 		 */
 		#define __NTS_ASAN_UNOPTIMIZED__ 1
 	/**
@@ -188,7 +266,13 @@
 		 */
 		#if __has_feature(address_sanitizer)
 			/**
+			 * \~russian
 			 * Признак сборки под ASan без оптимизации
+			 *
+			 * \~english
+			 * Build configuration for ASan without optimization
+			 *
+			 * \~
 			 */
 			#define __NTS_ASAN_UNOPTIMIZED__ 1
 		#endif
@@ -225,7 +309,13 @@
  */
 #if defined(_MSC_VER) && defined(_M_X64)
 	/**
+	 * \~russian
 	 * Признак сборки под x86-64 собирателем Microsoft Visual C++
+	 *
+	 * \~english
+	 * Indication of a build for x86-64 using the Microsoft Visual C++ compiler
+	 *
+	 * \~
 	 */
 	#define __NTS_MSVC_X64__ 1
 #endif
@@ -235,7 +325,13 @@
  */
 #if defined(_MSC_VER) && (defined(_M_ARM64) || defined(_M_ARM64EC))
 	/**
+	 * \~russian
 	 * Признак сборки под ARM64 собирателем Microsoft Visual C++
+	 *
+	 * \~english
+	 * Indication of a build for ARM64 by the Microsoft Visual C++ compiler
+	 *
+	 * \~
 	 */
 	#define __NTS_MSVC_ARM64__ 1
 #endif

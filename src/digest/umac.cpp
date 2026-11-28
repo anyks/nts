@@ -165,7 +165,7 @@ namespace {
 	 * @param size   длина выводимого материала в байтах
 	 *
 	 */
-	static void __nts_kdf__(aes_t & aes, const uint64_t index, uint8_t * result, const size_t size) noexcept {
+	static __NTS_NO_INLINE__ void __nts_kdf__(aes_t & aes, const uint64_t index, uint8_t * result, const size_t size) noexcept {
 		// Блок счётчика и его шифрованный образ
 		uint8_t input[BLOCK], output[BLOCK];
 		// Количество блоков выводимого материала
@@ -221,7 +221,7 @@ namespace {
 	 * @return       накопленное значение слоя
 	 *
 	 */
-	static uint64_t __nts_nh__(const uint8_t * key, const uint8_t * data, const size_t size) noexcept {
+	static __NTS_NO_INLINE__ uint64_t __nts_nh__(const uint8_t * key, const uint8_t * data, const size_t size) noexcept {
 		/**
 		 * Если есть векторный путь SSE2: разворот четвёрок и произведения сумм идут
 		 * векторно, без побайтового чтения и скалярного накопления

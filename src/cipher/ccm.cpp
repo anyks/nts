@@ -540,7 +540,7 @@ namespace {
 			 * @param blocks  количество целых блоков сообщения
 			 *
 			 */
-			static __NTS_CCM_TARGET__ void __nts_fused_arm__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
+			static __NTS_NO_INLINE__ __NTS_CCM_TARGET__ void __nts_fused_arm__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
 				// Состояние имитовставки держится вектором на весь проход
 				uint8x16_t state = vld1q_u8(record);
 				// Номер блока счётчика от старшего байта: у блока A_1 равен единице
@@ -620,7 +620,7 @@ namespace {
 			 * @param blocks  количество целых блоков сообщения
 			 *
 			 */
-			static __NTS_CCM_TARGET__ void __nts_fused_x86__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
+			static __NTS_NO_INLINE__ __NTS_CCM_TARGET__ void __nts_fused_x86__(const uint8_t * keys, const size_t rounds, uint8_t * record, const uint8_t * counter, const bool sealing, const uint8_t * source, uint8_t * result, const size_t blocks) noexcept {
 				// Состояние имитовставки держится вектором на весь проход
 				__m128i state = _mm_loadu_si128(reinterpret_cast <const __m128i *> (record));
 				// Первый раундовый ключ

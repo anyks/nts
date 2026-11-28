@@ -434,41 +434,6 @@ namespace {
 		}
 	}
 	/**
-	 * @brief Функция получения опознавателя алгоритма подписи RSA по опознавателю хеша
-	 *
-	 * @note Сведения о подписывающем вправе нести rsaEncryption вместо опознавателя
-	 *       подписи: хеш подписи тогда определяется алгоритмом хеша содержимого
-	 *       (примечание к разделу 5.1 RFC 5652)
-	 *
-	 * @param digest опознаватель алгоритма хеша
-	 * @return       опознаватель алгоритма подписи либо nullptr
-	 *
-	 */
-	static constexpr const char * __nts_rsa_signature_of__(const string & digest) noexcept {
-		// Если хеш — id-sha1
-		if(digest == OID_SHA1)
-			// Выводим опознаватель sha1WithRSAEncryption
-			return OID_SHA1_RSA;
-		// Если хеш — id-sha224
-		if(digest == OID_SHA224)
-			// Выводим опознаватель sha224WithRSAEncryption
-			return OID_SHA224_RSA;
-		// Если хеш — id-sha256
-		if(digest == OID_SHA256)
-			// Выводим опознаватель sha256WithRSAEncryption
-			return OID_SHA256_RSA;
-		// Если хеш — id-sha384
-		if(digest == OID_SHA384)
-			// Выводим опознаватель sha384WithRSAEncryption
-			return OID_SHA384_RSA;
-		// Если хеш — id-sha512
-		if(digest == OID_SHA512)
-			// Выводим опознаватель sha512WithRSAEncryption
-			return OID_SHA512_RSA;
-		// Выводим отсутствие опознавателя у прочего хеша
-		return nullptr;
-	}
-	/**
 	 * @brief Функция получения опознавателя имитовставки HMAC по алгоритму хеша
 	 *
 	 * @param hash алгоритм хеша
@@ -503,6 +468,41 @@ namespace {
 			// Если хеш не опознан, выводим отсутствие опознавателя
 			default: return nullptr;
 		}
+	}
+	/**
+	 * @brief Функция получения опознавателя алгоритма подписи RSA по опознавателю хеша
+	 *
+	 * @note Сведения о подписывающем вправе нести rsaEncryption вместо опознавателя
+	 *       подписи: хеш подписи тогда определяется алгоритмом хеша содержимого
+	 *       (примечание к разделу 5.1 RFC 5652)
+	 *
+	 * @param digest опознаватель алгоритма хеша
+	 * @return       опознаватель алгоритма подписи либо nullptr
+	 *
+	 */
+	static __NTS_INLINE__ const char * __nts_rsa_signature_of__(const string & digest) noexcept {
+		// Если хеш — id-sha1
+		if(digest == OID_SHA1)
+			// Выводим опознаватель sha1WithRSAEncryption
+			return OID_SHA1_RSA;
+		// Если хеш — id-sha224
+		if(digest == OID_SHA224)
+			// Выводим опознаватель sha224WithRSAEncryption
+			return OID_SHA224_RSA;
+		// Если хеш — id-sha256
+		if(digest == OID_SHA256)
+			// Выводим опознаватель sha256WithRSAEncryption
+			return OID_SHA256_RSA;
+		// Если хеш — id-sha384
+		if(digest == OID_SHA384)
+			// Выводим опознаватель sha384WithRSAEncryption
+			return OID_SHA384_RSA;
+		// Если хеш — id-sha512
+		if(digest == OID_SHA512)
+			// Выводим опознаватель sha512WithRSAEncryption
+			return OID_SHA512_RSA;
+		// Выводим отсутствие опознавателя у прочего хеша
+		return nullptr;
 	}
 	/**
 	 * @brief Функция получения алгоритма хеша имитовставки по её опознавателю

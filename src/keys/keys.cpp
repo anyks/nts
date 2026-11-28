@@ -958,7 +958,7 @@ namespace {
 	 * @return    отказ выведения открытой части
 	 *
 	 */
-	static error_t __nts_derive__(key_t & key) noexcept {
+	static __NTS_NO_INLINE__ error_t __nts_derive__(key_t & key) noexcept {
 		/**
 		 * Определяем вид ключа по опознавателю
 		 */
@@ -1319,7 +1319,7 @@ namespace {
 	 * @return        отказ разбора записи
 	 *
 	 */
-	static error_t __nts_ec_secret__(const view_t & der, const bool wrapped, key_t & key) noexcept {
+	static __NTS_NO_INLINE__ error_t __nts_ec_secret__(const view_t & der, const bool wrapped, key_t & key) noexcept {
 		// Набор верхней записи
 		asn1::element_t sequence;
 		// Итог разбора верхней записи
@@ -1473,7 +1473,7 @@ namespace {
 	 * @return       отказ записи
 	 *
 	 */
-	static error_t __nts_ec_secret__(const key_t & key, const bool named, asn1::writer_t & writer) noexcept {
+	static __NTS_NO_INLINE__ error_t __nts_ec_secret__(const key_t & key, const bool named, asn1::writer_t & writer) noexcept {
 		// Если ключ не EC либо не несёт нужной части
 		if((key.kind != kind_t::EC) || !key.secret() || key.x.empty() || key.y.empty())
 			// Выводим отказ пустого ключа
@@ -1598,7 +1598,7 @@ namespace {
 	 * @return          отказ разбора записи
 	 *
 	 */
-	static error_t __nts_mldsa_secret__(const view_t & der, const string & algorithm, key_t & key) noexcept {
+	static __NTS_NO_INLINE__ error_t __nts_mldsa_secret__(const view_t & der, const string & algorithm, key_t & key) noexcept {
 		// Если запись не передана
 		if((der.data == nullptr) || (der.size == 0))
 			// Выводим отказ устройства записи
@@ -1973,7 +1973,7 @@ namespace {
 	 * @return       отказ записи
 	 *
 	 */
-	static error_t __nts_secret_body__(const key_t & key, asn1::writer_t & writer) noexcept {
+	static __NTS_NO_INLINE__ error_t __nts_secret_body__(const key_t & key, asn1::writer_t & writer) noexcept {
 		// Если секретной части нет
 		if(!key.secret())
 			// Выводим отказ пустого ключа
@@ -2098,7 +2098,7 @@ namespace {
 	 * @return           отказ разбора настроек
 	 *
 	 */
-	static error_t __nts_pbes2__(const asn1::element_t & params, view_t & salt, uint32_t & iterations, digest::hash_t & prf, size_t & bits, view_t & synchro) noexcept {
+	static __NTS_NO_INLINE__ error_t __nts_pbes2__(const asn1::element_t & params, view_t & salt, uint32_t & iterations, digest::hash_t & prf, size_t & bits, view_t & synchro) noexcept {
 		// Если настройки схемы записаны не набором
 		if(!::__nts_tagged__(params, asn1::cls_t::UNIVERSAL, static_cast <uint32_t> (asn1::tag_t::SEQUENCE), true))
 			// Выводим отказ схемы
@@ -2359,7 +2359,7 @@ namespace {
 	 * @return           признак успешности выработки ключа
 	 *
 	 */
-	static bool __nts_pkcs12kdf__(const digest::hash_t algorithm, const view_t & password, const view_t & salt, const uint32_t iterations, const uint8_t id, uint8_t * result, const size_t size) noexcept {
+	static __NTS_NO_INLINE__ bool __nts_pkcs12kdf__(const digest::hash_t algorithm, const view_t & password, const view_t & salt, const uint32_t iterations, const uint8_t id, uint8_t * result, const size_t size) noexcept {
 		// Длина хеша и размер блока алгоритма
 		const size_t length = digest::length(algorithm), block = digest::block(algorithm);
 		// Если алгоритм неизвестен либо место не задано
@@ -2543,7 +2543,7 @@ namespace {
 	 * @return          отказ расшифрования
 	 *
 	 */
-	static error_t __nts_undress__(const asn1::element_t & params, const view_t & encrypted, const view_t & password, vector <uint8_t> & plain) noexcept {
+	static __NTS_NO_INLINE__ error_t __nts_undress__(const asn1::element_t & params, const view_t & encrypted, const view_t & password, vector <uint8_t> & plain) noexcept {
 		// Просмотр соли
 		view_t salt;
 		// Количество оборотов выработки ключа
@@ -2638,7 +2638,7 @@ namespace {
 	 * @return         отказ разбора мешка
 	 *
 	 */
-	static error_t __nts_pkcs12bag__(const asn1::element_t & bag, const view_t & bmp, key_t & key, vector <vector <uint8_t>> & chain, bool & keyed) noexcept {
+	static __NTS_NO_INLINE__ error_t __nts_pkcs12bag__(const asn1::element_t & bag, const view_t & bmp, key_t & key, vector <vector <uint8_t>> & chain, bool & keyed) noexcept {
 		// Разборщик содержимого мешка
 		asn1::reader_t fields(bag.content);
 		// Разбираемый элемент мешка

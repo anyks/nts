@@ -929,7 +929,7 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __NTS_CHACHA_SSE2_TARGET__ void __nts_stream_sse2__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_CHACHA_SSE2_TARGET__ void __nts_stream_sse2__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Тело покрытия с вращениями парой сдвигов
 			__NTS_CHACHA_STREAM_X86__(state, source, result, __nts_rotate16_sse2__, __nts_rotate8_sse2__)
 		}
@@ -941,7 +941,7 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __NTS_CHACHA_SSSE3_TARGET__ void __nts_stream_ssse3__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_CHACHA_SSSE3_TARGET__ void __nts_stream_ssse3__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Тело покрытия с вращениями перестановкой байтов
 			__NTS_CHACHA_STREAM_X86__(state, source, result, __nts_rotate16_ssse3__, __nts_rotate8_ssse3__)
 		}
@@ -996,7 +996,7 @@ namespace {
 		 * @param result место, в которое записываются покрытые данные
 		 *
 		 */
-		static __NTS_CHACHA_AVX2_TARGET__ void __nts_stream_avx2__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
+		static __NTS_NO_INLINE__ __NTS_CHACHA_AVX2_TARGET__ void __nts_stream_avx2__(const uint32_t * state, const uint8_t * source, uint8_t * result) noexcept {
 			// Приращения счётчиков восьми блоков
 			const __m256i steps = _mm256_load_si256(reinterpret_cast <const __m256i *> (STEPS8));
 			// Перестановка байтов вращения на шестнадцать разрядов

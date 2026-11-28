@@ -200,7 +200,7 @@ namespace {
 	 *       заголовке. Замер 22.09.2026
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_overwrite__() noexcept {
+	static __NTS_NO_INLINE__ void __nts_overwrite__() noexcept {
 		// Область стека, накрывающая кадры удвоения и сложения точек
 		uint64_t area[512];
 		/**
@@ -1466,7 +1466,7 @@ namespace {
 	 * @param chosen место, в которое помещаются координаты выбранного кратного
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_gathering__(const slow_t & f, const uint64_t * row, const size_t words, const uint64_t index, triple_t <slow_t::value_t> & chosen) noexcept {
+	static __NTS_NO_INLINE__ void __nts_gathering__(const slow_t & f, const uint64_t * row, const size_t words, const uint64_t index, triple_t <slow_t::value_t> & chosen) noexcept {
 		// Координаты очередного кратного
 		slow_t::value_t x, y;
 		/**
@@ -1602,7 +1602,7 @@ namespace {
 	 * @param result    место, в которое помещается удвоенная точка
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_twicing__(const F & f, const bool shortened, const math::number_t & first, const point_t & value, point_t & result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_twicing__(const F & f, const bool shortened, const math::number_t & first, const point_t & value, point_t & result) noexcept {
 		/**
 		 * Создаём тип данных значения поля
 		 */
@@ -1634,7 +1634,7 @@ namespace {
 	 * @param result место, в которое помещается сумма точек
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_attachment__(const F & f, const point_t & first, const point_t & second, point_t & result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_attachment__(const F & f, const point_t & first, const point_t & second, point_t & result) noexcept {
 		// Слагаемые на значениях и итог
 		triple_t <typename F::value_t> left, right, sum;
 		// Переводим первое слагаемое на значения
@@ -1662,7 +1662,7 @@ namespace {
 	 * @param result место, в которое помещается сумма точек
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_junction__(const F & f, const point_t & first, const point_t & second, point_t & result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_junction__(const F & f, const point_t & first, const point_t & second, point_t & result) noexcept {
 		// Слагаемые на значениях и итог
 		triple_t <typename F::value_t> left, right, sum;
 		// Переводим первое слагаемое на значения
@@ -1692,7 +1692,7 @@ namespace {
 	 * @param result    место, в которое помещается сумма точек
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_summation__(const F & f, const bool shortened, const math::number_t & first, const point_t & left, const point_t & right, point_t & result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_summation__(const F & f, const bool shortened, const math::number_t & first, const point_t & left, const point_t & right, point_t & result) noexcept {
 		/**
 		 * Создаём тип данных коэффициента на значениях
 		 */
@@ -1729,7 +1729,7 @@ namespace {
 	 * @param result    место, в которое помещается произведение
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_multiplication__(const F & f, const bool shortened, const math::number_t & first, const point_t & value, const math::number_t & factor, const size_t bits, point_t & result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_multiplication__(const F & f, const bool shortened, const math::number_t & first, const point_t & value, const math::number_t & factor, const size_t bits, point_t & result) noexcept {
 		/**
 		 * Создаём тип данных коэффициента на значениях
 		 */
@@ -1764,7 +1764,7 @@ namespace {
 	 * @param result    место, в которое помещается произведение
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_production__(const F & f, const precomputed_t * multiples, const math::number_t & unit, const math::number_t & factor, point_t & result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_production__(const F & f, const precomputed_t * multiples, const math::number_t & unit, const math::number_t & factor, point_t & result) noexcept {
 		/**
 		 * Создаём тип данных единицы поля на значениях
 		 */

@@ -4620,7 +4620,7 @@ HEAD 68579da по HTTPS плюс копия правок этого круга �
   остаток от деления на слово через `_udiv128` у x64 и столбиком у ARM64); number.cpp,
   integer.cpp, field25519.cpp переведены на него, под GCC/Clang по-прежнему `__uint128_t`;
   локально math/curve/x25519/ed25519 зелёные; (2) `__attribute__((noinline))` →
-  `__NTS_NOINLINE__` в global.hpp (`__declspec(noinline)` у MSVC); (3) `numeric_limits::max`
+  `__NTS_NO_INLINE__` в global.hpp (`__declspec(noinline)` у MSVC); (3) `numeric_limits::max`
   в скобках против макроса `max` windows.h; (4) образцы: `<string>` в hpke, поиск системного zlib
   под MSVC пропускается (на стендах с MSYS2 find_package находил zlib клона MinGW/clang и тянул
   чужой vadefs.h в сборку cl.exe). Машинные ветви шифров и хешей под MSVC идут переносимым

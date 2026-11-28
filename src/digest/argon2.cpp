@@ -139,7 +139,7 @@ namespace {
 	 * @return       истина, когда вся последовательность хешей снята
 	 *
 	 */
-	static bool __nts_stretch__(const view_t & data, uint8_t * result, const size_t size) noexcept {
+	static __NTS_NO_INLINE__ bool __nts_stretch__(const view_t & data, uint8_t * result, const size_t size) noexcept {
 		// Буфер четырёх байтов длины итога LE32
 		uint8_t length[4];
 		// Записываем длину итога LE32
@@ -267,7 +267,7 @@ namespace {
 	 * @param overlay признак сложения итога с прежним содержимым (издание 0x13, проходы после первого)
 	 *
 	 */
-	static void __nts_compress__(const block_t & first, const block_t & second, block_t & result, const bool overlay) noexcept {
+	static __NTS_NO_INLINE__ void __nts_compress__(const block_t & first, const block_t & second, block_t & result, const bool overlay) noexcept {
 		// Блок R - поразрядная сумма входов
 		block_t mixed;
 		/**

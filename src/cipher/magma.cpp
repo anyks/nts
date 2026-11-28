@@ -250,7 +250,7 @@ namespace {
 	 * @param result место, в которое помещаются четыре преобразованных блока подряд
 	 *
 	 */
-	static void __nts_process4__(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_process4__(const uint32_t * keys, const uint8_t * source, uint8_t * result) noexcept {
 		// Половины первых двух блоков
 		uint32_t h0 = __nts_load__(source), l0 = __nts_load__(source + 4), h1 = __nts_load__(source + 8), l1 = __nts_load__(source + 12);
 		// Половины последних двух блоков

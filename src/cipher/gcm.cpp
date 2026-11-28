@@ -451,7 +451,7 @@ namespace {
 		 * @param mirror место под три слова: отражённый ключ и сумма его половин
 		 *
 		 */
-		static __NTS_GHASH_TARGET__ void __nts_mirror_arm__(const uint8_t * key, uint64_t * mirror) noexcept {
+		static __NTS_NO_INLINE__ __NTS_GHASH_TARGET__ void __nts_mirror_arm__(const uint8_t * key, uint64_t * mirror) noexcept {
 			// Записываем ключ хеширования с отражёнными разрядами байтов
 			vst1q_u64(mirror, vreinterpretq_u64_u8(vrbitq_u8(vld1q_u8(key))));
 			// Записываем сумму половин ключа под умножение Карацубы сшитого ядра
@@ -464,7 +464,7 @@ namespace {
 		 * @param value  умножаемое значение, заменяемое произведением
 		 *
 		 */
-		static __NTS_GHASH_TARGET__ void __nts_multiply_arm__(const uint64_t * mirror, uint8_t * value) noexcept {
+		static __NTS_NO_INLINE__ __NTS_GHASH_TARGET__ void __nts_multiply_arm__(const uint64_t * mirror, uint8_t * value) noexcept {
 			/**
 			 * Разряды поля у GCM нумеруются от старшего внутри байта, а команда множит
 			 * многочлены с нумерацией от младшего: разряды каждого байта обоих множителей
@@ -536,7 +536,7 @@ namespace {
 		 * @param blocks      восемь блоков подряд
 		 *
 		 */
-		static __NTS_GHASH_TARGET__ void __nts_aggregate_arm__(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
+		static __NTS_NO_INLINE__ __NTS_GHASH_TARGET__ void __nts_aggregate_arm__(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
 			// Многочлен приведения x^7 + x^2 + x + 1
 			const uint64_t r = 0x87ULL;
 			// Накопитель, сложенный с первым блоком, отражённый
@@ -582,7 +582,7 @@ namespace {
 		 * @param chunks      количество восьмёрок блоков
 		 *
 		 */
-		static __NTS_FUSED_TARGET__ void __nts_fused_arm__(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		static __NTS_NO_INLINE__ __NTS_FUSED_TARGET__ void __nts_fused_arm__(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
 			// Ключ, складываемый после последнего круга
 			const uint8x16_t last = vld1q_u8(keys + (rounds * 16));
 			// Ключ последнего круга подстановки
@@ -734,7 +734,7 @@ namespace {
 		 * @param twist место под три слова: сдвинутый ключ и сумма его половин
 		 *
 		 */
-		static __NTS_GHASH_TARGET__ void __nts_twist_x86__(const uint8_t * key, uint64_t * twist) noexcept {
+		static __NTS_NO_INLINE__ __NTS_GHASH_TARGET__ void __nts_twist_x86__(const uint8_t * key, uint64_t * twist) noexcept {
 			// Ключ с переставленными байтами
 			const __m128i value = __nts_swap__(_mm_loadu_si128(reinterpret_cast <const __m128i *> (key)));
 			// Ключ, сдвинутый на разряд влево по словам, со старшими разрядами слов, перешедшими в соседнее слово
@@ -824,7 +824,7 @@ namespace {
 		 * @param value умножаемое значение в порядке GCM, заменяемое произведением
 		 *
 		 */
-		static __NTS_GHASH_TARGET__ void __nts_multiply_x86__(const uint64_t * twist, uint8_t * value) noexcept {
+		static __NTS_NO_INLINE__ __NTS_GHASH_TARGET__ void __nts_multiply_x86__(const uint64_t * twist, uint8_t * value) noexcept {
 			// Значение с переставленными байтами
 			const __m128i a = __nts_swap__(_mm_loadu_si128(reinterpret_cast <const __m128i *> (value)));
 			// Суммы произведений
@@ -842,7 +842,7 @@ namespace {
 		 * @param blocks      восемь блоков подряд
 		 *
 		 */
-		static __NTS_GHASH_TARGET__ void __nts_aggregate_x86__(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
+		static __NTS_NO_INLINE__ __NTS_GHASH_TARGET__ void __nts_aggregate_x86__(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks) noexcept {
 			// Суммы произведений
 			__m128i low = _mm_setzero_si128(), high = _mm_setzero_si128(), middle = _mm_setzero_si128();
 			// Накопитель, сложенный с первым блоком, с переставленными байтами
@@ -880,7 +880,7 @@ namespace {
 			 * @param count       количество восьмёрок: не меньше одной
 			 *
 			 */
-			static void __nts_aggregate_vex_x86__(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks, size_t count) noexcept {
+			static __NTS_NO_INLINE__ void __nts_aggregate_vex_x86__(const uint64_t (* powers)[3], uint8_t * accumulator, const uint8_t * blocks, size_t count) noexcept {
 				// Маска перестановки байтов от старшего к младшему
 				alignas(16) static const uint8_t SWAP[16] = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 				// Многочлен приведения в переставленном виде: x^63 + x^62 + x^57 старшим словом
@@ -1018,7 +1018,7 @@ namespace {
 		 * @param chunks      количество восьмёрок блоков
 		 *
 		 */
-		static __NTS_FUSED_TARGET__ void __nts_fused_x86__(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		static __NTS_NO_INLINE__ __NTS_FUSED_TARGET__ void __nts_fused_x86__(const uint8_t * keys, const size_t rounds, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
 			// Ключ первого круга
 			const __m128i first = _mm_loadu_si128(reinterpret_cast <const __m128i *> (keys));
 			// Ключ последнего круга
@@ -1181,7 +1181,7 @@ namespace {
 		 * @return            признак успешности хода
 		 *
 		 */
-		static bool __nts_stitched__(const block_t & block, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
+		static __NTS_NO_INLINE__ bool __nts_stitched__(const block_t & block, uint8_t * counter, const uint64_t (* powers)[3], uint8_t * accumulator, const bool sealing, const uint8_t * source, uint8_t * result, const size_t chunks) noexcept {
 			// Кадр ядра
 			alignas(16) uint8_t frame[kernel::FRAME];
 			// Количество восьмёрок, проведённых гаммой шифра

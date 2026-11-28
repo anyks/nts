@@ -914,7 +914,7 @@ namespace {
 	 * @param size     размер массива
 	 *
 	 */
-	static void __nts_encode_residues__(uint8_t * out, const uint16_t * residues, const uint16_t * moduli, const size_t size) noexcept {
+	static __NTS_NO_INLINE__ void __nts_encode_residues__(uint8_t * out, const uint16_t * residues, const uint16_t * moduli, const size_t size) noexcept {
 		// Обрабатываем вырожденный случай одиночного модуля
 		if(size == 1){
 			// Модуль одиночного элемента
@@ -986,7 +986,7 @@ namespace {
 	 * @param size   размер массива
 	 *
 	 */
-	static void __nts_decode_residues__(uint16_t * out, const uint8_t * bytes, const uint16_t * moduli, const size_t size) noexcept {
+	static __NTS_NO_INLINE__ void __nts_decode_residues__(uint16_t * out, const uint8_t * bytes, const uint16_t * moduli, const size_t size) noexcept {
 		// Обрабатываем вырожденный случай одиночного модуля
 		if(size == 1){
 			// Проверяем единичность модуля

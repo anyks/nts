@@ -887,7 +887,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __NTS_SHA256_TARGET__ void __nts_compress_arm__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_NO_INLINE__ __NTS_SHA256_TARGET__ void __nts_compress_arm__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
@@ -1124,7 +1124,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __NTS_SHA256_TARGET__ void __nts_compress_arm__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_NO_INLINE__ __NTS_SHA256_TARGET__ void __nts_compress_arm__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Значение хеша словами в 32 разряда
 			uint32_t words[8];
 			/**
@@ -1258,7 +1258,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static void __nts_compress256_msvc__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_NO_INLINE__ void __nts_compress256_msvc__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Маски перестановки байтов
 			const __m128i mask0 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK256));
 			// Маска укладки младших половин для сигмы единицы
@@ -1380,7 +1380,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static void __nts_compress512_msvc__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_NO_INLINE__ void __nts_compress512_msvc__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Маска перестановки байтов
 			const __m128i mask512 = _mm_loadu_si128(reinterpret_cast <const __m128i *> (MSK512));
 			/**
@@ -1617,7 +1617,7 @@ namespace {
 		 * @param hash  значение хеша, в которое складывается итог блоков
 		 *
 		 */
-		static __NTS_SHA512_TARGET__ void __nts_compress_arm512__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
+		static __NTS_NO_INLINE__ __NTS_SHA512_TARGET__ void __nts_compress_arm512__(const uint8_t * data, const size_t count, uint64_t * hash) noexcept {
 			// Пары состояния: ab, cd, ef и gh
 			uint64x2_t abPair = vld1q_u64(hash), cdPair = vld1q_u64(hash + 2);
 			// Пары состояния: ab, cd, ef и gh

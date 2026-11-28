@@ -3947,7 +3947,7 @@ namespace {
 	 * @param scratch буфер ядра в 2 · count + 2 слов: не затирается, за него отвечает вызывающий
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_montgomery__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch) noexcept {
+	static __NTS_NO_INLINE__ void __nts_montgomery__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result, uint64_t * scratch) noexcept {
 		// Умножаем по снятому признаку машины
 		::__nts_montgomery__(first, second, modulus, count, inverse, result, scratch, ::__nts_adx_ready__());
 	}
@@ -3965,7 +3965,7 @@ namespace {
 	 * @param result  место, в которое помещается произведение, меньшее модуля
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_montgomery__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_montgomery__(const uint64_t * first, const uint64_t * second, const uint64_t * modulus, const size_t count, const uint64_t inverse, uint64_t * result) noexcept {
 		// Буфер ядра: удвоенная ширина с двумя словами сверху под квадрат блоками
 		uint64_t scratch[(2 * INTEGER_WORDS) + 2];
 		// Умножение Монтгомери по строкам
@@ -3981,7 +3981,7 @@ namespace {
 	 * @param count   количество слов модуля
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_twice__(uint64_t * value, const uint64_t * modulus, const size_t count) noexcept {
+	static __NTS_NO_INLINE__ void __nts_twice__(uint64_t * value, const uint64_t * modulus, const size_t count) noexcept {
 		// Сдвигаем число на разряд влево
 		const uint64_t carry = ::__nts_shift__(value, count, 0);
 		// Слова разности удвоенного числа и модуля
@@ -4017,7 +4017,7 @@ namespace {
 	 * @param square  место, в которое помещается квадрат основания по модулю
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_domain__(const uint64_t * modulus, const size_t count, uint64_t * base, uint64_t * square) noexcept {
+	static __NTS_NO_INLINE__ void __nts_domain__(const uint64_t * modulus, const size_t count, uint64_t * base, uint64_t * square) noexcept {
 		// Обнуляем основание области
 		::__nts_clean__(base, count);
 		// Записываем степень двойки, меньшую модуля: единицу в старшем слове
@@ -4068,7 +4068,7 @@ namespace {
 	 * @return         значение окна
 	 *
 	 */
-	static __NTS_NOINLINE__ uint64_t __nts_window__(const uint64_t * exponent, const size_t position, const size_t bits) noexcept {
+	static __NTS_NO_INLINE__ uint64_t __nts_window__(const uint64_t * exponent, const size_t position, const size_t bits) noexcept {
 		// Номер слова младшего разряда окна
 		const size_t index = (position / 64);
 		// Сдвиг младшего разряда окна внутри слова
@@ -4091,7 +4091,7 @@ namespace {
 	 * @return        остаток от деления
 	 *
 	 */
-	static __NTS_NOINLINE__ uint64_t __nts_modulo__(const uint64_t * data, const size_t count, const uint64_t divisor) noexcept {
+	static __NTS_NO_INLINE__ uint64_t __nts_modulo__(const uint64_t * data, const size_t count, const uint64_t divisor) noexcept {
 		// Накапливаемый остаток
 		wide_t result = 0;
 		/**
@@ -4138,7 +4138,7 @@ namespace {
 	 * @return      признак чётности числа
 	 *
 	 */
-	static __NTS_NOINLINE__ bool __nts_even__(const signed_t & value) noexcept {
+	static __NTS_NO_INLINE__ bool __nts_even__(const signed_t & value) noexcept {
 		// Выводим признак чётности младшего слова
 		return ((value.words[0] & 1) == 0);
 	}
@@ -4152,7 +4152,7 @@ namespace {
 	 * @param result место, в которое помещается разность
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_lessen__(const signed_t & first, const signed_t & second, signed_t & result) noexcept {
+	static __NTS_NO_INLINE__ void __nts_lessen__(const signed_t & first, const signed_t & second, signed_t & result) noexcept {
 		// Если знаки чисел различны, величины складываются
 		if(first.negative != second.negative){
 			// Складываем величины чисел
@@ -4191,7 +4191,7 @@ namespace {
 	 * @param minus  признак вычитания величины вместо прибавления
 	 *
 	 */
-	static __NTS_NOINLINE__ void __nts_halve__(signed_t & value, const uint64_t * addend, const bool minus) noexcept {
+	static __NTS_NO_INLINE__ void __nts_halve__(signed_t & value, const uint64_t * addend, const bool minus) noexcept {
 		// Перенос из старшего слова суммы
 		uint64_t carry = 0;
 		// Если слагаемое есть
@@ -4244,7 +4244,7 @@ namespace {
 	 * @return        признак успешности: числа не оба чётны и не оба нули
 	 *
 	 */
-	static __NTS_NOINLINE__ bool __nts_euclid__(const uint64_t * first, const uint64_t * second, uint64_t * divisor, signed_t * inverse) noexcept {
+	static __NTS_NO_INLINE__ bool __nts_euclid__(const uint64_t * first, const uint64_t * second, uint64_t * divisor, signed_t * inverse) noexcept {
 		// Если оба числа чётны, общий делитель чётен, а обратного нет
 		if(((first[0] | second[0]) & 1) == 0)
 			// Выводим отрицательный результат - обратного элемента нет
@@ -4406,7 +4406,7 @@ namespace {
 	 * @return       признак того, что первое число меньше второго
 	 *
 	 */
-	static __NTS_NOINLINE__ bool __nts_smaller__(const uint64_t * first, const uint64_t * second, const size_t count) noexcept {
+	static __NTS_NO_INLINE__ bool __nts_smaller__(const uint64_t * first, const uint64_t * second, const size_t count) noexcept {
 		// Признаки «меньше» и «исход решён»
 		uint64_t less = 0, done = 0;
 		/**
